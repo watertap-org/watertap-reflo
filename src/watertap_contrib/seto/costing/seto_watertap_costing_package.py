@@ -1,16 +1,10 @@
-# from watertap.costing import ROType, PumpType, EnergyRecoveryDeviceType, MixerType, CrystallizerCostType
-from watertap.costing.watertap_costing_package import WaterTAPCostingData
-
-# from enum import Enum
-
 import pyomo.environ as pyo
 
-# from pyomo.util.calc_var_value import calculate_variable_from_constraint
-
-from watertap_contrib.seto.solar_models.zero_order import SolarEnergyZO
 from idaes.core import declare_process_block_class
-
 from idaes.models.unit_models import Mixer
+
+from watertap.costing.watertap_costing_package import WaterTAPCostingData
+from watertap_contrib.seto.solar_models.zero_order import SolarEnergyZO
 from watertap.unit_models import (
     ReverseOsmosis0D,
     ReverseOsmosis1D,
