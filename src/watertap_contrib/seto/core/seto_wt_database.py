@@ -19,6 +19,7 @@ import yaml
 from copy import deepcopy
 from watertap.core.wt_database import Database
 
+
 class SETODatabase(Database):
     """
     WaterTap Database class.
@@ -41,7 +42,7 @@ class SETODatabase(Database):
                 os.path.dirname(os.path.abspath(__file__)),
                 "..",
                 "data",
-                "technoeconomic"
+                "technoeconomic",
             )
         else:
             self._dbpath = dbpath
@@ -52,7 +53,6 @@ class SETODatabase(Database):
                     f"Could not find requested path {self._dbpath}. Please "
                     f"check that this path exists."
                 )
-        
 
         # Create placeholder _component_list attribute
         self._component_list = None

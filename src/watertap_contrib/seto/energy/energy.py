@@ -1,4 +1,3 @@
-
 """
 This module contains common methods for determining the energy consumption or 
 production for SETO modules.
@@ -21,4 +20,3 @@ __author__ = "Kurban Sitterley"
 
 # Set up logger
 _log = idaeslog.getLogger(__name__)
-

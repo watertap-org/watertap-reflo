@@ -1,4 +1,3 @@
-
 """
 Tests for SETO WaterTAP database wrapper
 """
@@ -7,6 +6,7 @@ import pytest
 import os
 
 from watertap_contrib.seto.core.seto_wt_database import SETODatabase
+
 
 @pytest.mark.unit
 def test_default_path():
@@ -21,6 +21,7 @@ def test_default_path():
             "technoeconomic",
         )
     )
+
 
 @pytest.mark.unit
 def test_invalid_path():
@@ -45,8 +46,9 @@ def test_custom_path():
         os.path.dirname(os.path.abspath(__file__)), "..", "..", "core"
     )
 
+
 class TestSETODatabase:
-    @pytest.fixture(scope='class')
+    @pytest.fixture(scope="class")
     def seto_db(self):
         return SETODatabase()
 
@@ -60,24 +62,26 @@ class TestSETODatabase:
     def test_get_technology(self, seto_db):
         assert seto_db._cached_files == {}
 
-        data = seto_db._get_technology('solar_energy')
-        
-        assert 'solar_energy' in seto_db._cached_files
-        assert seto_db._cached_files['solar_energy'] is data
+        data = seto_db._get_technology("solar_energy")
 
-        assert 'default' in data
-        assert 'pv' in data
-        assert 'capital_cost' in data['default']
-        assert 'operating_cost' in data['pv']
-        assert 'variable_op_by_generation' in data['pv']['operating_cost']
-    
+        assert "solar_energy" in seto_db._cached_files
+        assert seto_db._cached_files["solar_energy"] is data
+
+        assert "default" in data
+        assert "pv" in data
+        assert "capital_cost" in data["default"]
+        assert "operating_cost" in data["pv"]
+        assert "variable_op_by_generation" in data["pv"]["operating_cost"]
+
     @pytest.mark.unit
     def test_get_technology_invalid(self, seto_db):
-        with pytest.raises(KeyError, match='Could not find entry for foobar in database.'):
-            seto_db._get_technology('foobar')
-        
+        with pytest.raises(
+            KeyError, match="Could not find entry for foobar in database."
+        ):
+            seto_db._get_technology("foobar")
+
         assert len(seto_db._cached_files) == 1
-        assert 'foobar' not in seto_db._cached_files
+        assert "foobar" not in seto_db._cached_files
 
     @pytest.mark.unit
     def test_get_unit_operation_parameters_default(self, seto_db):
@@ -89,19 +93,23 @@ class TestSETODatabase:
         assert "removal_frac_mass_comp" not in data
         assert "capital_cost" in data
         assert "reference_state" in data["capital_cost"]
-    
+
     @pytest.mark.unit
     def test_get_unit_operation_parameters_invalid_subtype(self, seto_db):
         with pytest.raises(
             KeyError,
-            match="Received unrecognised subtype foobar for " "technology solar_energy.",
+            match="Received unrecognised subtype foobar for "
+            "technology solar_energy.",
         ):
-           seto_db.get_unit_operation_parameters("solar_energy", subtype="foobar")
-    
+            seto_db.get_unit_operation_parameters("solar_energy", subtype="foobar")
+
     @pytest.mark.unit
     def test_get_unit_operation_parameters_single_subtype(self, seto_db):
 
-        seto_db._cached_files["solar_energy"]["coal"] = {"solar_radiation": "sufficient", "new_param": True}
+        seto_db._cached_files["solar_energy"]["coal"] = {
+            "solar_radiation": "sufficient",
+            "new_param": True,
+        }
 
         data = seto_db.get_unit_operation_parameters("solar_energy", subtype="coal")
 
@@ -122,7 +130,9 @@ class TestSETODatabase:
         }
 
         # Load data for subtype
-        data = seto_db.get_unit_operation_parameters("solar_energy", subtype="natural_gas")
+        data = seto_db.get_unit_operation_parameters(
+            "solar_energy", subtype="natural_gas"
+        )
 
         # Check data
         for k, v in data.items():

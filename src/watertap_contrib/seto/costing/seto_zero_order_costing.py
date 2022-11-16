@@ -9,13 +9,14 @@ from idaes.core.base.costing_base import (
 
 import pyomo.environ as pyo
 
-from watertap_contrib.seto.solar_models.zero_order import (SolarEnergyZO)
+from watertap_contrib.seto.solar_models.zero_order import SolarEnergyZO
 
-@declare_process_block_class('SETOZeroOrderCosting')
+
+@declare_process_block_class("SETOZeroOrderCosting")
 class SETOZeroOrderCostingData(ZeroOrderCostingData):
-    '''
+    """
     General costing package for zero-order processes modified for SETO project.
-    '''
+    """
 
     CONFIG = ZeroOrderCostingData.CONFIG()
     # CONFIG.declare()
@@ -48,7 +49,8 @@ class SETOZeroOrderCostingData(ZeroOrderCostingData):
         blk.installed_cost.fix()
 
         blk.capital_cost_constraint = pyo.Constraint(
-            expr=blk.capital_cost == blk.installed_cost)
+            expr=blk.capital_cost == blk.installed_cost
+        )
 
         blk.fixed_operating_cost = pyo.Var(
             initialize=1,
@@ -69,10 +71,10 @@ class SETOZeroOrderCostingData(ZeroOrderCostingData):
 
         blk.fixed_operating_by_capacity = pyo.Var(
             initialize=0,
-            units=blk.config.flowsheet_costing_block.base_currency / 
-            (pyo.units.kW * blk.config.flowsheet_costing_block.base_period),
+            units=blk.config.flowsheet_costing_block.base_currency
+            / (pyo.units.kW * blk.config.flowsheet_costing_block.base_period),
             bounds=(0, None),
-            doc='Fixed operating cost of solar system per kW generated'
+            doc="Fixed operating cost of solar system per kW generated",
         )
 
         blk.fixed_operating_by_capacity.fix()
@@ -101,21 +103,21 @@ class SETOZeroOrderCostingData(ZeroOrderCostingData):
 
         blk.variable_operating_by_generation = pyo.Var(
             initialize=0,
-            units=blk.config.flowsheet_costing_block.base_currency / 
-            (pyo.units.MWh * blk.config.flowsheet_costing_block.base_period),
+            units=blk.config.flowsheet_costing_block.base_currency
+            / (pyo.units.MWh * blk.config.flowsheet_costing_block.base_period),
             bounds=(0, None),
-            doc='Annual operating cost of solar system per MWh generated'
+            doc="Annual operating cost of solar system per MWh generated",
         )
 
         blk.variable_operating_by_generation.fix()
-        
 
         blk.variable_operating_cost_constraint = pyo.Constraint(
-            expr=blk.variable_operating_cost == blk.variable_operating_by_generation * blk.annual_generation
+            expr=blk.variable_operating_cost
+            == blk.variable_operating_by_generation * blk.annual_generation
         )
         # Register flows
         blk.config.flowsheet_costing_block.cost_flow(
             blk.unit_model.electricity, "electricity"
         )
-        
+
     unit_mapping = {SolarEnergyZO: cost_solar_energy}
