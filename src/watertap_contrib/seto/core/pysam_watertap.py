@@ -49,6 +49,9 @@ class PySAMWaterTAP:
             self.setup_pv_single_owner()
 
     def setup_pv_single_owner(self):
+        print(
+            f"\nBuilding PySAM model {self._pysam_model_name}...\n"
+        )
         self.tech_model = pv.new()
         self.grid_model = grid.from_existing(self.tech_model, self._pysam_model_name)
         self.rate_model = utilityrate.from_existing(
@@ -65,6 +68,8 @@ class PySAMWaterTAP:
         ]
         self._load_config_files()
         self.tech_model.SolarResource.solar_resource_file = self._weather_file
+
+        self._has_been_run = False
 
     def run_pv_single_owner(
         self,
@@ -92,12 +97,15 @@ class PySAMWaterTAP:
         for mod in self._modules:
             mod.execute()
         print("PySAM run finished.\n")
+        self.tech_model = self._modules[0]
+        self.cash_model = self._modules[3]
         self.annual_energy = self.tech_model.Outputs.annual_energy
         self.hourly_energy = self.tech_model.Outputs.gen
         self.hourly_energy = [x if x > 0 else 0 for x in self.hourly_energy]
         self.dc_capacity_factor = self.tech_model.Outputs.capacity_factor
         self.ac_capacity_factor = self.tech_model.Outputs.capacity_factor_ac
         self.lcoe_real = self.cash_model.Outputs.lcoe_real
+        self._has_been_run = True
 
     def _size_pv_array(self, desired_size=50, desired_dcac_ratio=1.2):
         # Sizing rules
