@@ -20,3 +20,21 @@ __author__ = "Kurban Sitterley"
 
 # Set up logger
 _log = idaeslog.getLogger(__name__)
+
+def solar_energy(self):
+    """
+    Helper method for implementing electricity production from solar energy models.
+
+    Two variables are added to the model:
+        * electricity (indexed by time)
+
+    """
+
+    # Add electricity consumption to model
+    self.electricity = Var(
+        units=pyunits.kW,
+        bounds=(None, None),
+        doc="Electricity production of solar process",
+    )
+
+    self._fixed_perf_vars.append(self.electricity)
