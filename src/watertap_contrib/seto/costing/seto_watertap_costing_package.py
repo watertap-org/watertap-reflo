@@ -24,7 +24,6 @@ from watertap.unit_models import (
 
 @declare_process_block_class("SETOWaterTAPCosting")
 class SETOWaterTAPCostingData(WaterTAPCostingData):
-    
     def build(self):
         super().build()
 

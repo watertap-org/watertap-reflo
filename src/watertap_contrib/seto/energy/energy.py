@@ -21,6 +21,7 @@ __author__ = "Kurban Sitterley"
 # Set up logger
 _log = idaeslog.getLogger(__name__)
 
+
 def solar_energy(self):
     """
     Helper method for implementing electricity production from solar energy models.

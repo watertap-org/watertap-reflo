@@ -49,9 +49,7 @@ class PySAMWaterTAP:
             self.setup_pv_single_owner()
 
     def setup_pv_single_owner(self):
-        print(
-            f"\nBuilding PySAM model {self._pysam_model_name}...\n"
-        )
+        print(f"\nBuilding PySAM model {self._pysam_model_name}...\n")
         self.tech_model = pv.new()
         self.grid_model = grid.from_existing(self.tech_model, self._pysam_model_name)
         self.rate_model = utilityrate.from_existing(
