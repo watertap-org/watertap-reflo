@@ -128,7 +128,7 @@ class PySAMWaterTAP:
         mod_imp = [
             m["spe_imp"],
             m["cec_i_mp_ref"],
-            m["sixpar_imp"],
+            m["sixpar_imp"], 
             m["snl_impo"],
             m["sd11par_Imp0"],
         ][module_model]
