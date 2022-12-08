@@ -26,7 +26,7 @@ def solar_energy(self):
     """
     Helper method for implementing electricity production from solar energy models.
 
-    Two variables are added to the model:
+    One variable is added to the model:
         * electricity (indexed by time)
 
     """
