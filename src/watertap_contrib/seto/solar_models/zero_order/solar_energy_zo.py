@@ -15,23 +15,13 @@ This module contains a zero-order representation of a solar energy
 operation.
 """
 
-
 from idaes.core import declare_process_block_class
 from idaes.core.util.misc import StrEnum
 
-from pyomo.environ import Constraint, Var, units as pyunits
 from pyomo.common.config import ConfigValue, In
 
 from watertap.core import build_pt, ZeroOrderBaseData
 from watertap_contrib.seto.energy import solar_energy
-
-import PySAM.Pvsamv1 as pv
-import PySAM.Grid as grid
-import PySAM.Utilityrate5 as utilityrate
-import PySAM.Singleowner as singleowner
-
-import json
-import numpy as np
 
 __author__ = "Kurban Sitterley"
 
@@ -39,11 +29,10 @@ __author__ = "Kurban Sitterley"
 class SolarEnergyZOType(StrEnum):
     PV = "PV"
 
-
 @declare_process_block_class("SolarEnergyZO")
 class SolarEnergyZOData(ZeroOrderBaseData):
     """
-    Zero-Order model for a solar energy unit model.
+    Zero-Order model for a solar energy source.
     """
 
     CONFIG = ZeroOrderBaseData.CONFIG()
@@ -52,7 +41,7 @@ class SolarEnergyZOData(ZeroOrderBaseData):
         ConfigValue(
             default="PV",
             domain=In(SolarEnergyZOType),
-            description="Indicates type of solar energy ZO model",
+            description="Indicates type of solar energy source",
         ),
     )
 
