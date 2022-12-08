@@ -27,11 +27,11 @@ def solar_energy(self):
     Helper method for implementing electricity production from solar energy models.
 
     One variable is added to the model:
-        * electricity (indexed by time)
+        * electricity
 
     """
 
-    # Add electricity consumption to model
+    # Add electricity consumption/generation to model
     self.electricity = Var(
         units=pyunits.kW,
         bounds=(None, None),
