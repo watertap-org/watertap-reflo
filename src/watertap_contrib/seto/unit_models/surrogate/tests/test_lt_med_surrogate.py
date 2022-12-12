@@ -9,16 +9,15 @@ from pyomo.environ import (
     assert_optimal_termination,
 )
 from pyomo.network import Port
-from idaes.core import (
-    FlowsheetBlock
-)
+from idaes.core import FlowsheetBlock
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 from idaes.models.properties.modular_properties.base.generic_property import (
     GenericParameterBlock,
 )
 from watertap.property_models.seawater_ion_generic import configuration
-import watertap.property_models.seawater_prop_pack as sw_props
-import watertap.property_models.water_prop_pack as w_props
+from watertap_contrib.seto.property_models.seawater_prop_pack import SeawaterParameterBlock
+# import watertap.property_models.seawater_prop_pack as sw_props
+from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap.core.util.initialization import assert_no_degrees_of_freedom
 from pyomo.util.check_units import assert_units_consistent
 
@@ -50,8 +49,8 @@ class TestLTMED:
         # create model, flowsheet
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.properties1 = sw_props.SeawaterParameterBlock()
-        m.fs.properties2 = w_props.WaterParameterBlock()
+        m.fs.properties1 = SeawaterParameterBlock()
+        m.fs.properties2 = WaterParameterBlock()
         m.fs.unit = LTMEDSurrogate(
             property_package=m.fs.properties1, property_package2=m.fs.properties2
         )

@@ -29,6 +29,7 @@ __author__ = "Kurban Sitterley"
 class SolarEnergyZOType(StrEnum):
     PV = "PV"
 
+
 @declare_process_block_class("SolarEnergyZO")
 class SolarEnergyZOData(ZeroOrderBaseData):
     """
