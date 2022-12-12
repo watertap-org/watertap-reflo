@@ -42,7 +42,7 @@ _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
 
 
-@declare_process_block_class("LT_MED_surrogate")
+@declare_process_block_class("LTMEDSurrogate")
 class LTMEDData(UnitModelBlockData):
     """
     Low-temperature multi-effect distillation model
