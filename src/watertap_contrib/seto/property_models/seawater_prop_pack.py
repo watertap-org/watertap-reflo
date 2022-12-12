@@ -60,7 +60,9 @@ from idaes.core.util.exceptions import (
     PropertyPackageError,
 )
 import idaes.core.util.scaling as iscale
-from watertap.core.util.scaling import transform_property_constraints
+
+# from watertap.core.util.scaling import transform_property_constraints
+from watertap_contrib.seto.core.util.scaling import transform_property_constraints
 
 # Set up logger
 _log = idaeslog.getLogger(__name__)
