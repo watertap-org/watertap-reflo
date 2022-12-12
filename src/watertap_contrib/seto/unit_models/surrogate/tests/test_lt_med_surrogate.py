@@ -10,12 +10,9 @@ from pyomo.environ import (
 )
 from pyomo.network import Port
 from idaes.core import (
-    FlowsheetBlock,
-    MaterialBalanceType,
-    EnergyBalanceType,
-    MomentumBalanceType,
+    FlowsheetBlock
 )
-from watertap.unit_models.lt_med_surrogate import LT_MED_surrogate
+from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 from idaes.models.properties.modular_properties.base.generic_property import (
     GenericParameterBlock,
 )
@@ -55,7 +52,7 @@ class TestLTMED:
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.properties1 = sw_props.SeawaterParameterBlock()
         m.fs.properties2 = w_props.WaterParameterBlock()
-        m.fs.unit = LT_MED_surrogate(
+        m.fs.unit = LTMEDSurrogate(
             property_package=m.fs.properties1, property_package2=m.fs.properties2
         )
 
@@ -65,7 +62,7 @@ class TestLTMED:
         feed_temperature = 25  # degC
         steam_temperature = 80  # deg C
         sys_capacity = 2000  # m3/day
-        recovery_rate = 0.5  # dimentionless
+        recovery_rate = 0.5  # dimensionless
 
         m.fs.unit.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
         m.fs.unit.feed_props[0].temperature.fix(feed_temperature + 273.15)
