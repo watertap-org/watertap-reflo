@@ -174,7 +174,8 @@ class SETOZeroOrderCostingData(ZeroOrderCostingData):
 
         blk.fixed_operating_cost_constraint = pyo.Constraint(
             expr=blk.fixed_operating_cost
-            == blk.fixed_operating_by_capacity * pyo.units.convert(blk.system_capacity, to_units=pyo.units.kW)
+            == blk.fixed_operating_by_capacity
+            * pyo.units.convert(blk.system_capacity, to_units=pyo.units.kW)
         )
 
         blk.variable_operating_cost = pyo.Var(
