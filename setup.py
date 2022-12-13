@@ -8,7 +8,8 @@ setup(
     author="WaterTAP-SETO contributors",
     python_requires=">=3.8",
     install_requires=[
-        "watertap >= 0.6.0",
+        "watertap @ https://github.com/watertap-org/watertap/archive/37d9be3.zip",
         "pytest >= 7",
+        "nrel-pysam >= 4"
     ],
 )
