@@ -15,8 +15,7 @@ from idaes.models.properties.modular_properties.base.generic_property import (
     GenericParameterBlock,
 )
 from watertap.property_models.seawater_ion_generic import configuration
-from watertap_contrib.seto.property_models.seawater_prop_pack import SeawaterParameterBlock
-# import watertap.property_models.seawater_prop_pack as sw_props
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap.core.util.initialization import assert_no_degrees_of_freedom
 from pyomo.util.check_units import assert_units_consistent
