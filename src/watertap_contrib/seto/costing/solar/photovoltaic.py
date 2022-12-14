@@ -1,41 +1,43 @@
 import pyomo.environ as pyo
-
-from watertap.costing.util import (register_costing_parameter_block, make_capital_cost_var, make_fixed_operating_cost_var)
+from watertap.costing.util import register_costing_parameter_block
+from watertap_contrib.seto.costing.util import (make_capital_cost_var, make_fixed_operating_cost_var, make_variable_operating_cost_var)
 
 
 def build_photovoltaic_cost_param_block(blk):
+
+    costing = blk.parent_block()
     
     blk.cost_per_watt_module = pyo.Var(
         initialize=0.41,
-        units=blk.config.flowsheet_costing_block.base_currency / pyo.units.watt,
+        units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
         doc="Cost per watt for solar module",
     )
 
     blk.cost_per_watt_inverter = pyo.Var(
         initialize=0.05,
-        units=blk.config.flowsheet_costing_block.base_currency / pyo.units.watt,
+        units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
         doc="Cost per watt for inverter",
     )
 
     blk.cost_per_watt_other = pyo.Var(
         initialize=0.1,
-        units=blk.config.flowsheet_costing_block.base_currency / pyo.units.watt,
+        units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
         doc="Cost per watt for other equipment, installation, and margin/overhead",
     )
 
     blk.cost_per_watt_indirect = pyo.Var(
         initialize=0.13,
-        units=blk.config.flowsheet_costing_block.base_currency / pyo.units.watt,
+        units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
         doc="Cost per watt for permitting, environmental studies, engineering, land prep, and grid interconnection",
     )
 
     blk.land_cost_per_acre = pyo.Var(
         initialize=4000,
-        units=blk.config.flowsheet_costing_block.base_currency / pyo.units.acre,
+        units=costing.base_currency / pyo.units.acre,
         bounds=(0, None),
         doc="Land cost per acre required",
     )
@@ -56,27 +58,30 @@ def build_photovoltaic_cost_param_block(blk):
 
     blk.fixed_operating_by_capacity = pyo.Var(
         initialize=0,
-        units=blk.config.flowsheet_costing_block.base_currency
-        / (pyo.units.kW * blk.config.flowsheet_costing_block.base_period),
+        units=costing.base_currency
+        / (pyo.units.kW * costing.base_period),
         bounds=(0, None),
         doc="Fixed operating cost of PV system per kW generated",
     )
 
     blk.variable_operating_by_generation = pyo.Var(
         initialize=0,
-        units=blk.config.flowsheet_costing_block.base_currency
-        / (pyo.units.MWh * blk.config.flowsheet_costing_block.base_period),
+        units=costing.base_currency
+        / (pyo.units.MWh * costing.base_period),
         bounds=(0, None),
         doc="Annual operating cost of PV system per MWh generated",
     )
 
+    blk.fix_all_vars()
+
 
 @register_costing_parameter_block(build_rule=build_photovoltaic_cost_param_block, parameter_block_name="photovoltaic")
 
-def cost_solar_energy(blk):
+def cost_pv(blk):
 
     pv_params = blk.costing_package.photovoltaic
     make_capital_cost_var(blk)
+    make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
     blk.direct_cost = pyo.Var(
@@ -112,14 +117,6 @@ def cost_solar_energy(blk):
         units=pyo.units.acre,
         bounds=(0, None),
         doc="Land area required for PV system",
-    )
-
-    blk.variable_operating_cost = pyo.Var(
-        initialize=1,
-        units=blk.config.flowsheet_costing_block.base_currency
-        / blk.config.flowsheet_costing_block.base_period,
-        bounds=(0, None),
-        doc="Variable operating cost of PV system",
     )
 
     blk.annual_generation = pyo.Var(
@@ -164,7 +161,7 @@ def cost_solar_energy(blk):
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == blk.fixed_operating_by_capacity
+        == pv_params.fixed_operating_by_capacity
         * pyo.units.convert(blk.system_capacity, to_units=pyo.units.kW)
     )
 
