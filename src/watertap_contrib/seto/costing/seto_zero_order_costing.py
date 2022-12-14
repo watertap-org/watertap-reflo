@@ -1,11 +1,6 @@
-from watertap.core.zero_order_costing import ZeroOrderCosting, ZeroOrderCostingData
+from watertap.core.zero_order_costing import ZeroOrderCostingData
 
 from idaes.core import declare_process_block_class
-
-from idaes.core.base.costing_base import (
-    FlowsheetCostingBlockData,
-    register_idaes_currency_units,
-)
 
 import pyomo.environ as pyo
 
@@ -19,10 +14,6 @@ class SETOZeroOrderCostingData(ZeroOrderCostingData):
     """
 
     CONFIG = ZeroOrderCostingData.CONFIG()
-    # CONFIG.declare()
-
-    # def build_global_params(self):
-    #     super().build_global_params()
 
     def build_process_costs(self):
         super().build_process_costs()
@@ -33,9 +24,6 @@ class SETOZeroOrderCostingData(ZeroOrderCostingData):
             doc="Total variable operating cost",
             units=self.base_currency / self.base_period,
         )
-
-    # def initialize_build(self):
-    #     super().initialize_build()
 
     def cost_pv(blk):
 
