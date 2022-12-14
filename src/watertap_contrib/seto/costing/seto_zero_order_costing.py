@@ -9,7 +9,7 @@ from idaes.core.base.costing_base import (
 
 import pyomo.environ as pyo
 
-from watertap_contrib.seto.solar_models.zero_order import SolarEnergyZO
+from watertap_contrib.seto.solar_models.zero_order import PhotovoltaicZO
 
 
 @declare_process_block_class("SETOZeroOrderCosting")
@@ -21,16 +21,23 @@ class SETOZeroOrderCostingData(ZeroOrderCostingData):
     CONFIG = ZeroOrderCostingData.CONFIG()
     # CONFIG.declare()
 
-    def build_global_params(self):
-        super().build_global_params()
+    # def build_global_params(self):
+    #     super().build_global_params()
 
     def build_process_costs(self):
         super().build_process_costs()
 
-    def initialize_build(self):
-        super().initialize_build()
+        self.total_variable_operating_cost = pyo.Var(
+            initialize=1e3,
+            domain=pyo.NonNegativeReals,
+            doc="Total variable operating cost",
+            units=self.base_currency / self.base_period,
+        )
 
-    def cost_solar_energy(blk):
+    # def initialize_build(self):
+    #     super().initialize_build()
+
+    def cost_pv(blk):
 
         blk.capital_cost = pyo.Var(
             initialize=1,
@@ -210,4 +217,4 @@ class SETOZeroOrderCostingData(ZeroOrderCostingData):
             blk.unit_model.electricity, "electricity"
         )
 
-    unit_mapping = {SolarEnergyZO: cost_solar_energy}
+    unit_mapping = {PhotovoltaicZO: cost_pv}
