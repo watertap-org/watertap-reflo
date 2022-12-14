@@ -1,12 +1,16 @@
 import pyomo.environ as pyo
 from watertap.costing.util import register_costing_parameter_block
-from watertap_contrib.seto.costing.util import (make_capital_cost_var, make_fixed_operating_cost_var, make_variable_operating_cost_var)
+from watertap_contrib.seto.costing.util import (
+    make_capital_cost_var,
+    make_fixed_operating_cost_var,
+    make_variable_operating_cost_var,
+)
 
 
 def build_photovoltaic_cost_param_block(blk):
 
     costing = blk.parent_block()
-    
+
     blk.cost_per_watt_module = pyo.Var(
         initialize=0.41,
         units=costing.base_currency / pyo.units.watt,
@@ -58,16 +62,14 @@ def build_photovoltaic_cost_param_block(blk):
 
     blk.fixed_operating_by_capacity = pyo.Var(
         initialize=0,
-        units=costing.base_currency
-        / (pyo.units.kW * costing.base_period),
+        units=costing.base_currency / (pyo.units.kW * costing.base_period),
         bounds=(0, None),
         doc="Fixed operating cost of PV system per kW generated",
     )
 
     blk.variable_operating_by_generation = pyo.Var(
         initialize=0,
-        units=costing.base_currency
-        / (pyo.units.MWh * costing.base_period),
+        units=costing.base_currency / (pyo.units.MWh * costing.base_period),
         bounds=(0, None),
         doc="Annual operating cost of PV system per MWh generated",
     )
@@ -75,8 +77,9 @@ def build_photovoltaic_cost_param_block(blk):
     blk.fix_all_vars()
 
 
-@register_costing_parameter_block(build_rule=build_photovoltaic_cost_param_block, parameter_block_name="photovoltaic")
-
+@register_costing_parameter_block(
+    build_rule=build_photovoltaic_cost_param_block, parameter_block_name="photovoltaic"
+)
 def cost_pv(blk):
 
     pv_params = blk.costing_package.photovoltaic

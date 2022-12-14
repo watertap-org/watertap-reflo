@@ -35,11 +35,12 @@ from watertap.costing.units.uv_aop import cost_uv_aop
 from watertap_contrib.seto.solar_models.zero_order import PhotovoltaicZO
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
 
+
 @declare_process_block_class("SETOWaterTAPCosting")
 class SETOWaterTAPCostingData(WaterTAPCostingData):
     unit_mapping = {
-        SolarEnergyZO: cost_pv, #Keeping this for now
-        PhotovoltaicZO: cost_pv, 
+        SolarEnergyZO: cost_pv,  # Keeping this for now
+        PhotovoltaicZO: cost_pv,
         Mixer: cost_mixer,
         Pump: cost_pump,
         EnergyRecoveryDevice: cost_energy_recovery_device,
@@ -60,7 +61,9 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         super().build_global_params()
 
         self.base_currency = pyo.units.USD_2020
-        self.plant_lifetime = pyo.Var(initialize=20, units=self.base_period, doc="Plant lifetime")
+        self.plant_lifetime = pyo.Var(
+            initialize=20, units=self.base_period, doc="Plant lifetime"
+        )
         self.plant_lifetime.fix()
         self.utilization_factor.fix(1)
 
