@@ -85,8 +85,8 @@ class PySAMWaterTAP:
         self.tech_model.value("inverter_count", self.num_inverters)
         self.tech_model.value("subarray1_nstrings", self.num_parallel)
         for param, val in tech_model_kwargs.items():
-            if not isinstance(val, list):
-                val = [val]
+            # if not isinstance(val, list):
+            #     val = [val]
             self.tech_model.value(param, val)
         for param, val in cash_model_kwargs.items():
             if not isinstance(val, list):
