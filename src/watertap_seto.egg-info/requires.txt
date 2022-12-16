@@ -1,0 +1,2 @@
+watertap>=0.6.0
+pytest>=7

@@ -1,0 +1,14 @@
+README.md
+requirements-dev.txt
+setup.py
+.github/workflows/checks.yml
+src/watertap_contrib/seto/__init__.py
+src/watertap_contrib/seto/_version.py
+src/watertap_contrib/seto/conftest.py
+src/watertap_contrib/seto/tests/__init__.py
+src/watertap_contrib/seto/tests/test_version.py
+src/watertap_seto.egg-info/PKG-INFO
+src/watertap_seto.egg-info/SOURCES.txt
+src/watertap_seto.egg-info/dependency_links.txt
+src/watertap_seto.egg-info/requires.txt
+src/watertap_seto.egg-info/top_level.txt
