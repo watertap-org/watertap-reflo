@@ -37,8 +37,12 @@ from idaes.core import (
 )
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
+from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
 
+# Import Watertap packages
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
@@ -374,6 +378,20 @@ class LTMEDData(UnitModelBlockData):
             doc="Gained output ratio (kg of distillate water per kg of heating steam",
         )
 
+        self.qs = Var(
+            initialize=2,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.h,
+            doc="Steam flow rate (kg/h)",
+        )
+
+        self.qm = Var(
+            initialize=20,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.s,
+            doc="Movive steam mass flow rate entering the thermocompressor (kg/s)",
+        )
+
         """
         Add Vars for intermediate model variables
         """
@@ -398,95 +416,125 @@ class LTMEDData(UnitModelBlockData):
             doc="Feed and cooling water volume flow rate (m3/h)",
         )
 
-        # Surrogate equations for calculating GOR
-        Nef_vals = [3, 6, 9, 12, 14]  # Number of effects
-        coeffs_set = range(15)  # Number of coefficients
+        # Surrogate coefficients for calculating GOR
+        Nef_vals = [8, 10, 12, 14, 16]  # Number of effects
+        coeffs_set = range(21)  # Number of coefficients
 
         GOR_coeffs = {
-            3: [
-                1.60e-07,
-                0.826895712,
-                -2.04e-07,
-                0.003340838,
-                -5.56e-09,
-                0.000666667,
-                -0.003295958,
-                1.17e-10,
-                -0.000549708,
-                -2.46e-06,
-                2.662545127,
-                -1.98e-07,
-                7.41e-07,
-                -0.675925926,
-                -4.12e-13,
+            8: [
+                -1.42e-06,
+                7.764150858,
+                -1.15e-05,
+                0.582960027,
+                1.24e-07,
+                0.056555556,
+                -2.57e-19,
+                3.63e-25,
+                3.23e-19,
+                3.04e-21,
+                0.104803303,
+                -2.08e-09,
+                0.012249322,
+                -0.000299729,
+                6.28e-22,
+                -5.098563697,
+                -0.001263974,
+                -3.56e-25,
+                -0.005858519,
+                -8.896296296,
+                -1.98e-11,
             ],
-            6: [
-                5.86e-07,
-                2.940942982,
-                -1.44e-06,
-                0.007985234,
-                -2.26e-08,
-                0.001472222,
-                -0.007157144,
-                8.73e-09,
-                -0.001540936,
-                4.88e-06,
-                4.741753363,
-                -1.04e-06,
-                -1.67e-05,
-                -2.333333333,
-                -7.41e-13,
-            ],
-            9: [
-                1.67e-06,
-                5.9507846,
-                -3.94e-06,
-                0.012607651,
-                -5.50e-08,
-                0.002222222,
-                -0.010203548,
-                2.47e-08,
-                -0.002549708,
-                2.94e-05,
-                6.350104873,
-                -1.05e-05,
-                -5.09e-05,
-                -4.653703704,
-                -2.88e-12,
+            10: [
+                -2.28e-06,
+                10.98911472,
+                -1.31e-05,
+                0.689378726,
+                1.47e-07,
+                0.080111111,
+                -2.98e-19,
+                -6.15e-25,
+                4.06e-19,
+                4.44e-21,
+                0.124314705,
+                -1.81e-10,
+                0.018184282,
+                -0.000334959,
+                6.98e-22,
+                -6.475922544,
+                -0.001524489,
+                -5.72e-25,
+                -0.006804444,
+                -12.28888889,
+                -1.68e-11,
             ],
             12: [
-                3.30e-06,
-                9.621851852,
-                -7.98e-06,
-                0.016637037,
-                -1.09e-07,
-                0.002,
-                -0.012637326,
-                5.13e-08,
-                -0.003277778,
-                8.28e-05,
-                7.592772368,
-                -3.09e-05,
-                -9.98e-05,
-                -7.425925926,
-                -6.09e-12,
+                -3.05e-06,
+                14.55682317,
+                -1.30e-05,
+                0.425476523,
+                1.61e-07,
+                0.097638889,
+                6.39e-06,
+                2.07e-13,
+                -2.09e-06,
+                -3.91e-08,
+                0.143261656,
+                6.78e-10,
+                0.027642276,
+                -0.00025,
+                4.65e-08,
+                -2.620877082,
+                -0.001921861,
+                -5.22e-11,
+                -0.001659259,
+                -15.9537037,
+                -1.83e-11,
             ],
             14: [
-                5.27e-06,
-                12.44928443,
-                -1.15e-05,
-                0.019398098,
-                -1.59e-07,
-                0.001666667,
-                -0.013396636,
-                7.88e-08,
-                -0.003333333,
-                0.000121663,
-                8.195669495,
-                -5.34e-05,
-                -0.00013251,
-                -9.627577763,
-                -1.80e-11,
+                -5.77e-06,
+                18.58044758,
+                -9.55e-06,
+                0.758813856,
+                1.78e-07,
+                0.148784722,
+                2.27e-06,
+                -4.93e-13,
+                -3.10e-06,
+                -3.26e-08,
+                0.157319103,
+                4.40e-09,
+                0.033536585,
+                -0.000335027,
+                1.13e-08,
+                -7.631229505,
+                -0.002018089,
+                -1.01e-11,
+                -0.006560185,
+                -21.38310185,
+                -7.92e-12,
+            ],
+            16: [
+                -8.38e-06,
+                20.76389007,
+                -3.04e-06,
+                0.967432521,
+                1.85e-07,
+                0.216269841,
+                1.58e-05,
+                -6.41e-13,
+                -2.27e-06,
+                -4.83e-07,
+                0.185976144,
+                2.71e-09,
+                0.046360821,
+                -0.000913957,
+                -4.66e-08,
+                -10.82641732,
+                -0.002230429,
+                -1.06e-11,
+                -0.009318519,
+                -25.09448224,
+                -4.22e-12,
             ],
         }
 
@@ -497,401 +545,463 @@ class LTMEDData(UnitModelBlockData):
                 == Xf * GOR_coeffs[b.Nef.value][0]
                 + b.RR * GOR_coeffs[b.Nef.value][1]
                 + Xf * b.RR * GOR_coeffs[b.Nef.value][2]
-                + b.TN * GOR_coeffs[b.Nef.value][3]
-                + b.TN * Xf * GOR_coeffs[b.Nef.value][4]
-                + b.TN * b.RR * GOR_coeffs[b.Nef.value][5]
-                + Ts * GOR_coeffs[b.Nef.value][6]
-                + Ts * Xf * GOR_coeffs[b.Nef.value][7]
-                + Ts * b.RR * GOR_coeffs[b.Nef.value][8]
-                + Ts * b.TN * GOR_coeffs[b.Nef.value][9]
-                + 1 * GOR_coeffs[b.Nef.value][10]
-                + Ts**2 * GOR_coeffs[b.Nef.value][11]
-                + b.TN**2 * GOR_coeffs[b.Nef.value][12]
-                + b.RR**2 * GOR_coeffs[b.Nef.value][13]
-                + Xf**2 * GOR_coeffs[b.Nef.value][14]
+                + Tin * GOR_coeffs[b.Nef.value][3]
+                + Tin * Xf * GOR_coeffs[b.Nef.value][4]
+                + Tin * b.RR * GOR_coeffs[b.Nef.value][5]
+                + b.Capacity * GOR_coeffs[b.Nef.value][6]
+                + b.Capacity * Xf * GOR_coeffs[b.Nef.value][7]
+                + b.Capacity * b.RR * GOR_coeffs[b.Nef.value][8]
+                + b.Capacity * Tin * GOR_coeffs[b.Nef.value][9]
+                + b.Pm * GOR_coeffs[b.Nef.value][10]
+                + b.Pm * Xf * GOR_coeffs[b.Nef.value][11]
+                + b.Pm * b.RR * GOR_coeffs[b.Nef.value][12]
+                + b.Pm * Tin * GOR_coeffs[b.Nef.value][13]
+                + b.Pm * Capacity * GOR_coeffs[b.Nef.value][14]
+                + 1 * GOR_coeffs[b.Nef.value][15]
+                + b.Pm**2 * GOR_coeffs[b.Nef.value][16]
+                + b.Capacity**2 * GOR_coeffs[b.Nef.value][17]
+                + Tin**2 * GOR_coeffs[b.Nef.value][18]
+                + b.RR**2 * GOR_coeffs[b.Nef.value][19]
+                + Xf**2 * GOR_coeffs[b.Nef.value][20]
             )
 
-        # Surrogate equations for calculating sA
-        Nef_vals1 = [3, 6, 9]
-        Nef_vals2 = [12, 14]
-
-        coeffs_set1 = range(35)  # Number of coefficients for N=3, 6, 9
-        coeffs_set2 = range(70)  # Number of coefficients for N=12, 14
-
+        # Surrogate coefficients for calculating sA
         sA_coeffs = {
-            3: [
-                0.000596217,
-                -3.66e-09,
-                0,
-                -2.44e-05,
-                1.93e-09,
-                0,
-                5.60e-05,
-                0,
-                -2.95e-07,
-                5.30e-11,
-                0,
-                7.14e-06,
-                0,
-                0.064807392,
-                2.06e-07,
-                0.00974051,
-                0,
-                -1.16e-05,
-                -3.96e-11,
-                0,
-                -5.27e-06,
-                0,
-                -0.05718687,
-                -2.61e-07,
-                -0.011936049,
-                -0.000702529,
-                0.013464849,
-                1.65e-07,
-                0.003686623,
-                0.000759933,
-                0,
-                -0.00019293,
-                -0.000182949,
-                0,
-                3.20e-14,
-            ],
-            6: [
-                0.00040105,
+            8: [
+                -0.000113631,
+                -13.11517461,
+                0.000106181,
+                -0.494480795,
+                2.52e-06,
+                0.214458333,
+                9.34e-06,
+                2.00e-11,
+                1.72e-06,
+                1.04e-07,
+                -0.045572653,
                 -6.57e-09,
-                0,
-                -1.56e-05,
-                3.67e-10,
-                0,
-                2.62e-05,
-                0,
-                7.08e-07,
-                8.73e-12,
-                0,
-                1.46e-06,
-                0,
-                0.032775092,
-                5.04e-08,
-                0.002499309,
-                0,
-                -3.30e-06,
-                -6.53e-12,
-                0,
-                -1.02e-06,
-                0,
-                -0.028641745,
-                -6.66e-08,
-                -0.002735652,
-                -0.000301667,
-                0.005600544,
-                4.10e-08,
-                0.000713386,
-                0.000329733,
-                0,
-                -7.31e-05,
-                -0.00010089,
-                0,
-                4.94e-14,
+                -0.000291328,
+                6.29e-05,
+                -7.80e-13,
+                12.94569696,
+                0.000878721,
+                -1.10e-10,
+                0.007633796,
+                6.371296296,
+                3.41e-10,
             ],
-            9: [
-                0.000596217,
-                -3.66e-09,
-                0,
-                -2.44e-05,
-                1.93e-09,
-                0,
-                5.60e-05,
-                0,
-                -2.95e-07,
-                5.30e-11,
-                0,
-                7.14e-06,
-                0,
-                0.064807392,
-                2.06e-07,
-                0.00974051,
-                0,
-                -1.16e-05,
-                -3.96e-11,
-                0,
-                -5.27e-06,
-                0,
-                -0.05718687,
-                -2.61e-07,
-                -0.011936049,
-                -0.000702529,
-                0.013464849,
-                1.65e-07,
-                0.003686623,
-                0.000759933,
-                0,
-                -0.00019293,
-                -0.000182949,
-                0,
-                3.20e-14,
+            10: [
+                -0.000275164,
+                -30.34222168,
+                0.000245662,
+                -0.964861655,
+                5.70e-06,
+                0.49675,
+                -7.92e-07,
+                1.92e-12,
+                5.90e-07,
+                5.40e-09,
+                0.001209732,
+                -2.56e-08,
+                -0.005934959,
+                -1.36e-06,
+                1.14e-09,
+                25.22049669,
+                1.96e-05,
+                3.20e-12,
+                0.013141389,
+                14.14444444,
+                8.80e-10,
             ],
             12: [
-                0.000000e00,
-                3.304374e-08,
-                -6.761157e-13,
-                0.000000e00,
-                0.000000e00,
-                -5.496094e-09,
-                1.958695e-13,
-                0.000000e00,
-                0.000000e00,
-                6.105760e-09,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                -8.520444e-10,
-                2.227182e-14,
-                0.000000e00,
-                0.000000e00,
-                6.610470e-10,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                3.561099e-06,
-                9.693068e-12,
-                0.000000e00,
-                1.148815e-06,
-                0.000000e00,
-                0.000000e00,
-                -1.049434e-08,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                1.734819e-10,
-                -1.367980e-14,
-                0.000000e00,
-                0.000000e00,
-                -5.044097e-10,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                -2.717657e-06,
-                -3.905605e-11,
-                0.000000e00,
-                -1.397796e-06,
-                0.000000e00,
-                0.000000e00,
-                -4.132341e-08,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                4.380618e-07,
-                2.072263e-11,
-                0.000000e00,
-                4.398758e-07,
-                0.000000e00,
-                0.000000e00,
-                5.991695e-08,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                -1.833849e-08,
-                0.000000e00,
-                -3.505028e-06,
-                0.000000e00,
-                1.713226e-06,
-                0.000000e00,
-                0.000000e00,
-                6.273434e-18,
+                -0.00059378,
+                -70.68831403,
+                0.000537912,
+                -2.002884776,
+                1.10e-05,
+                1.071916667,
+                2.61e-05,
+                -7.91e-11,
+                -8.33e-06,
+                -4.78e-07,
+                -0.020075596,
+                9.86e-08,
+                0.014342818,
+                0.000726897,
+                -3.18e-08,
+                52.69512155,
+                -0.000184651,
+                -6.33e-11,
+                0.024886019,
+                34.90462963,
+                2.02e-09,
             ],
             14: [
-                0.000000e00,
-                4.368251e-08,
-                2.260942e-13,
-                0.000000e00,
-                0.000000e00,
-                -4.762111e-08,
-                1.282504e-12,
-                0.000000e00,
-                0.000000e00,
-                3.611544e-08,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                -3.197411e-09,
-                8.656950e-14,
-                0.000000e00,
-                0.000000e00,
-                3.617982e-09,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                6.034818e-06,
-                4.276140e-11,
-                0.000000e00,
-                4.908627e-06,
-                0.000000e00,
-                0.000000e00,
-                -1.357859e-08,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                1.131144e-10,
-                -5.279738e-14,
-                0.000000e00,
-                0.000000e00,
-                -2.836528e-09,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                -3.906973e-06,
-                -1.642642e-10,
-                0.000000e00,
-                -6.562415e-06,
-                0.000000e00,
-                0.000000e00,
-                -1.071227e-07,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                7.876487e-07,
-                8.941839e-11,
-                0.000000e00,
-                2.276216e-06,
-                0.000000e00,
-                0.000000e00,
-                1.772933e-07,
-                0.000000e00,
-                0.000000e00,
-                0.000000e00,
-                -6.455677e-08,
-                0.000000e00,
-                -1.423548e-05,
-                0.000000e00,
-                7.012498e-06,
-                0.000000e00,
-                0.000000e00,
-                1.716278e-19,
+                -0.00121164,
+                -152.5537433,
+                0.001101146,
+                -3.461298325,
+                2.14e-05,
+                2.249461806,
+                4.67e-05,
+                -1.99e-10,
+                -2.11e-05,
+                -9.28e-07,
+                -0.054534982,
+                3.70e-07,
+                0.068449356,
+                0.001176152,
+                -3.36e-08,
+                97.79031075,
+                -0.000342235,
+                -6.33e-11,
+                0.038331481,
+                78.17853009,
+                4.22e-09,
+            ],
+            16: [
+                -0.003702813,
+                -566.9002008,
+                0.003490278,
+                -10.24802298,
+                5.87e-05,
+                8.029940476,
+                0.000180849,
+                -1.67e-09,
+                -0.000223884,
+                -5.19e-06,
+                -0.699017368,
+                3.49e-06,
+                0.438254936,
+                0.010243428,
+                -2.60e-06,
+                312.1661769,
+                0.00564047,
+                1.39e-09,
+                0.098896296,
+                317.9402872,
+                1.27e-08,
             ],
         }
 
         @self.Constraint(doc="sA surrogate equation")
         def sA_cal(b):
-            if b.Nef.value in [3, 6, 9]:
-                return (
-                    b.sA
-                    == Xf * sA_coeffs[b.Nef.value][0]
-                    + Xf**2 * sA_coeffs[b.Nef.value][1]
-                    + b.RR * sA_coeffs[b.Nef.value][2]
-                    + b.RR * Xf * sA_coeffs[b.Nef.value][3]
-                    + b.RR * Xf**2 * sA_coeffs[b.Nef.value][4]
-                    + b.RR**2 * sA_coeffs[b.Nef.value][5]
-                    + b.RR**2 * Xf * sA_coeffs[b.Nef.value][6]
-                    + b.TN * sA_coeffs[b.Nef.value][7]
-                    + b.TN * Xf * sA_coeffs[b.Nef.value][8]
-                    + b.TN * Xf**2 * sA_coeffs[b.Nef.value][9]
-                    + b.TN * b.RR * sA_coeffs[b.Nef.value][10]
-                    + b.TN * b.RR * Xf * sA_coeffs[b.Nef.value][11]
-                    + b.TN * b.RR**2 * sA_coeffs[b.Nef.value][12]
-                    + b.TN**2 * sA_coeffs[b.Nef.value][13]
-                    + b.TN**2 * Xf * sA_coeffs[b.Nef.value][14]
-                    + b.TN**2 * b.RR * sA_coeffs[b.Nef.value][15]
-                    + Ts * sA_coeffs[b.Nef.value][16]
-                    + Ts * Xf * sA_coeffs[b.Nef.value][17]
-                    + Ts * Xf**2 * sA_coeffs[b.Nef.value][18]
-                    + Ts * b.RR * sA_coeffs[b.Nef.value][19]
-                    + Ts * b.RR * Xf * sA_coeffs[b.Nef.value][20]
-                    + Ts * b.RR**2 * sA_coeffs[b.Nef.value][21]
-                    + Ts * b.TN * sA_coeffs[b.Nef.value][22]
-                    + Ts * b.TN * Xf * sA_coeffs[b.Nef.value][23]
-                    + Ts * b.TN * b.RR * sA_coeffs[b.Nef.value][24]
-                    + Ts * b.TN**2 * sA_coeffs[b.Nef.value][25]
-                    + Ts**2 * sA_coeffs[b.Nef.value][26]
-                    + Ts**2 * Xf * sA_coeffs[b.Nef.value][27]
-                    + Ts**2 * b.RR * sA_coeffs[b.Nef.value][28]
-                    + Ts**2 * b.TN * sA_coeffs[b.Nef.value][29]
-                    + 1 * sA_coeffs[b.Nef.value][30]
-                    + Ts**3 * sA_coeffs[b.Nef.value][31]
-                    + b.TN**3 * sA_coeffs[b.Nef.value][32]
-                    + b.RR**3 * sA_coeffs[b.Nef.value][33]
-                    + Xf**3 * sA_coeffs[b.Nef.value][34]
-                )
+            return (
+                b.sA
+                == Xf * sA_coeffs[b.Nef.value][0]
+                + b.RR * sA_coeffs[b.Nef.value][1]
+                + Xf * b.RR * sA_coeffs[b.Nef.value][2]
+                + Tin * sA_coeffs[b.Nef.value][3]
+                + Tin * Xf * sA_coeffs[b.Nef.value][4]
+                + Tin * b.RR * sA_coeffs[b.Nef.value][5]
+                + b.Capacity * sA_coeffs[b.Nef.value][6]
+                + b.Capacity * Xf * sA_coeffs[b.Nef.value][7]
+                + b.Capacity * b.RR * sA_coeffs[b.Nef.value][8]
+                + b.Capacity * Tin * sA_coeffs[b.Nef.value][9]
+                + b.Pm * sA_coeffs[b.Nef.value][10]
+                + b.Pm * Xf * sA_coeffs[b.Nef.value][11]
+                + b.Pm * b.RR * sA_coeffs[b.Nef.value][12]
+                + b.Pm * Tin * sA_coeffs[b.Nef.value][13]
+                + b.Pm * Capacity * sA_coeffs[b.Nef.value][14]
+                + 1 * sA_coeffs[b.Nef.value][15]
+                + b.Pm**2 * sA_coeffs[b.Nef.value][16]
+                + b.Capacity**2 * sA_coeffs[b.Nef.value][17]
+                + Tin**2 * sA_coeffs[b.Nef.value][18]
+                + b.RR**2 * sA_coeffs[b.Nef.value][19]
+                + Xf**2 * sA_coeffs[b.Nef.value][20]
+            )
 
-            else:  #  Nef in [12, 14]
-                return (
-                    b.sA
-                    == Xf * sA_coeffs[b.Nef.value][0]
-                    + Xf**2 * sA_coeffs[b.Nef.value][1]
-                    + Xf**3 * sA_coeffs[b.Nef.value][2]
-                    + b.RR * sA_coeffs[b.Nef.value][3]
-                    + b.RR * Xf * sA_coeffs[b.Nef.value][4]
-                    + b.RR * Xf**2 * sA_coeffs[b.Nef.value][5]
-                    + b.RR * Xf**3 * sA_coeffs[b.Nef.value][6]
-                    + b.RR**2 * sA_coeffs[b.Nef.value][7]
-                    + b.RR**2 * Xf * sA_coeffs[b.Nef.value][8]
-                    + b.RR**2 * Xf**2 * sA_coeffs[b.Nef.value][9]
-                    + b.RR**3 * sA_coeffs[b.Nef.value][10]
-                    + b.RR**3 * Xf * sA_coeffs[b.Nef.value][11]
-                    + b.TN * sA_coeffs[b.Nef.value][12]
-                    + b.TN * Xf * sA_coeffs[b.Nef.value][13]
-                    + b.TN * Xf**2 * sA_coeffs[b.Nef.value][14]
-                    + b.TN * Xf**3 * sA_coeffs[b.Nef.value][15]
-                    + b.TN * b.RR * sA_coeffs[b.Nef.value][16]
-                    + b.TN * b.RR * Xf * sA_coeffs[b.Nef.value][17]
-                    + b.TN * b.RR * Xf**2 * sA_coeffs[b.Nef.value][18]
-                    + b.TN * b.RR**2 * sA_coeffs[b.Nef.value][19]
-                    + b.TN * b.RR**2 * Xf * sA_coeffs[b.Nef.value][20]
-                    + b.TN * b.RR**3 * sA_coeffs[b.Nef.value][21]
-                    + b.TN**2 * sA_coeffs[b.Nef.value][22]
-                    + b.TN**2 * Xf * sA_coeffs[b.Nef.value][23]
-                    + b.TN**2 * Xf**2 * sA_coeffs[b.Nef.value][24]
-                    + b.TN**2 * b.RR * sA_coeffs[b.Nef.value][25]
-                    + b.TN**2 * b.RR * Xf * sA_coeffs[b.Nef.value][26]
-                    + b.TN**2 * b.RR**2 * sA_coeffs[b.Nef.value][27]
-                    + b.TN**3 * sA_coeffs[b.Nef.value][28]
-                    + b.TN**3 * Xf * sA_coeffs[b.Nef.value][29]
-                    + b.TN**3 * b.RR * sA_coeffs[b.Nef.value][30]
-                    + Ts * sA_coeffs[b.Nef.value][31]
-                    + Ts * Xf * sA_coeffs[b.Nef.value][32]
-                    + Ts * Xf**2 * sA_coeffs[b.Nef.value][33]
-                    + Ts * Xf**3 * sA_coeffs[b.Nef.value][34]
-                    + Ts * b.RR * sA_coeffs[b.Nef.value][35]
-                    + Ts * b.RR * Xf * sA_coeffs[b.Nef.value][36]
-                    + Ts * b.RR * Xf**2 * sA_coeffs[b.Nef.value][37]
-                    + Ts * b.RR**2 * sA_coeffs[b.Nef.value][38]
-                    + Ts * b.RR**2 * Xf * sA_coeffs[b.Nef.value][39]
-                    + Ts * b.RR**3 * sA_coeffs[b.Nef.value][40]
-                    + Ts * b.TN * sA_coeffs[b.Nef.value][41]
-                    + Ts * b.TN * Xf * sA_coeffs[b.Nef.value][42]
-                    + Ts * b.TN * Xf**2 * sA_coeffs[b.Nef.value][43]
-                    + Ts * b.TN * b.RR * sA_coeffs[b.Nef.value][44]
-                    + Ts * b.TN * b.RR * Xf * sA_coeffs[b.Nef.value][45]
-                    + Ts * b.TN * b.RR**2 * sA_coeffs[b.Nef.value][46]
-                    + Ts * b.TN**2 * sA_coeffs[b.Nef.value][47]
-                    + Ts * b.TN**2 * Xf * sA_coeffs[b.Nef.value][48]
-                    + Ts * b.TN**2 * b.RR * sA_coeffs[b.Nef.value][49]
-                    + Ts * b.TN**3 * sA_coeffs[b.Nef.value][50]
-                    + Ts**2 * sA_coeffs[b.Nef.value][51]
-                    + Ts**2 * Xf * sA_coeffs[b.Nef.value][52]
-                    + Ts**2 * Xf**2 * sA_coeffs[b.Nef.value][53]
-                    + Ts**2 * b.RR * sA_coeffs[b.Nef.value][54]
-                    + Ts**2 * b.RR * Xf * sA_coeffs[b.Nef.value][55]
-                    + Ts**2 * b.RR**2 * sA_coeffs[b.Nef.value][56]
-                    + Ts**2 * b.TN * sA_coeffs[b.Nef.value][57]
-                    + Ts**2 * b.TN * Xf * sA_coeffs[b.Nef.value][58]
-                    + Ts**2 * b.TN * b.RR * sA_coeffs[b.Nef.value][59]
-                    + Ts**2 * b.TN**2 * sA_coeffs[b.Nef.value][60]
-                    + Ts**3 * sA_coeffs[b.Nef.value][61]
-                    + Ts**3 * Xf * sA_coeffs[b.Nef.value][62]
-                    + Ts**3 * b.RR * sA_coeffs[b.Nef.value][63]
-                    + Ts**3 * b.TN * sA_coeffs[b.Nef.value][64]
-                    + 1 * sA_coeffs[b.Nef.value][65]
-                    + Ts**4 * sA_coeffs[b.Nef.value][66]
-                    + b.TN**4 * sA_coeffs[b.Nef.value][67]
-                    + b.RR**4 * sA_coeffs[b.Nef.value][68]
-                    + Xf**4 * sA_coeffs[b.Nef.value][69]
-                )
+        # Surrogate coefficients for calculating qs
+        qs_coeffs = {
+            8: [
+                -7.59e-06,
+                -34.3908768,
+                9.69e-06,
+                -0.131363139,
+                1.48e-07,
+                0.200569444,
+                0.002087075,
+                -1.31e-10,
+                -0.000541286,
+                -5.70e-06,
+                -0.109758232,
+                -3.05e-09,
+                0.000630081,
+                0.000228591,
+                -9.38e-08,
+                8.029964774,
+                0.002098453,
+                -2.59e-10,
+                0.000841111,
+                40.08888889,
+                -1.42e-12,
+            ],
+            10: [
+                1.59e-05,
+                -29.09136792,
+                -2.04e-05,
+                -0.066787419,
+                -7.21e-08,
+                0.145083333,
+                0.001764972,
+                -1.33e-10,
+                -0.000559573,
+                -5.46e-06,
+                0.005482395,
+                -6.00e-08,
+                -0.017926829,
+                8.64e-06,
+                -7.40e-08,
+                5.722781223,
+                5.07e-05,
+                8.14e-12,
+                0.00026963,
+                36.86296296,
+                -6.77e-11,
+            ],
+            12: [
+                -4.48e-06,
+                -38.28037765,
+                1.02e-07,
+                -0.413517098,
+                1.86e-07,
+                0.304472222,
+                0.001604017,
+                -1.50e-10,
+                -0.00055003,
+                -6.73e-06,
+                -0.008556022,
+                -3.24e-09,
+                -0.002256098,
+                0.000298408,
+                -9.02e-08,
+                12.82816936,
+                3.81e-05,
+                -3.04e-11,
+                0.005071204,
+                41.34814815,
+                -1.16e-11,
+            ],
+            14: [
+                -7.83e-07,
+                -40.03225543,
+                -7.58e-06,
+                -0.359841547,
+                1.82e-07,
+                0.30859375,
+                0.00148361,
+                -1.61e-10,
+                -0.000593416,
+                -6.66e-06,
+                -0.001763606,
+                -3.31e-09,
+                0.001147527,
+                0.00014878,
+                -6.89e-08,
+                11.96567201,
+                -5.86e-05,
+                -7.44e-11,
+                0.004328148,
+                45.25318287,
+                -2.16e-11,
+            ],
+            16: [
+                3.35e-06,
+                -38.68477421,
+                -1.90e-05,
+                -0.86243177,
+                2.00e-07,
+                0.233531746,
+                0.00126754,
+                -1.68e-10,
+                -0.000627918,
+                -4.45e-06,
+                -0.077815222,
+                -4.48e-09,
+                -0.046564073,
+                0.001702812,
+                -8.14e-07,
+                20.5725045,
+                0.002389423,
+                5.92e-10,
+                0.012013148,
+                49.04383976,
+                -3.29e-11,
+            ],
+        }
+
+        @self.Constraint(doc="qs surrogate equation")
+        def qs_cal(b):
+            return (
+                b.qs
+                == Xf * qs_coeffs[b.Nef.value][0]
+                + b.RR * qs_coeffs[b.Nef.value][1]
+                + Xf * b.RR * qs_coeffs[b.Nef.value][2]
+                + Tin * qs_coeffs[b.Nef.value][3]
+                + Tin * Xf * qs_coeffs[b.Nef.value][4]
+                + Tin * b.RR * qs_coeffs[b.Nef.value][5]
+                + b.Capacity * qs_coeffs[b.Nef.value][6]
+                + b.Capacity * Xf * qs_coeffs[b.Nef.value][7]
+                + b.Capacity * b.RR * qs_coeffs[b.Nef.value][8]
+                + b.Capacity * Tin * qs_coeffs[b.Nef.value][9]
+                + b.Pm * qs_coeffs[b.Nef.value][10]
+                + b.Pm * Xf * qs_coeffs[b.Nef.value][11]
+                + b.Pm * b.RR * qs_coeffs[b.Nef.value][12]
+                + b.Pm * Tin * qs_coeffs[b.Nef.value][13]
+                + b.Pm * Capacity * qs_coeffs[b.Nef.value][14]
+                + 1 * qs_coeffs[b.Nef.value][15]
+                + b.Pm**2 * qs_coeffs[b.Nef.value][16]
+                + b.Capacity**2 * qs_coeffs[b.Nef.value][17]
+                + Tin**2 * qs_coeffs[b.Nef.value][18]
+                + b.RR**2 * qs_coeffs[b.Nef.value][19]
+                + Xf**2 * qs_coeffs[b.Nef.value][20]
+            )
+
+        # Surrogate coefficients for calculating qm
+        qm_coeffs = {
+            8: [
+                1.49e-05,
+                -29.83707466,
+                2.86e-05,
+                -2.345398834,
+                -9.10e-07,
+                0.267902778,
+                0.002171651,
+                4.00e-10,
+                -0.000324519,
+                -2.78e-05,
+                -0.489303064,
+                -7.25e-08,
+                0.033783875,
+                0.006929505,
+                -4.33e-06,
+                43.26022001,
+                0.005568346,
+                -1.65e-10,
+                0.035492222,
+                28.25555556,
+                4.56e-11,
+            ],
+            10: [
+                2.43e-05,
+                -27.0360671,
+                8.10e-06,
+                -1.966013646,
+                -8.70e-07,
+                0.257819444,
+                0.001822688,
+                3.13e-10,
+                -0.000341778,
+                -2.35e-05,
+                -0.349886659,
+                -9.33e-08,
+                0.025067751,
+                0.00570271,
+                -3.59e-06,
+                36.5052648,
+                0.003546979,
+                4.13e-12,
+                0.029556389,
+                25.92222222,
+                7.53e-12,
+            ],
+            12: [
+                1.12e-05,
+                -32.60635053,
+                1.54e-05,
+                -1.366729008,
+                -6.01e-07,
+                0.362472222,
+                0.001598178,
+                2.60e-10,
+                -0.000344721,
+                -2.04e-05,
+                -0.312617943,
+                -5.56e-08,
+                0.035501355,
+                0.004905556,
+                -3.20e-06,
+                28.5739492,
+                0.003185042,
+                2.08e-11,
+                0.019064444,
+                28.63333333,
+                3.01e-11,
+            ],
+            14: [
+                1.20e-05,
+                -33.97061713,
+                7.27e-06,
+                -1.345914579,
+                -4.99e-07,
+                0.39046875,
+                0.001457515,
+                2.05e-10,
+                -0.000376928,
+                -1.86e-05,
+                -0.283422499,
+                -4.47e-08,
+                0.04076897,
+                0.004456843,
+                -2.85e-06,
+                28.05931057,
+                0.002831752,
+                2.13e-11,
+                0.018738704,
+                30.55700231,
+                1.65e-11,
+            ],
+            16: [
+                1.33e-05,
+                -33.90192114,
+                -1.17e-06,
+                -1.544393645,
+                -4.29e-07,
+                0.364702381,
+                0.001274023,
+                1.65e-10,
+                -0.000401789,
+                -1.57e-05,
+                -0.282901411,
+                -2.79e-08,
+                0.014909988,
+                0.004355014,
+                -3.09e-06,
+                31.51108079,
+                0.004025387,
+                4.05e-10,
+                0.021729259,
+                33.11413454,
+                8.59e-12,
+            ],
+        }
+
+        @self.Constraint(doc="qm surrogate equation")
+        def qm_cal(b):
+            return (
+                b.qm
+                == Xf * qm_coeffs[b.Nef.value][0]
+                + b.RR * qm_coeffs[b.Nef.value][1]
+                + Xf * b.RR * qm_coeffs[b.Nef.value][2]
+                + Tin * qm_coeffs[b.Nef.value][3]
+                + Tin * Xf * qm_coeffs[b.Nef.value][4]
+                + Tin * b.RR * qm_coeffs[b.Nef.value][5]
+                + b.Capacity * qm_coeffs[b.Nef.value][6]
+                + b.Capacity * Xf * qm_coeffs[b.Nef.value][7]
+                + b.Capacity * b.RR * qm_coeffs[b.Nef.value][8]
+                + b.Capacity * Tin * qm_coeffs[b.Nef.value][9]
+                + b.Pm * qm_coeffs[b.Nef.value][10]
+                + b.Pm * Xf * qm_coeffs[b.Nef.value][11]
+                + b.Pm * b.RR * qm_coeffs[b.Nef.value][12]
+                + b.Pm * Tin * qm_coeffs[b.Nef.value][13]
+                + b.Pm * Capacity * qm_coeffs[b.Nef.value][14]
+                + 1 * qm_coeffs[b.Nef.value][15]
+                + b.Pm**2 * qm_coeffs[b.Nef.value][16]
+                + b.Capacity**2 * qm_coeffs[b.Nef.value][17]
+                + Tin**2 * qm_coeffs[b.Nef.value][18]
+                + b.RR**2 * qm_coeffs[b.Nef.value][19]
+                + Xf**2 * qm_coeffs[b.Nef.value][20]
+            )
 
         # Last effect vapor temperature is 10 degree higher than condenser inlet temperature
         @self.Constraint(doc="System configuration 1")
@@ -899,18 +1009,18 @@ class LTMEDData(UnitModelBlockData):
             return b.TN == Tin + 10
 
         # Steam flow rate calculation
-        @self.Constraint(doc="Steam flow rate")
-        def qs_cal(b):
-            return b.steam_props[0].flow_mass_phase_comp[
-                "Vap", "H2O"
-            ] == pyunits.convert(
-                sum(
-                    b.distillate_props[0].flow_mass_phase_comp["Liq", j]
-                    for j in b.distillate_props.component_list
-                )
-                / b.GOR,
-                to_units=pyunits.kg / pyunits.s,
-            )
+        # @self.Constraint(doc="Steam flow rate")
+        # def qs_cal(b):
+        #     return b.steam_props[0].flow_mass_phase_comp[
+        #         "Vap", "H2O"
+        #     ] == pyunits.convert(
+        #         sum(
+        #             b.distillate_props[0].flow_mass_phase_comp["Liq", j]
+        #             for j in b.distillate_props.component_list
+        #         )
+        #         / b.GOR,
+        #         to_units=pyunits.kg / pyunits.s,
+        #     )
 
         # Energy consumption
         @self.Constraint(doc="STEC calculation")
@@ -1075,7 +1185,13 @@ def main():
     m.fs.unit.Capacity.fix(sys_capacity)
     m.fs.unit.RR.fix(recovery_rate)
 
-    print(value(m.fs.unit.GOR))
+    # access the solver
+    solver = get_solver()
 
-if __name__ == '__main__':
+    # solve the model
+    results = solver.solve(m)
+    print(m.fs.unit.GOR.value)
+
+
+if __name__ == "__main__":
     main()
