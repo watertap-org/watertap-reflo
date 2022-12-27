@@ -32,7 +32,7 @@ from watertap.costing.units.pump import cost_pump
 from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
 from watertap.costing.units.uv_aop import cost_uv_aop
 
-from watertap_contrib.seto.solar_models.zero_order import PhotovoltaicZO
+from watertap_contrib.seto.solar_models.zero_order import SolarEnergyZO, PhotovoltaicZO
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
 
 
