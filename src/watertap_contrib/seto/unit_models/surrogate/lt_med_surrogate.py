@@ -346,7 +346,7 @@ class LTMEDData(UnitModelBlockData):
         """
         Add Vars for model outputs
         """
-        self.P_req = Var(
+        self.thermal_power_requirement = Var(
             initialize=5000,
             bounds=(0, None),
             units=pyunits.kW,
@@ -924,14 +924,14 @@ class LTMEDData(UnitModelBlockData):
             )
 
         @self.Constraint(doc="Thermal power requirement calculation")
-        def P_req_cal(b):
-            return b.P_req == pyunits.convert(b.STEC * b.Capacity, to_units=pyunits.kW)
+        def thermal_power_requirement_cal(b):
+            return b.thermal_power_requirement == pyunits.convert(b.STEC * b.Capacity, to_units=pyunits.kW)
 
         # Mass flow rate
         @self.Constraint(doc="Feed and cooling water mass flow rate (kg/s)")
         def m_sw_cal(b):
             return b.m_sw * (h_cool - h_sw) == (
-                (1 - b.thermal_loss) * b.P_req - m_b * h_b - m_d * h_d + h_cool * m_f
+                (1 - b.thermal_loss) * b.thermal_power_requirement - m_b * h_b - m_d * h_d + h_cool * m_f
             )
 
         # Volume flow rates
@@ -958,9 +958,9 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.STEC) is None:
             iscale.set_scaling_factor(self.STEC, 1e-3)
 
-        if iscale.get_scaling_factor(self.P_req) is None:
+        if iscale.get_scaling_factor(self.thermal_power_requirement) is None:
             iscale.set_scaling_factor(
-                self.P_req,
+                self.thermal_power_requirement,
                 iscale.get_scaling_factor(self.Capacity)
                 * iscale.get_scaling_factor(self.STEC),
             )
@@ -1036,8 +1036,8 @@ class LTMEDData(UnitModelBlockData):
         sf = iscale.get_scaling_factor(self.STEC)
         iscale.constraint_scaling_transform(self.STEC_cal, sf)
 
-        sf = iscale.get_scaling_factor(self.P_req)
-        iscale.constraint_scaling_transform(self.P_req_cal, sf)
+        sf = iscale.get_scaling_factor(self.thermal_power_requirement)
+        iscale.constraint_scaling_transform(self.thermal_power_requirement_cal, sf)
 
         sf = iscale.get_scaling_factor(self.m_sw) * 1e-3
         iscale.constraint_scaling_transform(self.m_sw_cal, sf)
