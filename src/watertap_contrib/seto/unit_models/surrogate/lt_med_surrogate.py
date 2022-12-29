@@ -360,7 +360,7 @@ class LTMEDData(UnitModelBlockData):
             doc="Specific area (m2/m3/day))",
         )
 
-        self.STEC = Var(
+        self.spec_thermal_consumption = Var(
             initialize=65,
             bounds=(0, None),
             units=pyunits.kWh / pyunits.m**3,
@@ -913,9 +913,9 @@ class LTMEDData(UnitModelBlockData):
             )
 
         # Energy consumption
-        @self.Constraint(doc="STEC calculation")
-        def STEC_cal(b):
-            return b.STEC == pyunits.convert(
+        @self.Constraint(doc="spec_thermal_consumption calculation")
+        def spec_thermal_consumption_cal(b):
+            return b.spec_thermal_consumption == pyunits.convert(
                 1
                 / b.gain_output_ratio
                 * (b.steam_props[0].dh_vap_mass)
@@ -925,7 +925,7 @@ class LTMEDData(UnitModelBlockData):
 
         @self.Constraint(doc="Thermal power requirement calculation")
         def thermal_power_requirement_cal(b):
-            return b.thermal_power_requirement == pyunits.convert(b.STEC * b.Capacity, to_units=pyunits.kW)
+            return b.thermal_power_requirement == pyunits.convert(b.spec_thermal_consumption * b.Capacity, to_units=pyunits.kW)
 
         # Mass flow rate
         @self.Constraint(doc="Feed and cooling water mass flow rate (kg/s)")
@@ -955,14 +955,14 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.Capacity) is None:
             iscale.set_scaling_factor(self.Capacity, 1e-3)
 
-        if iscale.get_scaling_factor(self.STEC) is None:
-            iscale.set_scaling_factor(self.STEC, 1e-3)
+        if iscale.get_scaling_factor(self.spec_thermal_consumption) is None:
+            iscale.set_scaling_factor(self.spec_thermal_consumption, 1e-3)
 
         if iscale.get_scaling_factor(self.thermal_power_requirement) is None:
             iscale.set_scaling_factor(
                 self.thermal_power_requirement,
                 iscale.get_scaling_factor(self.Capacity)
-                * iscale.get_scaling_factor(self.STEC),
+                * iscale.get_scaling_factor(self.spec_thermal_consumption),
             )
 
         if iscale.get_scaling_factor(self.specific_area) is None:
@@ -1033,8 +1033,8 @@ class LTMEDData(UnitModelBlockData):
         )
         iscale.constraint_scaling_transform(self.qs_cal, sf)
 
-        sf = iscale.get_scaling_factor(self.STEC)
-        iscale.constraint_scaling_transform(self.STEC_cal, sf)
+        sf = iscale.get_scaling_factor(self.spec_thermal_consumption)
+        iscale.constraint_scaling_transform(self.spec_thermal_consumption_cal, sf)
 
         sf = iscale.get_scaling_factor(self.thermal_power_requirement)
         iscale.constraint_scaling_transform(self.thermal_power_requirement_cal, sf)
