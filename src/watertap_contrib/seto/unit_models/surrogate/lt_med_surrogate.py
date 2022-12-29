@@ -23,6 +23,7 @@ from pyomo.environ import (
     Constraint,
     units as pyunits,
     exp,
+    value
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
@@ -127,6 +128,13 @@ class LTMEDData(UnitModelBlockData):
             units=pyunits.dimensionless, doc="Number of effects"
         )
 
+        self.delta_T_last_effect = Param(
+            initialize=10,
+            mutable=True,
+            units=pyunits.K, 
+            doc="Temperature increase in last effect"
+        )
+
         self.recovery_ratio = Var(
             initialize=0.50,
             bounds=(0.30, 0.50),
@@ -159,7 +167,8 @@ class LTMEDData(UnitModelBlockData):
         )
 
         # Set alias for feed water temperature and convert to degree C for surrogate model
-        Tin = self.feed_props[0].temperature - 273.15 * pyunits.K
+        # Tin = self.feed_props[0].temperature - 273.15 * pyunits.K
+        self.Tin = Tin = pyunits.convert_temp_K_to_C(value(self.feed_props[0].temperature))
 
         # Set alias for feed water enthalpy and convert to kJ/kg
         h_sw = pyunits.convert(
@@ -186,25 +195,13 @@ class LTMEDData(UnitModelBlockData):
         def distillate_s(b):
             return b.distillate_props[0].conc_mass_phase_comp["Liq", "TDS"] == 0
 
-        # Connect the plant capacity with the distillate mass flow rate
-        self.Capacity = Var(
-            initialize=2000,
-            bounds=(2000, None),
-            units=pyunits.m**3 / pyunits.d,
-            doc="Capacity of the plant (m3/day)",
-        )
-
-        @self.Constraint(doc="distillate mass flow rate")
-        def distillate_mfr(b):
-            distillate_mfr = b.distillate_props[0].flow_vol_phase["Liq"]
-            return b.Capacity == pyunits.convert(
-                distillate_mfr, to_units=pyunits.m**3 / pyunits.d
-            )
-
         # distillate temperature is the same as last effect vapor temperature, which is 10 deg higher than condenser inlet seawater temperature
         @self.Constraint(doc="distillate temperature")
         def distillate_temp(b):
-            return b.distillate_props[0].temperature == Tin + (273.15 + 10) * pyunits.K
+            # return b.distillate_props[0].temperature == Tin + (273.15 + b.delta_T_last_effect) * pyunits.K
+            # return b.distillate_props[0].temperature == pyunits.convert_temp_C_to_K(Tin + b.delta_T_last_effect())
+            return b.distillate_props[0].temperature == b.feed_props[0].temperature + b.delta_T_last_effect
+
 
         # Set alias for distillate enthalpy and convert to kJ/kg
         h_d = pyunits.convert(
@@ -267,6 +264,7 @@ class LTMEDData(UnitModelBlockData):
         )
 
         # Use the source water for cooling (Same salinity)
+        # TODO: Fix this rather than constraint
         @self.Constraint(doc="Cooling reject salinity")
         def s_cooling_cal(b):
             return (
@@ -284,7 +282,7 @@ class LTMEDData(UnitModelBlockData):
         def T_cool_cal(b):
             return (
                 b.cooling_out_props[0].temperature
-                == b.distillate_props[0].temperature - 3 * pyunits.K
+                == b.distillate_props[0].temperature - 3
             )
 
         # Set alias for cooling reject volume flow rate (m3/hr)
@@ -324,8 +322,9 @@ class LTMEDData(UnitModelBlockData):
         # Feed flow rate calculation
         @self.Constraint(doc="Feed water volume flow rate")
         def qF_cal(b):
+            distillate_mfr = pyunits.convert(b.distillate_props[0].flow_vol_phase["Liq"], to_units=pyunits.m**3/pyunits.day)
             return b.feed_props[0].flow_vol_phase["Liq"] == pyunits.convert(
-                b.Capacity / b.recovery_ratio, to_units=pyunits.m**3 / pyunits.s
+                distillate_mfr / b.recovery_ratio, to_units=pyunits.m**3 / pyunits.s
             )
 
         # Set alias for feed volume flow rate and covert to m3/hr
@@ -896,7 +895,8 @@ class LTMEDData(UnitModelBlockData):
         # Last effect vapor temperature is 10 degree higher than condenser inlet temperature
         @self.Constraint(doc="System configuration 1")
         def TN_Tin(b):
-            return b.TN == Tin + 10
+            return b.TN == b.feed_props[0].temperature + 10
+            # return b.TN == b.distillate_props[0].temperature
 
         # Steam flow rate calculation
         @self.Constraint(doc="Steam flow rate")
@@ -925,7 +925,8 @@ class LTMEDData(UnitModelBlockData):
 
         @self.Constraint(doc="Thermal power requirement calculation")
         def thermal_power_requirement_cal(b):
-            return b.thermal_power_requirement == pyunits.convert(b.spec_thermal_consumption * b.Capacity, to_units=pyunits.kW)
+            distillate_mfr = pyunits.convert(b.distillate_props[0].flow_vol_phase["Liq"], to_units=pyunits.m**3/pyunits.day)
+            return b.thermal_power_requirement == pyunits.convert(b.spec_thermal_consumption * distillate_mfr, to_units=pyunits.kW)
 
         # Mass flow rate
         @self.Constraint(doc="Feed and cooling water mass flow rate (kg/s)")
@@ -948,12 +949,13 @@ class LTMEDData(UnitModelBlockData):
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
+        distillate_mfr = self.distillate_props[0].flow_vol_phase["Liq"]
 
         if iscale.get_scaling_factor(self.recovery_ratio) is None:
             iscale.set_scaling_factor(self.recovery_ratio, 1e1)
-
-        if iscale.get_scaling_factor(self.Capacity) is None:
-            iscale.set_scaling_factor(self.Capacity, 1e-3)
+        
+        if iscale.get_scaling_factor(distillate_mfr) is None:
+            iscale.set_scaling_factor(distillate_mfr, 1e-3)
 
         if iscale.get_scaling_factor(self.spec_thermal_consumption) is None:
             iscale.set_scaling_factor(self.spec_thermal_consumption, 1e-3)
@@ -961,7 +963,7 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.thermal_power_requirement) is None:
             iscale.set_scaling_factor(
                 self.thermal_power_requirement,
-                iscale.get_scaling_factor(self.Capacity)
+                iscale.get_scaling_factor(distillate_mfr)
                 * iscale.get_scaling_factor(self.spec_thermal_consumption),
             )
 
@@ -986,14 +988,14 @@ class LTMEDData(UnitModelBlockData):
         )
         iscale.constraint_scaling_transform(self.distillate_s, sf)
 
-        sf = iscale.get_scaling_factor(self.Capacity)
-        iscale.constraint_scaling_transform(self.distillate_mfr, sf)
+        # sf = iscale.get_scaling_factor(distillate_mfr)
+        # iscale.constraint_scaling_transform(self.distillate_mfr, sf)
 
         sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
         iscale.constraint_scaling_transform(self.distillate_temp, sf)
 
-        sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
-        iscale.constraint_scaling_transform(self.T_cool_cal, sf)
+        # sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
+        # iscale.constraint_scaling_transform(self.T_cool_cal, sf)
 
         sf = iscale.get_scaling_factor(
             self.cooling_out_props[0].conc_mass_phase_comp["Liq", "TDS"]

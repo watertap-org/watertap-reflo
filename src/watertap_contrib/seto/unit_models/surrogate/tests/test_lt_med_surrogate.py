@@ -7,6 +7,7 @@ from pyomo.environ import (
     Var,
     Constraint,
     assert_optimal_termination,
+    units as pyunits
 )
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock
@@ -59,13 +60,14 @@ class TestLTMED:
         feed_salinity = 35  # g/L
         feed_temperature = 25  # degC
         steam_temperature = 80  # deg C
-        sys_capacity = 2000  # m3/day
+        sys_capacity = pyunits.convert(2000 * pyunits.m**3/pyunits.day, to_units=pyunits.m**3/pyunits.s) # m3/day
         recovery_rate = 0.5  # dimensionless
+        feed_flow = sys_capacity / recovery_rate
 
         m.fs.unit.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
         m.fs.unit.feed_props[0].temperature.fix(feed_temperature + 273.15)
         m.fs.unit.steam_props[0].temperature.fix(steam_temperature + 273.15)
-        m.fs.unit.Capacity.fix(sys_capacity)
+        m.fs.unit.feed_props[0].flow_vol_phase["Liq"].fix(feed_flow)
         m.fs.unit.recovery_ratio.fix(recovery_rate)
 
         return m
@@ -94,8 +96,8 @@ class TestLTMED:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 182
-        assert number_total_constraints(m) == 53
+        assert number_variables(m) == 181
+        assert number_total_constraints(m) == 52
         assert number_unused_variables(m) == 89  # vars from property package parameters
 
     @pytest.mark.unit
