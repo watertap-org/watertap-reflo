@@ -367,7 +367,7 @@ class LTMEDData(UnitModelBlockData):
             doc="Specific thermal power consumption (kWh/m3)",
         )
 
-        self.GOR = Var(
+        self.gain_output_ratio = Var(
             initialize=10,
             bounds=(0, None),
             units=pyunits.kg / pyunits.kg,
@@ -398,11 +398,11 @@ class LTMEDData(UnitModelBlockData):
             doc="Feed and cooling water volume flow rate (m3/h)",
         )
 
-        # Surrogate equations for calculating GOR
+        # Surrogate equations for calculating gain_output_ratio
         number_effects_vals = [3, 6, 9, 12, 14]  # Number of effects
         coeffs_set = range(15)  # Number of coefficients
 
-        GOR_coeffs = {
+        gain_output_ratio_coeffs = {
             3: [
                 1.60e-07,
                 0.826895712,
@@ -490,25 +490,25 @@ class LTMEDData(UnitModelBlockData):
             ],
         }
 
-        @self.Constraint(doc="GOR surrogate equation")
-        def GOR_cal(b):
+        @self.Constraint(doc="gain_output_ratio surrogate equation")
+        def gain_output_ratio_cal(b):
             return (
-                b.GOR
-                == Xf * GOR_coeffs[b.number_effects.value][0]
-                + b.recovery_ratio * GOR_coeffs[b.number_effects.value][1]
-                + Xf * b.recovery_ratio * GOR_coeffs[b.number_effects.value][2]
-                + b.TN * GOR_coeffs[b.number_effects.value][3]
-                + b.TN * Xf * GOR_coeffs[b.number_effects.value][4]
-                + b.TN * b.recovery_ratio * GOR_coeffs[b.number_effects.value][5]
-                + Ts * GOR_coeffs[b.number_effects.value][6]
-                + Ts * Xf * GOR_coeffs[b.number_effects.value][7]
-                + Ts * b.recovery_ratio * GOR_coeffs[b.number_effects.value][8]
-                + Ts * b.TN * GOR_coeffs[b.number_effects.value][9]
-                + 1 * GOR_coeffs[b.number_effects.value][10]
-                + Ts**2 * GOR_coeffs[b.number_effects.value][11]
-                + b.TN**2 * GOR_coeffs[b.number_effects.value][12]
-                + b.recovery_ratio**2 * GOR_coeffs[b.number_effects.value][13]
-                + Xf**2 * GOR_coeffs[b.number_effects.value][14]
+                b.gain_output_ratio
+                == Xf * gain_output_ratio_coeffs[b.number_effects.value][0]
+                + b.recovery_ratio * gain_output_ratio_coeffs[b.number_effects.value][1]
+                + Xf * b.recovery_ratio * gain_output_ratio_coeffs[b.number_effects.value][2]
+                + b.TN * gain_output_ratio_coeffs[b.number_effects.value][3]
+                + b.TN * Xf * gain_output_ratio_coeffs[b.number_effects.value][4]
+                + b.TN * b.recovery_ratio * gain_output_ratio_coeffs[b.number_effects.value][5]
+                + Ts * gain_output_ratio_coeffs[b.number_effects.value][6]
+                + Ts * Xf * gain_output_ratio_coeffs[b.number_effects.value][7]
+                + Ts * b.recovery_ratio * gain_output_ratio_coeffs[b.number_effects.value][8]
+                + Ts * b.TN * gain_output_ratio_coeffs[b.number_effects.value][9]
+                + 1 * gain_output_ratio_coeffs[b.number_effects.value][10]
+                + Ts**2 * gain_output_ratio_coeffs[b.number_effects.value][11]
+                + b.TN**2 * gain_output_ratio_coeffs[b.number_effects.value][12]
+                + b.recovery_ratio**2 * gain_output_ratio_coeffs[b.number_effects.value][13]
+                + Xf**2 * gain_output_ratio_coeffs[b.number_effects.value][14]
             )
 
         # Surrogate equations for calculating specific_area
@@ -908,7 +908,7 @@ class LTMEDData(UnitModelBlockData):
                     b.distillate_props[0].flow_mass_phase_comp["Liq", j]
                     for j in b.distillate_props.component_list
                 )
-                / b.GOR,
+                / b.gain_output_ratio,
                 to_units=pyunits.kg / pyunits.s,
             )
 
@@ -917,7 +917,7 @@ class LTMEDData(UnitModelBlockData):
         def STEC_cal(b):
             return b.STEC == pyunits.convert(
                 1
-                / b.GOR
+                / b.gain_output_ratio
                 * (b.steam_props[0].dh_vap_mass)
                 * b.distillate_props[0].dens_mass_phase["Liq"],
                 to_units=pyunits.kWh / pyunits.m**3,
@@ -968,8 +968,8 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.specific_area) is None:
             iscale.set_scaling_factor(self.specific_area, 1e-1)
 
-        if iscale.get_scaling_factor(self.GOR) is None:
-            iscale.set_scaling_factor(self.GOR, 1e-1)
+        if iscale.get_scaling_factor(self.gain_output_ratio) is None:
+            iscale.set_scaling_factor(self.gain_output_ratio, 1e-1)
 
         if iscale.get_scaling_factor(self.TN) is None:
             iscale.set_scaling_factor(self.TN, 1e-1)
@@ -1019,8 +1019,8 @@ class LTMEDData(UnitModelBlockData):
         sf = iscale.get_scaling_factor(self.brine_props[0].flow_vol_phase["Liq"])
         iscale.constraint_scaling_transform(self.q_b_cal, sf)
 
-        sf = iscale.get_scaling_factor(self.GOR)
-        iscale.constraint_scaling_transform(self.GOR_cal, sf)
+        sf = iscale.get_scaling_factor(self.gain_output_ratio)
+        iscale.constraint_scaling_transform(self.gain_output_ratio_cal, sf)
 
         sf = iscale.get_scaling_factor(self.specific_area)
         iscale.constraint_scaling_transform(self.specific_area_cal, sf)
