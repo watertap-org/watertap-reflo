@@ -136,7 +136,7 @@ class TestLTMED:
     def test_solution(self, LT_MED_frame):
         m = LT_MED_frame
         assert pytest.approx(9.9127, rel=1e-3) == value(m.fs.unit.GOR)
-        assert pytest.approx(3.9592, rel=1e-3) == value(m.fs.unit.sA)
+        assert pytest.approx(3.9592, rel=1e-3) == value(m.fs.unit.specific_area)
         assert pytest.approx(6.4290e1, rel=1e-3) == value(m.fs.unit.STEC)
         assert pytest.approx(5.3575e3, rel=1e-3) == value(m.fs.unit.thermal_power_requirement)
         assert pytest.approx(2.3211, rel=1e-3) == value(
