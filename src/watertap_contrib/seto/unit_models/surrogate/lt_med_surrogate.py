@@ -122,7 +122,9 @@ class LTMEDData(UnitModelBlockData):
         Add system configurations
         """
         self.number_effects = Param(
-            initialize=12, mutable=True, units=pyunits.dimensionless, doc="Number of effects"
+            initialize=12, mutable=True, 
+            within=Set(initialize=[3, 6, 9, 12, 14]), 
+            units=pyunits.dimensionless, doc="Number of effects"
         )
 
         self.RR = Var(
