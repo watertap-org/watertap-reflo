@@ -34,12 +34,15 @@ from watertap.costing.units.uv_aop import cost_uv_aop
 
 from watertap_contrib.seto.solar_models.zero_order import SolarEnergyZO, PhotovoltaicZO
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
+from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
+from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 
 
 @declare_process_block_class("SETOWaterTAPCosting")
 class SETOWaterTAPCostingData(WaterTAPCostingData):
     unit_mapping = {
         SolarEnergyZO: cost_pv,  # Keeping this for now
+        LTMEDSurrogate: cost_lt_med_surrogate,
         PhotovoltaicZO: cost_pv,
         Mixer: cost_mixer,
         Pump: cost_pump,
