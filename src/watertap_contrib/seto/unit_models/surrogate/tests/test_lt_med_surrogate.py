@@ -66,7 +66,7 @@ class TestLTMED:
         m.fs.unit.feed_props[0].temperature.fix(feed_temperature + 273.15)
         m.fs.unit.steam_props[0].temperature.fix(steam_temperature + 273.15)
         m.fs.unit.Capacity.fix(sys_capacity)
-        m.fs.unit.RR.fix(recovery_rate)
+        m.fs.unit.recovery_ratio.fix(recovery_rate)
 
         return m
 

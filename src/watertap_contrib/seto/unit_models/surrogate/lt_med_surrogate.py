@@ -127,15 +127,15 @@ class LTMEDData(UnitModelBlockData):
             units=pyunits.dimensionless, doc="Number of effects"
         )
 
-        self.RR = Var(
+        self.recovery_ratio = Var(
             initialize=0.50,
             bounds=(0.30, 0.50),
             units=pyunits.dimensionless,
             doc="Recovery ratio",
         )
 
-        self.Q_loss = Param(
-            initialize=0.054, units=pyunits.dimensionless, doc="System thermal loss"
+        self.thermal_loss = Param(
+            initialize=0.054, units=pyunits.dimensionless, doc="System thermal loss" ## units??
         )
 
         """
@@ -232,7 +232,7 @@ class LTMEDData(UnitModelBlockData):
         def s_b_cal(b):
             return b.brine_props[0].conc_mass_phase_comp["Liq", "TDS"] == b.feed_props[
                 0
-            ].conc_mass_phase_comp["Liq", "TDS"] / (1 - b.RR)
+            ].conc_mass_phase_comp["Liq", "TDS"] / (1 - b.recovery_ratio)
 
         # Brine temperature
         @self.Constraint(doc="Brine temperature")
@@ -325,7 +325,7 @@ class LTMEDData(UnitModelBlockData):
         @self.Constraint(doc="Feed water volume flow rate")
         def qF_cal(b):
             return b.feed_props[0].flow_vol_phase["Liq"] == pyunits.convert(
-                b.Capacity / b.RR, to_units=pyunits.m**3 / pyunits.s
+                b.Capacity / b.recovery_ratio, to_units=pyunits.m**3 / pyunits.s
             )
 
         # Set alias for feed volume flow rate and covert to m3/hr
@@ -495,19 +495,19 @@ class LTMEDData(UnitModelBlockData):
             return (
                 b.GOR
                 == Xf * GOR_coeffs[b.number_effects.value][0]
-                + b.RR * GOR_coeffs[b.number_effects.value][1]
-                + Xf * b.RR * GOR_coeffs[b.number_effects.value][2]
+                + b.recovery_ratio * GOR_coeffs[b.number_effects.value][1]
+                + Xf * b.recovery_ratio * GOR_coeffs[b.number_effects.value][2]
                 + b.TN * GOR_coeffs[b.number_effects.value][3]
                 + b.TN * Xf * GOR_coeffs[b.number_effects.value][4]
-                + b.TN * b.RR * GOR_coeffs[b.number_effects.value][5]
+                + b.TN * b.recovery_ratio * GOR_coeffs[b.number_effects.value][5]
                 + Ts * GOR_coeffs[b.number_effects.value][6]
                 + Ts * Xf * GOR_coeffs[b.number_effects.value][7]
-                + Ts * b.RR * GOR_coeffs[b.number_effects.value][8]
+                + Ts * b.recovery_ratio * GOR_coeffs[b.number_effects.value][8]
                 + Ts * b.TN * GOR_coeffs[b.number_effects.value][9]
                 + 1 * GOR_coeffs[b.number_effects.value][10]
                 + Ts**2 * GOR_coeffs[b.number_effects.value][11]
                 + b.TN**2 * GOR_coeffs[b.number_effects.value][12]
-                + b.RR**2 * GOR_coeffs[b.number_effects.value][13]
+                + b.recovery_ratio**2 * GOR_coeffs[b.number_effects.value][13]
                 + Xf**2 * GOR_coeffs[b.number_effects.value][14]
             )
 
@@ -783,38 +783,38 @@ class LTMEDData(UnitModelBlockData):
                     b.sA
                     == Xf * sA_coeffs[b.number_effects.value][0]
                     + Xf**2 * sA_coeffs[b.number_effects.value][1]
-                    + b.RR * sA_coeffs[b.number_effects.value][2]
-                    + b.RR * Xf * sA_coeffs[b.number_effects.value][3]
-                    + b.RR * Xf**2 * sA_coeffs[b.number_effects.value][4]
-                    + b.RR**2 * sA_coeffs[b.number_effects.value][5]
-                    + b.RR**2 * Xf * sA_coeffs[b.number_effects.value][6]
+                    + b.recovery_ratio * sA_coeffs[b.number_effects.value][2]
+                    + b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][3]
+                    + b.recovery_ratio * Xf**2 * sA_coeffs[b.number_effects.value][4]
+                    + b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][5]
+                    + b.recovery_ratio**2 * Xf * sA_coeffs[b.number_effects.value][6]
                     + b.TN * sA_coeffs[b.number_effects.value][7]
                     + b.TN * Xf * sA_coeffs[b.number_effects.value][8]
                     + b.TN * Xf**2 * sA_coeffs[b.number_effects.value][9]
-                    + b.TN * b.RR * sA_coeffs[b.number_effects.value][10]
-                    + b.TN * b.RR * Xf * sA_coeffs[b.number_effects.value][11]
-                    + b.TN * b.RR**2 * sA_coeffs[b.number_effects.value][12]
+                    + b.TN * b.recovery_ratio * sA_coeffs[b.number_effects.value][10]
+                    + b.TN * b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][11]
+                    + b.TN * b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][12]
                     + b.TN**2 * sA_coeffs[b.number_effects.value][13]
                     + b.TN**2 * Xf * sA_coeffs[b.number_effects.value][14]
-                    + b.TN**2 * b.RR * sA_coeffs[b.number_effects.value][15]
+                    + b.TN**2 * b.recovery_ratio * sA_coeffs[b.number_effects.value][15]
                     + Ts * sA_coeffs[b.number_effects.value][16]
                     + Ts * Xf * sA_coeffs[b.number_effects.value][17]
                     + Ts * Xf**2 * sA_coeffs[b.number_effects.value][18]
-                    + Ts * b.RR * sA_coeffs[b.number_effects.value][19]
-                    + Ts * b.RR * Xf * sA_coeffs[b.number_effects.value][20]
-                    + Ts * b.RR**2 * sA_coeffs[b.number_effects.value][21]
+                    + Ts * b.recovery_ratio * sA_coeffs[b.number_effects.value][19]
+                    + Ts * b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][20]
+                    + Ts * b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][21]
                     + Ts * b.TN * sA_coeffs[b.number_effects.value][22]
                     + Ts * b.TN * Xf * sA_coeffs[b.number_effects.value][23]
-                    + Ts * b.TN * b.RR * sA_coeffs[b.number_effects.value][24]
+                    + Ts * b.TN * b.recovery_ratio * sA_coeffs[b.number_effects.value][24]
                     + Ts * b.TN**2 * sA_coeffs[b.number_effects.value][25]
                     + Ts**2 * sA_coeffs[b.number_effects.value][26]
                     + Ts**2 * Xf * sA_coeffs[b.number_effects.value][27]
-                    + Ts**2 * b.RR * sA_coeffs[b.number_effects.value][28]
+                    + Ts**2 * b.recovery_ratio * sA_coeffs[b.number_effects.value][28]
                     + Ts**2 * b.TN * sA_coeffs[b.number_effects.value][29]
                     + 1 * sA_coeffs[b.number_effects.value][30]
                     + Ts**3 * sA_coeffs[b.number_effects.value][31]
                     + b.TN**3 * sA_coeffs[b.number_effects.value][32]
-                    + b.RR**3 * sA_coeffs[b.number_effects.value][33]
+                    + b.recovery_ratio**3 * sA_coeffs[b.number_effects.value][33]
                     + Xf**3 * sA_coeffs[b.number_effects.value][34]
                 )
 
@@ -824,72 +824,72 @@ class LTMEDData(UnitModelBlockData):
                     == Xf * sA_coeffs[b.number_effects.value][0]
                     + Xf**2 * sA_coeffs[b.number_effects.value][1]
                     + Xf**3 * sA_coeffs[b.number_effects.value][2]
-                    + b.RR * sA_coeffs[b.number_effects.value][3]
-                    + b.RR * Xf * sA_coeffs[b.number_effects.value][4]
-                    + b.RR * Xf**2 * sA_coeffs[b.number_effects.value][5]
-                    + b.RR * Xf**3 * sA_coeffs[b.number_effects.value][6]
-                    + b.RR**2 * sA_coeffs[b.number_effects.value][7]
-                    + b.RR**2 * Xf * sA_coeffs[b.number_effects.value][8]
-                    + b.RR**2 * Xf**2 * sA_coeffs[b.number_effects.value][9]
-                    + b.RR**3 * sA_coeffs[b.number_effects.value][10]
-                    + b.RR**3 * Xf * sA_coeffs[b.number_effects.value][11]
+                    + b.recovery_ratio * sA_coeffs[b.number_effects.value][3]
+                    + b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][4]
+                    + b.recovery_ratio * Xf**2 * sA_coeffs[b.number_effects.value][5]
+                    + b.recovery_ratio * Xf**3 * sA_coeffs[b.number_effects.value][6]
+                    + b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][7]
+                    + b.recovery_ratio**2 * Xf * sA_coeffs[b.number_effects.value][8]
+                    + b.recovery_ratio**2 * Xf**2 * sA_coeffs[b.number_effects.value][9]
+                    + b.recovery_ratio**3 * sA_coeffs[b.number_effects.value][10]
+                    + b.recovery_ratio**3 * Xf * sA_coeffs[b.number_effects.value][11]
                     + b.TN * sA_coeffs[b.number_effects.value][12]
                     + b.TN * Xf * sA_coeffs[b.number_effects.value][13]
                     + b.TN * Xf**2 * sA_coeffs[b.number_effects.value][14]
                     + b.TN * Xf**3 * sA_coeffs[b.number_effects.value][15]
-                    + b.TN * b.RR * sA_coeffs[b.number_effects.value][16]
-                    + b.TN * b.RR * Xf * sA_coeffs[b.number_effects.value][17]
-                    + b.TN * b.RR * Xf**2 * sA_coeffs[b.number_effects.value][18]
-                    + b.TN * b.RR**2 * sA_coeffs[b.number_effects.value][19]
-                    + b.TN * b.RR**2 * Xf * sA_coeffs[b.number_effects.value][20]
-                    + b.TN * b.RR**3 * sA_coeffs[b.number_effects.value][21]
+                    + b.TN * b.recovery_ratio * sA_coeffs[b.number_effects.value][16]
+                    + b.TN * b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][17]
+                    + b.TN * b.recovery_ratio * Xf**2 * sA_coeffs[b.number_effects.value][18]
+                    + b.TN * b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][19]
+                    + b.TN * b.recovery_ratio**2 * Xf * sA_coeffs[b.number_effects.value][20]
+                    + b.TN * b.recovery_ratio**3 * sA_coeffs[b.number_effects.value][21]
                     + b.TN**2 * sA_coeffs[b.number_effects.value][22]
                     + b.TN**2 * Xf * sA_coeffs[b.number_effects.value][23]
                     + b.TN**2 * Xf**2 * sA_coeffs[b.number_effects.value][24]
-                    + b.TN**2 * b.RR * sA_coeffs[b.number_effects.value][25]
-                    + b.TN**2 * b.RR * Xf * sA_coeffs[b.number_effects.value][26]
-                    + b.TN**2 * b.RR**2 * sA_coeffs[b.number_effects.value][27]
+                    + b.TN**2 * b.recovery_ratio * sA_coeffs[b.number_effects.value][25]
+                    + b.TN**2 * b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][26]
+                    + b.TN**2 * b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][27]
                     + b.TN**3 * sA_coeffs[b.number_effects.value][28]
                     + b.TN**3 * Xf * sA_coeffs[b.number_effects.value][29]
-                    + b.TN**3 * b.RR * sA_coeffs[b.number_effects.value][30]
+                    + b.TN**3 * b.recovery_ratio * sA_coeffs[b.number_effects.value][30]
                     + Ts * sA_coeffs[b.number_effects.value][31]
                     + Ts * Xf * sA_coeffs[b.number_effects.value][32]
                     + Ts * Xf**2 * sA_coeffs[b.number_effects.value][33]
                     + Ts * Xf**3 * sA_coeffs[b.number_effects.value][34]
-                    + Ts * b.RR * sA_coeffs[b.number_effects.value][35]
-                    + Ts * b.RR * Xf * sA_coeffs[b.number_effects.value][36]
-                    + Ts * b.RR * Xf**2 * sA_coeffs[b.number_effects.value][37]
-                    + Ts * b.RR**2 * sA_coeffs[b.number_effects.value][38]
-                    + Ts * b.RR**2 * Xf * sA_coeffs[b.number_effects.value][39]
-                    + Ts * b.RR**3 * sA_coeffs[b.number_effects.value][40]
+                    + Ts * b.recovery_ratio * sA_coeffs[b.number_effects.value][35]
+                    + Ts * b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][36]
+                    + Ts * b.recovery_ratio * Xf**2 * sA_coeffs[b.number_effects.value][37]
+                    + Ts * b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][38]
+                    + Ts * b.recovery_ratio**2 * Xf * sA_coeffs[b.number_effects.value][39]
+                    + Ts * b.recovery_ratio**3 * sA_coeffs[b.number_effects.value][40]
                     + Ts * b.TN * sA_coeffs[b.number_effects.value][41]
                     + Ts * b.TN * Xf * sA_coeffs[b.number_effects.value][42]
                     + Ts * b.TN * Xf**2 * sA_coeffs[b.number_effects.value][43]
-                    + Ts * b.TN * b.RR * sA_coeffs[b.number_effects.value][44]
-                    + Ts * b.TN * b.RR * Xf * sA_coeffs[b.number_effects.value][45]
-                    + Ts * b.TN * b.RR**2 * sA_coeffs[b.number_effects.value][46]
+                    + Ts * b.TN * b.recovery_ratio * sA_coeffs[b.number_effects.value][44]
+                    + Ts * b.TN * b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][45]
+                    + Ts * b.TN * b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][46]
                     + Ts * b.TN**2 * sA_coeffs[b.number_effects.value][47]
                     + Ts * b.TN**2 * Xf * sA_coeffs[b.number_effects.value][48]
-                    + Ts * b.TN**2 * b.RR * sA_coeffs[b.number_effects.value][49]
+                    + Ts * b.TN**2 * b.recovery_ratio * sA_coeffs[b.number_effects.value][49]
                     + Ts * b.TN**3 * sA_coeffs[b.number_effects.value][50]
                     + Ts**2 * sA_coeffs[b.number_effects.value][51]
                     + Ts**2 * Xf * sA_coeffs[b.number_effects.value][52]
                     + Ts**2 * Xf**2 * sA_coeffs[b.number_effects.value][53]
-                    + Ts**2 * b.RR * sA_coeffs[b.number_effects.value][54]
-                    + Ts**2 * b.RR * Xf * sA_coeffs[b.number_effects.value][55]
-                    + Ts**2 * b.RR**2 * sA_coeffs[b.number_effects.value][56]
+                    + Ts**2 * b.recovery_ratio * sA_coeffs[b.number_effects.value][54]
+                    + Ts**2 * b.recovery_ratio * Xf * sA_coeffs[b.number_effects.value][55]
+                    + Ts**2 * b.recovery_ratio**2 * sA_coeffs[b.number_effects.value][56]
                     + Ts**2 * b.TN * sA_coeffs[b.number_effects.value][57]
                     + Ts**2 * b.TN * Xf * sA_coeffs[b.number_effects.value][58]
-                    + Ts**2 * b.TN * b.RR * sA_coeffs[b.number_effects.value][59]
+                    + Ts**2 * b.TN * b.recovery_ratio * sA_coeffs[b.number_effects.value][59]
                     + Ts**2 * b.TN**2 * sA_coeffs[b.number_effects.value][60]
                     + Ts**3 * sA_coeffs[b.number_effects.value][61]
                     + Ts**3 * Xf * sA_coeffs[b.number_effects.value][62]
-                    + Ts**3 * b.RR * sA_coeffs[b.number_effects.value][63]
+                    + Ts**3 * b.recovery_ratio * sA_coeffs[b.number_effects.value][63]
                     + Ts**3 * b.TN * sA_coeffs[b.number_effects.value][64]
                     + 1 * sA_coeffs[b.number_effects.value][65]
                     + Ts**4 * sA_coeffs[b.number_effects.value][66]
                     + b.TN**4 * sA_coeffs[b.number_effects.value][67]
-                    + b.RR**4 * sA_coeffs[b.number_effects.value][68]
+                    + b.recovery_ratio**4 * sA_coeffs[b.number_effects.value][68]
                     + Xf**4 * sA_coeffs[b.number_effects.value][69]
                 )
 
@@ -931,7 +931,7 @@ class LTMEDData(UnitModelBlockData):
         @self.Constraint(doc="Feed and cooling water mass flow rate (kg/s)")
         def m_sw_cal(b):
             return b.m_sw * (h_cool - h_sw) == (
-                (1 - b.Q_loss) * b.P_req - m_b * h_b - m_d * h_d + h_cool * m_f
+                (1 - b.thermal_loss) * b.P_req - m_b * h_b - m_d * h_d + h_cool * m_f
             )
 
         # Volume flow rates
@@ -949,8 +949,8 @@ class LTMEDData(UnitModelBlockData):
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
-        if iscale.get_scaling_factor(self.RR) is None:
-            iscale.set_scaling_factor(self.RR, 1e1)
+        if iscale.get_scaling_factor(self.recovery_ratio) is None:
+            iscale.set_scaling_factor(self.recovery_ratio, 1e1)
 
         if iscale.get_scaling_factor(self.Capacity) is None:
             iscale.set_scaling_factor(self.Capacity, 1e-3)
