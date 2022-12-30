@@ -40,7 +40,7 @@ __author__ = "Zhuoran Zhang"
 @declare_process_block_class("LTMEDSurrogate")
 class LTMEDData(UnitModelBlockData):
     """
-    Low-temperature multi-effect distillation model
+    Low-temperature multi-effect distillation surrogate model
     """
 
     CONFIG = ConfigBlock()
@@ -52,8 +52,7 @@ class LTMEDData(UnitModelBlockData):
             default=False,
             description="Dynamic model flag - must be False",
             doc="""Indicates whether this model will be dynamic or not,
-    **default** = False. The filtration unit does not support dynamic
-    behavior, thus this must be False.""",
+    **default** = False.""",
         ),
     )
     CONFIG.declare(
@@ -63,17 +62,16 @@ class LTMEDData(UnitModelBlockData):
             domain=In([False]),
             description="Holdup construction flag - must be False",
             doc="""Indicates whether holdup terms should be constructed or not.
-    **default** - False. The filtration unit does not have defined volume, thus
-    this must be False.""",
+    **default** - False.""",
         ),
     )
     CONFIG.declare(
-        "property_package",
+        "property_package_water",
         ConfigValue(
             default=useDefault,
             domain=is_physical_parameter_block,
-            description="Property package to use for control volume",
-            doc="""Property parameter object used to define property calculations,
+            description="Property package to use for feed, distillate, brine, and cooling water properties",
+            doc="""Property parameter object used to define water property calculations,
     **default** - useDefault.
     **Valid values:** {
     **useDefault** - use default package from parent model or flowsheet,
@@ -81,12 +79,12 @@ class LTMEDData(UnitModelBlockData):
         ),
     )
     CONFIG.declare(
-        "property_package2",
+        "property_package_steam",
         ConfigValue(
             default=useDefault,
             domain=is_physical_parameter_block,
-            description="Property package to use for control volume",
-            doc="""Property parameter object used to define property calculations,
+            description="Property package to use for steam properties",
+            doc="""Property parameter object used to define steam property calculations,
     **default** - useDefault.
     **Valid values:** {
     **useDefault** - use default package from parent model or flowsheet,
@@ -150,10 +148,10 @@ class LTMEDData(UnitModelBlockData):
         """
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
-        tmp_dict["parameters"] = self.config.property_package
+        tmp_dict["parameters"] = self.config.property_package_water
         tmp_dict["defined_state"] = False
 
-        self.feed_props = self.config.property_package.state_block_class(
+        self.feed_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of feed water",
             **tmp_dict
@@ -162,7 +160,7 @@ class LTMEDData(UnitModelBlockData):
         """
         Add block for distillate
         """
-        self.distillate_props = self.config.property_package.state_block_class(
+        self.distillate_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of distillate",
             **tmp_dict
@@ -180,7 +178,7 @@ class LTMEDData(UnitModelBlockData):
         """
         tmp_dict["defined_state"] = False
 
-        self.brine_props = self.config.property_package.state_block_class(
+        self.brine_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time, doc="Material properties of brine", **tmp_dict
         )
 
@@ -203,7 +201,7 @@ class LTMEDData(UnitModelBlockData):
         """
         Add block for reject cooling water
         """
-        self.cooling_out_props = self.config.property_package.state_block_class(
+        self.cooling_out_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of cooling reject",
             **tmp_dict
@@ -229,10 +227,10 @@ class LTMEDData(UnitModelBlockData):
         """
         Add block for heating steam
         """
-        tmp_dict["parameters"] = self.config.property_package2
+        tmp_dict["parameters"] = self.config.property_package_steam
         tmp_dict["defined_state"] = True
 
-        self.steam_props = self.config.property_package2.state_block_class(
+        self.steam_props = self.config.property_package_steam.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of heating steam",
             **tmp_dict
