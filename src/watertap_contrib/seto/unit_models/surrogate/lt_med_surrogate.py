@@ -13,22 +13,17 @@
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    Block,
     Set,
     Var,
     Param,
     Suffix,
-    NonNegativeReals,
-    Reference,
     Constraint,
     units as pyunits,
-    exp,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # Import IDAES cores
 from idaes.core import (
-    ControlVolume0DBlock,
     declare_process_block_class,
     UnitModelBlockData,
     useDefault,
@@ -45,7 +40,7 @@ __author__ = "Zhuoran Zhang"
 @declare_process_block_class("LTMEDSurrogate")
 class LTMEDData(UnitModelBlockData):
     """
-    Low-temperature multi-effect distillation model
+    Low-temperature multi-effect distillation surrogate model
     """
 
     CONFIG = ConfigBlock()
@@ -57,8 +52,7 @@ class LTMEDData(UnitModelBlockData):
             default=False,
             description="Dynamic model flag - must be False",
             doc="""Indicates whether this model will be dynamic or not,
-    **default** = False. The filtration unit does not support dynamic
-    behavior, thus this must be False.""",
+    **default** = False.""",
         ),
     )
     CONFIG.declare(
@@ -68,17 +62,16 @@ class LTMEDData(UnitModelBlockData):
             domain=In([False]),
             description="Holdup construction flag - must be False",
             doc="""Indicates whether holdup terms should be constructed or not.
-    **default** - False. The filtration unit does not have defined volume, thus
-    this must be False.""",
+    **default** - False.""",
         ),
     )
     CONFIG.declare(
-        "property_package",
+        "property_package_water",
         ConfigValue(
             default=useDefault,
             domain=is_physical_parameter_block,
-            description="Property package to use for control volume",
-            doc="""Property parameter object used to define property calculations,
+            description="Property package to use for feed, distillate, brine, and cooling water properties",
+            doc="""Property parameter object used to define water property calculations,
     **default** - useDefault.
     **Valid values:** {
     **useDefault** - use default package from parent model or flowsheet,
@@ -86,12 +79,12 @@ class LTMEDData(UnitModelBlockData):
         ),
     )
     CONFIG.declare(
-        "property_package2",
+        "property_package_steam",
         ConfigValue(
             default=useDefault,
             domain=is_physical_parameter_block,
-            description="Property package to use for control volume",
-            doc="""Property parameter object used to define property calculations,
+            description="Property package to use for steam properties",
+            doc="""Property parameter object used to define steam property calculations,
     **default** - useDefault.
     **Valid values:** {
     **useDefault** - use default package from parent model or flowsheet,
@@ -116,24 +109,42 @@ class LTMEDData(UnitModelBlockData):
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
-        units_meta = self.config.property_package.get_metadata().get_derived_units
-
         """
         Add system configurations
         """
-        self.Nef = Param(
-            initialize=12, units=pyunits.dimensionless, doc="Number of effects"
+        self.number_effects = Param(
+            initialize=12,
+            mutable=True,
+            within=Set(initialize=[3, 6, 9, 12, 14]),
+            units=pyunits.dimensionless,
+            doc="Number of effects",
         )
 
-        self.RR = Var(
+        self.delta_T_last_effect = Param(
+            initialize=10,
+            mutable=True,
+            units=pyunits.K,
+            doc="Temperature increase in last effect",
+        )
+
+        self.delta_T_cooling_reject = Param(
+            initialize=-3,
+            mutable=True,
+            units=pyunits.K,
+            doc="Temperature decrease in cooling reject water",
+        )
+
+        self.recovery_ratio = Var(
             initialize=0.50,
             bounds=(0.30, 0.50),
             units=pyunits.dimensionless,
             doc="Recovery ratio",
         )
 
-        self.Q_loss = Param(
-            initialize=0.054, units=pyunits.dimensionless, doc="System thermal loss"
+        self.thermal_loss = Param(
+            initialize=0.054,
+            units=pyunits.dimensionless,
+            doc="System thermal loss",  ## units??
         )
 
         """
@@ -141,200 +152,115 @@ class LTMEDData(UnitModelBlockData):
         """
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
-        tmp_dict["parameters"] = self.config.property_package
+        tmp_dict["parameters"] = self.config.property_package_water
         tmp_dict["defined_state"] = False
 
-        self.feed_props = self.config.property_package.state_block_class(
+        self.feed_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of feed water",
             **tmp_dict
         )
 
-        # Set alias for feed water salinity and convert to mg/L for surrogate model
-        Xf = pyunits.convert(
-            self.feed_props[0].conc_mass_phase_comp["Liq", "TDS"],
-            to_units=pyunits.mg / pyunits.L,
-        )
-
-        # Set alias for feed water temperature and convert to degree C for surrogate model
-        Tin = self.feed_props[0].temperature - 273.15 * pyunits.K
-
-        # Set alias for feed water enthalpy and convert to kJ/kg
-        h_sw = pyunits.convert(
-            self.feed_props[0].enth_mass_phase["Liq"], to_units=pyunits.kJ / pyunits.kg
-        )
-
-        # Set alias for feed water mass flow rate (kg/s)
-        m_f = sum(
-            self.feed_props[0].flow_mass_phase_comp["Liq", j]
-            for j in self.feed_props.component_list
-        )
-
         """
         Add block for distillate
         """
-        self.distillate_props = self.config.property_package.state_block_class(
+        self.distillate_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of distillate",
             **tmp_dict
         )
 
-        # distillate salinity is 0
-        @self.Constraint(doc="distillate salinity")
-        def distillate_s(b):
-            return b.distillate_props[0].conc_mass_phase_comp["Liq", "TDS"] == 0
-
-        # Connect the plant capacity with the distillate mass flow rate
-        self.Capacity = Var(
-            initialize=2000,
-            bounds=(2000, None),
-            units=pyunits.m**3 / pyunits.d,
-            doc="Capacity of the plant (m3/day)",
-        )
-
-        @self.Constraint(doc="distillate mass flow rate")
-        def distillate_mfr(b):
-            distillate_mfr = b.distillate_props[0].flow_vol_phase["Liq"]
-            return b.Capacity == pyunits.convert(
-                distillate_mfr, to_units=pyunits.m**3 / pyunits.d
+        # Distillate temperature is the same as last effect vapor temperature,
+        # which is assumed to be 10 deg higher than condenser inlet seawater temperature
+        @self.Constraint(doc="Distillate temperature")
+        def eq_distillate_temp(b):
+            return (
+                b.distillate_props[0].temperature
+                == b.feed_props[0].temperature + b.delta_T_last_effect
             )
-
-        # distillate temperature is the same as last effect vapor temperature, which is 10 deg higher than condenser inlet seawater temperature
-        @self.Constraint(doc="distillate temperature")
-        def distillate_temp(b):
-            return b.distillate_props[0].temperature == Tin + (273.15 + 10) * pyunits.K
-
-        # Set alias for distillate enthalpy and convert to kJ/kg
-        h_d = pyunits.convert(
-            self.distillate_props[0].enth_mass_phase["Liq"],
-            to_units=pyunits.kJ / pyunits.kg,
-        )
-
-        # Set alias for distillate mass (kg/s) flow rate
-        m_d = sum(
-            self.distillate_props[0].flow_mass_phase_comp["Liq", j]
-            for j in self.distillate_props.component_list
-        )
 
         """
         Add block for brine
         """
         tmp_dict["defined_state"] = False
 
-        self.brine_props = self.config.property_package.state_block_class(
+        self.brine_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time, doc="Material properties of brine", **tmp_dict
         )
 
         # Relationship between brine salinity and feed salinity
         @self.Constraint(doc="Brine salinity")
-        def s_b_cal(b):
+        def eq_brine_salinity(b):
             return b.brine_props[0].conc_mass_phase_comp["Liq", "TDS"] == b.feed_props[
                 0
-            ].conc_mass_phase_comp["Liq", "TDS"] / (1 - b.RR)
+            ].conc_mass_phase_comp["Liq", "TDS"] / (1 - b.recovery_ratio)
 
-        # Brine temperature
         @self.Constraint(doc="Brine temperature")
-        def T_b_cal(b):
+        def eq_brine_temp(b):
             return (
                 b.brine_props[0].temperature
                 == b.distillate_props[0].temperature
                 + b.brine_props[0].boiling_point_elevation_phase["Liq"]
             )
 
-        # Set alias for brine enthalpy and convert to kJ/kg
-        h_b = pyunits.convert(
-            self.brine_props[0].enth_mass_phase["Liq"], to_units=pyunits.kJ / pyunits.kg
-        )
-        # Set alias for brine volume (m3/hr) and mass (kg/s) flow rate
-        m_b = sum(
-            self.brine_props[0].flow_mass_phase_comp["Liq", j]
-            for j in self.brine_props.component_list
-        )
-        q_b = pyunits.convert(
-            self.brine_props[0].flow_vol_phase["Liq"],
-            to_units=pyunits.m**3 / pyunits.hour,
-        )
-
         """
         Add block for reject cooling water
         """
-        self.cooling_out_props = self.config.property_package.state_block_class(
+        self.cooling_out_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of cooling reject",
             **tmp_dict
         )
 
-        # Use the source water for cooling (Same salinity)
+        # Use the source water for cooling (same salinity)
+        # TODO: Fix this rather than constraint?
         @self.Constraint(doc="Cooling reject salinity")
-        def s_cooling_cal(b):
+        def eq_cooling_salinity(b):
             return (
                 b.cooling_out_props[0].conc_mass_phase_comp["Liq", "TDS"]
                 == b.feed_props[0].conc_mass_phase_comp["Liq", "TDS"]
             )
 
-        # Set alias for enthalpy and convert to kJ/kg
-        h_cool = pyunits.convert(
-            self.cooling_out_props[0].enth_mass_phase["Liq"],
-            to_units=pyunits.kJ / pyunits.kg,
-        )
         # Assumption: the temperature of cooling reject is 3 degC lower than in the condenser
         @self.Constraint(doc="Cooling reject temperature")
-        def T_cool_cal(b):
+        def eq_cooling_temp(b):
             return (
                 b.cooling_out_props[0].temperature
-                == b.distillate_props[0].temperature - 3 * pyunits.K
+                == b.distillate_props[0].temperature + b.delta_T_cooling_reject
             )
-
-        # Set alias for cooling reject volume flow rate (m3/hr)
-        q_cooling = pyunits.convert(
-            self.cooling_out_props[0].flow_vol_phase["Liq"],
-            to_units=pyunits.m**3 / pyunits.hour,
-        )
 
         """
         Add block for heating steam
         """
-        tmp_dict["parameters"] = self.config.property_package2
+        tmp_dict["parameters"] = self.config.property_package_steam
         tmp_dict["defined_state"] = True
 
-        self.steam_props = self.config.property_package2.state_block_class(
+        self.steam_props = self.config.property_package_steam.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of heating steam",
             **tmp_dict
         )
 
-        # Set alias for temperature and convert to degree C for surrogate model
-        Ts = self.steam_props[0].temperature - 273.15 * pyunits.K
-
-        # All in steam
-        @self.Constraint(doc="Steam inlet")
-        def steam_phase(b):
-            return b.steam_props[0].flow_mass_phase_comp["Liq", "H2O"] == 0
-
         # Add ports
         self.add_port(name="feed", block=self.feed_props)
         self.add_port(name="distillate", block=self.distillate_props)
         self.add_port(name="brine", block=self.brine_props)
+        self.add_port(name="steam", block=self.steam_props)
 
         """
         Mass balances
         """
-        # Feed flow rate calculation
-        @self.Constraint(doc="Feed water volume flow rate")
-        def qF_cal(b):
-            return b.feed_props[0].flow_vol_phase["Liq"] == pyunits.convert(
-                b.Capacity / b.RR, to_units=pyunits.m**3 / pyunits.s
+        # Distillate flow rate calculation
+        @self.Constraint(doc="Distillate volumetric flow rate")
+        def eq_dist_vol_flow(b):
+            return (
+                b.distillate_props[0].flow_vol_phase["Liq"]
+                == b.feed_props[0].flow_vol_phase["Liq"] * b.recovery_ratio
             )
 
-        # Set alias for feed volume flow rate and covert to m3/hr
-        self.qF = pyunits.convert(
-            self.feed_props[0].flow_vol_phase["Liq"],
-            to_units=pyunits.m**3 / pyunits.hour,
-        )
-
         # Brine flow rate calculation
-        @self.Constraint(doc="Brine volume flow rate")
-        def q_b_cal(b):
+        @self.Constraint(doc="Brine volumetric flow rate")
+        def eq_brine_vol_flow(b):
             return (
                 b.brine_props[0].flow_vol_phase["Liq"]
                 == b.feed_props[0].flow_vol_phase["Liq"]
@@ -344,63 +270,582 @@ class LTMEDData(UnitModelBlockData):
         """
         Add Vars for model outputs
         """
-        self.P_req = Var(
+        self.thermal_power_requirement = Var(
             initialize=5000,
             bounds=(0, None),
             units=pyunits.kW,
             doc="Thermal power requirement (kW)",
         )
 
-        self.sA = Var(
+        self.specific_area = Var(
             initialize=2,
             bounds=(0, None),
             units=pyunits.m**2 / (pyunits.m**3 / pyunits.d),
             doc="Specific area (m2/m3/day))",
         )
 
-        self.STEC = Var(
+        self.spec_thermal_consumption = Var(
             initialize=65,
             bounds=(0, None),
             units=pyunits.kWh / pyunits.m**3,
             doc="Specific thermal power consumption (kWh/m3)",
         )
 
-        self.GOR = Var(
+        self.gain_output_ratio = Var(
             initialize=10,
             bounds=(0, None),
             units=pyunits.kg / pyunits.kg,
-            doc="Gained output ratio (kg of distillate water per kg of heating steam",
+            doc="Gained output ratio (kg of distillate water per kg of heating steam)",
         )
 
         """
         Add Vars for intermediate model variables
         """
-        self.TN = Var(
-            initialize=35,
-            bounds=(25, 45),
-            units=pyunits.C,
-            doc="Last effect vapor temperature",
-        )
-
-        self.m_sw = Var(
+        # TODO: Make Expressions?
+        self.feed_cool_mass_flow = Var(
             initialize=1000,
             bounds=(0, None),
             units=pyunits.kg / pyunits.s,
-            doc="Feed and cooling water mass flow rate (kg/s)",
+            doc="Feed + cooling water mass flow rate (kg/s)",
         )
 
-        self.q_sw = Var(
+        self.feed_cool_vol_flow = Var(
             initialize=1000,
             bounds=(0, None),
             units=pyunits.m**3 / pyunits.h,
-            doc="Feed and cooling water volume flow rate (m3/h)",
+            doc="Feed + cooling water volume flow rate (m3/h)",
         )
 
-        # Surrogate equations for calculating GOR
-        Nef_vals = [3, 6, 9, 12, 14]  # Number of effects
-        coeffs_set = range(15)  # Number of coefficients
+        @self.Expression(doc="Temperature in last effect")
+        def temp_last_effect(b):
+            return (
+                b.feed_props[0].temperature - 273.15 * pyunits.K + b.delta_T_last_effect
+            )
 
-        GOR_coeffs = {
+        # TODO: Make Expressions?
+        feed_conc_ppm = pyunits.convert(
+            self.feed_props[0].conc_mass_phase_comp["Liq", "TDS"],
+            to_units=pyunits.mg / pyunits.L,
+        )
+        temp_steam = self.steam_props[0].temperature - 273.15
+
+        # Surrogate equations for calculating gain output ratio
+        gain_output_ratio_coeffs = self._get_gain_output_ratio_coeffs()
+
+        @self.Constraint(doc="Gain output ratio surrogate equation")
+        def eq_gain_output_ratio(b):
+            return (
+                b.gain_output_ratio
+                == feed_conc_ppm * gain_output_ratio_coeffs[b.number_effects.value][0]
+                + b.recovery_ratio * gain_output_ratio_coeffs[b.number_effects.value][1]
+                + feed_conc_ppm
+                * b.recovery_ratio
+                * gain_output_ratio_coeffs[b.number_effects.value][2]
+                + b.temp_last_effect
+                * gain_output_ratio_coeffs[b.number_effects.value][3]
+                + b.temp_last_effect
+                * feed_conc_ppm
+                * gain_output_ratio_coeffs[b.number_effects.value][4]
+                + b.temp_last_effect
+                * b.recovery_ratio
+                * gain_output_ratio_coeffs[b.number_effects.value][5]
+                + temp_steam * gain_output_ratio_coeffs[b.number_effects.value][6]
+                + temp_steam
+                * feed_conc_ppm
+                * gain_output_ratio_coeffs[b.number_effects.value][7]
+                + temp_steam
+                * b.recovery_ratio
+                * gain_output_ratio_coeffs[b.number_effects.value][8]
+                + temp_steam
+                * b.temp_last_effect
+                * gain_output_ratio_coeffs[b.number_effects.value][9]
+                + 1 * gain_output_ratio_coeffs[b.number_effects.value][10]
+                + temp_steam**2 * gain_output_ratio_coeffs[b.number_effects.value][11]
+                + b.temp_last_effect**2
+                * gain_output_ratio_coeffs[b.number_effects.value][12]
+                + b.recovery_ratio**2
+                * gain_output_ratio_coeffs[b.number_effects.value][13]
+                + feed_conc_ppm**2
+                * gain_output_ratio_coeffs[b.number_effects.value][14]
+            )
+
+        specific_area_coeffs = self._get_specific_area_coeffs()
+
+        @self.Constraint(doc="Specific area surrogate equation")
+        def eq_specific_area(b):
+            if b.number_effects.value in [3, 6, 9]:
+                return (
+                    b.specific_area
+                    == feed_conc_ppm * specific_area_coeffs[b.number_effects.value][0]
+                    + feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][1]
+                    + b.recovery_ratio * specific_area_coeffs[b.number_effects.value][2]
+                    + b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][3]
+                    + b.recovery_ratio
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][4]
+                    + b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][5]
+                    + b.recovery_ratio**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][6]
+                    + b.temp_last_effect
+                    * specific_area_coeffs[b.number_effects.value][7]
+                    + b.temp_last_effect
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][8]
+                    + b.temp_last_effect
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][9]
+                    + b.temp_last_effect
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][10]
+                    + b.temp_last_effect
+                    * b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][11]
+                    + b.temp_last_effect
+                    * b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][12]
+                    + b.temp_last_effect**2
+                    * specific_area_coeffs[b.number_effects.value][13]
+                    + b.temp_last_effect**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][14]
+                    + b.temp_last_effect**2
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][15]
+                    + temp_steam * specific_area_coeffs[b.number_effects.value][16]
+                    + temp_steam
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][17]
+                    + temp_steam
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][18]
+                    + temp_steam
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][19]
+                    + temp_steam
+                    * b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][20]
+                    + temp_steam
+                    * b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][21]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * specific_area_coeffs[b.number_effects.value][22]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][23]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][24]
+                    + temp_steam
+                    * b.temp_last_effect**2
+                    * specific_area_coeffs[b.number_effects.value][25]
+                    + temp_steam**2 * specific_area_coeffs[b.number_effects.value][26]
+                    + temp_steam**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][27]
+                    + temp_steam**2
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][28]
+                    + temp_steam**2
+                    * b.temp_last_effect
+                    * specific_area_coeffs[b.number_effects.value][29]
+                    + 1 * specific_area_coeffs[b.number_effects.value][30]
+                    + temp_steam**3 * specific_area_coeffs[b.number_effects.value][31]
+                    + b.temp_last_effect**3
+                    * specific_area_coeffs[b.number_effects.value][32]
+                    + b.recovery_ratio**3
+                    * specific_area_coeffs[b.number_effects.value][33]
+                    + feed_conc_ppm**3
+                    * specific_area_coeffs[b.number_effects.value][34]
+                )
+
+            else:
+                return (
+                    b.specific_area
+                    == feed_conc_ppm * specific_area_coeffs[b.number_effects.value][0]
+                    + feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][1]
+                    + feed_conc_ppm**3
+                    * specific_area_coeffs[b.number_effects.value][2]
+                    + b.recovery_ratio * specific_area_coeffs[b.number_effects.value][3]
+                    + b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][4]
+                    + b.recovery_ratio
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][5]
+                    + b.recovery_ratio
+                    * feed_conc_ppm**3
+                    * specific_area_coeffs[b.number_effects.value][6]
+                    + b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][7]
+                    + b.recovery_ratio**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][8]
+                    + b.recovery_ratio**2
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][9]
+                    + b.recovery_ratio**3
+                    * specific_area_coeffs[b.number_effects.value][10]
+                    + b.recovery_ratio**3
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][11]
+                    + b.temp_last_effect
+                    * specific_area_coeffs[b.number_effects.value][12]
+                    + b.temp_last_effect
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][13]
+                    + b.temp_last_effect
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][14]
+                    + b.temp_last_effect
+                    * feed_conc_ppm**3
+                    * specific_area_coeffs[b.number_effects.value][15]
+                    + b.temp_last_effect
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][16]
+                    + b.temp_last_effect
+                    * b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][17]
+                    + b.temp_last_effect
+                    * b.recovery_ratio
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][18]
+                    + b.temp_last_effect
+                    * b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][19]
+                    + b.temp_last_effect
+                    * b.recovery_ratio**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][20]
+                    + b.temp_last_effect
+                    * b.recovery_ratio**3
+                    * specific_area_coeffs[b.number_effects.value][21]
+                    + b.temp_last_effect**2
+                    * specific_area_coeffs[b.number_effects.value][22]
+                    + b.temp_last_effect**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][23]
+                    + b.temp_last_effect**2
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][24]
+                    + b.temp_last_effect**2
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][25]
+                    + b.temp_last_effect**2
+                    * b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][26]
+                    + b.temp_last_effect**2
+                    * b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][27]
+                    + b.temp_last_effect**3
+                    * specific_area_coeffs[b.number_effects.value][28]
+                    + b.temp_last_effect**3
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][29]
+                    + b.temp_last_effect**3
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][30]
+                    + temp_steam * specific_area_coeffs[b.number_effects.value][31]
+                    + temp_steam
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][32]
+                    + temp_steam
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][33]
+                    + temp_steam
+                    * feed_conc_ppm**3
+                    * specific_area_coeffs[b.number_effects.value][34]
+                    + temp_steam
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][35]
+                    + temp_steam
+                    * b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][36]
+                    + temp_steam
+                    * b.recovery_ratio
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][37]
+                    + temp_steam
+                    * b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][38]
+                    + temp_steam
+                    * b.recovery_ratio**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][39]
+                    + temp_steam
+                    * b.recovery_ratio**3
+                    * specific_area_coeffs[b.number_effects.value][40]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * specific_area_coeffs[b.number_effects.value][41]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][42]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][43]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][44]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][45]
+                    + temp_steam
+                    * b.temp_last_effect
+                    * b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][46]
+                    + temp_steam
+                    * b.temp_last_effect**2
+                    * specific_area_coeffs[b.number_effects.value][47]
+                    + temp_steam
+                    * b.temp_last_effect**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][48]
+                    + temp_steam
+                    * b.temp_last_effect**2
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][49]
+                    + temp_steam
+                    * b.temp_last_effect**3
+                    * specific_area_coeffs[b.number_effects.value][50]
+                    + temp_steam**2 * specific_area_coeffs[b.number_effects.value][51]
+                    + temp_steam**2
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][52]
+                    + temp_steam**2
+                    * feed_conc_ppm**2
+                    * specific_area_coeffs[b.number_effects.value][53]
+                    + temp_steam**2
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][54]
+                    + temp_steam**2
+                    * b.recovery_ratio
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][55]
+                    + temp_steam**2
+                    * b.recovery_ratio**2
+                    * specific_area_coeffs[b.number_effects.value][56]
+                    + temp_steam**2
+                    * b.temp_last_effect
+                    * specific_area_coeffs[b.number_effects.value][57]
+                    + temp_steam**2
+                    * b.temp_last_effect
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][58]
+                    + temp_steam**2
+                    * b.temp_last_effect
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][59]
+                    + temp_steam**2
+                    * b.temp_last_effect**2
+                    * specific_area_coeffs[b.number_effects.value][60]
+                    + temp_steam**3 * specific_area_coeffs[b.number_effects.value][61]
+                    + temp_steam**3
+                    * feed_conc_ppm
+                    * specific_area_coeffs[b.number_effects.value][62]
+                    + temp_steam**3
+                    * b.recovery_ratio
+                    * specific_area_coeffs[b.number_effects.value][63]
+                    + temp_steam**3
+                    * b.temp_last_effect
+                    * specific_area_coeffs[b.number_effects.value][64]
+                    + 1 * specific_area_coeffs[b.number_effects.value][65]
+                    + temp_steam**4 * specific_area_coeffs[b.number_effects.value][66]
+                    + b.temp_last_effect**4
+                    * specific_area_coeffs[b.number_effects.value][67]
+                    + b.recovery_ratio**4
+                    * specific_area_coeffs[b.number_effects.value][68]
+                    + feed_conc_ppm**4
+                    * specific_area_coeffs[b.number_effects.value][69]
+                )
+
+        # Steam flow rate calculation
+        @self.Constraint(doc="Steam flow rate")
+        def eq_steam_mass_flow(b):
+            return (
+                b.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
+                == sum(
+                    b.distillate_props[0].flow_mass_phase_comp["Liq", j]
+                    for j in b.distillate_props.component_list
+                )
+                / b.gain_output_ratio
+            )
+
+        # Energy consumption
+        @self.Constraint(doc="spec_thermal_consumption calculation")
+        def eq_spec_thermal_consumption(b):
+            return b.spec_thermal_consumption == pyunits.convert(
+                1
+                / b.gain_output_ratio
+                * (b.steam_props[0].dh_vap_mass)
+                * b.distillate_props[0].dens_mass_phase["Liq"],
+                to_units=pyunits.kWh / pyunits.m**3,
+            )
+
+        @self.Constraint(doc="Thermal power requirement calculation")
+        def eq_thermal_power_requirement(b):
+            return b.thermal_power_requirement == pyunits.convert(
+                b.spec_thermal_consumption
+                * b.distillate_props[0].flow_vol_phase["Liq"],
+                to_units=pyunits.kW,
+            )
+
+        # Mass flow rate
+        @self.Constraint(doc="Feed and cooling water mass flow rate (kg/s)")
+        def eq_feed_cool_mass_flow(b):
+            feed = b.feed_props[0]
+            cool = b.cooling_out_props[0]
+            brine = b.brine_props[0]
+            dist = b.distillate_props[0]
+            feed_mass_flow_tot = sum(
+                feed.flow_mass_phase_comp["Liq", j] for j in feed.component_list
+            )
+            brine_mass_flow_tot = sum(
+                brine.flow_mass_phase_comp["Liq", j] for j in brine.component_list
+            )
+            dist_mass_flow_tot = sum(
+                dist.flow_mass_phase_comp["Liq", j] for j in dist.component_list
+            )
+            enth_feed = pyunits.convert(
+                feed.enth_mass_phase["Liq"], to_units=pyunits.kJ / pyunits.kg
+            )
+            enth_brine = pyunits.convert(
+                brine.enth_mass_phase["Liq"], to_units=pyunits.kJ / pyunits.kg
+            )
+            enth_dist = pyunits.convert(
+                dist.enth_mass_phase["Liq"], to_units=pyunits.kJ / pyunits.kg
+            )
+            enth_cool = pyunits.convert(
+                cool.enth_mass_phase["Liq"], to_units=pyunits.kJ / pyunits.kg
+            )
+            return b.feed_cool_mass_flow * (enth_cool - enth_feed) == (
+                (1 - b.thermal_loss) * b.thermal_power_requirement
+                - brine_mass_flow_tot * enth_brine
+                - dist_mass_flow_tot * enth_dist
+                + enth_cool * feed_mass_flow_tot
+            )
+
+        # Volume flow rates
+        @self.Constraint(doc="Feed and cooling water mass flow rate (m3/h)")
+        def eq_feed_cool_vol_flow(b):
+            return b.feed_cool_vol_flow == pyunits.convert(
+                b.feed_cool_mass_flow / b.feed_props[0].dens_mass_phase["Liq"],
+                to_units=pyunits.m**3 / pyunits.hour,
+            )
+
+        @self.Constraint(doc="Cooling water mass flow rate (m3/h)")
+        def eq_cool_vol_flow(b):
+            return b.feed_cool_vol_flow == pyunits.convert(
+                b.cooling_out_props[0].flow_vol_phase["Liq"]
+                + b.feed_props[0].flow_vol_phase["Liq"],
+                to_units=pyunits.m**3 / pyunits.hr,
+            )
+
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+        dist_vol_flow = self.distillate_props[0].flow_vol_phase["Liq"]
+
+        if iscale.get_scaling_factor(self.recovery_ratio) is None:
+            iscale.set_scaling_factor(self.recovery_ratio, 1e1)
+
+        if iscale.get_scaling_factor(self.spec_thermal_consumption) is None:
+            iscale.set_scaling_factor(self.spec_thermal_consumption, 1e-3)
+
+        if iscale.get_scaling_factor(self.thermal_power_requirement) is None:
+            iscale.set_scaling_factor(
+                self.thermal_power_requirement,
+                iscale.get_scaling_factor(dist_vol_flow)
+                * iscale.get_scaling_factor(self.spec_thermal_consumption),
+            )
+
+        if iscale.get_scaling_factor(self.specific_area) is None:
+            iscale.set_scaling_factor(self.specific_area, 0.1)
+
+        if iscale.get_scaling_factor(self.gain_output_ratio) is None:
+            iscale.set_scaling_factor(self.gain_output_ratio, 0.1)
+
+        if iscale.get_scaling_factor(self.feed_cool_mass_flow) is None:
+            iscale.set_scaling_factor(self.feed_cool_mass_flow, 1e-3)
+
+        if iscale.get_scaling_factor(self.feed_cool_vol_flow) is None:
+            iscale.set_scaling_factor(self.feed_cool_vol_flow, 1e-3)
+
+        # Transforming constraints
+
+        sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
+        iscale.constraint_scaling_transform(self.eq_distillate_temp, sf)
+
+        sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
+        iscale.constraint_scaling_transform(self.eq_cooling_temp, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.cooling_out_props[0].conc_mass_phase_comp["Liq", "TDS"]
+        )
+        iscale.constraint_scaling_transform(self.eq_cooling_salinity, sf)
+
+        sf = iscale.get_scaling_factor(self.brine_props[0].temperature)
+        iscale.constraint_scaling_transform(self.eq_brine_temp, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.brine_props[0].conc_mass_phase_comp["Liq", "TDS"]
+        )
+        iscale.constraint_scaling_transform(self.eq_brine_salinity, sf)
+
+        sf = iscale.get_scaling_factor(self.feed_props[0].flow_vol_phase["Liq"])
+        iscale.constraint_scaling_transform(self.eq_dist_vol_flow, sf)
+
+        sf = iscale.get_scaling_factor(self.brine_props[0].flow_vol_phase["Liq"])
+        iscale.constraint_scaling_transform(self.eq_brine_vol_flow, sf)
+
+        sf = iscale.get_scaling_factor(self.gain_output_ratio)
+        iscale.constraint_scaling_transform(self.eq_gain_output_ratio, sf)
+
+        sf = iscale.get_scaling_factor(self.specific_area)
+        iscale.constraint_scaling_transform(self.eq_specific_area, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
+        )
+        iscale.constraint_scaling_transform(self.eq_steam_mass_flow, sf)
+
+        sf = iscale.get_scaling_factor(self.spec_thermal_consumption)
+        iscale.constraint_scaling_transform(self.eq_spec_thermal_consumption, sf)
+
+        sf = iscale.get_scaling_factor(self.thermal_power_requirement)
+        iscale.constraint_scaling_transform(self.eq_thermal_power_requirement, sf)
+
+        sf = iscale.get_scaling_factor(self.feed_cool_mass_flow) * 1e-3
+        iscale.constraint_scaling_transform(self.eq_feed_cool_mass_flow, sf)
+
+        sf = iscale.get_scaling_factor(self.feed_cool_vol_flow)
+        iscale.constraint_scaling_transform(self.eq_feed_cool_vol_flow, sf)
+
+        sf = (
+            iscale.get_scaling_factor(self.cooling_out_props[0].flow_vol_phase["Liq"])
+            / 3600
+        )
+        iscale.constraint_scaling_transform(self.eq_cool_vol_flow, sf)
+
+    def _get_gain_output_ratio_coeffs(self):
+        return {
             3: [
                 1.60e-07,
                 0.826895712,
@@ -488,35 +933,8 @@ class LTMEDData(UnitModelBlockData):
             ],
         }
 
-        @self.Constraint(doc="GOR surrogate equation")
-        def GOR_cal(b):
-            return (
-                b.GOR
-                == Xf * GOR_coeffs[b.Nef.value][0]
-                + b.RR * GOR_coeffs[b.Nef.value][1]
-                + Xf * b.RR * GOR_coeffs[b.Nef.value][2]
-                + b.TN * GOR_coeffs[b.Nef.value][3]
-                + b.TN * Xf * GOR_coeffs[b.Nef.value][4]
-                + b.TN * b.RR * GOR_coeffs[b.Nef.value][5]
-                + Ts * GOR_coeffs[b.Nef.value][6]
-                + Ts * Xf * GOR_coeffs[b.Nef.value][7]
-                + Ts * b.RR * GOR_coeffs[b.Nef.value][8]
-                + Ts * b.TN * GOR_coeffs[b.Nef.value][9]
-                + 1 * GOR_coeffs[b.Nef.value][10]
-                + Ts**2 * GOR_coeffs[b.Nef.value][11]
-                + b.TN**2 * GOR_coeffs[b.Nef.value][12]
-                + b.RR**2 * GOR_coeffs[b.Nef.value][13]
-                + Xf**2 * GOR_coeffs[b.Nef.value][14]
-            )
-
-        # Surrogate equations for calculating sA
-        Nef_vals1 = [3, 6, 9]
-        Nef_vals2 = [12, 14]
-
-        coeffs_set1 = range(35)  # Number of coefficients for N=3, 6, 9
-        coeffs_set2 = range(70)  # Number of coefficients for N=12, 14
-
-        sA_coeffs = {
+    def _get_specific_area_coeffs(self):
+        return {
             3: [
                 0.000596217,
                 -3.66e-09,
@@ -773,278 +1191,3 @@ class LTMEDData(UnitModelBlockData):
                 1.716278e-19,
             ],
         }
-
-        @self.Constraint(doc="sA surrogate equation")
-        def sA_cal(b):
-            if b.Nef.value in [3, 6, 9]:
-                return (
-                    b.sA
-                    == Xf * sA_coeffs[b.Nef.value][0]
-                    + Xf**2 * sA_coeffs[b.Nef.value][1]
-                    + b.RR * sA_coeffs[b.Nef.value][2]
-                    + b.RR * Xf * sA_coeffs[b.Nef.value][3]
-                    + b.RR * Xf**2 * sA_coeffs[b.Nef.value][4]
-                    + b.RR**2 * sA_coeffs[b.Nef.value][5]
-                    + b.RR**2 * Xf * sA_coeffs[b.Nef.value][6]
-                    + b.TN * sA_coeffs[b.Nef.value][7]
-                    + b.TN * Xf * sA_coeffs[b.Nef.value][8]
-                    + b.TN * Xf**2 * sA_coeffs[b.Nef.value][9]
-                    + b.TN * b.RR * sA_coeffs[b.Nef.value][10]
-                    + b.TN * b.RR * Xf * sA_coeffs[b.Nef.value][11]
-                    + b.TN * b.RR**2 * sA_coeffs[b.Nef.value][12]
-                    + b.TN**2 * sA_coeffs[b.Nef.value][13]
-                    + b.TN**2 * Xf * sA_coeffs[b.Nef.value][14]
-                    + b.TN**2 * b.RR * sA_coeffs[b.Nef.value][15]
-                    + Ts * sA_coeffs[b.Nef.value][16]
-                    + Ts * Xf * sA_coeffs[b.Nef.value][17]
-                    + Ts * Xf**2 * sA_coeffs[b.Nef.value][18]
-                    + Ts * b.RR * sA_coeffs[b.Nef.value][19]
-                    + Ts * b.RR * Xf * sA_coeffs[b.Nef.value][20]
-                    + Ts * b.RR**2 * sA_coeffs[b.Nef.value][21]
-                    + Ts * b.TN * sA_coeffs[b.Nef.value][22]
-                    + Ts * b.TN * Xf * sA_coeffs[b.Nef.value][23]
-                    + Ts * b.TN * b.RR * sA_coeffs[b.Nef.value][24]
-                    + Ts * b.TN**2 * sA_coeffs[b.Nef.value][25]
-                    + Ts**2 * sA_coeffs[b.Nef.value][26]
-                    + Ts**2 * Xf * sA_coeffs[b.Nef.value][27]
-                    + Ts**2 * b.RR * sA_coeffs[b.Nef.value][28]
-                    + Ts**2 * b.TN * sA_coeffs[b.Nef.value][29]
-                    + 1 * sA_coeffs[b.Nef.value][30]
-                    + Ts**3 * sA_coeffs[b.Nef.value][31]
-                    + b.TN**3 * sA_coeffs[b.Nef.value][32]
-                    + b.RR**3 * sA_coeffs[b.Nef.value][33]
-                    + Xf**3 * sA_coeffs[b.Nef.value][34]
-                )
-
-            else:  #  Nef in [12, 14]
-                return (
-                    b.sA
-                    == Xf * sA_coeffs[b.Nef.value][0]
-                    + Xf**2 * sA_coeffs[b.Nef.value][1]
-                    + Xf**3 * sA_coeffs[b.Nef.value][2]
-                    + b.RR * sA_coeffs[b.Nef.value][3]
-                    + b.RR * Xf * sA_coeffs[b.Nef.value][4]
-                    + b.RR * Xf**2 * sA_coeffs[b.Nef.value][5]
-                    + b.RR * Xf**3 * sA_coeffs[b.Nef.value][6]
-                    + b.RR**2 * sA_coeffs[b.Nef.value][7]
-                    + b.RR**2 * Xf * sA_coeffs[b.Nef.value][8]
-                    + b.RR**2 * Xf**2 * sA_coeffs[b.Nef.value][9]
-                    + b.RR**3 * sA_coeffs[b.Nef.value][10]
-                    + b.RR**3 * Xf * sA_coeffs[b.Nef.value][11]
-                    + b.TN * sA_coeffs[b.Nef.value][12]
-                    + b.TN * Xf * sA_coeffs[b.Nef.value][13]
-                    + b.TN * Xf**2 * sA_coeffs[b.Nef.value][14]
-                    + b.TN * Xf**3 * sA_coeffs[b.Nef.value][15]
-                    + b.TN * b.RR * sA_coeffs[b.Nef.value][16]
-                    + b.TN * b.RR * Xf * sA_coeffs[b.Nef.value][17]
-                    + b.TN * b.RR * Xf**2 * sA_coeffs[b.Nef.value][18]
-                    + b.TN * b.RR**2 * sA_coeffs[b.Nef.value][19]
-                    + b.TN * b.RR**2 * Xf * sA_coeffs[b.Nef.value][20]
-                    + b.TN * b.RR**3 * sA_coeffs[b.Nef.value][21]
-                    + b.TN**2 * sA_coeffs[b.Nef.value][22]
-                    + b.TN**2 * Xf * sA_coeffs[b.Nef.value][23]
-                    + b.TN**2 * Xf**2 * sA_coeffs[b.Nef.value][24]
-                    + b.TN**2 * b.RR * sA_coeffs[b.Nef.value][25]
-                    + b.TN**2 * b.RR * Xf * sA_coeffs[b.Nef.value][26]
-                    + b.TN**2 * b.RR**2 * sA_coeffs[b.Nef.value][27]
-                    + b.TN**3 * sA_coeffs[b.Nef.value][28]
-                    + b.TN**3 * Xf * sA_coeffs[b.Nef.value][29]
-                    + b.TN**3 * b.RR * sA_coeffs[b.Nef.value][30]
-                    + Ts * sA_coeffs[b.Nef.value][31]
-                    + Ts * Xf * sA_coeffs[b.Nef.value][32]
-                    + Ts * Xf**2 * sA_coeffs[b.Nef.value][33]
-                    + Ts * Xf**3 * sA_coeffs[b.Nef.value][34]
-                    + Ts * b.RR * sA_coeffs[b.Nef.value][35]
-                    + Ts * b.RR * Xf * sA_coeffs[b.Nef.value][36]
-                    + Ts * b.RR * Xf**2 * sA_coeffs[b.Nef.value][37]
-                    + Ts * b.RR**2 * sA_coeffs[b.Nef.value][38]
-                    + Ts * b.RR**2 * Xf * sA_coeffs[b.Nef.value][39]
-                    + Ts * b.RR**3 * sA_coeffs[b.Nef.value][40]
-                    + Ts * b.TN * sA_coeffs[b.Nef.value][41]
-                    + Ts * b.TN * Xf * sA_coeffs[b.Nef.value][42]
-                    + Ts * b.TN * Xf**2 * sA_coeffs[b.Nef.value][43]
-                    + Ts * b.TN * b.RR * sA_coeffs[b.Nef.value][44]
-                    + Ts * b.TN * b.RR * Xf * sA_coeffs[b.Nef.value][45]
-                    + Ts * b.TN * b.RR**2 * sA_coeffs[b.Nef.value][46]
-                    + Ts * b.TN**2 * sA_coeffs[b.Nef.value][47]
-                    + Ts * b.TN**2 * Xf * sA_coeffs[b.Nef.value][48]
-                    + Ts * b.TN**2 * b.RR * sA_coeffs[b.Nef.value][49]
-                    + Ts * b.TN**3 * sA_coeffs[b.Nef.value][50]
-                    + Ts**2 * sA_coeffs[b.Nef.value][51]
-                    + Ts**2 * Xf * sA_coeffs[b.Nef.value][52]
-                    + Ts**2 * Xf**2 * sA_coeffs[b.Nef.value][53]
-                    + Ts**2 * b.RR * sA_coeffs[b.Nef.value][54]
-                    + Ts**2 * b.RR * Xf * sA_coeffs[b.Nef.value][55]
-                    + Ts**2 * b.RR**2 * sA_coeffs[b.Nef.value][56]
-                    + Ts**2 * b.TN * sA_coeffs[b.Nef.value][57]
-                    + Ts**2 * b.TN * Xf * sA_coeffs[b.Nef.value][58]
-                    + Ts**2 * b.TN * b.RR * sA_coeffs[b.Nef.value][59]
-                    + Ts**2 * b.TN**2 * sA_coeffs[b.Nef.value][60]
-                    + Ts**3 * sA_coeffs[b.Nef.value][61]
-                    + Ts**3 * Xf * sA_coeffs[b.Nef.value][62]
-                    + Ts**3 * b.RR * sA_coeffs[b.Nef.value][63]
-                    + Ts**3 * b.TN * sA_coeffs[b.Nef.value][64]
-                    + 1 * sA_coeffs[b.Nef.value][65]
-                    + Ts**4 * sA_coeffs[b.Nef.value][66]
-                    + b.TN**4 * sA_coeffs[b.Nef.value][67]
-                    + b.RR**4 * sA_coeffs[b.Nef.value][68]
-                    + Xf**4 * sA_coeffs[b.Nef.value][69]
-                )
-
-        # Last effect vapor temperature is 10 degree higher than condenser inlet temperature
-        @self.Constraint(doc="System configuration 1")
-        def TN_Tin(b):
-            return b.TN == Tin + 10
-
-        # Steam flow rate calculation
-        @self.Constraint(doc="Steam flow rate")
-        def qs_cal(b):
-            return b.steam_props[0].flow_mass_phase_comp[
-                "Vap", "H2O"
-            ] == pyunits.convert(
-                sum(
-                    b.distillate_props[0].flow_mass_phase_comp["Liq", j]
-                    for j in b.distillate_props.component_list
-                )
-                / b.GOR,
-                to_units=pyunits.kg / pyunits.s,
-            )
-
-        # Energy consumption
-        @self.Constraint(doc="STEC calculation")
-        def STEC_cal(b):
-            return b.STEC == pyunits.convert(
-                1
-                / b.GOR
-                * (b.steam_props[0].dh_vap_mass)
-                * b.distillate_props[0].dens_mass_phase["Liq"],
-                to_units=pyunits.kWh / pyunits.m**3,
-            )
-
-        @self.Constraint(doc="Thermal power requirement calculation")
-        def P_req_cal(b):
-            return b.P_req == pyunits.convert(b.STEC * b.Capacity, to_units=pyunits.kW)
-
-        # Mass flow rate
-        @self.Constraint(doc="Feed and cooling water mass flow rate (kg/s)")
-        def m_sw_cal(b):
-            return b.m_sw * (h_cool - h_sw) == (
-                (1 - b.Q_loss) * b.P_req - m_b * h_b - m_d * h_d + h_cool * m_f
-            )
-
-        # Volume flow rates
-        @self.Constraint(doc="Feed and cooling water mass flow rate (m3/h)")
-        def q_sw_cal(b):
-            return b.q_sw == pyunits.convert(
-                b.m_sw / b.feed_props[0].dens_mass_phase["Liq"],
-                to_units=pyunits.m**3 / pyunits.hour,
-            )
-
-        @self.Constraint(doc="Cooling water mass flow rate (m3/h)")
-        def q_cooling_cal(b):
-            return q_cooling == b.q_sw - b.qF
-
-    def calculate_scaling_factors(self):
-        super().calculate_scaling_factors()
-
-        if iscale.get_scaling_factor(self.RR) is None:
-            iscale.set_scaling_factor(self.RR, 1e1)
-
-        if iscale.get_scaling_factor(self.Capacity) is None:
-            iscale.set_scaling_factor(self.Capacity, 1e-3)
-
-        if iscale.get_scaling_factor(self.STEC) is None:
-            iscale.set_scaling_factor(self.STEC, 1e-3)
-
-        if iscale.get_scaling_factor(self.P_req) is None:
-            iscale.set_scaling_factor(
-                self.P_req,
-                iscale.get_scaling_factor(self.Capacity)
-                * iscale.get_scaling_factor(self.STEC),
-            )
-
-        if iscale.get_scaling_factor(self.sA) is None:
-            iscale.set_scaling_factor(self.sA, 1e-1)
-
-        if iscale.get_scaling_factor(self.GOR) is None:
-            iscale.set_scaling_factor(self.GOR, 1e-1)
-
-        if iscale.get_scaling_factor(self.TN) is None:
-            iscale.set_scaling_factor(self.TN, 1e-1)
-
-        if iscale.get_scaling_factor(self.m_sw) is None:
-            iscale.set_scaling_factor(self.m_sw, 1e-3)
-
-        if iscale.get_scaling_factor(self.q_sw) is None:
-            iscale.set_scaling_factor(self.q_sw, 1e-3)
-
-        # Transforming constraints
-        sf = iscale.get_scaling_factor(
-            self.distillate_props[0].conc_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.distillate_s, sf)
-
-        sf = iscale.get_scaling_factor(self.Capacity)
-        iscale.constraint_scaling_transform(self.distillate_mfr, sf)
-
-        sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
-        iscale.constraint_scaling_transform(self.distillate_temp, sf)
-
-        sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
-        iscale.constraint_scaling_transform(self.T_cool_cal, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.cooling_out_props[0].conc_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.s_cooling_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.brine_props[0].temperature)
-        iscale.constraint_scaling_transform(self.T_b_cal, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.brine_props[0].conc_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.s_b_cal, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"]
-        )
-        iscale.constraint_scaling_transform(self.steam_phase, sf)
-
-        sf = iscale.get_scaling_factor(self.feed_props[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.qF_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.brine_props[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.q_b_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.GOR)
-        iscale.constraint_scaling_transform(self.GOR_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.sA)
-        iscale.constraint_scaling_transform(self.sA_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.TN)
-        iscale.constraint_scaling_transform(self.TN_Tin, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
-        )
-        iscale.constraint_scaling_transform(self.qs_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.STEC)
-        iscale.constraint_scaling_transform(self.STEC_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.P_req)
-        iscale.constraint_scaling_transform(self.P_req_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.m_sw) * 1e-3
-        iscale.constraint_scaling_transform(self.m_sw_cal, sf)
-
-        sf = iscale.get_scaling_factor(self.q_sw)
-        iscale.constraint_scaling_transform(self.q_sw_cal, sf)
-
-        sf = (
-            iscale.get_scaling_factor(self.cooling_out_props[0].flow_vol_phase["Liq"])
-            / 3600
-        )
-        iscale.constraint_scaling_transform(self.q_cooling_cal, sf)
