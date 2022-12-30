@@ -318,7 +318,9 @@ class LTMEDData(UnitModelBlockData):
 
         @self.Expression(doc="Temperature in last effect")
         def temp_last_effect(b):
-            return b.feed_props[0].temperature - 273.15 + b.delta_T_last_effect
+            return (
+                b.feed_props[0].temperature - 273.15 * pyunits.K + b.delta_T_last_effect
+            )
 
         # TODO: Make Expressions?
         feed_conc_ppm = pyunits.convert(
@@ -764,9 +766,6 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.recovery_ratio) is None:
             iscale.set_scaling_factor(self.recovery_ratio, 1e1)
 
-        if iscale.get_scaling_factor(dist_vol_flow) is None:
-            iscale.set_scaling_factor(dist_vol_flow, 1e-3)
-
         if iscale.get_scaling_factor(self.spec_thermal_consumption) is None:
             iscale.set_scaling_factor(self.spec_thermal_consumption, 1e-3)
 
@@ -778,10 +777,10 @@ class LTMEDData(UnitModelBlockData):
             )
 
         if iscale.get_scaling_factor(self.specific_area) is None:
-            iscale.set_scaling_factor(self.specific_area, 1e5)
+            iscale.set_scaling_factor(self.specific_area, 0.1)
 
         if iscale.get_scaling_factor(self.gain_output_ratio) is None:
-            iscale.set_scaling_factor(self.gain_output_ratio, 1e-1)
+            iscale.set_scaling_factor(self.gain_output_ratio, 0.1)
 
         if iscale.get_scaling_factor(self.feed_cool_mass_flow) is None:
             iscale.set_scaling_factor(self.feed_cool_mass_flow, 1e-3)
