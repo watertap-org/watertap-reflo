@@ -1,25 +1,17 @@
 import pytest
 from pyomo.environ import (
     ConcreteModel,
-    TerminationCondition,
-    SolverStatus,
     value,
-    Var,
-    Constraint,
     assert_optimal_termination,
-    units as pyunits
+    units as pyunits,
 )
+import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
-from idaes.models.properties.modular_properties.base.generic_property import (
-    GenericParameterBlock,
-)
-from watertap.property_models.seawater_ion_generic import configuration
+
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap.core.util.initialization import assert_no_degrees_of_freedom
-from pyomo.util.check_units import assert_units_consistent
 
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
@@ -27,12 +19,9 @@ from idaes.core.util.model_statistics import (
     number_variables,
     number_total_constraints,
     number_unused_variables,
-    unused_variables_set,
 )
-from idaes.core.util.testing import initialization_tester
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
-    constraint_scaling_transform,
     unscaled_variables_generator,
     unscaled_constraints_generator,
     badly_scaled_var_generator,
@@ -49,56 +38,74 @@ class TestLTMED:
         # create model, flowsheet
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.properties1 = SeawaterParameterBlock()
-        m.fs.properties2 = WaterParameterBlock()
-        m.fs.unit = LTMEDSurrogate(
-            property_package=m.fs.properties1, property_package2=m.fs.properties2
+        m.fs.water_prop = SeawaterParameterBlock()
+        m.fs.steam_prop = WaterParameterBlock()
+        m.fs.lt_med = LTMEDSurrogate(
+            property_package_water=m.fs.water_prop,
+            property_package_steam=m.fs.steam_prop,
         )
+        lt_med = m.fs.lt_med
+        feed = lt_med.feed_props[0]
+        dist = lt_med.distillate_props[0]
+        steam = lt_med.steam_props[0]
 
         # System specification
-
-        feed_salinity = 35  # g/L
+        feed_salinity = 35  # g/L = kg/m3
         feed_temperature = 25  # degC
-        steam_temperature = 80  # deg C
-        sys_capacity = pyunits.convert(2000 * pyunits.m**3/pyunits.day, to_units=pyunits.m**3/pyunits.s) # m3/day
-        recovery_rate = 0.5  # dimensionless
-        feed_flow = sys_capacity / recovery_rate
+        steam_temperature = 80  # degC
+        sys_capacity = 2000 * pyunits.m**3 / pyunits.day  # m3/day
+        recovery_ratio = 0.5 * pyunits.dimensionless  # dimensionless
+        feed_flow = pyunits.convert(
+            (sys_capacity / recovery_ratio), to_units=pyunits.m**3 / pyunits.s
+        )
 
-        m.fs.unit.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
-        m.fs.unit.feed_props[0].temperature.fix(feed_temperature + 273.15)
-        m.fs.unit.steam_props[0].temperature.fix(steam_temperature + 273.15)
-        m.fs.unit.feed_props[0].flow_vol_phase["Liq"].fix(feed_flow)
-        m.fs.unit.recovery_ratio.fix(recovery_rate)
+        feed.conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
+        feed.flow_vol_phase["Liq"].fix(feed_flow)
+        feed.temperature.fix(feed_temperature + 273.15)
+        steam.temperature.fix(steam_temperature + 273.15)
+        # flow rate of liquid steam is zero
+        steam.flow_mass_phase_comp["Liq", "H2O"].fix(0)
+        dist.flow_mass_phase_comp["Liq", "TDS"].fix(0)  # salinity in distillate is zero
+
+        lt_med.recovery_ratio.fix(recovery_ratio)
 
         return m
 
     @pytest.mark.unit
     def test_config(self, LT_MED_frame):
         m = LT_MED_frame
-        # check unit config arguments
-        assert len(m.fs.unit.config) == 5
+        # check LT-MED config arguments
+        assert len(m.fs.lt_med.config) == 5
 
-        assert not m.fs.unit.config.dynamic
-        assert not m.fs.unit.config.has_holdup
-        assert m.fs.unit.config.property_package is m.fs.properties1
-        assert m.fs.unit.config.property_package2 is m.fs.properties2
+        assert not m.fs.lt_med.config.dynamic
+        assert not m.fs.lt_med.config.has_holdup
+        assert m.fs.lt_med.config.property_package_water is m.fs.water_prop
+        assert m.fs.lt_med.config.property_package_steam is m.fs.steam_prop
+
+    @pytest.mark.unit
+    def test_num_effects_domain(self, LT_MED_frame):
+        m = LT_MED_frame
+        error_msg = re.escape(
+            "Invalid parameter value: fs.lt_med.number_effects[None] = '100', value type=<class 'int'>.\n\tValue not in parameter domain fs.lt_med.number_effects_domain"
+        )
+        with pytest.raises(ValueError, match=error_msg):
+            m.fs.lt_med.number_effects.set_value(100)
 
     @pytest.mark.unit
     def test_build(self, LT_MED_frame):
         m = LT_MED_frame
 
         # test ports
-        port_lst = ["feed", "distillate", "brine"]
+        port_lst = ["feed", "distillate", "brine", "steam"]
         for port_str in port_lst:
-            port = getattr(m.fs.unit, port_str)
+            port = getattr(m.fs.lt_med, port_str)
             assert isinstance(port, Port)
-            # number of state variables for seawater property package
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 181
-        assert number_total_constraints(m) == 52
-        assert number_unused_variables(m) == 89  # vars from property package parameters
+        assert number_variables(m) == 178
+        assert number_total_constraints(m) == 47
+        assert number_unused_variables(m) == 90  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, LT_MED_frame):
@@ -112,9 +119,8 @@ class TestLTMED:
 
         # check that all variables have scaling factors
         unscaled_var_list = list(unscaled_variables_generator(m))
-        print(unscaled_var_list)
-
         assert len(unscaled_var_list) == 0
+
         # check that all constraints have been scaled
         unscaled_constraint_list = list(unscaled_constraints_generator(m))
         assert len(unscaled_constraint_list) == 0
@@ -131,16 +137,58 @@ class TestLTMED:
         results = solver.solve(m)
 
         # Check for optimal solution
-        assert results.solver.termination_condition == TerminationCondition.optimal
-        assert results.solver.status == SolverStatus.ok
+        assert_optimal_termination(results)
+
+    @pytest.mark.component
+    def test_mass_balance(self, LT_MED_frame):
+        m = LT_MED_frame
+
+        lt_med = m.fs.lt_med
+
+        feed_flow_m3_hr = 166.66
+        dist_flow_m3_hr = 83.33
+        brine_flow_m3_hr = 83.33
+        cool_flow_m3_hr = 394.56
+
+        feed_mass_flow_tot = 47.359
+        cool_mass_flow_tot = 111.87
+        feed_mass_flow_tds = 1.62037
+        brine_mass_flow_tds = 1.62037
+        recovery = dist_flow_m3_hr / feed_flow_m3_hr
+
+        assert value(lt_med.recovery_ratio) == pytest.approx(recovery, rel=1e-3)
+        assert value(
+            pyunits.convert(
+                lt_med.feed_props[0].flow_vol_phase["Liq"]
+                - lt_med.distillate_props[0].flow_vol_phase["Liq"]
+                - lt_med.brine_props[0].flow_vol_phase["Liq"],
+                to_units=pyunits.m**3 / pyunits.hr,
+            )
+        ) == pytest.approx(
+            feed_flow_m3_hr - dist_flow_m3_hr - brine_flow_m3_hr, rel=1e-3
+        )
+        assert value(lt_med.feed_cool_mass_flow) == pytest.approx(
+            feed_mass_flow_tot + cool_mass_flow_tot, rel=1e-2
+        )  # mass flow calculated two different ways
+        assert value(lt_med.feed_cool_vol_flow) == pytest.approx(
+            (feed_flow_m3_hr + cool_flow_m3_hr), rel=1e-3
+        )
+        assert value(
+            lt_med.brine_props[0].flow_mass_phase_comp["Liq", "TDS"]
+            - lt_med.feed_props[0].flow_mass_phase_comp["Liq", "TDS"]
+        ) == pytest.approx(feed_mass_flow_tds - brine_mass_flow_tds, rel=1e-6)
 
     @pytest.mark.component
     def test_solution(self, LT_MED_frame):
         m = LT_MED_frame
-        assert pytest.approx(9.9127, rel=1e-3) == value(m.fs.unit.gain_output_ratio)
-        assert pytest.approx(3.9592, rel=1e-3) == value(m.fs.unit.specific_area)
-        assert pytest.approx(6.4290e1, rel=1e-3) == value(m.fs.unit.spec_thermal_consumption)
-        assert pytest.approx(5.3575e3, rel=1e-3) == value(m.fs.unit.thermal_power_requirement)
+        assert pytest.approx(9.9127, rel=1e-3) == value(m.fs.lt_med.gain_output_ratio)
+        assert pytest.approx(3.9592, rel=1e-3) == value(m.fs.lt_med.specific_area)
+        assert pytest.approx(6.4290e1, rel=1e-3) == value(
+            m.fs.lt_med.spec_thermal_consumption
+        )
+        assert pytest.approx(5.3575e3, rel=1e-3) == value(
+            m.fs.lt_med.thermal_power_requirement
+        )
         assert pytest.approx(2.3211, rel=1e-3) == value(
-            m.fs.unit.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
+            m.fs.lt_med.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
         )
