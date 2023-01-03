@@ -5,6 +5,12 @@ from watertap_contrib.seto.costing.util import (
     make_fixed_operating_cost_var,
 )
 
+# Costing equations from:
+# Kosmadakis G, Papapetrou M, Ortega-Delgado B, Cipollina A, Alarcón-Padilla D-C.
+# "Correlations for estimating the specific capital cost of multi-effect distillation plants
+#    considering the main design trends and operating conditions"
+# doi: 10.1016/j.desal.2018.09.011
+
 
 def build_lt_med_surrogate_cost_param_block(blk):
 
@@ -73,30 +79,28 @@ def build_lt_med_surrogate_cost_param_block(blk):
         doc="Specific electric energy consumption",
     )
 
-    # MED system cap = [6291 * dist_flow ** -0.135 * (1 - f_hex)] + [f_hex * (hex_area / 302.01) ** 0.8
-
     blk.med_sys_A_coeff = pyo.Var(
         initialize=6291,
         units=pyo.units.dimensionless,
-        doc="LT-MED system capital A coeff",
+        doc="LT-MED system specific capital A coeff",
     )
 
     blk.med_sys_B_coeff = pyo.Var(
         initialize=-0.135,
         units=pyo.units.dimensionless,
-        doc="LT-MED system capital B coeff",
+        doc="LT-MED system specific capital B coeff",
     )
 
-    blk.med_sys_C_coeff = pyo.Var(
+    blk.heat_exchanger_ref_area = pyo.Var(
         initialize=302.01,
-        units=pyo.units.dimensionless,
-        doc="LT-MED system capital C coeff",
+        units=pyo.units.m**2 / (pyo.units.kg / pyo.units.s),
+        doc="Specific heat exchanger area from reference plant",
     )
 
-    blk.med_sys_D_coeff = pyo.Var(
+    blk.heat_exchanger_exp = pyo.Var(
         initialize=0.8,
         units=pyo.units.dimensionless,
-        doc="LT-MED system capital D coeff",
+        doc="Exponent for specific heat exchanger cost equation",
     )
 
     blk.fix_all_vars()
@@ -118,10 +122,28 @@ def cost_lt_med_surrogate(blk):
     brine = lt_med.brine_props[0]
     base_currency = blk.config.flowsheet_costing_block.base_currency
 
-    blk.system_cost = pyo.Var(
+    blk.total_system_cost = pyo.Var(
         initialize=100,
         units=base_currency,
-        doc="MED system cost",  # what is this actually??
+        doc="MED system cost",
+    )
+
+    blk.membrane_system_cost = pyo.Var(
+        initialize=100,
+        units=base_currency,
+        doc="Membrane system cost",
+    )
+
+    blk.evaporator_system_cost = pyo.Var(
+        initialize=100,
+        units=base_currency,
+        doc="Evaporator system cost",
+    )
+
+    blk.med_specific_cost = pyo.Var(
+        initialize=100,
+        units=base_currency / (pyo.units.m**3 / pyo.units.day),
+        doc="MED system cost per m3/day distillate",
     )
 
     blk.heat_exchanger_specific_area = pyo.Var(
@@ -162,28 +184,45 @@ def cost_lt_med_surrogate(blk):
     blk.annual_dist_production = pyo.units.convert(
         dist.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.year
     )
-
-    blk.system_cost_constraint = pyo.Constraint(
-        expr=blk.system_cost
+    blk.med_specific_cost_constraint = pyo.Constraint(
+        expr=blk.med_specific_cost
         == (
-            (
-                lt_med_params.med_sys_A_coeff
-                * blk.capacity**lt_med_params.med_sys_B_coeff
-            )
-            * (1 - lt_med_params.cost_fraction_evaporator)
+            lt_med_params.med_sys_A_coeff
+            * blk.capacity**lt_med_params.med_sys_B_coeff
         )
-        + (
-            lt_med_params.cost_fraction_evaporator
+    )
+    blk.membrane_system_cost_constraint = pyo.Constraint(
+        expr=blk.membrane_system_cost
+        == blk.capacity
+        * (blk.med_specific_cost * (1 - lt_med_params.cost_fraction_evaporator))
+    )
+
+    blk.evaporator_system_cost_constraint = pyo.Constraint(
+        expr=blk.evaporator_system_cost
+        == blk.capacity
+        * (
+            blk.med_specific_cost
             * (
-                (blk.heat_exchanger_specific_area / lt_med_params.med_sys_C_coeff)
-                ** lt_med_params.med_sys_D_coeff
+                lt_med_params.cost_fraction_evaporator
+                * (
+                    (
+                        blk.heat_exchanger_specific_area
+                        / lt_med_params.heat_exchanger_ref_area
+                    )
+                    ** lt_med_params.heat_exchanger_exp
+                )
             )
         )
     )
 
+    blk.total_system_cost_constraint = pyo.Constraint(
+        expr=blk.total_system_cost
+        == blk.membrane_system_cost + blk.evaporator_system_cost
+    )
+
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
-        == blk.system_cost * blk.capacity
+        == blk.total_system_cost
         + lt_med_params.cost_storage_per_kwh * blk.thermal_storage_capacity
     )
 
@@ -195,7 +234,7 @@ def cost_lt_med_surrogate(blk):
             + lt_med_params.cost_labor_per_vol_dist
             + lt_med_params.cost_misc_per_vol_dist
         )
-        + blk.system_cost
+        + blk.total_system_cost
         * (
             lt_med_params.cost_fraction_maintenance
             + lt_med_params.cost_fraction_insurance
@@ -205,7 +244,7 @@ def cost_lt_med_surrogate(blk):
         )
         * lt_med_params.cost_disposal_per_vol_brine
     )
-    
+
     blk.heat_flow = pyo.Expression(
         expr=lt_med.spec_thermal_consumption
         * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
