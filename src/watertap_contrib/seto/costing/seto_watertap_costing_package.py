@@ -67,6 +67,15 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         self.plant_lifetime = pyo.Var(
             initialize=20, units=self.base_period, doc="Plant lifetime"
         )
+
+        self.heat_cost = pyo.Param(
+            mutable=True,
+            initialize=0.01,
+            doc="Heat cost",
+            units=pyo.units.USD_2018 / pyo.units.kWh,
+        )
+        self.add_defined_flow("heat", self.heat_cost)
+
         self.plant_lifetime.fix()
         self.utilization_factor.fix(1)
 
