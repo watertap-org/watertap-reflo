@@ -34,12 +34,15 @@ from watertap.costing.units.uv_aop import cost_uv_aop
 
 from watertap_contrib.seto.solar_models.zero_order import SolarEnergyZO, PhotovoltaicZO
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
+from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
+from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 
 
 @declare_process_block_class("SETOWaterTAPCosting")
 class SETOWaterTAPCostingData(WaterTAPCostingData):
     unit_mapping = {
         SolarEnergyZO: cost_pv,  # Keeping this for now
+        LTMEDSurrogate: cost_lt_med_surrogate,
         PhotovoltaicZO: cost_pv,
         Mixer: cost_mixer,
         Pump: cost_pump,
@@ -64,6 +67,15 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         self.plant_lifetime = pyo.Var(
             initialize=20, units=self.base_period, doc="Plant lifetime"
         )
+
+        self.heat_cost = pyo.Param(
+            mutable=True,
+            initialize=0.01,
+            doc="Heat cost",
+            units=pyo.units.USD_2018 / pyo.units.kWh,
+        )
+        self.add_defined_flow("heat", self.heat_cost)
+
         self.plant_lifetime.fix()
         self.utilization_factor.fix(1)
 

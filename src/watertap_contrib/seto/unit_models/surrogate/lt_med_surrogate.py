@@ -284,7 +284,7 @@ class LTMEDData(UnitModelBlockData):
             doc="Specific area (m2/m3/day))",
         )
 
-        self.spec_thermal_consumption = Var(
+        self.specific_thermal_energy_consumption = Var(
             initialize=65,
             bounds=(0, None),
             units=pyunits.kWh / pyunits.m**3,
@@ -690,9 +690,9 @@ class LTMEDData(UnitModelBlockData):
             )
 
         # Energy consumption
-        @self.Constraint(doc="spec_thermal_consumption calculation")
-        def eq_spec_thermal_consumption(b):
-            return b.spec_thermal_consumption == pyunits.convert(
+        @self.Constraint(doc="specific_thermal_energy_consumption calculation")
+        def eq_specific_thermal_energy_consumption(b):
+            return b.specific_thermal_energy_consumption == pyunits.convert(
                 1
                 / b.gain_output_ratio
                 * (b.steam_props[0].dh_vap_mass)
@@ -703,7 +703,7 @@ class LTMEDData(UnitModelBlockData):
         @self.Constraint(doc="Thermal power requirement calculation")
         def eq_thermal_power_requirement(b):
             return b.thermal_power_requirement == pyunits.convert(
-                b.spec_thermal_consumption
+                b.specific_thermal_energy_consumption
                 * b.distillate_props[0].flow_vol_phase["Liq"],
                 to_units=pyunits.kW,
             )
@@ -766,14 +766,14 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.recovery_ratio) is None:
             iscale.set_scaling_factor(self.recovery_ratio, 1e1)
 
-        if iscale.get_scaling_factor(self.spec_thermal_consumption) is None:
-            iscale.set_scaling_factor(self.spec_thermal_consumption, 1e-3)
+        if iscale.get_scaling_factor(self.specific_thermal_energy_consumption) is None:
+            iscale.set_scaling_factor(self.specific_thermal_energy_consumption, 1e-3)
 
         if iscale.get_scaling_factor(self.thermal_power_requirement) is None:
             iscale.set_scaling_factor(
                 self.thermal_power_requirement,
                 iscale.get_scaling_factor(dist_vol_flow)
-                * iscale.get_scaling_factor(self.spec_thermal_consumption),
+                * iscale.get_scaling_factor(self.specific_thermal_energy_consumption),
             )
 
         if iscale.get_scaling_factor(self.specific_area) is None:
@@ -826,8 +826,8 @@ class LTMEDData(UnitModelBlockData):
         )
         iscale.constraint_scaling_transform(self.eq_steam_mass_flow, sf)
 
-        sf = iscale.get_scaling_factor(self.spec_thermal_consumption)
-        iscale.constraint_scaling_transform(self.eq_spec_thermal_consumption, sf)
+        sf = iscale.get_scaling_factor(self.specific_thermal_energy_consumption)
+        iscale.constraint_scaling_transform(self.eq_specific_thermal_energy_consumption, sf)
 
         sf = iscale.get_scaling_factor(self.thermal_power_requirement)
         iscale.constraint_scaling_transform(self.eq_thermal_power_requirement, sf)
