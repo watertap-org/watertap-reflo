@@ -7,11 +7,12 @@ from pyomo.environ import (
 )
 import re
 from pyomo.network import Port
-from idaes.core import FlowsheetBlock
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
+from watertap_contrib.seto.costing import SETOWaterTAPCosting
 
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
@@ -184,7 +185,7 @@ class TestLTMED:
         assert pytest.approx(9.9127, rel=1e-3) == value(m.fs.lt_med.gain_output_ratio)
         assert pytest.approx(3.9592, rel=1e-3) == value(m.fs.lt_med.specific_area)
         assert pytest.approx(6.4290e1, rel=1e-3) == value(
-            m.fs.lt_med.spec_thermal_consumption
+            m.fs.lt_med.specific_thermal_energy_consumption
         )
         assert pytest.approx(5.3575e3, rel=1e-3) == value(
             m.fs.lt_med.thermal_power_requirement
@@ -192,3 +193,25 @@ class TestLTMED:
         assert pytest.approx(2.3211, rel=1e-3) == value(
             m.fs.lt_med.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
         )
+
+    @pytest.mark.component
+    def test_costing(self, LT_MED_frame):
+        m = LT_MED_frame
+        lt_med = m.fs.lt_med
+        dist = lt_med.distillate_props[0]
+        m.fs.costing = SETOWaterTAPCosting()
+        lt_med.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_annual_water_production(dist.flow_vol_phase["Liq"])
+        m.fs.costing.add_LCOW(dist.flow_vol_phase["Liq"])
+        # lt_med.costing.hours_thermal_storage.fix(0)
+
+        assert degrees_of_freedom(m) == 0
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+
+
+
+

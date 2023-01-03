@@ -79,6 +79,12 @@ def build_lt_med_surrogate_cost_param_block(blk):
         doc="Specific electric energy consumption",
     )
 
+    blk.hours_thermal_storage = pyo.Var(
+        initialize=0,
+        units=pyo.units.hr,
+        doc="Hours of thermal storage required",
+    )
+
     blk.med_sys_A_coeff = pyo.Var(
         initialize=6291,
         units=pyo.units.dimensionless,
@@ -158,12 +164,6 @@ def cost_lt_med_surrogate(blk):
         doc="Thermal storage capacity",
     )
 
-    blk.hours_thermal_storage = pyo.Var(
-        initialize=5,
-        units=pyo.units.hr,
-        doc="Hours of thermal storage required",
-    )
-
     blk.heat_exchanger_specific_area_constraint = pyo.Constraint(
         expr=blk.heat_exchanger_specific_area
         == pyo.units.convert(
@@ -174,7 +174,7 @@ def cost_lt_med_surrogate(blk):
 
     blk.thermal_storage_capacity_constraint = pyo.Constraint(
         expr=blk.thermal_storage_capacity
-        == lt_med.thermal_power_requirement * blk.hours_thermal_storage
+        == lt_med.thermal_power_requirement * lt_med_params.hours_thermal_storage
     )
 
     blk.capacity = pyo.units.convert(
@@ -246,7 +246,7 @@ def cost_lt_med_surrogate(blk):
     )
 
     blk.heat_flow = pyo.Expression(
-        expr=lt_med.spec_thermal_consumption
+        expr=lt_med.specific_thermal_energy_consumption
         * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
     )
     blk.electricity_flow = pyo.Expression(
