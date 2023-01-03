@@ -28,10 +28,8 @@ from idaes.core.util.scaling import (
     badly_scaled_var_generator,
 )
 
-# -----------------------------------------------------------------------------
 # Get default solver for testing
 solver = get_solver()
-
 
 class TestLTMED:
     @pytest.fixture(scope="class")
@@ -201,17 +199,42 @@ class TestLTMED:
         dist = lt_med.distillate_props[0]
         m.fs.costing = SETOWaterTAPCosting()
         lt_med.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+
+        # Fix some global costing params for better comparison to Pyomo model
+        # (This is not necessary in general)
+        m.fs.costing.factor_total_investment.fix(1)
+        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
+        m.fs.costing.factor_capital_annualization.fix(0.08764)
+
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(dist.flow_vol_phase["Liq"])
         m.fs.costing.add_LCOW(dist.flow_vol_phase["Liq"])
-        # lt_med.costing.hours_thermal_storage.fix(0)
 
         assert degrees_of_freedom(m) == 0
 
         results = solver.solve(m)
         assert_optimal_termination(results)
 
+        assert pytest.approx(2254.6578, rel=1e-3) == value(
+            m.fs.lt_med.costing.med_specific_cost
+        )
+        assert pytest.approx(4662455.767, rel=1e-3) == value(
+            m.fs.lt_med.costing.capital_cost
+        )
+        assert pytest.approx(2705589.356, rel=1e-3) == value(
+            m.fs.lt_med.costing.membrane_system_cost
+        )
+        assert pytest.approx(1956866.4109, rel=1e-3) == value(
+            m.fs.lt_med.costing.evaporator_system_cost
+        )
+        assert pytest.approx(208604.394, rel=1e-3) == value(
+            m.fs.lt_med.costing.fixed_operating_cost
+        )
 
-
-
-
+        assert pytest.approx(1.58427, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(748697.4468, rel=1e-3) == value(
+            m.fs.costing.total_operating_cost
+        )
+        assert pytest.approx(4662455.7674, rel=1e-3) == value(
+            m.fs.costing.total_capital_cost
+        )
