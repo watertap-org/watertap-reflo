@@ -40,7 +40,7 @@ class SofteningTrainType(StrEnum):
     solid_contact = "solid_contact"
 
 @declare_process_block_class("ChemicalSoftening0D")
-class ChemicalSoftening0D(InitializationMixin, UnitModelBlockData):
+class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
     """
     Zero order chemical softening model
     """
