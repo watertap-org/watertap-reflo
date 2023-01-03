@@ -148,7 +148,7 @@ def cost_lt_med_surrogate(blk):
 
     blk.med_specific_cost = pyo.Var(
         initialize=100,
-        units=base_currency / (pyo.units.m**3 / pyo.units.day),
+        units=pyo.units.USD_2018 / (pyo.units.m**3 / pyo.units.day),
         doc="MED system cost per m3/day distillate",
     )
 
