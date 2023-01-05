@@ -282,9 +282,11 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
         self.anion_set = Set()
         self.solute_set = Set()
         self.ion_set = Set()
-        self.neutral_set = Set()
+        self.hardness_set = Set()
 
         for j in self.config.solute_list:
+            if str(j) in ["Ca_2+", "Mg_2+"]:
+                self.hardness_set.add(str(j))
             if j in self.config.charge:
                 if self.config.charge[j] == 0:
                     raise ConfigurationError(
@@ -319,9 +321,9 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
         #     )
 
         # self.mw_CaCO3 = Param(initialize=100e-3, units=pyunits.kg/pyunits.mol)
-
+        self.ion_set.add("H2O")
         self.mw_comp = Param(
-            self.component_list,
+            self.ion_set,
             mutable=True,
             default=18e-3,
             initialize=self.config.mw_data,
@@ -337,6 +339,13 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
         #     units=pyunits.m,
         #     doc="Stokes radius of solute",
         # )
+
+        # self.pKw = Param(
+        #     initialize=14,
+        #     units=pyunits.dimensionless,
+        #     doc="pKw"
+        # )
+
         self.diffus_phase_comp = Param(
             self.phase_list,
             self.ion_set | self.solute_set,
@@ -451,6 +460,7 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
 
         # ---default scaling---
         self.set_default_scaling("temperature", 1e-2)
+        # self.set_default_scaling("mass_frac_phase_comp", 1e2)
         self.set_default_scaling("pressure", 1e-4)
         self.set_default_scaling("dens_mass_phase", 1e-3, index="Liq")
         self.set_default_scaling("visc_d_phase", 1e3, index="Liq")
@@ -465,7 +475,10 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
                 "flow_mol_phase_comp": {"method": None},
                 "temperature": {"method": None},
                 "pressure": {"method": None},
+                "alkalinity": {"method": None},
                 "pH": {"method": None},
+                "pOH": {"method": "_pOH"},
+                "pKw": {"method": "_pKw"},
                 "flow_mass_phase_comp": {"method": "_flow_mass_phase_comp"},
                 "flow_equiv_phase_comp": {"method": "_flow_equiv_phase_comp"},
                 "conc_equiv_phase_comp": {"method": "_conc_equiv_phase_comp"},
@@ -484,12 +497,15 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
                 "pressure_osm_phase": {"method": "_pressure_osm_phase"},
                 # "radius_stokes_comp": {"method": "_radius_stokes_comp"},
                 "mw_comp": {"method": "_mw_comp"},
-                "conc_mass_caco3_comp": {"method": "_conc_mass_caco3_comp"}
+                "conc_mass_caco3_comp": {"method": "_conc_mass_caco3_comp"},
+                "non_carbonate_hardness_comp": {"method": None},
+                "carbonate_hardness_comp": {"method": None},
+                "total_hardness": {"method": "_total_hardness"},
                 # "elec_mobility_phase_comp": {"method": "_elec_mobility_phase_comp"},
                 # "trans_num_phase_comp": {"method": "_trans_num_phase_comp"},
                 # "equiv_conductivity_phase": {"method": "_equiv_conductivity_phase"},
                 # "elec_cond_phase": {"method": "_elec_cond_phase"},
-                # "charge_comp": {"method": "_charge_comp"},
+                "charge_comp": {"method": "_charge_comp"},
                 # "act_coeff_phase_comp": {"method": "_act_coeff_phase_comp"},
                 # "dielectric_constant": {"method": "_dielectric_constant"},
                 # "debye_huckel_constant": {"method": "_debye_huckel_constant"},
@@ -915,8 +931,47 @@ class ChemSofteningStateBlockData(StateBlockData):
             doc="State pH",
         )
 
+        self.alkalinity = Var(
+            initialize=100,
+            bounds=(0, None),
+            domain=NonNegativeReals,
+            units=pyunits.kg / pyunits.m**3,
+            doc="State alkalinity",
+        )
+
+        self.carbonate_hardness_comp = Var(
+            self.params.hardness_set,
+            initialize=100,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.m**3,
+            doc="Carbonate hardness in CaCO3 equivalents",
+        )
+
+        self.non_carbonate_hardness_comp = Var(
+            self.params.hardness_set,
+            initialize=100,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.m**3,
+            doc="Carbonate hardness in CaCO3 equivalents",
+        )
+
+
     # -----------------------------------------------------------------------------
     # Property Methods
+    def _pOH(self):
+        self.pOH = Var(
+            initialize=7,
+            bounds=(0, 16),
+            units=pyunits.dimensionless,
+            doc="pOH",
+        )
+    
+        def rule_pOH(b):
+            return b.pOH == b.pKw - b.pH
+        
+        self.eq_pOH = Constraint(rule=rule_pOH)
+
+
     def _mass_frac_phase_comp(self):
         self.mass_frac_phase_comp = Var(
             self.params.phase_list,
@@ -937,28 +992,111 @@ class ChemSofteningStateBlockData(StateBlockData):
             self.params.component_list,
             rule=rule_mass_frac_phase_comp,
         )
-        def rule_flow_equiv_phase_comp(b, p, j):
-            return b.flow_equiv_phase_comp[p, j] == b.flow_mol_phase_comp[p, j] * abs(
-                b.params.charge_comp[j]
-            )
+
     def _conc_mass_caco3_comp(self):
         self.conc_mass_caco3_comp = Var(
             self.params.ion_set,
-            # initialize=0.5,
-            # bounds=(0, 1.001),
+            initialize=100,
+            bounds=(0, None),
             units=pyunits.kg / pyunits.m**3,
             doc="Mass concentration in CaCO3 equivalents",
         )
 
-        self.caco3_conversion = Param(initialize=0.050)
+        self.equivalent_wt_caco3 = Param(
+            initialize=0.050, 
+            units=pyunits.kg/pyunits.mol, 
+            doc="Equivalent weight of CaCO3"
+            )
+
+        # self.caco3_conversion_co2 = Param(
+        #     initialize=1612, 
+        #     units=pyunits.dimensionless, 
+        #     doc="Equivalent weight of CaCO3"
+        #     ) 
 
         def rule_conc_mass_caco3_comp(b, j):
-            return b.conc_mass_caco3_comp[j] == b.caco3_conversion / (b.params.mw_comp[j] / abs(b.params.charge_comp[j])) * b.conc_mass_phase_comp["Liq", j]
+            return b.conc_mass_caco3_comp[j] == b.equivalent_wt_caco3 / (b.params.mw_comp[j] / abs(b.params.charge_comp[j])) * b.conc_mass_phase_comp["Liq", j]
 
         self.eq_conc_mass_caco3_comp = Constraint(
             self.params.ion_set,
             rule=rule_conc_mass_caco3_comp,
         )
+
+    # def _carbonate_hardness_comp(self):
+    #     self.carbonate_hardness_comp = Var(
+    #         self.params.hardness_set,
+    #         initialize=100,
+    #         bounds=(0, None),
+    #         units=pyunits.kg / pyunits.m**3,
+    #         doc="Carbonate hardness in CaCO3 equivalents",
+    #     )
+
+    #     def rule_carbonate_hardness_comp(b, j):
+    #         if value(b.conc_mass_caco3_comp["Ca_2+"]) >= value(b.alkalinity):
+    #             if j == "Ca_2+":
+    #                 b.carbonate_hardness_comp[j].fix(value(b.alkalinity))
+    #                 return Constraint.Skip
+    #             if j == "Mg_2+":
+    #                 b.carbonate_hardness_comp[j].fix(0)
+    #                 return Constraint.Skip
+    #         else:
+    #             if j == "Ca_2+":
+    #                 b.carbonate_hardness_comp[j].fix(value(b.conc_mass_caco3_comp["Ca_2+"]))
+    #                 return Constraint.Skip
+    #             if j == "Mg_2+":
+    #                 b.carbonate_hardness_comp[j].fix(value(b.alkalinity - b.conc_mass_caco3_comp["Ca_2+"]))
+    #                 return Constraint.Skip
+
+    #     self.eq_carbonate_hardness_comp = Constraint(
+    #         self.params.hardness_set,
+    #         rule=rule_carbonate_hardness_comp,
+    #     )
+
+    # def _non_carbonate_hardness_comp(self):
+    #     self.non_carbonate_hardness_comp = Var(
+    #         self.params.hardness_set,
+    #         initialize=100,
+    #         bounds=(0, None),
+    #         units=pyunits.kg / pyunits.m**3,
+    #         doc="Non-carbonate hardness in CaCO3 equivalents",
+    #     )
+
+    #     def rule_non_carbonate_hardness_comp(b, j):
+    #         if value(b.conc_mass_caco3_comp["Ca_2+"]) >= value(b.alkalinity):
+    #             if j == "Ca_2+":
+    #                 b.non_carbonate_hardness_comp[j].fix(value(b.conc_mass_caco3_comp["Ca_2+"] - b.alkalinity))
+    #                 return Constraint.Skip
+    #             if j == "Mg_2+":
+    #                 b.non_carbonate_hardness_comp[j].fix(value(b.conc_mass_caco3_comp["Mg_2+"]))
+    #                 return Constraint.Skip
+                    
+    #         else:
+    #             if j == "Ca_2+":
+    #                 b.non_carbonate_hardness_comp[j].fix(0)
+    #                 return Constraint.Skip
+    #             if j == "Mg_2+":
+    #                 TH = sum(b.conc_mass_caco3_comp[p] for p in b.params.hardness_set)
+    #                 b.non_carbonate_hardness_comp[j].fix(value(TH - b.alkalinity))
+    #                 return Constraint.Skip
+
+    #     self.eq_non_carbonate_hardness_comp = Constraint(
+    #         self.params.hardness_set,
+    #         rule=rule_non_carbonate_hardness_comp,
+    #     )
+
+    def _total_hardness(self):
+        self.total_hardness = Var(
+            initialize=1e3,
+            bounds=(5e2, 2e3),
+            units=pyunits.kg * pyunits.m**-3,
+            doc="Mass density",
+        )
+    def _total_hardness(self):
+        def rule_total_hardness(b):
+            return sum(b.conc_mass_caco3_comp[p] for p in b.params.hardness_set)
+
+        self.total_hardness = Expression(rule=rule_total_hardness)
+
 
     def _dens_mass_phase(self):
         self.dens_mass_phase = Var(
@@ -971,9 +1109,9 @@ class ChemSofteningStateBlockData(StateBlockData):
         # TODO: reconsider this approach for solution density based on arbitrary solute_list
         def rule_dens_mass_phase(b, p):
             if b.params.config.density_calculation == DensityCalculation.constant:
-                # return b.dens_mass_phase[p] == 1000 * pyunits.kg * pyunits.m**-3
-                b.dens_mass_phase[p].fix(1000 * pyunits.kg * pyunits.m**-3)
-                return Constraint.Skip
+                return b.dens_mass_phase[p] == 1000 * pyunits.kg * pyunits.m**-3
+                # b.dens_mass_phase[p].fix(1000 * pyunits.kg * pyunits.m**-3)
+                # return Constraint.Skip
             elif b.params.config.density_calculation == DensityCalculation.seawater:
                 # density, eq. 8 in Sharqawy #TODO- add Sharqawy reference
                 t = b.temperature - 273.15 * pyunits.K
@@ -1213,6 +1351,33 @@ class ChemSofteningStateBlockData(StateBlockData):
 
     # def _radius_stokes_comp(self):
     #     add_object_reference(self, "radius_stokes_comp", self.params.radius_stokes_comp)
+
+    def _pKw(self):
+
+        self.pKw = Var(
+            initialize=14,
+            # domain=(10, 16),
+            units=pyunits.dimensionless,
+            doc="pKw"
+        )
+
+        self.pKw_coeff_A = Param(
+            initialize=4470.99
+        )
+
+        self.pKw_coeff_B = Param(
+            initialize=0.017060
+        )
+
+        self.pKw_coeff_C = Param(
+            initialize=6.0875
+        )
+
+        def rule_pKw(b):
+            return b.pKw == b.pKw_coeff_A / b.temperature + b.pKw_coeff_B * b.temperature - b.pKw_coeff_C
+        
+        self.eq_pKw = Constraint(rule=rule_pKw)
+        # add_object_reference(self, "pKw", self.params.pKw)
 
     def _diffus_phase_comp(self):
         add_object_reference(self, "diffus_phase_comp", self.params.diffus_phase_comp)
