@@ -35,9 +35,18 @@ __author__ = "Kurban Sitterley, Abdiel Lugo"
 
 _log = idaeslog.getLogger(__name__)
 
+
 class SofteningTrainType(StrEnum):
     conventional = "conventional"
     solid_contact = "solid_contact"
+
+
+class SofteningProcedureType(StrEnum):
+    single_stage_lime = "single_stage_lime"
+    excess_lime = "excess_lime"
+    single_stage_lime_soda = "single_stage_lime_soda"
+    excess_lime_soda = "excess_lime_soda"
+
 
 @declare_process_block_class("ChemicalSoftening0D")
 class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
@@ -103,8 +112,25 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
             domain=In(SofteningTrainType),
             description="Configuration of softening system",
         ),
-    ) 
+    )
 
+    CONFIG.declare(
+        "softening_procedure_type",
+        ConfigValue(
+            default=SofteningProcedureType.single_stage_lime,
+            domain=In(SofteningProcedureType),
+            description="Procedure of softening system",
+        ),
+    )
+
+    CONFIG.declare(
+        "silica_removal",
+        ConfigValue(
+            default=False,
+            domain=bool,
+            description="Include silica removal in softening process -- assumes conditions are proper",
+        ),
+    )
 
     def build(self):
         super().build()
@@ -136,11 +162,269 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
             self.flowsheet().config.time, doc="Material properties of waste", **tmp_dict
         )
 
-        # Add ports 
+        # Add ports
         self.add_port(name="inlet", block=self.properties_in)
         self.add_port(name="outlet", block=self.properties_out)
         self.add_port(name="waste", block=self.properties_waste)
 
+        prop_in = self.properties_in[0]
+        prop_out = self.properties_out[0]
+        prop_waste = self.properties_waste[0]
+        comps = self.config.property_package.component_list
+
+        if "TSS" in comps:
+            self.frac_TSS_removal = Param(
+                initialize=0.85, mutable=True, doc="Default 85% removal of TSS"
+            )
+
+
+        self.lime_mw = Param(
+            initialize=74, units=pyunits.g / pyunits.mol, doc="Molecular weight of lime"
+        )
+
+        self.ca_eff_target = Param(
+            initialize=0.030, units=pyunits.kg / pyunits.m**3, mutable=True
+        )
+
+        self.mg_eff_target = Param(
+            initialize=0.020, units=pyunits.kg / pyunits.m**3, mutable=True
+        )
+
+        self.frac_vol_recovery = Param(
+            initialize=0.99, units=pyunits.dimensionless, mutable=True,
+            doc="Fractional volumetric recovery of water"
+        )
+
+        self.excess_lime = Var(initialize=100, units=pyunits.mg / pyunits.liter)
+
+        self.retention_time_mixer = Var(
+            initialize=1,
+            units=pyunits.minutes,
+            bounds=(0.1, 5),
+            doc="Retention time for mixer",
+        )
+
+        self.retention_time_floc = Var(
+            initialize=12,
+            units=pyunits.minutes,
+            bounds=(10, 45),
+            doc="Retention time for flocculator",
+        )
+
+        self.retention_time_sed = Var(
+            initialize=150,
+            units=pyunits.minutes,
+            bounds=(120, 240),
+            doc="Retention time for sedimentation basin",
+        )
+
+        self.retention_time_recarb = Var(
+            initialize=18,
+            units=pyunits.minutes,
+            bounds=(15, 30),
+            doc="Retention time for recarbonation",
+        )
+
+        self.sedimentation_overflow = Var(
+            initialize=90,
+            units=pyunits.m / pyunits.day,
+            bounds=(30, 100),
+            doc="Sedimentation basin overflow rate",
+        )
+
+        self.volume_mixer = Var(
+            initialize=10, units=pyunits.m**3, doc="Volume of mixer"
+        )
+
+        self.volume_floc = Var(
+            initialize=10, units=pyunits.m**3, doc="Volume of flocculator"
+        )
+
+        self.volume_sed = Var(
+            initialize=10, units=pyunits.m**3, doc="Volume of sedimentation basin"
+        )
+
+        self.volume_recarb = Var(
+            initialize=10, units=pyunits.m**3, doc="Volume of recarbonator"
+        )
+
+        self.vel_gradient_mix = Var(
+            initialize=500,
+            units=pyunits.s**-1,
+            bounds=(300, 1000),
+            doc="Velocity gradient of rapid mixer",
+        )
+
+        self.vel_gradient_floc = Var(
+            initialize=30,
+            units=pyunits.s**-1,
+            bounds=(20, 80),
+            doc="Velocity gradient of flocculator",
+        )
+
+        self.vel_gradient_sed = Var(
+            initialize=15,
+            units=pyunits.s**-1,
+            bounds=(10, 50),
+            doc="Velocity gradient of sedimentation",  # ???
+        )
+
+        @self.Constraint(doc="Recovery")
+        def eq_recovery(b):
+            return prop_in.flow_vol_phase["Liq"] == prop_out.flow_vol_phase["Liq"] + prop_waste.flow_vol_phase["Liq"]
+
+        @self.Constraint(doc="Waste flow")
+        def eq_waste_flow(b):
+            return prop_out.flow_vol_phase["Liq"] == prop_in.flow_vol_phase["Liq"] * b.frac_vol_recovery
+
+        @self.Constraint(comps, doc="Mass balance")
+        def eq_mass_balance(b, j):
+            return prop_in.flow_mass_phase_comp[
+                "Liq", j
+            ] == prop_out.flow_mass_phase_comp["Liq", j] + prop_waste.flow_mass_phase_comp["Liq", j]
+
+        if "TSS" in comps:
+            @self.Constraint(doc="TSS removal")
+            def eq_effluent_tss(b):
+                return prop_out.conc_mass_phase_comp["Liq", "TSS"] == prop_in.conc_mass_phase_comp["Liq", "TSS"] * (1 - b.frac_TSS_removal)
+
+        @self.Constraint(doc="Ca in effluent")
+        def eq_effluent_ca(b):
+            return prop_out.conc_mass_caco3_comp["Ca_2+"] == b.ca_eff_target
+
+        if (
+            self.config.softening_procedure_type
+            is SofteningProcedureType.single_stage_lime
+        ):
+
+            if not self.config.silica_removal:
+
+                @self.Constraint(doc="Mg in effluent")
+                def eq_effluent_mg(b):
+                    return (
+                        prop_out.conc_mass_caco3_comp["Mg_2+"]
+                        == prop_in.conc_mass_caco3_comp["Mg_2+"]
+                    )
+
+            @self.Constraint(doc="Total hardness in effluent")
+            def eq_effluent_total_hardness(b):
+                return prop_out.total_hardness == (
+                    prop_out.conc_mass_caco3_comp["Ca_2+"]
+                    + (prop_in.alkalinity - prop_in.conc_mass_caco3_comp["Ca_2+"])
+                ) + (
+                    prop_in.total_hardness
+                    - (
+                        prop_in.conc_mass_caco3_comp["Ca_2+"]
+                        + (prop_in.alkalinity - prop_in.conc_mass_caco3_comp["Ca_2+"])
+                    )
+                )
+
+            @self.Constraint(doc="Alkalinity in effluent")
+            def eq_effluent_alkalinity(b):
+                return (
+                    prop_out.alkalinity
+                    == prop_in.alkalinity
+                    - prop_in.conc_mass_caco3_comp["Ca_2+"]
+                    # + b.ca_eff_target
+                    + prop_out.conc_mass_caco3_comp["Ca_2+"]
+                )
+
+            if "TDS" in comps:
+                if "SiO2" in comps:
+
+                    @self.Constraint(["TDS"], doc="TDS in effluent")
+                    def eq_effluent_tds(b, j):
+                        return prop_out.conc_mass_phase_comp[
+                            "Liq", "TDS"
+                        ] == prop_in.conc_mass_phase_comp["Liq", "TDS"] - (
+                            prop_in.conc_mass_phase_comp["Liq", "Ca_2+"]
+                            - prop_out.conc_mass_phase_comp["Liq", "Ca_2+"]
+                        ) - (
+                            prop_in.conc_mass_phase_comp["Liq", "SiO2"]
+                            - prop_out.conc_mass_phase_comp["Liq", "SiO2"]
+                        )
+
+                else:
+
+                    @self.Constraint(["TDS"], doc="TDS in effluent")
+                    def eq_effluent_tds(b, j):
+                        return prop_out.conc_mass_phase_comp[
+                            "Liq", "TDS"
+                        ] == prop_in.conc_mass_phase_comp["Liq", "TDS"] - (
+                            prop_in.conc_mass_phase_comp["Liq", "Ca_2+"]
+                            - prop_out.conc_mass_phase_comp["Liq", "Ca_2+"]
+                        )
+
+
+
+            if "SiO2" in comps and self.config.silica_removal:
+                
+                self.mg_add_ratio = Param(
+                    initialize=9.1,
+                    units=pyunits.dimensionless,
+                    doc="Ratio of MgO: SiO2 to add for SiO2 removal"
+                )
+
+                self.mg_add = Var(
+                    initialize=10,
+                    units=pyunits.kg/pyunits.m**3,
+                    doc="Concentration MgO added for SiO2 removal"
+                )
+
+                @self.Constraint(doc="MgO addition")
+                def eq_mg_add(b):
+                    return b.mg_add == b.mg_add_ratio * prop_in.conc_mass_phase_comp["Liq", "SiO2"]
+
+                @self.Constraint(["Mg_2+"], doc="Mg in effluent")
+                def eq_effluent_mg(b, j):
+                    return (
+                        prop_out.conc_mass_caco3_comp["Mg_2+"]
+                        == prop_in.conc_mass_caco3_comp["Mg_2+"] + b.mg_add
+                    )
+
+
+
+
+
+        @self.Constraint(doc="Volume of mixer")
+        def eq_volume_mixer(b):
+            return (
+                b.volume_mixer
+                == b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_mixer
+            )
+
+        @self.Constraint(doc="Volume of flocculator")
+        def eq_volume_floc(b):
+            return (
+                b.volume_floc
+                == b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_floc
+            )
+
+        @self.Constraint(doc="Volume of sedimentation basin")
+        def eq_volume_sed(b):
+            return (
+                b.volume_sed
+                == b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_sed
+            )
+
+        @self.Constraint(doc="Volume of recarbonation basin")
+        def eq_volume_recarb(b):
+            return (
+                b.volume_recarb
+                == b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_recarb
+            )
+
+        # @self.Constraint(doc="Magnesium hydroxide acidity constant")
+        # def eq_acidity_const_mg_oh2(b):
+        #     return b.acidity_const_mg_oh2 == 4470.99 / b.properties_in[0].temperature + 0.01706 * b.properties_in[0].temperature - 6.0875
+
+        @self.Constraint()
+        def eq_excess_lime(b):
+            return b.excess_lime == (10 ** -b.properties_out[0].pOH / 2) * 74000
+
+        # @self.Constraint()
+        # def eq_pH_modified(b):
+        #     return b.properties_out[0].pH == log(10**-b.acidity_const_mg_oh2 / 10**-b.properties_out[0].pOH)
 
     def initialize_build(
         blk,
@@ -194,7 +478,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
                         state_args[k][m] = state_dict[k][m].value
                 else:
                     state_args[k] = state_dict[k].value
-        
+
         state_args_out = deepcopy(state_args)
 
         blk.properties_out.initialize(
@@ -219,7 +503,6 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
 
         init_log.info("Initialization Step 1c Complete.")
 
-
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(blk, tee=slc.tee)
@@ -235,7 +518,6 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
-
     def _get_stream_table_contents(self, time_point=0):
         return create_stream_table_dataframe(
             {
@@ -248,4 +530,4 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
 
     def _get_performance_contents(self, time_point=0):
 
-        pass 
+        pass
