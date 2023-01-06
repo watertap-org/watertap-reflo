@@ -54,6 +54,8 @@ from idaes.core.util.scaling import (
     unscaled_variables_generator,
     badly_scaled_var_generator,
 )
+
+
 @declare_process_block_class("MEDTVCSurrogate")
 class MEDTVCData(UnitModelBlockData):
     """
@@ -214,7 +216,10 @@ class MEDTVCData(UnitModelBlockData):
         # distillate temperature is the same as last effect vapor temperature, which is 10 deg higher than condenser inlet seawater temperature
         @self.Constraint(doc="distillate temperature")
         def distillate_temp(b):
-            return b.distillate_props[0].temperature == self.Tin + (273.15 + 10) * pyunits.K
+            return (
+                b.distillate_props[0].temperature
+                == self.Tin + (273.15 + 10) * pyunits.K
+            )
 
         # Set alias for distillate enthalpy and convert to kJ/kg
         h_d = pyunits.convert(
@@ -338,8 +343,7 @@ class MEDTVCData(UnitModelBlockData):
         )
 
         # Set alias for motive steam pressure and convert to bar for surrogate model
-        self.Pm = pyunits.convert(
-            self.motive_props[0].pressure, to_units = pyunits.bar)
+        self.Pm = pyunits.convert(self.motive_props[0].pressure, to_units=pyunits.bar)
 
         # All in steam
         @self.Constraint(doc="Motive steam status")
@@ -1017,7 +1021,10 @@ class MEDTVCData(UnitModelBlockData):
             return b.STEC == pyunits.convert(
                 1
                 / b.GOR
-                * (b.motive_props[0].enth_mass_phase["Vap"] - b.steam_props[0].enth_mass_phase["Liq"])
+                * (
+                    b.motive_props[0].enth_mass_phase["Vap"]
+                    - b.steam_props[0].enth_mass_phase["Liq"]
+                )
                 * b.distillate_props[0].dens_mass_phase["Liq"],
                 to_units=pyunits.kWh / pyunits.m**3,
             )
@@ -1045,7 +1052,6 @@ class MEDTVCData(UnitModelBlockData):
         def q_cooling_cal(b):
             return b.q_cooling == b.q_sw - b.qF
 
-            
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
@@ -1071,8 +1077,15 @@ class MEDTVCData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.GOR) is None:
             iscale.set_scaling_factor(self.GOR, 1e-1)
 
-        if iscale.get_scaling_factor(self.feed_props[0].flow_mass_phase_comp["Liq","H2O"]) is None:
-           iscale.set_scaling_factor(self.feed_props[0].flow_mass_phase_comp["Liq","H2O"], 1e1)
+        if (
+            iscale.get_scaling_factor(
+                self.feed_props[0].flow_mass_phase_comp["Liq", "H2O"]
+            )
+            is None
+        ):
+            iscale.set_scaling_factor(
+                self.feed_props[0].flow_mass_phase_comp["Liq", "H2O"], 1e1
+            )
 
         if iscale.get_scaling_factor(self.m_sw) is None:
             iscale.set_scaling_factor(self.m_sw, 1e-3)
@@ -1108,9 +1121,7 @@ class MEDTVCData(UnitModelBlockData):
         )
         iscale.constraint_scaling_transform(self.s_b_cal, sf)
 
-        sf = iscale.get_scaling_factor(
-            self.brine_props[0].temperature
-        )
+        sf = iscale.get_scaling_factor(self.brine_props[0].temperature)
         iscale.constraint_scaling_transform(self.steam_temp, sf)
 
         sf = iscale.get_scaling_factor(
@@ -1151,7 +1162,13 @@ class MEDTVCData(UnitModelBlockData):
         sf = iscale.get_scaling_factor(self.P_req)
         iscale.constraint_scaling_transform(self.P_req_cal, sf)
 
-        sf = iscale.get_scaling_factor(self.m_sw) * iscale.get_scaling_factor(self.cooling_out_props[0].enth_mass_phase["Liq"]) * 1e3
+        sf = (
+            iscale.get_scaling_factor(self.m_sw)
+            * iscale.get_scaling_factor(
+                self.cooling_out_props[0].enth_mass_phase["Liq"]
+            )
+            * 1e3
+        )
         iscale.constraint_scaling_transform(self.m_sw_cal, sf)
 
         sf = iscale.get_scaling_factor(self.q_sw)

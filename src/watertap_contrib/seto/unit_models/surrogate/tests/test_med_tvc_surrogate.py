@@ -64,7 +64,7 @@ class TestMEDTVC:
 
         m.fs.unit.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
         m.fs.unit.feed_props[0].temperature.fix(feed_temperature + 273.15)
-        m.fs.unit.motive_props[0].pressure.fix(motive_pressure * 1e5 )
+        m.fs.unit.motive_props[0].pressure.fix(motive_pressure * 1e5)
         m.fs.unit.motive_props[0].pressure_sat.fix(motive_pressure * 1e5)
         m.fs.unit.Capacity.fix(sys_capacity)
         m.fs.unit.RR.fix(recovery_rate)
