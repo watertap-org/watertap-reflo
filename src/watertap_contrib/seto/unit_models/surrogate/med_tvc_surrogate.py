@@ -17,6 +17,7 @@ from pyomo.environ import (
     Set,
     Var,
     Param,
+    value,
     Suffix,
     ConcreteModel,
     NonNegativeReals,
@@ -47,11 +48,16 @@ from watertap.property_models.water_prop_pack import WaterParameterBlock
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
 
-
-@declare_process_block_class("LTMEDSurrogate")
-class LTMEDData(UnitModelBlockData):
+from idaes.core.util.model_statistics import degrees_of_freedom
+from idaes.core.util.scaling import (
+    calculate_scaling_factors,
+    unscaled_variables_generator,
+    badly_scaled_var_generator,
+)
+@declare_process_block_class("MEDTVCSurrogate")
+class MEDTVCData(UnitModelBlockData):
     """
-    Low-temperature multi-effect distillation model
+    Multi-effect distillation with thermal vapor compressor model
     """
 
     CONFIG = ConfigBlock()
@@ -157,13 +163,13 @@ class LTMEDData(UnitModelBlockData):
         )
 
         # Set alias for feed water salinity and convert to mg/L for surrogate model
-        Xf = pyunits.convert(
+        self.Xf = pyunits.convert(
             self.feed_props[0].conc_mass_phase_comp["Liq", "TDS"],
             to_units=pyunits.mg / pyunits.L,
         )
 
         # Set alias for feed water temperature and convert to degree C for surrogate model
-        Tin = self.feed_props[0].temperature - 273.15 * pyunits.K
+        self.Tin = self.feed_props[0].temperature - 273.15 * pyunits.K
 
         # Set alias for feed water enthalpy and convert to kJ/kg
         h_sw = pyunits.convert(
@@ -193,7 +199,7 @@ class LTMEDData(UnitModelBlockData):
         # Connect the plant capacity with the distillate mass flow rate
         self.Capacity = Var(
             initialize=2000,
-            bounds=(2000, None),
+            bounds=(2000, 100000),
             units=pyunits.m**3 / pyunits.d,
             doc="Capacity of the plant (m3/day)",
         )
@@ -208,7 +214,7 @@ class LTMEDData(UnitModelBlockData):
         # distillate temperature is the same as last effect vapor temperature, which is 10 deg higher than condenser inlet seawater temperature
         @self.Constraint(doc="distillate temperature")
         def distillate_temp(b):
-            return b.distillate_props[0].temperature == Tin + (273.15 + 10) * pyunits.K
+            return b.distillate_props[0].temperature == self.Tin + (273.15 + 10) * pyunits.K
 
         # Set alias for distillate enthalpy and convert to kJ/kg
         h_d = pyunits.convert(
@@ -292,7 +298,7 @@ class LTMEDData(UnitModelBlockData):
             )
 
         # Set alias for cooling reject volume flow rate (m3/hr)
-        q_cooling = pyunits.convert(
+        self.q_cooling = pyunits.convert(
             self.cooling_out_props[0].flow_vol_phase["Liq"],
             to_units=pyunits.m**3 / pyunits.hour,
         )
@@ -309,43 +315,41 @@ class LTMEDData(UnitModelBlockData):
             **tmp_dict
         )
 
-        # Set alias for temperature and convert to degree C for surrogate model
-        Ts = self.steam_props[0].temperature - 273.15 * pyunits.K
+        # Heating steam temperature is fixed at 70 C in this configuration
+        @self.Constraint(doc="Heating steam temperature")
+        def steam_temp(b):
+            return b.steam_props[0].temperature == 70 + 273.15
 
         # All in steam
-        @self.Constraint(doc="Steam inlet")
+        @self.Constraint(doc="Inlet steam status")
         def steam_phase(b):
             return b.steam_props[0].flow_mass_phase_comp["Liq", "H2O"] == 0
+
+        """
+        Add block for motive steam
+        """
+        tmp_dict["parameters"] = self.config.property_package2
+        tmp_dict["defined_state"] = True
+
+        self.motive_props = self.config.property_package2.state_block_class(
+            self.flowsheet().config.time,
+            doc="Material properties of motive steam",
+            **tmp_dict
+        )
+
+        # Set alias for motive steam pressure and convert to bar for surrogate model
+        self.Pm = pyunits.convert(
+            self.motive_props[0].pressure, to_units = pyunits.bar)
+
+        # All in steam
+        @self.Constraint(doc="Motive steam status")
+        def motive_phase(b):
+            return b.motive_props[0].flow_mass_phase_comp["Liq", "H2O"] == 0
 
         # Add ports
         self.add_port(name="feed", block=self.feed_props)
         self.add_port(name="distillate", block=self.distillate_props)
         self.add_port(name="brine", block=self.brine_props)
-
-        """
-        Mass balances
-        """
-        # Feed flow rate calculation
-        @self.Constraint(doc="Feed water volume flow rate")
-        def qF_cal(b):
-            return b.feed_props[0].flow_vol_phase["Liq"] == pyunits.convert(
-                b.Capacity / b.RR, to_units=pyunits.m**3 / pyunits.s
-            )
-
-        # Set alias for feed volume flow rate and covert to m3/hr
-        self.qF = pyunits.convert(
-            self.feed_props[0].flow_vol_phase["Liq"],
-            to_units=pyunits.m**3 / pyunits.hour,
-        )
-
-        # Brine flow rate calculation
-        @self.Constraint(doc="Brine volume flow rate")
-        def q_b_cal(b):
-            return (
-                b.brine_props[0].flow_vol_phase["Liq"]
-                == b.feed_props[0].flow_vol_phase["Liq"]
-                - b.distillate_props[0].flow_vol_phase["Liq"]
-            )
 
         """
         Add Vars for model outputs
@@ -378,30 +382,34 @@ class LTMEDData(UnitModelBlockData):
             doc="Gained output ratio (kg of distillate water per kg of heating steam",
         )
 
-        self.qs = Var(
-            initialize=2,
-            bounds=(0, None),
-            units=pyunits.kg / pyunits.h,
-            doc="Steam flow rate (kg/h)",
+        """
+        Mass balances
+        """
+        # Feed flow rate calculation
+        @self.Constraint(doc="Feed water volume flow rate")
+        def qF_cal(b):
+            return b.feed_props[0].flow_vol_phase["Liq"] == pyunits.convert(
+                b.Capacity / b.RR, to_units=pyunits.m**3 / pyunits.s
+            )
+
+        # Set alias for feed volume flow rate and covert to m3/hr
+        self.qF = pyunits.convert(
+            self.feed_props[0].flow_vol_phase["Liq"],
+            to_units=pyunits.m**3 / pyunits.hour,
         )
 
-        self.qm = Var(
-            initialize=20,
-            bounds=(0, None),
-            units=pyunits.kg / pyunits.s,
-            doc="Movive steam mass flow rate entering the thermocompressor (kg/s)",
-        )
+        # Brine flow rate calculation
+        @self.Constraint(doc="Brine volume flow rate")
+        def q_b_cal(b):
+            return (
+                b.brine_props[0].flow_vol_phase["Liq"]
+                == b.feed_props[0].flow_vol_phase["Liq"]
+                - b.distillate_props[0].flow_vol_phase["Liq"]
+            )
 
         """
         Add Vars for intermediate model variables
         """
-        self.TN = Var(
-            initialize=35,
-            bounds=(25, 45),
-            units=pyunits.C,
-            doc="Last effect vapor temperature",
-        )
-
         self.m_sw = Var(
             initialize=1000,
             bounds=(0, None),
@@ -542,27 +550,27 @@ class LTMEDData(UnitModelBlockData):
         def GOR_cal(b):
             return (
                 b.GOR
-                == Xf * GOR_coeffs[b.Nef.value][0]
+                == b.Xf * GOR_coeffs[b.Nef.value][0]
                 + b.RR * GOR_coeffs[b.Nef.value][1]
-                + Xf * b.RR * GOR_coeffs[b.Nef.value][2]
-                + Tin * GOR_coeffs[b.Nef.value][3]
-                + Tin * Xf * GOR_coeffs[b.Nef.value][4]
-                + Tin * b.RR * GOR_coeffs[b.Nef.value][5]
+                + b.Xf * b.RR * GOR_coeffs[b.Nef.value][2]
+                + b.Tin * GOR_coeffs[b.Nef.value][3]
+                + b.Tin * b.Xf * GOR_coeffs[b.Nef.value][4]
+                + b.Tin * b.RR * GOR_coeffs[b.Nef.value][5]
                 + b.Capacity * GOR_coeffs[b.Nef.value][6]
-                + b.Capacity * Xf * GOR_coeffs[b.Nef.value][7]
+                + b.Capacity * b.Xf * GOR_coeffs[b.Nef.value][7]
                 + b.Capacity * b.RR * GOR_coeffs[b.Nef.value][8]
-                + b.Capacity * Tin * GOR_coeffs[b.Nef.value][9]
+                + b.Capacity * b.Tin * GOR_coeffs[b.Nef.value][9]
                 + b.Pm * GOR_coeffs[b.Nef.value][10]
-                + b.Pm * Xf * GOR_coeffs[b.Nef.value][11]
+                + b.Pm * b.Xf * GOR_coeffs[b.Nef.value][11]
                 + b.Pm * b.RR * GOR_coeffs[b.Nef.value][12]
-                + b.Pm * Tin * GOR_coeffs[b.Nef.value][13]
-                + b.Pm * Capacity * GOR_coeffs[b.Nef.value][14]
+                + b.Pm * b.Tin * GOR_coeffs[b.Nef.value][13]
+                + b.Pm * b.Capacity * GOR_coeffs[b.Nef.value][14]
                 + 1 * GOR_coeffs[b.Nef.value][15]
                 + b.Pm**2 * GOR_coeffs[b.Nef.value][16]
                 + b.Capacity**2 * GOR_coeffs[b.Nef.value][17]
-                + Tin**2 * GOR_coeffs[b.Nef.value][18]
+                + b.Tin**2 * GOR_coeffs[b.Nef.value][18]
                 + b.RR**2 * GOR_coeffs[b.Nef.value][19]
-                + Xf**2 * GOR_coeffs[b.Nef.value][20]
+                + b.Xf**2 * GOR_coeffs[b.Nef.value][20]
             )
 
         # Surrogate coefficients for calculating sA
@@ -688,27 +696,27 @@ class LTMEDData(UnitModelBlockData):
         def sA_cal(b):
             return (
                 b.sA
-                == Xf * sA_coeffs[b.Nef.value][0]
+                == b.Xf * sA_coeffs[b.Nef.value][0]
                 + b.RR * sA_coeffs[b.Nef.value][1]
-                + Xf * b.RR * sA_coeffs[b.Nef.value][2]
-                + Tin * sA_coeffs[b.Nef.value][3]
-                + Tin * Xf * sA_coeffs[b.Nef.value][4]
-                + Tin * b.RR * sA_coeffs[b.Nef.value][5]
+                + b.Xf * b.RR * sA_coeffs[b.Nef.value][2]
+                + b.Tin * sA_coeffs[b.Nef.value][3]
+                + b.Tin * b.Xf * sA_coeffs[b.Nef.value][4]
+                + b.Tin * b.RR * sA_coeffs[b.Nef.value][5]
                 + b.Capacity * sA_coeffs[b.Nef.value][6]
-                + b.Capacity * Xf * sA_coeffs[b.Nef.value][7]
+                + b.Capacity * b.Xf * sA_coeffs[b.Nef.value][7]
                 + b.Capacity * b.RR * sA_coeffs[b.Nef.value][8]
-                + b.Capacity * Tin * sA_coeffs[b.Nef.value][9]
+                + b.Capacity * b.Tin * sA_coeffs[b.Nef.value][9]
                 + b.Pm * sA_coeffs[b.Nef.value][10]
-                + b.Pm * Xf * sA_coeffs[b.Nef.value][11]
+                + b.Pm * b.Xf * sA_coeffs[b.Nef.value][11]
                 + b.Pm * b.RR * sA_coeffs[b.Nef.value][12]
-                + b.Pm * Tin * sA_coeffs[b.Nef.value][13]
-                + b.Pm * Capacity * sA_coeffs[b.Nef.value][14]
+                + b.Pm * b.Tin * sA_coeffs[b.Nef.value][13]
+                + b.Pm * b.Capacity * sA_coeffs[b.Nef.value][14]
                 + 1 * sA_coeffs[b.Nef.value][15]
                 + b.Pm**2 * sA_coeffs[b.Nef.value][16]
                 + b.Capacity**2 * sA_coeffs[b.Nef.value][17]
-                + Tin**2 * sA_coeffs[b.Nef.value][18]
+                + b.Tin**2 * sA_coeffs[b.Nef.value][18]
                 + b.RR**2 * sA_coeffs[b.Nef.value][19]
-                + Xf**2 * sA_coeffs[b.Nef.value][20]
+                + b.Xf**2 * sA_coeffs[b.Nef.value][20]
             )
 
         # Surrogate coefficients for calculating qs
@@ -833,28 +841,28 @@ class LTMEDData(UnitModelBlockData):
         @self.Constraint(doc="qs surrogate equation")
         def qs_cal(b):
             return (
-                b.qs
-                == Xf * qs_coeffs[b.Nef.value][0]
+                b.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
+                == b.Xf * qs_coeffs[b.Nef.value][0]
                 + b.RR * qs_coeffs[b.Nef.value][1]
-                + Xf * b.RR * qs_coeffs[b.Nef.value][2]
-                + Tin * qs_coeffs[b.Nef.value][3]
-                + Tin * Xf * qs_coeffs[b.Nef.value][4]
-                + Tin * b.RR * qs_coeffs[b.Nef.value][5]
+                + b.Xf * b.RR * qs_coeffs[b.Nef.value][2]
+                + b.Tin * qs_coeffs[b.Nef.value][3]
+                + b.Tin * b.Xf * qs_coeffs[b.Nef.value][4]
+                + b.Tin * b.RR * qs_coeffs[b.Nef.value][5]
                 + b.Capacity * qs_coeffs[b.Nef.value][6]
-                + b.Capacity * Xf * qs_coeffs[b.Nef.value][7]
+                + b.Capacity * b.Xf * qs_coeffs[b.Nef.value][7]
                 + b.Capacity * b.RR * qs_coeffs[b.Nef.value][8]
-                + b.Capacity * Tin * qs_coeffs[b.Nef.value][9]
+                + b.Capacity * b.Tin * qs_coeffs[b.Nef.value][9]
                 + b.Pm * qs_coeffs[b.Nef.value][10]
-                + b.Pm * Xf * qs_coeffs[b.Nef.value][11]
+                + b.Pm * b.Xf * qs_coeffs[b.Nef.value][11]
                 + b.Pm * b.RR * qs_coeffs[b.Nef.value][12]
-                + b.Pm * Tin * qs_coeffs[b.Nef.value][13]
-                + b.Pm * Capacity * qs_coeffs[b.Nef.value][14]
+                + b.Pm * b.Tin * qs_coeffs[b.Nef.value][13]
+                + b.Pm * b.Capacity * qs_coeffs[b.Nef.value][14]
                 + 1 * qs_coeffs[b.Nef.value][15]
                 + b.Pm**2 * qs_coeffs[b.Nef.value][16]
                 + b.Capacity**2 * qs_coeffs[b.Nef.value][17]
-                + Tin**2 * qs_coeffs[b.Nef.value][18]
+                + b.Tin**2 * qs_coeffs[b.Nef.value][18]
                 + b.RR**2 * qs_coeffs[b.Nef.value][19]
-                + Xf**2 * qs_coeffs[b.Nef.value][20]
+                + b.Xf**2 * qs_coeffs[b.Nef.value][20]
             )
 
         # Surrogate coefficients for calculating qm
@@ -979,48 +987,29 @@ class LTMEDData(UnitModelBlockData):
         @self.Constraint(doc="qm surrogate equation")
         def qm_cal(b):
             return (
-                b.qm
-                == Xf * qm_coeffs[b.Nef.value][0]
+                b.motive_props[0].flow_mass_phase_comp["Vap", "H2O"]
+                == b.Xf * qm_coeffs[b.Nef.value][0]
                 + b.RR * qm_coeffs[b.Nef.value][1]
-                + Xf * b.RR * qm_coeffs[b.Nef.value][2]
-                + Tin * qm_coeffs[b.Nef.value][3]
-                + Tin * Xf * qm_coeffs[b.Nef.value][4]
-                + Tin * b.RR * qm_coeffs[b.Nef.value][5]
+                + b.Xf * b.RR * qm_coeffs[b.Nef.value][2]
+                + b.Tin * qm_coeffs[b.Nef.value][3]
+                + b.Tin * b.Xf * qm_coeffs[b.Nef.value][4]
+                + b.Tin * b.RR * qm_coeffs[b.Nef.value][5]
                 + b.Capacity * qm_coeffs[b.Nef.value][6]
-                + b.Capacity * Xf * qm_coeffs[b.Nef.value][7]
+                + b.Capacity * b.Xf * qm_coeffs[b.Nef.value][7]
                 + b.Capacity * b.RR * qm_coeffs[b.Nef.value][8]
-                + b.Capacity * Tin * qm_coeffs[b.Nef.value][9]
+                + b.Capacity * b.Tin * qm_coeffs[b.Nef.value][9]
                 + b.Pm * qm_coeffs[b.Nef.value][10]
-                + b.Pm * Xf * qm_coeffs[b.Nef.value][11]
+                + b.Pm * b.Xf * qm_coeffs[b.Nef.value][11]
                 + b.Pm * b.RR * qm_coeffs[b.Nef.value][12]
-                + b.Pm * Tin * qm_coeffs[b.Nef.value][13]
-                + b.Pm * Capacity * qm_coeffs[b.Nef.value][14]
+                + b.Pm * b.Tin * qm_coeffs[b.Nef.value][13]
+                + b.Pm * b.Capacity * qm_coeffs[b.Nef.value][14]
                 + 1 * qm_coeffs[b.Nef.value][15]
                 + b.Pm**2 * qm_coeffs[b.Nef.value][16]
                 + b.Capacity**2 * qm_coeffs[b.Nef.value][17]
-                + Tin**2 * qm_coeffs[b.Nef.value][18]
+                + b.Tin**2 * qm_coeffs[b.Nef.value][18]
                 + b.RR**2 * qm_coeffs[b.Nef.value][19]
-                + Xf**2 * qm_coeffs[b.Nef.value][20]
+                + b.Xf**2 * qm_coeffs[b.Nef.value][20]
             )
-
-        # Last effect vapor temperature is 10 degree higher than condenser inlet temperature
-        @self.Constraint(doc="System configuration 1")
-        def TN_Tin(b):
-            return b.TN == Tin + 10
-
-        # Steam flow rate calculation
-        # @self.Constraint(doc="Steam flow rate")
-        # def qs_cal(b):
-        #     return b.steam_props[0].flow_mass_phase_comp[
-        #         "Vap", "H2O"
-        #     ] == pyunits.convert(
-        #         sum(
-        #             b.distillate_props[0].flow_mass_phase_comp["Liq", j]
-        #             for j in b.distillate_props.component_list
-        #         )
-        #         / b.GOR,
-        #         to_units=pyunits.kg / pyunits.s,
-        #     )
 
         # Energy consumption
         @self.Constraint(doc="STEC calculation")
@@ -1028,7 +1017,7 @@ class LTMEDData(UnitModelBlockData):
             return b.STEC == pyunits.convert(
                 1
                 / b.GOR
-                * (b.steam_props[0].dh_vap_mass)
+                * (b.motive_props[0].enth_mass_phase["Vap"] - b.steam_props[0].enth_mass_phase["Liq"])
                 * b.distillate_props[0].dens_mass_phase["Liq"],
                 to_units=pyunits.kWh / pyunits.m**3,
             )
@@ -1054,8 +1043,9 @@ class LTMEDData(UnitModelBlockData):
 
         @self.Constraint(doc="Cooling water mass flow rate (m3/h)")
         def q_cooling_cal(b):
-            return q_cooling == b.q_sw - b.qF
+            return b.q_cooling == b.q_sw - b.qF
 
+            
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
@@ -1081,8 +1071,8 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.GOR) is None:
             iscale.set_scaling_factor(self.GOR, 1e-1)
 
-        if iscale.get_scaling_factor(self.TN) is None:
-            iscale.set_scaling_factor(self.TN, 1e-1)
+        if iscale.get_scaling_factor(self.feed_props[0].flow_mass_phase_comp["Liq","H2O"]) is None:
+           iscale.set_scaling_factor(self.feed_props[0].flow_mass_phase_comp["Liq","H2O"], 1e1)
 
         if iscale.get_scaling_factor(self.m_sw) is None:
             iscale.set_scaling_factor(self.m_sw, 1e-3)
@@ -1119,9 +1109,19 @@ class LTMEDData(UnitModelBlockData):
         iscale.constraint_scaling_transform(self.s_b_cal, sf)
 
         sf = iscale.get_scaling_factor(
+            self.brine_props[0].temperature
+        )
+        iscale.constraint_scaling_transform(self.steam_temp, sf)
+
+        sf = iscale.get_scaling_factor(
             self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"]
         )
         iscale.constraint_scaling_transform(self.steam_phase, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.motive_props[0].flow_mass_phase_comp["Liq", "H2O"]
+        )
+        iscale.constraint_scaling_transform(self.motive_phase, sf)
 
         sf = iscale.get_scaling_factor(self.feed_props[0].flow_vol_phase["Liq"])
         iscale.constraint_scaling_transform(self.qF_cal, sf)
@@ -1135,13 +1135,15 @@ class LTMEDData(UnitModelBlockData):
         sf = iscale.get_scaling_factor(self.sA)
         iscale.constraint_scaling_transform(self.sA_cal, sf)
 
-        sf = iscale.get_scaling_factor(self.TN)
-        iscale.constraint_scaling_transform(self.TN_Tin, sf)
-
         sf = iscale.get_scaling_factor(
             self.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
         )
         iscale.constraint_scaling_transform(self.qs_cal, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.motive_props[0].flow_mass_phase_comp["Vap", "H2O"]
+        )
+        iscale.constraint_scaling_transform(self.qm_cal, sf)
 
         sf = iscale.get_scaling_factor(self.STEC)
         iscale.constraint_scaling_transform(self.STEC_cal, sf)
@@ -1149,7 +1151,7 @@ class LTMEDData(UnitModelBlockData):
         sf = iscale.get_scaling_factor(self.P_req)
         iscale.constraint_scaling_transform(self.P_req_cal, sf)
 
-        sf = iscale.get_scaling_factor(self.m_sw) * 1e-3
+        sf = iscale.get_scaling_factor(self.m_sw) * iscale.get_scaling_factor(self.cooling_out_props[0].enth_mass_phase["Liq"]) * 1e3
         iscale.constraint_scaling_transform(self.m_sw_cal, sf)
 
         sf = iscale.get_scaling_factor(self.q_sw)
@@ -1160,38 +1162,3 @@ class LTMEDData(UnitModelBlockData):
             / 3600
         )
         iscale.constraint_scaling_transform(self.q_cooling_cal, sf)
-
-
-def main():
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties1 = SeawaterParameterBlock()
-    m.fs.properties2 = WaterParameterBlock()
-    m.fs.unit = LTMEDSurrogate(
-        property_package=m.fs.properties1, property_package2=m.fs.properties2
-    )
-
-    # System specification
-
-    feed_salinity = 35  # g/L
-    feed_temperature = 25  # degC
-    steam_temperature = 80  # deg C
-    sys_capacity = 2000  # m3/day
-    recovery_rate = 0.5  # dimensionless
-
-    m.fs.unit.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
-    m.fs.unit.feed_props[0].temperature.fix(feed_temperature + 273.15)
-    m.fs.unit.steam_props[0].temperature.fix(steam_temperature + 273.15)
-    m.fs.unit.Capacity.fix(sys_capacity)
-    m.fs.unit.RR.fix(recovery_rate)
-
-    # access the solver
-    solver = get_solver()
-
-    # solve the model
-    results = solver.solve(m)
-    print(m.fs.unit.GOR.value)
-
-
-if __name__ == "__main__":
-    main()
