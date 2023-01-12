@@ -827,7 +827,9 @@ class LTMEDData(UnitModelBlockData):
         iscale.constraint_scaling_transform(self.eq_steam_mass_flow, sf)
 
         sf = iscale.get_scaling_factor(self.specific_thermal_energy_consumption)
-        iscale.constraint_scaling_transform(self.eq_specific_thermal_energy_consumption, sf)
+        iscale.constraint_scaling_transform(
+            self.eq_specific_thermal_energy_consumption, sf
+        )
 
         sf = iscale.get_scaling_factor(self.thermal_power_requirement)
         iscale.constraint_scaling_transform(self.eq_thermal_power_requirement, sf)
