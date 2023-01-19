@@ -1,6 +1,6 @@
 import json
 from os.path import join, dirname
-from math import floor, ceil
+from math import floor, ceil, isnan
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -65,32 +65,42 @@ def run_model(modules, heat_load=None, hours_storage=None):
         tech_model.value('tshours', hours_storage)
     tech_model.execute()
 
+    # NOTE: freeze_protection_field can sometimes be nan (when it should be 0) and this causes other nan's
+    #  Thus, freeze_protection, annual_energy and capacity_factor must be calculated manually
+    # annual_energy = tech_model.Outputs.annual_energy                            # [kWht] net, does not include that used for freeze protection
+    # freeze_protection = tech_model.Outputs.annual_thermal_consumption           # [kWht]
+    # capacity_factor = tech_model.Outputs.capacity_factor                        # [%]
+    freeze_protection_field = tech_model.Outputs.annual_field_freeze_protection
+    freeze_protection_field = 0 if isnan(freeze_protection_field) else freeze_protection_field      # occasionally seen to be nan
+    freeze_protection_tes = tech_model.Outputs.annual_tes_freeze_protection
+    freeze_protection_tes = 0 if isnan(freeze_protection_tes) else freeze_protection_tes
+    freeze_protection = freeze_protection_field + freeze_protection_tes
+    annual_energy = tech_model.Outputs.annual_gross_energy - freeze_protection  # [kWht] net, does not include that used for freeze protection
+    capacity_factor = annual_energy / (tech_model.value('q_pb_design') * 1e3 * 8760) * 100 # [%] 
+    electrical_load = tech_model.Outputs.annual_electricity_consumption         # [kWhe]
+    
     post_model.value('fixed_operating_cost', modules['fixed_operating_cost_per_kW'] * system_capacity(tech_model))
     post_model.execute()
 
+    cash_model.value('annual_energy', annual_energy)                            # override the linked value from the tech model, which could be nan
     cash_model.value('capital_cost', modules['capital_cost_minus_storage_per_kW'] * system_capacity(tech_model)
 									 + tes_cost(tech_model))
     cash_model.execute()
 
-    annual_energy = tech_model.Outputs.annual_energy                    # [kWht] net, does not include that used for freeze protection
-    annual_gross_energy = tech_model.Outputs.annual_gross_energy        # [kWht]
-    freeze_protection = tech_model.Outputs.annual_thermal_consumption   # [kWht]
-    capacity_factor = tech_model.Outputs.capacity_factor                # [%]
-    electrical_load = tech_model.Outputs.annual_electricity_consumption # [kWhe]
-    lcoh = cash_model.Outputs.lcoe_fcr                                  # [$/kWht]
-    capital_cost = cash_model.value('capital_cost')                     # [$]
-    fixed_operating_cost = cash_model.value('fixed_operating_cost')     # [$] more than shown in UI, includes electricity purchases
-    variable_operating_cost = cash_model.value('variable_operating_cost') # [$]
+    lcoh = cash_model.Outputs.lcoe_fcr                                          # [$/kWht]
+    capital_cost = cash_model.value('capital_cost')                             # [$]
+    fixed_operating_cost = cash_model.value('fixed_operating_cost')             # [$] more than shown in UI, includes electricity purchases
+    variable_operating_cost = cash_model.value('variable_operating_cost')       # [$]
 
     return {
-        'annual_energy': annual_energy,                         # [kWh] annual net thermal energy in year 1
-        'freeze_protection': freeze_protection,                 # [kWht]
-        'capacity_factor': capacity_factor,                     # [%] capacity factor
-        'electrical_load': electrical_load,                     # [kWhe]
-        'lcoh': lcoh,                                           # [$/kWht] LCOH
-        'capital_cost': capital_cost,                           # [$]
-        'fixed_operating_cost': fixed_operating_cost,           # [$]
-        'variable_operating_cost': variable_operating_cost,     # [$]
+        'annual_energy': annual_energy,                                         # [kWh] annual net thermal energy in year 1
+        'freeze_protection': freeze_protection,                                 # [kWht]
+        'capacity_factor': capacity_factor,                                     # [%] capacity factor
+        'electrical_load': electrical_load,                                     # [kWhe]
+        'lcoh': lcoh,                                                           # [$/kWht] LCOH
+        'capital_cost': capital_cost,                                           # [$]
+        'fixed_operating_cost': fixed_operating_cost,                           # [$]
+        'variable_operating_cost': variable_operating_cost,                     # [$]
         }
 
 def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True):
@@ -151,11 +161,14 @@ if __name__ == '__main__':
     # Run default model
     # result = run_model(modules, heat_load=None, hours_storage=None)
 
+    # Run model at specific parameters
+    # result = run_model(modules, heat_load=600, hours_storage=3)
+
     # Load and plot saved df
-    # df = pd.read_pickle('pickle_filename3.pkl')
-    # plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)
-    # plot_3d(df, 0, 1, 5, grid=False, countour_lines=False)
-    # plot_3d(df, 0, 1, 6, grid=False, countour_lines=False)
+    # df = pd.read_pickle('pickle_filename2.pkl')
+    # plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)      # annual energy
+    # plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)      # capacity factor
+    # plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)      # LCOH
 
     # Run parametrics
     data = []
@@ -182,7 +195,7 @@ if __name__ == '__main__':
         'lcoh',
         'total_cost'])
 
-    df.to_pickle('pickle_filename3.pkl')
+    df.to_pickle('pickle_filename4.pkl')
     plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)    # annual energy
     plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)    # capacity factor
     plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)    # lcoh
