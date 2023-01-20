@@ -183,59 +183,80 @@ if __name__ == '__main__':
     # modules = setup_model(model_name, weather_file, config_files=config_files)
     config_data = [read_module_datafile(config_file) for config_file in config_files]
     del config_data[0]['file_name']        # remove weather filename
-    modules = setup_model(model_name, weather_file, config_data=config_data)
+    # modules = setup_model(model_name, weather_file, config_data=config_data)
 
     # Run default model
     # result = run_model(modules, heat_load=None, hours_storage=None)
 
     # Run model at specific parameters
-    result = run_model(modules, heat_load=600, hours_storage=3)
+    # result = run_model(modules, heat_load=600, hours_storage=3)
 
     # Run model conducive to multiprocessing
     # weather_data = utils.read_weather_data(weather_file)    # passing of weather data not yet enabled
-    result_check = setup_and_run(model_name, weather_file, config_data, heat_load=600, hours_storage=3)
+    # result_check = setup_and_run(model_name, weather_file, config_data, heat_load=600, hours_storage=3)
 
-    # Load and plot saved df
-    # df = pd.read_pickle('pickle_filename2.pkl')
+    # # Load and plot saved df
+    # df = pd.read_pickle('pickle_multip_1.pkl')
     # plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)      # annual energy
     # plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)      # capacity factor
     # plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)      # LCOH
 
     # Run parametrics via multiprocessing
-    # data = []
-    # heat_loads =        np.arange(100, 300, 100)
-    # hours_storages =    np.arange(0, 20, 10)
-    # with multiprocessing.Pool(processes=4) as pool:
-    #     results = pool.starmap()
-
-    # Run parametrics
     data = []
-    # heat_loads =        np.arange(5, 115, 10)       # [MWt]
-    # heat_loads =        np.arange(100, 1100, 25)   # [MWt]
-    # hours_storages =    np.arange(0, 27, 1)         # [hr]
-    heat_loads =        np.arange(100, 1100, 100)   # [MWt]
-    hours_storages =    np.arange(0, 27, 3)         # [hr]
-    comb = [(hl, hs) for hl in heat_loads for hs in hours_storages]
-    for heat_load, hours_storage in comb:
-        result = run_model(modules, heat_load, hours_storage)
-        total_cost = result['capital_cost'] + result['fixed_operating_cost'] + result['variable_operating_cost']
-        data.append([
-            heat_load,
-            hours_storage,
-            result['annual_energy'],
-            result['capacity_factor'],
-            result['lcoh'],
-            total_cost,
-        ])
-    df = pd.DataFrame(data, columns=[
-        'heat_load',
-        'hours_storage',
-        'annual_energy',
-        'capacity_factor',
-        'lcoh',
-        'total_cost'])
+    heat_loads =        np.arange(100, 1100, 100)
+    hours_storages =    np.arange(0, 27, 3)
+    # heat_loads =        np.arange(100, 300, 100)
+    # hours_storages =    np.arange(0, 6, 3)
+    arguments = list(product(heat_loads, hours_storages))
+    df = pd.DataFrame(arguments, columns=['heat_load', 'hours_storage'])
 
-    df.to_pickle('pickle_filename5.pkl')
+    time_start = time.process_time()
+    with multiprocessing.Pool(processes=4) as pool:
+        args = [(model_name, weather_file, config_data, *args) for args in arguments]
+        results = pool.starmap(
+            setup_and_run,
+            args
+        )
+    time_stop = time.process_time()
+    print("Multiprocessing time:", time_stop - time_start, "\n")
+    
+    df_results = pd.DataFrame(results)
+    df_results['total_cost'] = df_results['capital_cost'] \
+                             + df_results['fixed_operating_cost'] \
+                             + df_results['variable_operating_cost']
+    df = pd.concat(
+        [df, df_results[['annual_energy', 'capacity_factor', 'lcoh', 'total_cost']]],
+        axis=1)
+    df.to_pickle('pickle_multiproc1.pkl')
+
+    # # Run parametrics
+    # data = []
+    # # heat_loads =        np.arange(5, 115, 10)       # [MWt]
+    # # heat_loads =        np.arange(100, 1100, 25)   # [MWt]
+    # # hours_storages =    np.arange(0, 27, 1)         # [hr]
+    # heat_loads =        np.arange(100, 1100, 100)   # [MWt]
+    # hours_storages =    np.arange(0, 27, 3)         # [hr]
+    # comb = [(hl, hs) for hl in heat_loads for hs in hours_storages]
+    # for heat_load, hours_storage in comb:
+    #     result = run_model(modules, heat_load, hours_storage)
+    #     total_cost = result['capital_cost'] + result['fixed_operating_cost'] + result['variable_operating_cost']
+    #     data.append([
+    #         heat_load,
+    #         hours_storage,
+    #         result['annual_energy'],
+    #         result['capacity_factor'],
+    #         result['lcoh'],
+    #         total_cost,
+    #     ])
+    # df = pd.DataFrame(data, columns=[
+    #     'heat_load',
+    #     'hours_storage',
+    #     'annual_energy',
+    #     'capacity_factor',
+    #     'lcoh',
+    #     'total_cost'])
+
+    # df.to_pickle('pickle_filename5.pkl')
     plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)    # annual energy
     plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)    # capacity factor
     plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)    # lcoh
