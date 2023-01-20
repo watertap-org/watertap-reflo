@@ -63,7 +63,10 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
     def build_global_params(self):
         super().build_global_params()
 
-        self.base_currency = pyo.units.USD_2020
+        if "USD_2021" not in pyo.units._pint_registry:
+            pyo.units.load_definitions_from_strings(["USD_2021 = 500/708.0 * USD_CE500"])
+
+        self.base_currency = pyo.units.USD_2021
         self.plant_lifetime = pyo.Var(
             initialize=20, units=self.base_period, doc="Plant lifetime"
         )
