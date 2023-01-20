@@ -3,23 +3,36 @@ from os.path import join, dirname
 from math import floor, ceil, isnan
 import numpy as np
 import pandas as pd
+import time
+import multiprocessing
+from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.TroughPhysicalProcessHeat as iph
 import PySAM.IphToLcoefcr as iph_to_lcoefcr
 import PySAM.Lcoefcr as lcoefcr
 
-def load_config_files(file_names, modules):
-    for file_name, module in zip(file_names, modules):
-        with open(file_name, 'r') as file:
-            data = json.load(file)
-            missing_values = []             # for debugging
-            for k, v in data.items():
-                if k != "number_inputs":
-                    try:
-                        module.value(k, v)
-                    except:
-                        missing_values.append(k)
-            pass
+def read_module_datafile(file_name):
+    with open(file_name, 'r') as file:
+        data = json.load(file)
+    return data
+
+def load_config(modules, file_names=None, module_datas=None):
+    for i in range(len(modules)):
+        if file_names is not None:
+            data = read_module_datafile(file_names[i])
+        elif module_datas is not None:
+            data = module_datas[i]
+        else:
+            raise Exception("Either file_names or module_data must be assigned.")
+
+        missing_values = []             # for debugging
+        for k, v in data.items():
+            if k != "number_inputs":
+                try:
+                    modules[i].value(k, v)
+                except:
+                    missing_values.append(k)
+        pass
 
 def tes_cost(tech_model):
     STORAGE_COST_SPECIFIC = 62                                  # [$/kWht] borrowed from physical power trough
@@ -30,12 +43,12 @@ def tes_cost(tech_model):
 def system_capacity(tech_model):
     return tech_model.value('q_pb_design') * tech_model.value('specified_solar_multiple') * 1e3  # [kW]
 
-def setup_model(model_name, config_files, weather_file):
+def setup_model(model_name, weather_file, config_files=None, config_data=None):
     tech_model = iph.new()
     post_model = iph_to_lcoefcr.from_existing(tech_model, model_name)
     cash_model = lcoefcr.from_existing(tech_model, model_name)
     modules = [tech_model, post_model, cash_model]
-    load_config_files(config_files, modules)
+    load_config(modules, config_files, config_data)
     tech_model.Weather.file_name = weather_file
 
     # Determine storage cost component
@@ -103,6 +116,11 @@ def run_model(modules, heat_load=None, hours_storage=None):
         'variable_operating_cost': variable_operating_cost,                     # [$]
         }
 
+def setup_and_run(model_name, weather_file, config_data, heat_load, hours_storage):
+    modules = setup_model(model_name, weather_file, config_data=config_data)
+    result = run_model(modules, heat_load, hours_storage)
+    return result
+
 def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True):
     """
     index 0 = x axis
@@ -156,13 +174,17 @@ if __name__ == '__main__':
                         join(dirname(__file__), 'untitled_lcoefcr.json'),]
     weather_file =      join(dirname(__file__), 'tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv')
 
-    modules = setup_model(model_name, config_files, weather_file)
+    # modules = setup_model(model_name, weather_file, config_files=config_files)
+    config_data = [read_module_datafile(config_file) for config_file in config_files]
+    modules = setup_model(model_name, weather_file, config_data=config_data)
 
     # Run default model
     # result = run_model(modules, heat_load=None, hours_storage=None)
 
     # Run model at specific parameters
-    # result = run_model(modules, heat_load=600, hours_storage=3)
+    result = run_model(modules, heat_load=600, hours_storage=3)
+    result_check = setup_and_run(model_name, weather_file, config_data, heat_load=600, hours_storage=3)
+    #TODO: read weather file once
 
     # Load and plot saved df
     # df = pd.read_pickle('pickle_filename2.pkl')
@@ -170,11 +192,18 @@ if __name__ == '__main__':
     # plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)      # capacity factor
     # plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)      # LCOH
 
+    # Run parametrics via multiprocessing
+    # data = []
+    # heat_loads =        np.arange(100, 300, 100)
+    # hours_storages =    np.arange(0, 20, 10)
+    # with multiprocessing.Pool(processes=4) as pool:
+    #     results = pool.starmap()
+
     # Run parametrics
     data = []
     # heat_loads =        np.arange(5, 115, 10)       # [MWt]
-    heat_loads =        np.arange(100, 1100, 100)   # [MWt]
-    hours_storages =    np.arange(0, 27, 3)         # [hr]
+    heat_loads =        np.arange(100, 1100, 25)   # [MWt]
+    hours_storages =    np.arange(0, 27, 1)         # [hr]
     comb = [(hl, hs) for hl in heat_loads for hs in hours_storages]
     for heat_load, hours_storage in comb:
         result = run_model(modules, heat_load, hours_storage)
@@ -195,7 +224,7 @@ if __name__ == '__main__':
         'lcoh',
         'total_cost'])
 
-    df.to_pickle('pickle_filename4.pkl')
+    df.to_pickle('pickle_filename5.pkl')
     plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)    # annual energy
     plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)    # capacity factor
     plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)    # lcoh
