@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import PySAM.TroughPhysicalProcessHeat as iph
 import PySAM.IphToLcoefcr as iph_to_lcoefcr
 import PySAM.Lcoefcr as lcoefcr
+import utils
 
 def read_module_datafile(file_name):
     with open(file_name, 'r') as file:
@@ -43,13 +44,18 @@ def tes_cost(tech_model):
 def system_capacity(tech_model):
     return tech_model.value('q_pb_design') * tech_model.value('specified_solar_multiple') * 1e3  # [kW]
 
-def setup_model(model_name, weather_file, config_files=None, config_data=None):
+def setup_model(model_name, weather_file=None, weather_data=None, config_files=None, config_data=None):
     tech_model = iph.new()
     post_model = iph_to_lcoefcr.from_existing(tech_model, model_name)
     cash_model = lcoefcr.from_existing(tech_model, model_name)
     modules = [tech_model, post_model, cash_model]
     load_config(modules, config_files, config_data)
-    tech_model.Weather.file_name = weather_file
+    if weather_file is not None:
+        tech_model.Weather.file_name = weather_file
+    elif weather_data is not None:
+        tech_model.Weather.solar_resource_data = weather_data
+    else:
+        raise Exception("Either weather_file or weather_data must be specified.")
 
     # Determine storage cost component
     capital_cost_orig = cash_model.value('capital_cost')
@@ -117,7 +123,7 @@ def run_model(modules, heat_load=None, hours_storage=None):
         }
 
 def setup_and_run(model_name, weather_file, config_data, heat_load, hours_storage):
-    modules = setup_model(model_name, weather_file, config_data=config_data)
+    modules = setup_model(model_name, weather_file=weather_file, config_data=config_data)
     result = run_model(modules, heat_load, hours_storage)
     return result
 
@@ -176,6 +182,7 @@ if __name__ == '__main__':
 
     # modules = setup_model(model_name, weather_file, config_files=config_files)
     config_data = [read_module_datafile(config_file) for config_file in config_files]
+    del config_data[0]['file_name']        # remove weather filename
     modules = setup_model(model_name, weather_file, config_data=config_data)
 
     # Run default model
@@ -183,8 +190,10 @@ if __name__ == '__main__':
 
     # Run model at specific parameters
     result = run_model(modules, heat_load=600, hours_storage=3)
+
+    # Run model conducive to multiprocessing
+    # weather_data = utils.read_weather_data(weather_file)    # passing of weather data not yet enabled
     result_check = setup_and_run(model_name, weather_file, config_data, heat_load=600, hours_storage=3)
-    #TODO: read weather file once
 
     # Load and plot saved df
     # df = pd.read_pickle('pickle_filename2.pkl')
@@ -202,8 +211,10 @@ if __name__ == '__main__':
     # Run parametrics
     data = []
     # heat_loads =        np.arange(5, 115, 10)       # [MWt]
-    heat_loads =        np.arange(100, 1100, 25)   # [MWt]
-    hours_storages =    np.arange(0, 27, 1)         # [hr]
+    # heat_loads =        np.arange(100, 1100, 25)   # [MWt]
+    # hours_storages =    np.arange(0, 27, 1)         # [hr]
+    heat_loads =        np.arange(100, 1100, 100)   # [MWt]
+    hours_storages =    np.arange(0, 27, 3)         # [hr]
     comb = [(hl, hs) for hl in heat_loads for hs in hours_storages]
     for heat_load, hours_storage in comb:
         result = run_model(modules, heat_load, hours_storage)
