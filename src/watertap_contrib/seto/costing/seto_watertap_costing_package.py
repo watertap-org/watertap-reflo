@@ -47,6 +47,7 @@ from watertap_contrib.seto.core import PySAMWaterTAP
 
 @declare_process_block_class("SETOWaterTAPCosting")
 class SETOWaterTAPCostingData(WaterTAPCostingData):
+
     unit_mapping = {
         SolarEnergyZO: cost_pv,  # Keeping this for now
         LTMEDSurrogate: cost_lt_med_surrogate,
@@ -131,8 +132,26 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         )
 
 
+@declare_process_block_class("TreatmentCosting")
+class TreatmentCostingData(SETOWaterTAPCostingData):
+    def build_global_params(self):
+        super().build_global_params()
+
+    def build_process_costs(self):
+        super().build_process_costs()
+
+
+@declare_process_block_class("EnergyCosting")
+class EnergyCostingData(SETOWaterTAPCostingData):
+    def build_global_params(self):
+        super().build_global_params()
+
+    def build_process_costs(self):
+        super().build_process_costs()
+
+
 @declare_process_block_class("SETOSystemCosting")
-class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
+class SETOSystemCostingData(FlowsheetCostingBlockData):
     def build(self):
         super().build()
 
@@ -217,13 +236,13 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
         )
         # fix the parameters
         self.fix_all_vars()
+        # Build the integrated system costs
         self.build_integrated_costs()
 
     def build_process_costs(self):
         pass
 
     def build_integrated_costs(self):
-        # def build_process_costs(self):
         treat_cost = self._get_treatment_cost_block()
         en_cost = self._get_energy_cost_block()
 
@@ -247,12 +266,13 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
         )
 
         # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
-        #     self.aggregate_flow_heat = pyo.Var(
-        #         initialize=1e3,
-        #         # domain=pyo.NonNegativeReals,
-        #         doc="Aggregated heat flow",
-        #         units=pyo.units.kW
-        #     )
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+            self.aggregate_flow_heat = pyo.Var(
+                initialize=1e3,
+                # domain=pyo.NonNegativeReals,
+                doc="Aggregated heat flow",
+                units=pyo.units.kW,
+            )
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
@@ -277,7 +297,11 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
         )
 
         # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
-        #     self.aggregate_flow_heat_constraint = pyo.Constraint(expr=self.aggregate_flow_heat == treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat)
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+            self.aggregate_flow_heat_constraint = pyo.Constraint(
+                expr=self.aggregate_flow_heat
+                == treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat
+            )
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
@@ -435,22 +459,14 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
             )
 
     def _get_treatment_cost_block(self):
-        try:
-            treat_cost = self.parent_block().treatment.costing
-        except:
-            raise Exception(
-                "SETO integrated models require separate treatment and energy costing blocks."
-            )
-        return treat_cost
+        for b in self.model().component_objects(pyo.Block):
+            if isinstance(b, TreatmentCostingData):
+                return b
 
     def _get_energy_cost_block(self):
-        try:
-            en_cost = self.parent_block().energy.costing
-        except:
-            raise Exception(
-                "SETO integrated models require separate treatment and energy costing blocks."
-            )
-        return en_cost
+        for b in self.model().component_objects(pyo.Block):
+            if isinstance(b, EnergyCostingData):
+                return b
 
     def _get_pysam(self):
         pysam_block_test_lst = []
