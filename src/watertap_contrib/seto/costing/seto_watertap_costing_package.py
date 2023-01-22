@@ -3,7 +3,10 @@ import pyomo.environ as pyo
 from idaes.core import declare_process_block_class
 from idaes.models.unit_models import Mixer
 
-from watertap.costing.watertap_costing_package import WaterTAPCostingData, _DefinedFlowsDict
+from watertap.costing.watertap_costing_package import (
+    WaterTAPCostingData,
+    _DefinedFlowsDict,
+)
 from watertap.unit_models import (
     ReverseOsmosis0D,
     ReverseOsmosis1D,
@@ -41,6 +44,7 @@ from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 from watertap_contrib.seto.core import PySAMWaterTAP
 
+
 @declare_process_block_class("SETOWaterTAPCosting")
 class SETOWaterTAPCostingData(WaterTAPCostingData):
     unit_mapping = {
@@ -67,7 +71,9 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         super().build_global_params()
 
         if "USD_2021" not in pyo.units._pint_registry:
-            pyo.units.load_definitions_from_strings(["USD_2021 = 500/708.0 * USD_CE500"])
+            pyo.units.load_definitions_from_strings(
+                ["USD_2021 = 500/708.0 * USD_CE500"]
+            )
 
         self.base_currency = pyo.units.USD_2021
         self.plant_lifetime = pyo.Var(
@@ -127,7 +133,6 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
 
 @declare_process_block_class("SETOSystemCosting")
 class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
-
     def build(self):
         super().build()
 
@@ -137,7 +142,9 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
         # Register currency and conversion rates based on CE Index
         register_idaes_currency_units()
         if "USD_2021" not in pyo.units._pint_registry:
-            pyo.units.load_definitions_from_strings(["USD_2021 = 500/708.0 * USD_CE500"])
+            pyo.units.load_definitions_from_strings(
+                ["USD_2021 = 500/708.0 * USD_CE500"]
+            )
 
         self.base_currency = pyo.units.USD_2021
 
@@ -175,11 +182,16 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
             units=pyo.units.year**-1,
         )
 
-        self.wacc = pyo.Param(initialize=0.05, mutable=True, units=pyo.units.dimensionless, doc="Weighted Average Cost of Capital [WACC]")
+        self.wacc = pyo.Param(
+            initialize=0.05,
+            mutable=True,
+            units=pyo.units.dimensionless,
+            doc="Weighted Average Cost of Capital [WACC]",
+        )
 
         self.electricity_cost = pyo.Param(
             mutable=True,
-            initialize=0.0718, # From EIA for 2021
+            initialize=0.0718,  # From EIA for 2021
             doc="Electricity cost",
             units=self.base_currency / pyo.units.kWh,
         )
@@ -193,7 +205,6 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
             units=pyo.units.kg / pyo.units.kWh,
         )
 
-        
         self.factor_capital_annualization = pyo.Expression(
             expr=(
                 (
@@ -207,12 +218,12 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
         # fix the parameters
         self.fix_all_vars()
         self.build_integrated_costs()
-    
+
     def build_process_costs(self):
-        pass 
+        pass
 
     def build_integrated_costs(self):
-    # def build_process_costs(self):
+        # def build_process_costs(self):
         treat_cost = self._get_treatment_cost_block()
         en_cost = self._get_energy_cost_block()
 
@@ -232,7 +243,7 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
             initialize=1e3,
             # domain=pyo.NonNegativeReals,
             doc="Aggregated electricity flow",
-            units=pyo.units.kW
+            units=pyo.units.kW,
         )
 
         # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
@@ -243,15 +254,30 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
         #         units=pyo.units.kW
         #     )
 
-        self.total_capital_cost_constraint = pyo.Constraint(expr=self.total_capital_cost == pyo.units.convert(treat_cost.total_capital_cost + en_cost.total_capital_cost, to_units=self.base_currency))
+        self.total_capital_cost_constraint = pyo.Constraint(
+            expr=self.total_capital_cost
+            == pyo.units.convert(
+                treat_cost.total_capital_cost + en_cost.total_capital_cost,
+                to_units=self.base_currency,
+            )
+        )
 
-        self.total_operating_cost_constraint = pyo.Constraint(expr=self.total_operating_cost == pyo.units.convert(treat_cost.total_operating_cost + en_cost.total_operating_cost, to_units=self.base_currency / self.base_period))
+        self.total_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_operating_cost
+            == pyo.units.convert(
+                treat_cost.total_operating_cost + en_cost.total_operating_cost,
+                to_units=self.base_currency / self.base_period,
+            )
+        )
 
-        self.aggregate_flow_electricity_constraint = pyo.Constraint(expr=self.aggregate_flow_electricity == treat_cost.aggregate_flow_electricity + en_cost.aggregate_flow_electricity)
+        self.aggregate_flow_electricity_constraint = pyo.Constraint(
+            expr=self.aggregate_flow_electricity
+            == treat_cost.aggregate_flow_electricity
+            + en_cost.aggregate_flow_electricity
+        )
 
         # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
         #     self.aggregate_flow_heat_constraint = pyo.Constraint(expr=self.aggregate_flow_heat == treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat)
-
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
@@ -297,26 +323,32 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
             pysam = self._get_pysam()
 
             if not pysam._has_been_run:
-                raise Exception(f"PySAM model {pysam._pysam_model_name} has not yet been run, so there is no annual_energy data available."
-                                "You must run the PySAM model before adding LCOE metric.")
+                raise Exception(
+                    f"PySAM model {pysam._pysam_model_name} has not yet been run, so there is no annual_energy data available."
+                    "You must run the PySAM model before adding LCOE metric."
+                )
 
             en_cost = self._get_energy_cost_block()
 
-            self.annual_energy_generated = pyo.Param(initialize=pysam.annual_energy, units=pyo.units.kWh / pyo.units.year, doc=f"Annual energy generated by {pysam._pysam_model_name}")
-            LCOE_expr = pyo.Expression(expr=(en_cost.total_capital_cost *self.factor_capital_annualization + en_cost.total_operating_cost) / self.annual_energy_generated * self.utilization_factor)
+            self.annual_energy_generated = pyo.Param(
+                initialize=pysam.annual_energy,
+                units=pyo.units.kWh / pyo.units.year,
+                doc=f"Annual energy generated by {pysam._pysam_model_name}",
+            )
+            LCOE_expr = pyo.Expression(
+                expr=(
+                    en_cost.total_capital_cost * self.factor_capital_annualization
+                    + en_cost.total_operating_cost
+                )
+                / self.annual_energy_generated
+                * self.utilization_factor
+            )
             self.add_component("LCOE", LCOE_expr)
-        
+
         if e_model == "surrogate":
             raise NotImplementedError("We don't have surrogate models yet!")
 
-        
-
-
-
-    
-    def add_specific_electric_energy_consumption(
-        self, flow_rate
-    ):
+    def add_specific_electric_energy_consumption(self, flow_rate):
         """
         Add specific electric energy consumption (kWh/m**3) to costing block.
         Args:
@@ -324,20 +356,27 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
                         calculating specific energy consumption
         """
 
-        specific_electric_energy_consumption = pyo.Var(initialize=100, doc=f"Specific electric energy consumption based on flow {flow_rate.name}")
+        specific_electric_energy_consumption = pyo.Var(
+            initialize=100,
+            doc=f"Specific electric energy consumption based on flow {flow_rate.name}",
+        )
 
-        self.add_component("specific_electric_energy_consumption", specific_electric_energy_consumption)
+        self.add_component(
+            "specific_electric_energy_consumption", specific_electric_energy_consumption
+        )
 
-        specific_electric_energy_consumption_constraint = pyo.Constraint(expr=specific_electric_energy_consumption==self.aggregate_flow_electricity
-                / pyo.units.convert(
-                    flow_rate, to_units=pyo.units.m**3 / pyo.units.hr
-                ))
+        specific_electric_energy_consumption_constraint = pyo.Constraint(
+            expr=specific_electric_energy_consumption
+            == self.aggregate_flow_electricity
+            / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr)
+        )
 
-        self.add_component("specific_electric_energy_consumption_constraint", specific_electric_energy_consumption_constraint)
+        self.add_component(
+            "specific_electric_energy_consumption_constraint",
+            specific_electric_energy_consumption_constraint,
+        )
 
-    def add_specific_thermal_energy_consumption(
-        self, flow_rate
-    ):
+    def add_specific_thermal_energy_consumption(self, flow_rate):
         """
         Add specific thermal energy consumption (kWh/m**3) to costing block.
         Args:
@@ -345,16 +384,25 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
                         calculating specific energy consumption
         """
 
-        specific_thermal_energy_consumption = pyo.Var(initialize=100, doc=f"Specific thermal energy consumption based on flow {flow_rate.name}")
+        specific_thermal_energy_consumption = pyo.Var(
+            initialize=100,
+            doc=f"Specific thermal energy consumption based on flow {flow_rate.name}",
+        )
 
-        self.add_component("specific_thermal_energy_consumption", specific_thermal_energy_consumption)
+        self.add_component(
+            "specific_thermal_energy_consumption", specific_thermal_energy_consumption
+        )
 
-        specific_thermal_energy_consumption_constraint = pyo.Constraint(expr=specific_thermal_energy_consumption==self.aggregate_flow_heat
-                / pyo.units.convert(
-                    flow_rate, to_units=pyo.units.m**3 / pyo.units.hr
-                ))
+        specific_thermal_energy_consumption_constraint = pyo.Constraint(
+            expr=specific_thermal_energy_consumption
+            == self.aggregate_flow_heat
+            / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr)
+        )
 
-        self.add_component("specific_thermal_energy_consumption_constraint", specific_thermal_energy_consumption_constraint)
+        self.add_component(
+            "specific_thermal_energy_consumption_constraint",
+            specific_thermal_energy_consumption_constraint,
+        )
 
     def add_defined_flow(self, flow_name, flow_cost):
         """
@@ -390,14 +438,18 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
         try:
             treat_cost = self.parent_block().treatment.costing
         except:
-            raise Exception("SETO integrated models require separate treatment and energy costing blocks.")
+            raise Exception(
+                "SETO integrated models require separate treatment and energy costing blocks."
+            )
         return treat_cost
 
     def _get_energy_cost_block(self):
         try:
             en_cost = self.parent_block().energy.costing
         except:
-            raise Exception("SETO integrated models require separate treatment and energy costing blocks.")
+            raise Exception(
+                "SETO integrated models require separate treatment and energy costing blocks."
+            )
         return en_cost
 
     def _get_pysam(self):
@@ -405,13 +457,10 @@ class SETOWaterTAPCostingData(FlowsheetCostingBlockData):
         for k, v in vars(self.model()).items():
             if isinstance(v, PySAMWaterTAP):
                 pysam_block_test_lst.append(k)
-        
+
         if len(pysam_block_test_lst) != 1:
             raise Exception("There is no instance of PySAMWaterTAP on this model.")
-        
+
         else:
             pysam = getattr(self.model(), pysam_block_test_lst[0])
             return pysam
-        
-        
-
