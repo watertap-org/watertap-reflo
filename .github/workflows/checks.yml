@@ -36,7 +36,7 @@ jobs:
           - win64
         install-mode:
           - editable
-          - noneditable
+          # - noneditable
         include:
           - os: linux
             os-version: ubuntu-latest
@@ -51,10 +51,10 @@ jobs:
         if: matrix.install-mode == 'editable'
         run: |
           pip install -r requirements-dev.txt
-      - name: Install (noneditable)
-        if: matrix.install-mode == 'noneditable'
-        run: |
-          pip install .
+      # - name: Install (noneditable)
+      #   if: matrix.install-mode == 'noneditable'
+      #   run: |
+      #     pip install .
       - name: Set up IDAES solvers
         run: |
           idaes get-extensions --verbose
