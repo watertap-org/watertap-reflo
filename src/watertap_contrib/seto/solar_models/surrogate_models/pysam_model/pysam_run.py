@@ -196,15 +196,17 @@ if __name__ == '__main__':
     # result_check = setup_and_run(model_name, weather_file, config_data, heat_load=600, hours_storage=3)
 
     # # Load and plot saved df
-    # df = pd.read_pickle('pickle_multip_1.pkl')
+    # df = pd.read_pickle('pickle_multiproc2.pkl')
     # plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)      # annual energy
     # plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)      # capacity factor
     # plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)      # LCOH
 
     # Run parametrics via multiprocessing
     data = []
-    heat_loads =        np.arange(100, 1100, 100)
-    hours_storages =    np.arange(0, 27, 3)
+    # heat_loads =        np.arange(100, 1100, 100)
+    # hours_storages =    np.arange(0, 27, 3)
+    heat_loads =        np.arange(100, 1100, 25)   # [MWt]
+    hours_storages =    np.arange(0, 27, 1)         # [hr]
     # heat_loads =        np.arange(100, 300, 100)
     # hours_storages =    np.arange(0, 6, 3)
     arguments = list(product(heat_loads, hours_storages))
@@ -219,7 +221,7 @@ if __name__ == '__main__':
         )
     time_stop = time.process_time()
     print("Multiprocessing time:", time_stop - time_start, "\n")
-    
+
     df_results = pd.DataFrame(results)
     df_results['total_cost'] = df_results['capital_cost'] \
                              + df_results['fixed_operating_cost'] \
@@ -227,7 +229,7 @@ if __name__ == '__main__':
     df = pd.concat(
         [df, df_results[['annual_energy', 'capacity_factor', 'lcoh', 'total_cost']]],
         axis=1)
-    df.to_pickle('pickle_multiproc1.pkl')
+    df.to_pickle('pickle_multiproc2.pkl')
 
     # # Run parametrics
     # data = []
