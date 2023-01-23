@@ -38,7 +38,11 @@ from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recover
 from watertap.core.util.infeasible import *
 
 from watertap_contrib.seto.analysis.net_metering.util import *
-from watertap_contrib.seto.costing import TreatmentCosting, EnergyCosting, SETOSystemCosting
+from watertap_contrib.seto.costing import (
+    TreatmentCosting,
+    EnergyCosting,
+    SETOSystemCosting,
+)
 from watertap_contrib.seto.solar_models.zero_order import PhotovoltaicZO
 from watertap_contrib.seto.core import SETODatabase, PySAMWaterTAP
 
@@ -152,14 +156,19 @@ def set_operating_conditions(
         water_recovery=water_recovery,
         NaCl_passage=0.01,
     )
-    operating_pressure_psi = pyunits.convert(operating_pressure * pyunits.Pa, to_units=pyunits.psi)()
-    operating_pressure_bar = pyunits.convert(operating_pressure * pyunits.Pa, to_units=pyunits.bar)()
+    operating_pressure_psi = pyunits.convert(
+        operating_pressure * pyunits.Pa, to_units=pyunits.psi
+    )()
+    operating_pressure_bar = pyunits.convert(
+        operating_pressure * pyunits.Pa, to_units=pyunits.bar
+    )()
     print(
         f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
     )
     p1.control_volume.properties_out[0].pressure.fix(operating_pressure)
     m.db.get_unit_operation_parameters("solar_energy")
     pv.load_parameters_from_database(use_default_removal=True)
+
 
 def initialize_treatment(ro_area_guess=50, water_recovery=0.5):
     ro = m.fs.treatment.ro
@@ -203,11 +212,13 @@ def initialize_treatment(ro_area_guess=50, water_recovery=0.5):
 def initialize_energy():
     m.fs.energy.pv.initialize()
 
+
 def initialize_sys(ro_area_guess=50, water_recovery=0.5):
     optarg = solver.options
     m.fs.treatment.feed.initialize(optarg=optarg)
     initialize_treatment(ro_area_guess=ro_area_guess, water_recovery=water_recovery)
     initialize_energy()
+
 
 def optimize_setup(
     press_lb=125,
@@ -280,6 +291,7 @@ def add_costing():
     treatment.costing.initialize()
     energy.costing.initialize()
 
+
 def solve_it(solver=None, tee=False, check_termination=True):
     if solver is None:
         solver = get_solver()
@@ -290,16 +302,19 @@ def solve_it(solver=None, tee=False, check_termination=True):
     print(f"MODEL SOLVE = {results.solver.termination_condition.swapcase()}")
     return results
 
+
 def fix_pv_costing():
     pvc = m.fs.energy.pv.costing
     pvc.system_capacity.fix(0)
     pvc.annual_generation.fix(0)
     pvc.land_area.fix(0)
 
+
 def fix_treatment_global_params():
     tc = m.fs.treatment.costing
     tc.factor_total_investment.fix(1)
     tc.factor_maintenance_labor_chemical.fix(0)
+
 
 def fix_pysam_costing():
     tech_model = m.pysam.tech_model
@@ -317,9 +332,10 @@ def fix_pysam_costing():
     pv_params = m.fs.energy.costing.photovoltaic
     pv_params.fixed_operating_by_capacity.fix(cash_model.SystemCosts.om_capacity[0])
     m.fs.energy.pv.costing.system_capacity.fix(m.pysam.nameplate_dc * 1000)
-    pv_params.variable_operating_by_generation.fix(cash_model.SystemCosts.om_production[0])
+    pv_params.variable_operating_by_generation.fix(
+        cash_model.SystemCosts.om_production[0]
+    )
     pvc.annual_generation.fix(annual_gen)
-
 
 
 flow_in = 4.38e-3  # m3/s
@@ -361,7 +377,9 @@ fix_pv_costing()
 fix_treatment_global_params()
 m.results = solve_it()
 display_ro_pv_results(m)
-desired_pv_size = m.fs.treatment.costing.aggregate_flow_electricity() * m.fs.energy.pv.oversize_factor
+desired_pv_size = (
+    m.fs.treatment.costing.aggregate_flow_electricity() * m.fs.energy.pv.oversize_factor
+)
 
 cash_model_kwargs = {"om_fixed": 1e4, "om_production": 20}
 m.pysam.run_pv_single_owner(

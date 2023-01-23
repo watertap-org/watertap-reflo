@@ -27,13 +27,9 @@ def display_ro_pv_results(m, sep="."):
     print(title)
     print(header)
     if hasattr(m.fs, "sys_costing"):
-        print(
-            f'{"LCOW":<25s}{f"{m.fs.sys_costing.LCOW():<25.4f}"}{"$/m3":<25s}'
-        )
+        print(f'{"LCOW":<25s}{f"{m.fs.sys_costing.LCOW():<25.4f}"}{"$/m3":<25s}')
         if hasattr(m.fs.sys_costing, "LCOE"):
-            print(
-                f'{"LCOE":<25s}{f"{m.fs.sys_costing.LCOE():<25.4f}"}{"$/kWh":<25s}'
-            )
+            print(f'{"LCOE":<25s}{f"{m.fs.sys_costing.LCOE():<25.4f}"}{"$/kWh":<25s}')
         print(
             f'{"Total Capital Cost":<25s}{f"{m.fs.sys_costing.total_capital_cost():<25.2f}"}{"$":<25s}'
         )
@@ -125,9 +121,7 @@ def display_ro_pv_results(m, sep="."):
     print(
         f'{"Flow In [MGD]":<25s}{f"{pyunits.convert(prop_in.flow_vol, to_units=pyunits.Mgallons/pyunits.day)():<25.4f}"}{"MGD":<25s}'
     )
-    print(
-        f'{"Flow Out":<25s}{f"{prop_perm.flow_vol():<25.4f}"}{"m3/s":<25s}'
-    )
+    print(f'{"Flow Out":<25s}{f"{prop_perm.flow_vol():<25.4f}"}{"m3/s":<25s}')
     print(
         f'{"Conc. In":<25s}{f"{pyunits.convert(prop_in.conc_mass_phase_comp[liq, nacl], to_units=pyunits.mg/pyunits.L)():<25.4f}"}{"mg/L":<25s}'
     )
@@ -146,4 +140,3 @@ def display_ro_pv_results(m, sep="."):
     print(
         f'{"ERD Power Recovered":<25s}{f"{-1 * erd.work_mechanical[0]() * 1e-3:<25.4f}"}{"kW":<25s}'
     )
-
