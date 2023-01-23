@@ -833,8 +833,10 @@ class LTMEDData(UnitModelBlockData):
 
         sf = iscale.get_scaling_factor(self.thermal_power_requirement)
         iscale.constraint_scaling_transform(self.eq_thermal_power_requirement, sf)
-
-        sf = iscale.get_scaling_factor(self.feed_cool_mass_flow) * 1e-3
+        
+        sf = (iscale.get_scaling_factor(self.feed_cool_mass_flow) 
+                        * iscale.get_scaling_factor(self.cooling_out_props[0].enth_mass_phase["Liq"])
+                        * 1e-3)
         iscale.constraint_scaling_transform(self.eq_feed_cool_mass_flow, sf)
 
         sf = iscale.get_scaling_factor(self.feed_cool_vol_flow)
