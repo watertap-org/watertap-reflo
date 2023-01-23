@@ -1,60 +1,31 @@
+import os
+import numpy as np
+
 from pyomo.environ import (
     ConcreteModel,
     Objective,
-    Expression,
-    value,
-    Var,
     Param,
     Constraint,
-    Set,
     Var,
     Block,
-    SolverFactory,
     TransformationFactory,
     assert_optimal_termination,
-    check_optimal_termination,
-    log,
-    log10,
     units as pyunits,
 )
 from pyomo.network import Arc
-from pyomo.util.check_units import assert_units_consistent
-import pyomo.util.infeasible as infeas
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
-import seaborn as sns
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers.get_solver import get_solver
-from idaes.models.unit_models.translator import Translator
-from idaes.models.unit_models import Mixer, Separator, Product, Feed
-from idaes.models.unit_models.mixer import MomentumMixingType
+from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import *
 from idaes.core.util.scaling import *
-from idaes.core.util.exceptions import ConfigurationError
-from idaes.core.util.testing import initialization_tester
 from idaes.core import UnitModelCostingBlock
-from idaes.core.util.model_diagnostics import DegeneracyHunter
-import idaes.logger as idaeslog
-from idaes.core.util.misc import StrEnum
-from idaes.core.util.initialization import solve_indexed_blocks, propagate_state
+from idaes.core.util.initialization import propagate_state
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
-# from watertap.property_models.ion_DSPMDE_prop_pack import (
-#     DSPMDEParameterBlock,
-#     DSPMDEStateBlock,
-#     ActivityCoefficientModel,
-#     DensityCalculation,
-# )
 from watertap.core.util.initialization import assert_degrees_of_freedom
-from watertap.property_models.NaCl_prop_pack import NaClParameterBlock, NaClStateBlock
-from watertap.unit_models.pressure_exchanger import PressureExchanger
+from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.unit_models.pressure_changer import Pump, EnergyRecoveryDevice
-from watertap.unit_models.ion_exchange_0D import (
-    IonExchange0D,
-    IonExchangeType,
-    RegenerantChem,
-)
 
-# from watertap.unit_models.zero_order import SolarEnergyZO
 from watertap.unit_models.reverse_osmosis_0D import (
     ReverseOsmosis0D,
     ConcentrationPolarizationType,
@@ -64,44 +35,13 @@ from watertap.unit_models.reverse_osmosis_0D import (
 from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
     calculate_operating_pressure,
 )
-from watertap.core.zero_order_properties import WaterParameterBlock
-from watertap.core.wt_database import Database
-from watertap.core.zero_order_costing import ZeroOrderCosting, _get_tech_parameters
 from watertap.core.util.infeasible import *
-from watertap.costing import WaterTAPCosting
-import watertap.core.zero_order_properties as prop_ZO
 
-import json
-from os.path import join, dirname
-from math import floor, ceil
-
-import pytest
-
-from io import StringIO
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-from IPython.display import clear_output
-from copy import deepcopy
-
-# import PySAM
-# from pysam_seto import *
-# print_infeasible_constraints(m)
-# print_infeasible_bounds(m)
-# print_variables_close_to_bounds(m)
-# print_constraints_close_to_bounds(m)
-# print_close_to_bounds(m)
-# print(infeas.log_infeasible_bounds(m))
-# print(infeas.log_infeasible_constraints(m))
-# /Users/ksitterl/Documents/Python/watertap-seto/watertap-seto/src/watertap_contrib/seto/costing/seto_zero_order_costing.py
-from watertap_contrib.seto.costing import SETOZeroOrderCosting, SETOWaterTAPCosting, TreatmentCosting, EnergyCosting, SETOSystemCosting
-
+from watertap_contrib.seto.analysis.net_metering.util import *
+from watertap_contrib.seto.costing import TreatmentCosting, EnergyCosting, SETOSystemCosting
 from watertap_contrib.seto.solar_models.zero_order import PhotovoltaicZO
-from watertap_contrib.seto.energy import solar_energy
 from watertap_contrib.seto.core import SETODatabase, PySAMWaterTAP
-# from watertap_contrib.seto.costing.solar import photovoltaic
-import os
+
 
 solver = get_solver()
 
@@ -182,13 +122,9 @@ def build_ro_pv():
     return m
 
 
-
-
 def set_operating_conditions(
     flow_in=1e-3, tds=35, ro_area_guess=50, water_recovery=0.5
 ):
-    ro = m.fs.treatment.ro
-    erd = m.fs.treatment.erd
     pv = m.fs.energy.pv
     p1 = m.fs.treatment.p1
     feed = m.fs.treatment.feed
@@ -219,7 +155,7 @@ def set_operating_conditions(
     operating_pressure_psi = pyunits.convert(operating_pressure * pyunits.Pa, to_units=pyunits.psi)()
     operating_pressure_bar = pyunits.convert(operating_pressure * pyunits.Pa, to_units=pyunits.bar)()
     print(
-        f"\nOPERATING PRESSURE ESTIMATE = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
+        f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
     )
     p1.control_volume.properties_out[0].pressure.fix(operating_pressure)
     m.db.get_unit_operation_parameters("solar_energy")
@@ -260,7 +196,6 @@ def initialize_treatment(ro_area_guess=50, water_recovery=0.5):
     erd.initialize()
 
     propagate_state(m.fs.treatment.a1)
-    # propagate_state(m.fs.treatment.a6)
     p1.initialize()
     propagate_state(m.fs.treatment.a2)
 
@@ -268,10 +203,7 @@ def initialize_treatment(ro_area_guess=50, water_recovery=0.5):
 def initialize_energy():
     m.fs.energy.pv.initialize()
 
-
-def initialize_sys(solver=None, ro_area_guess=50, water_recovery=0.5):
-    if solver is None:
-        solver = get_solver()
+def initialize_sys(ro_area_guess=50, water_recovery=0.5):
     optarg = solver.options
     m.fs.treatment.feed.initialize(optarg=optarg)
     initialize_treatment(ro_area_guess=ro_area_guess, water_recovery=water_recovery)
@@ -290,7 +222,7 @@ def optimize_setup(
 
     press_lb_Pa = pyunits.convert(press_lb * pyunits.psi, to_units=pyunits.Pa)()
     press_ub_Pa = pyunits.convert(press_ub * pyunits.psi, to_units=pyunits.Pa)()
-    # m.fs.pv.properties[0].flow_mass_phase_comp['Liq', 'H2O'].fix()
+
     p1.control_volume.properties_out[0].pressure.unfix()
     p1.control_volume.properties_out[0].pressure.setlb(press_lb_Pa)
     p1.control_volume.properties_out[0].pressure.setub(press_ub_Pa)
@@ -347,7 +279,6 @@ def add_costing():
 
     treatment.costing.initialize()
     energy.costing.initialize()
-    # return m
 
 def solve_it(solver=None, tee=False, check_termination=True):
     if solver is None:
@@ -359,150 +290,6 @@ def solve_it(solver=None, tee=False, check_termination=True):
     print(f"MODEL SOLVE = {results.solver.termination_condition.swapcase()}")
     return results
 
-def print_ro_results(m, sep="."):
-    ro = m.fs.treatment.ro
-    erd = m.fs.treatment.erd
-    liq = "Liq"
-    nacl = "NaCl"
-    header = f'{"PARAM":<40s}{"VALUE":<40s}{"UNITS":<40s}'
-    prop_in = ro.feed_side.properties_in[0]
-    prop_out = ro.feed_side.properties_out[0]
-    prop_perm = ro.mixed_permeate[0]
-    pv_cost = m.fs.energy.costing.photovoltaic
-    line = f'\n{f"{sep*160}":<160s}'
-    flux_lmh = pyunits.convert(
-        ro.flux_mass_phase_comp_avg[0, "Liq", "H2O"]
-        / ro.feed_side.properties_in[0].dens_mass_phase["Liq"],
-        to_units=pyunits.liter / pyunits.m**2 / pyunits.hr,
-    )()
-    flow_out_L = pyunits.convert(
-        prop_perm.flow_vol, to_units=pyunits.liter / pyunits.hr
-    )
-    title = f'\n{"=======> INTEGRATED SYSTEM RESULTS <=======":^120}\n'
-    print(line)
-    print(title)
-    print(header)
-    if hasattr(m.fs, "sys_costing"):
-        print(
-            f'{"LCOW":<40s}{f"{m.fs.sys_costing.LCOW():<40.4f}"}{"$/m3":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"Total Capital Cost":<40s}{f"{m.fs.sys_costing.total_capital_cost():<40.2f}"}{"$":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"Total Operating Cost":<40s}{f"{m.fs.sys_costing.total_operating_cost():<40.2f}"}{"$/yr":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"SEC":<40s}{f"{m.fs.sys_costing.specific_electric_energy_consumption():<40.4f}"}{"kWh/m3":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"PV Avg. Electricity Generation":<40s}{f"{m.fs.energy.pv.electricity():<40.4f}"}{"kW":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"RO Electricity Consumption":<40s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<40.4f}"}{"kW":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"Overall Electricity Consumption":<40s}{f"{m.fs.sys_costing.aggregate_flow_electricity():<40.4f}"}{"kW":<40s}{f"--":<40}'
-        )
-        title = f'\n{"=======> PV SYSTEM RESULTS <=======":^120}\n'
-        print(title)
-        print(header)
-        print(
-            f'{"PV Capital Cost":<40s}{f"{m.fs.energy.pv.costing.capital_cost():<40.2f}"}{"$":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"PV Fixed Operating":<40s}{f"{m.fs.energy.pv.costing.fixed_operating_cost():<40.2f}"}{"$/yr":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"PV Fixed Operating by Capacity":<40s}{f"{pv_cost.fixed_operating_by_capacity():<40.2f}"}{"$/yr":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"PV Variable Operating":<40s}{f"{m.fs.energy.pv.costing.variable_operating_cost():<40.2f}"}{"$/yr":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"PV Variable Operating by Annual Gen.":<40s}{f"{pv_cost.variable_operating_by_generation():<40.2f}"}{"$/MWh":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"PV Annual Generation":<40s}{f"{m.fs.energy.pv.costing.annual_generation():<40.4f}"}{"MWh/yr":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"PV Nameplate Capacity":<40s}{f"{m.fs.energy.pv.costing.system_capacity():<40.4f}"}{"W":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"PV Land Required":<40s}{f"{m.fs.energy.pv.costing.land_area():<40.4f}"}{"acres":<40s}{f"--":<40}'
-        )
-        # if hasattr(m, 'pysam'):
-        #     max_gen = max(m.pysam.hourly_energy)
-        # print(f'{"PV Max Generation":<40s}{f"{max_gen:<40.4f}"}{"kW":<40s}{f"--":<40}')
-        print(
-            f'{"PV Avg. Generation":<40s}{f"{-1 * m.fs.energy.pv.electricity():<40.4f}"}{"kW":<40s}{f"--":<40}'
-        )
-        title = f'\n{"=======> RO SYSTEM RESULTS <=======":^120}\n'
-        print(title)
-        print(header)
-        print(
-            f'{"RO Capital Cost":<40s}{f"{m.fs.treatment.ro.costing.capital_cost():<40.2f}"}{"$":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"Pump Capital Cost":<40s}{f"{m.fs.treatment.p1.costing.capital_cost():<40.2f}"}{"$":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"ERD Capital Cost":<40s}{f"{m.fs.treatment.erd.costing.capital_cost():<40.2f}"}{"$":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"Total Treatment Capital Cost":<40s}{f"{m.fs.treatment.costing.total_capital_cost():<40.4f}"}{"$":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"RO Fixed Operating Cost":<40s}{f"{m.fs.treatment.ro.costing.fixed_operating_cost():<40.2f}"}{"$":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"Pumping Power":<40s}{f"{m.fs.treatment.p1.control_volume.work[0]():<40.2f}"}{"W":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"RO Capital Cost":<40s}{f"{m.fs.treatment.ro.costing.capital_cost():<40.2f}"}{"$":<40s}{f"--":<40}'
-        )
-        print(
-            f'{"RO Operating Cost":<40s}{f"{m.fs.treatment.costing.total_operating_cost():<40.4f}"}{"$":<40s}{f"--":<40}'
-        )
-
-    print(
-        f'{"RO Pressure":<40s}{f"{pyunits.convert(ro.inlet.pressure[0], to_units=pyunits.psi)():<40.4f}"}{"psi":<40s}{f"--":<40}'
-    )
-    print(f'{"Membrane Area":<40s}{f"{ro.area():<40.4f}"}{"m2":<40s}{f"--":<40}')
-    print(f'{"Flux":<40s}{f"{flux_lmh:<40.4f}"}{"LMH":<40s}{f"--":<40}')
-    # print(f'{"Flux Check":<40s}{f"{flow_out_L() / ro.area():<40.4f}"}{"LMH":<40s}{f"--":<40}')
-    print(
-        f'{"Vol. Recovery":<40s}{f"{100 * ro.recovery_vol_phase[0, liq]():<40.4f}"}{"%":<40s}{f"--":<40}'
-    )
-    print(f'{"Flow In":<40s}{f"{prop_in.flow_vol():<40.4f}"}{"m3/s":<40s}{f"--":<40}')
-    print(
-        f'{"Flow In [MGD]":<40s}{f"{pyunits.convert(prop_in.flow_vol, to_units=pyunits.Mgallons/pyunits.day)():<40.4f}"}{"MGD":<40s}{f"--":<40}'
-    )
-    print(
-        f'{"Flow Out":<40s}{f"{prop_perm.flow_vol():<40.4f}"}{"m3/s":<40s}{f"--":<40}'
-    )
-    print(
-        f'{"Conc. In":<40s}{f"{pyunits.convert(prop_in.conc_mass_phase_comp[liq, nacl], to_units=pyunits.mg/pyunits.L)():<40.4f}"}{"mg/L":<40s}{f"--":<40}'
-    )
-    print(
-        f'{"Conc. Reject":<40s}{f"{pyunits.convert(prop_out.conc_mass_phase_comp[liq, nacl], to_units=pyunits.mg/pyunits.L)():<40.4f}"}{"mg/L":<40s}{f"--":<40}'
-    )
-    print(
-        f'{"Conc. Perm":<40s}{f"{pyunits.convert(prop_perm.conc_mass_phase_comp[liq, nacl], to_units=pyunits.mg/pyunits.L)():<40.4f}"}{"mg/L":<40s}{f"--":<40}'
-    )
-    print(
-        f'{"Pump Pressure":<40s}{f"{pyunits.convert(erd.inlet.pressure[0], to_units=pyunits.psi)():<40.4f}"}{"psi":<40s}{f"--":<40}'
-    )
-    print(
-        f'{"ERD Pressure":<40s}{f"{pyunits.convert(m.fs.treatment.p1.outlet.pressure[0], to_units=pyunits.psi)():<40.4f}"}{"psi":<40s}{f"--":<40}'
-    )
-    print(
-        f'{"ERD Power Recovered":<40s}{f"{-1 * erd.work_mechanical[0]() * 1e-3:<40.4f}"}{"kW":<40s}{f"--":<40}'
-    )
-
-
-# print_ro_results(m)
-
 def fix_pv_costing():
     pvc = m.fs.energy.pv.costing
     pvc.system_capacity.fix(0)
@@ -512,8 +299,28 @@ def fix_pv_costing():
 def fix_treatment_global_params():
     tc = m.fs.treatment.costing
     tc.factor_total_investment.fix(1)
-    # tc.wacc.set_value(0.06)
     tc.factor_maintenance_labor_chemical.fix(0)
+
+def fix_pysam_costing():
+    tech_model = m.pysam.tech_model
+    cash_model = m.pysam.cash_model
+
+    avg_gen = np.mean(m.pysam.hourly_energy)
+    m.fs.energy.pv.electricity.fix(-1 * avg_gen)
+
+    annual_gen = m.pysam.annual_energy * pyunits.kWh
+    annual_gen = pyunits.convert(annual_gen, to_units=pyunits.MWh)()
+    land_area = cash_model.LandLease.land_area * pyunits.acres
+
+    pvc = m.fs.energy.pv.costing
+    pvc.land_area.fix(land_area)
+    pv_params = m.fs.energy.costing.photovoltaic
+    pv_params.fixed_operating_by_capacity.fix(cash_model.SystemCosts.om_capacity[0])
+    m.fs.energy.pv.costing.system_capacity.fix(m.pysam.nameplate_dc * 1000)
+    pv_params.variable_operating_by_generation.fix(cash_model.SystemCosts.om_production[0])
+    pvc.annual_generation.fix(annual_gen)
+
+
 
 flow_in = 4.38e-3  # m3/s
 tds = 50  # g/L
@@ -552,13 +359,25 @@ m.fs.energy.pv.oversize_factor = oversize_factor
 
 fix_pv_costing()
 fix_treatment_global_params()
-m.fs.sys_costing.base_currency = pyunits.USD_2018
 m.results = solve_it()
-print_ro_results(m)
+display_ro_pv_results(m)
 desired_pv_size = m.fs.treatment.costing.aggregate_flow_electricity() * m.fs.energy.pv.oversize_factor
 
 cash_model_kwargs = {"om_fixed": 1e4, "om_production": 20}
-tech_model_kwargs = {"subarray1_rear_soiling_loss": 1, "subarray1_rack_shading": 1}
 m.pysam.run_pv_single_owner(
     desired_size=desired_pv_size, cash_model_kwargs=cash_model_kwargs
 )
+
+m.fs.sys_costing.add_LCOE()
+
+fix_pysam_costing()
+
+m.fs.treatment.ro.area.fix()
+m.fs.treatment.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"].fix()
+m.fs.treatment.p1.control_volume.properties_out[0].pressure.unfix()
+# m.fs.treatment.feed.properties[0].flow_mass_phase_comp['Liq', 'H2O'].unfix()
+m.fs.treatment.feed.properties[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
+# m.fs.treatment.ro.recovery_mass_phase_comp[0, 'Liq', 'H2O'].fix(water_recovery)
+
+m.results = solve_it(check_termination=False)
+display_ro_pv_results(m)
