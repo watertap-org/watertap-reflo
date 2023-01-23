@@ -199,6 +199,7 @@ class TestLTMED:
         lt_med = m.fs.lt_med
         dist = lt_med.distillate_props[0]
         m.fs.costing = SETOWaterTAPCosting()
+        m.fs.costing.base_currency = pyunits.USD_2020
         lt_med.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         # Fix some global costing params for better comparison to Pyomo model
