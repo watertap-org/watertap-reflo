@@ -31,6 +31,7 @@ from idaes.core.util.scaling import (
 # Get default solver for testing
 solver = get_solver()
 
+
 class TestLTMED:
     @pytest.fixture(scope="class")
     def LT_MED_frame(self):
