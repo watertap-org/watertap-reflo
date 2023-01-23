@@ -8,33 +8,46 @@ from pyomo.environ import ConcreteModel, SolverFactory, value, Var, \
     Constraint, Set, Objective, maximize
 from pyomo.common.timing import TicTocTimer
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
-from idaes.core.surrogate.pysmo_surrogate import PysmoPolyTrainer, PysmoSurrogate
+from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.pysmo.radial_basis_function import RadialBasisFunctions
 from idaes.core.surrogate.plotting.sm_plotter import surrogate_scatter2D, surrogate_parity, surrogate_residual
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock
 
-def create_rbf_surrogate(data_training):
+def create_rbf_surrogate(training_dataframe, input_labels, output_labels, filename):
     # Capture long output
     stream = StringIO()
     oldstdout = sys.stdout
     sys.stdout = stream
 
-    # Instantiate an RBF model
-    rbf_class = RadialBasisFunctions(
-        XY_data=data_training[['heat_load', 'hours_storage', 'annual_energy']],
-        basis_function='gaussian',
-        overwrite=True)
-    vars = rbf_class.get_feature_vector()
+    # Create PySMO trainer object
+    trainer = PysmoRBFTrainer(
+        input_labels=input_labels,
+        output_labels=output_labels,
+        training_dataframe=training_dataframe
+    )
 
-    # Train model
-    # NOTE: surrogate model saved in file: "solution.pickle"
-    rbf_class.training()
+    # Set PySMO options
+    trainer.config.basis_function = 'gaussian'          # default = gaussian
+    trainer.config.solution_method = 'algebraic'        # default = algebraic
+    trainer.config.regularization = True                # default = True 
+
+    # Train surrogate
+    rbf_train = trainer.train_surrogate()
+
+    # Create callable surrogate object
+    xmin, xmax = [100, 0], [1000, 26]
+    input_bounds = {input_labels[i]: (xmin[i], xmax[i])
+                for i in range(len(input_labels))}
+    rbf_surr = PysmoSurrogate(rbf_train, input_labels, output_labels, input_bounds)
+
+    # Save model to JSON
+    model = rbf_surr.save_to_file(filename, overwrite=True)
 
     # Revert back to standard output
     sys.stdout = oldstdout
 
-    # display first 50 lines and last 50 lines of output
+    # Display first 50 lines and last 50 lines of output
     # celloutput = stream.getvalue().split('\n')
     # for line in celloutput[:50]:
     #     print(line)
@@ -44,30 +57,22 @@ def create_rbf_surrogate(data_training):
     # for line in celloutput[-50:]:
     #     print(line)
 
-    return rbf_class
+    return rbf_surr
 
 
-def _parity_residual_plots(y_data_unscaled, output_predictions):
-    """
-
-    inputs:
-
-    Returns:
-
-    """
-
+def _parity_residual_plots(true_values, modeled_values):
     fig1 = plt.figure(figsize=(16, 9), tight_layout=True)
     ax = fig1.add_subplot(121)
-    ax.plot(y_data_unscaled, y_data_unscaled, "-")
-    ax.plot(y_data_unscaled, output_predictions, "o")
+    ax.plot(true_values, true_values, "-")
+    ax.plot(true_values, modeled_values, "o")
     ax.set_xlabel(r"True data", fontsize=12)
     ax.set_ylabel(r"Surrogate values", fontsize=12)
     ax.set_title(r"Parity plot", fontsize=12)
 
     ax2 = fig1.add_subplot(122)
     ax2.plot(
-        y_data_unscaled,
-        y_data_unscaled - output_predictions,
+        true_values,
+        true_values - modeled_values,
         "s",
         mfc="w",
         mec="m",
@@ -101,25 +106,34 @@ if __name__ == '__main__':
     # Split training and validation data
     data_training, data_validation = split_training_validation(data, training_fraction, seed=len(data))    # each has all columns
 
-    # Create surrogate and save to file: "surrogate.pickle"
-    rbf_class = create_rbf_surrogate(data_training)
+    # Create surrogate and save to file
+    filename = 'pysmo_rbf_surrogate.json'
+    surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, filename)
+
+    # Load surrogate model from file
+    surrogate = PysmoSurrogate.load_from_file(filename)
 
     # Output fit metrics and create parity and residual plots
-    print("R2: {r2} \nRMSE: {rmse}".format(r2=rbf_class.R2, rmse=rbf_class.rmse))
-    rbf_class.parity_residual_plots()
+    print("R2: {r2} \nRMSE: {rmse}".format(
+        r2=surrogate._trained._data[output_labels[0]].model.R2,
+        rmse=surrogate._trained._data[output_labels[0]].model.rmse
+        ))
+    training_output = surrogate.evaluate_surrogate(data_training[input_labels])
+    _parity_residual_plots(
+        true_values=np.array(data_training['annual_energy']),
+        modeled_values=np.array(training_output['annual_energy'])
+        )
     # plt.savefig('/plots/parity_residual_plots.png')
     # plt.close()
 
-    # Load model from pickle
-    rbf_class = RadialBasisFunctions.pickle_load('solution.pickle')['model']
-    print("R2: {r2} \nRMSE: {rmse}".format(r2=rbf_class.R2, rmse=rbf_class.rmse))
-    points = np.array([ [200, 7], [1000, 25] ])
-    surr_output = rbf_class.predict_output(points)
-
     # Validate model using validation data
-    surr_output = rbf_class.predict_output(np.array(data_validation[input_labels]))
-    surr_output = surr_output.flatten()
-    _parity_residual_plots(surr_output, np.array(data_validation['annual_energy']))
+    validation_output = surrogate.evaluate_surrogate(data_validation[input_labels])
+    _parity_residual_plots(
+        true_values=np.array(data_validation['annual_energy']),
+        modeled_values=np.array(validation_output['annual_energy'])
+        )
+    # plt.savefig('/plots/parity_residual_plots.png')
+    # plt.close()
 
     # # Build and run IDAES flowsheet
     # m = ConcreteModel()
