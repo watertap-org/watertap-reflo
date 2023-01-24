@@ -71,7 +71,7 @@ class TestLTMED:
         steam.flow_mass_phase_comp["Liq", "H2O"].fix(0)
         dist.flow_mass_phase_comp["Liq", "TDS"].fix(0)  # salinity in distillate is zero
 
-        lt_med.recovery_ratio.fix(recovery_ratio)
+        lt_med.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
 
         return m
 
@@ -165,7 +165,7 @@ class TestLTMED:
         brine_mass_flow_tds = 1.62037
         recovery = dist_flow_m3_hr / feed_flow_m3_hr
 
-        assert value(lt_med.recovery_ratio) == pytest.approx(recovery, rel=1e-3)
+        assert value(lt_med.recovery_vol_phase[0, "Liq"]) == pytest.approx(recovery, rel=1e-3)
         assert value(
             pyunits.convert(
                 lt_med.feed_props[0].flow_vol_phase["Liq"]
