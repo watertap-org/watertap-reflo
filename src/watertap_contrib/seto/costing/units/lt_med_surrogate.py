@@ -72,7 +72,7 @@ def build_lt_med_surrogate_cost_param_block(blk):
         doc="Cost of disposal per m3 brine",
     )
 
-    blk.specific_electric_energy_consumption = pyo.Var(
+    blk.specific_energy_consumption_electric = pyo.Var(
         initialize=1.5,
         units=pyo.units.kWh / pyo.units.m**3,
         bounds=(0, None),
@@ -250,7 +250,7 @@ def cost_lt_med_surrogate(blk):
         * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
     )
     blk.electricity_flow = pyo.Expression(
-        expr=lt_med_params.specific_electric_energy_consumption
+        expr=lt_med_params.specific_energy_consumption_electric
         * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
     )
 
