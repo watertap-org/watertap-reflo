@@ -11,6 +11,8 @@
 #
 ###############################################################################
 
+from copy import deepcopy
+
 # Import Pyomo libraries
 from pyomo.environ import (
     Set,
@@ -18,6 +20,7 @@ from pyomo.environ import (
     Param,
     Suffix,
     Constraint,
+    check_optimal_termination,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
@@ -28,7 +31,9 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
+from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.config import is_physical_parameter_block
+from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
@@ -153,7 +158,7 @@ class LTMEDData(UnitModelBlockData):
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package_water
-        tmp_dict["defined_state"] = False
+        tmp_dict["defined_state"] = True
 
         self.feed_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
@@ -164,6 +169,7 @@ class LTMEDData(UnitModelBlockData):
         """
         Add block for distillate
         """
+        tmp_dict["defined_state"] = False
         self.distillate_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of distillate",
@@ -182,7 +188,6 @@ class LTMEDData(UnitModelBlockData):
         """
         Add block for brine
         """
-        tmp_dict["defined_state"] = False
 
         self.brine_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time, doc="Material properties of brine", **tmp_dict
@@ -766,8 +771,115 @@ class LTMEDData(UnitModelBlockData):
         solver=None,
         optarg=None,
     ):
+        """
+        General wrapper for initialization routines
 
-        pass
+        Keyword Arguments:
+            state_args : a dict of arguments to be passed to the property
+                         package(s) to provide an initial state for
+                         initialization (see documentation of the specific
+                         property package) (default = {}).
+            outlvl : sets output level of initialization routine
+            optarg : solver options dictionary object (default=None)
+            solver : str indicating which solver to use during
+                     initialization (default = None)
+
+        Returns: None
+        """
+        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="unit")
+        solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
+
+        opt = get_solver(solver, optarg)
+        # ---------------------------------------------------------------------
+        flags = blk.feed_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+            hold_state=True,
+        )
+        init_log.info("Initialization Step 1a Complete.")
+        # ---------------------------------------------------------------------
+        # Initialize other state blocks
+        # Set state_args from inlet state
+
+        if state_args is None:
+            blk.state_args = state_args = {}
+            state_dict = blk.feed_props[blk.flowsheet().config.time.first()].define_port_members()
+
+            for k in state_dict.keys():
+                if state_dict[k].is_indexed():
+                    state_args[k] = {}
+                    for m in state_dict[k].keys():
+                        state_args[k][m] = state_dict[k][m].value
+                else:
+                    state_args[k] = state_dict[k].value
+        
+
+        state_args_dist = deepcopy(state_args)
+        for p, j in blk.distillate_props.phase_component_set:
+            if j == "TDS":
+                state_args_dist["flow_mass_phase_comp"][(p, j)] = 0
+        
+        blk.distillate_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_dist,
+        )
+
+        state_args_steam = {}
+        state_dict_steam = blk.steam_props[blk.flowsheet().config.time.first()].define_port_members()
+
+        for k in state_dict_steam.keys():
+            if state_dict_steam[k].is_indexed():
+                state_args_steam[k] = {}
+                for m in state_dict_steam[k].keys():
+                    state_args_steam[k][m] = state_dict_steam[k][m].value
+            else:
+                state_args_steam[k] = state_dict_steam[k].value
+
+        for p, j in blk.steam_props.phase_component_set:
+            if p == "Liq" and j == "H2O":
+                state_args_steam["flow_mass_phase_comp"][(p, j)] = 0
+        
+        blk.steam_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_steam,
+        )
+
+        state_args_brine = deepcopy(state_args)
+        for p, j in blk.brine_props.phase_component_set:
+            if p == "Liq" and j == "H2O":
+                state_args_brine["flow_mass_phase_comp"][(p, j)] = state_args["flow_mass_phase_comp"][(p, j)] * (1 - blk.recovery_ratio) * pyunits.kg / pyunits.s
+        
+        blk.brine_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_brine,
+        )
+
+        blk.cooling_out_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+        )
+
+        # Solve unit
+        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
+            res = opt.solve(blk, tee=slc.tee)
+        init_log.info("Initialization Step 3 {}.".format(idaeslog.condition(res)))
+        # ---------------------------------------------------------------------
+        # Release Inlet state
+        blk.feed_props.release_state(flags, outlvl=outlvl)
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {blk.name} failed to initialize")
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
