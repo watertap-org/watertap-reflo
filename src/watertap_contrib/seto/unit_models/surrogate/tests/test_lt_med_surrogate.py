@@ -14,6 +14,7 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.seto.costing import SETOWaterTAPCosting
 
+from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
@@ -27,7 +28,7 @@ from idaes.core.util.scaling import (
     unscaled_constraints_generator,
     badly_scaled_var_generator,
 )
-
+import idaes.logger as idaeslog
 # Get default solver for testing
 solver = get_solver()
 
@@ -50,7 +51,8 @@ class TestLTMED:
         steam = lt_med.steam_props[0]
 
         # System specification
-        feed_salinity = 35  # g/L = kg/m3
+        feed_salinity = 35 * pyunits.kg / pyunits.m**3 # g/L = kg/m3
+        feed_dens = 1000 * pyunits.kg / pyunits.m**3 # g/L = kg/m3
         feed_temperature = 25  # degC
         steam_temperature = 80  # degC
         sys_capacity = 2000 * pyunits.m**3 / pyunits.day  # m3/day
@@ -59,8 +61,10 @@ class TestLTMED:
             (sys_capacity / recovery_ratio), to_units=pyunits.m**3 / pyunits.s
         )
 
-        feed.conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
-        feed.flow_vol_phase["Liq"].fix(feed_flow)
+        # feed.conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
+        # feed.flow_vol_phase["Liq"].fix(feed_flow)
+        feed.flow_mass_phase_comp["Liq", "TDS"].fix(feed_salinity * feed_flow)
+        feed.flow_mass_phase_comp["Liq", "H2O"].fix(feed_dens * feed_flow)
         feed.temperature.fix(feed_temperature + 273.15)
         steam.temperature.fix(steam_temperature + 273.15)
         # flow rate of liquid steam is zero
@@ -132,6 +136,11 @@ class TestLTMED:
         assert badly_scaled_var_lst == []
 
     @pytest.mark.component
+    def test_initialize(self, LT_MED_frame):
+        m = LT_MED_frame
+        initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.DEBUG)
+
+    @pytest.mark.component
     def test_solve(self, LT_MED_frame):
         m = LT_MED_frame
         results = solver.solve(m)
@@ -145,13 +154,13 @@ class TestLTMED:
 
         lt_med = m.fs.lt_med
 
-        feed_flow_m3_hr = 166.66
-        dist_flow_m3_hr = 83.33
-        brine_flow_m3_hr = 83.33
-        cool_flow_m3_hr = 394.56
+        feed_flow_m3_hr = 168.6778
+        dist_flow_m3_hr = 84.3389
+        brine_flow_m3_hr = 84.3389
+        cool_flow_m3_hr = 399.2539
 
-        feed_mass_flow_tot = 47.359
-        cool_mass_flow_tot = 111.87
+        feed_mass_flow_tot = 47.91666
+        cool_mass_flow_tot = 113.1762
         feed_mass_flow_tds = 1.62037
         brine_mass_flow_tds = 1.62037
         recovery = dist_flow_m3_hr / feed_flow_m3_hr
@@ -186,10 +195,10 @@ class TestLTMED:
         assert pytest.approx(6.4290e1, rel=1e-3) == value(
             m.fs.lt_med.specific_thermal_energy_consumption
         )
-        assert pytest.approx(5.3575e3, rel=1e-3) == value(
+        assert pytest.approx(5.4222e3, rel=1e-3) == value(
             m.fs.lt_med.thermal_power_requirement
         )
-        assert pytest.approx(2.3211, rel=1e-3) == value(
+        assert pytest.approx(2.3490, rel=1e-3) == value(
             m.fs.lt_med.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
         )
 
@@ -216,26 +225,26 @@ class TestLTMED:
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        assert pytest.approx(2254.6578, rel=1e-3) == value(
+        assert pytest.approx(2251.009, rel=1e-3) == value(
             m.fs.lt_med.costing.med_specific_cost
         )
-        assert pytest.approx(4662455.767, rel=1e-3) == value(
+        assert pytest.approx(4710164.3678, rel=1e-3) == value(
             m.fs.lt_med.costing.capital_cost
         )
-        assert pytest.approx(2705589.356, rel=1e-3) == value(
+        assert pytest.approx(2733806.960, rel=1e-3) == value(
             m.fs.lt_med.costing.membrane_system_cost
         )
-        assert pytest.approx(1956866.4109, rel=1e-3) == value(
+        assert pytest.approx(1976357.40761, rel=1e-3) == value(
             m.fs.lt_med.costing.evaporator_system_cost
         )
-        assert pytest.approx(208604.394, rel=1e-3) == value(
+        assert pytest.approx(210907.779, rel=1e-3) == value(
             m.fs.lt_med.costing.fixed_operating_cost
         )
 
-        assert pytest.approx(1.58427, rel=1e-3) == value(m.fs.costing.LCOW)
-        assert pytest.approx(748697.4468, rel=1e-3) == value(
+        assert pytest.approx(1.58295, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(757501.748, rel=1e-3) == value(
             m.fs.costing.total_operating_cost
         )
-        assert pytest.approx(4662455.7674, rel=1e-3) == value(
+        assert pytest.approx(4710164.367, rel=1e-3) == value(
             m.fs.costing.total_capital_cost
         )
