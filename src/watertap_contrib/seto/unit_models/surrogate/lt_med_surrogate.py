@@ -759,6 +759,16 @@ class LTMEDData(UnitModelBlockData):
                 to_units=pyunits.m**3 / pyunits.hr,
             )
 
+    def initialize_build(
+        blk,
+        state_args=None,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
+    ):
+
+        pass
+
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
         dist_vol_flow = self.distillate_props[0].flow_vol_phase["Liq"]
