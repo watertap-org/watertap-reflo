@@ -246,7 +246,7 @@ def cost_lt_med_surrogate(blk):
     )
 
     blk.heat_flow = pyo.Expression(
-        expr=lt_med.specific_thermal_energy_consumption
+        expr=lt_med.specific_energy_consumption_thermal
         * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
     )
     blk.electricity_flow = pyo.Expression(

@@ -193,7 +193,7 @@ class TestLTMED:
         assert pytest.approx(9.9127, rel=1e-3) == value(m.fs.lt_med.gain_output_ratio)
         assert pytest.approx(3.9592, rel=1e-3) == value(m.fs.lt_med.specific_area)
         assert pytest.approx(6.4290e1, rel=1e-3) == value(
-            m.fs.lt_med.specific_thermal_energy_consumption
+            m.fs.lt_med.specific_energy_consumption_thermal
         )
         assert pytest.approx(5.4222e3, rel=1e-3) == value(
             m.fs.lt_med.thermal_power_requirement
