@@ -29,6 +29,7 @@ from idaes.core.util.scaling import (
     badly_scaled_var_generator,
 )
 import idaes.logger as idaeslog
+
 # Get default solver for testing
 solver = get_solver()
 
@@ -51,8 +52,8 @@ class TestLTMED:
         steam = lt_med.steam_props[0]
 
         # System specification
-        feed_salinity = 35 * pyunits.kg / pyunits.m**3 # g/L = kg/m3
-        feed_dens = 1000 * pyunits.kg / pyunits.m**3 # g/L = kg/m3
+        feed_salinity = 35 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+        feed_dens = 1000 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
         feed_temperature = 25  # degC
         steam_temperature = 80  # degC
         sys_capacity = 2000 * pyunits.m**3 / pyunits.day  # m3/day
@@ -165,7 +166,9 @@ class TestLTMED:
         brine_mass_flow_tds = 1.62037
         recovery = dist_flow_m3_hr / feed_flow_m3_hr
 
-        assert value(lt_med.recovery_vol_phase[0, "Liq"]) == pytest.approx(recovery, rel=1e-3)
+        assert value(lt_med.recovery_vol_phase[0, "Liq"]) == pytest.approx(
+            recovery, rel=1e-3
+        )
         assert value(
             pyunits.convert(
                 lt_med.feed_props[0].flow_vol_phase["Liq"]
