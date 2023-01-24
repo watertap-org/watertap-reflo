@@ -87,32 +87,7 @@ def _parity_residual_plots(true_values, modeled_values):
 
     return
 
-
-#########################################################################################################
-if __name__ == '__main__':
-    training_fraction = 0.8
-    n_samples = 100                                     # number of points to use from overall dataset
-    input_labels = ['heat_load', 'hours_storage']
-    output_labels = ['annual_energy']
-
-    # Import training data
-    pkl_data = pd.read_pickle('pickle_multiproc2.pkl')
-    print("{X} total data points".format(X=len(pkl_data)))
-
-    # Randomly sample points for training/validation
-    data = pkl_data.sample(n=n_samples)
-    print("{X} data points used".format(X=n_samples))
-
-    # Split training and validation data
-    data_training, data_validation = split_training_validation(data, training_fraction, seed=len(data))    # each has all columns
-
-    # Create surrogate and save to file
-    filename = 'pysmo_rbf_surrogate.json'
-    surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, filename)
-
-    # Load surrogate model from file
-    surrogate = PysmoSurrogate.load_from_file(filename)
-
+def plot_training_validation(surrogate, data_training, data_validation, input_labels, output_labels):
     # Output fit metrics and create parity and residual plots
     print("R2: {r2} \nRMSE: {rmse}".format(
         r2=surrogate._trained._data[output_labels[0]].model.R2,
@@ -135,39 +110,88 @@ if __name__ == '__main__':
     # plt.savefig('/plots/parity_residual_plots.png')
     # plt.close()
 
-    # # Build and run IDAES flowsheet
-    # m = ConcreteModel()
-    # m.fs = FlowsheetBlock(dynamic=False)
 
-    # # create flowsheet input variables
-    # m.fs.heat_load = Var(initialize=1000, bounds=[100, 1000], doc="rated plant heat capacity in MWt")
-    # m.fs.hours_storage = Var(initialize=20, bounds=[0, 26], doc="rated plant hours of storage")
+#########################################################################################################
+if __name__ == '__main__':
+    training_fraction = 0.8
+    n_samples = 100                                     # number of points to use from overall dataset
+    input_labels = ['heat_load', 'hours_storage']
+    output_labels = ['annual_energy']
+    surrogate_filename = 'pysmo_rbf_surrogate.json'
 
-    # # create flowsheet output variable
-    # m.fs.annual_energy = Var(initialize=5e9, doc="annual energy produced by the plant in MWht" )
+    # Import training data
+    pkl_data = pd.read_pickle('pickle_multiproc2.pkl')
+    print("{X} total data points".format(X=len(pkl_data)))
 
-    # # create input and output variable object lists for flowsheet
-    # inputs = [m.fs.heat_load, m.fs.hours_storage]
-    # outputs = [m.fs.annual_energy]
+    # Randomly sample points for training/validation
+    data = pkl_data.sample(n=n_samples)
+    print("{X} data points used".format(X=n_samples))
 
-    # # capture long output
-    # stream = StringIO()
-    # oldstdout = sys.stdout
-    # sys.stdout = stream
+    # Split training and validation data
+    data_training, data_validation = split_training_validation(data, training_fraction, seed=len(data))    # each has all columns
 
-    # surrogate = RadialBasisFunctions.pickle_load('solution.pickle')['model']
-    # m.fs.surrogate = SurrogateBlock(concrete=True)
-    # m.fs.surrogate.build_model(surrogate, input_vars=inputs, output_vars=outputs)
+    # Create surrogate and save to file
+    # surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, surrogate_filename)
 
-    # # Revert back to standard output
-    # sys.stdout = oldstdout
+    # Load surrogate model from file
+    surrogate = PysmoSurrogate.load_from_file(surrogate_filename)
 
-    # # fix input values and solve flowsheet
-    # m.fs.heat_load.fix(1000)
-    # m.fs.hours_storage.fix(20)
+    # Create parity and residual plots for training and validation
+    plot_training_validation(surrogate, data_training, data_validation, input_labels, output_labels)
 
-    # solver = SolverFactory('ipopt')
-    # results = solver.solve(m)
+    # Build and run IDAES flowsheet
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+
+    # create flowsheet input variables
+    m.fs.heat_load = Var(initialize=1000, bounds=[100, 1000], doc="rated plant heat capacity in MWt")
+    m.fs.hours_storage = Var(initialize=20, bounds=[0, 26], doc="rated plant hours of storage")
+
+    # create flowsheet output variable
+    m.fs.annual_energy = Var(initialize=5e9, doc="annual energy produced by the plant in kWht" )
+
+    # create input and output variable object lists for flowsheet
+    inputs = [m.fs.heat_load, m.fs.hours_storage]
+    outputs = [m.fs.annual_energy]
+
+    # capture long output
+    stream = StringIO()
+    oldstdout = sys.stdout
+    sys.stdout = stream
+
+    m.fs.surrogate = SurrogateBlock(concrete=True)
+    m.fs.surrogate.build_model(surrogate, input_vars=inputs, output_vars=outputs)
+
+    # Revert back to standard output
+    sys.stdout = oldstdout
+
+    # fix input values and solve flowsheet
+    m.fs.heat_load.fix(1000)
+    m.fs.hours_storage.fix(20)
+
+    solver = SolverFactory('ipopt')
+    results = solver.solve(m)
+
+    print("Heat rate = {x:.0f} MWt".format(x=value(m.fs.heat_load)))
+    print("Hours of storage = {x:.1f} hrs".format(x=value(m.fs.hours_storage)))
+    print("Annual energy = {x:.2e} kWht".format(x=value(m.fs.annual_energy)))
+
+    # Optimize the surrogate model
+    m.fs.heat_load.unfix()
+    m.fs.hours_storage.unfix()
+    m.fs.obj = Objective(expr=m.fs.annual_energy, sense=maximize)
+
+    # solve the optimization
+    print("Optimizing annual energy...")
+    tmr = TicTocTimer()
+    status = solver.solve(m, tee=False)
+    solve_time = tmr.toc('solve')
+
+    print("Model status: ", status)
+    print("Solve time: ", solve_time)
+    print("Heat rate = {x:.0f} MWt".format(x=value(m.fs.heat_load)))
+    print("Hours of storage = {x:.1f} hrs".format(x=value(m.fs.hours_storage)))
+    print("Annual energy = {x:.2e} kWht".format(x=value(m.fs.annual_energy)))
 
     x=1
     pass
