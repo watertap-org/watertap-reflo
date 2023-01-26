@@ -182,7 +182,8 @@ def initialize_treatment(ro_area_guess=50, water_recovery=0.5):
     ro.feed_side.channel_height.fix(1e-3)
     ro.feed_side.spacer_porosity.fix(0.97)
     ro.permeate.pressure[0].fix(101325)
-    ro.width.fix(5)
+    # ro.width.fix(5)
+    ro.feed_side.velocity[0, 0].fix(0.15)
 
     ro.feed_side.properties_in[0].flow_mass_phase_comp[
         "Liq", "H2O"
@@ -338,7 +339,7 @@ def fix_pysam_costing():
     pvc.annual_generation.fix(annual_gen)
 
 
-flow_in = 4.38e-3  # m3/s
+flow_in = 1e-2  # m3/s
 tds = 50  # g/L
 ro_area_guess = 50
 water_recovery = 0.5
