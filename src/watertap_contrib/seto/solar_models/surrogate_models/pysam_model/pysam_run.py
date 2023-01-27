@@ -179,6 +179,7 @@ if __name__ == '__main__':
                         join(dirname(__file__), 'untitled_iph_to_lcoefcr.json'),
                         join(dirname(__file__), 'untitled_lcoefcr.json'),]
     weather_file =      join(dirname(__file__), 'tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv')
+    dataset_filename =  join(dirname(__file__), 'dataset.pkl')       # output dataset for surrogate training
 
     # modules = setup_model(model_name, weather_file, config_files=config_files)
     config_data = [read_module_datafile(config_file) for config_file in config_files]
@@ -238,7 +239,7 @@ if __name__ == '__main__':
             'variable_operating_cost',
             'total_cost']]],
         axis=1)
-    df.to_pickle('dataset.pkl')
+    df.to_pickle(dataset_filename)
 
     # # Run parametrics
     # data = []

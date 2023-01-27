@@ -1,4 +1,5 @@
 import os
+from os.path import join, dirname
 import sys
 import re
 import numpy as np
@@ -124,8 +125,8 @@ def plot_training_validation(surrogate, data_training, data_validation, input_la
 
 #########################################################################################################
 if __name__ == '__main__':
-    dataset_filename = 'dataset.pkl'
-    surrogate_filename = 'surrogate_model.json'
+    dataset_filename = join(dirname(__file__), 'dataset.pkl')
+    surrogate_filename = join(dirname(__file__), 'surrogate_model.json')
     training_fraction = 0.8
     n_samples = 100                                     # number of points to use from overall dataset
     input_labels = ['heat_load', 'hours_storage']
@@ -143,13 +144,16 @@ if __name__ == '__main__':
     data_training, data_validation = split_training_validation(data, training_fraction, seed=len(data))    # each has all columns
 
     # Create surrogate and save to file
-    surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, surrogate_filename)
+    # surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, surrogate_filename)
 
     # Load surrogate model from file
+    orig_cwd = os.getcwd()
+    os.chdir(dirname(__file__))     # change directory so solution.pickle is saved in this one
     surrogate = PysmoSurrogate.load_from_file(surrogate_filename)
+    os.chdir(dirname(orig_cwd))
 
     # Create parity and residual plots for training and validation
-    # plot_training_validation(surrogate, data_training, data_validation, input_labels, output_labels)
+    plot_training_validation(surrogate, data_training, data_validation, input_labels, output_labels)
 
     ### Build and run IDAES flowsheet #########################################################################################
     m = ConcreteModel()
