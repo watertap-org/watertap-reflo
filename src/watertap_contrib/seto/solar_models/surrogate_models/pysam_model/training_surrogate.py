@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import numpy as np
 import pandas as pd
 from io import StringIO
@@ -60,14 +61,19 @@ def create_rbf_surrogate(training_dataframe, input_labels, output_labels, filena
     return rbf_surr
 
 
-def _parity_residual_plots(true_values, modeled_values):
-    fig1 = plt.figure(figsize=(16, 9), tight_layout=True)
+def _parity_residual_plots(true_values, modeled_values, label=None):
+    AXIS_FONTSIZE = 18
+    TITLE_FONTSIZE = 22
+
+    fig1 = plt.figure(figsize=(13, 6), tight_layout=True)
+    if label is not None:
+        fig1.suptitle(label, fontsize=TITLE_FONTSIZE)
     ax = fig1.add_subplot(121)
     ax.plot(true_values, true_values, "-")
     ax.plot(true_values, modeled_values, "o")
-    ax.set_xlabel(r"True data", fontsize=12)
-    ax.set_ylabel(r"Surrogate values", fontsize=12)
-    ax.set_title(r"Parity plot", fontsize=12)
+    ax.set_xlabel(r"True data", fontsize=AXIS_FONTSIZE)
+    ax.set_ylabel(r"Surrogate values", fontsize=AXIS_FONTSIZE)
+    ax.set_title(r"Parity plot", fontsize=AXIS_FONTSIZE)
 
     ax2 = fig1.add_subplot(122)
     ax2.plot(
@@ -79,48 +85,54 @@ def _parity_residual_plots(true_values, modeled_values):
         ms=6,
     )
     ax2.axhline(y=0, xmin=0, xmax=1)
-    ax2.set_xlabel(r"True data", fontsize=12)
-    ax2.set_ylabel(r"Residuals", fontsize=12)
-    ax2.set_title(r"Residual plot", fontsize=12)
+    ax2.set_xlabel(r"True data", fontsize=AXIS_FONTSIZE)
+    ax2.set_ylabel(r"Residuals", fontsize=AXIS_FONTSIZE)
+    ax2.set_title(r"Residual plot", fontsize=AXIS_FONTSIZE)
 
     plt.show()
 
     return
 
 def plot_training_validation(surrogate, data_training, data_validation, input_labels, output_labels):
-    # Output fit metrics and create parity and residual plots
-    print("R2: {r2} \nRMSE: {rmse}".format(
-        r2=surrogate._trained._data[output_labels[0]].model.R2,
-        rmse=surrogate._trained._data[output_labels[0]].model.rmse
-        ))
-    training_output = surrogate.evaluate_surrogate(data_training[input_labels])
-    _parity_residual_plots(
-        true_values=np.array(data_training['annual_energy']),
-        modeled_values=np.array(training_output['annual_energy'])
-        )
-    # plt.savefig('/plots/parity_residual_plots.png')
-    # plt.close()
+    for output_label in output_labels:
+        # Output fit metrics and create parity and residual plots
+        print("{label}: \nR2: {r2} \nRMSE: {rmse}".format(
+            label=output_label,
+            r2=surrogate._trained._data[output_label].model.R2,
+            rmse=surrogate._trained._data[output_label].model.rmse
+            ))
+        training_output = surrogate.evaluate_surrogate(data_training[input_labels])
+        label = re.sub('[^a-zA-Z0-9 \n\.]', ' ', output_label.title())  # keep alphanumeric chars and make title case
+        _parity_residual_plots(
+            true_values=np.array(data_training[output_label]),
+            modeled_values=np.array(training_output[output_label]),
+            label=label
+            )
+        # plt.savefig('/plots/parity_residual_plots.png')
+        # plt.close()
 
-    # Validate model using validation data
-    validation_output = surrogate.evaluate_surrogate(data_validation[input_labels])
-    _parity_residual_plots(
-        true_values=np.array(data_validation['annual_energy']),
-        modeled_values=np.array(validation_output['annual_energy'])
-        )
-    # plt.savefig('/plots/parity_residual_plots.png')
-    # plt.close()
+        # Validate model using validation data
+        validation_output = surrogate.evaluate_surrogate(data_validation[input_labels])
+        _parity_residual_plots(
+            true_values=np.array(data_validation[output_label]),
+            modeled_values=np.array(validation_output[output_label]),
+            label=label
+            )
+        # plt.savefig('/plots/parity_residual_plots.png')
+        # plt.close()
 
 
 #########################################################################################################
 if __name__ == '__main__':
+    dataset_filename = 'dataset.pkl'
+    surrogate_filename = 'surrogate_model.json'
     training_fraction = 0.8
     n_samples = 100                                     # number of points to use from overall dataset
     input_labels = ['heat_load', 'hours_storage']
-    output_labels = ['annual_energy']
-    surrogate_filename = 'pysmo_rbf_surrogate.json'
+    output_labels = ['annual_energy', 'electrical_load']
 
     # Import training data
-    pkl_data = pd.read_pickle('pickle_multiproc2.pkl')
+    pkl_data = pd.read_pickle(dataset_filename)
     print("{X} total data points".format(X=len(pkl_data)))
 
     # Randomly sample points for training/validation
@@ -131,15 +143,15 @@ if __name__ == '__main__':
     data_training, data_validation = split_training_validation(data, training_fraction, seed=len(data))    # each has all columns
 
     # Create surrogate and save to file
-    # surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, surrogate_filename)
+    surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, surrogate_filename)
 
     # Load surrogate model from file
     surrogate = PysmoSurrogate.load_from_file(surrogate_filename)
 
     # Create parity and residual plots for training and validation
-    plot_training_validation(surrogate, data_training, data_validation, input_labels, output_labels)
+    # plot_training_validation(surrogate, data_training, data_validation, input_labels, output_labels)
 
-    # Build and run IDAES flowsheet
+    ### Build and run IDAES flowsheet #########################################################################################
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
 
@@ -148,11 +160,12 @@ if __name__ == '__main__':
     m.fs.hours_storage = Var(initialize=20, bounds=[0, 26], doc="rated plant hours of storage")
 
     # create flowsheet output variable
-    m.fs.annual_energy = Var(initialize=5e9, doc="annual energy produced by the plant in kWht" )
+    m.fs.annual_energy = Var(initialize=5e9, doc="annual heat produced by the plant in kWht" )
+    m.fs.electrical_load = Var(initialize=1e9, doc="annual electricity consumed by the plant in kWht" )
 
     # create input and output variable object lists for flowsheet
     inputs = [m.fs.heat_load, m.fs.hours_storage]
-    outputs = [m.fs.annual_energy]
+    outputs = [m.fs.annual_energy, m.fs.electrical_load]
 
     # capture long output
     stream = StringIO()
@@ -162,26 +175,28 @@ if __name__ == '__main__':
     m.fs.surrogate = SurrogateBlock(concrete=True)
     m.fs.surrogate.build_model(surrogate, input_vars=inputs, output_vars=outputs)
 
-    # Revert back to standard output
+    # revert back to standard output
     sys.stdout = oldstdout
 
     # fix input values and solve flowsheet
     m.fs.heat_load.fix(1000)
     m.fs.hours_storage.fix(20)
-
     solver = SolverFactory('ipopt')
     results = solver.solve(m)
 
+    print("\n")
     print("Heat rate = {x:.0f} MWt".format(x=value(m.fs.heat_load)))
     print("Hours of storage = {x:.1f} hrs".format(x=value(m.fs.hours_storage)))
-    print("Annual energy = {x:.2e} kWht".format(x=value(m.fs.annual_energy)))
+    print("Annual heat output = {x:.2e} kWht".format(x=value(m.fs.annual_energy)))
+    print("Annual electricity input = {x:.2e} kWhe".format(x=value(m.fs.electrical_load)))
 
-    # Optimize the surrogate model
+    ### Optimize the surrogate model #########################################################################################
     m.fs.heat_load.unfix()
     m.fs.hours_storage.unfix()
     m.fs.obj = Objective(expr=m.fs.annual_energy, sense=maximize)
 
     # solve the optimization
+    print("\n")
     print("Optimizing annual energy...")
     tmr = TicTocTimer()
     status = solver.solve(m, tee=False)
@@ -191,7 +206,8 @@ if __name__ == '__main__':
     print("Solve time: ", solve_time)
     print("Heat rate = {x:.0f} MWt".format(x=value(m.fs.heat_load)))
     print("Hours of storage = {x:.1f} hrs".format(x=value(m.fs.hours_storage)))
-    print("Annual energy = {x:.2e} kWht".format(x=value(m.fs.annual_energy)))
+    print("Annual heat output = {x:.2e} kWht".format(x=value(m.fs.annual_energy)))
+    print("Annual electricity input = {x:.2e} kWhe".format(x=value(m.fs.electrical_load)))
 
     x=1
     pass

@@ -213,7 +213,7 @@ if __name__ == '__main__':
     df = pd.DataFrame(arguments, columns=['heat_load', 'hours_storage'])
 
     time_start = time.process_time()
-    with multiprocessing.Pool(processes=4) as pool:
+    with multiprocessing.Pool(processes=6) as pool:
         args = [(model_name, weather_file, config_data, *args) for args in arguments]
         results = pool.starmap(
             setup_and_run,
@@ -227,9 +227,18 @@ if __name__ == '__main__':
                              + df_results['fixed_operating_cost'] \
                              + df_results['variable_operating_cost']
     df = pd.concat(
-        [df, df_results[['annual_energy', 'capacity_factor', 'lcoh', 'total_cost']]],
+        [df, df_results[[
+            'annual_energy',
+            'freeze_protection',
+            'capacity_factor',
+            'electrical_load',
+            'lcoh',
+            'capital_cost',
+            'fixed_operating_cost',
+            'variable_operating_cost',
+            'total_cost']]],
         axis=1)
-    df.to_pickle('pickle_multiproc2.pkl')
+    df.to_pickle('dataset.pkl')
 
     # # Run parametrics
     # data = []
@@ -260,8 +269,8 @@ if __name__ == '__main__':
 
     # df.to_pickle('pickle_filename5.pkl')
     plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)    # annual energy
-    plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)    # capacity factor
-    plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)    # lcoh
+    plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)    # capacity factor
+    plot_3d(df, 0, 1, 6, grid=False, countour_lines=False)    # lcoh
 
     x = 1   # for breakpoint
     pass
