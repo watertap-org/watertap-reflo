@@ -125,7 +125,7 @@ def plot_training_validation(surrogate, data_training, data_validation, input_la
 
 #########################################################################################################
 if __name__ == '__main__':
-    dataset_filename = join(dirname(__file__), 'dataset.pkl')
+    dataset_filename = join(dirname(__file__), 'data/dataset.pkl')
     surrogate_filename = join(dirname(__file__), 'surrogate_model.json')
     training_fraction = 0.8
     n_samples = 100                                     # number of points to use from overall dataset
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     data_training, data_validation = split_training_validation(data, training_fraction, seed=len(data))    # each has all columns
 
     # Create surrogate and save to file
-    # surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, surrogate_filename)
+    surrogate = create_rbf_surrogate(data_training, input_labels, output_labels, surrogate_filename)
 
     # Load surrogate model from file
     orig_cwd = os.getcwd()
