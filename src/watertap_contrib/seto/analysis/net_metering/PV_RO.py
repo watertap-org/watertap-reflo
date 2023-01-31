@@ -119,15 +119,15 @@ def build_ro_pv():
     set_scaling_factor(treatment.ro.area, 1e-2)
     treatment.feed.properties[0].flow_vol_phase["Liq"]
     treatment.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
-    # energy.pv.properties[0].flow_vol_phase["Liq"]
-    # energy.pv.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
+    energy.pv.properties[0].flow_vol_phase["Liq"]
+    energy.pv.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
     set_scaling_factor(treatment.erd.control_volume.work, 1e-3)
     calculate_scaling_factors(m)
 
     return m
 
 
-def set_operating_conditions(m, water_recovery=0.5
+def set_operating_conditions(m, flow_in = 5.0, conc_in=30, water_recovery=0.5, press_lb=100, press_ub=2000
 ):
     pv = m.fs.energy.pv
     p1 = m.fs.treatment.p1
@@ -136,17 +136,17 @@ def set_operating_conditions(m, water_recovery=0.5
     feed.properties[0].temperature.fix(298.15)
     feed.properties.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): 1e-2,  # feed volumetric flow rate [m3/s]
-            ("mass_frac_phase_comp", ("Liq", "NaCl")): 30 * 1e-3,
+            ("flow_vol_phase", "Liq"): flow_in,  # feed volumetric flow rate [m3/s]
+            ("mass_frac_phase_comp", ("Liq", "NaCl")): conc_in * 1e-3,
         },
         hold_state=True,  # fixes the calculated component mass flow rates
     )
     pv.properties.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): 1e-2,  # feed volumetric flow rate [m3/s]
-            ("mass_frac_phase_comp", ("Liq", "NaCl")): 10 * 1e-3,
+            ("flow_vol_phase", "Liq"): flow_in,  # feed volumetric flow rate [m3/s]
+            ("mass_frac_phase_comp", ("Liq", "NaCl")): conc_in * 1e-3,
         },
-        hold_state=True,  # fixes the calculated component mass flow rates
+        hold_state=False,  # fixes the calculated component mass flow rates
     )
 
     
@@ -167,7 +167,7 @@ def set_operating_conditions(m, water_recovery=0.5
     print(
         f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
     )
-    p1.control_volume.properties_out[0].pressure.fix(operating_pressure)
+    p1.control_volume.properties_out[0].pressure.fix(7e6)
     m.db.get_unit_operation_parameters("solar_energy")
     pv.load_parameters_from_database(use_default_removal=True)
 
@@ -187,24 +187,20 @@ def initialize_treatment(m, water_recovery=0.5):
     ro.feed_side.velocity[0, 0].fix(0.15)                             # crossflow velocity (m/s) *
     # ro.width.fix(5)
 
-    ro.feed_side.properties_in[0].flow_mass_phase_comp[
-        "Liq", "H2O"
-    ] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]()
-    ro.feed_side.properties_in[0].flow_mass_phase_comp[
-        "Liq", "NaCl"
-    ] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]()
+    ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]()
+    ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]()
     ro.feed_side.properties_in[0].temperature = feed.properties[0].temperature()
-    ro.feed_side.properties_in[0].pressure = p1.control_volume.properties_out[
-        0
-    ].pressure()
+    ro.feed_side.properties_in[0].pressure = p1.control_volume.properties_out[0].pressure()
+
     # ro.feed_side.velocity[0, 0].fix(0.15)
+    est_flux = 20.0 #LMH
     ro_area_guess = (water_recovery*1000*(value(pyunits.convert(m.fs.treatment.feed.properties[0].flow_vol_phase["Liq"],
-                               to_units=pyunits.m ** 3 / pyunits.hr))))/10
-    print(ro_area_guess)
-    ro.area.fix(ro_area_guess)
+                               to_units=pyunits.m ** 3 / pyunits.hr))))/est_flux
+
+    print(f"\nRO Membrane Area Estimate = {round(ro_area_guess, 2)} m^2 assuming a {round(est_flux, 2)} LMH Water Flux\n")
+    ro.area.fix(100)
     ro.initialize()
     ro.area.unfix()
-    # ro.feed_side.velocity[0, 0].unfix()
     ro.recovery_mass_phase_comp[0, "Liq", "H2O"].fix(water_recovery)
     propagate_state(m.fs.treatment.a4)
 
@@ -230,11 +226,11 @@ def initialize_sys(m, water_recovery=0.5):
 
 
 def optimize_setup(m, opt_target,
-    press_lb=125,
-    press_ub=1200,
+    press_lb=100,
+    press_ub=4500,
     area_lb=1,
-    area_ub=1500,
-    prod_salinity=500e-6,
+    area_ub=20000,
+    prod_salinity=0.5,
     min_flux=2.5e-4
 ):
     m.fs.obj = Objective(expr=opt_target)
@@ -252,6 +248,11 @@ def optimize_setup(m, opt_target,
     ro.area.unfix()
     ro.area.setlb(area_lb)
     ro.area.setub(area_ub)
+
+    # RO crossflow velocity
+    ro.feed_side.velocity[0, 0].unfix()
+    ro.feed_side.velocity.setlb(0.01)
+    ro.feed_side.velocity.setub(2)
 
     m.fs.treatment.prod_salinity = Param(initialize=prod_salinity, mutable=True)
     m.fs.treatment.min_flux = Param(initialize=min_flux, mutable=True)
@@ -355,35 +356,31 @@ def solve(m, solver=None, tee=False, check_termination=True):
     print(f"MODEL SOLVE = {results.solver.termination_condition.swapcase()}")
     return results
 
-def model_setup():
+def model_setup(Q, conc):
     m = build_ro_pv()
-    set_operating_conditions(m)
+    set_operating_conditions(m, flow_in = Q, conc_in=conc, water_recovery=0.5)
     initialize_sys(m)
     add_costing(m)
     fix_pv_costing(m)
     fix_treatment_global_params(m)
-    optimize_setup(m, m.fs.sys_costing.specific_electric_energy_consumption)
+    # optimize_setup(m, m.fs.sys_costing.LCOW)
 
     return m
 
+def run(m):
+    results = solve(m)
+    assert_optimal_termination(results)
+    display_ro_pv_results(m)
+    return m, results
+
 def main():
-    m = model_setup()
+    m = model_setup(0.01, 60)
     results = solve(m)
     assert_optimal_termination(results)
     display_ro_pv_results(m)
     # m.fs.treatment.ro.report()
     return m, results
 
-# def reinitialize():
-#     m = build_ro_pv()
-#     set_operating_conditions(m)
-#     initialize_sys(m)
-#     add_costing(m)
-#     optimize_setup(m)
-#     fix_pv_costing(m)
-#     fix_treatment_global_params(m)
-#     results = solve(m)
-
-
 if __name__ == "__main__":
+    # m  = main()
     m, results = main()
