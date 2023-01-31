@@ -138,7 +138,7 @@ class TestTrough:
             EXPECTED_ELECTRICITY_USE_TEST, 1e-3
         )
 
-    @pytest.mark.unit
+    @pytest.mark.component
     def test_loading(self, data):
         """Test the loading and use of the 'official' saved surrogate model"""
         surrogate = PysmoSurrogate.load_from_file(SURROGATE_FILENAME)
@@ -151,7 +151,7 @@ class TestTrough:
             EXPECTED_ELECTRICITY_USE, 1e-3
         )
 
-    @pytest.mark.unit
+    @pytest.mark.component
     def test_flowsheet_use(self, data, trough_frame):
         """Test creating a flowsheet using the surrogate model"""
         m = trough_frame
