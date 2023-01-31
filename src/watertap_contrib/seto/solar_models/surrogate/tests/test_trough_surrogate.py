@@ -13,7 +13,7 @@ from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock
 
 DATASET_FILENAME = join(dirname(__file__), "../data/dataset.pkl")
-SURROGATE_FILENAME = join(dirname(__file__), "../surrogate.json")
+SURROGATE_FILENAME = join(dirname(__file__), "../trough_surrogate.json")
 N_SAMPLES = 100  # number of points to use from overall dataset
 TRAINING_FRACTION = 0.8
 INPUT_LABELS = ["heat_load", "hours_storage"]

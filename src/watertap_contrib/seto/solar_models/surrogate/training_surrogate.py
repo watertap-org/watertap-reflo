@@ -152,7 +152,7 @@ def plot_training_validation(
 #########################################################################################################
 if __name__ == "__main__":
     dataset_filename = join(dirname(__file__), "data/dataset.pkl")
-    surrogate_filename = join(dirname(__file__), "surrogate_testing.json")
+    surrogate_filename = join(dirname(__file__), "trough_surrogate_testing.json")
     n_samples = 100  # number of points to use from overall dataset
     training_fraction = 0.8
     input_labels = ["heat_load", "hours_storage"]
@@ -169,10 +169,7 @@ if __name__ == "__main__":
     )
 
     # Load surrogate model from file
-    # orig_cwd = os.getcwd()
-    # os.chdir(dirname(__file__))     # change directory so solution.pickle is saved in this one
     surrogate = PysmoSurrogate.load_from_file(surrogate_filename)
-    # os.chdir(dirname(orig_cwd))
 
     # Delete surrogate testing file
     os.remove(surrogate_filename)
