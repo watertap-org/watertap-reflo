@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import PySAM.TroughPhysicalProcessHeat as iph
 import PySAM.IphToLcoefcr as iph_to_lcoefcr
 import PySAM.Lcoefcr as lcoefcr
-import utils
 
 def read_module_datafile(file_name):
     with open(file_name, 'r') as file:

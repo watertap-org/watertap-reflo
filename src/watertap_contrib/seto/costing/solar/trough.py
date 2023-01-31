@@ -15,21 +15,21 @@ def build_trough_cost_param_block(blk):
         initialize=6,
         units=pyo.units.hour,
         bounds=(6, 6),
-        doc="Hours of storage that capital cost per capacity is based on"
+        doc="Hours of storage that capital cost per capacity is based on",
     )
 
     blk.cost_per_capacity_capital = pyo.Var(
         initialize=560,
         units=costing.base_currency / pyo.units.kW,
         bounds=(0, None),
-        doc="Cost per kW (thermal) for the trough plant, assuming six hours storage"
+        doc="Cost per kW (thermal) for the trough plant, assuming six hours storage",
     )
 
     blk.cost_per_storage_capital = pyo.Var(
         initialize=62,
         units=costing.base_currency / pyo.units.kWh,
         bounds=(0, None),
-        doc="Cost per kWh (thermal) for the trough plant thermal storage"
+        doc="Cost per kWh (thermal) for the trough plant thermal storage",
     )
 
     blk.contingency_frac_direct_cost = pyo.Var(
@@ -122,17 +122,21 @@ def cost_trough(blk):
 
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
-        == (blk.system_capacity
-        * (
-            trough_params.cost_per_capacity_capital
-            - trough_params.base_storage_hours * trough_params.cost_per_storage_capital
-            + blk.hours_storage * trough_params.cost_per_storage_capital
-        ))
+        == (
+            blk.system_capacity
+            * (
+                trough_params.cost_per_capacity_capital
+                - trough_params.base_storage_hours
+                * trough_params.cost_per_storage_capital
+                + blk.hours_storage * trough_params.cost_per_storage_capital
+            )
+        )
         * (1 + trough_params.contingency_frac_direct_cost)
     )
 
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost == blk.direct_cost * (1 + blk.tax_frac_direct_cost * blk.sales_tax_rate)
+        expr=blk.capital_cost
+        == blk.direct_cost * (1 + blk.tax_frac_direct_cost * blk.sales_tax_rate)
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
