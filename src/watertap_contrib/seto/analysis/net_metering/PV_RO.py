@@ -66,6 +66,11 @@ weather_file = absolute_path + weather_file
 
 
 def build_ro_pv():
+    """Builds the structure of the PV-RO system
+
+    Returns:
+        object: A Pyomo concrete optimization model and flowsheet
+    """
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.db = SETODatabase()
@@ -101,34 +106,35 @@ def build_ro_pv():
 
     treatment.a1 = Arc(source=treatment.feed.outlet, destination=treatment.p1.inlet)
     treatment.a2 = Arc(source=treatment.p1.outlet, destination=treatment.ro.inlet)
-    treatment.a3 = Arc(
-        source=treatment.ro.permeate, destination=treatment.product.inlet
-    )
+    treatment.a3 = Arc(source=treatment.ro.permeate, destination=treatment.product.inlet)
     treatment.a4 = Arc(source=treatment.ro.retentate, destination=treatment.erd.inlet)
-    treatment.a5 = Arc(
-        source=treatment.erd.outlet, destination=treatment.disposal.inlet
-    )
+    treatment.a5 = Arc(source=treatment.erd.outlet, destination=treatment.disposal.inlet)
 
     TransformationFactory("network.expand_arcs").apply_to(treatment)
 
     m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "H2O"))
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
-    )
-    set_scaling_factor(treatment.p1.control_volume.work, 1e-3)
-    set_scaling_factor(treatment.ro.area, 1e-2)
+    m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1e2, index=("Liq", "NaCl"))
+
     treatment.feed.properties[0].flow_vol_phase["Liq"]
     treatment.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
+
     energy.pv.properties[0].flow_vol_phase["Liq"]
     energy.pv.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
+    
     set_scaling_factor(treatment.erd.control_volume.work, 1e-3)
-    calculate_scaling_factors(m)
-
+    
     return m
 
 
-def set_operating_conditions(m, flow_in = 5.0, conc_in=30, water_recovery=0.5, press_lb=100, press_ub=2000
-):
+def set_operating_conditions(m, flow_in = 1e-2, conc_in=30, water_recovery=0.5):
+    """Sets operating condition for the PV-RO system
+
+    Args:
+        m (obj): Pyomo model
+        flow_in (float, optional): feed volumetric flow rate [m3/s]. Defaults to 1e-2.
+        conc_in (int, optional): solute concentration [g/L]. Defaults to 30.
+        water_recovery (float, optional): water recovery. Defaults to 0.5.
+    """
     pv = m.fs.energy.pv
     p1 = m.fs.treatment.p1
     feed = m.fs.treatment.feed
@@ -148,31 +154,37 @@ def set_operating_conditions(m, flow_in = 5.0, conc_in=30, water_recovery=0.5, p
         },
         hold_state=False,  # fixes the calculated component mass flow rates
     )
-
     
-    p1.efficiency_pump.fix(0.8)
     operating_pressure = calculate_operating_pressure(
         feed_state_block=m.fs.treatment.feed.properties[0],
         solver=solver,
-        over_pressure=0.25,
+        over_pressure=0.0,
         water_recovery=water_recovery,
         NaCl_passage=0.01,
     )
-    operating_pressure_psi = pyunits.convert(
-        operating_pressure * pyunits.Pa, to_units=pyunits.psi
-    )()
-    operating_pressure_bar = pyunits.convert(
-        operating_pressure * pyunits.Pa, to_units=pyunits.bar
-    )()
+    operating_pressure_psi = pyunits.convert(operating_pressure * pyunits.Pa, to_units=pyunits.psi)()
+    operating_pressure_bar = pyunits.convert(operating_pressure * pyunits.Pa, to_units=pyunits.bar)()
     print(
         f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
     )
-    p1.control_volume.properties_out[0].pressure.fix(7e6)
+
+    p1_work_scale_est = np.floor(log10(flow_in*operating_pressure)) #Estimating pump work to predict p1 scaling factor
+    set_scaling_factor(p1.control_volume.work, 10**(-p1_work_scale_est))
+
+    p1.control_volume.properties_out[0].pressure.fix(operating_pressure)
+    p1.efficiency_pump.fix(0.8)
     m.db.get_unit_operation_parameters("solar_energy")
     pv.load_parameters_from_database(use_default_removal=True)
+    
 
 
 def initialize_treatment(m, water_recovery=0.5):
+    """_summary_
+
+    Args:
+        m (obj): Pyomo model
+        water_recovery (float, optional): waater recovery. Defaults to 0.5.
+    """
     ro = m.fs.treatment.ro
     p1 = m.fs.treatment.p1
     feed = m.fs.treatment.feed
@@ -184,21 +196,25 @@ def initialize_treatment(m, water_recovery=0.5):
     ro.feed_side.channel_height.fix(1e-3)
     ro.feed_side.spacer_porosity.fix(0.97)
     ro.permeate.pressure[0].fix(101325)
-    ro.feed_side.velocity[0, 0].fix(0.15)                             # crossflow velocity (m/s) *
-    # ro.width.fix(5)
+    ro.feed_side.velocity[0, 0].fix(0.25) # crossflow velocity (m/s)
+
+    print(f"\nFeed Side Velocity = {value(ro.feed_side.velocity[0, 0])} m/s \n")
 
     ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]()
     ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]()
     ro.feed_side.properties_in[0].temperature = feed.properties[0].temperature()
     ro.feed_side.properties_in[0].pressure = p1.control_volume.properties_out[0].pressure()
 
-    # ro.feed_side.velocity[0, 0].fix(0.15)
-    est_flux = 20.0 #LMH
+    est_flux = 30.0 #[LMH] Use to help initialization. If initial guess for mem area is too far off, model will fail
     ro_area_guess = (water_recovery*1000*(value(pyunits.convert(m.fs.treatment.feed.properties[0].flow_vol_phase["Liq"],
                                to_units=pyunits.m ** 3 / pyunits.hr))))/est_flux
+    ro_area_scale = np.floor(log10(ro_area_guess)) #Estimating membrane area to predict scaling factor
 
     print(f"\nRO Membrane Area Estimate = {round(ro_area_guess, 2)} m^2 assuming a {round(est_flux, 2)} LMH Water Flux\n")
-    ro.area.fix(100)
+
+    ro.area.fix(10**ro_area_scale)
+    set_scaling_factor(ro.area, 10**(-ro_area_scale))
+    calculate_scaling_factors(m)
     ro.initialize()
     ro.area.unfix()
     ro.recovery_mass_phase_comp[0, "Liq", "H2O"].fix(water_recovery)
@@ -211,6 +227,7 @@ def initialize_treatment(m, water_recovery=0.5):
     propagate_state(m.fs.treatment.a1)
     p1.initialize()
     propagate_state(m.fs.treatment.a2)
+    print('Here 3')
 
 
 def initialize_energy(m):
@@ -249,10 +266,8 @@ def optimize_setup(m, opt_target,
     ro.area.setlb(area_lb)
     ro.area.setub(area_ub)
 
-    # RO crossflow velocity
-    ro.feed_side.velocity[0, 0].unfix()
-    ro.feed_side.velocity.setlb(0.01)
-    ro.feed_side.velocity.setub(2)
+    ro.feed_side.velocity[0, 0].setlb(0.01)
+    ro.feed_side.velocity[0, 0].setub(1)
 
     m.fs.treatment.prod_salinity = Param(initialize=prod_salinity, mutable=True)
     m.fs.treatment.min_flux = Param(initialize=min_flux, mutable=True)
@@ -354,16 +369,17 @@ def solve(m, solver=None, tee=False, check_termination=True):
         assert_optimal_termination(results)
     print(f"\nDOF = {degrees_of_freedom(m)}")
     print(f"MODEL SOLVE = {results.solver.termination_condition.swapcase()}")
+    
     return results
 
-def model_setup(Q, conc):
+def model_setup(Q, conc, recovery):
     m = build_ro_pv()
-    set_operating_conditions(m, flow_in = Q, conc_in=conc, water_recovery=0.5)
+    set_operating_conditions(m, flow_in = Q, conc_in=conc, water_recovery=recovery)
     initialize_sys(m)
     add_costing(m)
     fix_pv_costing(m)
     fix_treatment_global_params(m)
-    # optimize_setup(m, m.fs.sys_costing.LCOW)
+    optimize_setup(m, m.fs.sys_costing.LCOW)
 
     return m
 
@@ -371,16 +387,14 @@ def run(m):
     results = solve(m)
     assert_optimal_termination(results)
     display_ro_pv_results(m)
+
     return m, results
 
 def main():
-    m = model_setup(0.01, 60)
-    results = solve(m)
-    assert_optimal_termination(results)
-    display_ro_pv_results(m)
-    # m.fs.treatment.ro.report()
+    m = model_setup(1e-2, 35, 0.5)
+    m, results = run(m)
+
     return m, results
 
 if __name__ == "__main__":
-    # m  = main()
     m, results = main()
