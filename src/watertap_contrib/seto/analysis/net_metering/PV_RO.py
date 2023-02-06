@@ -196,9 +196,8 @@ def initialize_treatment(m, water_recovery=0.5):
     ro.feed_side.channel_height.fix(1e-3)
     ro.feed_side.spacer_porosity.fix(0.97)
     ro.permeate.pressure[0].fix(101325)
-    ro.feed_side.velocity[0, 0].fix(0.25) # crossflow velocity (m/s)
-
-    print(f"\nFeed Side Velocity = {value(ro.feed_side.velocity[0, 0])} m/s \n")
+    ro.feed_side.velocity[0, 0].fix(0.55) # crossflow velocity (m/s)
+    # ro.feed_side.velocity[0, 0].unfix() # crossflow velocity (m/s)
 
     ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]()
     ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]()
@@ -211,28 +210,37 @@ def initialize_treatment(m, water_recovery=0.5):
     ro_area_scale = np.floor(log10(ro_area_guess)) #Estimating membrane area to predict scaling factor
 
     print(f"\nRO Membrane Area Estimate = {round(ro_area_guess, 2)} m^2 assuming a {round(est_flux, 2)} LMH Water Flux\n")
-
     ro.area.fix(10**ro_area_scale)
     set_scaling_factor(ro.area, 10**(-ro_area_scale))
     calculate_scaling_factors(m)
+
+    # solve feed
+    solver.solve(feed)
+
+    # # initialize pump
+    propagate_state(m.fs.treatment.a1)
+    p1.initialize()
+
+    propagate_state(m.fs.treatment.a2)
     ro.initialize()
     ro.area.unfix()
     ro.recovery_mass_phase_comp[0, "Liq", "H2O"].fix(water_recovery)
-    propagate_state(m.fs.treatment.a4)
 
+    propagate_state(m.fs.treatment.a4)
     erd.efficiency_pump.fix(0.95)
     erd.control_volume.properties_out[0].pressure.fix(101325)
     erd.initialize()
 
-    propagate_state(m.fs.treatment.a1)
-    p1.initialize()
-    propagate_state(m.fs.treatment.a2)
-    print('Here 3')
+    propagate_state(m.fs.treatment.a3)
+    propagate_state(m.fs.treatment.a5)
+
+    print(f"\nFeed Flowrate = {pyunits.convert(ro.feed_side.properties_in[0].flow_vol, to_units=pyunits.Mgallons/pyunits.day)():<2.3f} MGD ; Feed Side Velocity = {value(ro.feed_side.velocity[0, 0])} m/s ; Solute Conc. In = {pyunits.convert(ro.feed_side.properties_in[0].conc_mass_phase_comp['Liq', 'NaCl'], to_units=pyunits.g/pyunits.L)():<3.1f} g/L \n")
+
 
 
 def initialize_energy(m):
     m.fs.energy.pv.initialize()
-    m.fs.energy.pv.oversize_factor = 1
+    m.fs.energy.pv.oversize_factor = 2
 
 
 def initialize_sys(m, water_recovery=0.5):
@@ -266,6 +274,7 @@ def optimize_setup(m, opt_target,
     ro.area.setlb(area_lb)
     ro.area.setub(area_ub)
 
+    ro.feed_side.velocity[0, 0].unfix()
     ro.feed_side.velocity[0, 0].setlb(0.01)
     ro.feed_side.velocity[0, 0].setub(1)
 
@@ -283,8 +292,6 @@ def optimize_setup(m, opt_target,
         expr=m.fs.treatment.ro.flux_mass_phase_comp[0, 1, "Liq", "H2O"]
         >= m.fs.treatment.min_flux
     )
-
-    assert_degrees_of_freedom(m.fs.treatment, 1)
 
 
 def add_costing(m):
@@ -391,7 +398,7 @@ def run(m):
     return m, results
 
 def main():
-    m = model_setup(1e-2, 35, 0.5)
+    m = model_setup(4e-1, 35, 0.5)
     m, results = run(m)
 
     return m, results
