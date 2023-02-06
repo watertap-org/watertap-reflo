@@ -143,7 +143,3 @@ auto-save-list
 
 # MAC File System
 .DS_Store
-.vscode/launch.json
-src/watertap_contrib/seto/analysis/net_metering/pv_ro_custom_sweep.py
-src/watertap_contrib/seto/analysis/net_metering/ro_pv_sweep.py
-src/watertap_contrib/seto/analysis/net_metering/sensitivity_2.csv
