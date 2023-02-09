@@ -75,7 +75,6 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
         # Get component set from database if provided
         self.component_set = None
 
-
         # Check definition of solute list
         solute_list = self.config.solute_list
 
@@ -89,7 +88,11 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
 
         # ---------------------------------------------------------------------
         # Set default scaling factors
-        self.default_scaling_factor = {("flow_vol"): 1e3, ("conc_mass_comp"): 1e2, ("temperature"): 1e-3}
+        self.default_scaling_factor = {
+            ("flow_vol"): 1e3,
+            ("conc_mass_comp"): 1e2,
+            ("temperature"): 1e-3,
+        }
 
     @classmethod
     def define_metadata(cls, obj):

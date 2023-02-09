@@ -112,26 +112,41 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
 
     CONFIG.declare(
         "electrode_material",
-        ConfigValue(default="aluminum", domain=In(ElectrodeMaterial), description="Electrode material"),
+        ConfigValue(
+            default="aluminum",
+            domain=In(ElectrodeMaterial),
+            description="Electrode material",
+        ),
     )
 
     def build(self):
         super().build()
 
-        
-
         if self.config.electrode_material == ElectrodeMaterial.aluminum:
-            self.mw_electrode_material = Param(initialize=0.027, units=pyunits.kg/pyunits.mol, doc="Molecular weight of electrode material")
-            self.valence_electrode_material = Param(initialize=3, units=pyunits.dimensionless, doc="Number of valence electrons of electrode material")
-            self.density_electrode_material = Param(initialize=1
-                                                    , units=pyunits.kg/pyunits.m**3, doc="Density of electrode material")
+            self.mw_electrode_material = Param(
+                initialize=0.027,
+                units=pyunits.kg / pyunits.mol,
+                doc="Molecular weight of electrode material",
+            )
+            self.valence_electrode_material = Param(
+                initialize=3,
+                units=pyunits.dimensionless,
+                doc="Number of valence electrons of electrode material",
+            )
+            self.density_electrode_material = Param(
+                initialize=1,
+                units=pyunits.kg / pyunits.m**3,
+                doc="Density of electrode material",
+            )
 
         if self.config.electrode_material == ElectrodeMaterial.iron:
             self.mw_electrode_material = Param(initialize=1)
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
-        self.conductivity = Var(initialize=20, units=pyunits.S/pyunits.m, doc="Solution conductivity")
+        self.conductivity = Var(
+            initialize=20, units=pyunits.S / pyunits.m, doc="Solution conductivity"
+        )
 
         self.electrode_width = Var(
             initialize=1,
@@ -169,8 +184,6 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             doc="Cell voltage",
         )
 
-
-
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
@@ -180,7 +193,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         )
 
         # Add outlet and waste block
-        tmp_dict["defined_state"] = False  
+        tmp_dict["defined_state"] = False
         self.properties_out = self.config.property_package.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of outlet",
