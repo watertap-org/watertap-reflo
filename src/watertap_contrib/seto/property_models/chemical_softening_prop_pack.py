@@ -289,11 +289,12 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
                 self.hardness_set.add(str(j))
             if j in self.config.charge:
                 if self.config.charge[j] == 0:
-                    raise ConfigurationError(
-                        "The charge property should not be assigned to the neutral component: {}".format(
-                            j
-                        )
-                    )
+                    #raise ConfigurationError(
+                    #    "The charge property should not be assigned to the neutral component: {}".format(
+                    #        j
+                    #    )
+                    #)
+                    pass
                 elif self.config.charge[j] > 0:
                     self.add_component(
                         str(j),
