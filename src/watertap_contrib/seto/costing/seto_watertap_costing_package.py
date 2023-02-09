@@ -362,7 +362,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             LCOE_expr = pyo.Expression(
                 expr=(
                     en_cost.total_capital_cost * self.factor_capital_annualization
-                    + en_cost.total_operating_cost
+                    + (en_cost.aggregate_fixed_operating_cost + en_cost.aggregate_variable_operating_cost)
                 )
                 / self.annual_energy_generated
                 * self.utilization_factor

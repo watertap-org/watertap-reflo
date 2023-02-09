@@ -51,7 +51,9 @@ class PySAMWaterTAP:
     def setup_pv_single_owner(self):
         print(f"\nBuilding PySAM model {self._pysam_model_name}...\n")
         self.tech_model = pv.new()
-        self.grid_model = grid.from_existing(self.tech_model, self._pysam_model_name)
+        self.grid_model = grid.from_existing(
+            self.tech_model, self._pysam_model_name
+            )
         self.rate_model = utilityrate.from_existing(
             self.tech_model, self._pysam_model_name
         )
@@ -80,7 +82,7 @@ class PySAMWaterTAP:
             desired_size=desired_size, desired_dcac_ratio=desired_dcac_ratio
         )
         print(
-            f"\nRunning PySAM model {self._pysam_model_name} for desired size = {self.desired_size}...\n"
+            f"\nRunning PySAM model {self._pysam_model_name} for desired size = {self.desired_size} kW...\n"
         )
         self.tech_model.value("inverter_count", self.num_inverters)
         self.tech_model.value("subarray1_nstrings", self.num_parallel)
