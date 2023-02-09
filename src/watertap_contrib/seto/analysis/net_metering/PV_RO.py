@@ -38,7 +38,10 @@ from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recover
 )
 from watertap.core.util.infeasible import *
 
-from watertap_contrib.seto.analysis.net_metering.util import display_ro_pv_results, display_pv_results
+from watertap_contrib.seto.analysis.net_metering.util import (
+    display_ro_pv_results,
+    display_pv_results,
+)
 from watertap_contrib.seto.costing import (
     TreatmentCosting,
     EnergyCosting,
@@ -63,6 +66,7 @@ cash_config_file = "/pysam_data/singleowner.json"
 cash_config_file = absolute_path + cash_config_file
 weather_file = "/pysam_data/phoenix_az_33.450495_-111.983688_psmv3_60_tmy.csv"
 weather_file = absolute_path + weather_file
+
 
 def build_ro_pv():
     """Builds the structure of the PV-RO system
@@ -100,31 +104,38 @@ def build_ro_pv():
         mass_transfer_coefficient=MassTransferCoefficient.calculated,
         concentration_polarization_type=ConcentrationPolarizationType.calculated,
     )
- 
+
     treatment.erd = EnergyRecoveryDevice(property_package=m.fs.properties)
 
     treatment.a1 = Arc(source=treatment.feed.outlet, destination=treatment.p1.inlet)
     treatment.a2 = Arc(source=treatment.p1.outlet, destination=treatment.ro.inlet)
-    treatment.a3 = Arc(source=treatment.ro.permeate, destination=treatment.product.inlet)
+    treatment.a3 = Arc(
+        source=treatment.ro.permeate, destination=treatment.product.inlet
+    )
     treatment.a4 = Arc(source=treatment.ro.retentate, destination=treatment.erd.inlet)
-    treatment.a5 = Arc(source=treatment.erd.outlet, destination=treatment.disposal.inlet)
+    treatment.a5 = Arc(
+        source=treatment.erd.outlet, destination=treatment.disposal.inlet
+    )
 
     TransformationFactory("network.expand_arcs").apply_to(treatment)
 
     m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "H2O"))
-    m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1e2, index=("Liq", "NaCl"))
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
+    )
 
     treatment.feed.properties[0].flow_vol_phase["Liq"]
     treatment.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
 
     energy.pv.properties[0].flow_vol_phase["Liq"]
     energy.pv.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
-    
+
     set_scaling_factor(treatment.erd.control_volume.work, 1e-3)
-    
+
     return m
 
-def set_operating_conditions(m, flow_in = 1e-2, conc_in=30, water_recovery=0.5):
+
+def set_operating_conditions(m, flow_in=1e-2, conc_in=30, water_recovery=0.5):
     """Sets operating condition for the PV-RO system
 
     Args:
@@ -149,7 +160,7 @@ def set_operating_conditions(m, flow_in = 1e-2, conc_in=30, water_recovery=0.5):
         },
         hold_state=False,  # fixes the calculated component mass flow rates
     )
-    
+
     operating_pressure = calculate_operating_pressure(
         feed_state_block=m.fs.treatment.feed.properties[0],
         solver=solver,
@@ -157,20 +168,29 @@ def set_operating_conditions(m, flow_in = 1e-2, conc_in=30, water_recovery=0.5):
         water_recovery=water_recovery,
         NaCl_passage=0.01,
     )
-    operating_pressure_psi = pyunits.convert(operating_pressure * pyunits.Pa, to_units=pyunits.psi)()
-    operating_pressure_bar = pyunits.convert(operating_pressure * pyunits.Pa, to_units=pyunits.bar)()
+    operating_pressure_psi = pyunits.convert(
+        operating_pressure * pyunits.Pa, to_units=pyunits.psi
+    )()
+    operating_pressure_bar = pyunits.convert(
+        operating_pressure * pyunits.Pa, to_units=pyunits.bar
+    )()
     print(
         f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
     )
 
-    p1_work_scale_est = np.floor(log10(flow_in*operating_pressure)) #Estimating pump work to predict p1 scaling factor
-    set_scaling_factor(m.fs.treatment.p1.control_volume.work, 10**(-p1_work_scale_est))
+    p1_work_scale_est = np.floor(
+        log10(flow_in * operating_pressure)
+    )  # Estimating pump work to predict p1 scaling factor
+    set_scaling_factor(
+        m.fs.treatment.p1.control_volume.work, 10 ** (-p1_work_scale_est)
+    )
 
     m.fs.treatment.p1.control_volume.properties_out[0].pressure.fix(operating_pressure)
     m.fs.treatment.p1.efficiency_pump.fix(0.8)
     m.db.get_unit_operation_parameters("solar_energy")
     m.fs.energy.pv.load_parameters_from_database(use_default_removal=True)
-    
+
+
 def initialize_treatment(m, water_recovery=0.5):
     """_summary_
 
@@ -189,22 +209,42 @@ def initialize_treatment(m, water_recovery=0.5):
     ro.feed_side.channel_height.fix(1e-3)
     ro.feed_side.spacer_porosity.fix(0.97)
     ro.permeate.pressure[0].fix(101325)
-    ro.feed_side.velocity[0, 0].fix(0.55) # crossflow velocity (m/s)
+    ro.feed_side.velocity[0, 0].fix(0.55)  # crossflow velocity (m/s)
     # ro.feed_side.velocity[0, 0].unfix() # crossflow velocity (m/s)
 
-    ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]()
-    ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]()
+    ro.feed_side.properties_in[0].flow_mass_phase_comp[
+        "Liq", "H2O"
+    ] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]()
+    ro.feed_side.properties_in[0].flow_mass_phase_comp[
+        "Liq", "NaCl"
+    ] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]()
     ro.feed_side.properties_in[0].temperature = feed.properties[0].temperature()
-    ro.feed_side.properties_in[0].pressure = p1.control_volume.properties_out[0].pressure()
+    ro.feed_side.properties_in[0].pressure = p1.control_volume.properties_out[
+        0
+    ].pressure()
 
-    est_flux = 30.0 #[LMH] Use to help initialization. If initial guess for mem area is too far off, model will fail
-    ro_area_guess = (water_recovery*1000*(value(pyunits.convert(m.fs.treatment.feed.properties[0].flow_vol_phase["Liq"],
-                               to_units=pyunits.m ** 3 / pyunits.hr))))/est_flux
-    ro_area_scale = np.floor(log10(ro_area_guess)) #Estimating membrane area to predict scaling factor
+    est_flux = 30.0  # [LMH] Use to help initialization. If initial guess for mem area is too far off, model will fail
+    ro_area_guess = (
+        water_recovery
+        * 1000
+        * (
+            value(
+                pyunits.convert(
+                    m.fs.treatment.feed.properties[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.m**3 / pyunits.hr,
+                )
+            )
+        )
+    ) / est_flux
+    ro_area_scale = np.floor(
+        log10(ro_area_guess)
+    )  # Estimating membrane area to predict scaling factor
 
-    print(f"\nRO Membrane Area Estimate = {round(ro_area_guess, 2)} m^2 assuming a {round(est_flux, 2)} LMH Water Flux\n")
+    print(
+        f"\nRO Membrane Area Estimate = {round(ro_area_guess, 2)} m^2 assuming a {round(est_flux, 2)} LMH Water Flux\n"
+    )
     ro.area.fix(10**ro_area_scale)
-    set_scaling_factor(ro.area, 10**(-ro_area_scale))
+    set_scaling_factor(ro.area, 10 ** (-ro_area_scale))
     calculate_scaling_factors(m)
 
     # solve feed
@@ -227,11 +267,15 @@ def initialize_treatment(m, water_recovery=0.5):
     propagate_state(m.fs.treatment.a3)
     propagate_state(m.fs.treatment.a5)
 
-    print(f"\nFeed Flowrate = {pyunits.convert(ro.feed_side.properties_in[0].flow_vol, to_units=pyunits.Mgallons/pyunits.day)():<2.3f} MGD ; Feed Side Velocity = {value(ro.feed_side.velocity[0, 0])} m/s ; Solute Conc. In = {pyunits.convert(ro.feed_side.properties_in[0].conc_mass_phase_comp['Liq', 'NaCl'], to_units=pyunits.g/pyunits.L)():<3.1f} g/L \n")
+    print(
+        f"\nFeed Flowrate = {pyunits.convert(ro.feed_side.properties_in[0].flow_vol, to_units=pyunits.Mgallons/pyunits.day)():<2.3f} MGD ; Feed Side Velocity = {value(ro.feed_side.velocity[0, 0])} m/s ; Solute Conc. In = {pyunits.convert(ro.feed_side.properties_in[0].conc_mass_phase_comp['Liq', 'NaCl'], to_units=pyunits.g/pyunits.L)():<3.1f} g/L \n"
+    )
+
 
 def initialize_energy(m):
     m.fs.energy.pv.initialize()
     m.fs.energy.pv.oversize_factor = 1
+
 
 def initialize_sys(m, water_recovery=0.5):
     optarg = solver.options
@@ -239,13 +283,16 @@ def initialize_sys(m, water_recovery=0.5):
     initialize_treatment(m, water_recovery=water_recovery)
     initialize_energy(m)
 
-def optimize_setup(m, opt_target,
+
+def optimize_setup(
+    m,
+    opt_target,
     press_lb=100,
     press_ub=4500,
     area_lb=1,
     area_ub=20000,
     prod_salinity=0.5,
-    min_flux=2.5e-4
+    min_flux=2.5e-4,
 ):
     m.fs.obj = Objective(expr=opt_target)
     ro = m.fs.treatment.ro
@@ -282,6 +329,7 @@ def optimize_setup(m, opt_target,
         >= m.fs.treatment.min_flux
     )
 
+
 def add_costing(m):
     treatment = m.fs.treatment
     energy = m.fs.energy
@@ -292,34 +340,51 @@ def add_costing(m):
     energy.pv.load_parameters_from_database(use_default_removal=True)
 
     energy.pv.costing = UnitModelCostingBlock(flowsheet_costing_block=energy.costing)
-    treatment.ro.costing = UnitModelCostingBlock(flowsheet_costing_block=treatment.costing)
-    treatment.erd.costing = UnitModelCostingBlock(flowsheet_costing_block=treatment.costing)
-    treatment.p1.costing = UnitModelCostingBlock(flowsheet_costing_block=treatment.costing)
+    treatment.ro.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=treatment.costing
+    )
+    treatment.erd.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=treatment.costing
+    )
+    treatment.p1.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=treatment.costing
+    )
 
     treatment.costing.cost_process()
     energy.costing.cost_process()
 
     m.fs.sys_costing = SETOSystemCosting()
     m.fs.sys_costing.add_LCOW(treatment.product.properties[0].flow_vol)
-    m.fs.sys_costing.add_specific_electric_energy_consumption(treatment.product.properties[0].flow_vol)
+    m.fs.sys_costing.add_specific_electric_energy_consumption(
+        treatment.product.properties[0].flow_vol
+    )
 
     treatment.costing.initialize()
     energy.costing.initialize()
+
 
 def fix_pv_costing(m):
     m.fs.energy.pv.costing.system_capacity.fix(0)
     m.fs.energy.pv.costing.annual_generation.fix(0)
     m.fs.energy.pv.costing.land_area.fix(0)
 
+
 def fix_treatment_global_params(m):
     m.fs.treatment.costing.factor_total_investment.fix(1)
     m.fs.treatment.costing.factor_maintenance_labor_chemical.fix(0)
 
+
 def size_pv(m):
-    desired_pv_size = (m.fs.treatment.costing.aggregate_flow_electricity() * m.fs.energy.pv.oversize_factor)
+    desired_pv_size = (
+        m.fs.treatment.costing.aggregate_flow_electricity()
+        * m.fs.energy.pv.oversize_factor
+    )
     cash_model_kwargs = {"om_fixed": 1e4, "om_production": 20}
-    m.pysam.run_pv_single_owner(desired_size=desired_pv_size, cash_model_kwargs=cash_model_kwargs)
+    m.pysam.run_pv_single_owner(
+        desired_size=desired_pv_size, cash_model_kwargs=cash_model_kwargs
+    )
     m.fs.sys_costing.add_LCOE()
+
 
 def fix_pysam_costing(m):
     tech_model = m.pysam.tech_model
@@ -328,15 +393,22 @@ def fix_pysam_costing(m):
     avg_gen = np.mean(m.pysam.hourly_energy)
     m.fs.energy.pv.electricity.fix(-1 * avg_gen)
 
-    annual_gen = pyunits.convert((m.pysam.annual_energy * pyunits.kWh), to_units=pyunits.MWh)()
+    annual_gen = pyunits.convert(
+        (m.pysam.annual_energy * pyunits.kWh), to_units=pyunits.MWh
+    )()
     land_area = cash_model.LandLease.land_area * pyunits.acres
 
     m.fs.energy.pv.costing.land_area.fix(land_area)
-    m.fs.energy.costing.photovoltaic.fixed_operating_by_capacity.fix(cash_model.SystemCosts.om_capacity[0])
+    m.fs.energy.costing.photovoltaic.fixed_operating_by_capacity.fix(
+        cash_model.SystemCosts.om_capacity[0]
+    )
     m.fs.energy.pv.costing.system_capacity.fix(m.pysam.nameplate_dc * 1000)
-    m.fs.energy.costing.photovoltaic.variable_operating_by_generation.fix(cash_model.SystemCosts.om_production[0])
+    m.fs.energy.costing.photovoltaic.variable_operating_by_generation.fix(
+        cash_model.SystemCosts.om_production[0]
+    )
     m.fs.energy.pv.costing.annual_generation.fix(annual_gen)
     m.fs.energy.costing.factor_maintenance_labor_chemical.fix(0)
+
 
 def solve(m, solver=None, tee=False, check_termination=True):
     if solver is None:
@@ -349,12 +421,13 @@ def solve(m, solver=None, tee=False, check_termination=True):
         assert_optimal_termination(results)
     print(f"\nDOF = {degrees_of_freedom(m)}")
     print(f"MODEL SOLVE = {results.solver.termination_condition.swapcase()}")
-    
+
     return results
+
 
 def model_setup(Q, conc, recovery):
     m = build_ro_pv()
-    set_operating_conditions(m, flow_in = Q, conc_in=conc, water_recovery=recovery)
+    set_operating_conditions(m, flow_in=Q, conc_in=conc, water_recovery=recovery)
     initialize_sys(m)
     add_costing(m)
     fix_pv_costing(m)
@@ -362,6 +435,7 @@ def model_setup(Q, conc, recovery):
     optimize_setup(m, m.fs.sys_costing.LCOW)
 
     return m
+
 
 def run(m):
     results = solve(m)
@@ -371,11 +445,13 @@ def run(m):
 
     return m, results
 
+
 def main():
     m = model_setup(6.375e-2, 75, 0.5)
     m, results = run(m)
 
     return m, results
+
 
 if __name__ == "__main__":
     m, results = main()
