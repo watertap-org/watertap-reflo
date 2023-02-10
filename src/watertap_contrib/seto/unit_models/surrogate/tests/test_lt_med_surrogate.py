@@ -62,8 +62,6 @@ class TestLTMED:
             (sys_capacity / recovery_ratio), to_units=pyunits.m**3 / pyunits.s
         )
 
-        # feed.conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
-        # feed.flow_vol_phase["Liq"].fix(feed_flow)
         feed.flow_mass_phase_comp["Liq", "TDS"].fix(feed_salinity * feed_flow)
         feed.flow_mass_phase_comp["Liq", "H2O"].fix(feed_dens * feed_flow)
         feed.temperature.fix(feed_temperature + 273.15)
