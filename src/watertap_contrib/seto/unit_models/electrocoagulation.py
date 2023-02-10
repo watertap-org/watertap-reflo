@@ -122,6 +122,9 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
     def build(self):
         super().build()
 
+        if "TOC" not in self.config.property_package.component_list:
+            raise ConfigurationError("TOC must be in feed stream")
+
         if self.config.electrode_material == ElectrodeMaterial.aluminum:
             self.mw_electrode_material = Param(
                 initialize=0.027,
@@ -206,7 +209,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
 
         self.add_port(name="inlet", block=self.properties_in)
         self.add_port(name="outlet", block=self.properties_out)
-        self.add_port(name="waste", block=self.properties_regen)
+        self.add_port(name="waste", block=self.properties_waste)
 
         # =========== EQUILIBRIUM ===========
 

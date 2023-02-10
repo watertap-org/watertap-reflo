@@ -31,7 +31,7 @@ import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
 from idaes.core.util.exceptions import ConfigurationError
 
-from pyomo.environ import Expression, Param, PositiveReals, units as pyunits, Var
+from pyomo.environ import Expression, Param, PositiveReals, units as pyunits, Var, Constraint
 from pyomo.common.config import ConfigValue
 
 # Some more inforation about this module
@@ -92,6 +92,7 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
             ("flow_vol"): 1e3,
             ("conc_mass_comp"): 1e2,
             ("temperature"): 1e-3,
+            ("mass_frac_comp"): 1e2,
         }
 
     @classmethod
@@ -109,9 +110,10 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
         obj.add_properties(
             {
                 "flow_mass_comp": {"method": None},
-                "temperature": {"method": None},
+                "temperature": {"method": "_temperature"},
                 "flow_vol": {"method": "_flow_vol"},
                 "conc_mass_comp": {"method": "_conc_mass_comp"},
+                "mass_frac_comp": {"method": "_mass_frac_comp"},
                 "dens_mass": {"method": "_dens_mass"},
                 "visc_d": {"method": "_visc_d"},
             }
@@ -221,31 +223,55 @@ class BasicWaterStateBlockData(StateBlockData):
 
         # Create state variables
         self.flow_mass_comp = Var(
-            self.component_list,
+            self.params.component_list,
             initialize=1,
             domain=PositiveReals,
             doc="Mass flowrate of each component",
             units=pyunits.kg / pyunits.s,
         )
 
+    # -------------------------------------------------------------------------
+    # Other properties
+    def _temperature(self):
         self.temperature = Var(
             initialize=298.15,
             bounds=(273.15, 373.15),
             units=pyunits.K,
-            doc="State temperature",
+            doc="Temperature",
         )
 
-    # -------------------------------------------------------------------------
-    # Other properties
-    def _conc_mass_comp(self):
-        def rule_conc_mass_comp(blk, j):
-            return (
-                blk.flow_mass_comp[j]
-                / sum(self.flow_mass_comp[k] for k in self.component_list)
-                * blk.dens_mass
+    def _mass_frac_comp(self):
+        self.mass_frac_comp = Var(
+            self.params.component_list,
+            initialize=0.5,
+            bounds=(0, 1.001),
+            units=pyunits.kg / pyunits.kg,
+            doc="Mass fraction",
+        )
+
+        def rule_mass_frac_comp(b, j):
+            return b.mass_frac_comp[j] == b.flow_mass_comp[j] / sum(
+                b.flow_mass_comp[j] for j in self.params.component_list
             )
 
-        self.conc_mass_comp = Expression(self.component_list, rule=rule_conc_mass_comp)
+        self.eq_mass_frac_comp = Constraint(
+            self.params.component_list,
+            rule=rule_mass_frac_comp,
+        )
+
+    def _conc_mass_comp(self):
+        self.conc_mass_comp = Var(
+            self.params.component_list,
+            initialize=1,
+            bounds=(0, 2e3),
+            units=pyunits.kg / pyunits.m**3,
+            doc="Mass concentration",
+        )
+        def rule_conc_mass_comp(b, j):
+            return (b.conc_mass_comp[j] == b.dens_mass * b.mass_frac_comp[j]
+            )
+
+        self.eq_conc_mass_comp = Constraint(self.component_list, rule=rule_conc_mass_comp)
 
     def _dens_mass(self):
         self.dens_mass = Param(
@@ -294,6 +320,7 @@ class BasicWaterStateBlockData(StateBlockData):
         return {
             "Volumetric Flowrate": blk.flow_vol,
             "Mass Concentration": blk.conc_mass_comp,
+            "Temperature": blk.temperature
         }
 
     def get_material_flow_basis(blk):
