@@ -141,51 +141,35 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
                 units=pyunits.kg / pyunits.m**3,
                 doc="Density of electrode material",
             )
+            self.metal_dose_to_toc_ratio = Param(
+                initialize=1,
+                units=pyunits.kg / pyunits.kg,
+                doc="Coagulant dose to inlet TOC ratio",
+            )
 
         if self.config.electrode_material == ElectrodeMaterial.iron:
-            self.mw_electrode_material = Param(initialize=1)
+            self.mw_electrode_material = Param(
+                initialize=0.056,
+                units=pyunits.kg / pyunits.mol,
+                doc="Molecular weight of electrode material",
+            )
+            self.valence_electrode_material = Param(
+                initialize=2,
+                units=pyunits.dimensionless,
+                doc="Number of valence electrons of electrode material",
+            )
+            self.density_electrode_material = Param(
+                initialize=1,
+                units=pyunits.kg / pyunits.m**3,
+                doc="Density of electrode material",
+            )
+            self.metal__dose_to_toc_ratio = Param(
+                initialize=2,
+                units=pyunits.kg / pyunits.kg,
+                doc="Coagulant dose to inlet TOC ratio",
+            )
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
-
-        self.conductivity = Var(
-            initialize=20, units=pyunits.S / pyunits.m, doc="Solution conductivity"
-        )
-
-        self.electrode_width = Var(
-            initialize=1,
-            units=pyunits.m,
-            doc="Electrode width",
-        )
-
-        self.electrode_height = Var(
-            initialize=1,
-            units=pyunits.m,
-            doc="Electrode height",
-        )
-
-        self.electrode_thick = Var(
-            initialize=1,
-            units=pyunits.m,
-            doc="Electrode thickness",
-        )
-
-        self.applied_current = Var(
-            initialize=1,
-            units=pyunits.ampere,
-            doc="Applied current",
-        )
-
-        self.current_efficiency = Var(
-            initialize=1,
-            units=pyunits.ampere,
-            doc="Current efficiency",
-        )
-
-        self.cell_voltage = Var(
-            initialize=1,
-            units=pyunits.volt,
-            doc="Cell voltage",
-        )
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
@@ -211,7 +195,196 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         self.add_port(name="outlet", block=self.properties_out)
         self.add_port(name="waste", block=self.properties_waste)
 
-        # =========== EQUILIBRIUM ===========
+        self.number_cells_system = Param(initialize=3, doc="Number total cells for system - electrochemical cell > flotation cell > sedimentation cell")
+
+        self.conductivity = Var(
+            initialize=20, units=pyunits.S / pyunits.m, doc="Solution conductivity"
+        )
+
+        self.electrode_width = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m,
+            doc="Electrode width",
+        )
+
+        self.electrode_height = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m,
+            doc="Electrode height",
+        )
+
+        self.electrode_thick = Var(
+            initialize=0.001,
+            bounds=(0, 0.1),
+            units=pyunits.m,
+            doc="Electrode thickness",
+        )
+
+        self.electrode_area_total = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m**2,
+            doc="Total electrode area",
+        )
+
+        self.electrode_area_per = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m**2,
+            doc="Electrode area",
+        )
+
+        self.electrode_volume_per = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m**3,
+            doc="Electrode volume",
+        )
+
+        self.electrode_gap = Var(
+            initialize=0.005,
+            bounds=(0.001, 0.2),
+            units=pyunits.m,
+            doc="Electrode gap",
+        )
+
+        self.electrolysis_time = Var(
+            initialize=30,
+            bounds=(2, 200),
+            units=pyunits.minute,
+            doc="Electrolysis time",
+        )
+
+        self.number_electrode_pairs = Var(
+            initialize=5,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Number of electrode pairs",
+        )
+
+        self.number_cells = Var(
+            initialize=5,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Number of cells",
+        )
+
+        self.applied_current = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.ampere,
+            doc="Applied current",
+        )
+
+        self.current_efficiency = Var(
+            initialize=1,
+            bounds=(0.9, 2.5),
+            units=pyunits.kg / pyunits.kg,
+            doc="Current efficiency",
+        )
+
+        self.cell_voltage = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.volt,
+            doc="Cell voltage",
+        )
+
+        self.reactor_volume = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m**3,
+            doc="Reactor volume total (electrochemical + flotation + sedimentation)",
+        )
+
+        self.metal_loading = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.liter,
+            doc="Metal loading",
+        )
+
+        # self.metal_loading_rate = Var(
+        #     initialize=1,
+        #     units=pyunits.kg,
+        #     doc="Metal loading",
+        # )
+
+        self.ohmic_resistance = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.ohm,
+            doc="Ohmic resistance of solution",
+        )
+
+        self.charge_loading_rate = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.coulomb / pyunits.liter,
+            doc="Charge loading rate",
+        )
+
+        self.current_density = Var(
+            initialize=1,
+            bounds=(1, 2000),
+            units=pyunits.ampere / pyunits.m**2,
+            doc="Current density",
+        )
+
+        @self.Constraint(doc="Charge loading rate equation")
+        def eq_charge_loading_rate(b):
+            return b.charge_loading_rate == (
+                b.applied_current
+                * pyunits.convert(b.electrolysis_time, to_units=pyunits.second)
+            ) / pyunits.convert(b.reactor_volume, to_units=pyunits.liter)
+
+        @self.Constraint(doc="Metal loading rate equation")
+        def eq_metal_loading_rate(b):
+            return b.metal_loading == (
+                b.current_efficiency * b.charge_loading_rate * b.mw_electrode_material
+            ) / (b.valence_electrode_material * Constants.faraday_constant)
+
+        @self.Constraint(doc="Total current required")
+        def eq_applied_current(b):
+            flow_in = pyunits.convert(
+                b.properties_in[0].flow_vol, to_units=pyunits.liter / pyunits.second
+            )
+            return b.applied_current == (
+                flow_in
+                * b.metal_loading
+                * b.valence_electrode_material
+                * Constants.faraday_constant
+            ) / (b.current_efficiency * b.mw_electrode_material)
+
+        @self.Constraint(doc="Total electrode area required")
+        def eq_electrode_area_total(b):
+            return b.electrode_area_total == b.applied_current / b.current_density
+
+        @self.Constraint(doc="Area per electrode")
+        def eq_electrode_area_per(b):
+            return b.electrode_area_per == b.electrode_area_total / (b.number_electrode_pairs * 2 * b.number_cells)
+
+        @self.Constraint(doc="Electrode width")
+        def eq_electrode_width(b):
+            return b.electrode_width == (2 * b.electrode_area_per) ** 0.5
+
+        @self.Constraint(doc="Electrode height")
+        def eq_electrode_height(b):
+            return b.electrode_height == b.electrode_area_per / b.electrode_width
+
+        @self.Constraint(doc="Electrode volume")
+        def eq_electrode_volume_per(b):
+            return b.electrode_volume_per == b.electrode_width * b.electrode_height * b.electrode_thick
+
+        @self.Constraint(doc="Total reactor volume")
+        def eq_reactor_volume(b):
+            flow_vol = b.properties_in[0].flow_vol
+            return b.reactor_volume == pyunits.convert(flow_vol * b.electrolysis_time * b.number_cells_system, to_units=pyunits.m**3)
+
+        
+
 
     def initialize_build(
         blk,
