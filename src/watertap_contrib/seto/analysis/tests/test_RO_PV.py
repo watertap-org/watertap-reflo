@@ -1,5 +1,4 @@
 import pytest
-import os
 from pyomo.environ import Var, assert_optimal_termination, units as pyunits
 from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock
@@ -9,14 +8,12 @@ import watertap_contrib.seto.analysis.net_metering.PV_RO as PV_RO
 from watertap_contrib.seto.core import SETODatabase, PySAMWaterTAP
 from idaes.core.util.testing import initialization_tester
 from idaes.core import (
-    FlowsheetBlock,
     MaterialBalanceType,
     EnergyBalanceType,
     MomentumBalanceType,
 )
 
 from watertap.unit_models.reverse_osmosis_0D import (
-    ReverseOsmosis0D,
     ConcentrationPolarizationType,
     MassTransferCoefficient,
     PressureChangeType,
