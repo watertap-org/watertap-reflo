@@ -1,5 +1,5 @@
 import pytest
-from pyomo.environ import Var, assert_optimal_termination, units as pyunits
+from pyomo.environ import Var, value, assert_optimal_termination, units as pyunits
 from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers import get_solver
@@ -106,3 +106,13 @@ class TestPVRO:
 
         # Check for optimal solution
         assert_optimal_termination(results)
+
+    @pytest.mark.unit
+    def test_solution(self, system_frame):
+        m = system_frame
+
+        assert pytest.approx(0.330, rel=1e-2) == value(m.fs.sys_costing.LCOW())
+        assert pytest.approx(0.083, rel=1e-2) == value(m.fs.sys_costing.LCOE())
+        assert pytest.approx(1.51,  rel=1e-2) == value(m.fs.sys_costing.specific_electric_energy_consumption())
+        assert pytest.approx(247052, rel=1e2) == value(m.fs.sys_costing.total_capital_cost())
+        assert pytest.approx(31771, rel=1e-2) == value(m.fs.sys_costing.total_operating_cost())
