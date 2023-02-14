@@ -31,7 +31,7 @@ import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
 from idaes.core.util.exceptions import ConfigurationError
 
-from pyomo.environ import Expression, Param, PositiveReals, units as pyunits, Var, Constraint
+from pyomo.environ import Expression, Param, PositiveReals, units as pyunits, Var, Constraint, Set, Suffix, value
 from pyomo.common.config import ConfigValue
 
 # Some more inforation about this module
@@ -73,13 +73,14 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
         self.H2O = Solvent()
 
         # Get component set from database if provided
-        self.component_set = None
+        self.component_set = Set()
 
         # Check definition of solute list
         solute_list = self.config.solute_list
 
         for j in solute_list:
             self.add_component(str(j), Solute())
+            self.component_set.add(str(j))
 
         # Define default value for mass density of solution
         self.dens_mass_default = 1000 * pyunits.kg / pyunits.m**3
@@ -89,10 +90,10 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
         # ---------------------------------------------------------------------
         # Set default scaling factors
         self.default_scaling_factor = {
-            ("flow_vol"): 1e3,
-            ("conc_mass_comp"): 1e2,
             ("temperature"): 1e-3,
-            ("mass_frac_comp"): 1e2,
+            ("pressure"): 1e-5,
+            ("dens_mass"): 1e-3,
+            ("visc_d"): 1e3,
         }
 
     @classmethod
@@ -109,11 +110,11 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
 
         obj.add_properties(
             {
-                "flow_mass_comp": {"method": None},
+                "flow_vol": {"method": None},
+                "conc_mass_comp": {"method": None},
+                "flow_mass_comp": {"method": "_flow_mass_comp"},
                 "temperature": {"method": "_temperature"},
-                "flow_vol": {"method": "_flow_vol"},
-                "conc_mass_comp": {"method": "_conc_mass_comp"},
-                "mass_frac_comp": {"method": "_mass_frac_comp"},
+                "pressure": {"method": "_pressure"},
                 "dens_mass": {"method": "_dens_mass"},
                 "visc_d": {"method": "_visc_d"},
             }
@@ -144,14 +145,7 @@ class _BasicWaterStateBlock(StateBlock):
                      through the control volume, and if initial guesses
                      were not provied at the unit model level, the
                      control volume passes the inlet values as initial
-                     guess.The keys for the state_args dictionary are:
-
-                     flow_mol_comp : value at which to initialize component
-                                     flows (default=None)
-                     pressure : value at which to initialize pressure
-                                (default=None)
-                     temperature : value at which to initialize temperature
-                                  (default=None)
+                     guess.
         outlvl : sets output level of initialization routine
         state_vars_fixed: Flag to denote if state vars have already been
                           fixed.
@@ -183,7 +177,7 @@ class _BasicWaterStateBlock(StateBlock):
         # fix state variables if required
         init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="properties")
 
-        init_log.info("Initialization Complete.")
+        # init_log.info("Initialization Complete.")
 
         if hold_state is True:
             flags = fix_state_vars(blk, state_args)
@@ -221,7 +215,27 @@ class BasicWaterStateBlockData(StateBlockData):
     def build(self):
         super().build()
 
-        # Create state variables
+        self.scaling_factor = Suffix(direction=Suffix.EXPORT)
+
+        self.flow_vol = Var(
+            initialize=1,
+            domain=PositiveReals,
+            doc="Volumetric flow rate",
+            units=pyunits.m**3 / pyunits.s,
+        )
+
+        self.conc_mass_comp = Var(
+            self.params.component_set,
+            initialize=1,
+            domain=PositiveReals,
+            doc="Mass concentration of each solute",
+            units=pyunits.kg / pyunits.m**3,
+        )
+
+    # # -------------------------------------------------------------------------
+    # Other properties
+    def _flow_mass_comp(self):
+
         self.flow_mass_comp = Var(
             self.params.component_list,
             initialize=1,
@@ -230,8 +244,15 @@ class BasicWaterStateBlockData(StateBlockData):
             units=pyunits.kg / pyunits.s,
         )
 
-    # -------------------------------------------------------------------------
-    # Other properties
+        def rule_flow_mass_comp(b, j):
+            if j == "H2O":
+                return b.flow_mass_comp[j] == b.flow_vol * b.dens_mass
+            else:
+                return b.flow_mass_comp[j] == b.flow_vol * b.conc_mass_comp[j]
+        
+        self.eq_flow_mass_comp = Constraint(self.params.component_list, rule=rule_flow_mass_comp)
+
+
     def _temperature(self):
         self.temperature = Var(
             initialize=298.15,
@@ -240,38 +261,13 @@ class BasicWaterStateBlockData(StateBlockData):
             doc="Temperature",
         )
 
-    def _mass_frac_comp(self):
-        self.mass_frac_comp = Var(
-            self.params.component_list,
-            initialize=0.5,
-            bounds=(0, 1.001),
-            units=pyunits.kg / pyunits.kg,
-            doc="Mass fraction",
+    def _pressure(self):
+        self.pressure = Var(
+            initialize=101325,
+            bounds=(1e5, None),
+            units=pyunits.Pa,
+            doc="Pressure",
         )
-
-        def rule_mass_frac_comp(b, j):
-            return b.mass_frac_comp[j] == b.flow_mass_comp[j] / sum(
-                b.flow_mass_comp[j] for j in self.params.component_list
-            )
-
-        self.eq_mass_frac_comp = Constraint(
-            self.params.component_list,
-            rule=rule_mass_frac_comp,
-        )
-
-    def _conc_mass_comp(self):
-        self.conc_mass_comp = Var(
-            self.params.component_list,
-            initialize=1,
-            bounds=(0, 2e3),
-            units=pyunits.kg / pyunits.m**3,
-            doc="Mass concentration",
-        )
-        def rule_conc_mass_comp(b, j):
-            return (b.conc_mass_comp[j] == b.dens_mass * b.mass_frac_comp[j]
-            )
-
-        self.eq_conc_mass_comp = Constraint(self.component_list, rule=rule_conc_mass_comp)
 
     def _dens_mass(self):
         self.dens_mass = Param(
@@ -279,12 +275,6 @@ class BasicWaterStateBlockData(StateBlockData):
             units=pyunits.kg / pyunits.m**3,
             mutable=True,
             doc="Mass density of flow",
-        )
-
-    def _flow_vol(self):
-        self.flow_vol = Expression(
-            expr=sum(self.flow_mass_comp[j] for j in self.component_list)
-            / self.dens_mass
         )
 
     def _visc_d(self):
@@ -304,7 +294,7 @@ class BasicWaterStateBlockData(StateBlockData):
     def get_material_density_terms(blk, p, j):
         return blk.conc_mass_comp[j]
 
-    def get_energy_density_terms(blk, p):
+    def get_energy_density_terms(self, p):
         raise NotImplementedError
 
     def default_material_balance_type(self):
@@ -313,40 +303,44 @@ class BasicWaterStateBlockData(StateBlockData):
     def default_energy_balance_type(self):
         return EnergyBalanceType.none
 
-    def define_state_vars(blk):
-        return {"flow_mass_comp": blk.flow_mass_comp}
+    def define_state_vars(self):
+        return {"flow_vol": self.flow_vol, "conc_mass_comp": self.conc_mass_comp}
 
-    def define_display_vars(blk):
+    def define_display_vars(self):
         return {
-            "Volumetric Flowrate": blk.flow_vol,
-            "Mass Concentration": blk.conc_mass_comp,
-            "Temperature": blk.temperature
+            "Volumetric Flowrate": self.flow_vol,
+            "Mass Concentration": self.conc_mass_comp,
+            "Temperature": self.temperature
         }
 
-    def get_material_flow_basis(blk):
+    def get_material_flow_basis(self):
         return MaterialFlowBasis.mass
 
     def calculate_scaling_factors(self):
-        # Get default scale factors and do calculations from base classes
+        
+        
         super().calculate_scaling_factors()
 
-        d_sf_Q = self.params.default_scaling_factor["flow_vol"]
-        d_sf_c = self.params.default_scaling_factor["conc_mass_comp"]
+        if iscale.get_scaling_factor(self.flow_vol) is None:
+            sf_Q = iscale.get_scaling_factor(self.flow_vol, default=1, warning=True)
+            iscale.set_scaling_factor(self.flow_vol, sf_Q)
 
-        for j, v in self.flow_mass_comp.items():
-            if iscale.get_scaling_factor(v) is None:
-                iscale.set_scaling_factor(v, d_sf_Q * d_sf_c)
+        for j, v in self.conc_mass_comp.items():
+            sf_c = iscale.get_scaling_factor(self.conc_mass_comp[j])
+            if sf_c is None:
+                try:
+                    sf_c = self.params.default_scaling_factor[("conc_mass_comp", j)]
+                except KeyError:
+                    iscale.get_scaling_factor(self.conc_mass_comp[j], default=1, warning=True)
 
-        if self.is_property_constructed("flow_vol"):
-            if iscale.get_scaling_factor(self.flow_vol) is None:
-                iscale.set_scaling_factor(self.flow_vol, d_sf_Q)
+        if self.is_property_constructed("flow_mass_phase"):
+            for j, v in self.flow_mass_comp.items():
+                if iscale.get_scaling_factor(v) is None:
+                    if j == "H2O":
+                        sf = value(self.flow_vol * self.dens_mass) ** -1
+                    else:
+                        sf = value(self.flow_vol * self.conc_mass_comp[j]) ** -1
+                    iscale.set_scaling_factor(v, sf)
 
-        if self.is_property_constructed("conc_mass_comp"):
-            for j, v in self.conc_mass_comp.items():
-                sf_c = iscale.get_scaling_factor(self.conc_mass_comp[j])
-                if sf_c is None:
-                    try:
-                        sf_c = self.params.default_scaling_factor[("conc_mass_comp", j)]
-                    except KeyError:
-                        sf_c = d_sf_c
-                    iscale.set_scaling_factor(self.conc_mass_comp[j], sf_c)
+
+
