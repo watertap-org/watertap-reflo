@@ -172,15 +172,8 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
 
         self.base_currency = pyo.units.USD_2021
 
-        # Set a base period for all operating costs
         self.base_period = pyo.units.year
 
-        # Define standard material flows and costs
-        # The WaterTAP costing package creates flows
-        # in a lazy fashion, the first time `cost_flow`
-        # is called for a flow. The `_DefinedFlowsDict`
-        # prevents defining more than one flow with
-        # the same name.
         self.defined_flows = _DefinedFlowsDict()
 
         # Build flowsheet level costing components
@@ -253,28 +246,23 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
 
         self.total_capital_cost = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
             doc="Total capital cost for integrated system",
             units=self.base_currency,
         )
         self.total_operating_cost = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
             doc="Total operating cost for integrated system",
             units=self.base_currency / self.base_period,
         )
         self.aggregate_flow_electricity = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
             doc="Aggregated electricity flow",
             units=pyo.units.kW,
         )
 
-        # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
             self.aggregate_flow_heat = pyo.Var(
                 initialize=1e3,
-                # domain=pyo.NonNegativeReals,
                 doc="Aggregated heat flow",
                 units=pyo.units.kW,
             )
@@ -301,7 +289,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             + en_cost.aggregate_flow_electricity
         )
 
-        # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
             self.aggregate_flow_heat_constraint = pyo.Constraint(
                 expr=self.aggregate_flow_heat
