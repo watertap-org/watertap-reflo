@@ -183,11 +183,8 @@ class _BasicWaterStateBlock(StateBlock):
             If hold_states is True, returns a dict containing flags for
             which states were fixed during initialization.
         """
-        # For now, there are no constraints in the property package, so only
-        # fix state variables if required
-        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="properties")
 
-        # init_log.info("Initialization Complete.")
+        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="properties")
 
         if hold_state is True:
             flags = fix_state_vars(blk, state_args)
@@ -345,7 +342,7 @@ class BasicWaterStateBlockData(StateBlockData):
                         self.conc_mass_comp[j], default=1, warning=True
                     )
 
-        if self.is_property_constructed("flow_mass_phase"):
+        if self.is_property_constructed("flow_mass_comp"):
             for j, v in self.flow_mass_comp.items():
                 if iscale.get_scaling_factor(v) is None:
                     if j == "H2O":
