@@ -53,6 +53,11 @@ class ElectrodeMaterial(StrEnum):
     iron = "iron"
 
 
+class ReactorMaterial(StrEnum):
+    pvc = "pvc"
+    stainless_steel = "stainless_steel"
+
+
 @declare_process_block_class("Electrocoagulation")
 class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
     """
@@ -116,6 +121,15 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             default="aluminum",
             domain=In(ElectrodeMaterial),
             description="Electrode material",
+        ),
+    )
+
+    CONFIG.declare(
+        "reactor_material",
+        ConfigValue(
+            default="pvc",
+            domain=In(ReactorMaterial),
+            description="Reactor material",
         ),
     )
 
@@ -195,18 +209,6 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         self.add_port(name="outlet", block=self.properties_out)
         self.add_port(name="waste", block=self.properties_waste)
 
-        self.number_cells_system = Param(
-            initialize=3,
-            mutable=True,
-            doc="Number total cells for system - electrochemical cell > flotation cell > sedimentation cell",
-        )
-
-        self.number_redundant_cells = Param(
-            initialize=2,
-            mutable=True,
-            doc="Number redundant electrochemical cells",
-        )
-
         self.current_per_reactor = Param(
             initialize=3000,
             units=pyunits.ampere,
@@ -221,9 +223,19 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             doc="Conersion factor for mg/L TDS to S/m",
         )
 
+        removal_eff_dict = dict(
+            zip(
+                self.config.property_package.component_set,
+                [
+                    0.7 if j != "TDS" else 1e-3
+                    for j in self.config.property_package.component_set
+                ],
+            )
+        )
+
         self.removal_efficiency = Param(
             self.config.property_package.component_set,
-            initialize=0.7,
+            initialize=removal_eff_dict,
             mutable=True,
             doc="Removal efficiency",
         )
@@ -334,7 +346,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             initialize=1,
             bounds=(0, None),
             units=pyunits.volt,
-            doc="Potential balance for voltage", #???
+            doc="Potential balance for voltage",  # ???
         )
 
         self.reactor_volume = Var(
@@ -350,12 +362,6 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             units=pyunits.kg / pyunits.liter,
             doc="Metal loading",
         )
-
-        # self.metal_loading_rate = Var(
-        #     initialize=1,
-        #     units=pyunits.kg,
-        #     doc="Metal loading",
-        # )
 
         self.ohmic_resistance = Var(
             initialize=1,
@@ -407,13 +413,12 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         def eq_electrode_area_total(b):
             return b.electrode_area_total == b.applied_current / b.current_density
 
-        # @self.Constraint(doc="Number of cells")
-        # def eq_number_cells(b):
-        #     return b.number_cells == b.applied_current / b.current_per_reactor
-
         @self.Constraint(doc="Cell voltage")
         def eq_cell_voltage(b):
-            return b.cell_voltage == b.potential_balance + b.applied_current * b.ohmic_resistance
+            return (
+                b.cell_voltage
+                == b.potential_balance + b.applied_current * b.ohmic_resistance
+            )
 
         @self.Constraint(doc="Area per electrode")
         def eq_electrode_area_per(b):
@@ -439,10 +444,14 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(doc="Total reactor volume")
         def eq_reactor_volume(b):
             flow_vol = b.properties_in[0].flow_vol
-            return b.reactor_volume == pyunits.convert(
-                flow_vol * b.electrolysis_time,
-                to_units=pyunits.m**3,
-            ) / b.number_cells
+            return (
+                b.reactor_volume
+                == pyunits.convert(
+                    flow_vol * b.electrolysis_time,
+                    to_units=pyunits.m**3,
+                )
+                / b.number_cells
+            )
 
         @self.Expression(doc="Conductivity")
         def conductivity(b):
@@ -470,7 +479,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             prop_in = b.properties_in[0]
             prop_out = b.properties_out[0]
             return prop_out.flow_vol == prop_in.flow_vol * b.vol_recovery
- 
+
         @self.Constraint(
             self.config.property_package.component_set, doc="Component removal"
         )
@@ -496,7 +505,10 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             prop_in = b.properties_in[0]
             prop_out = b.properties_out[0]
             prop_waste = b.properties_waste[0]
-            return prop_in.flow_mass_comp[j] == prop_out.flow_mass_comp[j] + prop_waste.flow_mass_comp[j]
+            return (
+                prop_in.flow_mass_comp[j]
+                == prop_out.flow_mass_comp[j] + prop_waste.flow_mass_comp[j]
+            )
 
     def initialize_build(
         blk,
@@ -558,7 +570,9 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             if j == "H2O":
                 state_args_out["flow_vol"] = state_args["flow_vol"] * blk.vol_recovery
             else:
-                state_args_out["conc_mass_comp"][j] = state_args["conc_mass_comp"][j] * (1 - blk.removal_efficiency[j])
+                state_args_out["conc_mass_comp"][j] = state_args["conc_mass_comp"][
+                    j
+                ] * (1 - blk.removal_efficiency[j])
 
         blk.properties_out.initialize(
             outlvl=outlvl,
@@ -571,10 +585,14 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         state_args_waste = deepcopy(state_args)
         for j in blk.properties_waste.component_list:
             if j == "H2O":
-                state_args_waste["flow_vol"] = state_args["flow_vol"] * (1 - blk.vol_recovery)
+                state_args_waste["flow_vol"] = state_args["flow_vol"] * (
+                    1 - blk.vol_recovery
+                )
             else:
-                state_args_waste["conc_mass_comp"][j] = state_args["conc_mass_comp"][j] * blk.removal_efficiency[j]
-        
+                state_args_waste["conc_mass_comp"][j] = (
+                    state_args["conc_mass_comp"][j] * blk.removal_efficiency[j]
+                )
+
         blk.properties_waste.initialize(
             outlvl=outlvl,
             optarg=optarg,
@@ -634,7 +652,6 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         iscale.set_scaling_factor(self.charge_loading_rate, 1e-2)
 
         iscale.set_scaling_factor(self.current_density, 1e-2)
-
 
         # transforming constraints
         sf = iscale.get_scaling_factor(self.metal_loading)
