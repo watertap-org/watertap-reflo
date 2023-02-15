@@ -94,8 +94,11 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         )
         self.add_defined_flow("heat", self.heat_cost)
 
+        # change some default values from WaterTAPCosting
         self.plant_lifetime.fix()
         self.utilization_factor.fix(1)
+        self.factor_total_investment.fix(1)
+        self.factor_maintenance_labor_chemical.fix(0)
 
     def build_process_costs(self):
         # super().build_process_costs()
@@ -135,6 +138,37 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             + self.aggregate_variable_operating_cost
             + sum(self.aggregate_flow_costs.values()) * self.utilization_factor
         )
+
+    def add_specific_energy_consumption(
+        self, flow_rate, name="specific_energy_consumption"
+    ):
+        # set alias
+        return self.add_specific_electric_energy_consumption(flow_rate, name=name)
+
+    def add_specific_electric_energy_consumption(
+        self, flow_rate, name="specific_electric_energy_consumption"
+    ):
+        # Changed for Var for SETOWaterTAPCosting
+        """
+        Add specific energy consumption (kWh/m**3) to costing block.
+        Args:
+            flow_rate - flow rate of water (volumetric) to be used in
+                        calculating specific energy consumption
+            name (optional) - the name of the Var for the specific
+                              energy consumption (default: specific_energy_consumption)
+        """
+        SEEC = pyo.Var(
+            doc=f"Specific electric energy consumption based on flow {flow_rate.name}",
+            units=self.base_currency / pyo.units.m**3,
+        )
+        self.add_component(name, SEEC)
+        SEEC_constraint = pyo.Constraint(
+            expr=SEEC
+            == self.aggregate_flow_electricity
+            / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr),
+            doc=f"Specific energy consumption based on flow {flow_rate.name}",
+        )
+        self.add_component(f"{name}_constraint", SEEC_constraint)
 
 
 @declare_process_block_class("TreatmentCosting")
