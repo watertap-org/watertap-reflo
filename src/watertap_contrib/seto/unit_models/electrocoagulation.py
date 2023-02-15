@@ -322,7 +322,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         )
 
         self.applied_current = Var(
-            initialize=1,
+            initialize=1e4,
             bounds=(0, None),
             units=pyunits.ampere,
             doc="Applied current",
@@ -364,7 +364,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         )
 
         self.ohmic_resistance = Var(
-            initialize=1,
+            initialize=1e-5,
             bounds=(0, None),
             units=pyunits.ohm,
             doc="Ohmic resistance of solution",
@@ -652,6 +652,10 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         iscale.set_scaling_factor(self.charge_loading_rate, 1e-2)
 
         iscale.set_scaling_factor(self.current_density, 1e-2)
+
+        iscale.set_scaling_factor(self.cell_voltage, 0.1)
+
+        iscale.set_scaling_factor(self.potential_balance, 0.1)
 
         # transforming constraints
         sf = iscale.get_scaling_factor(self.metal_loading)
