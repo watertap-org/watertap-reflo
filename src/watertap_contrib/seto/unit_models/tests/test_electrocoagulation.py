@@ -17,19 +17,12 @@ from pyomo.environ import (
     value,
     Var,
     Param,
-    Objective,
     Expression,
-    units as pyunits,
     check_optimal_termination,
 )
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap.property_models.multicomp_aq_sol_prop_pack import (
-    MCASParameterBlock,
-    MCASStateBlock,
-)
 
-from watertap.core.util.initialization import check_dof
 from watertap.core.util.infeasible import *
 
 from idaes.core.solvers.get_solver import get_solver
@@ -42,7 +35,6 @@ from idaes.core.util.model_statistics import (
 from idaes.core.util.testing import initialization_tester
 from idaes.core.util.scaling import *
 from pyomo.util.check_units import assert_units_consistent
-import idaes.logger as idaeslog
 
 from watertap_contrib.seto.unit_models.electrocoagulation import (
     Electrocoagulation,
@@ -54,7 +46,7 @@ from watertap_contrib.seto.property_models.basic_water_properties import (
     BasicWaterParameterBlock,
 )
 from watertap_contrib.seto.costing import TreatmentCosting
-from idaes.core.util.exceptions import ConfigurationError, InitializationError
+from idaes.core.util.exceptions import ConfigurationError
 
 # -----------------------------------------------------------------------------
 # Get default solver for testing
