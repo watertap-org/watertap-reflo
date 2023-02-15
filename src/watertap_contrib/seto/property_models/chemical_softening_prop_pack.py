@@ -90,21 +90,6 @@ class DensityCalculation(Enum):
     )  # Laliberte correlation using apparent density #TODO add this later with reference
 
 
-# class ElectricalMobilityCalculation(Enum):
-#     none = auto()
-#     EinsteinRelation = auto()
-
-
-# class EquivalentConductivityCalculation(Enum):
-#     none = auto()
-#     ElectricalMobility = auto()
-
-
-# class TransportNumberCalculation(Enum):
-#     none = auto()
-#     ElectricalMobility = auto()
-
-
 @declare_process_block_class("ChemSofteningParameterBlock")
 class ChemSofteningParameterData(PhysicalParameterBlock):
     CONFIG = PhysicalParameterBlock.CONFIG()
@@ -113,14 +98,7 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
         "solute_list",
         ConfigValue(domain=list, description="List of solute species names"),
     )
-    # CONFIG.declare(
-    #     "stokes_radius_data",
-    #     ConfigValue(
-    #         default={},
-    #         domain=dict,
-    #         description="Dict of solute species names and Stokes radius data",
-    #     ),
-    # )
+
     CONFIG.declare(
         "diffusivity_data",
         ConfigValue(
@@ -129,6 +107,7 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
             description="Dict of solute species names and bulk ion diffusivity data",
         ),
     )
+
     CONFIG.declare(
         "mw_data",
         ConfigValue(
@@ -137,26 +116,6 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
             description="Dict of component names and molecular weight data",
         ),
     )
-    # CONFIG.declare(
-    #     "elec_mobility_data",
-    #     ConfigValue(default={}, domain=dict, description="Ion electrical mobility"),
-    # )
-    # CONFIG.declare(
-    #     "trans_num_data",
-    #     ConfigValue(
-    #         default={},
-    #         domain=dict,
-    #         description="transport number of ions in the liquid phase",
-    #     ),
-    # )
-    # CONFIG.declare(
-    #     "equiv_conductivity_phase_data",
-    #     ConfigValue(
-    #         default={},
-    #         domain=dict,
-    #         description="Equivalent conductivity of ions in the liquid phase",
-    #     ),
-    # )
 
     CONFIG.declare(
         "charge", ConfigValue(default={}, domain=dict, description="Ion charge")
@@ -200,65 +159,6 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
        """,
         ),
     )
-    # CONFIG.declare(
-    #     "elec_mobility_calculation",
-    #     ConfigValue(
-    #         default=ElectricalMobilityCalculation.none,
-    #         domain=In(ElectricalMobilityCalculation),
-    #         description="Electrical mobility calculation flag",
-    #         doc="""
-    #        Options to account for ion electrical mobility.
-
-    #        **default** - ``ElectricalMobilityCalculation.none``
-
-    #    .. csv-table::
-    #        :header: "Configuration Options", "Description"
-
-    #        "``ElectricalMobilityCalculation.none``", "Users provide data via the elec_mobility_data configuration"
-    #        "``ElectricalMobilityCalculation.EinsteinRelation``", "Calculate from the diffusivity_data by the Einstein Relation"
-    #    """,
-    #     ),
-    # )
-
-    # CONFIG.declare(
-    #     "trans_num_calculation",
-    #     ConfigValue(
-    #         default=TransportNumberCalculation.ElectricalMobility,
-    #         domain=In(TransportNumberCalculation),
-    #         description="Ion transport number calculation flag",
-    #         doc="""
-    #        Options to account for ion transport number in the solution.
-
-    #        **default** - ``TransportNumberCalculation.ElectricalMobility``
-
-    #    .. csv-table::
-    #        :header: "Configuration Options", "Description"
-
-    #        "``TransportNumberCalculation.none``", "Users provide data via the trans_num_data configuration"
-    #        "``TransportNumberCalculation.ElectricalMobility``", "Calculated from the elec_mobility_data"
-    #    """,
-    #     ),
-    # )
-
-    # CONFIG.declare(
-    #     "equiv_conductivity_calculation",
-    #     ConfigValue(
-    #         default=EquivalentConductivityCalculation.ElectricalMobility,
-    #         domain=In(EquivalentConductivityCalculation),
-    #         description="Ion equivalent conductivity calculation flag",
-    #         doc="""
-    #        Options to account for the total equivalent conductivity of the liquid phase (solution).
-
-    #        **default** - ``EquivalentConductivityCalculation.none``
-
-    #    .. csv-table::
-    #        :header: "Configuration Options", "Description"
-
-    #        "``EquivalentConductivityCalculation.none``", "Users provide data via the equiv_conductivity_data configuration"
-    #        "``EquivalentConductivityCalculation.ElectricalMobility``", "Calculated from the electrical_mobility_data"
-    #    """,
-    #     ),
-    # )
 
     def build(self):
         """
@@ -289,12 +189,11 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
                 self.hardness_set.add(str(j))
             if j in self.config.charge:
                 if self.config.charge[j] == 0:
-                    #raise ConfigurationError(
-                    #    "The charge property should not be assigned to the neutral component: {}".format(
-                    #        j
-                    #    )
-                    #)
-                    pass
+                    raise ConfigurationError(
+                        "The charge property should not be assigned to the neutral component: {}".format(
+                            j
+                        )
+                    )
                 elif self.config.charge[j] > 0:
                     self.add_component(
                         str(j),
@@ -324,28 +223,20 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
         # self.mw_CaCO3 = Param(initialize=100e-3, units=pyunits.kg/pyunits.mol)
         self.ion_set.add("H2O")
         self.mw_comp = Param(
-            self.ion_set,
+            # self.ion_set,
+            self.component_list,
             mutable=True,
             default=18e-3,
             initialize=self.config.mw_data,
             units=pyunits.kg / pyunits.mol,
             doc="Molecular weight",
         )
-        # Stokes radius
-        # self.radius_stokes_comp = Param(
-        #     self.ion_set | self.solute_set,
-        #     mutable=True,
-        #     default=1e-10,
-        #     initialize=self.config.stokes_radius_data,
-        #     units=pyunits.m,
-        #     doc="Stokes radius of solute",
-        # )
-
-        # self.pKw = Param(
-        #     initialize=14,
-        #     units=pyunits.dimensionless,
-        #     doc="pKw"
-        # )
+      
+        self.pKw = Param(
+            initialize=14,
+            units=pyunits.dimensionless,
+            doc="pKw"
+        )
 
         self.diffus_phase_comp = Param(
             self.phase_list,
@@ -461,7 +352,7 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
 
         # ---default scaling---
         self.set_default_scaling("temperature", 1e-2)
-        # self.set_default_scaling("mass_frac_phase_comp", 1e2)
+        self.set_default_scaling("mass_frac_phase_comp", 1e2)
         self.set_default_scaling("pressure", 1e-4)
         self.set_default_scaling("dens_mass_phase", 1e-3, index="Liq")
         self.set_default_scaling("visc_d_phase", 1e3, index="Liq")
@@ -486,7 +377,7 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
                 "mass_frac_phase_comp": {"method": "_mass_frac_phase_comp"},
                 "dens_mass_phase": {"method": "_dens_mass_phase"},
                 "dens_mass_solvent": {"method": "_dens_mass_solvent"},
-                "flow_vol": {"method": "_flow_vol"},
+#                "flow_vol": {"method": "_flow_vol"},
                 "flow_vol_phase": {"method": "_flow_vol_phase"},
                 "conc_mol_phase_comp": {"method": "_conc_mol_phase_comp"},
                 "conc_mass_phase_comp": {"method": "_conc_mass_phase_comp"},
@@ -499,18 +390,11 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
                 # "radius_stokes_comp": {"method": "_radius_stokes_comp"},
                 "mw_comp": {"method": "_mw_comp"},
                 "conc_mass_caco3_comp": {"method": "_conc_mass_caco3_comp"},
-                "non_carbonate_hardness_comp": {"method": None},
-                "carbonate_hardness_comp": {"method": None},
+                # "non_carbonate_hardness_comp": {"method": None},
+                # "carbonate_hardness_comp": {"method": None},
                 "total_hardness": {"method": "_total_hardness"},
-                # "elec_mobility_phase_comp": {"method": "_elec_mobility_phase_comp"},
-                # "trans_num_phase_comp": {"method": "_trans_num_phase_comp"},
-                # "equiv_conductivity_phase": {"method": "_equiv_conductivity_phase"},
-                # "elec_cond_phase": {"method": "_elec_cond_phase"},
                 "charge_comp": {"method": "_charge_comp"},
-                # "act_coeff_phase_comp": {"method": "_act_coeff_phase_comp"},
-                # "dielectric_constant": {"method": "_dielectric_constant"},
-                # "debye_huckel_constant": {"method": "_debye_huckel_constant"},
-                # "ionic_strength_molal": {"method": "_ionic_strength_molal"},
+
             }
         )
 
@@ -678,15 +562,15 @@ class _ChemSofteningStateBlock(StateBlock):
             #             for j in self[k].params.ion_set | self[k].params.solute_set
             #         )
             #     )
-            if self[k].is_property_constructed("pressure_osm_phase"):
-                self[k].pressure_osm_phase["Liq"].set_value(
-                    sum(
-                        self[k].conc_mol_phase_comp["Liq", j]
-                        for j in self[k].params.ion_set | self[k].params.solute_set
-                    )
-                    * Constants.gas_constant
-                    * self[k].temperature
-                )
+            # if self[k].is_property_constructed("pressure_osm_phase"):
+            #     self[k].pressure_osm_phase["Liq"].set_value(
+            #         sum(
+            #             self[k].conc_mol_phase_comp["Liq", j]
+            #             for j in self[k].params.ion_set | self[k].params.solute_set
+            #         )
+            #         * Constants.gas_constant
+            #         * self[k].temperature
+            #     )
 
             # if (
             #     self[k].is_property_constructed("equiv_conductivity_phase")
@@ -1406,79 +1290,11 @@ class ChemSofteningStateBlockData(StateBlockData):
     def _mw_comp(self):
         add_object_reference(self, "mw_comp", self.params.mw_comp)
 
-    # def _elec_mobility_phase_comp(self):
-    #     self.elec_mobility_phase_comp = Var(
-    #         self.params.phase_list,
-    #         self.params.ion_set,
-    #         initialize=5.19e-8,  # default as Na+
-    #         units=pyunits.meter**2 * pyunits.volt**-1 * pyunits.second**-1,
-    #         doc="Ion electrical mobility",
-    #     )
-
-    #     def rule_elec_mobility_phase_comp(b, p, j):
-    #         if (
-    #             self.params.config.elec_mobility_calculation
-    #             == ElectricalMobilityCalculation.none
-    #         ):
-    #             if (p, j) not in self.params.config.elec_mobility_data.keys():
-    #                 raise ConfigurationError(
-    #                     """ 
-    #                     Missing the "elec_mobility_data" configuration to build the elec_mobility_phase_comp 
-    #                     and/or its derived variables for {} in {}. 
-    #                     Provide this configuration or use ElectricalMobilityCalculation.EinsteinRelation.
-    #                     """.format(
-    #                         j, self.name
-    #                     )
-    #                 )
-    #             else:
-    #                 return (
-    #                     b.elec_mobility_phase_comp[p, j]
-    #                     == self.params.config.elec_mobility_data[p, j]
-    #                     * pyunits.meter**2
-    #                     * pyunits.volt**-1
-    #                     * pyunits.second**-1
-    #                 )
-    #         else:
-    #             if (p, j) not in self.params.config.diffusivity_data.keys():
-    #                 raise ConfigurationError(
-    #                     """
-    #                     Missing a valid diffusivity_data configuration to use EinsteinRelation 
-    #                     to compute the "elec_mobility_phase_comp" for {} in {} . 
-    #                     Provide this configuration or 
-    #                     use another "elec_mobility_calculation" configuration value. """.format(
-    #                         j, self.name
-    #                     )
-    #                 )
-    #             else:
-    #                 if (p, j) in self.params.config.elec_mobility_data.keys():
-    #                     _log.warning(
-    #                         """
-    #                         The provided elec_mobility_data of {} will be overritten 
-    #                         by the calculated data for {} because the EinsteinRelation 
-    #                         method is selected.""".format(
-    #                             j, self.name
-    #                         )
-    #                     )
-
-    #                 return b.elec_mobility_phase_comp[p, j] == b.diffus_phase_comp[
-    #                     p, j
-    #                 ] * abs(b.charge_comp[j]) * Constants.faraday_constant / (
-    #                     Constants.gas_constant * b.temperature
-    #                 )
-
-    #     self.eq_elec_mobility_phase_comp = Constraint(
-    #         self.params.phase_list,
-    #         self.params.ion_set,
-    #         rule=rule_elec_mobility_phase_comp,
-    #     )
+  
 
     def _charge_comp(self):
         add_object_reference(self, "charge_comp", self.params.charge_comp)
 
-    # def _dielectric_constant(self):
-    #     add_object_reference(
-    #         self, "dielectric_constant", self.params.dielectric_constant
-    #     )
 
     def _act_coeff_phase_comp(self):
         self.act_coeff_phase_comp = Var(
@@ -1769,132 +1585,7 @@ class ChemSofteningStateBlockData(StateBlockData):
             "pressure": self.pressure,
         }
 
-    # def assert_electroneutrality(
-    #     self,
-    #     tol=None,
-    #     tee=True,
-    #     defined_state=True,
-    #     adjust_by_ion=None,
-    #     get_property=None,
-    #     solve=True,
-    # ):
-
-    #     if tol is None:
-    #         tol = 1e-8
-    #     if not defined_state and get_property is not None:
-    #         raise ValueError(
-    #             f"Set defined_state to true if get_property = {get_property}"
-    #         )
-    #     if adjust_by_ion is not None:
-    #         if adjust_by_ion in self.params.ion_set:
-    #             self.charge_balance = Constraint(
-    #                 expr=sum(
-    #                     self.charge_comp[j] * self.conc_mol_phase_comp["Liq", j]
-    #                     for j in self.params.ion_set
-    #                 )
-    #                 == 0
-    #             )
-    #         else:
-    #             raise ValueError(
-    #                 "adjust_by_ion must be set to the name of an ion in the ion_set."
-    #             )
-    #     if defined_state:
-    #         for j in self.params.ion_set | self.params.solute_set:
-    #             if (
-    #                 not self.flow_mol_phase_comp["Liq", j].is_fixed()
-    #                 and adjust_by_ion != j
-    #             ):
-    #                 raise AssertionError(
-    #                     f"{self.flow_mol_phase_comp['Liq', j]} was not fixed. Fix flow_mol_phase_comp for each solute"
-    #                     f" to check that electroneutrality is satisfied."
-    #                 )
-    #             if adjust_by_ion == j and self.flow_mol_phase_comp["Liq", j].is_fixed():
-    #                 self.flow_mol_phase_comp["Liq", j].unfix()
-    #     else:
-    #         for j in self.params.ion_set | self.params.solute_set:
-    #             if self.flow_mol_phase_comp["Liq", j].is_fixed():
-    #                 raise AssertionError(
-    #                     f"{self.flow_mol_phase_comp['Liq', j]} was fixed. Either set defined_state=True or unfix "
-    #                     f"flow_mol_phase_comp for each solute to check that electroneutrality is satisfied."
-    #                 )
-
-    #     # touch this var since it is required for this method
-    #     self.conc_mol_phase_comp
-
-    #     if solve:
-    #         if adjust_by_ion is not None:
-    #             ion_before_adjust = self.flow_mol_phase_comp["Liq", adjust_by_ion].value
-    #         solve = get_solver()
-    #         solve.solve(self)
-    #         results = solve.solve(self)
-    #         if check_optimal_termination(results):
-    #             self.conc_mol_phase_comp[...].pprint()
-    #             val = value(
-    #                 sum(
-    #                     self.charge_comp[j] * self.conc_mol_phase_comp["Liq", j]
-    #                     for j in self.params.ion_set
-    #                 )
-    #             )
-    #         else:
-    #             if adjust_by_ion is not None:
-    #                 del self.charge_balance
-    #             raise ValueError(
-    #                 "The stateblock failed to solve while computing concentrations to check the charge balance."
-    #             )
-    #     else:
-    #         val = value(
-    #             sum(
-    #                 self.charge_comp[j] * self.conc_mol_phase_comp["Liq", j]
-    #                 for j in self.params.ion_set
-    #             )
-    #         )
-    #     if abs(val) <= tol:
-    #         if adjust_by_ion is not None:
-    #             del self.charge_balance
-    #             ion_adjusted = self.flow_mol_phase_comp["Liq", adjust_by_ion].value
-    #             if defined_state:
-    #                 self.flow_mol_phase_comp["Liq", adjust_by_ion].fix(ion_adjusted)
-    #                 # touch on-demand property desired
-    #                 if get_property is not None:
-    #                     if isinstance(get_property, str):
-    #                         getattr(self, get_property)
-    #                     elif isinstance(get_property, (list, tuple)):
-    #                         for i in get_property:
-    #                             getattr(self, i)
-    #                     else:
-    #                         raise TypeError(
-    #                             "get_property must be a string or list/tuple of strings."
-    #                         )
-    #                     res_with_prop = solve.solve(self)
-    #                     if not check_optimal_termination(res_with_prop):
-    #                         raise ValueError(
-    #                             f"The stateblock failed to solve while solving with on-demand property"
-    #                             f" {get_property}."
-    #                         )
-    #                 msg = (
-    #                     f"{adjust_by_ion} adjusted: flow_mol_phase_comp['Liq',{adjust_by_ion}] was adjusted from "
-    #                     f"{ion_before_adjust} and fixed "
-    #                     f"to {ion_adjusted}."
-    #                 )
-    #             else:
-    #                 msg = (
-    #                     f"{adjust_by_ion} was adjusted and the value computed for flow_mol_phase_comp['Liq',{adjust_by_ion}]"
-    #                     f" is {ion_adjusted}."
-    #                 )
-
-    #         else:
-    #             msg = ""
-    #         if tee:
-    #             return print(
-    #                 f"{msg} Electroneutrality satisfied for {self}. Balance Result = {val}"
-    #             )
-
-    #     else:
-    #         raise AssertionError(
-    #             f"Electroneutrality condition violated in {self}. Ion concentrations should be adjusted to bring "
-    #             f"the result of {val:.2E} closer towards 0."
-    #         )
-
+    
     # -----------------------------------------------------------------------------
     # Scaling methods
     def calculate_scaling_factors(self):

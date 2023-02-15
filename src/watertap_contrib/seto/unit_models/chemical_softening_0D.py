@@ -182,16 +182,16 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
             initialize=74, units=pyunits.g / pyunits.mol, doc="Molecular weight of lime"
         )
 
-        self.ca_eff_target = Param(
-            initialize=0.030, units=pyunits.kg / pyunits.m**3, mutable=True
+        self.ca_eff_target = Var(
+            initialize=0.030, units=pyunits.kg / pyunits.m**3
         )
 
-        self.mg_eff_target = Param(
-            initialize=0.020, units=pyunits.kg / pyunits.m**3, mutable=True
+        self.mg_eff_target = Var(
+            initialize=0.020, units=pyunits.kg / pyunits.m**3
         )
 
-        self.frac_vol_recovery = Param(
-            initialize=0.99, units=pyunits.dimensionless, mutable=True,
+        self.frac_vol_recovery = Var(
+            initialize=0.99, units=pyunits.dimensionless, 
             doc="Fractional volumetric recovery of water"
         )
 
@@ -384,8 +384,6 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
 
 
 
-
-
         @self.Constraint(doc="Volume of mixer")
         def eq_volume_mixer(b):
             return (
@@ -418,9 +416,9 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         # def eq_acidity_const_mg_oh2(b):
         #     return b.acidity_const_mg_oh2 == 4470.99 / b.properties_in[0].temperature + 0.01706 * b.properties_in[0].temperature - 6.0875
 
-        @self.Constraint()
-        def eq_excess_lime(b):
-            return b.excess_lime == (10 ** -b.properties_out[0].pOH / 2) * 74000
+        # @self.Constraint()
+        # def eq_excess_lime(b):
+        #     return b.excess_lime == (10 ** -b.properties_out[0].pOH / 2) * 74000
 
         # @self.Constraint()
         # def eq_pH_modified(b):
