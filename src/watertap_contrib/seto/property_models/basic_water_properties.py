@@ -31,7 +31,17 @@ import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
 from idaes.core.util.exceptions import ConfigurationError
 
-from pyomo.environ import Expression, Param, PositiveReals, units as pyunits, Var, Constraint, Set, Suffix, value
+from pyomo.environ import (
+    Expression,
+    Param,
+    PositiveReals,
+    units as pyunits,
+    Var,
+    Constraint,
+    Set,
+    Suffix,
+    value,
+)
 from pyomo.common.config import ConfigValue
 
 # Some more inforation about this module
@@ -249,9 +259,10 @@ class BasicWaterStateBlockData(StateBlockData):
                 return b.flow_mass_comp[j] == b.flow_vol * b.dens_mass
             else:
                 return b.flow_mass_comp[j] == b.flow_vol * b.conc_mass_comp[j]
-        
-        self.eq_flow_mass_comp = Constraint(self.params.component_list, rule=rule_flow_mass_comp)
 
+        self.eq_flow_mass_comp = Constraint(
+            self.params.component_list, rule=rule_flow_mass_comp
+        )
 
     def _temperature(self):
         self.temperature = Var(
@@ -310,15 +321,14 @@ class BasicWaterStateBlockData(StateBlockData):
         return {
             "Volumetric Flowrate": self.flow_vol,
             "Mass Concentration": self.conc_mass_comp,
-            "Temperature": self.temperature
+            "Temperature": self.temperature,
         }
 
     def get_material_flow_basis(self):
         return MaterialFlowBasis.mass
 
     def calculate_scaling_factors(self):
-        
-        
+
         super().calculate_scaling_factors()
 
         if iscale.get_scaling_factor(self.flow_vol) is None:
@@ -331,7 +341,9 @@ class BasicWaterStateBlockData(StateBlockData):
                 try:
                     sf_c = self.params.default_scaling_factor[("conc_mass_comp", j)]
                 except KeyError:
-                    iscale.get_scaling_factor(self.conc_mass_comp[j], default=1, warning=True)
+                    iscale.get_scaling_factor(
+                        self.conc_mass_comp[j], default=1, warning=True
+                    )
 
         if self.is_property_constructed("flow_mass_phase"):
             for j, v in self.flow_mass_comp.items():
@@ -341,6 +353,3 @@ class BasicWaterStateBlockData(StateBlockData):
                     else:
                         sf = value(self.flow_vol * self.conc_mass_comp[j]) ** -1
                     iscale.set_scaling_factor(v, sf)
-
-
-
