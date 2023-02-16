@@ -18,12 +18,23 @@ def read_module_datafile(file_name):
     return data
 
 
-def load_config(modules, file_names=None, module_datas=None):
+def load_config(modules, file_names=None, module_data=None):
+    """
+    Loads parameter values into PySAM modules, either from files or supplied dicts
+
+    :param modules: List of PySAM modules
+    :param file_names: List of JSON file paths containing parameter values for respective modules
+    :param module_data: List of dictionaries containing parameter values for respective modules
+
+    :returns: no return value
+    """
     for i in range(len(modules)):
         if file_names is not None:
+            assert len(file_names) == len(modules)
             data = read_module_datafile(file_names[i])
-        elif module_datas is not None:
-            data = module_datas[i]
+        elif module_data is not None:
+            assert len(module_data) == len(modules)
+            data = module_data[i]
         else:
             raise Exception("Either file_names or module_data must be assigned.")
 

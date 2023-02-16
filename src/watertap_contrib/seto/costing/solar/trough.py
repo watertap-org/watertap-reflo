@@ -11,10 +11,10 @@ def build_trough_cost_param_block(blk):
 
     costing = blk.parent_block()
 
-    blk.base_storage_hours = pyo.Var(
+    blk.base_storage_hours = pyo.Param(
+        mutable=True,
         initialize=6,
         units=pyo.units.hour,
-        bounds=(6, 6),
         doc="Hours of storage that capital cost per capacity is based on",
     )
 
@@ -106,7 +106,7 @@ def cost_trough(blk):
         doc="Rated hours of thermal storage",
     )
 
-    blk.annual_generation = pyo.Var(
+    blk.annual_heat_generation = pyo.Var(
         initialize=0,
         units=pyo.units.kWh,
         bounds=(0, None),
@@ -146,7 +146,7 @@ def cost_trough(blk):
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
-        == trough_params.variable_operating_by_generation * blk.annual_generation
+        == trough_params.variable_operating_by_generation * blk.annual_heat_generation
     )
 
     blk.electricity_cost_constraint = pyo.Constraint(
@@ -156,6 +156,3 @@ def cost_trough(blk):
 
     # TODO: register the flows, e.g.,:
     # blk.costing_package.cost_flow(blk.unit_model.electricity, "electricity")
-
-    # NOTE:
-    # What is costing.base_period, as borrowed from /costing/solar/photovoltaic.py ?
