@@ -20,7 +20,7 @@ from pyomo.environ import (
     check_optimal_termination,
     Param,
     Suffix,
-    log,
+    value,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
@@ -563,16 +563,17 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
                 else:
                     state_args[k] = state_dict[k].value
 
-        blk.flags = flags
         state_args_out = deepcopy(state_args)
 
         for j in blk.properties_out.component_list:
             if j == "H2O":
-                state_args_out["flow_vol"] = state_args["flow_vol"] * blk.vol_recovery
+                state_args_out["flow_vol"] = value(
+                    state_args["flow_vol"] * blk.vol_recovery
+                )
             else:
-                state_args_out["conc_mass_comp"][j] = state_args["conc_mass_comp"][
-                    j
-                ] * (1 - blk.removal_efficiency[j])
+                state_args_out["conc_mass_comp"][j] = value(
+                    state_args["conc_mass_comp"][j] * (1 - blk.removal_efficiency[j])
+                )
 
         blk.properties_out.initialize(
             outlvl=outlvl,
@@ -585,11 +586,11 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         state_args_waste = deepcopy(state_args)
         for j in blk.properties_waste.component_list:
             if j == "H2O":
-                state_args_waste["flow_vol"] = state_args["flow_vol"] * (
-                    1 - blk.vol_recovery
+                state_args_waste["flow_vol"] = value(
+                    state_args["flow_vol"] * (1 - blk.vol_recovery)
                 )
             else:
-                state_args_waste["conc_mass_comp"][j] = (
+                state_args_waste["conc_mass_comp"][j] = value(
                     state_args["conc_mass_comp"][j] * blk.removal_efficiency[j]
                 )
 
@@ -608,8 +609,8 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         init_log.info("Initialization Step 2 {}.".format(idaeslog.condition(res)))
         # ---------------------------------------------------------------------
         # Release Inlet state
-        # blk.properties_in.release_state(flags, outlvl=outlvl)
-        # init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+        blk.properties_in.release_state(flags, outlvl=outlvl)
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {blk.name} failed to initialize")

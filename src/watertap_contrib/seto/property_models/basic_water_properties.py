@@ -208,6 +208,7 @@ class _BasicWaterStateBlock(StateBlock):
         for k in self.keys():
             dof = degrees_of_freedom(self[k])
             if dof != 0:
+                # print(f'DOF = {dof}')
                 raise InitializationError(
                     "\nWhile initializing {sb_name}, the degrees of freedom "
                     "are {dof}, when zero is required. \nInitialization assumes "
@@ -219,7 +220,7 @@ class _BasicWaterStateBlock(StateBlock):
                     "".format(sb_name=self.name, dof=dof)
                 )
 
-        # ---------------------------------------------------------------------
+        # # ---------------------------------------------------------------------
         skip_solve = True  # skip solve if only state variables are present
         for k in self.keys():
             if number_unfixed_variables(self[k]) != 0:
