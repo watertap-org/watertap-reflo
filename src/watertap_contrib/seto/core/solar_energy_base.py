@@ -70,14 +70,14 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self._scaling = None
 
         self.electricity = Var(
-            initialize=-10,
+            initialize=0,
             units=pyunits.kW,
             bounds=(None, None),
             doc="Electricity production of solar process",
         )
 
         self.heat = Var(
-            initialize=-10,
+            initialize=0,
             units=pyunits.kW,
             bounds=(None, None),
             doc="Heat production of solar process",
