@@ -16,6 +16,9 @@ This module contains a base class for all solar energy unit models.
 
 from idaes.core import UnitModelBlockData, declare_process_block_class
 from idaes.core.util.misc import StrEnum
+from idaes.core.solvers.get_solver import get_solver
+from idaes.core.util.model_statistics import degrees_of_freedom
+from idaes.core.util.exceptions import InitializationError
 import idaes.logger as idaeslog
 
 from pyomo.common.config import ConfigBlock, ConfigValue, In
@@ -41,7 +44,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             domain=In([False]),
             default=False,
             description="Dynamic model flag - must be False",
-            doc="""All zero-order models are steady-state only""",
+            doc="""Solar energy models are steady-state only""",
         ),
     )
     CONFIG.declare(
@@ -50,7 +53,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=False,
             domain=In([False]),
             description="Holdup construction flag - must be False",
-            doc="""Zero order models do not include holdup""",
+            doc="""Solar energy models do not include holdup""",
         ),
     )
     CONFIG.declare(
@@ -66,7 +69,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
         super().build()
 
         self._tech_type = None
-        self._initialize = None
         self._scaling = None
 
         self.electricity = Var(
@@ -83,21 +85,30 @@ class SolarEnergyBaseData(UnitModelBlockData):
             doc="Heat production of solar process",
         )
 
-        self.fix_all_vars()
-
     def initialize_build(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
     ):
         """
-        Passthrough initialization routine, raises NotImplementedError if
-        the unit model does not have an `_initialize` function.
+        Defaults to fixing all Vars on solar energy unit model, should be overloaded
+        by derived classes as necessary.
         """
-        if self._initialize is None or not callable(self._initialize):
-            raise NotImplementedError()
-        else:
-            self._initialize(
-                self, state_args=state_args, outlvl=outlvl, solver=solver, optarg=optarg
-            )
+
+        self.electricity.fix()
+        self.heat.fix()
+
+        if solver is None:
+            solver = get_solver()
+
+        for k in self.keys():
+            dof = degrees_of_freedom(self[k])
+            if dof != 0:
+                raise InitializationError(
+                    f"\nWhile initializing {self.name}, the degrees of freedom "
+                    "are {dof}, when zero is required. \nThe default initialization "
+                    "approach for SolarEnergyBase class is to fix the electricity "
+                    "and heat Vars.If there are additional Vars on the solar energy "
+                    "model, they should be handled with a custom initialization routine."
+                )
 
     def calculate_scaling_factors(self):
         """
