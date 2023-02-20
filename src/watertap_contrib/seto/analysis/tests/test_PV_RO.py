@@ -1,11 +1,8 @@
 import pytest
-from pyomo.environ import Var, value, assert_optimal_termination, units as pyunits
+from pyomo.environ import Var, value, assert_optimal_termination
 from pyomo.util.check_units import assert_units_consistent
-from idaes.core import FlowsheetBlock
 from idaes.core.solvers import get_solver
-from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 import watertap_contrib.seto.analysis.net_metering.PV_RO as PV_RO
-from watertap_contrib.seto.core import SETODatabase, PySAMWaterTAP
 from idaes.core.util.testing import initialization_tester
 from idaes.core import (
     MaterialBalanceType,
@@ -21,11 +18,6 @@ from watertap.unit_models.reverse_osmosis_0D import (
 
 import idaes.core.util.model_statistics as stats
 
-from idaes.core.util.scaling import (
-    unscaled_variables_generator,
-    unscaled_constraints_generator,
-    calculate_scaling_factors,
-)
 import idaes.logger as idaeslog
 
 
@@ -76,7 +68,7 @@ class TestPVRO:
         m = system_frame
         PV_RO.set_operating_conditions(m)
 
-        assert stats.number_unused_variables(m) <= 3
+        assert stats.number_unused_variables(m) == 2
         assert (
             stats.number_fixed_variables(
                 m.fs.treatment.p1.control_volume.properties_out[0]
@@ -97,8 +89,8 @@ class TestPVRO:
         PV_RO.initialize_energy(m)
 
         assert stats.degrees_of_freedom(m) == 0
-        assert stats.number_variables(m) == 205
-        assert stats.number_total_constraints(m) == 170
+        assert stats.number_variables(m) == 202
+        assert stats.number_total_constraints(m) == 172
         assert stats.number_unused_variables(m) == 2
 
         for component in ["feed", "product", "disposal", "p1", "ro", "erd"]:

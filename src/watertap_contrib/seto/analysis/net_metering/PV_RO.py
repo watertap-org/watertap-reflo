@@ -6,7 +6,6 @@ from pyomo.environ import (
     Objective,
     Param,
     Constraint,
-    Var,
     Block,
     TransformationFactory,
     assert_optimal_termination,
@@ -123,9 +122,6 @@ def build_ro_pv():
 
     treatment.feed.properties[0].flow_vol_phase["Liq"]
     treatment.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
-
-    # energy.pv.properties[0].flow_vol_phase["Liq"]
-    # energy.pv.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
 
     set_scaling_factor(treatment.erd.control_volume.work, 1e-3)
 
