@@ -13,6 +13,8 @@
 
 from idaes.core import declare_process_block_class
 
+from pyomo.environ import Param, units as pyunits
+
 from watertap_contrib.seto.core import SolarEnergyBaseData
 
 __author__ = "Kurban Sitterley"
@@ -30,3 +32,10 @@ class PhotovoltaicData(SolarEnergyBaseData):
         super().build()
 
         self._tech_type = "photovoltaic"
+
+        self.oversize_factor = Param(
+            initialize=1,
+            units=pyunits.dimensionless,
+            mutable=True,
+            doc="Oversize factor for PV system",
+        )
