@@ -80,6 +80,13 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             initialize=20, units=self.base_period, doc="Plant lifetime"
         )
 
+        self.sales_tax_frac = pyo.Param(
+            initialize=0.05,
+            mutable=True,
+            doc="Sales tax as fraction of capital costs",
+            units=pyo.units.dimensionless,
+        )
+
         self.heat_cost = pyo.Param(
             mutable=True,
             initialize=0.01,
@@ -166,19 +173,10 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
 
         self.base_currency = pyo.units.USD_2021
 
-        # Set a base period for all operating costs
         self.base_period = pyo.units.year
 
-        # Define standard material flows and costs
-        # The WaterTAP costing package creates flows
-        # in a lazy fashion, the first time `cost_flow`
-        # is called for a flow. The `_DefinedFlowsDict`
-        # prevents defining more than one flow with
-        # the same name.
         self.defined_flows = _DefinedFlowsDict()
 
-        # Build flowsheet level costing components
-        # These are the global parameters
         self.utilization_factor = pyo.Var(
             initialize=1,
             doc="Plant capacity utilization [fraction of uptime]",
