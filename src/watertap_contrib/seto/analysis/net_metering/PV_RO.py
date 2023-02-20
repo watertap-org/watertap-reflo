@@ -76,7 +76,6 @@ def build_ro_pv():
     """
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.db = SETODatabase()
     m.pysam = PySAMWaterTAP(
         pysam_model="pv",
         tech_config_file=tech_config_file,
@@ -153,13 +152,6 @@ def set_operating_conditions(m, flow_in=1e-2, conc_in=30, water_recovery=0.5):
         },
         hold_state=True,  # fixes the calculated component mass flow rates
     )
-    # m.fs.energy.pv.properties.calculate_state(
-    #     var_args={
-    #         ("flow_vol_phase", "Liq"): flow_in,  # feed volumetric flow rate [m3/s]
-    #         ("mass_frac_phase_comp", ("Liq", "NaCl")): conc_in * 1e-3,
-    #     },
-    #     hold_state=False,  # fixes the calculated component mass flow rates
-    # )
 
     operating_pressure = calculate_operating_pressure(
         feed_state_block=m.fs.treatment.feed.properties[0],
@@ -187,8 +179,6 @@ def set_operating_conditions(m, flow_in=1e-2, conc_in=30, water_recovery=0.5):
 
     m.fs.treatment.p1.control_volume.properties_out[0].pressure.fix(operating_pressure)
     m.fs.treatment.p1.efficiency_pump.fix(0.8)
-    m.db.get_unit_operation_parameters("solar_energy")
-    # m.fs.energy.pv.load_parameters_from_database(use_default_removal=True)
 
 
 def initialize_treatment(m, water_recovery=0.5):
@@ -272,17 +262,11 @@ def initialize_treatment(m, water_recovery=0.5):
     )
 
 
-def initialize_energy(m):
-    # m.fs.energy.pv.initialize()
-    m.fs.energy.pv.oversize_factor = 1
-
-
 def initialize_sys(m, water_recovery=0.5):
     optarg = solver.options
     m.fs.treatment.feed.initialize(optarg=optarg)
     initialize_treatment(m, water_recovery=water_recovery)
-    initialize_energy(m)
-
+    m.fs.energy.pv.oversize_factor = 1
 
 def optimize_setup(
     m,
@@ -335,9 +319,6 @@ def add_costing(m):
     energy = m.fs.energy
     treatment.costing = TreatmentCosting()
     energy.costing = EnergyCosting()
-
-    m.db.get_unit_operation_parameters("photovoltaic")
-    # energy.pv.load_parameters_from_database(use_default_removal=True)
 
     energy.pv.costing = UnitModelCostingBlock(flowsheet_costing_block=energy.costing)
     treatment.ro.costing = UnitModelCostingBlock(
