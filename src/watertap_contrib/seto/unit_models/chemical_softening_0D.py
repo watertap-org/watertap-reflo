@@ -173,8 +173,8 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         comps = self.config.property_package.component_list
 
         if "TSS" in comps:
-            self.frac_TSS_removal = Param(
-                initialize=0.85, mutable=True, doc="Default 85% removal of TSS"
+            self.frac_TSS_removal = Var(
+                initialize=0.85, doc="Default 85% removal of TSS"
             )
 
 
