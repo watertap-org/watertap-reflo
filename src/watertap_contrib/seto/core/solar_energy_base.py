@@ -36,6 +36,24 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
     CONFIG = ConfigBlock()
     CONFIG.declare(
+        "dynamic",
+        ConfigValue(
+            domain=In([False]),
+            default=False,
+            description="Dynamic model flag - must be False",
+            doc="""All zero-order models are steady-state only""",
+        ),
+    )
+    CONFIG.declare(
+        "has_holdup",
+        ConfigValue(
+            default=False,
+            domain=In([False]),
+            description="Holdup construction flag - must be False",
+            doc="""Zero order models do not include holdup""",
+        ),
+    )
+    CONFIG.declare(
         "solar_energy_type",
         ConfigValue(
             default="PV",
@@ -52,16 +70,20 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self._scaling = None
 
         self.electricity = Var(
+            initialize=-10,
             units=pyunits.kW,
             bounds=(None, None),
             doc="Electricity production of solar process",
         )
 
         self.heat = Var(
+            initialize=-10,
             units=pyunits.kW,
             bounds=(None, None),
             doc="Heat production of solar process",
         )
+
+        self.fix_all_vars()
 
     def initialize_build(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
