@@ -47,7 +47,7 @@ from watertap_contrib.seto.costing import (
     EnergyCosting,
     SETOSystemCosting,
 )
-from watertap_contrib.seto.solar_models.zero_order import PhotovoltaicZO
+from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.core import SETODatabase, PySAMWaterTAP
 
 
@@ -90,7 +90,7 @@ def build_ro_pv():
     treatment = m.fs.treatment = Block()
     energy = m.fs.energy = Block()
 
-    energy.pv = PhotovoltaicZO(property_package=m.fs.properties, database=m.db)
+    energy.pv = Photovoltaic()
     treatment.feed = Feed(property_package=m.fs.properties)
     treatment.product = Product(property_package=m.fs.properties)
     treatment.disposal = Product(property_package=m.fs.properties)
@@ -127,8 +127,8 @@ def build_ro_pv():
     treatment.feed.properties[0].flow_vol_phase["Liq"]
     treatment.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
 
-    energy.pv.properties[0].flow_vol_phase["Liq"]
-    energy.pv.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
+    # energy.pv.properties[0].flow_vol_phase["Liq"]
+    # energy.pv.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
 
     set_scaling_factor(treatment.erd.control_volume.work, 1e-3)
 
@@ -153,13 +153,13 @@ def set_operating_conditions(m, flow_in=1e-2, conc_in=30, water_recovery=0.5):
         },
         hold_state=True,  # fixes the calculated component mass flow rates
     )
-    m.fs.energy.pv.properties.calculate_state(
-        var_args={
-            ("flow_vol_phase", "Liq"): flow_in,  # feed volumetric flow rate [m3/s]
-            ("mass_frac_phase_comp", ("Liq", "NaCl")): conc_in * 1e-3,
-        },
-        hold_state=False,  # fixes the calculated component mass flow rates
-    )
+    # m.fs.energy.pv.properties.calculate_state(
+    #     var_args={
+    #         ("flow_vol_phase", "Liq"): flow_in,  # feed volumetric flow rate [m3/s]
+    #         ("mass_frac_phase_comp", ("Liq", "NaCl")): conc_in * 1e-3,
+    #     },
+    #     hold_state=False,  # fixes the calculated component mass flow rates
+    # )
 
     operating_pressure = calculate_operating_pressure(
         feed_state_block=m.fs.treatment.feed.properties[0],
@@ -188,15 +188,15 @@ def set_operating_conditions(m, flow_in=1e-2, conc_in=30, water_recovery=0.5):
     m.fs.treatment.p1.control_volume.properties_out[0].pressure.fix(operating_pressure)
     m.fs.treatment.p1.efficiency_pump.fix(0.8)
     m.db.get_unit_operation_parameters("solar_energy")
-    m.fs.energy.pv.load_parameters_from_database(use_default_removal=True)
+    # m.fs.energy.pv.load_parameters_from_database(use_default_removal=True)
 
 
 def initialize_treatment(m, water_recovery=0.5):
-    """_summary_
+    """
 
     Args:
         m (obj): Pyomo model
-        water_recovery (float, optional): waater recovery. Defaults to 0.5.
+        water_recovery (float, optional): water recovery. Defaults to 0.5.
     """
     ro = m.fs.treatment.ro
     p1 = m.fs.treatment.p1
@@ -273,7 +273,7 @@ def initialize_treatment(m, water_recovery=0.5):
 
 
 def initialize_energy(m):
-    m.fs.energy.pv.initialize()
+    # m.fs.energy.pv.initialize()
     m.fs.energy.pv.oversize_factor = 1
 
 
@@ -337,7 +337,7 @@ def add_costing(m):
     energy.costing = EnergyCosting()
 
     m.db.get_unit_operation_parameters("photovoltaic")
-    energy.pv.load_parameters_from_database(use_default_removal=True)
+    # energy.pv.load_parameters_from_database(use_default_removal=True)
 
     energy.pv.costing = UnitModelCostingBlock(flowsheet_costing_block=energy.costing)
     treatment.ro.costing = UnitModelCostingBlock(
