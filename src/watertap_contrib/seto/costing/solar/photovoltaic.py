@@ -82,6 +82,7 @@ def build_photovoltaic_cost_param_block(blk):
 )
 def cost_pv(blk):
 
+    global_params = blk.costing_package
     pv_params = blk.costing_package.photovoltaic
     make_capital_cost_var(blk)
     make_variable_operating_cost_var(blk)
@@ -155,7 +156,7 @@ def cost_pv(blk):
     )
 
     blk.sales_tax_constraint = pyo.Constraint(
-        expr=blk.sales_tax == blk.direct_cost * pv_params.tax_frac_direct_cost
+        expr=blk.sales_tax == blk.direct_cost * global_params.sales_tax_frac
     )
 
     blk.capital_cost_constraint = pyo.Constraint(
@@ -172,9 +173,5 @@ def cost_pv(blk):
         expr=blk.variable_operating_cost
         == pv_params.variable_operating_by_generation * blk.annual_generation
     )
-    # Register flows
-    # blk.config.flowsheet_costing_block.cost_flow(
-    #     blk.unit_model.electricity, "electricity"
-    # )
 
     blk.costing_package.cost_flow(blk.unit_model.electricity, "electricity")
