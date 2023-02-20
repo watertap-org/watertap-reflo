@@ -21,9 +21,7 @@ from idaes.core.util.model_statistics import *
 from idaes.core.util.scaling import *
 from idaes.core import UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
-from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
-from watertap.core.util.initialization import assert_degrees_of_freedom
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.unit_models.pressure_changer import Pump, EnergyRecoveryDevice
 
@@ -262,11 +260,17 @@ def initialize_treatment(m, water_recovery=0.5):
     )
 
 
+def initialize_energy(m):
+    m.fs.energy.pv.initialize()
+    m.fs.energy.pv.oversize_factor.set_value(1)
+
+
 def initialize_sys(m, water_recovery=0.5):
     optarg = solver.options
     m.fs.treatment.feed.initialize(optarg=optarg)
     initialize_treatment(m, water_recovery=water_recovery)
-    m.fs.energy.pv.oversize_factor = 1
+    initialize_energy(m)
+
 
 def optimize_setup(
     m,
@@ -358,7 +362,7 @@ def fix_treatment_global_params(m):
 def size_pv(m):
     desired_pv_size = (
         m.fs.treatment.costing.aggregate_flow_electricity()
-        * m.fs.energy.pv.oversize_factor
+        * m.fs.energy.pv.oversize_factor()
     )
     cash_model_kwargs = {"om_fixed": 1e4, "om_production": 20}
     m.pysam.run_pv_single_owner(
