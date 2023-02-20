@@ -89,8 +89,8 @@ class TestPVRO:
         PV_RO.initialize_energy(m)
 
         assert stats.degrees_of_freedom(m) == 0
-        assert stats.number_variables(m) == 202
-        assert stats.number_total_constraints(m) == 172
+        assert stats.number_variables(m) == 205
+        assert stats.number_total_constraints(m) == 170
         assert stats.number_unused_variables(m) == 2
 
         for component in ["feed", "product", "disposal", "p1", "ro", "erd"]:
