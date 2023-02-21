@@ -1,7 +1,0 @@
-default:
-  electricity:
-    value: 0
-    units: kW
-
-
-
