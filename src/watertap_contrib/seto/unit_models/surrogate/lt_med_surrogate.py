@@ -11,6 +11,8 @@
 #
 ###############################################################################
 
+from copy import deepcopy
+
 # Import Pyomo libraries
 from pyomo.environ import (
     Set,
@@ -18,6 +20,7 @@ from pyomo.environ import (
     Param,
     Suffix,
     Constraint,
+    check_optimal_termination,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
@@ -28,7 +31,9 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
+from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.config import is_physical_parameter_block
+from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
@@ -134,7 +139,9 @@ class LTMEDData(UnitModelBlockData):
             doc="Temperature decrease in cooling reject water",
         )
 
-        self.recovery_ratio = Var(
+        self.recovery_vol_phase = Var(
+            self.flowsheet().config.time,
+            ["Liq"],
             initialize=0.50,
             bounds=(0.30, 0.50),
             units=pyunits.dimensionless,
@@ -153,21 +160,22 @@ class LTMEDData(UnitModelBlockData):
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package_water
-        tmp_dict["defined_state"] = False
+        tmp_dict["defined_state"] = True
 
         self.feed_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of feed water",
-            **tmp_dict
+            **tmp_dict,
         )
 
         """
         Add block for distillate
         """
+        tmp_dict["defined_state"] = False
         self.distillate_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of distillate",
-            **tmp_dict
+            **tmp_dict,
         )
 
         # Distillate temperature is the same as last effect vapor temperature,
@@ -182,7 +190,6 @@ class LTMEDData(UnitModelBlockData):
         """
         Add block for brine
         """
-        tmp_dict["defined_state"] = False
 
         self.brine_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time, doc="Material properties of brine", **tmp_dict
@@ -193,7 +200,7 @@ class LTMEDData(UnitModelBlockData):
         def eq_brine_salinity(b):
             return b.brine_props[0].conc_mass_phase_comp["Liq", "TDS"] == b.feed_props[
                 0
-            ].conc_mass_phase_comp["Liq", "TDS"] / (1 - b.recovery_ratio)
+            ].conc_mass_phase_comp["Liq", "TDS"] / (1 - b.recovery_vol_phase[0, "Liq"])
 
         @self.Constraint(doc="Brine temperature")
         def eq_brine_temp(b):
@@ -209,7 +216,7 @@ class LTMEDData(UnitModelBlockData):
         self.cooling_out_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of cooling reject",
-            **tmp_dict
+            **tmp_dict,
         )
 
         # Use the source water for cooling (same salinity)
@@ -238,7 +245,7 @@ class LTMEDData(UnitModelBlockData):
         self.steam_props = self.config.property_package_steam.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of heating steam",
-            **tmp_dict
+            **tmp_dict,
         )
 
         # Add ports
@@ -255,7 +262,8 @@ class LTMEDData(UnitModelBlockData):
         def eq_dist_vol_flow(b):
             return (
                 b.distillate_props[0].flow_vol_phase["Liq"]
-                == b.feed_props[0].flow_vol_phase["Liq"] * b.recovery_ratio
+                == b.feed_props[0].flow_vol_phase["Liq"]
+                * b.recovery_vol_phase[0, "Liq"]
             )
 
         # Brine flow rate calculation
@@ -284,7 +292,7 @@ class LTMEDData(UnitModelBlockData):
             doc="Specific area (m2/m3/day))",
         )
 
-        self.specific_thermal_energy_consumption = Var(
+        self.specific_energy_consumption_thermal = Var(
             initialize=65,
             bounds=(0, None),
             units=pyunits.kWh / pyunits.m**3,
@@ -337,9 +345,10 @@ class LTMEDData(UnitModelBlockData):
             return (
                 b.gain_output_ratio
                 == feed_conc_ppm * gain_output_ratio_coeffs[b.number_effects.value][0]
-                + b.recovery_ratio * gain_output_ratio_coeffs[b.number_effects.value][1]
+                + b.recovery_vol_phase[0, "Liq"]
+                * gain_output_ratio_coeffs[b.number_effects.value][1]
                 + feed_conc_ppm
-                * b.recovery_ratio
+                * b.recovery_vol_phase[0, "Liq"]
                 * gain_output_ratio_coeffs[b.number_effects.value][2]
                 + b.temp_last_effect
                 * gain_output_ratio_coeffs[b.number_effects.value][3]
@@ -347,14 +356,14 @@ class LTMEDData(UnitModelBlockData):
                 * feed_conc_ppm
                 * gain_output_ratio_coeffs[b.number_effects.value][4]
                 + b.temp_last_effect
-                * b.recovery_ratio
+                * b.recovery_vol_phase[0, "Liq"]
                 * gain_output_ratio_coeffs[b.number_effects.value][5]
                 + temp_steam * gain_output_ratio_coeffs[b.number_effects.value][6]
                 + temp_steam
                 * feed_conc_ppm
                 * gain_output_ratio_coeffs[b.number_effects.value][7]
                 + temp_steam
-                * b.recovery_ratio
+                * b.recovery_vol_phase[0, "Liq"]
                 * gain_output_ratio_coeffs[b.number_effects.value][8]
                 + temp_steam
                 * b.temp_last_effect
@@ -363,7 +372,7 @@ class LTMEDData(UnitModelBlockData):
                 + temp_steam**2 * gain_output_ratio_coeffs[b.number_effects.value][11]
                 + b.temp_last_effect**2
                 * gain_output_ratio_coeffs[b.number_effects.value][12]
-                + b.recovery_ratio**2
+                + b.recovery_vol_phase[0, "Liq"] ** 2
                 * gain_output_ratio_coeffs[b.number_effects.value][13]
                 + feed_conc_ppm**2
                 * gain_output_ratio_coeffs[b.number_effects.value][14]
@@ -379,16 +388,17 @@ class LTMEDData(UnitModelBlockData):
                     == feed_conc_ppm * specific_area_coeffs[b.number_effects.value][0]
                     + feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][1]
-                    + b.recovery_ratio * specific_area_coeffs[b.number_effects.value][2]
-                    + b.recovery_ratio
+                    + b.recovery_vol_phase[0, "Liq"]
+                    * specific_area_coeffs[b.number_effects.value][2]
+                    + b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][3]
-                    + b.recovery_ratio
+                    + b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][4]
-                    + b.recovery_ratio**2
+                    + b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][5]
-                    + b.recovery_ratio**2
+                    + b.recovery_vol_phase[0, "Liq"] ** 2
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][6]
                     + b.temp_last_effect
@@ -400,14 +410,14 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][9]
                     + b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][10]
                     + b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][11]
                     + b.temp_last_effect
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][12]
                     + b.temp_last_effect**2
                     * specific_area_coeffs[b.number_effects.value][13]
@@ -415,7 +425,7 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][14]
                     + b.temp_last_effect**2
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][15]
                     + temp_steam * specific_area_coeffs[b.number_effects.value][16]
                     + temp_steam
@@ -425,14 +435,14 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][18]
                     + temp_steam
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][19]
                     + temp_steam
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][20]
                     + temp_steam
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][21]
                     + temp_steam
                     * b.temp_last_effect
@@ -443,7 +453,7 @@ class LTMEDData(UnitModelBlockData):
                     * specific_area_coeffs[b.number_effects.value][23]
                     + temp_steam
                     * b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][24]
                     + temp_steam
                     * b.temp_last_effect**2
@@ -453,7 +463,7 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][27]
                     + temp_steam**2
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][28]
                     + temp_steam**2
                     * b.temp_last_effect
@@ -462,7 +472,7 @@ class LTMEDData(UnitModelBlockData):
                     + temp_steam**3 * specific_area_coeffs[b.number_effects.value][31]
                     + b.temp_last_effect**3
                     * specific_area_coeffs[b.number_effects.value][32]
-                    + b.recovery_ratio**3
+                    + b.recovery_vol_phase[0, "Liq"] ** 3
                     * specific_area_coeffs[b.number_effects.value][33]
                     + feed_conc_ppm**3
                     * specific_area_coeffs[b.number_effects.value][34]
@@ -476,27 +486,28 @@ class LTMEDData(UnitModelBlockData):
                     * specific_area_coeffs[b.number_effects.value][1]
                     + feed_conc_ppm**3
                     * specific_area_coeffs[b.number_effects.value][2]
-                    + b.recovery_ratio * specific_area_coeffs[b.number_effects.value][3]
-                    + b.recovery_ratio
+                    + b.recovery_vol_phase[0, "Liq"]
+                    * specific_area_coeffs[b.number_effects.value][3]
+                    + b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][4]
-                    + b.recovery_ratio
+                    + b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][5]
-                    + b.recovery_ratio
+                    + b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm**3
                     * specific_area_coeffs[b.number_effects.value][6]
-                    + b.recovery_ratio**2
+                    + b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][7]
-                    + b.recovery_ratio**2
+                    + b.recovery_vol_phase[0, "Liq"] ** 2
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][8]
-                    + b.recovery_ratio**2
+                    + b.recovery_vol_phase[0, "Liq"] ** 2
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][9]
-                    + b.recovery_ratio**3
+                    + b.recovery_vol_phase[0, "Liq"] ** 3
                     * specific_area_coeffs[b.number_effects.value][10]
-                    + b.recovery_ratio**3
+                    + b.recovery_vol_phase[0, "Liq"] ** 3
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][11]
                     + b.temp_last_effect
@@ -511,25 +522,25 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm**3
                     * specific_area_coeffs[b.number_effects.value][15]
                     + b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][16]
                     + b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][17]
                     + b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][18]
                     + b.temp_last_effect
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][19]
                     + b.temp_last_effect
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][20]
                     + b.temp_last_effect
-                    * b.recovery_ratio**3
+                    * b.recovery_vol_phase[0, "Liq"] ** 3
                     * specific_area_coeffs[b.number_effects.value][21]
                     + b.temp_last_effect**2
                     * specific_area_coeffs[b.number_effects.value][22]
@@ -540,14 +551,14 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][24]
                     + b.temp_last_effect**2
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][25]
                     + b.temp_last_effect**2
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][26]
                     + b.temp_last_effect**2
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][27]
                     + b.temp_last_effect**3
                     * specific_area_coeffs[b.number_effects.value][28]
@@ -555,7 +566,7 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][29]
                     + b.temp_last_effect**3
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][30]
                     + temp_steam * specific_area_coeffs[b.number_effects.value][31]
                     + temp_steam
@@ -568,25 +579,25 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm**3
                     * specific_area_coeffs[b.number_effects.value][34]
                     + temp_steam
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][35]
                     + temp_steam
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][36]
                     + temp_steam
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][37]
                     + temp_steam
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][38]
                     + temp_steam
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][39]
                     + temp_steam
-                    * b.recovery_ratio**3
+                    * b.recovery_vol_phase[0, "Liq"] ** 3
                     * specific_area_coeffs[b.number_effects.value][40]
                     + temp_steam
                     * b.temp_last_effect
@@ -601,16 +612,16 @@ class LTMEDData(UnitModelBlockData):
                     * specific_area_coeffs[b.number_effects.value][43]
                     + temp_steam
                     * b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][44]
                     + temp_steam
                     * b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][45]
                     + temp_steam
                     * b.temp_last_effect
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][46]
                     + temp_steam
                     * b.temp_last_effect**2
@@ -621,7 +632,7 @@ class LTMEDData(UnitModelBlockData):
                     * specific_area_coeffs[b.number_effects.value][48]
                     + temp_steam
                     * b.temp_last_effect**2
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][49]
                     + temp_steam
                     * b.temp_last_effect**3
@@ -634,14 +645,14 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm**2
                     * specific_area_coeffs[b.number_effects.value][53]
                     + temp_steam**2
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][54]
                     + temp_steam**2
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][55]
                     + temp_steam**2
-                    * b.recovery_ratio**2
+                    * b.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[b.number_effects.value][56]
                     + temp_steam**2
                     * b.temp_last_effect
@@ -652,7 +663,7 @@ class LTMEDData(UnitModelBlockData):
                     * specific_area_coeffs[b.number_effects.value][58]
                     + temp_steam**2
                     * b.temp_last_effect
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][59]
                     + temp_steam**2
                     * b.temp_last_effect**2
@@ -662,7 +673,7 @@ class LTMEDData(UnitModelBlockData):
                     * feed_conc_ppm
                     * specific_area_coeffs[b.number_effects.value][62]
                     + temp_steam**3
-                    * b.recovery_ratio
+                    * b.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[b.number_effects.value][63]
                     + temp_steam**3
                     * b.temp_last_effect
@@ -671,7 +682,7 @@ class LTMEDData(UnitModelBlockData):
                     + temp_steam**4 * specific_area_coeffs[b.number_effects.value][66]
                     + b.temp_last_effect**4
                     * specific_area_coeffs[b.number_effects.value][67]
-                    + b.recovery_ratio**4
+                    + b.recovery_vol_phase[0, "Liq"] ** 4
                     * specific_area_coeffs[b.number_effects.value][68]
                     + feed_conc_ppm**4
                     * specific_area_coeffs[b.number_effects.value][69]
@@ -690,9 +701,9 @@ class LTMEDData(UnitModelBlockData):
             )
 
         # Energy consumption
-        @self.Constraint(doc="specific_thermal_energy_consumption calculation")
+        @self.Constraint(doc="specific_energy_consumption_thermal calculation")
         def eq_specific_thermal_energy_consumption(b):
-            return b.specific_thermal_energy_consumption == pyunits.convert(
+            return b.specific_energy_consumption_thermal == pyunits.convert(
                 1
                 / b.gain_output_ratio
                 * (b.steam_props[0].dh_vap_mass)
@@ -703,7 +714,7 @@ class LTMEDData(UnitModelBlockData):
         @self.Constraint(doc="Thermal power requirement calculation")
         def eq_thermal_power_requirement(b):
             return b.thermal_power_requirement == pyunits.convert(
-                b.specific_thermal_energy_consumption
+                b.specific_energy_consumption_thermal
                 * b.distillate_props[0].flow_vol_phase["Liq"],
                 to_units=pyunits.kW,
             )
@@ -759,21 +770,146 @@ class LTMEDData(UnitModelBlockData):
                 to_units=pyunits.m**3 / pyunits.hr,
             )
 
+    def initialize_build(
+        blk,
+        state_args=None,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
+    ):
+        """
+        General wrapper for initialization routines
+
+        Keyword Arguments:
+            state_args : a dict of arguments to be passed to the property
+                         package(s) to provide an initial state for
+                         initialization (see documentation of the specific
+                         property package) (default = {}).
+            outlvl : sets output level of initialization routine
+            optarg : solver options dictionary object (default=None)
+            solver : str indicating which solver to use during
+                     initialization (default = None)
+
+        Returns: None
+        """
+        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="unit")
+        solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
+
+        opt = get_solver(solver, optarg)
+        # ---------------------------------------------------------------------
+        flags = blk.feed_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+            hold_state=True,
+        )
+        init_log.info("Initialization Step 1a Complete.")
+        # ---------------------------------------------------------------------
+        # Initialize other state blocks
+        # Set state_args from inlet state
+
+        if state_args is None:
+            blk.state_args = state_args = {}
+            state_dict = blk.feed_props[
+                blk.flowsheet().config.time.first()
+            ].define_port_members()
+
+            for k in state_dict.keys():
+                if state_dict[k].is_indexed():
+                    state_args[k] = {}
+                    for m in state_dict[k].keys():
+                        state_args[k][m] = state_dict[k][m].value
+                else:
+                    state_args[k] = state_dict[k].value
+
+        state_args_dist = deepcopy(state_args)
+        for p, j in blk.distillate_props.phase_component_set:
+            if j == "TDS":
+                state_args_dist["flow_mass_phase_comp"][(p, j)] = 0
+
+        blk.distillate_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_dist,
+        )
+
+        state_args_steam = {}
+        state_dict_steam = blk.steam_props[
+            blk.flowsheet().config.time.first()
+        ].define_port_members()
+
+        for k in state_dict_steam.keys():
+            if state_dict_steam[k].is_indexed():
+                state_args_steam[k] = {}
+                for m in state_dict_steam[k].keys():
+                    state_args_steam[k][m] = state_dict_steam[k][m].value
+            else:
+                state_args_steam[k] = state_dict_steam[k].value
+
+        for p, j in blk.steam_props.phase_component_set:
+            if p == "Liq" and j == "H2O":
+                state_args_steam["flow_mass_phase_comp"][(p, j)] = 0
+
+        blk.steam_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_steam,
+        )
+
+        state_args_brine = deepcopy(state_args)
+        for p, j in blk.brine_props.phase_component_set:
+            if p == "Liq" and j == "H2O":
+                state_args_brine["flow_mass_phase_comp"][(p, j)] = (
+                    state_args["flow_mass_phase_comp"][(p, j)]
+                    * (1 - blk.recovery_vol_phase[0, "Liq"])
+                    * pyunits.kg
+                    / pyunits.s
+                )
+
+        blk.brine_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_brine,
+        )
+
+        blk.cooling_out_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+        )
+
+        # Solve unit
+        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
+            res = opt.solve(blk, tee=slc.tee)
+        init_log.info("Initialization Step 3 {}.".format(idaeslog.condition(res)))
+        # ---------------------------------------------------------------------
+        # Release Inlet state
+        blk.feed_props.release_state(flags, outlvl=outlvl)
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {blk.name} failed to initialize")
+
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
         dist_vol_flow = self.distillate_props[0].flow_vol_phase["Liq"]
 
-        if iscale.get_scaling_factor(self.recovery_ratio) is None:
-            iscale.set_scaling_factor(self.recovery_ratio, 1e1)
+        if iscale.get_scaling_factor(self.recovery_vol_phase[0, "Liq"]) is None:
+            iscale.set_scaling_factor(self.recovery_vol_phase[0, "Liq"], 1e1)
 
-        if iscale.get_scaling_factor(self.specific_thermal_energy_consumption) is None:
-            iscale.set_scaling_factor(self.specific_thermal_energy_consumption, 1e-3)
+        if iscale.get_scaling_factor(self.specific_energy_consumption_thermal) is None:
+            iscale.set_scaling_factor(self.specific_energy_consumption_thermal, 1e-3)
 
         if iscale.get_scaling_factor(self.thermal_power_requirement) is None:
             iscale.set_scaling_factor(
                 self.thermal_power_requirement,
                 iscale.get_scaling_factor(dist_vol_flow)
-                * iscale.get_scaling_factor(self.specific_thermal_energy_consumption),
+                * iscale.get_scaling_factor(self.specific_energy_consumption_thermal),
             )
 
         if iscale.get_scaling_factor(self.specific_area) is None:
@@ -826,7 +962,7 @@ class LTMEDData(UnitModelBlockData):
         )
         iscale.constraint_scaling_transform(self.eq_steam_mass_flow, sf)
 
-        sf = iscale.get_scaling_factor(self.specific_thermal_energy_consumption)
+        sf = iscale.get_scaling_factor(self.specific_energy_consumption_thermal)
         iscale.constraint_scaling_transform(
             self.eq_specific_thermal_energy_consumption, sf
         )

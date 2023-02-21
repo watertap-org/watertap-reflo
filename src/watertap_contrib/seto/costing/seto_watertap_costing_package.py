@@ -38,7 +38,7 @@ from watertap.costing.units.pump import cost_pump
 from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
 from watertap.costing.units.uv_aop import cost_uv_aop
 
-from watertap_contrib.seto.solar_models.zero_order import SolarEnergyZO, PhotovoltaicZO
+from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.seto.unit_models import Electrocoagulation
@@ -53,10 +53,9 @@ from watertap_contrib.seto.core import PySAMWaterTAP
 class SETOWaterTAPCostingData(WaterTAPCostingData):
 
     unit_mapping = {
-        SolarEnergyZO: cost_pv,  # Keeping this for now
         LTMEDSurrogate: cost_lt_med_surrogate,
         Electrocoagulation: cost_electrocoagulation,
-        PhotovoltaicZO: cost_pv,
+        Photovoltaic: cost_pv,
         Mixer: cost_mixer,
         Pump: cost_pump,
         EnergyRecoveryDevice: cost_energy_recovery_device,
@@ -84,6 +83,13 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         self.base_currency = pyo.units.USD_2021
         self.plant_lifetime = pyo.Var(
             initialize=20, units=self.base_period, doc="Plant lifetime"
+        )
+
+        self.sales_tax_frac = pyo.Param(
+            initialize=0.05,
+            mutable=True,
+            doc="Sales tax as fraction of capital costs",
+            units=pyo.units.dimensionless,
         )
 
         self.heat_cost = pyo.Param(
@@ -210,8 +216,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
 
         self.defined_flows = _DefinedFlowsDict()
 
-        # Build flowsheet level costing components
-        # These are the global parameters
         self.utilization_factor = pyo.Var(
             initialize=1,
             doc="Plant capacity utilization [fraction of uptime]",
@@ -388,7 +392,10 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             LCOE_expr = pyo.Expression(
                 expr=(
                     en_cost.total_capital_cost * self.factor_capital_annualization
-                    + en_cost.total_operating_cost
+                    + (
+                        en_cost.aggregate_fixed_operating_cost
+                        + en_cost.aggregate_variable_operating_cost
+                    )
                 )
                 / self.annual_energy_generated
                 * self.utilization_factor

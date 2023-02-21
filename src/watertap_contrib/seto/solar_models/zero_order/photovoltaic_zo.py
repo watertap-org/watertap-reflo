@@ -10,29 +10,32 @@
 # "https://github.com/watertap-org/watertap/"
 #
 ###############################################################################
-"""
-This module contains a zero-order representation of a solar energy
-operation.
-"""
 
 from idaes.core import declare_process_block_class
 
-from watertap.core import build_pt, ZeroOrderBaseData
-from watertap_contrib.seto.energy import solar_energy
+from pyomo.environ import Param, units as pyunits
+
+from watertap_contrib.seto.core import SolarEnergyBaseData
 
 __author__ = "Kurban Sitterley"
 
 
-@declare_process_block_class("PhotovoltaicZO")
-class SolarEnergyZOData(ZeroOrderBaseData):
+@declare_process_block_class("Photovoltaic")
+class PhotovoltaicData(SolarEnergyBaseData):
     """
     Zero-Order model for photovoltaic system.
     """
+
+    CONFIG = SolarEnergyBaseData.CONFIG()
 
     def build(self):
         super().build()
 
         self._tech_type = "photovoltaic"
 
-        build_pt(self)
-        solar_energy(self)
+        self.oversize_factor = Param(
+            initialize=1,
+            units=pyunits.dimensionless,
+            mutable=True,
+            doc="Oversize factor for PV system",
+        )
