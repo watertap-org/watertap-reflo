@@ -106,11 +106,12 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
             if str(j) in ["Ca_2+", "Mg_2+"]:
                 self.hardness_set.add(str(j))
 
-            #self.add_component(str(j), Solute())
+            self.add_component(str(j), Solute())
             self.component_set.add(str(j))
 
+        solute_list = self.config.solute_list
 
-        self.component_set.add("H2O")
+        #self.component_set.add("H2O")
         self.mw_comp = Param(
             # self.ion_set,
             self.component_set,
@@ -248,7 +249,7 @@ class _ChemSofteningStateBlock(StateBlock):
 
         # initialize vars calculated from state vars
         for k in self.keys():
-            for j in self[k].params.component_set:
+            for j in self[k].params.component_list:
                 if self[k].is_property_constructed("flow_mass_comp"):
                     if j == "H2O":
                         self[k].flow_mass_comp[j].set_value(
@@ -369,7 +370,7 @@ class ChemSofteningStateBlockData(StateBlockData):
     def _flow_mass_comp(self):
 
         self.flow_mass_comp = Var(
-            self.params.component_set,
+            self.params.component_list,
             initialize=1,
             domain=NonNegativeReals,
             doc="Mass flowrate of each component",
@@ -383,7 +384,7 @@ class ChemSofteningStateBlockData(StateBlockData):
                 return b.flow_mass_comp[j] == b.flow_vol * b.conc_mass_comp[j]
 
         self.eq_flow_mass_comp = Constraint(
-            self.params.component_set, rule=rule_flow_mass_comp
+            self.params.component_list, rule=rule_flow_mass_comp
         )
         
     def _pOH(self):

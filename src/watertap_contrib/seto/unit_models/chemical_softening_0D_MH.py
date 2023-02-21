@@ -309,7 +309,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(comps,doc="Component Removal")
         def eq_component_removal(b,j):
-                return prop_waste.conc_mass_comp[j] == prop_in.conc_mass_comp[j] * (b.removal_efficiency[j])
+                return prop_waste.flow_mass_comp[j] == prop_in.flow_mass_comp[j] * (b.removal_efficiency[j])
 
         # @self.Constraint(doc="Ca in effluent")
         # def eq_effluent_ca(b):
