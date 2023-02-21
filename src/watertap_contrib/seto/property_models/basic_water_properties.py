@@ -80,15 +80,11 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
 
         self.H2O = Solvent()
 
-        # Get component set from database if provided
-        self.component_set = Set()
-
         # Check definition of solute list
         solute_list = self.config.solute_list
 
         for j in solute_list:
             self.add_component(str(j), Solute())
-            self.component_set.add(str(j))
 
         # Define default value for mass density of solution
         self.dens_mass_default = 1000 * pyunits.kg / pyunits.m**3
@@ -224,7 +220,6 @@ class _BasicWaterStateBlock(StateBlock):
         skip_solve = True  # skip solve if only state variables are present
         for k in self.keys():
             if number_unfixed_variables(self[k]) != 0:
-
                 skip_solve = False
 
         if not skip_solve:
@@ -287,14 +282,13 @@ class BasicWaterStateBlockData(StateBlockData):
         )
 
         self.conc_mass_comp = Var(
-            self.params.component_set,
+            self.params.solute_set,
             initialize=1,
             domain=PositiveReals,
             doc="Mass concentration of each solute",
             units=pyunits.kg / pyunits.m**3,
         )
 
-    # # -------------------------------------------------------------------------
     # Other properties
     def _flow_mass_comp(self):
 

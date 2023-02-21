@@ -225,16 +225,16 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
 
         removal_eff_dict = dict(
             zip(
-                self.config.property_package.component_set,
+                self.config.property_package.solute_set,
                 [
                     0.7 if j != "TDS" else 1e-3
-                    for j in self.config.property_package.component_set
+                    for j in self.config.property_package.solute_set
                 ],
             )
         )
 
         self.removal_efficiency = Param(
-            self.config.property_package.component_set,
+            self.config.property_package.solute_set,
             initialize=removal_eff_dict,
             mutable=True,
             doc="Removal efficiency",
@@ -481,7 +481,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             return prop_out.flow_vol == prop_in.flow_vol * b.vol_recovery
 
         @self.Constraint(
-            self.config.property_package.component_set, doc="Component removal"
+            self.config.property_package.solute_set, doc="Component removal"
         )
         def eq_component_removal(b, j):
             prop_in = b.properties_in[0]
@@ -499,7 +499,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             return prop_in.flow_vol == prop_out.flow_vol + prop_waste.flow_vol
 
         @self.Constraint(
-            self.config.property_package.component_set, doc="Component mass balance"
+            self.config.property_package.solute_set, doc="Component mass balance"
         )
         def eq_mass_balance(b, j):
             prop_in = b.properties_in[0]
@@ -567,13 +567,13 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
 
         for j in blk.properties_out.component_list:
             if j == "H2O":
-                state_args_out["flow_vol"] = value(
-                    state_args["flow_vol"] * blk.vol_recovery
+                state_args_out["flow_vol"] = (
+                    state_args["flow_vol"] * blk.vol_recovery.value
                 )
             else:
-                state_args_out["conc_mass_comp"][j] = value(
-                    state_args["conc_mass_comp"][j] * (1 - blk.removal_efficiency[j])
-                )
+                state_args_out["conc_mass_comp"][j] = state_args["conc_mass_comp"][
+                    j
+                ] * (1 - blk.removal_efficiency[j].value)
 
         blk.properties_out.initialize(
             outlvl=outlvl,
@@ -586,12 +586,12 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         state_args_waste = deepcopy(state_args)
         for j in blk.properties_waste.component_list:
             if j == "H2O":
-                state_args_waste["flow_vol"] = value(
-                    state_args["flow_vol"] * (1 - blk.vol_recovery)
+                state_args_waste["flow_vol"] = state_args["flow_vol"] * (
+                    1 - blk.vol_recovery.value
                 )
             else:
-                state_args_waste["conc_mass_comp"][j] = value(
-                    state_args["conc_mass_comp"][j] * blk.removal_efficiency[j]
+                state_args_waste["conc_mass_comp"][j] = (
+                    state_args["conc_mass_comp"][j] * blk.removal_efficiency[j].value
                 )
 
         blk.properties_waste.initialize(

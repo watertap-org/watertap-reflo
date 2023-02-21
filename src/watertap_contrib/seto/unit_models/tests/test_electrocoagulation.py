@@ -104,8 +104,8 @@ class TestEC:
         assert ec.config.electrode_material is not ElectrodeMaterial.iron
         assert ec.config.reactor_material is ReactorMaterial.pvc
         assert ec.config.reactor_material is not ReactorMaterial.stainless_steel
-        assert len(ec.config.property_package.component_set) == 4
-        assert "TDS" in ec.config.property_package.component_set
+        assert len(ec.config.property_package.solute_set) == 4
+        assert "TDS" in ec.config.property_package.solute_set
 
     @pytest.mark.unit
     def test_build(self, EC_frame):
@@ -163,7 +163,7 @@ class TestEC:
             assert p.mutable  # all Params are mutable
 
         idx = [*ec.removal_efficiency.index_set()]
-        assert idx == ec.config.property_package.component_set
+        assert idx == ec.config.property_package.solute_set
 
         for i in idx:
             if i == "TDS":
