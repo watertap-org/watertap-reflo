@@ -57,8 +57,8 @@ def test_parameter_block(m):
     assert isinstance(m.fs.properties.component_list, Set)
     for j in m.fs.properties.component_list:
         assert j in ["H2O", "A", "B", "C", "D"]
-    assert isinstance(m.fs.properties.component_set, Set)
-    assert "H2O" not in m.fs.properties.component_set
+    assert isinstance(m.fs.properties.solute_set, Set)
+    assert "H2O" not in m.fs.properties.solute_set
     assert isinstance(m.fs.properties.solvent_set, Set)
     for j in m.fs.properties.solvent_set:
         assert j in ["H2O"]
