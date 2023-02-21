@@ -143,4 +143,7 @@ auto-save-list
 
 # MAC File System
 .DS_Store
-.gitignore
+
+# VSCode project file
+.vscode
+*.code-workspace
