@@ -118,14 +118,41 @@ class TestPVRO:
     def test_solution(self, system_frame):
         m = system_frame
 
-        assert pytest.approx(0.330, rel=1e-2) == value(m.fs.sys_costing.LCOW)
-        assert pytest.approx(0.083, rel=1e-2) == value(m.fs.sys_costing.LCOE)
-        assert pytest.approx(1.51, rel=1e-1) == value(
-            m.fs.sys_costing.specific_electric_energy_consumption
+        solver = get_solver()
+        results = solver.solve(m)
+        m.fs.treatment.ro.area.fix()
+        m.fs.treatment.ro.feed_side.velocity[0, 0].fix()
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        assert stats.degrees_of_freedom(m) == 0
+        assert pytest.approx(80853.054, rel=1e-2) == value(
+            m.fs.sys_costing.annual_energy_generated
         )
-        assert pytest.approx(247052, rel=1e2) == value(
+        assert pytest.approx(218541.469, rel=1e-2) == value(
             m.fs.sys_costing.total_capital_cost
         )
-        assert pytest.approx(31771, rel=1e2) == value(
+        assert pytest.approx(31770.751, rel=1e-2) == value(
             m.fs.sys_costing.total_operating_cost
+        )
+        assert pytest.approx(-4212.056, rel=1e-2) == value(
+            m.fs.energy.costing.total_operating_cost
+        )
+        assert pytest.approx(28510.665, rel=1e-2) == value(
+            m.fs.energy.costing.total_capital_cost
+        )
+        assert pytest.approx(35982.808, rel=1e-2) == value(
+            m.fs.treatment.costing.total_operating_cost
+        )
+        assert pytest.approx(190030.804, rel=1e-2) == value(
+            m.fs.treatment.costing.total_capital_cost
+        )
+        assert pytest.approx(31771, rel=1e-2) == value(
+            m.fs.sys_costing.total_operating_cost
+        )
+        assert pytest.approx(0.31493, rel=1e-2) == value(m.fs.sys_costing.LCOW)
+        assert pytest.approx(0.0552, rel=1e-2) == value(m.fs.sys_costing.LCOE)
+        assert pytest.approx(1.5062, rel=1e-1) == value(
+            m.fs.sys_costing.specific_electric_energy_consumption
         )
