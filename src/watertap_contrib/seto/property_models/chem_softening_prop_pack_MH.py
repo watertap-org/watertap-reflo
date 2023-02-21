@@ -131,8 +131,9 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
             doc="Charge",
         )
       
-        for v in self.component_objects(Var):
-            v.fix()
+        # for v in self.component_objects(Var):
+        #     v.fix()
+
         # self.pKw = Param(
         #     initialize=14,
         #     units=pyunits.dimensionless,
@@ -172,7 +173,7 @@ class ChemSofteningParameterData(PhysicalParameterBlock):
                 "alkalinity": {"method": None},
                 "pH": {"method": None},
                 "pOH": {"method": "_pOH"},
-                # "pKw": {"method": "_pKw"},
+                "pKw": {"method": "_pKw"},
                 "flow_mass_comp": {"method": "_flow_mass_comp"},
                 "temperature": {"method": "_temperature"},
                 "pressure": {"method": "_pressure"},
@@ -374,7 +375,17 @@ class ChemSofteningStateBlockData(StateBlockData):
             doc="Mass flowrate of each component",
             units=pyunits.kg / pyunits.s,
         )
+        
+        def rule_flow_mass_comp(b, j):
+            if j == "H2O":
+                return b.flow_mass_comp[j] == b.flow_vol * b.dens_mass
+            else:
+                return b.flow_mass_comp[j] == b.flow_vol * b.conc_mass_comp[j]
 
+        self.eq_flow_mass_comp = Constraint(
+            self.params.component_set, rule=rule_flow_mass_comp
+        )
+        
     def _pOH(self):
         self.pOH = Var(
             initialize=7,
@@ -383,10 +394,10 @@ class ChemSofteningStateBlockData(StateBlockData):
             doc="pOH",
         )
     
-        # def rule_pOH(b):
-        #     return b.pOH == b.pKw - b.pH
+        def rule_pOH(b):
+            return b.pOH == b.pKw - b.pH
         
-        # self.eq_pOH = Constraint(rule=rule_pOH)
+        self.eq_pOH = Constraint(rule=rule_pOH)
 
 
     def _pKw(self):
@@ -413,7 +424,7 @@ class ChemSofteningStateBlockData(StateBlockData):
         def rule_pKw(b):
             return b.pKw == b.pKw_coeff_A / b.temperature + b.pKw_coeff_B * b.temperature - b.pKw_coeff_C
         
-        # self.eq_pKw = Constraint(rule=rule_pKw)
+        self.eq_pKw = Constraint(rule=rule_pKw)
 
 
     def _temperature(self):

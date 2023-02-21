@@ -8,6 +8,7 @@ from pyomo.environ import (
     check_optimal_termination,
     Param,
     Suffix,
+    value,
     log,
     units as pyunits,
 )
@@ -172,22 +173,42 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         prop_waste = self.properties_waste[0]
         comps = self.config.property_package.component_set
 
-        if "TSS" in comps:
-            self.frac_TSS_removal = Param(
-                initialize=0.85, doc="Default 85% removal of TSS"
+        # if "TSS" in comps:
+        #     self.frac_TSS_removal = Param(
+        #         initialize=0.85, doc="Default 85% removal of TSS"
+        #     )
+        
+
+        removal_eff_dict = dict(
+            zip(
+                self.config.property_package.component_set,
+                [
+                    0.7 if j != "TDS" else 1e-3
+                    for j in self.config.property_package.component_set
+                ],
             )
-
-
-        self.lime_mw = Param(
-            initialize=74, units=pyunits.g / pyunits.mol, doc="Molecular weight of lime"
         )
 
-        self.ca_eff_target = Param(
-            initialize=0.030, units=pyunits.kg / pyunits.m**3
+        self.removal_efficiency = Param(
+            self.config.property_package.component_set,
+            initialize=removal_eff_dict,
+            # mutable=True,
+            doc="Removal efficiency",
         )
 
-        # self.mg_eff_target = Param(
-        #     initialize=0.020, units=pyunits.kg / pyunits.m**3
+
+        # self.lime_mw = Param(
+        #     initialize=74, units=pyunits.g / pyunits.mol, doc="Molecular weight of lime"
+        # )
+
+        # self.ca_eff_target = Var(
+        #     initialize=0.030, 
+        #     units=pyunits.kg / pyunits.m**3
+        # )
+
+        # self.mg_eff_target = Var(
+        #     initialize=0.020, 
+        #     units=pyunits.kg / pyunits.m**3
         # )
 
         self.frac_vol_recovery = Param(
@@ -195,7 +216,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
             doc="Fractional volumetric recovery of water"
         )
 
-        self.excess_lime = Var(initialize=100, units=pyunits.mg / pyunits.liter)
+        # self.excess_lime = Var(initialize=100, units=pyunits.mg / pyunits.liter)
 
         self.retention_time_mixer = Var(
             initialize=1,
@@ -281,28 +302,33 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         def eq_mass_balance(b, j):
             return prop_in.flow_mass_comp[j] == prop_out.flow_mass_comp[j] + prop_waste.flow_mass_comp[j]
 
-        if "TSS" in comps:
-            @self.Constraint(doc="TSS removal")
-            def eq_effluent_tss(b):
-                return prop_out.conc_mass_comp["TSS"] == prop_in.conc_mass_comp["TSS"] * (1 - b.frac_TSS_removal)
+        # if "TSS" in comps:
+        #     @self.Constraint(doc="TSS removal")
+        #     def eq_effluent_tss(b):
+        #         return prop_out.conc_mass_comp["TSS"] == prop_in.conc_mass_comp["TSS"] * (1 - b.frac_TSS_removal)
 
-        @self.Constraint(doc="Ca in effluent")
-        def eq_effluent_ca(b):
-            return prop_out.conc_mass_caco3_comp["Ca_2+"] == b.ca_eff_target
+        @self.Constraint(comps,doc="Component Removal")
+        def eq_component_removal(b,j):
+                return prop_waste.conc_mass_comp[j] == prop_in.conc_mass_comp[j] * (b.removal_efficiency[j])
 
-        if (
-            self.config.softening_procedure_type
-            is SofteningProcedureType.single_stage_lime
-        ):
+        # @self.Constraint(doc="Ca in effluent")
+        # def eq_effluent_ca(b):
+        #     return prop_out.conc_mass_caco3_comp["Ca_2+"] == b.ca_eff_target
+        #     # return prop_out.conc_mass_comp["Ca_2+"] == b.ca_eff_target
 
-            if not self.config.silica_removal:
+        # if (
+        #     self.config.softening_procedure_type
+        #     is SofteningProcedureType.single_stage_lime
+        # ):
 
-                @self.Constraint(doc="Mg in effluent")
-                def eq_effluent_mg(b):
-                    return (
-                        prop_out.conc_mass_caco3_comp["Mg_2+"]
-                        == prop_in.conc_mass_caco3_comp["Mg_2+"]
-                    )
+            # if not self.config.silica_removal:
+
+            #     @self.Constraint(doc="Mg in effluent")
+            #     def eq_effluent_mg(b):
+            #         return (
+            #             prop_out.conc_mass_caco3_comp["Mg_2+"] == prop_in.conc_mass_caco3_comp["Mg_2+"]
+            #             # prop_out.conc_mass_comp["Mg_2+"] == prop_in.conc_mass_comp["Mg_2+"]
+            #         )
 
             # @self.Constraint(doc="Total hardness in effluent")
             # def eq_effluent_total_hardness(b):
@@ -317,68 +343,68 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
             #         )
             #     )
 
-            @self.Constraint(doc="Alkalinity in effluent")
-            def eq_effluent_alkalinity(b):
-                return (
-                    prop_out.alkalinity
-                    == prop_in.alkalinity
-                    - prop_in.conc_mass_caco3_comp["Ca_2+"]
-                    # + b.ca_eff_target
-                    + prop_out.conc_mass_caco3_comp["Ca_2+"]
-                )
+            # @self.Constraint(doc="Alkalinity in effluent")
+            # def eq_effluent_alkalinity(b):
+            #     return (
+            #         prop_out.alkalinity
+            #         == prop_in.alkalinity
+            #         - prop_in.conc_mass_caco3_comp["Ca_2+"]
+            #         # + b.ca_eff_target
+            #         + prop_out.conc_mass_caco3_comp["Ca_2+"]
+            #     )
 
-            if "TDS" in comps:
-                if "SiO2" in comps:
+            # if "TDS" in comps:
+            #     if "SiO2" in comps:
 
-                    @self.Constraint(["TDS"], doc="TDS in effluent")
-                    def eq_effluent_tds(b, j):
-                        return prop_out.conc_mass_comp[
-                             "TDS"
-                        ] == prop_in.conc_mass_comp["TDS"] - (
-                            prop_in.conc_mass_comp[ "Ca_2+"]
-                            - prop_out.conc_mass_comp["Ca_2+"]
-                        ) - (
-                            prop_in.conc_mass_comp[ "SiO2"]
-                            - prop_out.conc_mass_comp["SiO2"]
-                        )
+            #         @self.Constraint(["TDS"], doc="TDS in effluent")
+            #         def eq_effluent_tds(b, j):
+            #             return prop_out.conc_mass_comp[
+            #                  "TDS"
+            #             ] == prop_in.conc_mass_comp["TDS"] - (
+            #                 prop_in.conc_mass_comp[ "Ca_2+"]
+            #                 - prop_out.conc_mass_comp["Ca_2+"]
+            #             ) - (
+            #                 prop_in.conc_mass_comp[ "SiO2"]
+            #                 - prop_out.conc_mass_comp["SiO2"]
+            #             )
 
-                else:
+            #     else:
 
-                    @self.Constraint(["TDS"], doc="TDS in effluent")
-                    def eq_effluent_tds(b, j):
-                        return prop_out.conc_mass_comp[
-                            "TDS"
-                        ] == prop_in.conc_mass_comp[ "TDS"] - (
-                            prop_in.conc_mass_comp[ "Ca_2+"]
-                            - prop_out.conc_mass_comp[ "Ca_2+"]
-                        )
+            #         @self.Constraint(["TDS"], doc="TDS in effluent")
+            #         def eq_effluent_tds(b, j):
+            #             return prop_out.conc_mass_comp[
+            #                 "TDS"
+            #             ] == prop_in.conc_mass_comp[ "TDS"] - (
+            #                 prop_in.conc_mass_comp[ "Ca_2+"]
+            #                 - prop_out.conc_mass_comp[ "Ca_2+"]
+            #             )
 
 
 
-            if "SiO2" in comps and self.config.silica_removal:
+            # if "SiO2" in comps and self.config.silica_removal:
                 
-                self.mg_add_ratio = Param(
-                    initialize=9.1,
-                    units=pyunits.dimensionless,
-                    doc="Ratio of MgO: SiO2 to add for SiO2 removal"
-                )
+            #     self.mg_add_ratio = Param(
+            #         initialize=9.1,
+            #         units=pyunits.dimensionless,
+            #         doc="Ratio of MgO: SiO2 to add for SiO2 removal"
+            #     )
 
-                self.mg_add = Var(
-                    initialize=10,
-                    units=pyunits.kg/pyunits.m**3,
-                    doc="Concentration MgO added for SiO2 removal"
-                )
+            #     self.mg_add = Var(
+            #         initialize=10,
+            #         units=pyunits.kg/pyunits.m**3,
+            #         doc="Concentration MgO added for SiO2 removal"
+            #     )
 
-                @self.Constraint(doc="MgO addition")
-                def eq_mg_add(b):
-                    return b.mg_add == b.mg_add_ratio * prop_in.conc_mass_comp["SiO2"]
+            #     @self.Constraint(doc="MgO addition")
+            #     def eq_mg_add(b):
+            #         return b.mg_add == b.mg_add_ratio * prop_in.conc_mass_comp["SiO2"]
 
-                @self.Constraint(["Mg_2+"], doc="Mg in effluent")
-                def eq_effluent_mg(b, j):
-                    return (
-                        prop_out.conc_mass_caco3_comp["Mg_2+"]
-                        == prop_in.conc_mass_caco3_comp["Mg_2+"] + b.mg_add
-                    )
+            #     @self.Constraint(["Mg_2+"], doc="Mg in effluent")
+            #     def eq_effluent_mg(b, j):
+            #         return (
+            #             prop_out.conc_mass_caco3_comp["Mg_2+"]
+            #             == prop_in.conc_mass_caco3_comp["Mg_2+"] + b.mg_add
+            #         )
 
 
 
@@ -477,6 +503,16 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
 
         state_args_out = deepcopy(state_args)
 
+        # for j in blk.properties_out.component_list:
+        #     if j == "H2O":
+        #         state_args_out["flow_vol"] = value(
+        #             state_args["flow_vol"] * blk.frac_vol_recovery
+        #         )
+        #     else:
+        #         state_args_out["conc_mass_comp"][j] = value(
+        #             state_args["conc_mass_comp"][j] * (1 - blk.removal_efficiency[j])
+        #         )
+
         blk.properties_out.initialize(
             outlvl=outlvl,
             optarg=optarg,
@@ -486,6 +522,16 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         init_log.info("Initialization Step 1b Complete.")
 
         state_args_waste = deepcopy(state_args)
+
+        # for j in blk.properties_waste.component_list:
+        #     if j == "H2O":
+        #         state_args_waste["flow_vol"] = value(
+        #             state_args["flow_vol"] * (1 - blk.frac_vol_recovery)
+        #         )
+        #     else:
+        #         state_args_waste["conc_mass_comp"][j] = value(
+        #             state_args["conc_mass_comp"][j] * blk.removal_efficiency[j]
+        #         )
 
         blk.properties_waste.initialize(
             outlvl=outlvl,
