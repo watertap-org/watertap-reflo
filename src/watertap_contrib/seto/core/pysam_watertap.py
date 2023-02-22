@@ -80,7 +80,7 @@ class PySAMWaterTAP:
             desired_size=desired_size, desired_dcac_ratio=desired_dcac_ratio
         )
         print(
-            f"\nRunning PySAM model {self._pysam_model_name} for desired size = {self.desired_size}...\n"
+            f"\nRunning PySAM model {self._pysam_model_name} for desired size = {self.desired_size} kW...\n"
         )
         self.tech_model.value("inverter_count", self.num_inverters)
         self.tech_model.value("subarray1_nstrings", self.num_parallel)
