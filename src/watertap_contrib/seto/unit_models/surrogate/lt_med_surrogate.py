@@ -864,7 +864,7 @@ class LTMEDData(UnitModelBlockData):
             if p == "Liq" and j == "H2O":
                 state_args_brine["flow_mass_phase_comp"][(p, j)] = (
                     state_args["flow_mass_phase_comp"][(p, j)]
-                    * (1 - blk.recovery_vol_phase[0, "Liq"].value)
+                    * (1 - blk.recovery_vol_phase[0, "Liq"])
                     * pyunits.kg
                     / pyunits.s
                 )
