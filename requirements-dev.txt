@@ -1,4 +1,5 @@
 black ~= 22.0
 pytest
+pytest-cov
 setuptools_scm
 --editable .
