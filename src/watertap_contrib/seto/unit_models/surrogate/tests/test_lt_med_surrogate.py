@@ -134,10 +134,10 @@ class TestLTMED:
         badly_scaled_var_lst = list(badly_scaled_var_generator(m))
         assert badly_scaled_var_lst == []
 
-    # @pytest.mark.component
-    # def test_initialize(self, LT_MED_frame):
-    #     m = LT_MED_frame
-    #     initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.DEBUG)
+    @pytest.mark.component
+    def test_initialize(self, LT_MED_frame):
+        m = LT_MED_frame
+        initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.DEBUG)
 
     @pytest.mark.component
     def test_solve(self, LT_MED_frame):
