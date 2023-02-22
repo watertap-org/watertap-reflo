@@ -84,6 +84,14 @@ def create_rbf_surrogate(
 
     return rbf_surr
 
+def load_surrogate(surrogate_filename=None):
+    if surrogate_filename == None:
+        surrogate_filename = join(dirname(__file__), "pv_surrogate_testing.json")
+    # Load surrogate model from file
+    surrogate = PysmoSurrogate.load_from_file(surrogate_filename)
+
+    return surrogate
+
 def _parity_residual_plots(true_values, modeled_values, label=None):
     AXIS_FONTSIZE = 18
     TITLE_FONTSIZE = 22
@@ -188,7 +196,7 @@ if __name__ == "__main__":
     )
     
     # Load surrogate model from file
-    surrogate = PysmoSurrogate.load_from_file(surrogate_filename)
+    surrogate = load_surrogate()
 
     # Delete surrogate testing file
     # os.remove(surrogate_filename)
