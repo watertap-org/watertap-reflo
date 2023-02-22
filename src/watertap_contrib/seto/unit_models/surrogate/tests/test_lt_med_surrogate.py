@@ -142,7 +142,6 @@ class TestLTMED:
     @pytest.mark.component
     def test_solve(self, LT_MED_frame):
         m = LT_MED_frame
-        m.fs.lt_med.initialize()
         results = solver.solve(m)
 
         # Check for optimal solution
