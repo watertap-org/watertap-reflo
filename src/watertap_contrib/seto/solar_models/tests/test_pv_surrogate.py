@@ -42,8 +42,10 @@ class TestPVSurrogate:
             output_vars=[m.fs.annual_energy]
             )
 
+    def test_eval_surrogate(self, test_init_system):
         # fix input values and solve flowsheet
-        m.fs.design_size.fix(1000)
+        m = test_init_system
         results = solver.solve(m)
 
-        assert pytest.approx(2.26e6, rel=1e-2) == value(value(m.fs.annual_energy))
+        assert pytest.approx(5000, rel=1e-2) == value(value(m.fs.design_size))
+        assert pytest.approx(1.13e7, rel=1e-2) == value(value(m.fs.annual_energy))
