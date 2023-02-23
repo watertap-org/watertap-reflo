@@ -14,7 +14,7 @@
 import os
 import sys
 import re
-
+import time
 import pandas as pd
 import numpy as np
 
@@ -44,7 +44,6 @@ class PVSurrogateData(SolarEnergyBaseData):
     def build(self):
         super().build()
 
-
         self._tech_type = "PV"
 
         self.design_size = Var(
@@ -60,43 +59,51 @@ class PVSurrogateData(SolarEnergyBaseData):
             doc="annual energy produced by the plant in kWh",
         )
 
-        stream = StringIO()
-        oldstdout = sys.stdout
-        sys.stdout = stream
-
         self.surrogate_inputs = [self.design_size]
         self.surrogate_outputs = [self.annual_energy]
 
         self.input_labels = ["design_size"]
         self.output_labels = ["annual_energy"]
 
+    def load_surrogate(self):
+        print('Loading surrogate file...')
         self.surrogate_file = os.path.join(
             os.path.dirname(__file__), "pv_surrogate.json"
         )
-        self.surrogate_blk = SurrogateBlock(concrete=True)
-        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
-        self.surrogate_blk.build_model(
-            self.surrogate,
-            input_vars=self.surrogate_inputs,
-            output_vars=self.surrogate_outputs,
-        )
-
-        # self.heat_constraint = Constraint(
-        #     expr=self.heat_annual
-        #     == self.heat * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
-        # )
-
-        # self.electricity_constraint = Constraint(
-        #     expr=self.electricity_annual
-        #     == self.electricity
-        #     * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
-        # )
-
-        # Revert back to standard output
-        sys.stdout = oldstdout
-
         self.dataset_filename = os.path.join(
             os.path.dirname(__file__), "data/pv_data.pkl"
         )
+
+        if os.path.exists(self.surrogate_file):
+            stream = StringIO()
+            oldstdout = sys.stdout
+            sys.stdout = stream
+
+            self.surrogate_blk = SurrogateBlock(concrete=True)
+            self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
+            self.surrogate_blk.build_model(
+                self.surrogate,
+                input_vars=self.surrogate_inputs,
+                output_vars=self.surrogate_outputs,
+            )
+
+            # Revert back to standard output
+            sys.stdout = oldstdout
+
+    def get_training_validation(self):
+        print('Loading Training Data...\n')
+        time_start = time.process_time()
+        pkl_data = pd.read_pickle(self.dataset_filename)
+        data = pkl_data.sample(n=int(self.sample_fraction*len(pkl_data)))
+        self.data_training, self.data_validation = split_training_validation(
+            data, self.training_fraction, seed=len(data)
+        )
+        time_stop = time.process_time()
+        print("Data Loading Time:", time_stop - time_start, "\n")
+
+    
+    def create_surrogate(
+            self, training_dataframe, input_labels, output_labels, output_filename=None
+        ):
         self.sample_fraction = 1.0 # fraction of the generated data to train with. More flexible than n_samples.
         self.training_fraction = 0.8
