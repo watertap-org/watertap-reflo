@@ -80,7 +80,9 @@ class TroughSurrogateData(SolarEnergyBaseData):
         self.input_labels = ["heat_load", "hours_storage"]
         self.output_labels = ["heat_annual", "electricity_annual"]
 
-        self.surrogate_file = os.path.join(os.path.dirname(__file__), "trough_surrogate.json")
+        self.surrogate_file = os.path.join(
+            os.path.dirname(__file__), "trough_surrogate.json"
+        )
         self.surrogate_blk = SurrogateBlock(concrete=True)
         self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
         self.surrogate_blk.build_model(
@@ -102,9 +104,10 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         # Revert back to standard output
         sys.stdout = oldstdout
-        
-        
-        self.dataset_filename = os.path.join(os.path.dirname(__file__), "data/trough_data.pkl")
+
+        self.dataset_filename = os.path.join(
+            os.path.dirname(__file__), "data/trough_data.pkl"
+        )
         self.n_samples = 100
         self.training_fraction = 0.8
 

@@ -29,10 +29,12 @@ from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 
 solver = get_solver()
 
+
 def main():
     build_solve_trough()
     build_solve_lt_med()
     build_solve_trough_lt_med()
+
 
 def check_scaling(m, jacob=False):
     if jacob:
@@ -41,10 +43,9 @@ def check_scaling(m, jacob=False):
         for i in extreme_jacobian_entries(jac=jac, nlp=nlp, large=100):
             print(f"derivative of: {i[1]}\nwith respect to: {i[2]}\n\t{i[0]:.2e}\n")
     print("Badly scaled variables:")
-    for v, sv in badly_scaled_var_generator(
-        m, large=1e2, small=1e-2, zero=1e-12
-    ):
+    for v, sv in badly_scaled_var_generator(m, large=1e2, small=1e-2, zero=1e-12):
         print(f"var: {v}\n\tscaled value: {sv}\n\tsf: {get_scaling_factor(v)}")
+
 
 def build_solve_trough():
 
@@ -66,9 +67,10 @@ def build_solve_trough():
     results = solver.solve(m)
     assert_optimal_termination(results)
 
-    print(f'Trough capital: ${m.fs.energy.costing.total_capital_cost()}')
-    print(f'Annual heat generated: {m.fs.energy.trough.heat_annual()} kWh')
-    print(f'Annual electricity consumed: {m.fs.energy.trough.electricity_annual()} kWh')
+    print(f"Trough capital: ${m.fs.energy.costing.total_capital_cost()}")
+    print(f"Annual heat generated: {m.fs.energy.trough.heat_annual()} kWh")
+    print(f"Annual electricity consumed: {m.fs.energy.trough.electricity_annual()} kWh")
+
 
 def build_solve_lt_med():
     m = ConcreteModel()
@@ -110,10 +112,18 @@ def build_solve_lt_med():
         flowsheet_costing_block=m.fs.treatment.costing
     )
     m.fs.treatment.costing.cost_process()
-    m.fs.water_prop.set_default_scaling("flow_mass_phase_comp", 1e-3, index=("Liq", "H2O"))
-    m.fs.water_prop.set_default_scaling("flow_mass_phase_comp", 1e-3, index=("Liq", "TDS"))
-    m.fs.steam_prop.set_default_scaling("flow_mass_phase_comp", 1e-3, index=("Liq", "H2O"))
-    m.fs.steam_prop.set_default_scaling("flow_mass_phase_comp", 1e-3, index=("Vap", "H2O"))
+    m.fs.water_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "H2O")
+    )
+    m.fs.water_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "TDS")
+    )
+    m.fs.steam_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "H2O")
+    )
+    m.fs.steam_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Vap", "H2O")
+    )
     set_scaling_factor(lt_med.thermal_power_requirement, 1e-6)
     calculate_scaling_factors(m)
     # check_scaling(m)
@@ -122,9 +132,8 @@ def build_solve_lt_med():
     results = solver.solve(m)
     print(f"DOF = {degrees_of_freedom(m)}")
     assert_optimal_termination(results)
-    print(f'LT-MED capital: ${m.fs.treatment.costing.total_capital_cost()}')
-    print(f'LT-MED thermal power requirement: {lt_med.thermal_power_requirement()} kW')
-
+    print(f"LT-MED capital: ${m.fs.treatment.costing.total_capital_cost()}")
+    print(f"LT-MED thermal power requirement: {lt_med.thermal_power_requirement()} kW")
 
 
 def build_solve_trough_lt_med():
@@ -179,13 +188,23 @@ def build_solve_trough_lt_med():
     m.fs.energy.costing.cost_process()
     m.fs.sys_costing = SETOSystemCosting()
 
-    m.fs.energy.lt_med_heat_demand_constr = Constraint(expr=trough.heat_load == lt_med.thermal_power_requirement)
+    m.fs.energy.lt_med_heat_demand_constr = Constraint(
+        expr=trough.heat_load == lt_med.thermal_power_requirement
+    )
     trough.hours_storage.fix(6)
 
-    m.fs.water_prop.set_default_scaling("flow_mass_phase_comp", 1e-3, index=("Liq", "H2O"))
-    m.fs.water_prop.set_default_scaling("flow_mass_phase_comp", 1e-3, index=("Liq", "TDS"))
-    m.fs.steam_prop.set_default_scaling("flow_mass_phase_comp", 1e-3, index=("Liq", "H2O"))
-    m.fs.steam_prop.set_default_scaling("flow_mass_phase_comp", 1e-3, index=("Vap", "H2O"))
+    m.fs.water_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "H2O")
+    )
+    m.fs.water_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "TDS")
+    )
+    m.fs.steam_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "H2O")
+    )
+    m.fs.steam_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Vap", "H2O")
+    )
     set_scaling_factor(lt_med.thermal_power_requirement, 1e-6)
 
     calculate_scaling_factors(m)
@@ -197,6 +216,7 @@ def build_solve_trough_lt_med():
     print(f"SOLVE = {results.solver.termination_condition.swapcase()}")
 
     print_infeasible_constraints(m)
+
 
 if __name__ == "__main__":
     main()

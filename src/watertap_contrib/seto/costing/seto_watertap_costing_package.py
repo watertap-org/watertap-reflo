@@ -53,7 +53,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
     unit_mapping = {
         LTMEDSurrogate: cost_lt_med_surrogate,
         Photovoltaic: cost_pv,
-        TroughSurrogate: cost_trough_surrogate, 
+        TroughSurrogate: cost_trough_surrogate,
         Mixer: cost_mixer,
         Pump: cost_pump,
         EnergyRecoveryDevice: cost_energy_recovery_device,
