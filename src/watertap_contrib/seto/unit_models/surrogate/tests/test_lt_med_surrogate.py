@@ -71,6 +71,18 @@ class TestLTMED:
         dist.flow_mass_phase_comp["Liq", "TDS"].fix(0)  # salinity in distillate is zero
 
         lt_med.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
+        m.fs.water_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        )
+        m.fs.water_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+        )
+        m.fs.steam_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        )
+        m.fs.steam_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1, index=("Vap", "H2O")
+        )
 
         return m
 
