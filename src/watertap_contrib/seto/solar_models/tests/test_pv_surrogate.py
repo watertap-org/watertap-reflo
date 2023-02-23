@@ -26,21 +26,16 @@ class TestPVSurrogate:
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.energy = Block()
         m.fs.energy.pv = PVSurrogate()
-        # # create flowsheet input variable
-        # m.fs.design_size = Var(
-        #     initialize=1000, doc="PV design size in kW"
-        # )
-
-        # # create flowsheet output variable
-        # m.fs.annual_energy = Var(
-        # initialize=7e7, doc="annual energy produced by the plant in kWh"
-        # )
         
         return m
     
     def test_load_surrogate(self, pv_frame):
         m = pv_frame
         m.fs.energy.pv.load_surrogate()
+
+    def test_create_surrogate(self, pv_frame):
+        m = pv_frame
+        m.fs.energy.pv.create_surrogate()
     #     # create input and output variable object lists for flowsheet
     #     inputs = [m.fs.design_size]
     #     outputs = [m.fs.annual_energy]
