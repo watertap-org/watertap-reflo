@@ -46,23 +46,23 @@ from watertap_contrib.seto.costing import (
 )
 from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.core import SETODatabase, PySAMWaterTAP
-
+from watertap_contrib.seto.solar_models.surrogate.pv import PVSurrogate
 
 solver = get_solver()
 
 absolute_path = os.path.dirname(__file__)
 print(absolute_path)
 
-tech_config_file = "/pysam_data/pvsamv1.json"
-tech_config_file = absolute_path + tech_config_file
-grid_config_file = "/pysam_data/grid.json"
-grid_config_file = absolute_path + grid_config_file
-rate_config_file = "/pysam_data/utilityrate5.json"
-rate_config_file = absolute_path + rate_config_file
-cash_config_file = "/pysam_data/singleowner.json"
-cash_config_file = absolute_path + cash_config_file
-weather_file = "/pysam_data/phoenix_az_33.450495_-111.983688_psmv3_60_tmy.csv"
-weather_file = absolute_path + weather_file
+# tech_config_file = "/pysam_data/pvsamv1.json"
+# tech_config_file = absolute_path + tech_config_file
+# grid_config_file = "/pysam_data/grid.json"
+# grid_config_file = absolute_path + grid_config_file
+# rate_config_file = "/pysam_data/utilityrate5.json"
+# rate_config_file = absolute_path + rate_config_file
+# cash_config_file = "/pysam_data/singleowner.json"
+# cash_config_file = absolute_path + cash_config_file
+# weather_file = "/pysam_data/phoenix_az_33.450495_-111.983688_psmv3_60_tmy.csv"
+# weather_file = absolute_path + weather_file
 
 
 def build_ro_pv():
@@ -73,20 +73,20 @@ def build_ro_pv():
     """
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.pysam = PySAMWaterTAP(
-        pysam_model="pv",
-        tech_config_file=tech_config_file,
-        grid_config_file=grid_config_file,
-        rate_config_file=rate_config_file,
-        cash_config_file=cash_config_file,
-        weather_file=weather_file,
-    )
+    # m.pysam = PySAMWaterTAP(
+    #     pysam_model="pv",
+    #     tech_config_file=tech_config_file,
+    #     grid_config_file=grid_config_file,
+    #     rate_config_file=rate_config_file,
+    #     cash_config_file=cash_config_file,
+    #     weather_file=weather_file,
+    # )
     m.fs.properties = NaClParameterBlock()
 
     treatment = m.fs.treatment = Block()
     energy = m.fs.energy = Block()
 
-    energy.pv = Photovoltaic()
+    energy.pv = PVSurrogate()
     treatment.feed = Feed(property_package=m.fs.properties)
     treatment.product = Product(property_package=m.fs.properties)
     treatment.disposal = Product(property_package=m.fs.properties)
@@ -257,8 +257,8 @@ def initialize_treatment(m, water_recovery=0.5):
 
 
 def initialize_energy(m):
-    m.fs.energy.pv.initialize()
-    m.fs.energy.pv.oversize_factor.set_value(1)
+    m.fs.energy.pv.load_surrogate()
+    # m.fs.energy.pv.oversize_factor.set_value(1)
 
 
 def initialize_sys(m, water_recovery=0.5):
@@ -320,7 +320,9 @@ def add_costing(m):
     treatment.costing = TreatmentCosting()
     energy.costing = EnergyCosting()
 
-    energy.pv.costing = UnitModelCostingBlock(flowsheet_costing_block=energy.costing)
+    energy.pv.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=energy.costing
+        )
     treatment.ro.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing
     )
@@ -334,20 +336,19 @@ def add_costing(m):
     treatment.costing.cost_process()
     energy.costing.cost_process()
 
+    energy.costing.display()
     m.fs.sys_costing = SETOSystemCosting()
+    m.fs.energy.pv_design_constraint = Constraint(
+        expr=m.fs.energy.pv.design_size == m.fs.treatment.costing.aggregate_flow_electricity
+    )
+    print('Here')
     m.fs.sys_costing.add_LCOW(treatment.product.properties[0].flow_vol)
     m.fs.sys_costing.add_specific_electric_energy_consumption(
         treatment.product.properties[0].flow_vol
     )
-
+    
     treatment.costing.initialize()
     energy.costing.initialize()
-
-
-def fix_pv_costing(m):
-    m.fs.energy.pv.costing.system_capacity.fix(0)
-    m.fs.energy.pv.costing.annual_generation.fix(0)
-    m.fs.energy.pv.costing.land_area.fix(0)
 
 
 def fix_treatment_global_params(m):
@@ -355,48 +356,11 @@ def fix_treatment_global_params(m):
     m.fs.treatment.costing.factor_maintenance_labor_chemical.fix(0)
 
 
-def size_pv(m):
-    desired_pv_size = (
-        m.fs.treatment.costing.aggregate_flow_electricity()
-        * m.fs.energy.pv.oversize_factor()
-    )
-    cash_model_kwargs = {"om_fixed": 1e4, "om_production": 20}
-    m.pysam.run_pv_single_owner(
-        desired_size=desired_pv_size, cash_model_kwargs=cash_model_kwargs
-    )
-    m.fs.sys_costing.add_LCOE()
-
-
-def fix_pysam_costing(m):
-    tech_model = m.pysam.tech_model
-    cash_model = m.pysam.cash_model
-
-    avg_gen = np.mean(m.pysam.hourly_energy)
-    m.fs.energy.pv.electricity.fix(-1 * avg_gen)
-
-    annual_gen = pyunits.convert(
-        (m.pysam.annual_energy * pyunits.kWh), to_units=pyunits.MWh
-    )()
-    land_area = cash_model.LandLease.land_area * pyunits.acres
-
-    m.fs.energy.pv.costing.land_area.fix(land_area)
-    m.fs.energy.costing.photovoltaic.fixed_operating_by_capacity.fix(
-        cash_model.SystemCosts.om_capacity[0]
-    )
-    m.fs.energy.pv.costing.system_capacity.fix(m.pysam.nameplate_dc * 1000)
-    m.fs.energy.costing.photovoltaic.variable_operating_by_generation.fix(
-        cash_model.SystemCosts.om_production[0]
-    )
-    m.fs.energy.pv.costing.annual_generation.fix(annual_gen)
-    m.fs.energy.costing.factor_maintenance_labor_chemical.fix(0)
-
-
 def solve(m, solver=None, tee=False, check_termination=True):
     if solver is None:
         solver = get_solver()
     results = solver.solve(m, tee=tee)
-    size_pv(m)
-    fix_pysam_costing(m)
+    # fix_pysam_costing(m)
     results = solver.solve(m, tee=tee)
     if check_termination:
         assert_optimal_termination(results)
@@ -411,16 +375,15 @@ def model_setup(Q, conc, recovery):
     set_operating_conditions(m, flow_in=Q, conc_in=conc, water_recovery=recovery)
     initialize_sys(m)
     add_costing(m)
-    fix_pv_costing(m)
     fix_treatment_global_params(m)
     optimize_setup(m, m.fs.sys_costing.LCOW)
-
     return m
 
 
 def run(m):
     results = solve(m)
     assert_optimal_termination(results)
+    m.fs.energy.pv.costing.display()
     display_ro_pv_results(m)
     display_pv_results(m)
 
@@ -428,7 +391,7 @@ def run(m):
 
 
 def main():
-    m = model_setup(6.375e-2, 75, 0.5)
+    m = model_setup(6.375e-2, 35, 0.5)
     m, results = run(m)
 
     return m, results

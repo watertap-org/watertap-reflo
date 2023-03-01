@@ -53,7 +53,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
     unit_mapping = {
         LTMEDSurrogate: cost_lt_med_surrogate,
         Photovoltaic: cost_pv,
-        PVSurrogate: cost_pv_surrogate,
+        PVSurrogate: cost_pv,
         Mixer: cost_mixer,
         Pump: cost_pump,
         EnergyRecoveryDevice: cost_energy_recovery_device,
@@ -90,13 +90,13 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             units=pyo.units.dimensionless,
         )
 
-        self.heat_cost = pyo.Param(
-            mutable=True,
-            initialize=0.01,
-            doc="Heat cost",
-            units=pyo.units.USD_2018 / pyo.units.kWh,
-        )
-        self.add_defined_flow("heat", self.heat_cost)
+        # self.heat_cost = pyo.Param(
+        #     mutable=True,
+        #     initialize=0.01,
+        #     doc="Heat cost",
+        #     units=pyo.units.USD_2018 / pyo.units.kWh,
+        # )
+        # self.add_defined_flow("heat", self.heat_cost)
 
         self.plant_lifetime.fix()
         self.utilization_factor.fix(1)
@@ -265,14 +265,14 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             units=pyo.units.kW,
         )
 
-        # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
-            self.aggregate_flow_heat = pyo.Var(
-                initialize=1e3,
-                # domain=pyo.NonNegativeReals,
-                doc="Aggregated heat flow",
-                units=pyo.units.kW,
-            )
+        # # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
+        # if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+        #     self.aggregate_flow_heat = pyo.Var(
+        #         initialize=1e3,
+        #         # domain=pyo.NonNegativeReals,
+        #         doc="Aggregated heat flow",
+        #         units=pyo.units.kW,
+        #     )
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
@@ -296,12 +296,12 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             + en_cost.aggregate_flow_electricity
         )
 
-        # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
-            self.aggregate_flow_heat_constraint = pyo.Constraint(
-                expr=self.aggregate_flow_heat
-                == treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat
-            )
+        # # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
+        # if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+        #     self.aggregate_flow_heat_constraint = pyo.Constraint(
+        #         expr=self.aggregate_flow_heat
+        #         == treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat
+        #     )
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
@@ -420,11 +420,11 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             "specific_thermal_energy_consumption", specific_thermal_energy_consumption
         )
 
-        specific_thermal_energy_consumption_constraint = pyo.Constraint(
-            expr=specific_thermal_energy_consumption
-            == self.aggregate_flow_heat
-            / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr)
-        )
+        # specific_thermal_energy_consumption_constraint = pyo.Constraint(
+        #     expr=specific_thermal_energy_consumption
+        #     == self.aggregate_flow_heat
+        #     / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr)
+        # )
 
         self.add_component(
             "specific_thermal_energy_consumption_constraint",

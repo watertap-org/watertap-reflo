@@ -21,7 +21,7 @@ import numpy as np
 from io import StringIO
 import matplotlib.pyplot as plt
 
-from pyomo.environ import Var, Constraint, units as pyunits, value
+from pyomo.environ import Var, Constraint, units as pyunits, value, Param
 
 from idaes.core import declare_process_block_class
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
@@ -64,6 +64,12 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.input_labels = ["design_size"]
         self.output_labels = ["annual_energy"]
+
+        self.electricity_constraint = Constraint(
+            expr=self.annual_energy
+            == self.electricity
+            * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
+        )
 
     def load_surrogate(self):
         print('Loading surrogate file...')

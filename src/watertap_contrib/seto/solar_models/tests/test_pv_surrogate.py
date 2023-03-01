@@ -29,14 +29,17 @@ class TestPVSurrogate:
         
         return m
     
+    @pytest.mark.component
     def test_load_surrogate(self, pv_frame):
         m = pv_frame
         m.fs.energy.pv.load_surrogate()
 
+    @pytest.mark.component
     def test_create_surrogate(self, pv_frame):
         m = pv_frame
         m.fs.energy.pv.create_surrogate()
 
+    @pytest.mark.component
     def test_eval_surrogate(self, pv_frame):
         # fix input values and solve flowsheet
         m = pv_frame
