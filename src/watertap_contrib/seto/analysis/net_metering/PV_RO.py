@@ -294,6 +294,8 @@ def optimize_setup(
     ro.area.setlb(area_lb)
     ro.area.setub(area_ub)
 
+    ro.recovery_mass_phase_comp[0, "Liq", "H2O"].unfix()
+    
     ro.feed_side.velocity[0, 0].unfix()
     ro.feed_side.velocity[0, 0].setlb(0.01)
     ro.feed_side.velocity[0, 0].setub(1)
