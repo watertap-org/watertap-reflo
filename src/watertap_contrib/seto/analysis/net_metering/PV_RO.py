@@ -332,21 +332,28 @@ def add_costing(m):
     treatment.p1.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing
     )
-
     treatment.costing.cost_process()
-    energy.costing.cost_process()
-
-    energy.costing.display()
-    m.fs.sys_costing = SETOSystemCosting()
     m.fs.energy.pv_design_constraint = Constraint(
         expr=m.fs.energy.pv.design_size == m.fs.treatment.costing.aggregate_flow_electricity
     )
-    print('Here')
+    m.fs.energy.pv.costing.annual_generation_constraint = Constraint(
+        expr=m.fs.energy.pv.costing.annual_generation == m.fs.energy.pv.annual_energy
+    )
+    m.fs.energy.pv.costing.system_capacity_constraint = Constraint(
+        expr=m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
+    )
+    # m.fs.energy.pv.costing.annual_generation_constraint = Var(
+    #     expr=m.fs.energy.pv.costing.annual_generation == m.fs.energy.pv.annual_energy
+    # )
+
+    energy.costing.cost_process()
+
+    m.fs.sys_costing = SETOSystemCosting()
     m.fs.sys_costing.add_LCOW(treatment.product.properties[0].flow_vol)
     m.fs.sys_costing.add_specific_electric_energy_consumption(
         treatment.product.properties[0].flow_vol
     )
-    
+    m.fs.sys_costing.add_LCOE(e_model="surrogate")
     treatment.costing.initialize()
     energy.costing.initialize()
 
@@ -383,7 +390,9 @@ def model_setup(Q, conc, recovery):
 def run(m):
     results = solve(m)
     assert_optimal_termination(results)
-    m.fs.energy.pv.costing.display()
+    # m.fs.energy.pv.costing.display()
+    # m.fs.sys_costing.display()
+    # m.fs.energy.display()
     display_ro_pv_results(m)
     display_pv_results(m)
 
@@ -391,7 +400,7 @@ def run(m):
 
 
 def main():
-    m = model_setup(6.375e-2, 35, 0.5)
+    m = model_setup(4.375e-2, 35, 0.5)
     m, results = run(m)
 
     return m, results

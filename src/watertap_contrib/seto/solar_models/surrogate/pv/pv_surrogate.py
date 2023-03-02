@@ -67,7 +67,7 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
-            == self.electricity
+            == -1 * self.electricity
             * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
         )
 

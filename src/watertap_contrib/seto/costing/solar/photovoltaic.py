@@ -125,7 +125,7 @@ def cost_pv(blk):
 
     blk.annual_generation = pyo.Var(
         initialize=0,
-        units=pyo.units.MWh,
+        units=pyo.units.kWh,
         bounds=(0, None),
         doc="Annual electricity generation of PV system",
     )
@@ -173,5 +173,7 @@ def cost_pv(blk):
         expr=blk.variable_operating_cost
         == pv_params.variable_operating_by_generation * blk.annual_generation
     )
-
+    # print(f'\n{"=======> End of PV Costing Block <=======":^60}\n')
+    print(blk.annual_generation())
     blk.costing_package.cost_flow(blk.unit_model.electricity, "electricity")
+    # blk.display()
