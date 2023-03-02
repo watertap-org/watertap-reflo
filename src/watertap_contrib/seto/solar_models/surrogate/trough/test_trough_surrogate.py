@@ -5,7 +5,7 @@ from io import StringIO
 from os.path import join, dirname, getsize
 import pandas as pd
 from pyomo.environ import ConcreteModel, assert_optimal_termination, Var, value
-from watertap_contrib.seto.solar_models.surrogate.trough.training_surrogate import (
+from watertap_contrib.seto.solar_models.surrogate.trough.data.training_trough_surrogate import (
     create_rbf_surrogate,
 )
 from watertap_contrib.seto.costing import SETOWaterTAPCosting, EnergyCosting
@@ -14,7 +14,7 @@ from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 
-DATASET_FILENAME = join(dirname(__file__), "data/dataset.pkl")
+DATASET_FILENAME = join(dirname(__file__), "data/trough_data.pkl")
 SURROGATE_FILENAME = join(dirname(__file__), "trough_surrogate.json")
 N_SAMPLES = 100  # number of points to use from overall dataset
 TRAINING_FRACTION = 0.8
