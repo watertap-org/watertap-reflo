@@ -177,7 +177,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
                 units=pyunits.kg / pyunits.m**3,
                 doc="Density of electrode material",
             )
-            self.metal__dose_to_toc_ratio = Param(
+            self.metal_dose_to_toc_ratio = Param(
                 initialize=2,
                 units=pyunits.kg / pyunits.kg,
                 doc="Coagulant dose to inlet TOC ratio",
@@ -342,11 +342,11 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
             doc="Cell voltage",
         )
 
-        self.potential_balance = Var(
+        self.overpotential = Var(
             initialize=1,
             bounds=(0, None),
             units=pyunits.volt,
-            doc="Potential balance for voltage",  # ???
+            doc="Overpotential",  # ???
         )
 
         self.reactor_volume = Var(
@@ -417,7 +417,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
         def eq_cell_voltage(b):
             return (
                 b.cell_voltage
-                == b.potential_balance + b.applied_current * b.ohmic_resistance
+                == b.overpotential + b.applied_current * b.ohmic_resistance
             )
 
         @self.Constraint(doc="Area per electrode")
@@ -656,7 +656,7 @@ class ElectrocoagulationData(InitializationMixin, UnitModelBlockData):
 
         iscale.set_scaling_factor(self.cell_voltage, 0.1)
 
-        iscale.set_scaling_factor(self.potential_balance, 0.1)
+        iscale.set_scaling_factor(self.overpotential, 0.1)
 
         # transforming constraints
         sf = iscale.get_scaling_factor(self.metal_loading)
