@@ -169,10 +169,10 @@ class TestLTMED:
         feed_flow_m3_hr = 168.6778
         dist_flow_m3_hr = 84.3389
         brine_flow_m3_hr = 84.3389
-        cool_flow_m3_hr = 399.2539
+        cool_flow_m3_hr = 410.7059
 
         feed_mass_flow_tot = 47.91666
-        cool_mass_flow_tot = 113.1762
+        cool_mass_flow_tot = 116.4225
         feed_mass_flow_tds = 1.62037
         brine_mass_flow_tds = 1.62037
         recovery = dist_flow_m3_hr / feed_flow_m3_hr
