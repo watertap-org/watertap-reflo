@@ -276,6 +276,22 @@ class LTMEDData(UnitModelBlockData):
             )
 
         """
+        Isobaric
+        """
+
+        @self.Constraint(self.flowsheet().config.time, doc="Isobaric")
+        def eq_feed_to_distillate_isobaric(b, t):
+            return b.feed_props[t].pressure == b.distillate_props[t].pressure
+
+        @self.Constraint(self.flowsheet().config.time, doc="Isobaric")
+        def eq_feed_to_brine_isobaric(b, t):
+            return b.feed_props[t].pressure == b.brine_props[t].pressure
+
+        @self.Constraint(self.flowsheet().config.time, doc="Isobaric")
+        def eq_feed_to_cooling_isobaric(b, t):
+            return b.feed_props[t].pressure == b.cooling_out_props[t].pressure
+
+        """
         Add Vars for model outputs
         """
         self.thermal_power_requirement = Var(
@@ -988,6 +1004,14 @@ class LTMEDData(UnitModelBlockData):
             / 3600
         )
         iscale.constraint_scaling_transform(self.eq_cool_vol_flow, sf)
+
+        for t in self.flowsheet().config.time:
+            sf = iscale.get_scaling_factor(self.feed_props[t].pressure)
+            iscale.constraint_scaling_transform(
+                self.eq_feed_to_distillate_isobaric[t], sf
+            )
+            iscale.constraint_scaling_transform(self.eq_feed_to_brine_isobaric[t], sf)
+            iscale.constraint_scaling_transform(self.eq_feed_to_cooling_isobaric[t], sf)
 
     def _get_gain_output_ratio_coeffs(self):
         return {

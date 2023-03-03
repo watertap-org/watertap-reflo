@@ -67,6 +67,7 @@ class TestLTMED:
         feed.flow_mass_phase_comp["Liq", "TDS"].fix(feed_salinity * feed_flow)
         feed.flow_mass_phase_comp["Liq", "H2O"].fix(feed_dens * feed_flow)
         feed.temperature.fix(feed_temperature + 273.15)
+        feed.pressure.fix(101325)
         steam.temperature.fix(steam_temperature + 273.15)
         # flow rate of liquid steam is zero
         steam.flow_mass_phase_comp["Liq", "H2O"].fix(0)
@@ -124,8 +125,8 @@ class TestLTMED:
             assert len(port.vars) == 3
 
         # test statistics
-        # assert number_variables(m) == 178
-        assert number_total_constraints(m) == 47
+        assert number_variables(m) == 190
+        assert number_total_constraints(m) == 50
         assert number_unused_variables(m) == 90  # vars from property package parameters
 
     @pytest.mark.unit
