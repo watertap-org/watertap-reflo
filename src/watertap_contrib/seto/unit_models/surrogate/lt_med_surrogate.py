@@ -840,9 +840,9 @@ class LTMEDData(UnitModelBlockData):
                     state_args[k] = state_dict[k].value
 
         state_args_dist = deepcopy(state_args)
-        # for p, j in blk.distillate_props.phase_component_set:
-        #     if j == "TDS":
-        #         state_args_dist["flow_mass_phase_comp"][(p, j)] = 0
+        for p, j in blk.distillate_props.phase_component_set:
+            if j == "TDS":
+                state_args_dist["flow_mass_phase_comp"][(p, j)] = 0
 
         blk.distillate_props.initialize(
             outlvl=outlvl,
@@ -852,7 +852,6 @@ class LTMEDData(UnitModelBlockData):
         )
 
         state_args_steam = {}
-        # state_args_steam = deepcopy(state_args)
         state_dict_steam = blk.steam_props[
             blk.flowsheet().config.time.first()
         ].define_port_members()
@@ -877,14 +876,14 @@ class LTMEDData(UnitModelBlockData):
         )
 
         state_args_brine = deepcopy(state_args)
-        # for p, j in blk.brine_props.phase_component_set:
-        #     if p == "Liq" and j == "H2O":
-        #         state_args_brine["flow_mass_phase_comp"][(p, j)] = (
-        #             state_args["flow_mass_phase_comp"][(p, j)]
-        #             * (1 - blk.recovery_vol_phase[0, "Liq"])
-        #             * pyunits.kg
-        #             / pyunits.s
-        #         )
+        for p, j in blk.brine_props.phase_component_set:
+            if p == "Liq" and j == "H2O":
+                state_args_brine["flow_mass_phase_comp"][(p, j)] = (
+                    state_args["flow_mass_phase_comp"][(p, j)]
+                    * (1 - blk.recovery_vol_phase[0, "Liq"])
+                    * pyunits.kg
+                    / pyunits.s
+                )
 
         blk.brine_props.initialize(
             outlvl=outlvl,
