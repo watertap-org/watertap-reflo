@@ -7,6 +7,7 @@ from pyomo.environ import (
     Param,
     Constraint,
     Block,
+    log10,
     TransformationFactory,
     assert_optimal_termination,
     value,
