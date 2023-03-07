@@ -23,8 +23,12 @@ from ..util import (
     make_fixed_operating_cost_var,
 )
 
+'''
+TODO: Remove the hard coded constants in the costing equations
+      Don't fix variables in the unit model code
+'''
+ 
 
-# TODO: Remove the hard coded constants in the costing equations
 
 class SofteningProcedureType(StrEnum): 
     single_stage_lime = "single_stage_lime"
@@ -38,14 +42,7 @@ def build_chem_softening_cost_param_block(blk):
         Parameters and variables to be used in the costing model
     '''
     costing = blk.parent_block()
-    #
-    # blk.unit_cost = Var(
-    #     initialize = 10,
-    #     doc = 'sample',
-    #     units = dimensionless,
-    # )
-
-
+    
     blk.sed_basin_depth = Var(
         initialize=4.5,
         bounds=(3, 6),
@@ -71,8 +68,8 @@ def build_chem_softening_cost_param_block(blk):
         doc = "Cost of soda ash $/kg"
     )
 
-
     blk.fix_all_vars()
+
 
 @register_costing_parameter_block(
     build_rule = build_chem_softening_cost_param_block,
@@ -98,7 +95,43 @@ def cost_chem_softening_single_stage_lime(blk):
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
-    # Capital cost components 
+
+    blk.mixer_energy = Var(
+        initialize=1000,
+        units=pyunits.W,
+        domain= NonNegativeReals,
+        doc='Power consumption for rapid mix'
+    )
+
+    blk.floc_energy = Var(
+        initialize=100,
+        units=pyunits.W,
+        domain= NonNegativeReals,
+        doc='Power consumption for rapid mix'
+    )
+
+    blk.mixer_power = Var(
+        initialize=100,
+        domain= NonNegativeReals,
+        units=pyunits.kWh/pyunits.day,
+        doc='Power consumption for rapid mix'
+    )
+
+    blk.floc_power = Var(
+        initialize=100,
+        domain= NonNegativeReals,
+        units=pyunits.kWh/pyunits.day,
+        doc='Power consumption for rapid mix'
+    )
+    
+    blk.electricity_flow = Var(
+        initialize=100,
+        domain= NonNegativeReals,
+        units=pyunits.kWh/pyunits.day,
+        doc='Total electricity consumption per day'
+    )
+
+    #region Capital cost components 
     blk.mix_tank_capital_cost = Var(
         initialize = 1e6,
         domain= NonNegativeReals,
@@ -147,8 +180,9 @@ def cost_chem_softening_single_stage_lime(blk):
         domain= NonNegativeReals,
         units=blk.costing_package.base_currency
     )
+    #endregion
 
-    # Operating cost components
+    #region Operating cost components
    
     blk.mix_tank_op_cost = Var(
         initialize = 1e4,
@@ -216,7 +250,8 @@ def cost_chem_softening_single_stage_lime(blk):
         domain= NonNegativeReals,
         units=blk.costing_package.base_currency
     )
-
+    
+    #endregion
 
     #region Capital cost component constraints
 
@@ -281,7 +316,7 @@ def cost_chem_softening_single_stage_lime(blk):
     # Recarbonation basin
     blk.recarb_basin_capital_cost_constraint =  Constraint(
         expr = blk.recarb_basin_capital_cost 
-        == ( 4e-9 * (pyunits.convert(blk.unit_model.volume_recarb,to_units=pyunits.ft**3))**3 -
+        == ( 4e-9 * (pyunits.convert(blk.unit_model.volume_recarb,to_units=pyunits.ft**3)) ** 3 -
            0.0002 * (pyunits.convert(blk.unit_model.volume_recarb,to_units=pyunits.ft**3)) ** 2 +
            10.027 * (pyunits.convert(blk.unit_model.volume_recarb,to_units=pyunits.ft**3)) + 19287 )
         )
@@ -417,15 +452,41 @@ def cost_chem_softening_single_stage_lime(blk):
 
     # Sum of all capital costs
     blk.capital_cost_constraint = Constraint(
-        expr=blk.capital_cost
+        expr = blk.capital_cost
         == blk.mix_tank_capital_cost + blk.floc_tank_capital_cost + blk.sed_basin_capital_cost + blk.recarb_basin_capital_cost + 
         blk.recarb_basin_source_capital_cost + blk.lime_feed_system_capital_cost + blk.admin_capital_cost 
     )
 
-
     # Sum of all operational costs
     blk.fixed_operating_cost_constraint = Constraint(
-        expr=blk.fixed_operating_cost
+        expr = blk.fixed_operating_cost
         ==  blk.mix_tank_op_cost + blk.floc_tank_op_cost + blk.sed_basin_op_cost + blk.recarb_basin_op_cost +
         blk.lime_feed_op_cost + blk.soda_ash_add_op_cost + blk.mg_add_op_cost + blk.lime_sludge_mngt_op_cost + blk.admin_op_cost
     )
+
+    blk.mixer_energy_constraint = Constraint(
+        expr = blk.mixer_energy
+        == (blk.unit_model.vel_gradient_mix**2) * blk.unit_model.volume_mixer * blk.unit_model.properties_in[0].params.visc_d_default
+    )
+
+    blk.floc_energy_constraint = Constraint(
+        expr = blk.floc_energy
+        == (blk.unit_model.vel_gradient_floc**2) * blk.unit_model.volume_floc * blk.unit_model.properties_in[0].params.visc_d_default
+    )
+
+    blk.mixer_power_constraint = Constraint(
+        expr = blk.mixer_power 
+        == blk.mixer_energy * 0.001 *24
+    )
+
+    blk.floc_power_constraint = Constraint(
+        expr = blk.floc_power 
+        == blk.floc_energy * 0.001 *24
+    )
+
+    blk.electricity_flow_constraint = Constraint(
+        expr = blk.electricity_flow
+         == ( blk.mixer_power + blk.floc_power)
+    )
+
+    blk.costing_package.cost_flow(blk.electricity_flow, "electricity")
