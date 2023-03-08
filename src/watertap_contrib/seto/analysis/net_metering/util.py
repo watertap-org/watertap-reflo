@@ -12,7 +12,7 @@ def display_ro_pv_results(m, sep="."):
     prop_in = ro.feed_side.properties_in[0]
     prop_out = ro.feed_side.properties_out[0]
     prop_perm = ro.mixed_permeate[0]
-    pv_cost = m.fs.energy.costing.photovoltaic
+    pv_cost = m.fs.energy.costing.pv_surrogate
     line = f'\n{f"{sep*60}":<60s}'
     flux_lmh = pyunits.convert(
         ro.flux_mass_phase_comp_avg[0, "Liq", "H2O"]

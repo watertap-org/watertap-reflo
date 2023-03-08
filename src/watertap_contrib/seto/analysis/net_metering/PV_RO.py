@@ -294,7 +294,7 @@ def optimize_setup(
     ro.area.setlb(area_lb)
     ro.area.setub(area_ub)
 
-    ro.recovery_mass_phase_comp[0, "Liq", "H2O"].unfix()
+    # ro.recovery_mass_phase_comp[0, "Liq", "H2O"].unfix()
     
     ro.feed_side.velocity[0, 0].unfix()
     ro.feed_side.velocity[0, 0].setlb(0.01)
@@ -382,7 +382,7 @@ def solve(m, solver=None, tee=False, check_termination=True):
 def model_setup(Q, conc, recovery):
     m = build_ro_pv()
     set_operating_conditions(m, flow_in=Q, conc_in=conc, water_recovery=recovery)
-    initialize_sys(m)
+    initialize_sys(m, water_recovery=recovery)
     add_costing(m)
     fix_treatment_global_params(m)
     optimize_setup(m, m.fs.sys_costing.LCOW)
