@@ -71,8 +71,8 @@ class VAGMDbatchData(UnitModelBlockData):
     CONFIG.declare(
         "dynamic",
         ConfigValue(
-            domain=In([False, True]),
-            default=True,
+            domain=In([False]),
+            default=False,
             description="Dynamic model flag - must be True",
             doc="""Indicates whether this model will be dynamic or not,
     **default** = False. The filtration unit does not support dynamic
@@ -109,8 +109,8 @@ class VAGMDbatchData(UnitModelBlockData):
     CONFIG.declare(
         "has_holdup",
         ConfigValue(
-            default=True,
-            domain=In([False, True]),
+            default=False,
+            domain=In([False]),
             description="Holdup construction flag - must be True",
             doc="""Indicates whether holdup terms should be constructed or not.
     **default** - False. The filtration unit does not have defined volume, thus
@@ -155,7 +155,7 @@ class VAGMDbatchData(UnitModelBlockData):
         "module_type",
         ConfigValue(
             default=7,
-            doc="""'Selection of module type (7 for AS7C1.5L and 26 for AS26C7.2L)'""",
+            doc="""Selection of module type (7 for AS7C1.5L and 26 for AS26C7.2L)""",
         ),
     )
 
@@ -518,7 +518,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Accumulated volume of distillate of each time step',
                          )
         def AccVd_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return b.AccVd[t] == b.AccVd[t-1] + pyunits.convert(b.permeate_flow_rate[t-1] * b.tR,
                                                                     to_units = pyunits.L)  
             else:
@@ -528,7 +528,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Salinity of the batched feed water at each time step',
                          )
         def S_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return (b.feed_props[t].conc_mass_phase_comp["Liq","TDS"] * (b.V0 - b.AccVd[t])
                     ==  b.feed_props[t-1].conc_mass_phase_comp["Liq","TDS"] * (b.V0 - b.AccVd[t-1])
                 )
@@ -539,7 +539,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Feed flow rate remains the same during the recirculations',
                          )
         def FFR_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return (b.feed_props[t].flow_vol_phase["Liq"] == b.feed_props[t-1].flow_vol_phase["Liq"]
                 )
             else:
@@ -549,7 +549,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Temperature of the batched feed water at each time step',
                          )
         def Ttank_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return (b.feed_props[t].temperature == (
                         pyunits.convert(b.feed_props[t-1].flow_vol_phase["Liq"] * b.tR, 
                                         to_units = pyunits.L)
@@ -566,7 +566,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Accumulated recovery rate after each circulation',
                          )
         def RR_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return (b.accumulated_recovery_rate[t] == 1  
                         - b.feed_props[0].conc_mass_phase_comp["Liq","TDS"]
                         / b.feed_props[t].conc_mass_phase_comp["Liq","TDS"]
@@ -578,7 +578,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Permeate flux at each time step',
                          )
         def PFlux_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return (b.PFlux[t] == 
                 b.VAGMD_Models_NaCl(b.TEI, 
                                     pyunits.convert(self.feed_props[0].flow_vol_phase["Liq"], 
@@ -594,7 +594,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Permeate flow rate at each time step',
                          )
         def PFR_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return b.permeate_flow_rate[t] == b.PFlux[t] * module_area
             else:
                 return Constraint.Skip
@@ -603,7 +603,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Condenser outlet temperature at each time step',
                          )
         def TCO_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return (b.condenser_out_props[t].temperature == 
                 b.VAGMD_Models_NaCl(b.TEI, 
                                     pyunits.convert(self.feed_props[0].flow_vol_phase["Liq"], 
@@ -620,7 +620,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Evaporator outlet temperature at each time step',
                          )
         def TEO_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return (b.evaporator_out_props[t].temperature == 
                 b.VAGMD_Models_NaCl(b.TEI, 
                                     pyunits.convert(self.feed_props[0].flow_vol_phase["Liq"], 
@@ -637,7 +637,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Log mean temperature difference at each time step',
                          )
         def ATml_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 TCO = b.condenser_out_props[t].temperature - 273.15 * pyunits.K
                 TEO = b.evaporator_out_props[t].temperature - 273.15 * pyunits.K
                 return (b.log_mean_temp_dif[t] == ((b.TEI - TCO) - (TEO - b.TCI)) / log((b.TEI - TCO)/(TEO - b.TCI + 1e-6))
@@ -649,7 +649,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Average temperature of the feed flow in the heat source at each time step',
                          )
         def T_F_avg_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return b.avg_feed_props[t].temperature == (b.TEI + 273.15*pyunits.K + b.condenser_out_props[t].temperature) / 2
             else:
                 return Constraint.Skip
@@ -658,7 +658,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Salinity of the feed flow in the heat source at each time step',
                          )
         def S_F_avg_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return (b.avg_feed_props[t].mass_frac_phase_comp["Liq","TDS"] == 
                         b.VAGMD_Models_NaCl(b.TEI, 
                                             pyunits.convert(self.feed_props[0].flow_vol_phase["Liq"], 
@@ -675,7 +675,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Feed flow rate in the heat source at each time step',
                          )
         def V_F_avg_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return b.avg_feed_props[t].flow_vol_phase["Liq"] == b.feed_props[0].flow_vol_phase["Liq"]
             else:
                 return Constraint.Skip
@@ -684,7 +684,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Thermal power at each time step',
                          )
         def ThPower_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 FFR = b.feed_props[t].flow_vol_phase["Liq"]
                 CpF = b.avg_feed_props[t].cp_mass_phase["Liq"]
                 RhoF = b.avg_feed_props[t].dens_mass_phase["Liq"]
@@ -698,7 +698,7 @@ class VAGMDbatchData(UnitModelBlockData):
                          doc='Thermal energy at each time step',
                          )
         def ThEnergy_i(b, t):
-            if t > 0 and t in b.flowsheet().config.time_set:
+            if t > 0 :
                 return b.thermal_energy[t] == pyunits.convert(b.thermal_power[t] * b.tR,
                                                               to_units = pyunits.kWh)
             else:
@@ -706,7 +706,7 @@ class VAGMDbatchData(UnitModelBlockData):
 
 
     '''
-    Calculation models
+    Surrogate equations for membrane performance
     '''
     def VAGMD_Models_NaCl(self, TEI, FFR, TCI, SgL, Ttank):
     # Model parameters
@@ -746,9 +746,9 @@ class VAGMDbatchData(UnitModelBlockData):
 
                 PFluxAS7, TCOAS7, TEOAS7 = PFluxAS7_high, TCOAS7_high, TEOAS7_high   
             else:
-                TEI = sum(CoderVars[0][j] * Coder[0][j] for j in range(len(Coder[0])))#np.dot(CoderVars[0], Coder[0])
+                TEI = sum(CoderVars[0][j] * Coder[0][j] for j in range(len(Coder[0])))
                 FFR = sum(CoderVars[1][j] * Coder[1][j] for j in range(len(Coder[1])))
-                TCI = sum(CoderVars[2][j] * Coder[2][j] for j in range(len(Coder[2])))#np.dot(CoderVars[2], Coder[2])
+                TCI = sum(CoderVars[2][j] * Coder[2][j] for j in range(len(Coder[2])))
                 S_r = sum(CoderVars[3][j] * Coder[3][j] for j in range(len(Coder[3])))
 
                 PFluxAS7, TCOAS7, TEOAS7 = PFluxAS7_low, TCOAS7_low, TEOAS7_low  

@@ -138,11 +138,12 @@ class TestVAGMD:
         N = int(V0 * RR / Vd_init) + 1
 
         m = ConcreteModel()
-        m.fs = FlowsheetBlock(dynamic=True, 
-                            time_set = [ i for i in range(N+1)],
-                            time_units = pyunits.s )
+        m.fs = FlowsheetBlock(dynamic=False, 
+                              time_set = [ i for i in range(N+2)], )
         m.fs.properties = SeawaterParameterBlock()
         m.fs.vagmd = VAGMDbatch_surrogate(
+            dynamic = False,
+            has_holdup = False,
             property_package=m.fs.properties,
             module_type = 7,
             high_brine_salinity = False
@@ -176,16 +177,17 @@ class TestVAGMD:
             '     S','      Ttank','         R')
         for i in range(len(m.fs.vagmd.PFlux)):
             print ("{:<3} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10}".format(
-                                    round(i), 
-                                    round(value(m.fs.vagmd.tR*i/60,4),2), 
-                                    round(value(m.fs.vagmd.PFlux[i]), 4),
-                                    round(value(m.fs.vagmd.AccVd[i]), 4),
-                                    round(value(m.fs.vagmd.condenser_out_props[i].temperature - 273.15), 4),
-                                    round(value(m.fs.vagmd.evaporator_out_props[i].temperature - 273.15), 4),
-                                    round(value(m.fs.vagmd.log_mean_temp_dif[i]), 4),
-                                    round(value(m.fs.vagmd.thermal_energy[i]), 4),
-                                    round(value(m.fs.vagmd.feed_props[i].conc_mass_phase_comp["Liq","TDS"]), 4),
-                                    round(value(m.fs.vagmd.feed_props[i].temperature - 273.15), 4),
-                                    round(value(m.fs.vagmd.accumulated_recovery_rate[i]),6) 
-                                    
-                                    ))
+                    round(i), 
+                    round(value(m.fs.vagmd.tR*i/60,4),2), 
+                    round(value(m.fs.vagmd.PFlux[i]), 4),
+                    round(value(m.fs.vagmd.AccVd[i]), 4),
+                    round(value(m.fs.vagmd.condenser_out_props[i].temperature - 273.15), 4),
+                    round(value(m.fs.vagmd.evaporator_out_props[i].temperature - 273.15), 4),
+                    round(value(m.fs.vagmd.log_mean_temp_dif[i]), 4),
+                    round(value(m.fs.vagmd.thermal_energy[i]), 4),
+                    round(value(m.fs.vagmd.feed_props[i].conc_mass_phase_comp["Liq","TDS"]), 4),
+                    round(value(m.fs.vagmd.feed_props[i].temperature - 273.15), 4),
+                    round(value(m.fs.vagmd.accumulated_recovery_rate[i]),6),
+                    ))
+        
+        # assert False
