@@ -149,7 +149,7 @@ class TestVAGMD:
             high_brine_salinity = False
         )
 
-        m.fs.vagmd.RR.fix(RR)
+        # m.fs.vagmd.recovery_vol_phase["Liq"].fix(RR)
         m.fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq","TDS"].fix(S0)
         m.fs.vagmd.feed_props[0].temperature.fix(Ttank+273.15)
         m.fs.vagmd.feed_props[0].flow_vol_phase["Liq"].fix(FFR/3600/1000)
