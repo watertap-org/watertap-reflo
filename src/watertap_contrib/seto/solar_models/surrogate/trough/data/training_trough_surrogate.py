@@ -148,7 +148,6 @@ def plot_training_validation(
         # plt.savefig('/plots/parity_residual_plots.png')
         # plt.close()
 
-
 #########################################################################################################
 if __name__ == "__main__":
     dataset_filename = join(dirname(__file__), "data/dataset.pkl")
