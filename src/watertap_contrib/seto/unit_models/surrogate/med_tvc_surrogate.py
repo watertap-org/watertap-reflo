@@ -198,6 +198,11 @@ class MEDTVCData(UnitModelBlockData):
                 == b.feed_props[0].temperature + b.delta_T_last_effect
             )
 
+        # salinity in distillate is zero
+        @self.Constraint(doc="distillate salinity")
+        def eq_distillate_salinity(b):
+            return b.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"] == 0
+
         """
         Add block for brine
         """
@@ -258,6 +263,10 @@ class MEDTVCData(UnitModelBlockData):
             **tmp_dict,
         )
 
+        @self.Constraint(doc="Flow rate of liquid heating steam is zero")
+        def eq_heating_steam_liquid_mass(b):
+            return b.heating_steam_props[0].flow_mass_phase_comp["Liq", "H2O"] == 0
+
         """
         Add block for motive steam
         """
@@ -269,6 +278,10 @@ class MEDTVCData(UnitModelBlockData):
             doc="Material properties of motive steam",
             **tmp_dict,
         )
+
+        @self.Constraint(doc="Flow rate of liquid motive steam is zero")
+        def eq_motive_steam_liquid_mass(b):
+            return b.motive_steam_props[0].flow_mass_phase_comp["Liq", "H2O"] == 0
 
         # Add ports
         self.add_port(name="feed", block=self.feed_props)
@@ -324,11 +337,18 @@ class MEDTVCData(UnitModelBlockData):
             doc="Thermal power requirement (kW)",
         )
 
-        self.specific_area = Var(
+        self.specific_area_per_m3_day = Var(
             initialize=2,
             bounds=(0, None),
             units=pyunits.m**2 / (pyunits.m**3 / pyunits.d),
             doc="Specific area (m2/m3/day))",
+        )
+
+        self.specific_area_per_kg_s = Var(
+            initialize=400,
+            bounds=(0, None),
+            units=pyunits.m**2 / (pyunits.k / pyunits.s),
+            doc="Specific area (m2/kg/s))",
         )
 
         self.specific_energy_consumption_thermal = Var(
@@ -342,7 +362,7 @@ class MEDTVCData(UnitModelBlockData):
             initialize=10,
             bounds=(0, None),
             units=pyunits.kg / pyunits.kg,
-            doc="Gained output ratio (kg of distillate water per kg of heating steam",
+            doc="Gained output ratio (kg of distillate water per kg of heating steam)",
         )
 
         """
@@ -438,7 +458,7 @@ class MEDTVCData(UnitModelBlockData):
         @self.Constraint(doc="specific_area surrogate equation")
         def eq_specific_area(b):
             return (
-                b.specific_area
+                b.specific_area_per_m3_day
                 == feed_conc_ppm * specific_area_coeffs[b.number_effects.value][0]
                 + b.recovery_vol_phase[0, "Liq"]
                 * specific_area_coeffs[b.number_effects.value][1]
@@ -484,6 +504,13 @@ class MEDTVCData(UnitModelBlockData):
                 + b.recovery_vol_phase[0, "Liq"] ** 2
                 * specific_area_coeffs[b.number_effects.value][19]
                 + feed_conc_ppm**2 * specific_area_coeffs[b.number_effects.value][20]
+            )
+
+        @self.Constraint(doc="Convert specific area to m2/kg/s for CAPEX calculation")
+        def eq_specific_area_kg_s(b):
+            return b.specific_area_per_kg_s == pyunits.convert(
+                b.specific_area_per_m3_day / b.feed_props[0].dens_mass_phase["Liq"],
+                to_units=pyunits.m**2 / pyunits.kg * pyunits.s,
             )
 
         heating_steam_mass_flow_rate_coeffs = (
@@ -630,9 +657,9 @@ class MEDTVCData(UnitModelBlockData):
                 to_units=pyunits.kW,
             )
 
-        # Mass flow rate
-        @self.Constraint(doc="Feed and cooling water mass flow rate (kg/s)")
-        def eq_feed_cool_mass_flow(b):
+        # Enthalpy balance (calculate feed and cooling water mass flow rate (kg/s))
+        @self.Constraint(doc="System overall enthalpy balance")
+        def eq_system_enthalpy_balance(b):
             feed = b.feed_props[0]
             cool = b.cooling_out_props[0]
             brine = b.brine_props[0]
@@ -802,6 +829,8 @@ class MEDTVCData(UnitModelBlockData):
             solver=solver,
             state_args=state_args,
         )
+        # Check degree of freedom
+        assert degrees_of_freedom(blk) == 0
 
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
@@ -832,8 +861,11 @@ class MEDTVCData(UnitModelBlockData):
                 * iscale.get_scaling_factor(self.specific_energy_consumption_thermal),
             )
 
-        if iscale.get_scaling_factor(self.specific_area) is None:
-            iscale.set_scaling_factor(self.specific_area, 1e-1)
+        if iscale.get_scaling_factor(self.specific_area_per_m3_day) is None:
+            iscale.set_scaling_factor(self.specific_area_per_m3_day, 1e-1)
+
+        if iscale.get_scaling_factor(self.specific_area_per_kg_s) is None:
+            iscale.set_scaling_factor(self.specific_area_per_kg_s, 1e-2)
 
         if iscale.get_scaling_factor(self.gain_output_ratio) is None:
             iscale.set_scaling_factor(self.gain_output_ratio, 1e-1)
@@ -847,6 +879,21 @@ class MEDTVCData(UnitModelBlockData):
         # Transforming constraints
         sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
         iscale.constraint_scaling_transform(self.eq_distillate_temp, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"]
+        )
+        iscale.constraint_scaling_transform(self.eq_distillate_salinity, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.heating_steam_props[0].flow_mass_phase_comp["Liq", "H2O"]
+        )
+        iscale.constraint_scaling_transform(self.eq_heating_steam_liquid_mass, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.motive_steam_props[0].flow_mass_phase_comp["Liq", "H2O"]
+        )
+        iscale.constraint_scaling_transform(self.eq_motive_steam_liquid_mass, sf)
 
         sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
         iscale.constraint_scaling_transform(self.eq_cooling_temp, sf)
@@ -878,8 +925,11 @@ class MEDTVCData(UnitModelBlockData):
         sf = iscale.get_scaling_factor(self.gain_output_ratio)
         iscale.constraint_scaling_transform(self.eq_gain_output_ratio, sf)
 
-        sf = iscale.get_scaling_factor(self.specific_area)
+        sf = iscale.get_scaling_factor(self.specific_area_per_m3_day)
         iscale.constraint_scaling_transform(self.eq_specific_area, sf)
+
+        sf = iscale.get_scaling_factor(self.specific_area_per_kg_s)
+        iscale.constraint_scaling_transform(self.eq_specific_area_kg_s, sf)
 
         sf = iscale.get_scaling_factor(
             self.heating_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
@@ -906,7 +956,7 @@ class MEDTVCData(UnitModelBlockData):
             )
             * 1e3
         )
-        iscale.constraint_scaling_transform(self.eq_feed_cool_mass_flow, sf)
+        iscale.constraint_scaling_transform(self.eq_system_enthalpy_balance, sf)
 
         sf = iscale.get_scaling_factor(self.feed_cool_vol_flow)
         iscale.constraint_scaling_transform(self.eq_feed_cool_vol_flow, sf)
@@ -916,6 +966,41 @@ class MEDTVCData(UnitModelBlockData):
             / 3600
         )
         iscale.constraint_scaling_transform(self.eq_cool_vol_flow, sf)
+
+    def _get_stream_table_contents(self, time_point=0):
+        return create_stream_table_dataframe(
+            {
+                "Feed Water Inlet": self.feed,
+                "Distillate Outlet": self.distillate,
+                "Brine Outlet": self.brine,
+                "Heating Steam Inlet": self.heating,
+                "Motive Steam Inlet": self.motive,
+            },
+            time_point=time_point,
+        )
+
+    def _get_performance_contents(self, time_point=0):
+        var_dict = {}
+        var_dict["Gained output ratio"] = self.gain_output_ratio
+        var_dict["Thermal power reqruiement (kW)"] = self.thermal_power_requirement
+        var_dict[
+            "Specific thermal energy consumption (kWh/m3)"
+        ] = self.specific_energy_consumption_thermal
+        var_dict["Feed water volumetric flow rate"] = self.feed_props[0].flow_vol_phase[
+            "Liq"
+        ]
+        var_dict["Cooling water volumetric flow rate"] = self.cooling_out_props[
+            0
+        ].flow_vol_phase["Liq"]
+        var_dict["Heating steam mass flow rate"] = self.heating_steam_props[
+            0
+        ].flow_mass_phase_comp["Vap", "H2O"]
+        var_dict["Motive steam mass flow rate"] = self.motive_steam_props[
+            0
+        ].flow_mass_phase_comp["Vap", "H2O"]
+        var_dict["Specific area (m2/m3/day)"] = self.specific_area_per_m3_day
+
+        return {"vars": var_dict}
 
     def _get_gain_output_ratio_coeffs(self):
         return {

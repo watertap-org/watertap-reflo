@@ -99,9 +99,6 @@ class TestMEDTVC:
         """
         Specify heating steam state properties
         """
-        # Flow rate of liquid heating steam is zero
-        steam.flow_mass_phase_comp["Liq", "H2O"].fix(0)
-
         # Heating steam temperature (saturated) is fixed at 70 C in this configuration
         steam.temperature.fix(70 + 273.15)
 
@@ -112,15 +109,13 @@ class TestMEDTVC:
             },
             hold_state=True,
         )
-        # Release vapor mass flow rate
+        # Release mass flow rate
         steam.flow_mass_phase_comp["Vap", "H2O"].unfix()
+        steam.flow_mass_phase_comp["Liq", "H2O"].unfix()
 
         """
         Specify motive steam state properties
         """
-        # Flow rate of liquid motive steam is zero
-        motive.flow_mass_phase_comp["Liq", "H2O"].fix(0)
-
         # Calculate temperature of the motive steam (saturated)
         med_tvc.motive_steam_props.calculate_state(
             var_args={
@@ -129,15 +124,11 @@ class TestMEDTVC:
             },
             hold_state=True,
         )
-        # Release vapor mass flow rate
+        # Release mass flow rate
         motive.flow_mass_phase_comp["Vap", "H2O"].unfix()
+        motive.flow_mass_phase_comp["Liq", "H2O"].unfix()
 
-        """
-        Specify distillate flow state properties
-        """
-        # salinity in distillate is zero
-        dist.flow_mass_phase_comp["Liq", "TDS"].fix(0)
-
+        # Fix target recovery rate
         med_tvc.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
 
         # Set scaling factors for mass flow rates
@@ -188,9 +179,9 @@ class TestMEDTVC:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 201
-        assert number_total_constraints(m) == 58
-        assert number_unused_variables(m) == 76  # vars from property package parameters
+        assert number_variables(m) == 202
+        assert number_total_constraints(m) == 62
+        assert number_unused_variables(m) == 74  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, MED_TVC_frame):
@@ -270,12 +261,19 @@ class TestMEDTVC:
             - med_tvc.feed_props[0].flow_mass_phase_comp["Liq", "TDS"]
         ) == pytest.approx(feed_mass_flow_tds - brine_mass_flow_tds, rel=1e-6)
 
+        assert value(
+            med_tvc.brine_props[0].flow_mass_phase_comp["Liq", "TDS"]
+            - med_tvc.feed_props[0].flow_mass_phase_comp["Liq", "TDS"]
+        ) == pytest.approx(0, rel=1e-3)
+
     @pytest.mark.component
     def test_solution(self, MED_TVC_frame):
         m = MED_TVC_frame
 
         assert pytest.approx(12.9102, rel=1e-3) == value(m.fs.med_tvc.gain_output_ratio)
-        assert pytest.approx(5.1664, rel=1e-3) == value(m.fs.med_tvc.specific_area)
+        assert pytest.approx(5.1664, rel=1e-3) == value(
+            m.fs.med_tvc.specific_area_per_m3_day
+        )
         assert pytest.approx(53.1622, rel=1e-3) == value(
             m.fs.med_tvc.specific_energy_consumption_thermal
         )
