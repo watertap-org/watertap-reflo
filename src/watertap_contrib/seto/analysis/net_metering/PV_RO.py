@@ -1,23 +1,23 @@
 import os
 import numpy as np
-
 from pyomo.environ import (
     ConcreteModel,
-    Objective,
     Param,
-    Constraint,
-    Block,
     TransformationFactory,
     assert_optimal_termination,
-    value,
     units as pyunits,
+    log10,
 )
 from pyomo.network import Arc
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers.get_solver import get_solver
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import *
-from idaes.core.util.scaling import *
+from idaes.core.util.scaling import (
+    set_scaling_factor,
+    constraint_scaling_transform,
+    calculate_scaling_factors,
+)
 from idaes.core import UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
 
@@ -33,8 +33,6 @@ from watertap.unit_models.reverse_osmosis_0D import (
 from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
     calculate_operating_pressure,
 )
-from watertap.core.util.infeasible import *
-
 from watertap_contrib.seto.analysis.net_metering.util import (
     display_ro_pv_results,
     display_pv_results,
