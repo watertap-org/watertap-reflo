@@ -83,7 +83,7 @@ class MEDTVCData(UnitModelBlockData):
         ),
     )
     CONFIG.declare(
-        "property_package_water",
+        "property_package_liquid",
         ConfigValue(
             default=useDefault,
             domain=is_physical_parameter_block,
@@ -96,7 +96,7 @@ class MEDTVCData(UnitModelBlockData):
         ),
     )
     CONFIG.declare(
-        "property_package_steam",
+        "property_package_vapor",
         ConfigValue(
             default=useDefault,
             domain=is_physical_parameter_block,
@@ -126,7 +126,9 @@ class MEDTVCData(UnitModelBlockData):
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
-        units_meta = self.config.property_package_water.get_metadata().get_derived_units
+        units_meta = (
+            self.config.property_package_liquid.get_metadata().get_derived_units
+        )
 
         """
         Add system configurations
@@ -171,10 +173,10 @@ class MEDTVCData(UnitModelBlockData):
         """
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
-        tmp_dict["parameters"] = self.config.property_package_water
+        tmp_dict["parameters"] = self.config.property_package_liquid
         tmp_dict["defined_state"] = True
 
-        self.feed_props = self.config.property_package_water.state_block_class(
+        self.feed_props = self.config.property_package_liquid.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of feed water",
             **tmp_dict,
@@ -184,7 +186,7 @@ class MEDTVCData(UnitModelBlockData):
         Add block for distillate
         """
         tmp_dict["defined_state"] = False
-        self.distillate_props = self.config.property_package_water.state_block_class(
+        self.distillate_props = self.config.property_package_liquid.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of distillate",
             **tmp_dict,
@@ -208,7 +210,7 @@ class MEDTVCData(UnitModelBlockData):
         """
         tmp_dict["defined_state"] = False
 
-        self.brine_props = self.config.property_package_water.state_block_class(
+        self.brine_props = self.config.property_package_liquid.state_block_class(
             self.flowsheet().config.time, doc="Material properties of brine", **tmp_dict
         )
 
@@ -230,7 +232,7 @@ class MEDTVCData(UnitModelBlockData):
         """
         Add block for reject cooling water
         """
-        self.cooling_out_props = self.config.property_package_water.state_block_class(
+        self.cooling_out_props = self.config.property_package_liquid.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of cooling reject",
             **tmp_dict,
@@ -254,10 +256,10 @@ class MEDTVCData(UnitModelBlockData):
         """
         Add block for heating steam
         """
-        tmp_dict["parameters"] = self.config.property_package_steam
+        tmp_dict["parameters"] = self.config.property_package_vapor
         tmp_dict["defined_state"] = False
 
-        self.heating_steam_props = self.config.property_package_steam.state_block_class(
+        self.heating_steam_props = self.config.property_package_vapor.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of heating steam",
             **tmp_dict,
@@ -270,10 +272,10 @@ class MEDTVCData(UnitModelBlockData):
         """
         Add block for motive steam
         """
-        tmp_dict["parameters"] = self.config.property_package_steam
+        tmp_dict["parameters"] = self.config.property_package_vapor
         tmp_dict["defined_state"] = False
 
-        self.motive_steam_props = self.config.property_package_steam.state_block_class(
+        self.motive_steam_props = self.config.property_package_vapor.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of motive steam",
             **tmp_dict,

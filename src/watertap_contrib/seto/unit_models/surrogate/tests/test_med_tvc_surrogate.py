@@ -47,11 +47,11 @@ class TestMEDTVC:
         # create model, flowsheet
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.water_prop = SeawaterParameterBlock()
-        m.fs.steam_prop = WaterParameterBlock()
+        m.fs.liquid_prop = SeawaterParameterBlock()
+        m.fs.vapor_prop = WaterParameterBlock()
         m.fs.med_tvc = MEDTVCSurrogate(
-            property_package_water=m.fs.water_prop,
-            property_package_steam=m.fs.steam_prop,
+            property_package_liquid=m.fs.liquid_prop,
+            property_package_vapor=m.fs.vapor_prop,
         )
 
         med_tvc = m.fs.med_tvc
@@ -132,16 +132,16 @@ class TestMEDTVC:
         med_tvc.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
 
         # Set scaling factors for mass flow rates
-        m.fs.water_prop.set_default_scaling(
+        m.fs.liquid_prop.set_default_scaling(
             "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
         )
-        m.fs.water_prop.set_default_scaling(
+        m.fs.liquid_prop.set_default_scaling(
             "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
         )
-        m.fs.steam_prop.set_default_scaling(
+        m.fs.vapor_prop.set_default_scaling(
             "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
         )
-        m.fs.steam_prop.set_default_scaling(
+        m.fs.vapor_prop.set_default_scaling(
             "flow_mass_phase_comp", 1, index=("Vap", "H2O")
         )
 
@@ -155,8 +155,8 @@ class TestMEDTVC:
 
         assert not m.fs.med_tvc.config.dynamic
         assert not m.fs.med_tvc.config.has_holdup
-        assert m.fs.med_tvc.config.property_package_water is m.fs.water_prop
-        assert m.fs.med_tvc.config.property_package_steam is m.fs.steam_prop
+        assert m.fs.med_tvc.config.property_package_liquid is m.fs.liquid_prop
+        assert m.fs.med_tvc.config.property_package_vapor is m.fs.vapor_prop
 
     @pytest.mark.unit
     def test_num_effects_domain(self, MED_TVC_frame):
