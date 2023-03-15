@@ -89,22 +89,23 @@ def test_parameters(m):
     metadata = m.fs.properties.get_metadata().properties
 
     # check that properties are not built if not demanded
-    for v_name in metadata:
-        if metadata[v_name]["method"] is not None:
-            if m.fs.stream[0].is_property_constructed(v_name):
+    for v in metadata.list_supported_properties():
+        if metadata[v.name].method is not None:
+            if m.fs.stream[0].is_property_constructed(v.name):
                 raise PropertyAttributeError(
                     "Property {v_name} is an on-demand property, but was found "
-                    "on the stateblock without being demanded".format(v_name=v_name)
+                    "on the stateblock without being demanded".format(v_name=v.name)
                 )
 
     # check that properties are built if demanded
-    for v_name in metadata:
-        if metadata[v_name]["method"] is not None:
-            if not hasattr(m.fs.stream[0], v_name):
+    for v in metadata.list_supported_properties():
+        if metadata[v.name].method is not None:
+            if not hasattr(m.fs.stream[0], v.name):
                 raise PropertyAttributeError(
                     "Property {v_name} is an on-demand property, but was not built "
-                    "when demanded".format(v_name=v_name)
+                    "when demanded".format(v_name=v.name)
                 )
+
     assert number_variables(m) == 12
     assert number_total_constraints(m) == 5
     assert number_unused_variables(m) == 2
