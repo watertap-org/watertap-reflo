@@ -96,7 +96,6 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
         self.set_default_scaling("dens_mass", 1e-3)
         self.set_default_scaling("visc_d", 1e3)
 
-
     @classmethod
     def define_metadata(cls, obj):
         obj.add_default_units(
