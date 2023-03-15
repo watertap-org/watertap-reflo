@@ -19,7 +19,7 @@ SURROGATE_FILENAME = join(dirname(__file__), "trough_surrogate.json")
 N_SAMPLES = 100  # number of points to use from overall dataset
 TRAINING_FRACTION = 0.8
 INPUT_LABELS = ["heat_load", "hours_storage"]
-OUTPUT_LABELS = ["annual_energy", "electrical_load"]
+OUTPUT_LABELS = ["heat_annual", "electricity_annual"]
 EXPECTED_HEAT_ENERGIES = [
     7.997e8,
     5.259e8,
@@ -68,16 +68,16 @@ class TestTrough:
         )
 
         # add flowsheet output variable
-        m.fs.annual_energy = Var(
+        m.fs.heat_annual = Var(
             initialize=5e9, doc="annual heat produced by the plant in kWht"
         )
-        m.fs.electrical_load = Var(
+        m.fs.electricity_annual = Var(
             initialize=1e9, doc="annual electricity consumed by the plant in kWht"
         )
 
         # create input and output variable object lists for flowsheet
         inputs = [m.fs.heat_load, m.fs.hours_storage]
-        outputs = [m.fs.annual_energy, m.fs.electrical_load]
+        outputs = [m.fs.heat_annual, m.fs.electricity_annual]
 
         # capture long output
         stream = StringIO()
@@ -133,10 +133,10 @@ class TestTrough:
 
         # Verify surrogate model output is expected
         output = test_surrogate.evaluate_surrogate(data["validation"])
-        assert list(output["annual_energy"]) == pytest.approx(
+        assert list(output["heat_annual"]) == pytest.approx(
             EXPECTED_HEAT_ENERGIES_TEST, 1e-3
         )
-        assert list(output["electrical_load"]) == pytest.approx(
+        assert list(output["electricity_annual"]) == pytest.approx(
             EXPECTED_ELECTRICITY_USE_TEST, 1e-3
         )
 
@@ -146,10 +146,10 @@ class TestTrough:
         surrogate = PysmoSurrogate.load_from_file(SURROGATE_FILENAME)
         assert isinstance(surrogate, PysmoSurrogate)
         output = surrogate.evaluate_surrogate(data["validation"])
-        assert list(output["annual_energy"]) == pytest.approx(
+        assert list(output["heat_annual"]) == pytest.approx(
             EXPECTED_HEAT_ENERGIES, 1e-3
         )
-        assert list(output["electrical_load"]) == pytest.approx(
+        assert list(output["electricity_annual"]) == pytest.approx(
             EXPECTED_ELECTRICITY_USE, 1e-3
         )
 
@@ -162,8 +162,8 @@ class TestTrough:
     def test_flowsheet_use(self, data, trough_frame):
         """Test creating a flowsheet using the surrogate model"""
         m = trough_frame
-        annual_energy = []
-        electrical_load = []
+        heat_annual = []
+        electricity_annual = []
 
         # evaluate flowsheet with surrogate model using validation data as input
         for row in data["validation"].itertuples():
@@ -172,9 +172,9 @@ class TestTrough:
             solver = get_solver()
             results = solver.solve(m)
             assert_optimal_termination(results)
-            annual_energy.append(value(m.fs.annual_energy))
-            electrical_load.append(value(m.fs.electrical_load))
+            heat_annual.append(value(m.fs.heat_annual))
+            electricity_annual.append(value(m.fs.electricity_annual))
 
         # ensure surrogate model gives same results when inside a flowsheet
-        assert annual_energy == pytest.approx(EXPECTED_HEAT_ENERGIES, 1e-3)
-        assert electrical_load == pytest.approx(EXPECTED_ELECTRICITY_USE, 1e-3)
+        assert heat_annual == pytest.approx(EXPECTED_HEAT_ENERGIES, 1e-3)
+        assert electricity_annual == pytest.approx(EXPECTED_ELECTRICITY_USE, 1e-3)
