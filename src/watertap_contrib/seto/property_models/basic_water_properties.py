@@ -89,8 +89,8 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
             units=pyunits.kg / pyunits.m**3,
             mutable=True,
             doc="Mass density of flow",
-            )
-        
+        )
+
         self.visc_d = Param(
             initialize=0.001,
             units=pyunits.kg / pyunits.m / pyunits.s,
