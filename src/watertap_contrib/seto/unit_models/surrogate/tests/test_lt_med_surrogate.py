@@ -65,12 +65,25 @@ class TestLTMED:
         feed.flow_mass_phase_comp["Liq", "TDS"].fix(feed_salinity * feed_flow)
         feed.flow_mass_phase_comp["Liq", "H2O"].fix(feed_dens * feed_flow)
         feed.temperature.fix(feed_temperature + 273.15)
+        feed.pressure.fix(101325)
         steam.temperature.fix(steam_temperature + 273.15)
         # flow rate of liquid steam is zero
         steam.flow_mass_phase_comp["Liq", "H2O"].fix(0)
         dist.flow_mass_phase_comp["Liq", "TDS"].fix(0)  # salinity in distillate is zero
 
         lt_med.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
+        m.fs.water_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        )
+        m.fs.water_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+        )
+        m.fs.steam_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        )
+        m.fs.steam_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1, index=("Vap", "H2O")
+        )
 
         return m
 
@@ -106,8 +119,8 @@ class TestLTMED:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 178
-        assert number_total_constraints(m) == 47
+        assert number_variables(m) == 190
+        assert number_total_constraints(m) == 50
         assert number_unused_variables(m) == 90  # vars from property package parameters
 
     @pytest.mark.unit
@@ -156,10 +169,10 @@ class TestLTMED:
         feed_flow_m3_hr = 168.6778
         dist_flow_m3_hr = 84.3389
         brine_flow_m3_hr = 84.3389
-        cool_flow_m3_hr = 399.2539
+        cool_flow_m3_hr = 410.7059
 
         feed_mass_flow_tot = 47.91666
-        cool_mass_flow_tot = 113.1762
+        cool_mass_flow_tot = 116.4225
         feed_mass_flow_tds = 1.62037
         brine_mass_flow_tds = 1.62037
         recovery = dist_flow_m3_hr / feed_flow_m3_hr
