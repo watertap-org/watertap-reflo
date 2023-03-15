@@ -12,4 +12,13 @@ setup(
         "pytest >= 7",
         "nrel-pysam == 3.0.2",
     ],
+    extras_require={
+        "dev": [
+            "nbsphinx",  # jupyter notebook support for sphinx
+            "jinja2<3.1.0",  # see watertap-org/watertap#449
+            "Sphinx",  # docs
+            "sphinx_rtd_theme",  # docs
+            "nbmake",
+        ]
+    }
 )
