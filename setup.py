@@ -20,5 +20,5 @@ setup(
             "sphinx_rtd_theme",  # docs
             "nbmake",
         ]
-    }
+    },
 )
