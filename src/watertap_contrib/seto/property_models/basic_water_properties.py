@@ -238,7 +238,7 @@ class _BasicWaterStateBlock(StateBlock):
             else:
                 self.release_state(flags)
 
-    def release_state(blk, flags, outlvl=idaeslog.NOTSET):
+    def release_state(self, flags, outlvl=idaeslog.NOTSET):
         """
         Method to release state variables fixed during initialization.
 
@@ -249,13 +249,13 @@ class _BasicWaterStateBlock(StateBlock):
                     hold_state=True.
             outlvl : sets output level of of logging
         """
-        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="properties")
+        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="properties")
 
         if flags is None:
             return
 
         # Unfix state variables
-        revert_state_vars(blk, flags)
+        revert_state_vars(self, flags)
         init_log.info("State Released.")
 
 
@@ -338,14 +338,14 @@ class BasicWaterStateBlockData(StateBlockData):
             doc="Dynamic viscosity of solution",
         )
 
-    def get_material_flow_terms(blk, p, j):
-        return blk.flow_mass_comp[j]
+    def get_material_flow_terms(self, j):
+        return self.flow_mass_comp[j]
 
-    def get_enthalpy_flow_terms(blk, p):
+    def get_enthalpy_flow_terms(self, p):
         raise NotImplementedError
 
-    def get_material_density_terms(blk, p, j):
-        return blk.conc_mass_comp[j]
+    def get_material_density_terms(self, j):
+        return self.conc_mass_comp[j]
 
     def get_energy_density_terms(self, p):
         raise NotImplementedError
