@@ -87,8 +87,8 @@ def run_apidoc(*args):
     from sphinx.ext import apidoc
 
     args = [
-        "../watertap-seto",
-        "../watertap-seto/*tests",
+        "../src/watertap_contrib/seto",
+        ".../src/watertap_contrib/seto/*tests",
         "-o",
         "apidoc",
         "--force",
