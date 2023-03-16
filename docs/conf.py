@@ -37,14 +37,11 @@ extensions = [
     "sphinx.ext.napoleon",  # Google and NumPy-style docstrings
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
-    "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
-    "sphinx.ext.githubpages",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.doctest",
-    "nbsphinx",  # Jupyter notebooks as docs
 ]
 
 mathjax3_config = {"chtml": {"displayAlign": "left", "displayIndent": "2em"}}
