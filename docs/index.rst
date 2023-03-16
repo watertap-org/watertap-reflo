@@ -37,7 +37,7 @@ Content
    license
 ..
    copyright
-   '''
+..
 
 Indices and tables
 ------------------
