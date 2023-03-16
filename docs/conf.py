@@ -84,11 +84,15 @@ def run_apidoc(*args):
     # NOTE the env var must be set before importing apidoc, or the options
     # will have no effect
     os.environ["SPHINX_APIDOC_OPTIONS"] = "members,show-inheritance"
-    from sphinx.ext import apidoc
 
+    from sphinx.ext import apidoc
+    from pathlib import Path
+
+    path_to_conf_py_file = Path(__file__).resolve()
+    path_to_repo_root = path_to_conf_py_file.parent.parent
+    path_to_seto_py_source = path_to_repo_root / "src" / "watertap_contrib" / "seto"
     args = [
-        "../watertap_contrib/seto",
-        "../watertap_contrib/seto/*tests",
+        str(path_to_seto_py_source),
         "-o",
         "apidoc",
         "--force",
