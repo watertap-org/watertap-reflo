@@ -142,10 +142,10 @@ def cost_flat_plate(blk):
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
         == (
-        blk.collector_area * flat_plate_params.cost_per_area_collector
-        + blk.storage_volume * flat_plate_params.cost_per_volume_storage
-        + flat_plate_params.balance_of_system_cost
-        + flat_plate_params.installation_cost
+            blk.collector_area * flat_plate_params.cost_per_area_collector
+            + blk.storage_volume * flat_plate_params.cost_per_volume_storage
+            + flat_plate_params.balance_of_system_cost
+            + flat_plate_params.installation_cost
         )
         * (1 + flat_plate_params.contingency_frac_direct_cost)
     )

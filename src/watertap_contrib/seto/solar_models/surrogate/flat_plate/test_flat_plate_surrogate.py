@@ -46,6 +46,7 @@ EXPECTED_ELECTRICITY_USE = [
     9.972e6,
 ]
 
+
 class TestFlatPlate:
     @pytest.fixture(scope="class")
     def data(self):
