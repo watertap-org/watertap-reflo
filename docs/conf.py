@@ -12,6 +12,7 @@
 #
 import os
 import sys
+from importlib import metadata
 
 sys.path.insert(0, os.path.abspath(".."))
 # sys.path.insert(0,os.path.dirname(sys.path[0]))
@@ -22,12 +23,9 @@ project = "WaterTAP-SETO"
 copyright = "2022-2023, NREL et al."
 author = "WaterTAP-SETO dev team"
 
-# The full version, including alpha/beta/rc tags
-release = "0.1.0dev0"
-# The short X.Y version
-version = "0.1.0dev0"
+# Version and release
+release = version = metadata.version("watertap-seto")
 # -- General configuration ---------------------------------------------------
-
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
