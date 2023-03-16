@@ -71,13 +71,13 @@ html_css_files = ["custom.css"]
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 #
-#html_logo = "_static/NAWI_logo.png"
+# html_logo = "_static/NAWI_logo.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
 #
-#html_favicon = "_static/favicon.ico"
+# html_favicon = "_static/favicon.ico"
 
 
 def run_apidoc(*args):
@@ -86,7 +86,13 @@ def run_apidoc(*args):
     os.environ["SPHINX_APIDOC_OPTIONS"] = "members,show-inheritance"
     from sphinx.ext import apidoc
 
-    args = ["../watertap_contrib/seto", "../watertap_contrib/seto/*tests", "-o", "apidoc", "--force"]
+    args = [
+        "../watertap_contrib/seto",
+        "../watertap_contrib/seto/*tests",
+        "-o",
+        "apidoc",
+        "--force",
+    ]
     apidoc.main(args)
 
 
