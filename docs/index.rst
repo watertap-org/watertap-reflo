@@ -23,13 +23,21 @@ Content
 .. toctree::
    :maxdepth: 2
 
+..
    getting_started
+..
    tutorials/index
+..
    how_to_guides/index
+..
    technical_reference/index
+..
    background/index
+..
    license
+..
    copyright
+   '''
 
 Indices and tables
 ------------------
