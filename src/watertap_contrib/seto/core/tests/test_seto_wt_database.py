@@ -12,14 +12,17 @@ from watertap_contrib.seto.core.seto_wt_database import SETODatabase
 def test_default_path():
     seto_db = SETODatabase()
 
-    assert os.path.normpath(seto_db._dbpath) == os.path.normpath(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "..",
-            "..",
-            "data",
-            "technoeconomic",
-        )
+    assert (
+        os.path.normpath(seto_db._dbpath).casefold()
+        == os.path.normpath(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "..",
+                "..",
+                "data",
+                "technoeconomic",
+            )
+        ).casefold()
     )
 
 
