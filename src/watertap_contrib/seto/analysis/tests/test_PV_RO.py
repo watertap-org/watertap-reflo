@@ -1,24 +1,18 @@
 import pytest
 from pyomo.environ import Var, value, assert_optimal_termination
 from pyomo.util.check_units import assert_units_consistent
-from idaes.core.solvers import get_solver
 import watertap_contrib.seto.analysis.net_metering.PV_RO as PV_RO
-from idaes.core.util.testing import initialization_tester
 from idaes.core import (
     MaterialBalanceType,
     EnergyBalanceType,
     MomentumBalanceType,
 )
-
 from watertap.unit_models.reverse_osmosis_0D import (
     ConcentrationPolarizationType,
     MassTransferCoefficient,
     PressureChangeType,
 )
-
 import idaes.core.util.model_statistics as stats
-
-import idaes.logger as idaeslog
 
 
 class TestPVRO:
@@ -92,8 +86,6 @@ class TestPVRO:
             assert hasattr(m.fs.treatment, component)
             unit = getattr(m.fs.treatment, component)
             assert_units_consistent(unit)
-
-        # initialization_tester(m, unit=m.fs.treatment.ro, dof=0, outlvl=idaeslog.DEBUG)
 
     @pytest.mark.unit
     def test_costing(self, system_frame):
