@@ -139,20 +139,6 @@ def cost_med_tvc_surrogate(blk):
         doc="MED system cost per m3/day distillate",
     )
 
-    blk.heat_exchanger_specific_area = pyo.Var(
-        initialize=100,
-        units=pyo.units.m**2 / (pyo.units.kg / pyo.units.s),
-        doc="Specific heat exchanger area",
-    )
-
-    blk.heat_exchanger_specific_area_constraint = pyo.Constraint(
-        expr=blk.heat_exchanger_specific_area
-        == pyo.units.convert(
-            med_tvc.specific_area_per_m3_day / feed.dens_mass_phase["Liq"],
-            to_units=(pyo.units.m**2 * pyo.units.s) / pyo.units.kg,
-        )
-    )
-
     blk.capacity = pyo.units.convert(
         dist.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.day
     )
@@ -182,7 +168,7 @@ def cost_med_tvc_surrogate(blk):
                 med_tvc_params.cost_fraction_evaporator
                 * (
                     (
-                        blk.heat_exchanger_specific_area
+                        med_tvc.specific_area_per_kg_s
                         / med_tvc_params.heat_exchanger_ref_area
                     )
                     ** med_tvc_params.heat_exchanger_exp
