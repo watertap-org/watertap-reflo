@@ -9,7 +9,6 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "watertap @ https://github.com/watertap-org/watertap/archive/refs/tags/pr967.zip",
-
         "pytest >= 7",
         "nrel-pysam == 3.0.2",
     ],
