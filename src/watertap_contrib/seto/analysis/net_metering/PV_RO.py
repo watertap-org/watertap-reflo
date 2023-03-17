@@ -18,7 +18,11 @@ from idaes.core import FlowsheetBlock
 from idaes.core.solvers.get_solver import get_solver
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import *
-from idaes.core.util.scaling import *
+from idaes.core.util.scaling import (
+    set_scaling_factor,
+    calculate_scaling_factors,
+    constraint_scaling_transform,
+)
 from idaes.core import UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
 
@@ -260,7 +264,7 @@ def initialize_energy(m):
     m.fs.energy.pv.oversize_factor.set_value(1)
 
 
-def initialize_sys(m, water_recovery=0.5):
+def initialize_system(m, water_recovery=0.5):
     optarg = solver.options
     m.fs.treatment.feed.initialize(optarg=optarg)
     initialize_treatment(m, water_recovery=water_recovery)
@@ -408,7 +412,7 @@ def solve(m, solver=None, tee=False, check_termination=True):
 def model_setup(Q, conc, recovery):
     m = build_ro_pv()
     set_operating_conditions(m, flow_in=Q, conc_in=conc, water_recovery=recovery)
-    initialize_sys(m)
+    initialize_system(m)
     add_costing(m)
     fix_pv_costing(m)
     fix_treatment_global_params(m)
