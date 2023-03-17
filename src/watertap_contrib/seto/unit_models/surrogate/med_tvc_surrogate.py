@@ -370,6 +370,7 @@ class MEDTVCData(UnitModelBlockData):
         """
         Add Vars for intermediate model variables
         """
+        # Create the total flow rate of brackish/seawater for the calculation of cooling water flow rate
         self.feed_cool_mass_flow = Var(
             initialize=1000,
             bounds=(0, None),
