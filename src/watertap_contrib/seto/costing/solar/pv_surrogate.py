@@ -173,7 +173,4 @@ def cost_pv_surrogate(blk):
         expr=blk.variable_operating_cost
         == pv_params.variable_operating_by_generation * blk.annual_generation
     )
-    # print(f'\n{"=======> End of PV Costing Block <=======":^60}\n')
-    print(blk.annual_generation())
     blk.costing_package.cost_flow(blk.unit_model.electricity, "electricity")
-    # blk.display()

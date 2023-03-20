@@ -214,8 +214,16 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             doc="Electricity cost",
             units=self.base_currency / pyo.units.kWh,
         )
+        
+        self.electricity_sell_price = pyo.Param(
+            mutable=True,
+            initialize= -0.05,  # From EIA for 2021
+            doc="Electricity sell back",
+            units=self.base_currency / pyo.units.kWh,
+        )
 
-        self.add_defined_flow("electricity", self.electricity_cost)
+        # self.add_defined_flow("electricity", self.electricity_cost)
+        # self.add_defined_flow("electricity2", self.electricity_sell_price)
 
         self.electrical_carbon_intensity = pyo.Param(
             mutable=True,
@@ -265,15 +273,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             units=pyo.units.kW,
         )
 
-        # # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
-        # if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
-        #     self.aggregate_flow_heat = pyo.Var(
-        #         initialize=1e3,
-        #         # domain=pyo.NonNegativeReals,
-        #         doc="Aggregated heat flow",
-        #         units=pyo.units.kW,
-        #     )
-
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
             == pyo.units.convert(
@@ -295,13 +294,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             == treat_cost.aggregate_flow_electricity
             + en_cost.aggregate_flow_electricity
         )
-
-        # # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
-        # if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
-        #     self.aggregate_flow_heat_constraint = pyo.Constraint(
-        #         expr=self.aggregate_flow_heat
-        #         == treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat
-        #     )
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
@@ -438,11 +430,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             "specific_thermal_energy_consumption", specific_thermal_energy_consumption
         )
 
-        # specific_thermal_energy_consumption_constraint = pyo.Constraint(
-        #     expr=specific_thermal_energy_consumption
-        #     == self.aggregate_flow_heat
-        #     / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr)
-        # )
 
         self.add_component(
             "specific_thermal_energy_consumption_constraint",

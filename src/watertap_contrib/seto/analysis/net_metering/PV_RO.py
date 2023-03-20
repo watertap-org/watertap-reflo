@@ -7,6 +7,7 @@ from pyomo.environ import (
     Param,
     Constraint,
     Block,
+    Var,
     TransformationFactory,
     assert_optimal_termination,
     value,
@@ -37,7 +38,7 @@ from watertap.core.util.infeasible import *
 
 from watertap_contrib.seto.analysis.net_metering.util import (
     display_ro_pv_results,
-    display_pv_results,
+    display_pv_results
 )
 from watertap_contrib.seto.costing import (
     TreatmentCosting,
@@ -295,6 +296,9 @@ def optimize_setup(
     ro.area.setub(area_ub)
 
     # ro.recovery_mass_phase_comp[0, "Liq", "H2O"].unfix()
+    # m.fs.sys_costing.plant_lifetime.fix(15)
+    # m.fs.treatment.costing.plant_lifetime.fix(15)
+    # m.fs.energy.costing.plant_lifetime.fix(15)
     
     ro.feed_side.velocity[0, 0].unfix()
     ro.feed_side.velocity[0, 0].setlb(0.01)
@@ -336,7 +340,7 @@ def add_costing(m):
     )
     treatment.costing.cost_process()
     m.fs.energy.pv_design_constraint = Constraint(
-        expr=m.fs.energy.pv.design_size == m.fs.treatment.costing.aggregate_flow_electricity
+        expr=m.fs.energy.pv.design_size >= m.fs.treatment.costing.aggregate_flow_electricity
     )
     m.fs.energy.pv.costing.annual_generation_constraint = Constraint(
         expr=m.fs.energy.pv.costing.annual_generation == m.fs.energy.pv.annual_energy
@@ -392,17 +396,13 @@ def model_setup(Q, conc, recovery):
 def run(m):
     results = solve(m)
     assert_optimal_termination(results)
-    # m.fs.energy.pv.costing.display()
-    # m.fs.sys_costing.display()
-    # m.fs.energy.display()
     display_ro_pv_results(m)
     display_pv_results(m)
-
     return m, results
 
 
 def main():
-    m = model_setup(4.375e-2, 35, 0.5)
+    m = model_setup(4.375e-3, 35, 0.5)
     m, results = run(m)
 
     return m, results
