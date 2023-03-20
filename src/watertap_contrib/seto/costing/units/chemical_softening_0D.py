@@ -337,7 +337,7 @@ def cost_chem_softening_single_stage_lime(blk):
     # Admin cost 
     blk.admin_capital_cost_constraint = Constraint(
         expr = blk.admin_capital_cost
-        == (69195 * ((blk.unit_model.properties_in[0].flow_vol / 3785)**0.5523))
+        == 69195 * ((pyunits.convert(blk.unit_model.properties_in[0].flow_vol,to_units = pyunits.m**3/pyunits.day) / 3785)**0.5523)
         )
 
     #endregion
@@ -436,7 +436,7 @@ def cost_chem_softening_single_stage_lime(blk):
 
     blk.admin_op_cost_constraint = Constraint(
         expr = blk.admin_op_cost
-        ==  (88589 * ((blk.unit_model.properties_in[0].flow_vol / 3785)**0.4589))
+        ==  (88589 * ((pyunits.convert(blk.unit_model.properties_in[0].flow_vol,to_units = pyunits.m**3/pyunits.day) / 3785)**0.4589))
         )
 
     #endregion
@@ -747,7 +747,7 @@ def cost_chem_softening_excess_lime_soda(blk):
     # Admin cost 
     blk.admin_capital_cost_constraint = Constraint(
         expr = blk.admin_capital_cost
-        == (69195 * ((blk.unit_model.properties_in[0].flow_vol / 3785)**0.5523))
+        == 69195 * ((pyunits.convert(blk.unit_model.properties_in[0].flow_vol,to_units = pyunits.m**3/pyunits.day) / 3785)**0.5523)
         )
 
     #endregion
@@ -851,9 +851,8 @@ def cost_chem_softening_excess_lime_soda(blk):
 
     blk.admin_op_cost_constraint = Constraint(
         expr = blk.admin_op_cost
-        ==  (88589 * ((blk.unit_model.properties_in[0].flow_vol / 3785)**0.4589))
+        ==  (88589 * ((pyunits.convert(blk.unit_model.properties_in[0].flow_vol,to_units = pyunits.m**3/pyunits.day) / 3785)**0.4589))
         )
-
     #endregion
 
 

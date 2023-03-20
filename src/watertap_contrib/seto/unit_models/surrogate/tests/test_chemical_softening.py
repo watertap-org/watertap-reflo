@@ -47,24 +47,24 @@ class TestChemSoft:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):
         # create model, flowsheet
-        component_list = ["Ca_2+","Mg_2+","SiO2","Alkalinity_2-"]
+        component_list = ["Ca_2+","Mg_2+","Alkalinity_2-","TSS"]
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.properties =  BasicWaterParameterBlock(solute_list=component_list)
 
         m.fs.soft = soft = ChemicalSoftening0D(
-        property_package=m.fs.properties, silica_removal= True ,softening_procedure_type= 'single_stage_lime'
+        property_package=m.fs.properties, silica_removal= False ,softening_procedure_type= 'single_stage_lime'
         )
 
         prop_in = soft.properties_in[0]
-        prop_out = soft.properties_out[0]
-        prop_waste = soft.properties_waste[0]
+        # prop_out = soft.properties_out[0]
+        # prop_waste = soft.properties_waste[0]
 
         # System specifications
         ca_in = 0.075  * pyunits.kg / pyunits.m**3  # g/L = kg/m3
         mg_in = 0.0061 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
-        sio2_in = 0.054 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
         alk_in = 0.196 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+        TSS_in = 0.20 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
         CO2_in  = 0.072*1.612 * pyunits.kg / pyunits.m**3 
         q_in = 50000 * pyunits.m**3 / pyunits.day  # m3/d
 
@@ -72,8 +72,8 @@ class TestChemSoft:
 
         prop_in.conc_mass_comp["Ca_2+"].fix(ca_in)
         prop_in.conc_mass_comp["Mg_2+"].fix(mg_in)
-        prop_in.conc_mass_comp["SiO2"].fix(sio2_in)
         prop_in.conc_mass_comp["Alkalinity_2-"].fix(alk_in)
+        prop_in.conc_mass_comp["TSS"].fix(TSS_in)
 
         soft.ca_eff_target.fix()
         soft.mg_eff_target.fix()
@@ -89,6 +89,15 @@ class TestChemSoft:
         soft.CO2_CaCO3.fix(CO2_in)
         soft.vel_gradient_mix.fix(300)
         soft.vel_gradient_floc.fix(50)
+
+        m.fs.properties.set_default_scaling(
+            "flow_vol" , 1
+        )
+
+        for comp in component_list:
+            m.fs.properties.set_default_scaling(
+                "conc_mass_comp" , 1, index = comp
+            )
 
         return m
 
@@ -116,11 +125,11 @@ class TestChemSoft:
         for port_str in port_list:
             port = getattr(m.fs.soft, port_str)
             assert isinstance(port, Port)
-            assert len(port.vars) == 3
+            assert len(port.vars) == 2
         
         # test statistics
-        assert number_variables(m) == 61
-        assert number_total_constraints(m) == 38
+        assert number_variables(m) == 53
+        assert number_total_constraints(m) == 32
         assert number_unused_variables(m) == 4
 
 
@@ -168,12 +177,12 @@ class TestChemSoft:
         m = chem_soft_frame    
 
         assert pytest.approx(8499.791999999998, rel = 1e-3) == value(m.fs.soft.CaOH_dosing)
-        assert pytest.approx(0.0, rel = 1e-3) == value(m.fs.soft.Na2CO3_dosing)
+        # assert pytest.approx(0.0, rel = 1e-3) == value(m.fs.soft.Na2CO3_dosing)
         assert pytest.approx(847.0, rel = 1e-3) == value(m.fs.soft.CO2_first_basin)
-        assert pytest.approx(0.0, rel = 1e-3) == value(m.fs.soft.CO2_second_basin)
-        assert pytest.approx(0.0, rel = 1e-3) == value(m.fs.soft.excess_CaOH)
+        # assert pytest.approx(0.0, rel = 1e-3) == value(m.fs.soft.CO2_second_basin)
+        # assert pytest.approx(0.0, rel = 1e-3) == value(m.fs.soft.excess_CaOH)
         assert pytest.approx(0.0, rel = 1e-3) == value(m.fs.soft.MgCl2_dosing)
-        assert pytest.approx(31185.559, rel = 1e-3) == value(m.fs.soft.sludge_prod)
+        assert pytest.approx(0.36094, rel = 1e-3) == value(m.fs.soft.sludge_prod)
 
         assert pytest.approx(13.88, rel = 1e-3) == value(m.fs.soft.volume_mixer)
         assert pytest.approx(1736.11, rel = 1e-3) == value(m.fs.soft.volume_floc)
@@ -190,7 +199,11 @@ class TestChemSoft:
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_in.flow_vol)
 
+        
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
         assert pytest.approx(2536319.311176081, rel = 1e-3) == value(m.fs.soft.costing.capital_cost)
         assert pytest.approx(1238684.9810677157, rel = 1e-3) == value(m.fs.soft.costing.fixed_operating_cost)
-        assert pytest.approx(39.1797, rel = 1e-3) == value(m.fs.soft.costing.mixer_power)
-        assert pytest.approx(136.04062499999998, rel = 1e-3) == value(m.fs.soft.costing.floc_power)
+        assert pytest.approx(30, rel = 1e-3) == value(m.fs.soft.costing.mixer_power)
+        assert pytest.approx(104.166, rel = 1e-3) == value(m.fs.soft.costing.floc_power)

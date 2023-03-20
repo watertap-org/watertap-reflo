@@ -409,12 +409,12 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
             )
 
 
-        self.excess_CaOH = Var(
-            initialize=0, 
-            units= pyunits.kg / pyunits.m**3,
-            doc= "Excess lime requiremenent"
-            )        
-        
+            self.excess_CaOH = Var(
+                initialize=0, 
+                units= pyunits.kg / pyunits.m**3,
+                doc= "Excess lime requiremenent"
+                )        
+            
         self.CO2_CaCO3 = Var(
             initialize = 115,
             units = pyunits.kg / pyunits.m**3,
@@ -431,7 +431,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
 
         self.sludge_prod  = Var(
             initialize = 1e6,
-            units = pyunits.kg / pyunits.day,
+            units = pyunits.kg / pyunits.s,
             bounds = (0,None),
             doc= "Sludge production rate in kg/day"
         )
@@ -565,7 +565,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
 
 
 
-        if self.config.silica_removal:
+        if self.config.silica_removal and ["SiO2"] in comps:
             if (value(prop_in.conc_mass_comp["SiO2"]) * 2.35 > value(prop_in.conc_mass_comp["Mg_2+"])) and value(prop_in.conc_mass_comp["SiO2"])> value( 0.050 * pyunits.kg / pyunits.m**3):
                 print('Mg dose')
                 @self.Constraint(doc="MgCl2 dosing constraint")
@@ -631,10 +631,11 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
             return prop_out.conc_mass_comp["Mg_2+"] ==  b.mg_eff_target /  b.Mg_CaCO3_conv
         
 
-        # The following conditionals check for softening methods (if excess lime term is required) and if silica removal is true (mgcl2 dosing term is required)
+        # The following conditionals check for softening methods, if excess lime term is required and if silica removal is true mgcl2 dosing term is required
 
         if (
-            self.config.softening_procedure_type is SofteningProcedureType.single_stage_lime or  self.config.softening_procedure_type is SofteningProcedureType.single_stage_lime_spda
+            self.config.softening_procedure_type is SofteningProcedureType.single_stage_lime or  
+            self.config.softening_procedure_type is SofteningProcedureType.single_stage_lime_soda
         ):
 
             @self.Constraint(doc="Ca mass balance")
@@ -643,7 +644,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
                         prop_waste.flow_mass_comp["Ca_2+"] ==  prop_in.flow_mass_comp["Ca_2+"] - prop_out.flow_mass_comp["Ca_2+"]
                     )
             
-            if self.config.silica_removal:
+            if self.config.silica_removal and ["SiO2"] in comps:
                 if ['TSS'] in comps:
                     @self.Constraint(doc="Sludge production")
                     def eq_sludge_prod(b):
@@ -670,7 +671,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
                 #                                                 (prop_in.conc_mass_comp[ "SiO2"]- prop_out.conc_mass_comp["SiO2"]) )    
 
             else : 
-                if ['TSS'] in comps:
+                if ["TSS"] in comps:
                     @self.Constraint(doc="Sludge production")
                     def eq_sludge_prod(b):
                         return b.sludge_prod == (2 * b.Ca_hardness_CaCO3 + 2.6 * b.Mg_hardness_CaCO3 + b.Ca_hardness_nonCaCO3 + 
@@ -841,6 +842,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
+        iscale.set_scaling_factor(self.removal_efficiency, 1)
         iscale.set_scaling_factor(self.retention_time_mixer, 1)
         iscale.set_scaling_factor(self.retention_time_floc, 0.1)
         iscale.set_scaling_factor(self.retention_time_sed, 1e-2)
@@ -848,21 +850,66 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         iscale.set_scaling_factor(self.sedimentation_overflow, 0.1)
         iscale.set_scaling_factor(self.no_of_mixer, 1)
         iscale.set_scaling_factor(self.no_of_floc, 1)
-        iscale.set_scaling_factor(self.volume_mixer,0.1)
-        iscale.set_scaling_factor(self.volume_floc, 0.1)
-        iscale.set_scaling_factor(self.volume_sed, 0.1)
-        iscale.set_scaling_factor(self.volume_recarb, 0.1)
+        iscale.set_scaling_factor(self.volume_mixer,1e-1)
+        iscale.set_scaling_factor(self.volume_floc, 1e-2)
+        iscale.set_scaling_factor(self.volume_sed, 1e-2)
+        iscale.set_scaling_factor(self.volume_recarb, 1e-2)
         iscale.set_scaling_factor(self.vel_gradient_mix, 1e-2)
         iscale.set_scaling_factor(self.vel_gradient_floc, 1e-2)
         iscale.set_scaling_factor(self.frac_vol_recovery, 1)
-        iscale.set_scaling_factor(self.CaOH_dosing, 1e-5)
-        iscale.set_scaling_factor(self.Na2CO3_dosing, 1e-5)
+        iscale.set_scaling_factor(self.CaOH_dosing, 1e-4)
+        # iscale.set_scaling_factor(self.Na2CO3_dosing, 1e-5)
         iscale.set_scaling_factor(self.CO2_first_basin, 1e-2)
-        iscale.set_scaling_factor(self.CO2_second_basin, 1e-2)
-        iscale.set_scaling_factor(self.excess_CaOH, 1)
-        iscale.set_scaling_factor(self.CO2_CaCO3, 1e-2)
-        iscale.set_scaling_factor(self.MgCl2_dosing, 1e-2)
+        # iscale.set_scaling_factor(self.CO2_second_basin, 1e-2)
+        # iscale.set_scaling_factor(self.excess_CaOH, 1)
+        iscale.set_scaling_factor(self.CO2_CaCO3, 1)
+        iscale.set_scaling_factor(self.MgCl2_dosing, 1)
         iscale.set_scaling_factor(self.sludge_prod, 1e-6)
+
+
+        # Scaling constraints
+        sf = iscale.get_scaling_factor(self.properties_in[0].flow_vol)*3600*24
+        iscale.constraint_scaling_transform(self.eq_CaOH_dosing, sf)
+
+        sf = iscale.get_scaling_factor(self.properties_in[0].flow_vol)*3600*24
+        iscale.constraint_scaling_transform(self.eq_CO2_first_basin, sf)
+
+        sf = iscale.get_scaling_factor(self.properties_in[0].flow_vol)
+        iscale.constraint_scaling_transform(self.eq_recovery, sf)
+
+        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol)
+        iscale.constraint_scaling_transform(self.eq_waste_flow, sf)
+
+
+        comps = self.config.property_package.component_set       
+        non_hardness_comps = [j for j in self.config.property_package.component_set if j not in ["Ca_2+","Mg_2+"]]
+        
+        for c in non_hardness_comps:
+            sf = iscale.get_scaling_factor(self.properties_waste[0].flow_mass_comp[c])
+            iscale.constraint_scaling_transform(self.eq_mass_balance[c], sf)        
+        
+        
+        for c in non_hardness_comps:
+            sf = iscale.get_scaling_factor(self.properties_waste[0].flow_mass_comp[c])
+            iscale.constraint_scaling_transform(self.eq_component_removal[c], sf)
+
+
+        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol)
+        iscale.constraint_scaling_transform(self.eq_volume_mixer, sf)
+
+        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol)
+        iscale.constraint_scaling_transform(self.eq_volume_floc, sf)
+
+        
+        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol)
+        iscale.constraint_scaling_transform(self.eq_volume_sed, sf)
+
+        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol)
+        iscale.constraint_scaling_transform(self.eq_volume_recarb, sf)
+
+
+
+
 
 
     def _get_stream_table_contents(self, time_point=0):
