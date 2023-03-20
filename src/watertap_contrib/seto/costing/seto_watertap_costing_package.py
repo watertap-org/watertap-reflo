@@ -215,16 +215,16 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             units=self.base_currency / pyo.units.kWh,
         )
         
-        self.electricity_sell_price = pyo.Param(
+        self.electricity_sell_cost = pyo.Param(
             mutable=True,
-            initialize= -0.05,  # From EIA for 2021
+            initialize= 0.05,  # From EIA for 2021
             doc="Electricity sell back",
             units=self.base_currency / pyo.units.kWh,
         )
 
-        # self.add_defined_flow("electricity", self.electricity_cost)
-        # self.add_defined_flow("electricity2", self.electricity_sell_price)
-
+        self.add_defined_flow("electricity", self.electricity_cost)
+        self.add_defined_flow("electricity_sell", self.electricity_sell_cost)
+        
         self.electrical_carbon_intensity = pyo.Param(
             mutable=True,
             initialize=0.475,
@@ -413,29 +413,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             specific_electric_energy_consumption_constraint,
         )
 
-    def add_specific_thermal_energy_consumption(self, flow_rate):
-        """
-        Add specific thermal energy consumption (kWh/m**3) to costing block.
-        Args:
-            flow_rate - flow rate of water (volumetric) to be used in
-                        calculating specific energy consumption
-        """
-
-        specific_thermal_energy_consumption = pyo.Var(
-            initialize=100,
-            doc=f"Specific thermal energy consumption based on flow {flow_rate.name}",
-        )
-
-        self.add_component(
-            "specific_thermal_energy_consumption", specific_thermal_energy_consumption
-        )
-
-
-        self.add_component(
-            "specific_thermal_energy_consumption_constraint",
-            specific_thermal_energy_consumption_constraint,
-        )
-
     def add_defined_flow(self, flow_name, flow_cost):
         """
         This method adds a defined flow to the costing block.
@@ -465,6 +442,35 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
                 f"Attribute {flow_cost_name} already exists "
                 f"on the costing block, but is not {flow_cost}"
             )
+        
+    def cost_flow(self, flow_expr, flow_type):
+        """
+        This method registers a given flow component (Var or expression) for
+        costing. All flows are required to be bounded to be non-negative (i.e.
+        a lower bound equal to or greater than 0).
+
+        Args:
+            flow_expr: Pyomo Var or expression that represents a material flow
+                that should be included in the process costing. Units are
+                expected to be on a per time basis.
+            flow_type: string identifying the material this flow represents.
+                This string must be available to the FlowsheetCostingBlock
+                as a known flow type.
+
+        Raises:
+            ValueError if flow_type is not recognized.
+            TypeError if flow_expr is an indexed Var.
+        """
+        if flow_type not in self.defined_flows:
+            print('------------ > HERE < ---------------')
+            raise ValueError(
+                f"{flow_type} is not a recognized flow type. Please check "
+                "your spelling and that the flow type has been available to"
+                " the FlowsheetCostingBlock."
+            )
+        if flow_type not in self.flow_types:
+            self.register_flow_type(flow_type, self.defined_flows[flow_type])
+        super().cost_flow(flow_expr, flow_type)
 
     def _get_treatment_cost_block(self):
         for b in self.model().component_objects(pyo.Block):
