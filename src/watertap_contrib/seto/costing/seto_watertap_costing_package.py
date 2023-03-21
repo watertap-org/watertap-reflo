@@ -42,7 +42,7 @@ from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
-from watertap_contrib.seto.unit_models.chemical_softening_0D import ChemicalSoftening0D
+from watertap_contrib.seto.unit_models.zero_order.chemical_softening_0D import ChemicalSoftening0D
 from watertap_contrib.seto.costing.units.chemical_softening_0D import cost_chem_softening
 
 from watertap_contrib.seto.core import PySAMWaterTAP
