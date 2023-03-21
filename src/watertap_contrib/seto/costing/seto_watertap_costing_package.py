@@ -223,7 +223,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
         )
 
         self.add_defined_flow("electricity", self.electricity_cost)
-        self.add_defined_flow("electricity_sell", self.electricity_sell_cost)
+        # self.add_defined_flow("electricity_sell", self.electricity_sell_cost)
         
         self.electrical_carbon_intensity = pyo.Param(
             mutable=True,
