@@ -29,13 +29,6 @@ TODO: Remove the hard coded constants in the costing equations
 """
 
 
-class SofteningProcedureType(StrEnum):
-    single_stage_lime = "single_stage_lime"
-    excess_lime = "excess_lime"
-    single_stage_lime_soda = "single_stage_lime_soda"
-    excess_lime_soda = "excess_lime_soda"
-
-
 def build_chem_softening_cost_param_block(blk):
     """
     Parameters and variables to be used in the costing model
