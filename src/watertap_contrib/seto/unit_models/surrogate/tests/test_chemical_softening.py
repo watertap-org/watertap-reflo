@@ -8,7 +8,7 @@ from pyomo.environ import (
 import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.seto.unit_models.chemical_softening_0D import ChemicalSoftening0D
+from watertap_contrib.seto.unit_models.zero_order.chemical_softening_0D import ChemicalSoftening0D
 
 # from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 # from watertap.property_models.water_prop_pack import WaterParameterBlock
