@@ -205,6 +205,7 @@ def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True)
     index 1 = y axis
     index 2 = z axis
     """
+
     def _set_aspect(ax, aspect):
         x_left, x_right = ax.get_xlim()
         y_low, y_high = ax.get_ylim()
