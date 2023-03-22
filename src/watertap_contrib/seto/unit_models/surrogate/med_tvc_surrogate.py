@@ -120,6 +120,15 @@ class MEDTVCData(UnitModelBlockData):
     see property package for documentation.}""",
         ),
     )
+    CONFIG.declare(
+        "number_effects",
+        ConfigBlock(
+            default=12,
+            domain=In([8,9,10,11,12,13,14,15,16]),
+            description="Number of effects of the MED_TVC system",
+            doc="""A ConfigBlock specifying the number of effects, which should be an interger between 8 to 16.""",
+        ),
+    )
 
     def build(self):
         super().build()
@@ -133,14 +142,6 @@ class MEDTVCData(UnitModelBlockData):
         """
         Add system configurations
         """
-        self.number_effects = Param(
-            initialize=12,
-            mutable=True,
-            within=Set(initialize=[8, 10, 12, 14, 16]),
-            units=pyunits.dimensionless,
-            doc="Number of effects",
-        )
-
         self.delta_T_last_effect = Param(
             initialize=10,
             mutable=True,
@@ -404,56 +405,56 @@ class MEDTVCData(UnitModelBlockData):
 
         gain_output_ratio_coeffs = self._get_gain_output_ratio_coeffs()
 
-        @self.Constraint(doc="Gain output ratio  surrogate equation")
+        @self.Constraint(doc="Gain output ratio surrogate equation")
         def eq_gain_output_ratio(b):
             return (
                 b.gain_output_ratio
-                == feed_conc_ppm * gain_output_ratio_coeffs[b.number_effects.value][0]
+                == feed_conc_ppm * gain_output_ratio_coeffs[b.config.number_effects][0]
                 + b.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[b.number_effects.value][1]
+                * gain_output_ratio_coeffs[b.config.number_effects][1]
                 + feed_conc_ppm
                 * b.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[b.number_effects.value][2]
-                + feed_temperature * gain_output_ratio_coeffs[b.number_effects.value][3]
+                * gain_output_ratio_coeffs[b.config.number_effects][2]
+                + feed_temperature * gain_output_ratio_coeffs[b.config.number_effects][3]
                 + feed_temperature
                 * feed_conc_ppm
-                * gain_output_ratio_coeffs[b.number_effects.value][4]
+                * gain_output_ratio_coeffs[b.config.number_effects][4]
                 + feed_temperature
                 * b.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[b.number_effects.value][5]
-                + capacity * gain_output_ratio_coeffs[b.number_effects.value][6]
+                * gain_output_ratio_coeffs[b.config.number_effects][5]
+                + capacity * gain_output_ratio_coeffs[b.config.number_effects][6]
                 + capacity
                 * feed_conc_ppm
-                * gain_output_ratio_coeffs[b.number_effects.value][7]
+                * gain_output_ratio_coeffs[b.config.number_effects][7]
                 + capacity
                 * b.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[b.number_effects.value][8]
+                * gain_output_ratio_coeffs[b.config.number_effects][8]
                 + capacity
                 * feed_temperature
-                * gain_output_ratio_coeffs[b.number_effects.value][9]
-                + motive_pressure * gain_output_ratio_coeffs[b.number_effects.value][10]
+                * gain_output_ratio_coeffs[b.config.number_effects][9]
+                + motive_pressure * gain_output_ratio_coeffs[b.config.number_effects][10]
                 + motive_pressure
                 * feed_conc_ppm
-                * gain_output_ratio_coeffs[b.number_effects.value][11]
+                * gain_output_ratio_coeffs[b.config.number_effects][11]
                 + motive_pressure
                 * b.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[b.number_effects.value][12]
+                * gain_output_ratio_coeffs[b.config.number_effects][12]
                 + motive_pressure
                 * feed_temperature
-                * gain_output_ratio_coeffs[b.number_effects.value][13]
+                * gain_output_ratio_coeffs[b.config.number_effects][13]
                 + motive_pressure
                 * capacity
-                * gain_output_ratio_coeffs[b.number_effects.value][14]
-                + 1 * gain_output_ratio_coeffs[b.number_effects.value][15]
+                * gain_output_ratio_coeffs[b.config.number_effects][14]
+                + 1 * gain_output_ratio_coeffs[b.config.number_effects][15]
                 + motive_pressure**2
-                * gain_output_ratio_coeffs[b.number_effects.value][16]
-                + capacity**2 * gain_output_ratio_coeffs[b.number_effects.value][17]
+                * gain_output_ratio_coeffs[b.config.number_effects][16]
+                + capacity**2 * gain_output_ratio_coeffs[b.config.number_effects][17]
                 + feed_temperature**2
-                * gain_output_ratio_coeffs[b.number_effects.value][18]
+                * gain_output_ratio_coeffs[b.config.number_effects][18]
                 + b.recovery_vol_phase[0, "Liq"] ** 2
-                * gain_output_ratio_coeffs[b.number_effects.value][19]
+                * gain_output_ratio_coeffs[b.config.number_effects][19]
                 + feed_conc_ppm**2
-                * gain_output_ratio_coeffs[b.number_effects.value][20]
+                * gain_output_ratio_coeffs[b.config.number_effects][20]
             )
 
         specific_area_coeffs = self._get_specific_area_coeffs()
@@ -462,51 +463,51 @@ class MEDTVCData(UnitModelBlockData):
         def eq_specific_area(b):
             return (
                 b.specific_area_per_m3_day
-                == feed_conc_ppm * specific_area_coeffs[b.number_effects.value][0]
+                == feed_conc_ppm * specific_area_coeffs[b.config.number_effects][0]
                 + b.recovery_vol_phase[0, "Liq"]
-                * specific_area_coeffs[b.number_effects.value][1]
+                * specific_area_coeffs[b.config.number_effects][1]
                 + feed_conc_ppm
                 * b.recovery_vol_phase[0, "Liq"]
-                * specific_area_coeffs[b.number_effects.value][2]
-                + feed_temperature * specific_area_coeffs[b.number_effects.value][3]
+                * specific_area_coeffs[b.config.number_effects][2]
+                + feed_temperature * specific_area_coeffs[b.config.number_effects][3]
                 + feed_temperature
                 * feed_conc_ppm
-                * specific_area_coeffs[b.number_effects.value][4]
+                * specific_area_coeffs[b.config.number_effects][4]
                 + feed_temperature
                 * b.recovery_vol_phase[0, "Liq"]
-                * specific_area_coeffs[b.number_effects.value][5]
-                + capacity * specific_area_coeffs[b.number_effects.value][6]
+                * specific_area_coeffs[b.config.number_effects][5]
+                + capacity * specific_area_coeffs[b.config.number_effects][6]
                 + capacity
                 * feed_conc_ppm
-                * specific_area_coeffs[b.number_effects.value][7]
+                * specific_area_coeffs[b.config.number_effects][7]
                 + capacity
                 * b.recovery_vol_phase[0, "Liq"]
-                * specific_area_coeffs[b.number_effects.value][8]
+                * specific_area_coeffs[b.config.number_effects][8]
                 + capacity
                 * feed_temperature
-                * specific_area_coeffs[b.number_effects.value][9]
-                + motive_pressure * specific_area_coeffs[b.number_effects.value][10]
+                * specific_area_coeffs[b.config.number_effects][9]
+                + motive_pressure * specific_area_coeffs[b.config.number_effects][10]
                 + motive_pressure
                 * feed_conc_ppm
-                * specific_area_coeffs[b.number_effects.value][11]
+                * specific_area_coeffs[b.config.number_effects][11]
                 + motive_pressure
                 * b.recovery_vol_phase[0, "Liq"]
-                * specific_area_coeffs[b.number_effects.value][12]
+                * specific_area_coeffs[b.config.number_effects][12]
                 + motive_pressure
                 * feed_temperature
-                * specific_area_coeffs[b.number_effects.value][13]
+                * specific_area_coeffs[b.config.number_effects][13]
                 + motive_pressure
                 * capacity
-                * specific_area_coeffs[b.number_effects.value][14]
-                + 1 * specific_area_coeffs[b.number_effects.value][15]
+                * specific_area_coeffs[b.config.number_effects][14]
+                + 1 * specific_area_coeffs[b.config.number_effects][15]
                 + motive_pressure**2
-                * specific_area_coeffs[b.number_effects.value][16]
-                + capacity**2 * specific_area_coeffs[b.number_effects.value][17]
+                * specific_area_coeffs[b.config.number_effects][16]
+                + capacity**2 * specific_area_coeffs[b.config.number_effects][17]
                 + feed_temperature**2
-                * specific_area_coeffs[b.number_effects.value][18]
+                * specific_area_coeffs[b.config.number_effects][18]
                 + b.recovery_vol_phase[0, "Liq"] ** 2
-                * specific_area_coeffs[b.number_effects.value][19]
-                + feed_conc_ppm**2 * specific_area_coeffs[b.number_effects.value][20]
+                * specific_area_coeffs[b.config.number_effects][19]
+                + feed_conc_ppm**2 * specific_area_coeffs[b.config.number_effects][20]
             )
 
         @self.Constraint(doc="Convert specific area to m2/kg/s for CAPEX calculation")
@@ -525,56 +526,56 @@ class MEDTVCData(UnitModelBlockData):
             return (
                 b.heating_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
                 == feed_conc_ppm
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][0]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][0]
                 + b.recovery_vol_phase[0, "Liq"]
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][1]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][1]
                 + feed_conc_ppm
                 * b.recovery_vol_phase[0, "Liq"]
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][2]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][2]
                 + feed_temperature
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][3]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][3]
                 + feed_temperature
                 * feed_conc_ppm
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][4]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][4]
                 + feed_temperature
                 * b.recovery_vol_phase[0, "Liq"]
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][5]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][5]
                 + capacity
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][6]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][6]
                 + capacity
                 * feed_conc_ppm
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][7]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][7]
                 + capacity
                 * b.recovery_vol_phase[0, "Liq"]
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][8]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][8]
                 + capacity
                 * feed_temperature
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][9]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][9]
                 + motive_pressure
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][10]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][10]
                 + motive_pressure
                 * feed_conc_ppm
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][11]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][11]
                 + motive_pressure
                 * b.recovery_vol_phase[0, "Liq"]
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][12]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][12]
                 + motive_pressure
                 * feed_temperature
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][13]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][13]
                 + motive_pressure
                 * capacity
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][14]
-                + 1 * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][15]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][14]
+                + 1 * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][15]
                 + motive_pressure**2
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][16]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][16]
                 + capacity**2
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][17]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][17]
                 + feed_temperature**2
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][18]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][18]
                 + b.recovery_vol_phase[0, "Liq"] ** 2
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][19]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][19]
                 + feed_conc_ppm**2
-                * heating_steam_mass_flow_rate_coeffs[b.number_effects.value][20]
+                * heating_steam_mass_flow_rate_coeffs[b.config.number_effects][20]
             )
 
         motive_steam_mass_flow_rate_coeffs = (
@@ -586,56 +587,56 @@ class MEDTVCData(UnitModelBlockData):
             return (
                 b.motive_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
                 == feed_conc_ppm
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][0]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][0]
                 + b.recovery_vol_phase[0, "Liq"]
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][1]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][1]
                 + feed_conc_ppm
                 * b.recovery_vol_phase[0, "Liq"]
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][2]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][2]
                 + feed_temperature
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][3]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][3]
                 + feed_temperature
                 * feed_conc_ppm
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][4]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][4]
                 + feed_temperature
                 * b.recovery_vol_phase[0, "Liq"]
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][5]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][5]
                 + capacity
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][6]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][6]
                 + capacity
                 * feed_conc_ppm
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][7]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][7]
                 + capacity
                 * b.recovery_vol_phase[0, "Liq"]
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][8]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][8]
                 + capacity
                 * feed_temperature
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][9]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][9]
                 + motive_pressure
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][10]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][10]
                 + motive_pressure
                 * feed_conc_ppm
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][11]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][11]
                 + motive_pressure
                 * b.recovery_vol_phase[0, "Liq"]
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][12]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][12]
                 + motive_pressure
                 * feed_temperature
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][13]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][13]
                 + motive_pressure
                 * capacity
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][14]
-                + 1 * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][15]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][14]
+                + 1 * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][15]
                 + motive_pressure**2
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][16]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][16]
                 + capacity**2
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][17]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][17]
                 + feed_temperature**2
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][18]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][18]
                 + b.recovery_vol_phase[0, "Liq"] ** 2
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][19]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][19]
                 + feed_conc_ppm**2
-                * motive_steam_mass_flow_rate_coeffs[b.number_effects.value][20]
+                * motive_steam_mass_flow_rate_coeffs[b.config.number_effects][20]
             )
 
         # Energy consumption
