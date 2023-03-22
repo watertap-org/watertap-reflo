@@ -38,8 +38,6 @@ from watertap.unit_models.reverse_osmosis_0D import (
 from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
     calculate_operating_pressure,
 )
-from watertap.core.util.model_diagnostics.infeasible import *
-
 from watertap_contrib.seto.analysis.net_metering.util import (
     display_ro_pv_results,
     display_pv_results,
