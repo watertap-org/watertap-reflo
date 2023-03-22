@@ -97,12 +97,11 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
 
         # ---------------------------------------------------------------------
         # Set default scaling factors
-        self.default_scaling_factor = {
-            ("temperature"): 1e-3,
-            ("pressure"): 1e-5,
-            ("dens_mass"): 1e-3,
-            ("visc_d"): 1e3,
-        }
+        self.set_default_scaling("temperature", 1e-3)
+        self.set_default_scaling("pressure", 1e-5)
+        self.set_default_scaling("dens_mass", 1e-3)
+        self.set_default_scaling("visc_d", 1e3)
+
 
     @classmethod
     def define_metadata(cls, obj):
@@ -391,7 +390,7 @@ class BasicWaterStateBlockData(StateBlockData):
             sf_c = iscale.get_scaling_factor(self.conc_mass_comp[j])
             if sf_c is None:
                 try:
-                    sf_c = self.params.default_scaling_factor[("conc_mass_comp", j)]
+                    sf_c = self.params.set_default_scaling[("conc_mass_comp", j)]
                 except KeyError:
                     iscale.get_scaling_factor(
                         self.conc_mass_comp[j], default=1, warning=True
