@@ -74,8 +74,6 @@ def build_flat_plate_surrogate_cost_param_block(blk):
         doc="Variable operating cost of flat plate plant per MWh generated",
     )
 
-    blk.fix_all_vars()
-
 
 @register_costing_parameter_block(
     build_rule=build_flat_plate_surrogate_cost_param_block,
