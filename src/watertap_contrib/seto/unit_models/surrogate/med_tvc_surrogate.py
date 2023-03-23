@@ -48,6 +48,7 @@ from watertap.property_models.water_prop_pack import WaterParameterBlock
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
 
+
 @declare_process_block_class("MEDTVCSurrogate")
 class MEDTVCData(UnitModelBlockData):
     """
@@ -118,7 +119,7 @@ class MEDTVCData(UnitModelBlockData):
         "number_effects",
         ConfigValue(
             default=12,
-            domain=In(range(8,17)),
+            domain=In(range(8, 17)),
             description="Number of effects of the MED_TVC system",
             doc="""A ConfigBlock specifying the number of effects, which should be an interger between 8 to 16.""",
         ),
@@ -419,15 +420,11 @@ class MEDTVCData(UnitModelBlockData):
                 * self.recovery_vol_phase[0, "Liq"]
                 * gain_output_ratio_coeffs[num_effect][5]
                 + capacity * gain_output_ratio_coeffs[num_effect][6]
-                + capacity
-                * feed_conc_ppm
-                * gain_output_ratio_coeffs[num_effect][7]
+                + capacity * feed_conc_ppm * gain_output_ratio_coeffs[num_effect][7]
                 + capacity
                 * self.recovery_vol_phase[0, "Liq"]
                 * gain_output_ratio_coeffs[num_effect][8]
-                + capacity
-                * feed_temperature
-                * gain_output_ratio_coeffs[num_effect][9]
+                + capacity * feed_temperature * gain_output_ratio_coeffs[num_effect][9]
                 + motive_pressure * gain_output_ratio_coeffs[num_effect][10]
                 + motive_pressure
                 * feed_conc_ppm
@@ -438,26 +435,21 @@ class MEDTVCData(UnitModelBlockData):
                 + motive_pressure
                 * feed_temperature
                 * gain_output_ratio_coeffs[num_effect][13]
-                + motive_pressure
-                * capacity
-                * gain_output_ratio_coeffs[num_effect][14]
+                + motive_pressure * capacity * gain_output_ratio_coeffs[num_effect][14]
                 + 1 * gain_output_ratio_coeffs[num_effect][15]
-                + motive_pressure**2
-                * gain_output_ratio_coeffs[num_effect][16]
+                + motive_pressure**2 * gain_output_ratio_coeffs[num_effect][16]
                 + capacity**2 * gain_output_ratio_coeffs[num_effect][17]
-                + feed_temperature**2
-                * gain_output_ratio_coeffs[num_effect][18]
+                + feed_temperature**2 * gain_output_ratio_coeffs[num_effect][18]
                 + self.recovery_vol_phase[0, "Liq"] ** 2
                 * gain_output_ratio_coeffs[num_effect][19]
-                + feed_conc_ppm**2
-                * gain_output_ratio_coeffs[num_effect][20]
+                + feed_conc_ppm**2 * gain_output_ratio_coeffs[num_effect][20]
             )
 
         specific_area_coeffs = self._get_specific_area_coeffs()
 
         # Specific area surrogate equation, as a function of the number of effect
         def _get_specific_area(num_effect):
-            return ( 
+            return (
                 feed_conc_ppm * specific_area_coeffs[num_effect][0]
                 + self.recovery_vol_phase[0, "Liq"]
                 * specific_area_coeffs[num_effect][1]
@@ -465,41 +457,29 @@ class MEDTVCData(UnitModelBlockData):
                 * self.recovery_vol_phase[0, "Liq"]
                 * specific_area_coeffs[num_effect][2]
                 + feed_temperature * specific_area_coeffs[num_effect][3]
-                + feed_temperature
-                * feed_conc_ppm
-                * specific_area_coeffs[num_effect][4]
+                + feed_temperature * feed_conc_ppm * specific_area_coeffs[num_effect][4]
                 + feed_temperature
                 * self.recovery_vol_phase[0, "Liq"]
                 * specific_area_coeffs[num_effect][5]
                 + capacity * specific_area_coeffs[num_effect][6]
-                + capacity
-                * feed_conc_ppm
-                * specific_area_coeffs[num_effect][7]
+                + capacity * feed_conc_ppm * specific_area_coeffs[num_effect][7]
                 + capacity
                 * self.recovery_vol_phase[0, "Liq"]
                 * specific_area_coeffs[num_effect][8]
-                + capacity
-                * feed_temperature
-                * specific_area_coeffs[num_effect][9]
+                + capacity * feed_temperature * specific_area_coeffs[num_effect][9]
                 + motive_pressure * specific_area_coeffs[num_effect][10]
-                + motive_pressure
-                * feed_conc_ppm
-                * specific_area_coeffs[num_effect][11]
+                + motive_pressure * feed_conc_ppm * specific_area_coeffs[num_effect][11]
                 + motive_pressure
                 * self.recovery_vol_phase[0, "Liq"]
                 * specific_area_coeffs[num_effect][12]
                 + motive_pressure
                 * feed_temperature
                 * specific_area_coeffs[num_effect][13]
-                + motive_pressure
-                * capacity
-                * specific_area_coeffs[num_effect][14]
+                + motive_pressure * capacity * specific_area_coeffs[num_effect][14]
                 + 1 * specific_area_coeffs[num_effect][15]
-                + motive_pressure**2
-                * specific_area_coeffs[num_effect][16]
+                + motive_pressure**2 * specific_area_coeffs[num_effect][16]
                 + capacity**2 * specific_area_coeffs[num_effect][17]
-                + feed_temperature**2
-                * specific_area_coeffs[num_effect][18]
+                + feed_temperature**2 * specific_area_coeffs[num_effect][18]
                 + self.recovery_vol_phase[0, "Liq"] ** 2
                 * specific_area_coeffs[num_effect][19]
                 + feed_conc_ppm**2 * specific_area_coeffs[num_effect][20]
@@ -512,23 +492,20 @@ class MEDTVCData(UnitModelBlockData):
         # Heating steam mass flow rate surrogate equation, as a function of the number of effect
         def _get_heating_steam_mass_flow_rate(num_effect):
             return (
-                feed_conc_ppm
-                * heating_steam_mass_flow_rate_coeffs[num_effect][0]
+                feed_conc_ppm * heating_steam_mass_flow_rate_coeffs[num_effect][0]
                 + self.recovery_vol_phase[0, "Liq"]
                 * heating_steam_mass_flow_rate_coeffs[num_effect][1]
                 + feed_conc_ppm
                 * self.recovery_vol_phase[0, "Liq"]
                 * heating_steam_mass_flow_rate_coeffs[num_effect][2]
-                + feed_temperature
-                * heating_steam_mass_flow_rate_coeffs[num_effect][3]
+                + feed_temperature * heating_steam_mass_flow_rate_coeffs[num_effect][3]
                 + feed_temperature
                 * feed_conc_ppm
                 * heating_steam_mass_flow_rate_coeffs[num_effect][4]
                 + feed_temperature
                 * self.recovery_vol_phase[0, "Liq"]
                 * heating_steam_mass_flow_rate_coeffs[num_effect][5]
-                + capacity
-                * heating_steam_mass_flow_rate_coeffs[num_effect][6]
+                + capacity * heating_steam_mass_flow_rate_coeffs[num_effect][6]
                 + capacity
                 * feed_conc_ppm
                 * heating_steam_mass_flow_rate_coeffs[num_effect][7]
@@ -538,8 +515,7 @@ class MEDTVCData(UnitModelBlockData):
                 + capacity
                 * feed_temperature
                 * heating_steam_mass_flow_rate_coeffs[num_effect][9]
-                + motive_pressure
-                * heating_steam_mass_flow_rate_coeffs[num_effect][10]
+                + motive_pressure * heating_steam_mass_flow_rate_coeffs[num_effect][10]
                 + motive_pressure
                 * feed_conc_ppm
                 * heating_steam_mass_flow_rate_coeffs[num_effect][11]
@@ -555,8 +531,7 @@ class MEDTVCData(UnitModelBlockData):
                 + 1 * heating_steam_mass_flow_rate_coeffs[num_effect][15]
                 + motive_pressure**2
                 * heating_steam_mass_flow_rate_coeffs[num_effect][16]
-                + capacity**2
-                * heating_steam_mass_flow_rate_coeffs[num_effect][17]
+                + capacity**2 * heating_steam_mass_flow_rate_coeffs[num_effect][17]
                 + feed_temperature**2
                 * heating_steam_mass_flow_rate_coeffs[num_effect][18]
                 + self.recovery_vol_phase[0, "Liq"] ** 2
@@ -565,7 +540,6 @@ class MEDTVCData(UnitModelBlockData):
                 * heating_steam_mass_flow_rate_coeffs[num_effect][20]
             )
 
-
         motive_steam_mass_flow_rate_coeffs = (
             self._get_motive_steam_mass_flow_rate_coeffs()
         )
@@ -573,23 +547,20 @@ class MEDTVCData(UnitModelBlockData):
         # Motive steam mass flow rate surrogate equation, as a function of the number of effect
         def _get_motive_steam_mass_flow_rate(num_effect):
             return (
-                feed_conc_ppm
-                * motive_steam_mass_flow_rate_coeffs[num_effect][0]
+                feed_conc_ppm * motive_steam_mass_flow_rate_coeffs[num_effect][0]
                 + self.recovery_vol_phase[0, "Liq"]
                 * motive_steam_mass_flow_rate_coeffs[num_effect][1]
                 + feed_conc_ppm
                 * self.recovery_vol_phase[0, "Liq"]
                 * motive_steam_mass_flow_rate_coeffs[num_effect][2]
-                + feed_temperature
-                * motive_steam_mass_flow_rate_coeffs[num_effect][3]
+                + feed_temperature * motive_steam_mass_flow_rate_coeffs[num_effect][3]
                 + feed_temperature
                 * feed_conc_ppm
                 * motive_steam_mass_flow_rate_coeffs[num_effect][4]
                 + feed_temperature
                 * self.recovery_vol_phase[0, "Liq"]
                 * motive_steam_mass_flow_rate_coeffs[num_effect][5]
-                + capacity
-                * motive_steam_mass_flow_rate_coeffs[num_effect][6]
+                + capacity * motive_steam_mass_flow_rate_coeffs[num_effect][6]
                 + capacity
                 * feed_conc_ppm
                 * motive_steam_mass_flow_rate_coeffs[num_effect][7]
@@ -599,8 +570,7 @@ class MEDTVCData(UnitModelBlockData):
                 + capacity
                 * feed_temperature
                 * motive_steam_mass_flow_rate_coeffs[num_effect][9]
-                + motive_pressure
-                * motive_steam_mass_flow_rate_coeffs[num_effect][10]
+                + motive_pressure * motive_steam_mass_flow_rate_coeffs[num_effect][10]
                 + motive_pressure
                 * feed_conc_ppm
                 * motive_steam_mass_flow_rate_coeffs[num_effect][11]
@@ -616,8 +586,7 @@ class MEDTVCData(UnitModelBlockData):
                 + 1 * motive_steam_mass_flow_rate_coeffs[num_effect][15]
                 + motive_pressure**2
                 * motive_steam_mass_flow_rate_coeffs[num_effect][16]
-                + capacity**2
-                * motive_steam_mass_flow_rate_coeffs[num_effect][17]
+                + capacity**2 * motive_steam_mass_flow_rate_coeffs[num_effect][17]
                 + feed_temperature**2
                 * motive_steam_mass_flow_rate_coeffs[num_effect][18]
                 + self.recovery_vol_phase[0, "Liq"] ** 2
@@ -630,30 +599,34 @@ class MEDTVCData(UnitModelBlockData):
         # For intermediate number of effects (9,11,13,15), linear interpolation is adopted
         @self.Constraint(doc="Gain output ratio surrogate equation")
         def eq_gain_output_ratio(b):
-            if b.config.number_effects in [8,10,12,14,16]:
-                return (
-                    b.gain_output_ratio
-                    == _get_gain_output_ratio(b.config.number_effects)
+            if b.config.number_effects in [8, 10, 12, 14, 16]:
+                return b.gain_output_ratio == _get_gain_output_ratio(
+                    b.config.number_effects
                 )
-            else: # number_effects in [9,11,13,15]
+            else:  # number_effects in [9,11,13,15]
                 return (
                     b.gain_output_ratio
-                    == (_get_gain_output_ratio(b.config.number_effects - 1) +
-                    _get_gain_output_ratio(b.config.number_effects + 1)) / 2
+                    == (
+                        _get_gain_output_ratio(b.config.number_effects - 1)
+                        + _get_gain_output_ratio(b.config.number_effects + 1)
+                    )
+                    / 2
                 )
 
         @self.Constraint(doc="specific area surrogate equation")
         def eq_specific_area(b):
-            if b.config.number_effects in [8,10,12,14,16]:
-                return (
-                    b.specific_area_per_m3_day
-                    == _get_specific_area(b.config.number_effects)
+            if b.config.number_effects in [8, 10, 12, 14, 16]:
+                return b.specific_area_per_m3_day == _get_specific_area(
+                    b.config.number_effects
                 )
-            else: # number_effects in [9,11,13,15]
+            else:  # number_effects in [9,11,13,15]
                 return (
                     b.specific_area_per_m3_day
-                    == (_get_specific_area(b.config.number_effects - 1) +
-                    _get_specific_area(b.config.number_effects + 1)) / 2
+                    == (
+                        _get_specific_area(b.config.number_effects - 1)
+                        + _get_specific_area(b.config.number_effects + 1)
+                    )
+                    / 2
                 )
 
         @self.Constraint(doc="Convert specific area to m2/kg/s for CAPEX calculation")
@@ -665,30 +638,34 @@ class MEDTVCData(UnitModelBlockData):
 
         @self.Constraint(doc="heating steam mass flow rate surrogate equation")
         def eq_heating_steam_mass_flow_rate(b):
-            if b.config.number_effects in [8,10,12,14,16]:
+            if b.config.number_effects in [8, 10, 12, 14, 16]:
+                return b.heating_steam_props[0].flow_mass_phase_comp[
+                    "Vap", "H2O"
+                ] == _get_heating_steam_mass_flow_rate(b.config.number_effects)
+            else:  # number_effects in [9,11,13,15]
                 return (
                     b.heating_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
-                    == _get_heating_steam_mass_flow_rate(b.config.number_effects)
-                )
-            else: # number_effects in [9,11,13,15]
-                return (
-                    b.heating_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
-                    == (_get_heating_steam_mass_flow_rate(b.config.number_effects - 1) +
-                    _get_heating_steam_mass_flow_rate(b.config.number_effects + 1)) / 2
+                    == (
+                        _get_heating_steam_mass_flow_rate(b.config.number_effects - 1)
+                        + _get_heating_steam_mass_flow_rate(b.config.number_effects + 1)
+                    )
+                    / 2
                 )
 
         @self.Constraint(doc="motive steam mass flow rate surrogate equation")
         def eq_motive_steam_mass_flow_rate(b):
-            if b.config.number_effects in [8,10,12,14,16]:
+            if b.config.number_effects in [8, 10, 12, 14, 16]:
+                return b.motive_steam_props[0].flow_mass_phase_comp[
+                    "Vap", "H2O"
+                ] == _get_motive_steam_mass_flow_rate(b.config.number_effects)
+            else:  # number_effects in [9,11,13,15]
                 return (
                     b.motive_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
-                    == _get_motive_steam_mass_flow_rate(b.config.number_effects)
-                )
-            else: # number_effects in [9,11,13,15]
-                return (
-                    b.motive_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
-                    == (_get_motive_steam_mass_flow_rate(b.config.number_effects - 1) +
-                    _get_motive_steam_mass_flow_rate(b.config.number_effects + 1)) / 2
+                    == (
+                        _get_motive_steam_mass_flow_rate(b.config.number_effects - 1)
+                        + _get_motive_steam_mass_flow_rate(b.config.number_effects + 1)
+                    )
+                    / 2
                 )
 
         # Energy consumption

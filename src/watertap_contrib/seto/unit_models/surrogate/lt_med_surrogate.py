@@ -113,7 +113,7 @@ class LTMEDData(UnitModelBlockData):
         "number_effects",
         ConfigValue(
             default=12,
-            domain=In([i for i in range(3,15)]),
+            domain=In([i for i in range(3, 15)]),
             description="Number of effects of the MED_TVC system",
             doc="""A ConfigBlock specifying the number of effects, which should be an interger between 8 to 16.""",
         ),
@@ -256,6 +256,7 @@ class LTMEDData(UnitModelBlockData):
             doc="Material properties of heating steam",
             **tmp_dict,
         )
+
         @self.Constraint(doc="Flow rate of liquid heating steam is zero")
         def eq_heating_steam_liquid_mass(b):
             return b.steam_props[0].flow_mass_phase_comp["Liq", "H2O"] == 0
@@ -290,6 +291,7 @@ class LTMEDData(UnitModelBlockData):
         """
         Isobaric
         """
+
         @self.Constraint(self.flowsheet().config.time, doc="Isobaric")
         def eq_feed_to_distillate_isobaric(b, t):
             return b.feed_props[t].pressure == b.distillate_props[t].pressure
@@ -382,8 +384,7 @@ class LTMEDData(UnitModelBlockData):
                 + feed_conc_ppm
                 * self.recovery_vol_phase[0, "Liq"]
                 * gain_output_ratio_coeffs[num_effect][2]
-                + self.temp_last_effect
-                * gain_output_ratio_coeffs[num_effect][3]
+                + self.temp_last_effect * gain_output_ratio_coeffs[num_effect][3]
                 + self.temp_last_effect
                 * feed_conc_ppm
                 * gain_output_ratio_coeffs[num_effect][4]
@@ -391,9 +392,7 @@ class LTMEDData(UnitModelBlockData):
                 * self.recovery_vol_phase[0, "Liq"]
                 * gain_output_ratio_coeffs[num_effect][5]
                 + temp_steam * gain_output_ratio_coeffs[num_effect][6]
-                + temp_steam
-                * feed_conc_ppm
-                * gain_output_ratio_coeffs[num_effect][7]
+                + temp_steam * feed_conc_ppm * gain_output_ratio_coeffs[num_effect][7]
                 + temp_steam
                 * self.recovery_vol_phase[0, "Liq"]
                 * gain_output_ratio_coeffs[num_effect][8]
@@ -402,12 +401,10 @@ class LTMEDData(UnitModelBlockData):
                 * gain_output_ratio_coeffs[num_effect][9]
                 + 1 * gain_output_ratio_coeffs[num_effect][10]
                 + temp_steam**2 * gain_output_ratio_coeffs[num_effect][11]
-                + self.temp_last_effect**2
-                * gain_output_ratio_coeffs[num_effect][12]
+                + self.temp_last_effect**2 * gain_output_ratio_coeffs[num_effect][12]
                 + self.recovery_vol_phase[0, "Liq"] ** 2
                 * gain_output_ratio_coeffs[num_effect][13]
-                + feed_conc_ppm**2
-                * gain_output_ratio_coeffs[num_effect][14]
+                + feed_conc_ppm**2 * gain_output_ratio_coeffs[num_effect][14]
             )
 
         specific_area_coeffs = self._get_specific_area_coeffs()
@@ -417,8 +414,7 @@ class LTMEDData(UnitModelBlockData):
             if num_effect in [3, 6, 9]:
                 return (
                     feed_conc_ppm * specific_area_coeffs[num_effect][0]
-                    + feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][1]
+                    + feed_conc_ppm**2 * specific_area_coeffs[num_effect][1]
                     + self.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[num_effect][2]
                     + self.recovery_vol_phase[0, "Liq"]
@@ -432,8 +428,7 @@ class LTMEDData(UnitModelBlockData):
                     + self.recovery_vol_phase[0, "Liq"] ** 2
                     * feed_conc_ppm
                     * specific_area_coeffs[num_effect][6]
-                    + self.temp_last_effect
-                    * specific_area_coeffs[num_effect][7]
+                    + self.temp_last_effect * specific_area_coeffs[num_effect][7]
                     + self.temp_last_effect
                     * feed_conc_ppm
                     * specific_area_coeffs[num_effect][8]
@@ -450,8 +445,7 @@ class LTMEDData(UnitModelBlockData):
                     + self.temp_last_effect
                     * self.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[num_effect][12]
-                    + self.temp_last_effect**2
-                    * specific_area_coeffs[num_effect][13]
+                    + self.temp_last_effect**2 * specific_area_coeffs[num_effect][13]
                     + self.temp_last_effect**2
                     * feed_conc_ppm
                     * specific_area_coeffs[num_effect][14]
@@ -459,9 +453,7 @@ class LTMEDData(UnitModelBlockData):
                     * self.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[num_effect][15]
                     + temp_steam * specific_area_coeffs[num_effect][16]
-                    + temp_steam
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][17]
+                    + temp_steam * feed_conc_ppm * specific_area_coeffs[num_effect][17]
                     + temp_steam
                     * feed_conc_ppm**2
                     * specific_area_coeffs[num_effect][18]
@@ -501,21 +493,17 @@ class LTMEDData(UnitModelBlockData):
                     * specific_area_coeffs[num_effect][29]
                     + 1 * specific_area_coeffs[num_effect][30]
                     + temp_steam**3 * specific_area_coeffs[num_effect][31]
-                    + self.temp_last_effect**3
-                    * specific_area_coeffs[num_effect][32]
+                    + self.temp_last_effect**3 * specific_area_coeffs[num_effect][32]
                     + self.recovery_vol_phase[0, "Liq"] ** 3
                     * specific_area_coeffs[num_effect][33]
-                    + feed_conc_ppm**3
-                    * specific_area_coeffs[num_effect][34]
+                    + feed_conc_ppm**3 * specific_area_coeffs[num_effect][34]
                 )
 
             else:
                 return (
                     feed_conc_ppm * specific_area_coeffs[num_effect][0]
-                    + feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][1]
-                    + feed_conc_ppm**3
-                    * specific_area_coeffs[num_effect][2]
+                    + feed_conc_ppm**2 * specific_area_coeffs[num_effect][1]
+                    + feed_conc_ppm**3 * specific_area_coeffs[num_effect][2]
                     + self.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[num_effect][3]
                     + self.recovery_vol_phase[0, "Liq"]
@@ -540,8 +528,7 @@ class LTMEDData(UnitModelBlockData):
                     + self.recovery_vol_phase[0, "Liq"] ** 3
                     * feed_conc_ppm
                     * specific_area_coeffs[num_effect][11]
-                    + self.temp_last_effect
-                    * specific_area_coeffs[num_effect][12]
+                    + self.temp_last_effect * specific_area_coeffs[num_effect][12]
                     + self.temp_last_effect
                     * feed_conc_ppm
                     * specific_area_coeffs[num_effect][13]
@@ -572,8 +559,7 @@ class LTMEDData(UnitModelBlockData):
                     + self.temp_last_effect
                     * self.recovery_vol_phase[0, "Liq"] ** 3
                     * specific_area_coeffs[num_effect][21]
-                    + self.temp_last_effect**2
-                    * specific_area_coeffs[num_effect][22]
+                    + self.temp_last_effect**2 * specific_area_coeffs[num_effect][22]
                     + self.temp_last_effect**2
                     * feed_conc_ppm
                     * specific_area_coeffs[num_effect][23]
@@ -590,8 +576,7 @@ class LTMEDData(UnitModelBlockData):
                     + self.temp_last_effect**2
                     * self.recovery_vol_phase[0, "Liq"] ** 2
                     * specific_area_coeffs[num_effect][27]
-                    + self.temp_last_effect**3
-                    * specific_area_coeffs[num_effect][28]
+                    + self.temp_last_effect**3 * specific_area_coeffs[num_effect][28]
                     + self.temp_last_effect**3
                     * feed_conc_ppm
                     * specific_area_coeffs[num_effect][29]
@@ -599,9 +584,7 @@ class LTMEDData(UnitModelBlockData):
                     * self.recovery_vol_phase[0, "Liq"]
                     * specific_area_coeffs[num_effect][30]
                     + temp_steam * specific_area_coeffs[num_effect][31]
-                    + temp_steam
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][32]
+                    + temp_steam * feed_conc_ppm * specific_area_coeffs[num_effect][32]
                     + temp_steam
                     * feed_conc_ppm**2
                     * specific_area_coeffs[num_effect][33]
@@ -710,64 +693,62 @@ class LTMEDData(UnitModelBlockData):
                     * specific_area_coeffs[num_effect][64]
                     + 1 * specific_area_coeffs[num_effect][65]
                     + temp_steam**4 * specific_area_coeffs[num_effect][66]
-                    + self.temp_last_effect**4
-                    * specific_area_coeffs[num_effect][67]
+                    + self.temp_last_effect**4 * specific_area_coeffs[num_effect][67]
                     + self.recovery_vol_phase[0, "Liq"] ** 4
                     * specific_area_coeffs[num_effect][68]
-                    + feed_conc_ppm**4
-                    * specific_area_coeffs[num_effect][69]
+                    + feed_conc_ppm**4 * specific_area_coeffs[num_effect][69]
                 )
 
         # Surrogate equations were built for 3,6,9,12,14 effects
         # For intermediate number of effects (4,5,7,8,10,11,13), linear interpolation is adopted
         @self.Constraint(doc="Gain output ratio surrogate equation")
         def eq_gain_output_ratio(b):
-            if b.config.number_effects in [3,6,9,12,14]:
-                return (
-                    b.gain_output_ratio
-                    == _get_gain_output_ratio(b.config.number_effects)
+            if b.config.number_effects in [3, 6, 9, 12, 14]:
+                return b.gain_output_ratio == _get_gain_output_ratio(
+                    b.config.number_effects
                 )
-            else: # number_effects in [4,5,7,8,10,11,13]
+            else:  # number_effects in [4,5,7,8,10,11,13]
                 # find out the closest numbers of effects that have a surrogate equation
-                interp_effects, i = [3,6,9,12,14], 1
+                interp_effects, i = [3, 6, 9, 12, 14], 1
                 while interp_effects[i] < b.config.number_effects:
                     i += 1
-                interp_point1, interp_point2 = interp_effects[i-1], interp_effects[i]
-                
+                interp_point1, interp_point2 = interp_effects[i - 1], interp_effects[i]
+
                 # implement linear interpolation using 2 points
-                return (
-                    b.gain_output_ratio
-                    == _get_gain_output_ratio(interp_point1) 
-                    * (interp_point2 - b.config.number_effects)
-                    / (interp_point2 - interp_point1)
-                    +  _get_gain_output_ratio(interp_point2)
-                    * (b.config.number_effects - interp_point1)
-                    / (interp_point2 - interp_point1)
-                )            
+                return b.gain_output_ratio == _get_gain_output_ratio(interp_point1) * (
+                    interp_point2 - b.config.number_effects
+                ) / (interp_point2 - interp_point1) + _get_gain_output_ratio(
+                    interp_point2
+                ) * (
+                    b.config.number_effects - interp_point1
+                ) / (
+                    interp_point2 - interp_point1
+                )
 
         @self.Constraint(doc="Specific area surrogate equation")
         def eq_specific_area_per_m3_day(b):
-            if b.config.number_effects in [3,6,9,12,14]:
-                return (
-                    b.specific_area_per_m3_day
-                    == _get_specific_area(b.config.number_effects)
+            if b.config.number_effects in [3, 6, 9, 12, 14]:
+                return b.specific_area_per_m3_day == _get_specific_area(
+                    b.config.number_effects
                 )
-            else: # number_effects in [4,5,7,8,10,11,13]
+            else:  # number_effects in [4,5,7,8,10,11,13]
                 # find out the closest numbers of effects that have a surrogate equation
-                interp_effects, i = [3,6,9,12,14], 1
+                interp_effects, i = [3, 6, 9, 12, 14], 1
                 while interp_effects[i] < b.config.number_effects:
                     i += 1
-                interp_point1, interp_point2 = interp_effects[i-1], interp_effects[i]
+                interp_point1, interp_point2 = interp_effects[i - 1], interp_effects[i]
 
                 # implement linear interpolation using 2 points
-                return (
-                    b.specific_area_per_m3_day
-                    == _get_specific_area(interp_point1) 
-                    * (interp_point2 - b.config.number_effects)
-                    / (interp_point2 - interp_point1)
-                    +  _get_specific_area(interp_point2)
-                    * (b.config.number_effects - interp_point1)
-                    / (interp_point2 - interp_point1)
+                return b.specific_area_per_m3_day == _get_specific_area(
+                    interp_point1
+                ) * (interp_point2 - b.config.number_effects) / (
+                    interp_point2 - interp_point1
+                ) + _get_specific_area(
+                    interp_point2
+                ) * (
+                    b.config.number_effects - interp_point1
+                ) / (
+                    interp_point2 - interp_point1
                 )
 
         @self.Constraint(doc="Convert specific area to m2/kg/s for CAPEX calculation")
@@ -776,7 +757,6 @@ class LTMEDData(UnitModelBlockData):
                 b.specific_area_per_m3_day / b.feed_props[0].dens_mass_phase["Liq"],
                 to_units=pyunits.m**2 / pyunits.kg * pyunits.s,
             )
-
 
         # Steam flow rate calculation
         @self.Constraint(doc="Steam flow rate")
@@ -1032,7 +1012,9 @@ class LTMEDData(UnitModelBlockData):
         sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
         iscale.constraint_scaling_transform(self.eq_cooling_temp, sf)
 
-        sf = iscale.get_scaling_factor(self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"])
+        sf = iscale.get_scaling_factor(
+            self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"]
+        )
         iscale.constraint_scaling_transform(self.eq_heating_steam_liquid_mass, sf)
 
         sf = iscale.get_scaling_factor(
@@ -1171,7 +1153,7 @@ class LTMEDData(UnitModelBlockData):
             ],
             9: [
                 1.67e-06,
-                5.9507846+1e-3,
+                5.9507846 + 1e-3,
                 -3.94e-06,
                 0.012607651,
                 -5.50e-08,

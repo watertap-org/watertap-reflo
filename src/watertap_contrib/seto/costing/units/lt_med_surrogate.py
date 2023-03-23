@@ -189,8 +189,7 @@ def cost_lt_med_surrogate(blk):
     )
 
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost
-        == blk.total_system_cost
+        expr=blk.capital_cost == blk.total_system_cost
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(

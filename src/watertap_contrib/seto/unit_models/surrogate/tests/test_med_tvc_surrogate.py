@@ -52,7 +52,7 @@ class TestMEDTVC:
         m.fs.med_tvc = MEDTVCSurrogate(
             property_package_liquid=m.fs.liquid_prop,
             property_package_vapor=m.fs.vapor_prop,
-            number_effects=12, # assuming 12 effects by default
+            number_effects=12,  # assuming 12 effects by default
         )
 
         med_tvc = m.fs.med_tvc

@@ -45,7 +45,7 @@ class TestLTMED:
         m.fs.lt_med = LTMEDSurrogate(
             property_package_liquid=m.fs.water_prop,
             property_package_vapor=m.fs.steam_prop,
-            number_effects=12, # assuming 12 effects by default
+            number_effects=12,  # assuming 12 effects by default
         )
 
         lt_med = m.fs.lt_med
@@ -90,7 +90,7 @@ class TestLTMED:
 
         # Fix input steam temperature
         steam.temperature.fix(steam_temperature + 273.15)
-        
+
         # Fix target recovery rate
         lt_med.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
 
@@ -223,7 +223,9 @@ class TestLTMED:
     def test_solution(self, LT_MED_frame):
         m = LT_MED_frame
         assert pytest.approx(9.9127, rel=1e-3) == value(m.fs.lt_med.gain_output_ratio)
-        assert pytest.approx(3.9592, rel=1e-3) == value(m.fs.lt_med.specific_area_per_m3_day)
+        assert pytest.approx(3.9592, rel=1e-3) == value(
+            m.fs.lt_med.specific_area_per_m3_day
+        )
         assert pytest.approx(6.4290e1, rel=1e-3) == value(
             m.fs.lt_med.specific_energy_consumption_thermal
         )
