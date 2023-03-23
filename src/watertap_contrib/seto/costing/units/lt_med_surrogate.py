@@ -37,13 +37,6 @@ def build_lt_med_surrogate_cost_param_block(blk):
         doc="Fraction of capital cost for insurance",
     )
 
-    blk.cost_storage_per_kwh = pyo.Var(
-        initialize=26,
-        units=costing.base_currency / pyo.units.kWh,
-        bounds=(0, None),
-        doc="Cost of thermal storage per kWh",
-    )
-
     blk.cost_chemicals_per_vol_dist = pyo.Var(
         initialize=0.04,
         units=costing.base_currency / pyo.units.m**3,
@@ -152,31 +145,6 @@ def cost_lt_med_surrogate(blk):
         doc="MED system cost per m3/day distillate",
     )
 
-    blk.heat_exchanger_specific_area = pyo.Var(
-        initialize=100,
-        units=pyo.units.m**2 / (pyo.units.kg / pyo.units.s),
-        doc="Specific heat exchanger area",
-    )
-
-    blk.thermal_storage_capacity = pyo.Var(
-        initialize=5,
-        units=pyo.units.kWh,
-        doc="Thermal storage capacity",
-    )
-
-    blk.heat_exchanger_specific_area_constraint = pyo.Constraint(
-        expr=blk.heat_exchanger_specific_area
-        == pyo.units.convert(
-            lt_med.specific_area / feed.dens_mass_phase["Liq"],
-            to_units=(pyo.units.m**2 * pyo.units.s) / pyo.units.kg,
-        )
-    )
-
-    blk.thermal_storage_capacity_constraint = pyo.Constraint(
-        expr=blk.thermal_storage_capacity
-        == lt_med.thermal_power_requirement * lt_med_params.hours_thermal_storage
-    )
-
     blk.capacity = pyo.units.convert(
         dist.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.day
     )
@@ -206,7 +174,7 @@ def cost_lt_med_surrogate(blk):
                 lt_med_params.cost_fraction_evaporator
                 * (
                     (
-                        blk.heat_exchanger_specific_area
+                        lt_med.specific_area_per_kg_s
                         / lt_med_params.heat_exchanger_ref_area
                     )
                     ** lt_med_params.heat_exchanger_exp
@@ -223,7 +191,6 @@ def cost_lt_med_surrogate(blk):
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
         == blk.total_system_cost
-        + lt_med_params.cost_storage_per_kwh * blk.thermal_storage_capacity
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(

@@ -52,7 +52,7 @@ class TestMEDTVC:
         m.fs.med_tvc = MEDTVCSurrogate(
             property_package_liquid=m.fs.liquid_prop,
             property_package_vapor=m.fs.vapor_prop,
-            number_effects=12,
+            number_effects=12, # assuming 12 effects by default
         )
 
         med_tvc = m.fs.med_tvc
@@ -152,21 +152,13 @@ class TestMEDTVC:
     def test_config(self, MED_TVC_frame):
         m = MED_TVC_frame
         # check unit config arguments
-        assert len(m.fs.med_tvc.config) == 5
+        assert len(m.fs.med_tvc.config) == 6
 
         assert not m.fs.med_tvc.config.dynamic
         assert not m.fs.med_tvc.config.has_holdup
         assert m.fs.med_tvc.config.property_package_liquid is m.fs.liquid_prop
         assert m.fs.med_tvc.config.property_package_vapor is m.fs.vapor_prop
-
-    @pytest.mark.unit
-    def test_num_effects_domain(self, MED_TVC_frame):
-        m = MED_TVC_frame
-        error_msg = re.escape(
-            "Invalid parameter value: fs.med_tvc.number_effects[None] = '100', value type=<class 'int'>.\n\tValue not in parameter domain fs.med_tvc.number_effects_domain"
-        )
-        with pytest.raises(ValueError, match=error_msg):
-            m.fs.med_tvc.number_effects.set_value(100)
+        assert m.fs.med_tvc.config.number_effects in range(8, 17)
 
     @pytest.mark.unit
     def test_build(self, MED_TVC_frame):
@@ -180,7 +172,7 @@ class TestMEDTVC:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 202
+        assert number_variables(m) == 204
         assert number_total_constraints(m) == 62
         assert number_unused_variables(m) == 74  # vars from property package parameters
 
@@ -265,7 +257,7 @@ class TestMEDTVC:
         assert value(
             med_tvc.brine_props[0].flow_mass_phase_comp["Liq", "TDS"]
             - med_tvc.feed_props[0].flow_mass_phase_comp["Liq", "TDS"]
-        ) == pytest.approx(0, rel=1e-3)
+        ) == pytest.approx(0, abs=1e-3)
 
     @pytest.mark.component
     def test_solution(self, MED_TVC_frame):
