@@ -148,6 +148,112 @@ class TestMEDTVC:
 
         return m
 
+    @pytest.fixture(scope="class")
+    def MED_TVC_frame2(self):
+        # create flowsheet for an interpolated number of effects
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.liquid_prop = SeawaterParameterBlock()
+        m.fs.vapor_prop = WaterParameterBlock()
+        m.fs.med_tvc = MEDTVCSurrogate(
+            property_package_liquid=m.fs.liquid_prop,
+            property_package_vapor=m.fs.vapor_prop,
+            number_effects=9,  # Interpolated values include [9, 11, 13, 15]
+        )
+
+        med_tvc = m.fs.med_tvc
+        feed = med_tvc.feed_props[0]
+        cool = med_tvc.cooling_out_props[0]
+        dist = med_tvc.distillate_props[0]
+        steam = med_tvc.heating_steam_props[0]
+        motive = med_tvc.motive_steam_props[0]
+
+        # System specification
+        # Input variable 1: Feed salinity (30-60 g/L = kg/m3)
+        feed_salinity = 35 * pyunits.kg / pyunits.m**3
+
+        # Input variable 2: Feed temperature (25-35 deg C)
+        feed_temperature = 25
+
+        # Input variable 3: Motive steam pressure (4-45 bar)
+        motive_pressure = 24
+
+        # Input variable 4: System capacity (2,000 - 100,000 m3/day)
+        sys_capacity = 2000 * pyunits.m**3 / pyunits.day
+
+        # Input variable 5: Recovery ratio (30%- 40%)
+        recovery_ratio = 0.3 * pyunits.dimensionless
+
+        feed_flow = pyunits.convert(
+            (sys_capacity / recovery_ratio), to_units=pyunits.m**3 / pyunits.s
+        )  # feed volumetric flow rate [m3/s]
+
+        """
+        Specify feed flow state properties
+        """
+        # Specify feed flow state properties
+        med_tvc.feed_props.calculate_state(
+            var_args={
+                ("flow_vol_phase", "Liq"): feed_flow,
+                ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
+                ("temperature", None): feed_temperature + 273.15,
+                # feed flow is at atmospheric pressure
+                ("pressure", None): 101325,
+            },
+            hold_state=True,
+        )
+
+        """
+        Specify heating steam state properties
+        """
+        # Heating steam temperature (saturated) is fixed at 70 C in this configuration
+        steam.temperature.fix(70 + 273.15)
+
+        # Calculate heating steam pressure (saturated)
+        med_tvc.heating_steam_props.calculate_state(
+            var_args={
+                ("pressure_sat", None): value(steam.pressure),
+            },
+            hold_state=True,
+        )
+        # Release mass flow rate
+        steam.flow_mass_phase_comp["Vap", "H2O"].unfix()
+        steam.flow_mass_phase_comp["Liq", "H2O"].unfix()
+
+        """
+        Specify motive steam state properties
+        """
+        # Calculate temperature of the motive steam (saturated)
+        med_tvc.motive_steam_props.calculate_state(
+            var_args={
+                ("pressure", None): motive_pressure * 1e5,
+                ("pressure_sat", None): motive_pressure * 1e5,
+            },
+            hold_state=True,
+        )
+        # Release mass flow rate
+        motive.flow_mass_phase_comp["Vap", "H2O"].unfix()
+        motive.flow_mass_phase_comp["Liq", "H2O"].unfix()
+
+        # Fix target recovery rate
+        med_tvc.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
+
+        # Set scaling factors for mass flow rates
+        m.fs.liquid_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        )
+        m.fs.liquid_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+        )
+        m.fs.vapor_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        )
+        m.fs.vapor_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1, index=("Vap", "H2O")
+        )
+
+        return m
+
     @pytest.mark.unit
     def test_config(self, MED_TVC_frame):
         m = MED_TVC_frame
@@ -173,7 +279,7 @@ class TestMEDTVC:
 
         # test statistics
         assert number_variables(m) == 204
-        assert number_total_constraints(m) == 62
+        assert number_total_constraints(m) == 61
         assert number_unused_variables(m) == 74  # vars from property package parameters
 
     @pytest.mark.unit
@@ -330,4 +436,34 @@ class TestMEDTVC:
         )
         assert pytest.approx(5126761.859, rel=1e-3) == value(
             m.fs.costing.total_capital_cost
+        )
+
+    @pytest.mark.component
+    def test_solution2(self, MED_TVC_frame2):
+        # Test the solution for 9 effects
+        m = MED_TVC_frame2
+        initialization_tester(m, unit=m.fs.med_tvc, outlvl=idaeslog.DEBUG)
+        results = solver.solve(m)
+
+        assert pytest.approx(10.299, rel=1e-3) == value(m.fs.med_tvc.gain_output_ratio)
+        assert pytest.approx(3.514, rel=1e-3) == value(
+            m.fs.med_tvc.specific_area_per_m3_day
+        )
+        assert pytest.approx(66.643, rel=1e-3) == value(
+            m.fs.med_tvc.specific_energy_consumption_thermal
+        )
+        assert pytest.approx(5553.55, rel=1e-3) == value(
+            m.fs.med_tvc.thermal_power_requirement
+        )
+        assert pytest.approx(2.642, rel=1e-3) == value(
+            m.fs.med_tvc.heating_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
+        )
+        assert pytest.approx(1.162, rel=1e-3) == value(
+            m.fs.med_tvc.motive_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
+        )
+        assert pytest.approx(267.76, rel=1e-3) == value(
+            pyunits.convert(
+                m.fs.med_tvc.cooling_out_props[0].flow_vol_phase["Liq"],
+                to_units=pyunits.m**3 / pyunits.hr,
+            )
         )

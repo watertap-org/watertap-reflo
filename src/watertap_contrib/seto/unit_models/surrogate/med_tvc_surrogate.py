@@ -121,7 +121,7 @@ class MEDTVCData(UnitModelBlockData):
             default=12,
             domain=In(range(8, 17)),
             description="Number of effects of the MED_TVC system",
-            doc="""A ConfigBlock specifying the number of effects, which should be an interger between 8 to 16.""",
+            doc="""A ConfigBlock specifying the number of effects, which should be an integer between 8 to 16.""",
         ),
     )
 
@@ -200,9 +200,7 @@ class MEDTVCData(UnitModelBlockData):
             )
 
         # salinity in distillate is zero
-        @self.Constraint(doc="distillate salinity")
-        def eq_distillate_salinity(b):
-            return b.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"] == 0
+        self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
 
         """
         Add block for brine
@@ -603,7 +601,7 @@ class MEDTVCData(UnitModelBlockData):
                 return b.gain_output_ratio == _get_gain_output_ratio(
                     b.config.number_effects
                 )
-            else:  # number_effects in [9,11,13,15]
+            elif b.config.number_effects in [9, 11, 13, 15]:
                 return (
                     b.gain_output_ratio
                     == (
@@ -612,6 +610,10 @@ class MEDTVCData(UnitModelBlockData):
                     )
                     / 2
                 )
+            else:
+                raise Exception(
+                    "Only integers between 8 to 16 are allowed for the number of effects"
+                )
 
         @self.Constraint(doc="specific area surrogate equation")
         def eq_specific_area(b):
@@ -619,7 +621,7 @@ class MEDTVCData(UnitModelBlockData):
                 return b.specific_area_per_m3_day == _get_specific_area(
                     b.config.number_effects
                 )
-            else:  # number_effects in [9,11,13,15]
+            elif b.config.number_effects in [9, 11, 13, 15]:
                 return (
                     b.specific_area_per_m3_day
                     == (
@@ -627,6 +629,10 @@ class MEDTVCData(UnitModelBlockData):
                         + _get_specific_area(b.config.number_effects + 1)
                     )
                     / 2
+                )
+            else:
+                raise Exception(
+                    "Only integers between 8 to 16 are allowed for the number of effects"
                 )
 
         @self.Constraint(doc="Convert specific area to m2/kg/s for CAPEX calculation")
@@ -642,7 +648,7 @@ class MEDTVCData(UnitModelBlockData):
                 return b.heating_steam_props[0].flow_mass_phase_comp[
                     "Vap", "H2O"
                 ] == _get_heating_steam_mass_flow_rate(b.config.number_effects)
-            else:  # number_effects in [9,11,13,15]
+            elif b.config.number_effects in [9, 11, 13, 15]:
                 return (
                     b.heating_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
                     == (
@@ -651,6 +657,10 @@ class MEDTVCData(UnitModelBlockData):
                     )
                     / 2
                 )
+            else:
+                raise Exception(
+                    "Only integers between 8 to 16 are allowed for the number of effects"
+                )
 
         @self.Constraint(doc="motive steam mass flow rate surrogate equation")
         def eq_motive_steam_mass_flow_rate(b):
@@ -658,7 +668,7 @@ class MEDTVCData(UnitModelBlockData):
                 return b.motive_steam_props[0].flow_mass_phase_comp[
                     "Vap", "H2O"
                 ] == _get_motive_steam_mass_flow_rate(b.config.number_effects)
-            else:  # number_effects in [9,11,13,15]
+            elif b.config.number_effects in [9, 11, 13, 15]:
                 return (
                     b.motive_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
                     == (
@@ -666,6 +676,10 @@ class MEDTVCData(UnitModelBlockData):
                         + _get_motive_steam_mass_flow_rate(b.config.number_effects + 1)
                     )
                     / 2
+                )
+            else:
+                raise Exception(
+                    "Only integers between 8 to 16 are allowed for the number of effects"
                 )
 
         # Energy consumption
@@ -912,11 +926,6 @@ class MEDTVCData(UnitModelBlockData):
         # Transforming constraints
         sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
         iscale.constraint_scaling_transform(self.eq_distillate_temp, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.eq_distillate_salinity, sf)
 
         sf = iscale.get_scaling_factor(
             self.heating_steam_props[0].flow_mass_phase_comp["Liq", "H2O"]

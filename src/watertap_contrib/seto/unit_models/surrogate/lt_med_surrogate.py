@@ -193,9 +193,7 @@ class LTMEDData(UnitModelBlockData):
             )
 
         # Salinity in distillate is zero
-        @self.Constraint(doc="distillate salinity")
-        def eq_distillate_salinity(b):
-            return b.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"] == 0
+        self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
 
         """
         Add block for brine
@@ -707,7 +705,7 @@ class LTMEDData(UnitModelBlockData):
                 return b.gain_output_ratio == _get_gain_output_ratio(
                     b.config.number_effects
                 )
-            else:  # number_effects in [4,5,7,8,10,11,13]
+            elif b.config.number_effects in [4, 5, 7, 8, 10, 11, 13]:
                 # find out the closest numbers of effects that have a surrogate equation
                 interp_effects, i = [3, 6, 9, 12, 14], 1
                 while interp_effects[i] < b.config.number_effects:
@@ -724,6 +722,10 @@ class LTMEDData(UnitModelBlockData):
                 ) / (
                     interp_point2 - interp_point1
                 )
+            else:
+                raise Exception(
+                    "Only integers between 3 to 14 are allowed for the number of effects"
+                )
 
         @self.Constraint(doc="Specific area surrogate equation")
         def eq_specific_area_per_m3_day(b):
@@ -731,7 +733,7 @@ class LTMEDData(UnitModelBlockData):
                 return b.specific_area_per_m3_day == _get_specific_area(
                     b.config.number_effects
                 )
-            else:  # number_effects in [4,5,7,8,10,11,13]
+            elif b.config.number_effects in [4, 5, 7, 8, 10, 11, 13]:
                 # find out the closest numbers of effects that have a surrogate equation
                 interp_effects, i = [3, 6, 9, 12, 14], 1
                 while interp_effects[i] < b.config.number_effects:
@@ -749,6 +751,10 @@ class LTMEDData(UnitModelBlockData):
                     b.config.number_effects - interp_point1
                 ) / (
                     interp_point2 - interp_point1
+                )
+            else:
+                raise Exception(
+                    "Only integers between 3 to 14 are allowed for the number of effects"
                 )
 
         @self.Constraint(doc="Convert specific area to m2/kg/s for CAPEX calculation")
@@ -1003,11 +1009,6 @@ class LTMEDData(UnitModelBlockData):
 
         sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
         iscale.constraint_scaling_transform(self.eq_distillate_temp, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.eq_distillate_salinity, sf)
 
         sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
         iscale.constraint_scaling_transform(self.eq_cooling_temp, sf)
