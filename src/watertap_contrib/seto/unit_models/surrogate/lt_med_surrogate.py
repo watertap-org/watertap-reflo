@@ -115,7 +115,7 @@ class LTMEDData(UnitModelBlockData):
             default=12,
             domain=In([i for i in range(3, 15)]),
             description="Number of effects of the MED_TVC system",
-            doc="""A ConfigBlock specifying the number of effects, which should be an interger between 8 to 16.""",
+            doc="""A ConfigBlock specifying the number of effects, which should be an integer between 8 to 16.""",
         ),
     )
 
