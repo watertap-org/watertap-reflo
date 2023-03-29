@@ -45,10 +45,10 @@ def display_ro_pv_results(m, sep="."):
             f'{"PV Avg. Elect. Gen":<25s}{f"{-1*m.fs.energy.pv.electricity():<25.1f}"}{"kW":<10s}'
         )
         print(
-            f'{"RO Electricity Use":<25s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}'
+            f'{"Treatment Elect. Use":<25s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}'
         )
         print(
-            f'{"Overall Elect. Use":<25s}{f"{m.fs.sys_costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}'
+            f'{"Elect. Sell Back":<25s}{f"{-1 *m.fs.sys_costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}'
         )
         print(
             f'{"PV Electrical %":<25s}{f"{((-100 * m.fs.energy.pv.electricity())/m.fs.sys_costing.aggregate_flow_electricity()):<25.1f}"}{"%":<10s}'
@@ -60,7 +60,7 @@ def display_ro_pv_results(m, sep="."):
         print(title)
         print(header)
         print(
-            f'{"PV Capital Cost":<24s}{f"${m.fs.energy.pv.costing.capital_cost():<25,.0f}"}{"$":<10s}'
+            f'{"PV Capital Cost":<24s}{f"${m.fs.energy.costing.total_capital_cost():<25,.0f}"}{"$":<10s}'
         )
         print(
             f'{"PV Fixed Op.":<24s}{f"${m.fs.energy.pv.costing.fixed_operating_cost():<25.0f}"}{"$/yr":<10s}'
@@ -78,12 +78,14 @@ def display_ro_pv_results(m, sep="."):
             f'{"PV Annual Gen":<25s}{f"{m.fs.energy.pv.costing.annual_generation()/1000:<25.0f}"}{"MWh/yr":<10s}'
         )
         print(
-            f'{"PV Nameplate Capacity":<25s}{f"{m.fs.energy.pv.costing.system_capacity()/1000:<25,.0f}"}{"kW":<10s}'
+            f'{"PV Nameplate Capacity":<25s}{f"{m.fs.energy.pv.costing.system_capacity()/1000:<25,.1f}"}{"kW":<10s}'
         )
         print(
-            f'{"PV Land Required":<25s}{f"{m.fs.energy.pv.costing.land_area():<25.4f}"}{"acres":<10s}'
+            f'{"PV Land Required":<25s}{f"{m.fs.energy.pv.land_req():<25.4f}"}{"acres":<10s}'
         )
-
+        print(
+            f'{"PV Land Cost":<24s}{f"${m.fs.energy.pv.costing.land_cost():<25,.0f}"}{"$":<10s}'
+        )
         print(
             f'{"PV Avg. Gen":<25s}{f"{-1*m.fs.energy.pv.electricity():<25.0f}"}{"kW":<10s}'
         )
@@ -217,14 +219,19 @@ def display_pv_results(m, sep="."):
     print(
         f'{"Treatment Agg Flow Costs [elec]":<34s}{f"${(value(list(m.fs.treatment.costing.aggregate_flow_costs.values())[0])):<25,.0f}"}{"$/yr":<10s}'
     )
+    # print(
+    #     f'{"Energy Agg Flow Costs [elec]":<34s}{f"${(value(list(m.fs.energy.costing.aggregate_flow_costs.values())[0])):<25,.0f}"}{"$/yr":<10s}'
+    # )
     print(
-        f'{"Energy Agg Flow Costs [elec]":<34s}{f"${(value(list(m.fs.energy.costing.aggregate_flow_costs.values())[0])):<25,.0f}"}{"$/yr":<10s}'
+        f'{"Energy Agg Flow Costs [elec sell]":<34s}{f"${(value(list(m.fs.energy.costing.aggregate_flow_costs.values())[0])):<25,.0f}"}{"$/yr":<10s}'
     )
 
-    title = f'\n{"=======> m.fs.sys_costing.LCOE() <=======":^60}\n'
-    print(title)
-    print(header)
-    print(f'{"LCOE":<34s}{f"${m.fs.sys_costing.LCOE():<25.4f}"}{"$/kWh":<10s}')
-    print(f'{"Treatment Agg Flow Electricity":<35s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
-    print(f'{"PV Agg Flow Electricity":<35s}{f"{m.fs.energy.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
-    print("\n\n")
+    # title = f'\n{"=======> m.fs.sys_costing.LCOE() <=======":^60}\n'
+    # print(title)
+    # print(header)
+    # print(f'{"LCOE":<34s}{f"${m.fs.sys_costing.LCOE():<25.4f}"}{"$/kWh":<10s}')
+    # print(f'{"Treatment Agg Flow Electricity":<35s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
+    # print(f'{"PV Agg Flow Electricity":<35s}{f"{m.fs.energy.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
+    # print(f'{"RO Flow Electricity":<35s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
+    # print(f'{"Agg Flow Electricity":<35s}{f"{m.fs.sys_costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
+    # print("\n\n")

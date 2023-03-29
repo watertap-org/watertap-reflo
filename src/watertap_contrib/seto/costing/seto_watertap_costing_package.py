@@ -90,13 +90,14 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             units=pyo.units.dimensionless,
         )
 
-        # self.heat_cost = pyo.Param(
-        #     mutable=True,
-        #     initialize=0.01,
-        #     doc="Heat cost",
-        #     units=pyo.units.USD_2018 / pyo.units.kWh,
-        # )
-        # self.add_defined_flow("heat", self.heat_cost)
+        self.electricity_sell_cost = pyo.Param(
+            mutable=True,
+            initialize= 0.05,  # From EIA for 2021
+            doc="Electricity sell back",
+            units=self.base_currency / pyo.units.kWh,
+        )
+
+        self.add_defined_flow("electricity_sell", self.electricity_sell_cost)
 
         self.plant_lifetime.fix()
         self.utilization_factor.fix(1)
@@ -122,6 +123,13 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             doc="Total operating cost",
             units=self.base_currency / self.base_period,
         )
+        
+        self.total_electric_operating_cost = pyo.Var(
+            initialize=1e3,
+            domain=pyo.Reals,
+            doc="Total operating cost",
+            units=self.base_currency / self.base_period,
+        )
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
@@ -138,6 +146,11 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             + self.aggregate_fixed_operating_cost
             + self.aggregate_variable_operating_cost
             + sum(self.aggregate_flow_costs.values()) * self.utilization_factor
+        )
+        
+        self.total_electric_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_electric_operating_cost
+            == sum(self.aggregate_flow_costs.values()) * self.utilization_factor
         )
 
 
@@ -217,13 +230,13 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
         
         self.electricity_sell_cost = pyo.Param(
             mutable=True,
-            initialize= 0.05,  # From EIA for 2021
+            initialize= 0.0718,  # From EIA for 2021
             doc="Electricity sell back",
             units=self.base_currency / pyo.units.kWh,
         )
 
         self.add_defined_flow("electricity", self.electricity_cost)
-        # self.add_defined_flow("electricity_sell", self.electricity_sell_cost)
+        self.add_defined_flow("electricity_sell", self.electricity_sell_cost)
         
         self.electrical_carbon_intensity = pyo.Param(
             mutable=True,
@@ -253,14 +266,19 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
     def build_integrated_costs(self):
         treat_cost = self._get_treatment_cost_block()
         en_cost = self._get_energy_cost_block()
-
         self.total_capital_cost = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
+            domain=pyo.NonNegativeReals,
             doc="Total capital cost for integrated system",
             units=self.base_currency,
         )
         self.total_operating_cost = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Total operating cost for integrated system",
+            units=self.base_currency / self.base_period,
+        )
+        self.total_electric_operating_cost = pyo.Var(
             initialize=1e3,
             # domain=pyo.NonNegativeReals,
             doc="Total operating cost for integrated system",
@@ -288,11 +306,19 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
                 to_units=self.base_currency / self.base_period,
             )
         )
+        
+        self.total_electric_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_electric_operating_cost
+            == pyo.units.convert(
+                treat_cost.total_electric_operating_cost + en_cost.total_electric_operating_cost,
+                to_units=self.base_currency / self.base_period,
+            )
+        )
 
         self.aggregate_flow_electricity_constraint = pyo.Constraint(
             expr=self.aggregate_flow_electricity
             == treat_cost.aggregate_flow_electricity
-            + en_cost.aggregate_flow_electricity
+            + en_cost.aggregate_flow_electricity_sell
         )
 
     def add_LCOW(self, flow_rate, name="LCOW"):
@@ -462,7 +488,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             TypeError if flow_expr is an indexed Var.
         """
         if flow_type not in self.defined_flows:
-            print('------------ > HERE < ---------------')
             raise ValueError(
                 f"{flow_type} is not a recognized flow type. Please check "
                 "your spelling and that the flow type has been available to"

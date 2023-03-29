@@ -320,7 +320,7 @@ def optimize_setup(
     )
 
 
-def add_costing(m):
+def add_costing(m, cap_max = None):
     treatment = m.fs.treatment
     energy = m.fs.energy
     treatment.costing = TreatmentCosting()
@@ -339,29 +339,32 @@ def add_costing(m):
         flowsheet_costing_block=treatment.costing
     )
     treatment.costing.cost_process()
+    
     m.fs.energy.pv_design_constraint = Constraint(
-        expr=m.fs.energy.pv.design_size >= m.fs.treatment.costing.aggregate_flow_electricity
+        expr=m.fs.energy.pv.design_size >= 0
     )
     m.fs.energy.pv.costing.annual_generation_constraint = Constraint(
         expr=m.fs.energy.pv.costing.annual_generation == m.fs.energy.pv.annual_energy
     )
+    m.fs.energy.pv.costing.land_constraint = Constraint(
+        expr=m.fs.energy.pv.costing.land_area == m.fs.energy.pv.land_req
+    )
     m.fs.energy.pv.costing.system_capacity_constraint = Constraint(
         expr=m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
     )
-    # m.fs.energy.pv.costing.annual_generation_constraint = Var(
-    #     expr=m.fs.energy.pv.costing.annual_generation == m.fs.energy.pv.annual_energy
-    # )
 
     energy.costing.cost_process()
-
     m.fs.sys_costing = SETOSystemCosting()
     m.fs.sys_costing.add_LCOW(treatment.product.properties[0].flow_vol)
     m.fs.sys_costing.add_specific_electric_energy_consumption(
         treatment.product.properties[0].flow_vol
     )
     m.fs.sys_costing.add_LCOE(e_model="surrogate")
+    m.fs.sys_costing.total_capital_cost.setlb(0)
+    m.fs.sys_costing.total_capital_cost.setub(cap_max)
     treatment.costing.initialize()
     energy.costing.initialize()
+    
 
 
 def fix_treatment_global_params(m):
@@ -402,7 +405,7 @@ def run(m):
 
 
 def main():
-    m = model_setup(4.375e-3, 35, 0.5)
+    m = model_setup(4.375e-2, 35, 0.5)
     m, results = run(m)
 
     return m, results

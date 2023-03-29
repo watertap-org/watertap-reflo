@@ -48,7 +48,7 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.design_size = Var(
             initialize=1000,
-            bounds=[10, 10000],
+            bounds=[1, 10000],
             units=pyunits.kW,
             doc="PV design size in kW",
         )
@@ -58,12 +58,18 @@ class PVSurrogateData(SolarEnergyBaseData):
             units=pyunits.kWh,
             doc="annual energy produced by the plant in kWh",
         )
+        
+        self.land_req = Var(
+            initialize=7e7,
+            units=pyunits.acre,
+            doc="annual energy produced by the plant in kWh",
+        )
 
         self.surrogate_inputs = [self.design_size]
-        self.surrogate_outputs = [self.annual_energy]
+        self.surrogate_outputs = [self.annual_energy, self.land_req]
 
         self.input_labels = ["design_size"]
-        self.output_labels = ["annual_energy"]
+        self.output_labels = ["annual_energy", "land_req"]
 
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
@@ -74,7 +80,7 @@ class PVSurrogateData(SolarEnergyBaseData):
     def load_surrogate(self):
         print('Loading surrogate file...')
         self.surrogate_file = os.path.join(
-            os.path.dirname(__file__), "pv_surrogate.json"
+            os.path.dirname(__file__), "pv_surrogate_w_land.json"
         )
 
         if os.path.exists(self.surrogate_file):
@@ -95,7 +101,7 @@ class PVSurrogateData(SolarEnergyBaseData):
 
     def get_training_validation(self):
         self.dataset_filename = os.path.join(
-            os.path.dirname(__file__), "data/pv_data.pkl"
+            os.path.dirname(__file__), "data/dataset.pkl"
         )
         print('Loading Training Data...\n')
         time_start = time.process_time()
