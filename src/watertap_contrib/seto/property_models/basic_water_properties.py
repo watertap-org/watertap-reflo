@@ -383,7 +383,7 @@ class BasicWaterStateBlockData(StateBlockData):
                 try:
                     sf_c = self.params.default_scaling_factor[("conc_mass_comp", j)]
                 except KeyError:
-                    iscale.get_scaling_factor(
+                    iscale.set_scaling_factor(
                         self.conc_mass_comp[j], default=1, warning=True
                     )
 
