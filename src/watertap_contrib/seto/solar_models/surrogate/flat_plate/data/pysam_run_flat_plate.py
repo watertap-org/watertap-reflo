@@ -8,8 +8,6 @@ import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.Swh as swh
-import PySAM.Utilityrate5 as utilityrate5
-import PySAM.Cashloan as cashloan
 
 
 def read_module_datafile(file_name):
@@ -63,19 +61,15 @@ def system_capacity_computed(tech_model):
 
 
 def setup_model(
-    model_name,
     temperatures,
     weather_file=None,
     weather_data=None,
-    config_files=None,
+    config_file=None,
     config_data=None,
 ):
 
     tech_model = swh.new()
-    bill_model = utilityrate5.from_existing(tech_model, model_name)
-    cash_model = cashloan.from_existing(tech_model, model_name)
-    modules = [tech_model, bill_model, cash_model]
-    load_config(modules, config_files, config_data)
+    load_config([tech_model], config_file, [config_data])
     if weather_file is not None:
         tech_model.value("solar_resource_file", weather_file)
     elif weather_data is not None:
@@ -103,16 +97,12 @@ def setup_model(
     system_capacity_actual = system_capacity_computed(tech_model)
     tech_model.value("system_capacity", system_capacity_actual)
 
-    return {
-        "tech_model": tech_model,
-        "bill_model": bill_model,
-        "cash_model": cash_model,
-    }
+    return tech_model
 
 
-def run_model(modules, heat_load_mwt=None, hours_storage=None, temperature_hot=None):
+def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_hot=None):
     """
-    :param modules: dict of PySAM modules with keys 'tech_model', 'bill_model' and 'cash_model'
+    :param tech_model: PySAM technology model
     :param heat_load_mwt: [MWt]
     :param hours_storage: [hr]
     :param temperature_hot: [C]
@@ -122,10 +112,6 @@ def run_model(modules, heat_load_mwt=None, hours_storage=None, temperature_hot=N
     PUMP_POWER_PER_COLLECTOR = 45 / 2  # [W]
     PIPE_LENGTH_FIXED = 9  # [m]
     PIPE_LENGTH_PER_COLLECTOR = 0.5  # [m]
-
-    tech_model = modules["tech_model"]
-    bill_model = modules["bill_model"]
-    cash_model = modules["cash_model"]
 
     T_cold = tech_model.value("custom_mains")[0]  # [C]
     heat_load = heat_load_mwt * 1e3  # [kWt]
@@ -179,10 +165,6 @@ def run_model(modules, heat_load_mwt=None, hours_storage=None, temperature_hot=N
         electrical_load / annual_energy
     )  # [-] for analysis only, plant beneficial if < 1
 
-    # NOTE: running these are not required for generating the annual energy and electrical load
-    bill_model.execute()
-    cash_model.execute()
-
     return {
         "annual_energy": annual_energy,  # [kWh] annual net thermal energy in year 1
         "electrical_load": electrical_load,  # [kWhe]
@@ -190,13 +172,13 @@ def run_model(modules, heat_load_mwt=None, hours_storage=None, temperature_hot=N
 
 
 def setup_and_run(
-    model_name, temperatures, weather_file, config_data, heat_load, hours_storage, temperature_hot
+    temperatures, weather_file, config_data, heat_load, hours_storage, temperature_hot
 ):
 
-    modules = setup_model(
-        model_name, temperatures, weather_file=weather_file, config_data=config_data
+    tech_model = setup_model(
+        temperatures, weather_file=weather_file, config_data=config_data
     )
-    result = run_model(modules, heat_load, hours_storage, temperature_hot)
+    result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
     return result
 
 
@@ -278,18 +260,18 @@ def plot_3ds(df):
     plot_3d(df.query('heat_load == 500'), 'hours_storage', 'temperature_hot', 'electrical_load', units=['hr', 'C', 'kWhe'])
 
 
-def debug_t_hot(modules):
+def debug_t_hot(tech_model):
     # Running at 73.5 and 74 C
-    result = run_model(modules, 500, 12, 73)
-    result = run_model(modules, 500, 12, 73.5)
-    result = run_model(modules, 500, 12, 74)
+    result = run_model(tech_model, 500, 12, 73)
+    result = run_model(tech_model, 500, 12, 73.5)
+    result = run_model(tech_model, 500, 12, 74)
 
 
     dataset_filename = join(
         dirname(__file__), "debugging_t_hot.pkl"
     )  # output dataset for surrogate training
 
-    if True:
+    if False:
         df = pd.read_pickle(dataset_filename)
         plot_2d(df.query('hours_storage == 12 & heat_load == 500'), 'temperature_hot', 'annual_energy', units=['C', 'kWht'])
 
@@ -299,7 +281,7 @@ def debug_t_hot(modules):
     comb = [(hl, hs, th) for hl in heat_loads for hs in hours_storages for th in temperature_hots]
     data = []
     for heat_load, hours_storage, temperature_hot in comb:
-        result = run_model(modules, heat_load, hours_storage, temperature_hot)
+        result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
         data.append(
             [
                 heat_load,
@@ -317,6 +299,7 @@ def debug_t_hot(modules):
 
 #########################################################################################################
 if __name__ == "__main__":
+    DEBUG = False
     PLOT_SAVED_DATASET = True                   # plot previously run, saved data?
     RUN_PARAMETRICS = False
     USE_MULTIPROCESSING = True
@@ -331,11 +314,7 @@ if __name__ == "__main__":
         "T_amb": 18,
     }
     MODEL_NAME = "SolarWaterHeatingCommercial"
-    CONFIG_FILES = [
-        join(dirname(__file__), "untitled_swh.json"),
-        join(dirname(__file__), "untitled_utilityrate5.json"),
-        join(dirname(__file__), "untitled_cashloan.json"),
-    ]
+    PARAM_FILE = join(dirname(__file__), "untitled_swh.json")
     WEATHER_FILE = join(
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
@@ -343,17 +322,17 @@ if __name__ == "__main__":
         dirname(__file__), "flat_plate_data.pkl"
     )  # output dataset for surrogate training
 
-    config_data = [read_module_datafile(config_file) for config_file in CONFIG_FILES]
-    if "solar_resource_file" in config_data[0]:
-        del config_data[0]["solar_resource_file"]
-    modules = setup_model(
-        model_name=MODEL_NAME,
+    config_data = read_module_datafile(PARAM_FILE)
+    if "solar_resource_file" in config_data:
+        del config_data["solar_resource_file"]
+    tech_model = setup_model(
         temperatures=TEMPERATURES,
         weather_file=WEATHER_FILE,
         config_data=config_data,
     )
 
-    debug_t_hot(modules)
+    if DEBUG:
+        debug_t_hot(tech_model)
 
     if PLOT_SAVED_DATASET:
         # Load and plot saved df (x, y z)
@@ -363,7 +342,7 @@ if __name__ == "__main__":
         # plot_contours(df)
 
     # Run model for single parameter set
-    result = run_model(modules, heat_load_mwt=1000, hours_storage=1, temperature_hot=70)
+    result = run_model(tech_model, heat_load_mwt=1000, hours_storage=1, temperature_hot=70)
 
     # Run parametrics
     data = []
@@ -375,7 +354,7 @@ if __name__ == "__main__":
             time_start = time.process_time()
             with multiprocessing.Pool(processes=6) as pool:
                 args = [
-                    (MODEL_NAME, TEMPERATURES, WEATHER_FILE, config_data, *args)
+                    (TEMPERATURES, WEATHER_FILE, config_data, *args)
                     for args in arguments
                 ]
                 results = pool.starmap(setup_and_run, args)
@@ -398,7 +377,7 @@ if __name__ == "__main__":
         else:
             comb = [(hl, hs, th) for hl in HEAT_LOADS for hs in HOURS_STORAGES for th in TEMPERATURE_HOTS]
             for heat_load, hours_storage, temperature_hot in comb:
-                result = run_model(modules, heat_load, hours_storage, temperature_hot)
+                result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
                 data.append(
                     [
                         heat_load,
