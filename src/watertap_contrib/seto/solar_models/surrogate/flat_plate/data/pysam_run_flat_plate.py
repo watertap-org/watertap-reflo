@@ -172,9 +172,9 @@ def run_model(modules, heat_load_mwt=None, hours_storage=None, temperature_hot=N
     tech_model.execute()
 
     annual_energy = (
-        tech_model.Outputs.annual_Q_deliv
+        tech_model.value("annual_Q_deliv")
     )  # [kWh] does not include electric heat, includes losses
-    electrical_load = sum(tech_model.Outputs.P_pump)  # [kWh]
+    electrical_load = sum(tech_model.value("P_pump"))  # [kWh]
     frac_electrical_load = (
         electrical_load / annual_energy
     )  # [-] for analysis only, plant beneficial if < 1
@@ -353,7 +353,7 @@ if __name__ == "__main__":
         config_data=config_data,
     )
 
-    # debug_t_hot(modules)
+    debug_t_hot(modules)
 
     if PLOT_SAVED_DATASET:
         # Load and plot saved df (x, y z)
