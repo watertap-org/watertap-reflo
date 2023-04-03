@@ -4,6 +4,8 @@ import sys
 from io import StringIO
 from os.path import join, dirname, getsize
 import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
 from pyomo.environ import ConcreteModel, assert_optimal_termination, Var, value
 from watertap_contrib.seto.solar_models.surrogate.flat_plate.data.training_flat_plate_surrogate import (
     create_rbf_surrogate,
@@ -179,3 +181,42 @@ class TestFlatPlate:
         # ensure surrogate model gives same results when inside a flowsheet
         assert heat_annual == pytest.approx(EXPECTED_HEAT_ENERGIES, 1e-3)
         assert electricity_annual == pytest.approx(EXPECTED_ELECTRICITY_USE, 1e-3)
+
+    def plot_smoothness(self, data):
+        """Plot 'official' saved surrogate model to show any local minima"""
+        N_DIVISIONS = 15
+        LABEL_X = 'heat_load'
+        LABEL_Y = 'hours_storage'
+        LABEL_Z = 'annual_energy'
+        LABEL_Z2 = 'electrical_load'
+
+        surrogate = PysmoSurrogate.load_from_file(SURROGATE_FILENAME)
+        x = np.linspace(*surrogate._input_bounds[LABEL_X], N_DIVISIONS, endpoint=True)
+        y = np.linspace(*surrogate._input_bounds[LABEL_Y], N_DIVISIONS, endpoint=True)
+        xx, yy = np.meshgrid(x, y)      # create combinations of x and y
+        input = pd.DataFrame({
+            LABEL_X: xx.flatten(),
+            LABEL_Y: yy.flatten(),
+        })
+        output = surrogate.evaluate_surrogate(input)
+        df = input.join(output)
+
+        # 3D Plot of Z
+        fig = plt.figure(figsize=(8,6))
+        ax = fig.add_subplot(1, 1, 1, projection='3d')
+        surf = ax.plot_trisurf(df[LABEL_X], df[LABEL_Y], df[LABEL_Z], cmap=plt.cm.viridis, linewidth=0.2)
+        ax.set_xlabel(LABEL_X)
+        ax.set_ylabel(LABEL_Y)
+        ax.set_zlabel(LABEL_Z)
+        plt.show()
+
+        # 3D Plot of Z2
+        fig = plt.figure(figsize=(8,6))
+        ax = fig.add_subplot(1, 1, 1, projection='3d')
+        surf = ax.plot_trisurf(df[LABEL_X], df[LABEL_Y], df[LABEL_Z2], cmap=plt.cm.viridis, linewidth=0.2)
+        ax.set_xlabel(LABEL_X)
+        ax.set_ylabel(LABEL_Y)
+        ax.set_zlabel(LABEL_Z2)
+        plt.show()
+        x=1         # for breakpoint
+        
