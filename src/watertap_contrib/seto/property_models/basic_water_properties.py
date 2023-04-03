@@ -191,7 +191,7 @@ class _BasicWaterStateBlock(StateBlock):
         # Fix state variables
         flags = fix_state_vars(self, state_args)
 
-        # initialize vars caculated from state vars
+        # initialize vars calculated from state vars
         for k in self.keys():
             for j in self[k].params.component_list:
                 if self[k].is_property_constructed("flow_mass_comp"):
