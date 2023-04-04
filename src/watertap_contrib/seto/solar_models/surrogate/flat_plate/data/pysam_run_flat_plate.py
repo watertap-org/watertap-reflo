@@ -8,11 +8,17 @@ import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.Swh as swh
+from watertap_contrib.seto.solar_models.surrogate.flat_plate.data.pyssc import (
+    PySSC,
+)
 
 
 def read_module_datafile(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
+
+    if 'constant' in data.keys():
+            data['adjust:constant'] = data.pop('constant')  # rename key
     return data
 
 
@@ -68,8 +74,10 @@ def setup_model(
     config_data=None,
 ):
 
-    tech_model = swh.new()
-    load_config([tech_model], config_file, [config_data])
+    config_data['tech_model'] = 'swh'
+    config_data['financial_model'] = 'none'
+    tech_model = PySSC(config_data)
+
     if weather_file is not None:
         tech_model.value("solar_resource_file", weather_file)
     elif weather_data is not None:
@@ -114,7 +122,7 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     PIPE_LENGTH_PER_COLLECTOR = 0.5  # [m]
 
     T_cold = tech_model.value("custom_mains")[0]  # [C]
-    heat_load = heat_load_mwt * 1e3  # [kWt]
+    heat_load = heat_load_mwt * 1e3 if heat_load_mwt is not None else None  # [kWt]
 
     if heat_load is not None:
         # Set heat load (system capacity)
@@ -262,9 +270,10 @@ def plot_3ds(df):
 
 def debug_t_hot(tech_model):
     # Running at 73.5 and 74 C
-    result = run_model(tech_model, 500, 12, 73)
-    result = run_model(tech_model, 500, 12, 73.5)
-    result = run_model(tech_model, 500, 12, 74)
+    # result = run_model(tech_model)
+    # result = run_model(tech_model, 500, 12, 73)
+    # result = run_model(tech_model, 500, 12, 73.5)
+    # result = run_model(tech_model, 500, 12, 74)
 
 
     dataset_filename = join(
@@ -299,8 +308,8 @@ def debug_t_hot(tech_model):
 
 #########################################################################################################
 if __name__ == "__main__":
-    DEBUG = False
-    PLOT_SAVED_DATASET = True                   # plot previously run, saved data?
+    DEBUG = True
+    PLOT_SAVED_DATASET = False                   # plot previously run, saved data?
     RUN_PARAMETRICS = False
     USE_MULTIPROCESSING = True
 
