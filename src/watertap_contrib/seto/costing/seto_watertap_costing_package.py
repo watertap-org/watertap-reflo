@@ -92,7 +92,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
 
         self.electricity_sell_cost = pyo.Param(
             mutable=True,
-            initialize= 0.00,  # From EIA for 2021
+            initialize= 0.05,  # From EIA for 2021
             doc="Electricity sell back",
             units=self.base_currency / pyo.units.kWh,
         )
@@ -230,7 +230,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
         
         self.electricity_sell_cost = pyo.Param(
             mutable=True,
-            initialize= 0.0,  # From EIA for 2021
+            initialize= 0.05,  # From EIA for 2021
             doc="Electricity sell back",
             units=self.base_currency / pyo.units.kWh,
         )

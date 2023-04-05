@@ -397,7 +397,7 @@ def run(m):
     results = solve(m)
     assert_optimal_termination(results)
     display_ro_pv_results(m)
-    display_pv_results(m)
+    # display_pv_results(m) 
     return m, results
 
 
