@@ -59,14 +59,29 @@ class TestVAGMD:
         final_salinity = feed_salinity / (1 - recovery_ratio)
 
         # Estimate the initial membrane performance
-        permeate_flux_init, temp_cond_out_init, temp_evap_out_init, Area = self._get_membrane_performance(
-            temp_evap_in, feed_flow_rate, temp_cond_in, feed_salinity, temp_tank, module_type, final_salinity
+        (
+            permeate_flux_init,
+            temp_cond_out_init,
+            temp_evap_out_init,
+            Area,
+        ) = self._get_membrane_performance(
+            temp_evap_in,
+            feed_flow_rate,
+            temp_cond_in,
+            feed_salinity,
+            temp_tank,
+            module_type,
+            final_salinity,
         )
-        permeate_flow_rate_init = permeate_flux_init * Area  # Initial permeate flow rate (L/h)
+        permeate_flow_rate_init = (
+            permeate_flux_init * Area
+        )  # Initial permeate flow rate (L/h)
 
         dt = 20352.55 / feed_flow_rate  # Time step (s) # TODO: move it to unit model
         V_init = permeate_flow_rate_init * dt / 3600  # Initial permeate volume (L)
-        N = int(batch_volume * recovery_ratio / V_init) + 2  # TODO: Update model to calculate N
+        N = (
+            int(batch_volume * recovery_ratio / V_init) + 2
+        )  # TODO: Update model to calculate N
 
         m = ConcreteModel()
         m.fs = FlowsheetBlock(
@@ -81,9 +96,13 @@ class TestVAGMD:
             number_cycles=N + 1,
         )
 
-        m.fs.vagmd.feed_props[0, 0].conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
+        m.fs.vagmd.feed_props[0, 0].conc_mass_phase_comp["Liq", "TDS"].fix(
+            feed_salinity
+        )
         m.fs.vagmd.feed_props[0, 0].temperature.fix(temp_tank + 273.15)
-        m.fs.vagmd.feed_props[0, 0].flow_vol_phase["Liq"].fix(feed_flow_rate / 3600 / 1000) # TODO: convert unit here
+        m.fs.vagmd.feed_props[0, 0].flow_vol_phase["Liq"].fix(
+            feed_flow_rate / 3600 / 1000
+        )  # TODO: convert unit here
         m.fs.vagmd.evaporator_in_props[0, 0].temperature.fix(temp_evap_in + 273.15)
         m.fs.vagmd.condenser_in_props[0, 0].temperature.fix(temp_cond_in + 273.15)
 
