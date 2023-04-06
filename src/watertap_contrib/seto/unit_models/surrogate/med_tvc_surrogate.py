@@ -136,7 +136,9 @@ class MEDTVCData(UnitModelBlockData):
 
         # Check if the number of effects is valid
         if self.config.number_effects not in [i for i in range(8, 17)]:
-            raise ConfigurationError("The number of effects should be an integer between 8 to 16")
+            raise ConfigurationError(
+                "The number of effects should be an integer between 8 to 16"
+            )
 
         """
         Add system configurations
@@ -421,7 +423,7 @@ class MEDTVCData(UnitModelBlockData):
                 return b.gain_output_ratio == self._get_gain_output_ratio(
                     b.config.number_effects
                 )
-            else: # b.config.number_effects in [9, 11, 13, 15]:
+            else:  # b.config.number_effects in [9, 11, 13, 15]:
                 return (
                     b.gain_output_ratio
                     == (
@@ -437,7 +439,7 @@ class MEDTVCData(UnitModelBlockData):
                 return b.specific_area_per_m3_day == self._get_specific_area(
                     b.config.number_effects
                 )
-            else: # b.config.number_effects in [9, 11, 13, 15]:
+            else:  # b.config.number_effects in [9, 11, 13, 15]:
                 return (
                     b.specific_area_per_m3_day
                     == (
@@ -460,12 +462,16 @@ class MEDTVCData(UnitModelBlockData):
                 return b.heating_steam_props[0].flow_mass_phase_comp[
                     "Vap", "H2O"
                 ] == self._get_heating_steam_mass_flow_rate(b.config.number_effects)
-            else: # b.config.number_effects in [9, 11, 13, 15]:
+            else:  # b.config.number_effects in [9, 11, 13, 15]:
                 return (
                     b.heating_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
                     == (
-                        self._get_heating_steam_mass_flow_rate(b.config.number_effects - 1)
-                        + self._get_heating_steam_mass_flow_rate(b.config.number_effects + 1)
+                        self._get_heating_steam_mass_flow_rate(
+                            b.config.number_effects - 1
+                        )
+                        + self._get_heating_steam_mass_flow_rate(
+                            b.config.number_effects + 1
+                        )
                     )
                     / 2
                 )
@@ -476,12 +482,16 @@ class MEDTVCData(UnitModelBlockData):
                 return b.motive_steam_props[0].flow_mass_phase_comp[
                     "Vap", "H2O"
                 ] == self._get_motive_steam_mass_flow_rate(b.config.number_effects)
-            else: # b.config.number_effects in [9, 11, 13, 15]:
+            else:  # b.config.number_effects in [9, 11, 13, 15]:
                 return (
                     b.motive_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
                     == (
-                        self._get_motive_steam_mass_flow_rate(b.config.number_effects - 1)
-                        + self._get_motive_steam_mass_flow_rate(b.config.number_effects + 1)
+                        self._get_motive_steam_mass_flow_rate(
+                            b.config.number_effects - 1
+                        )
+                        + self._get_motive_steam_mass_flow_rate(
+                            b.config.number_effects + 1
+                        )
                     )
                     / 2
                 )
@@ -1341,11 +1351,15 @@ class MEDTVCData(UnitModelBlockData):
             * self.recovery_vol_phase[0, "Liq"]
             * self.gain_output_ratio_coeffs[num_effect][5]
             + self.capacity * self.gain_output_ratio_coeffs[num_effect][6]
-            + self.capacity * self.feed_conc_ppm * self.gain_output_ratio_coeffs[num_effect][7]
+            + self.capacity
+            * self.feed_conc_ppm
+            * self.gain_output_ratio_coeffs[num_effect][7]
             + self.capacity
             * self.recovery_vol_phase[0, "Liq"]
             * self.gain_output_ratio_coeffs[num_effect][8]
-            + self.capacity * self.feed_temperature * self.gain_output_ratio_coeffs[num_effect][9]
+            + self.capacity
+            * self.feed_temperature
+            * self.gain_output_ratio_coeffs[num_effect][9]
             + self.motive_pressure * self.gain_output_ratio_coeffs[num_effect][10]
             + self.motive_pressure
             * self.feed_conc_ppm
@@ -1356,7 +1370,9 @@ class MEDTVCData(UnitModelBlockData):
             + self.motive_pressure
             * self.feed_temperature
             * self.gain_output_ratio_coeffs[num_effect][13]
-            + self.motive_pressure * self.capacity * self.gain_output_ratio_coeffs[num_effect][14]
+            + self.motive_pressure
+            * self.capacity
+            * self.gain_output_ratio_coeffs[num_effect][14]
             + 1 * self.gain_output_ratio_coeffs[num_effect][15]
             + self.motive_pressure**2 * self.gain_output_ratio_coeffs[num_effect][16]
             + self.capacity**2 * self.gain_output_ratio_coeffs[num_effect][17]
@@ -1376,25 +1392,35 @@ class MEDTVCData(UnitModelBlockData):
             * self.recovery_vol_phase[0, "Liq"]
             * self.specific_area_coeffs[num_effect][2]
             + self.feed_temperature * self.specific_area_coeffs[num_effect][3]
-            + self.feed_temperature * self.feed_conc_ppm * self.specific_area_coeffs[num_effect][4]
+            + self.feed_temperature
+            * self.feed_conc_ppm
+            * self.specific_area_coeffs[num_effect][4]
             + self.feed_temperature
             * self.recovery_vol_phase[0, "Liq"]
             * self.specific_area_coeffs[num_effect][5]
             + self.capacity * self.specific_area_coeffs[num_effect][6]
-            + self.capacity * self.feed_conc_ppm * self.specific_area_coeffs[num_effect][7]
+            + self.capacity
+            * self.feed_conc_ppm
+            * self.specific_area_coeffs[num_effect][7]
             + self.capacity
             * self.recovery_vol_phase[0, "Liq"]
             * self.specific_area_coeffs[num_effect][8]
-            + self.capacity * self.feed_temperature * self.specific_area_coeffs[num_effect][9]
+            + self.capacity
+            * self.feed_temperature
+            * self.specific_area_coeffs[num_effect][9]
             + self.motive_pressure * self.specific_area_coeffs[num_effect][10]
-            + self.motive_pressure * self.feed_conc_ppm * self.specific_area_coeffs[num_effect][11]
+            + self.motive_pressure
+            * self.feed_conc_ppm
+            * self.specific_area_coeffs[num_effect][11]
             + self.motive_pressure
             * self.recovery_vol_phase[0, "Liq"]
             * self.specific_area_coeffs[num_effect][12]
             + self.motive_pressure
             * self.feed_temperature
             * self.specific_area_coeffs[num_effect][13]
-            + self.motive_pressure * self.capacity * self.specific_area_coeffs[num_effect][14]
+            + self.motive_pressure
+            * self.capacity
+            * self.specific_area_coeffs[num_effect][14]
             + 1 * self.specific_area_coeffs[num_effect][15]
             + self.motive_pressure**2 * self.specific_area_coeffs[num_effect][16]
             + self.capacity**2 * self.specific_area_coeffs[num_effect][17]
@@ -1413,7 +1439,8 @@ class MEDTVCData(UnitModelBlockData):
             + self.feed_conc_ppm
             * self.recovery_vol_phase[0, "Liq"]
             * self.heating_steam_mass_flow_rate_coeffs[num_effect][2]
-            + self.feed_temperature * self.heating_steam_mass_flow_rate_coeffs[num_effect][3]
+            + self.feed_temperature
+            * self.heating_steam_mass_flow_rate_coeffs[num_effect][3]
             + self.feed_temperature
             * self.feed_conc_ppm
             * self.heating_steam_mass_flow_rate_coeffs[num_effect][4]
@@ -1430,7 +1457,8 @@ class MEDTVCData(UnitModelBlockData):
             + self.capacity
             * self.feed_temperature
             * self.heating_steam_mass_flow_rate_coeffs[num_effect][9]
-            + self.motive_pressure * self.heating_steam_mass_flow_rate_coeffs[num_effect][10]
+            + self.motive_pressure
+            * self.heating_steam_mass_flow_rate_coeffs[num_effect][10]
             + self.motive_pressure
             * self.feed_conc_ppm
             * self.heating_steam_mass_flow_rate_coeffs[num_effect][11]
@@ -1446,7 +1474,8 @@ class MEDTVCData(UnitModelBlockData):
             + 1 * self.heating_steam_mass_flow_rate_coeffs[num_effect][15]
             + self.motive_pressure**2
             * self.heating_steam_mass_flow_rate_coeffs[num_effect][16]
-            + self.capacity**2 * self.heating_steam_mass_flow_rate_coeffs[num_effect][17]
+            + self.capacity**2
+            * self.heating_steam_mass_flow_rate_coeffs[num_effect][17]
             + self.feed_temperature**2
             * self.heating_steam_mass_flow_rate_coeffs[num_effect][18]
             + self.recovery_vol_phase[0, "Liq"] ** 2
@@ -1464,7 +1493,8 @@ class MEDTVCData(UnitModelBlockData):
             + self.feed_conc_ppm
             * self.recovery_vol_phase[0, "Liq"]
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][2]
-            + self.feed_temperature * self.motive_steam_mass_flow_rate_coeffs[num_effect][3]
+            + self.feed_temperature
+            * self.motive_steam_mass_flow_rate_coeffs[num_effect][3]
             + self.feed_temperature
             * self.feed_conc_ppm
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][4]
@@ -1481,7 +1511,8 @@ class MEDTVCData(UnitModelBlockData):
             + self.capacity
             * self.feed_temperature
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][9]
-            + self.motive_pressure * self.motive_steam_mass_flow_rate_coeffs[num_effect][10]
+            + self.motive_pressure
+            * self.motive_steam_mass_flow_rate_coeffs[num_effect][10]
             + self.motive_pressure
             * self.feed_conc_ppm
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][11]
@@ -1497,7 +1528,8 @@ class MEDTVCData(UnitModelBlockData):
             + 1 * self.motive_steam_mass_flow_rate_coeffs[num_effect][15]
             + self.motive_pressure**2
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][16]
-            + self.capacity**2 * self.motive_steam_mass_flow_rate_coeffs[num_effect][17]
+            + self.capacity**2
+            * self.motive_steam_mass_flow_rate_coeffs[num_effect][17]
             + self.feed_temperature**2
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][18]
             + self.recovery_vol_phase[0, "Liq"] ** 2

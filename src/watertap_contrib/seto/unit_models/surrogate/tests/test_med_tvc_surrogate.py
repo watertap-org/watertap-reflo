@@ -160,7 +160,7 @@ class TestMEDTVC:
             m.fs.lt_med = MEDTVCSurrogate(
                 property_package_liquid=m.fs.water_prop,
                 property_package_vapor=m.fs.steam_prop,
-                number_effects=17,  
+                number_effects=17,
             )
 
     @pytest.mark.unit
@@ -347,7 +347,7 @@ class TestMEDTVC:
             m.fs.costing.total_capital_cost
         )
 
-    @pytest.mark.parametrize("number_effects", [9,11,13,15])
+    @pytest.mark.parametrize("number_effects", [9, 11, 13, 15])
     def test_interp_values(self, number_effects):
         # create flowsheet for an interpolated number of effects
         m = ConcreteModel()
@@ -450,25 +450,30 @@ class TestMEDTVC:
         m.fs.vapor_prop.set_default_scaling(
             "flow_mass_phase_comp", 1, index=("Vap", "H2O")
         )
-        
+
         calculate_scaling_factors(m)
         initialization_tester(m, unit=m.fs.med_tvc, outlvl=idaeslog.DEBUG)
-        results = solver.solve(m)        
-
+        results = solver.solve(m)
 
         # Check interpolated results for different number of effects: {number_effects: result}
-        gain_output_ratios = {9: 10.299 , 11: 12.067 , 13: 13.709, 15: 15.218}
-        specific_areas = {9: 3.514 , 11: 4.682 , 13: 5.797, 15: 7.689}
-        heating_steam_mass_flow_rates = {9: 2.642 , 11: 2.834 , 13: 2.518, 15: 2.786}
-        motive_steam_mass_flow_rates = {9: 1.162 , 11: 1.334 , 13: 1.152, 15: 1.407}
-        
-        assert pytest.approx(gain_output_ratios[number_effects], rel=1e-3) == value(m.fs.med_tvc.gain_output_ratio)
+        gain_output_ratios = {9: 10.299, 11: 12.067, 13: 13.709, 15: 15.218}
+        specific_areas = {9: 3.514, 11: 4.682, 13: 5.797, 15: 7.689}
+        heating_steam_mass_flow_rates = {9: 2.642, 11: 2.834, 13: 2.518, 15: 2.786}
+        motive_steam_mass_flow_rates = {9: 1.162, 11: 1.334, 13: 1.152, 15: 1.407}
+
+        assert pytest.approx(gain_output_ratios[number_effects], rel=1e-3) == value(
+            m.fs.med_tvc.gain_output_ratio
+        )
         assert pytest.approx(specific_areas[number_effects], rel=1e-3) == value(
             m.fs.med_tvc.specific_area_per_m3_day
         )
-        assert pytest.approx(heating_steam_mass_flow_rates[number_effects], rel=1e-3) == value(
+        assert pytest.approx(
+            heating_steam_mass_flow_rates[number_effects], rel=1e-3
+        ) == value(
             m.fs.med_tvc.heating_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
         )
-        assert pytest.approx(motive_steam_mass_flow_rates[number_effects], rel=1e-3) == value(
+        assert pytest.approx(
+            motive_steam_mass_flow_rates[number_effects], rel=1e-3
+        ) == value(
             m.fs.med_tvc.motive_steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
         )

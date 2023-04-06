@@ -172,8 +172,7 @@ def cost_med_tvc_surrogate(blk):
     )
 
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost
-        == blk.membrane_system_cost + blk.evaporator_system_cost
+        expr=blk.capital_cost == blk.membrane_system_cost + blk.evaporator_system_cost
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
