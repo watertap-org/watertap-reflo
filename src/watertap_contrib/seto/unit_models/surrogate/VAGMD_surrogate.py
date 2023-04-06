@@ -153,8 +153,8 @@ class VAGMDbatchData(UnitModelBlockData):
     CONFIG.declare(
         "module_type",
         ConfigValue(
-            default=7,
-            domain=In([7, 26]),
+            default="AS7C1.5L",
+            domain=In(["AS7C1.5L", "AS26C7.2L"]),
             doc="""Selection of module type (7 for AS7C1.5L and 26 for AS26C7.2L)""",
         ),
     )
@@ -177,12 +177,12 @@ class VAGMDbatchData(UnitModelBlockData):
         """
         MD Module type and corresponding area
         """
-        if self.config.module_type == 7:
+        if self.config.module_type == "AS7C1.5L":
             module_area = 7.2
             self.module_area = Param(
                 initialize=7.2, units=pyunits.m**2, doc="Area of module AS7C1.5L"
             )
-        else:  # module_type = 26
+        else:  # module_type = "AS26C7.2L"
             module_area = 25.92
             self.module_area = Param(
                 initialize=25.92, units=pyunits.m**2, doc="Area of module AS26C7.2L"
@@ -191,8 +191,6 @@ class VAGMDbatchData(UnitModelBlockData):
         """
         Model parameters
         """
-        self.module_type = Set(initialize=(7, 26))
-
         self.discharge_volume = Param(
             initialize=3.2175, units=pyunits.L, doc="Discharge volume (L)"
         )
@@ -205,13 +203,6 @@ class VAGMDbatchData(UnitModelBlockData):
             initialize=35,
             units=pyunits.g / pyunits.L,
             doc="Minimum feed salinity (g/L)",
-        )
-
-        self.max_salinity = Param(
-            self.module_type,
-            initialize={7: 292.2, 26: 245.5},
-            units=pyunits.g / pyunits.L,
-            doc="Maximum feed salinity for the selected module (g/L)",
         )
 
         self.heat_transfer_coeff = Param(
@@ -249,13 +240,6 @@ class VAGMDbatchData(UnitModelBlockData):
         """
         Input variables
         """
-        self.initial_batch_volume = Var(
-            initialize=50,
-            bounds=(self.min_batch_volume, None),
-            units=pyunits.L,
-            doc="Initial batch volume (L))",
-        )
-
         self.dt = Var(
             initialize=30, 
             bounds=(0, None),
@@ -266,32 +250,11 @@ class VAGMDbatchData(UnitModelBlockData):
         """
         Intermediate variables
         """
-
-        self.max_recovery = Var(
-            initialize=1, 
-            bounds=(0, 1), 
-            doc="Maximum recovery rate (%)"
-        )
-
         self.permeate_flux = Var(
             self.flowsheet().config.time,
             initialize=10,
             units=pyunits.L / pyunits.h / pyunits.m**2,
             doc="Permeate flux (L/h/m2)",
-        )
-
-        self.acc_distillate_volume = Var(
-            self.flowsheet().config.time,
-            initialize=0,
-            units=pyunits.L,
-            doc="Accumulated volume of distillate(L)",
-        )
-
-        self.acc_recovery_ratio = Var(
-            self.flowsheet().config.time,
-            initialize=0,
-            units=pyunits.dimensionless,
-            doc="Accumulated recovery rate after each recirculation",
         )
 
         self.log_mean_temp_dif = Var(
@@ -316,20 +279,6 @@ class VAGMDbatchData(UnitModelBlockData):
             initialize=0,
             units=pyunits.kW,
             doc="Thermal energy consumption during each timestep (kWh)",
-        )
-
-        self.specific_energy_consumption_thermal = Var(
-            self.flowsheet().config.time,
-            initialize=100,
-            units=pyunits.kWh / pyunits.m**3,
-            doc="Specific thermal power consumption (kWh/m3)",
-        )
-
-        self.gain_output_ratio = Var(
-            self.flowsheet().config.time,
-            initialize=5,
-            units=pyunits.kW / pyunits.kW,
-            doc="Gained output ratio",
         )
 
         """
@@ -479,155 +428,21 @@ class VAGMDbatchData(UnitModelBlockData):
             doc="Material properties of evaporator outlet water",
             **tmp_dict
         )
-
-        """
-        System configurations
-        """ 
-        # Maximum recovery rate (calculated based on the max allowed salinity)
-        @self.Constraint(doc="Maximum recovery rate")
-        def max_recovery_cal(b):
-            return b.max_recovery == (
-                1
-                - (
-                    b.feed_props[0].conc_mass_phase_comp["Liq", "TDS"]
-                    / b.max_salinity[b.config.module_type]
-                )
-            )
-
-        """
-        Set up for the beginning of the first circulation
-        """
-        S0 = self.feed_props[0].conc_mass_phase_comp["Liq", "TDS"]
-        FFR0 = pyunits.convert(
-            self.feed_props[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
-        )
-        Ttank0 = self.feed_props[0].temperature - 273.15 * pyunits.K
-        TEI = self.evaporator_in_props[0].temperature
-        TCI = self.condenser_in_props[0].temperature
-
-        @self.Constraint(doc="initial permeate flux")
-        def eq_permeate_flux_0(b):
-            return (
-                b.permeate_flux[0]
-                == b._get_membrane_performance(TEI, FFR0, TCI, S0, Ttank0)[0]
-            )
-
-        @self.Constraint(doc="initial permeate flow rate")
-        def eq_permeate_volumetric_flow_rate_0(b):
-            return b.permeate_props[0].flow_vol_phase["Liq"] == pyunits.convert(
-                b.permeate_flux[0] * self.module_area,
-                to_units=pyunits.m**3 / pyunits.s,
-            )
-
-        @self.Constraint(doc="initial condenser outlet temperature")
-        def eq_condenser_outlet_temp_0(b):
-            return (
-                b.condenser_out_props[0].temperature
-                == b._get_membrane_performance(TEI, FFR0, TCI, S0, Ttank0)[1] + 273.15
-            )
-
-        @self.Constraint(doc="initial evaporatore outlet temperature")
-        def eq_evaporator_outlet_temp_0(b):
-            return (
-                b.evaporator_out_props[0].temperature
-                == b._get_membrane_performance(TEI, FFR0, TCI, S0, Ttank0)[2] + 273.15
-            )
-
-        @self.Constraint(doc="initial accumulated volume of distillate")
-        def eq_acc_distillate_volume_0(b):
-            return b.acc_distillate_volume[0] == 0
-
-        @self.Constraint(doc="initial recovery rate")
-        def eq_recovery_rate_0(b):
-            return b.acc_recovery_ratio[0] == 0
-
-        @self.Constraint(doc="initial log mean temperature difference")
-        def eq_log_mean_temp_dif_0(b):
-            TCO = b.condenser_out_props[0].temperature - 273.15 * pyunits.K
-            TEO = b.evaporator_out_props[0].temperature - 273.15 * pyunits.K
-            TEI = b.evaporator_in_props[0].temperature - 273.15 * pyunits.K
-            TCI = b.condenser_in_props[0].temperature - 273.15 * pyunits.K
-            return b.log_mean_temp_dif[0] == ((TEI - TCO) - (TEO - TCI)) / log(
-                (TEI - TCO) / (TEO - TCI + 1e-6)
-            )
-
-        @self.Constraint(
-            doc="initial average temperature of the feed flow in the heat source"
-        )
-        def eq_avg_temp_heat_tank_0(b):
-            return (
-                b.avg_feed_props[0].temperature
-                == (
-                    b.evaporator_in_props[0].temperature
-                    + b.condenser_out_props[0].temperature
-                )
-                / 2
-            )
-
-        @self.Constraint(doc="initial average salinity of the feed flow")
-        def eq_avg_salinity_feed_tank_0(b):
-            return (
-                b.avg_feed_props[0].mass_frac_phase_comp["Liq", "TDS"]
-                == b._get_membrane_performance(TEI, FFR0, TCI, S0, Ttank0)[3] / 1000
-            )
-
-        @self.Constraint(doc="initial flowrate of the feed flow")
-        def eq_feed_volumetric_flow_rate_0(b):
-            return (
-                b.avg_feed_props[0].flow_vol_phase["Liq"]
-                == b.feed_props[0].flow_vol_phase["Liq"]
-            )
-
-        @self.Constraint(doc="initial thermal power")
-        def eq_thermal_power_0(b):
-            CpF = b.avg_feed_props[0].cp_mass_phase["Liq"]
-            RhoF = b.avg_feed_props[0].dens_mass_phase["Liq"]
-            TCO = b.condenser_out_props[0].temperature - 273.15 * pyunits.K
-            TEI = b.evaporator_in_props[0].temperature - 273.15 * pyunits.K
-            return b.thermal_power[0] == pyunits.convert(
-                (FFR0 * CpF * (TEI - TCO)) * (RhoF), to_units=pyunits.kW
-            )
-
-        @self.Constraint(doc="initial thermal energy consumption")
-        def eq_thermal_energy_0(b):
-            return b.thermal_energy[0] == pyunits.convert(
-                b.thermal_power[0] * b.dt, to_units=pyunits.kWh
-            )
-
-        @self.Constraint(doc="initial inlet cooling water temperature")
-        def eq_cooling_in_temp_0(b):
-            return b.cooling_in_props[0].temperature == Ttank0 + 273.15 * pyunits.K
-
-        @self.Constraint(doc="initial outlet cooling water temperature")
-        def eq_cooling_out_temp_0(b):
-            return b.cooling_out_props[0].temperature == Ttank0 + 273.15 * pyunits.K
-
-        @self.Constraint(doc="initial specific thermal energy consumption")
-        def eq_specific_thermal_energy_consumption_0(b):
-            return b.specific_energy_consumption_thermal[0] == 0
-
-        @self.Constraint(doc="initial gain output ratio")
-        def eq_gain_output_ratio_0(b):
-            return b.gain_output_ratio[0] == 0
+ 
 
         """
         Calculation for each circulation (time step)
         """
-
         @self.Constraint(
-            self.flowsheet().config.time,
             doc="Accumulated volume of distillate of each time step",
         )
-        def eq_acc_distillate_volume_t(b, t):
-            if t > 0:
-                return b.acc_distillate_volume[t] == b.pre_acc_distillate_volume[
-                    t
-                ] + pyunits.convert(
-                    b.pre_permeate_props[t].flow_vol_phase["Liq"] * b.dt,
-                    to_units=pyunits.L,
-                )
-            else:
-                return Constraint.Skip
+        def eq_acc_distillate_volume_t(b):
+            return b.acc_distillate_volume == b.pre_acc_distillate_volume[
+                t
+            ] + pyunits.convert(
+                b.pre_permeate_props[0].flow_vol_phase["Liq"] * b.dt,
+                to_units=pyunits.L,
+            )
 
         @self.Constraint(
             self.flowsheet().config.time,
@@ -1052,7 +867,7 @@ class VAGMDbatchData(UnitModelBlockData):
         ]
 
         # Model calculations
-        if self.config.module_type == 7:
+        if self.config.module_type == "AS7C1.5L":
             if self.config.high_brine_salinity:
                 TEI = 0
                 FFR = 0
