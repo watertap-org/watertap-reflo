@@ -23,7 +23,7 @@ from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import *
-from watertap.core.util.infeasible import *
+from watertap.core.util.model_diagnostics.infeasible import *
 from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 
