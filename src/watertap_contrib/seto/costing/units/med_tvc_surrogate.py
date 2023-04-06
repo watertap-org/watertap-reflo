@@ -115,12 +115,6 @@ def cost_med_tvc_surrogate(blk):
     brine = med_tvc.brine_props[0]
     base_currency = blk.config.flowsheet_costing_block.base_currency
 
-    blk.total_system_cost = pyo.Var(
-        initialize=100,
-        units=base_currency,
-        doc="MED system cost",
-    )
-
     blk.membrane_system_cost = pyo.Var(
         initialize=100,
         units=base_currency,
@@ -177,13 +171,9 @@ def cost_med_tvc_surrogate(blk):
         )
     )
 
-    blk.total_system_cost_constraint = pyo.Constraint(
-        expr=blk.total_system_cost
-        == blk.membrane_system_cost + blk.evaporator_system_cost
-    )
-
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost == blk.total_system_cost
+        expr=blk.capital_cost
+        == blk.membrane_system_cost + blk.evaporator_system_cost
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
@@ -194,7 +184,7 @@ def cost_med_tvc_surrogate(blk):
             + med_tvc_params.cost_labor_per_vol_dist
             + med_tvc_params.cost_misc_per_vol_dist
         )
-        + blk.total_system_cost
+        + blk.capital_cost
         * (
             med_tvc_params.cost_fraction_maintenance
             + med_tvc_params.cost_fraction_insurance

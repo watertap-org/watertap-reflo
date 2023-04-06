@@ -114,7 +114,7 @@ class LTMEDData(UnitModelBlockData):
         ConfigValue(
             default=12,
             domain=In([i for i in range(3, 15)]),
-            description="Number of effects of the MED_TVC system",
+            description="Number of effects of the LT_MED system",
             doc="""A ConfigBlock specifying the number of effects, which should be an integer between 3 to 14.""",
         ),
     )
@@ -123,6 +123,10 @@ class LTMEDData(UnitModelBlockData):
         super().build()
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
+
+        # Check if the number of effects is valid
+        if self.config.number_effects not in [i for i in range(3,15)]:
+            raise ConfigurationError("The number of effects should be an integer between 3 to 14")
 
         """
         Add system configurations
@@ -364,348 +368,26 @@ class LTMEDData(UnitModelBlockData):
                 b.feed_props[0].temperature - 273.15 * pyunits.K + b.delta_T_last_effect
             )
 
-        # TODO: Make Expressions?
-        feed_conc_ppm = pyunits.convert(
+        # Set alias for use in the surrogate equations
+        self.feed_conc_ppm = pyunits.convert(
             self.feed_props[0].conc_mass_phase_comp["Liq", "TDS"],
             to_units=pyunits.mg / pyunits.L,
         )
-        temp_steam = self.steam_props[0].temperature - 273.15
+        self.temp_steam = self.steam_props[0].temperature - 273.15
 
-        # Surrogate equations for calculating gain output ratio
-        gain_output_ratio_coeffs = self._get_gain_output_ratio_coeffs()
-
-        def _get_gain_output_ratio(num_effect):
-            return (
-                feed_conc_ppm * gain_output_ratio_coeffs[num_effect][0]
-                + self.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[num_effect][1]
-                + feed_conc_ppm
-                * self.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[num_effect][2]
-                + self.temp_last_effect * gain_output_ratio_coeffs[num_effect][3]
-                + self.temp_last_effect
-                * feed_conc_ppm
-                * gain_output_ratio_coeffs[num_effect][4]
-                + self.temp_last_effect
-                * self.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[num_effect][5]
-                + temp_steam * gain_output_ratio_coeffs[num_effect][6]
-                + temp_steam * feed_conc_ppm * gain_output_ratio_coeffs[num_effect][7]
-                + temp_steam
-                * self.recovery_vol_phase[0, "Liq"]
-                * gain_output_ratio_coeffs[num_effect][8]
-                + temp_steam
-                * self.temp_last_effect
-                * gain_output_ratio_coeffs[num_effect][9]
-                + 1 * gain_output_ratio_coeffs[num_effect][10]
-                + temp_steam**2 * gain_output_ratio_coeffs[num_effect][11]
-                + self.temp_last_effect**2 * gain_output_ratio_coeffs[num_effect][12]
-                + self.recovery_vol_phase[0, "Liq"] ** 2
-                * gain_output_ratio_coeffs[num_effect][13]
-                + feed_conc_ppm**2 * gain_output_ratio_coeffs[num_effect][14]
-            )
-
-        specific_area_coeffs = self._get_specific_area_coeffs()
-
-        # Specific area surrogate equation, as a function of the number of effect
-        def _get_specific_area(num_effect):
-            if num_effect in [3, 6, 9]:
-                return (
-                    feed_conc_ppm * specific_area_coeffs[num_effect][0]
-                    + feed_conc_ppm**2 * specific_area_coeffs[num_effect][1]
-                    + self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][2]
-                    + self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][3]
-                    + self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][4]
-                    + self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][5]
-                    + self.recovery_vol_phase[0, "Liq"] ** 2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][6]
-                    + self.temp_last_effect * specific_area_coeffs[num_effect][7]
-                    + self.temp_last_effect
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][8]
-                    + self.temp_last_effect
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][9]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][10]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][11]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][12]
-                    + self.temp_last_effect**2 * specific_area_coeffs[num_effect][13]
-                    + self.temp_last_effect**2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][14]
-                    + self.temp_last_effect**2
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][15]
-                    + temp_steam * specific_area_coeffs[num_effect][16]
-                    + temp_steam * feed_conc_ppm * specific_area_coeffs[num_effect][17]
-                    + temp_steam
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][18]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][19]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][20]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][21]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * specific_area_coeffs[num_effect][22]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][23]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][24]
-                    + temp_steam
-                    * self.temp_last_effect**2
-                    * specific_area_coeffs[num_effect][25]
-                    + temp_steam**2 * specific_area_coeffs[num_effect][26]
-                    + temp_steam**2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][27]
-                    + temp_steam**2
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][28]
-                    + temp_steam**2
-                    * self.temp_last_effect
-                    * specific_area_coeffs[num_effect][29]
-                    + 1 * specific_area_coeffs[num_effect][30]
-                    + temp_steam**3 * specific_area_coeffs[num_effect][31]
-                    + self.temp_last_effect**3 * specific_area_coeffs[num_effect][32]
-                    + self.recovery_vol_phase[0, "Liq"] ** 3
-                    * specific_area_coeffs[num_effect][33]
-                    + feed_conc_ppm**3 * specific_area_coeffs[num_effect][34]
-                )
-
-            else:
-                return (
-                    feed_conc_ppm * specific_area_coeffs[num_effect][0]
-                    + feed_conc_ppm**2 * specific_area_coeffs[num_effect][1]
-                    + feed_conc_ppm**3 * specific_area_coeffs[num_effect][2]
-                    + self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][3]
-                    + self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][4]
-                    + self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][5]
-                    + self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm**3
-                    * specific_area_coeffs[num_effect][6]
-                    + self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][7]
-                    + self.recovery_vol_phase[0, "Liq"] ** 2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][8]
-                    + self.recovery_vol_phase[0, "Liq"] ** 2
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][9]
-                    + self.recovery_vol_phase[0, "Liq"] ** 3
-                    * specific_area_coeffs[num_effect][10]
-                    + self.recovery_vol_phase[0, "Liq"] ** 3
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][11]
-                    + self.temp_last_effect * specific_area_coeffs[num_effect][12]
-                    + self.temp_last_effect
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][13]
-                    + self.temp_last_effect
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][14]
-                    + self.temp_last_effect
-                    * feed_conc_ppm**3
-                    * specific_area_coeffs[num_effect][15]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][16]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][17]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][18]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][19]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][20]
-                    + self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"] ** 3
-                    * specific_area_coeffs[num_effect][21]
-                    + self.temp_last_effect**2 * specific_area_coeffs[num_effect][22]
-                    + self.temp_last_effect**2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][23]
-                    + self.temp_last_effect**2
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][24]
-                    + self.temp_last_effect**2
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][25]
-                    + self.temp_last_effect**2
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][26]
-                    + self.temp_last_effect**2
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][27]
-                    + self.temp_last_effect**3 * specific_area_coeffs[num_effect][28]
-                    + self.temp_last_effect**3
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][29]
-                    + self.temp_last_effect**3
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][30]
-                    + temp_steam * specific_area_coeffs[num_effect][31]
-                    + temp_steam * feed_conc_ppm * specific_area_coeffs[num_effect][32]
-                    + temp_steam
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][33]
-                    + temp_steam
-                    * feed_conc_ppm**3
-                    * specific_area_coeffs[num_effect][34]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][35]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][36]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][37]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][38]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][39]
-                    + temp_steam
-                    * self.recovery_vol_phase[0, "Liq"] ** 3
-                    * specific_area_coeffs[num_effect][40]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * specific_area_coeffs[num_effect][41]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][42]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][43]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][44]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][45]
-                    + temp_steam
-                    * self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][46]
-                    + temp_steam
-                    * self.temp_last_effect**2
-                    * specific_area_coeffs[num_effect][47]
-                    + temp_steam
-                    * self.temp_last_effect**2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][48]
-                    + temp_steam
-                    * self.temp_last_effect**2
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][49]
-                    + temp_steam
-                    * self.temp_last_effect**3
-                    * specific_area_coeffs[num_effect][50]
-                    + temp_steam**2 * specific_area_coeffs[num_effect][51]
-                    + temp_steam**2
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][52]
-                    + temp_steam**2
-                    * feed_conc_ppm**2
-                    * specific_area_coeffs[num_effect][53]
-                    + temp_steam**2
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][54]
-                    + temp_steam**2
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][55]
-                    + temp_steam**2
-                    * self.recovery_vol_phase[0, "Liq"] ** 2
-                    * specific_area_coeffs[num_effect][56]
-                    + temp_steam**2
-                    * self.temp_last_effect
-                    * specific_area_coeffs[num_effect][57]
-                    + temp_steam**2
-                    * self.temp_last_effect
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][58]
-                    + temp_steam**2
-                    * self.temp_last_effect
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][59]
-                    + temp_steam**2
-                    * self.temp_last_effect**2
-                    * specific_area_coeffs[num_effect][60]
-                    + temp_steam**3 * specific_area_coeffs[num_effect][61]
-                    + temp_steam**3
-                    * feed_conc_ppm
-                    * specific_area_coeffs[num_effect][62]
-                    + temp_steam**3
-                    * self.recovery_vol_phase[0, "Liq"]
-                    * specific_area_coeffs[num_effect][63]
-                    + temp_steam**3
-                    * self.temp_last_effect
-                    * specific_area_coeffs[num_effect][64]
-                    + 1 * specific_area_coeffs[num_effect][65]
-                    + temp_steam**4 * specific_area_coeffs[num_effect][66]
-                    + self.temp_last_effect**4 * specific_area_coeffs[num_effect][67]
-                    + self.recovery_vol_phase[0, "Liq"] ** 4
-                    * specific_area_coeffs[num_effect][68]
-                    + feed_conc_ppm**4 * specific_area_coeffs[num_effect][69]
-                )
+        # Get coefficients for surrogate equations
+        self.gain_output_ratio_coeffs = self._get_gain_output_ratio_coeffs()
+        self.specific_area_coeffs = self._get_specific_area_coeffs()
 
         # Surrogate equations were built for 3,6,9,12,14 effects
         # For intermediate number of effects (4,5,7,8,10,11,13), linear interpolation is adopted
         @self.Constraint(doc="Gain output ratio surrogate equation")
         def eq_gain_output_ratio(b):
             if b.config.number_effects in [3, 6, 9, 12, 14]:
-                return b.gain_output_ratio == _get_gain_output_ratio(
+                return b.gain_output_ratio == self._get_gain_output_ratio(
                     b.config.number_effects
                 )
-            elif b.config.number_effects in [4, 5, 7, 8, 10, 11, 13]:
+            else: # b.config.number_effects in [4, 5, 7, 8, 10, 11, 13]:
                 # find out the closest numbers of effects that have a surrogate equation
                 interp_effects, i = [3, 6, 9, 12, 14], 1
                 while interp_effects[i] < b.config.number_effects:
@@ -713,27 +395,23 @@ class LTMEDData(UnitModelBlockData):
                 interp_point1, interp_point2 = interp_effects[i - 1], interp_effects[i]
 
                 # implement linear interpolation using 2 points
-                return b.gain_output_ratio == _get_gain_output_ratio(interp_point1) * (
+                return b.gain_output_ratio == self._get_gain_output_ratio(interp_point1) * (
                     interp_point2 - b.config.number_effects
-                ) / (interp_point2 - interp_point1) + _get_gain_output_ratio(
+                ) / (interp_point2 - interp_point1) + self._get_gain_output_ratio(
                     interp_point2
                 ) * (
                     b.config.number_effects - interp_point1
                 ) / (
                     interp_point2 - interp_point1
-                )
-            else:
-                raise Exception(
-                    "Only integers between 3 to 14 are allowed for the number of effects"
                 )
 
         @self.Constraint(doc="Specific area surrogate equation")
         def eq_specific_area_per_m3_day(b):
             if b.config.number_effects in [3, 6, 9, 12, 14]:
-                return b.specific_area_per_m3_day == _get_specific_area(
+                return b.specific_area_per_m3_day == self._get_specific_area(
                     b.config.number_effects
                 )
-            elif b.config.number_effects in [4, 5, 7, 8, 10, 11, 13]:
+            else: # b.config.number_effects in [4, 5, 7, 8, 10, 11, 13]:
                 # find out the closest numbers of effects that have a surrogate equation
                 interp_effects, i = [3, 6, 9, 12, 14], 1
                 while interp_effects[i] < b.config.number_effects:
@@ -741,20 +419,16 @@ class LTMEDData(UnitModelBlockData):
                 interp_point1, interp_point2 = interp_effects[i - 1], interp_effects[i]
 
                 # implement linear interpolation using 2 points
-                return b.specific_area_per_m3_day == _get_specific_area(
+                return b.specific_area_per_m3_day == self._get_specific_area(
                     interp_point1
                 ) * (interp_point2 - b.config.number_effects) / (
                     interp_point2 - interp_point1
-                ) + _get_specific_area(
+                ) + self._get_specific_area(
                     interp_point2
                 ) * (
                     b.config.number_effects - interp_point1
                 ) / (
                     interp_point2 - interp_point1
-                )
-            else:
-                raise Exception(
-                    "Only integers between 3 to 14 are allowed for the number of effects"
                 )
 
         @self.Constraint(doc="Convert specific area to m2/kg/s for CAPEX calculation")
@@ -1154,7 +828,7 @@ class LTMEDData(UnitModelBlockData):
             ],
             9: [
                 1.67e-06,
-                5.9507846 + 1e-3,
+                5.9507846,
                 -3.94e-06,
                 0.012607651,
                 -5.50e-08,
@@ -1463,3 +1137,325 @@ class LTMEDData(UnitModelBlockData):
                 1.716278e-19,
             ],
         }
+
+    # Surrogate equations for calculating gain output ratio
+    def _get_gain_output_ratio(self, num_effect):
+        return (
+            self.feed_conc_ppm * self.gain_output_ratio_coeffs[num_effect][0]
+            + self.recovery_vol_phase[0, "Liq"]
+            * self.gain_output_ratio_coeffs[num_effect][1]
+            + self.feed_conc_ppm
+            * self.recovery_vol_phase[0, "Liq"]
+            * self.gain_output_ratio_coeffs[num_effect][2]
+            + self.temp_last_effect * self.gain_output_ratio_coeffs[num_effect][3]
+            + self.temp_last_effect
+            * self.feed_conc_ppm
+            * self.gain_output_ratio_coeffs[num_effect][4]
+            + self.temp_last_effect
+            * self.recovery_vol_phase[0, "Liq"]
+            * self.gain_output_ratio_coeffs[num_effect][5]
+            + self.temp_steam * self.gain_output_ratio_coeffs[num_effect][6]
+            + self.temp_steam * self.feed_conc_ppm * self.gain_output_ratio_coeffs[num_effect][7]
+            + self.temp_steam
+            * self.recovery_vol_phase[0, "Liq"]
+            * self.gain_output_ratio_coeffs[num_effect][8]
+            + self.temp_steam
+            * self.temp_last_effect
+            * self.gain_output_ratio_coeffs[num_effect][9]
+            + 1 * self.gain_output_ratio_coeffs[num_effect][10]
+            + self.temp_steam**2 * self.gain_output_ratio_coeffs[num_effect][11]
+            + self.temp_last_effect**2 * self.gain_output_ratio_coeffs[num_effect][12]
+            + self.recovery_vol_phase[0, "Liq"] ** 2
+            * self.gain_output_ratio_coeffs[num_effect][13]
+            + self.feed_conc_ppm**2 * self.gain_output_ratio_coeffs[num_effect][14]
+        )
+
+    # Specific area surrogate equation, as a function of the number of effect
+    def _get_specific_area(self, num_effect):
+        if num_effect in [3, 6, 9]:
+            return (
+                self.feed_conc_ppm * self.specific_area_coeffs[num_effect][0]
+                + self.feed_conc_ppm**2 * self.specific_area_coeffs[num_effect][1]
+                + self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][2]
+                + self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][3]
+                + self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][4]
+                + self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][5]
+                + self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][6]
+                + self.temp_last_effect * self.specific_area_coeffs[num_effect][7]
+                + self.temp_last_effect
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][8]
+                + self.temp_last_effect
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][9]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][10]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][11]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][12]
+                + self.temp_last_effect**2 * self.specific_area_coeffs[num_effect][13]
+                + self.temp_last_effect**2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][14]
+                + self.temp_last_effect**2
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][15]
+                + self.temp_steam * self.specific_area_coeffs[num_effect][16]
+                + self.temp_steam * self.feed_conc_ppm * self.specific_area_coeffs[num_effect][17]
+                + self.temp_steam
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][18]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][19]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][20]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][21]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.specific_area_coeffs[num_effect][22]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][23]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][24]
+                + self.temp_steam
+                * self.temp_last_effect**2
+                * self.specific_area_coeffs[num_effect][25]
+                + self.temp_steam**2 * self.specific_area_coeffs[num_effect][26]
+                + self.temp_steam**2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][27]
+                + self.temp_steam**2
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][28]
+                + self.temp_steam**2
+                * self.temp_last_effect
+                * self.specific_area_coeffs[num_effect][29]
+                + 1 * self.specific_area_coeffs[num_effect][30]
+                + self.temp_steam**3 * self.specific_area_coeffs[num_effect][31]
+                + self.temp_last_effect**3 * self.specific_area_coeffs[num_effect][32]
+                + self.recovery_vol_phase[0, "Liq"] ** 3
+                * self.specific_area_coeffs[num_effect][33]
+                + self.feed_conc_ppm**3 * self.specific_area_coeffs[num_effect][34]
+            )
+
+        else:
+            return (
+                self.feed_conc_ppm * self.specific_area_coeffs[num_effect][0]
+                + self.feed_conc_ppm**2 * self.specific_area_coeffs[num_effect][1]
+                + self.feed_conc_ppm**3 * self.specific_area_coeffs[num_effect][2]
+                + self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][3]
+                + self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][4]
+                + self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][5]
+                + self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm**3
+                * self.specific_area_coeffs[num_effect][6]
+                + self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][7]
+                + self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][8]
+                + self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][9]
+                + self.recovery_vol_phase[0, "Liq"] ** 3
+                * self.specific_area_coeffs[num_effect][10]
+                + self.recovery_vol_phase[0, "Liq"] ** 3
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][11]
+                + self.temp_last_effect * self.specific_area_coeffs[num_effect][12]
+                + self.temp_last_effect
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][13]
+                + self.temp_last_effect
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][14]
+                + self.temp_last_effect
+                * self.feed_conc_ppm**3
+                * self.specific_area_coeffs[num_effect][15]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][16]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][17]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][18]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][19]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][20]
+                + self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"] ** 3
+                * self.specific_area_coeffs[num_effect][21]
+                + self.temp_last_effect**2 * self.specific_area_coeffs[num_effect][22]
+                + self.temp_last_effect**2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][23]
+                + self.temp_last_effect**2
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][24]
+                + self.temp_last_effect**2
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][25]
+                + self.temp_last_effect**2
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][26]
+                + self.temp_last_effect**2
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][27]
+                + self.temp_last_effect**3 * self.specific_area_coeffs[num_effect][28]
+                + self.temp_last_effect**3
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][29]
+                + self.temp_last_effect**3
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][30]
+                + self.temp_steam * self.specific_area_coeffs[num_effect][31]
+                + self.temp_steam * self.feed_conc_ppm * self.specific_area_coeffs[num_effect][32]
+                + self.temp_steam
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][33]
+                + self.temp_steam
+                * self.feed_conc_ppm**3
+                * self.specific_area_coeffs[num_effect][34]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][35]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][36]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][37]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][38]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][39]
+                + self.temp_steam
+                * self.recovery_vol_phase[0, "Liq"] ** 3
+                * self.specific_area_coeffs[num_effect][40]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.specific_area_coeffs[num_effect][41]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][42]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][43]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][44]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][45]
+                + self.temp_steam
+                * self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][46]
+                + self.temp_steam
+                * self.temp_last_effect**2
+                * self.specific_area_coeffs[num_effect][47]
+                + self.temp_steam
+                * self.temp_last_effect**2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][48]
+                + self.temp_steam
+                * self.temp_last_effect**2
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][49]
+                + self.temp_steam
+                * self.temp_last_effect**3
+                * self.specific_area_coeffs[num_effect][50]
+                + self.temp_steam**2 * self.specific_area_coeffs[num_effect][51]
+                + self.temp_steam**2
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][52]
+                + self.temp_steam**2
+                * self.feed_conc_ppm**2
+                * self.specific_area_coeffs[num_effect][53]
+                + self.temp_steam**2
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][54]
+                + self.temp_steam**2
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][55]
+                + self.temp_steam**2
+                * self.recovery_vol_phase[0, "Liq"] ** 2
+                * self.specific_area_coeffs[num_effect][56]
+                + self.temp_steam**2
+                * self.temp_last_effect
+                * self.specific_area_coeffs[num_effect][57]
+                + self.temp_steam**2
+                * self.temp_last_effect
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][58]
+                + self.temp_steam**2
+                * self.temp_last_effect
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][59]
+                + self.temp_steam**2
+                * self.temp_last_effect**2
+                * self.specific_area_coeffs[num_effect][60]
+                + self.temp_steam**3 * self.specific_area_coeffs[num_effect][61]
+                + self.temp_steam**3
+                * self.feed_conc_ppm
+                * self.specific_area_coeffs[num_effect][62]
+                + self.temp_steam**3
+                * self.recovery_vol_phase[0, "Liq"]
+                * self.specific_area_coeffs[num_effect][63]
+                + self.temp_steam**3
+                * self.temp_last_effect
+                * self.specific_area_coeffs[num_effect][64]
+                + 1 * self.specific_area_coeffs[num_effect][65]
+                + self.temp_steam**4 * self.specific_area_coeffs[num_effect][66]
+                + self.temp_last_effect**4 * self.specific_area_coeffs[num_effect][67]
+                + self.recovery_vol_phase[0, "Liq"] ** 4
+                * self.specific_area_coeffs[num_effect][68]
+                + self.feed_conc_ppm**4 * self.specific_area_coeffs[num_effect][69]
+            )
