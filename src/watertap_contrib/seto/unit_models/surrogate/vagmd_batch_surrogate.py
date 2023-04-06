@@ -462,6 +462,10 @@ class VAGMDbatchData(UnitModelBlockData):
             **tmp_dict
         )
 
+        # Add ports
+        self.add_port(name="feed", block=self.feed_props)
+        self.add_port(name="permeate", block=self.permeate_props)
+
         """
         System configurations
         """

@@ -105,6 +105,24 @@ class TestVAGMD:
         assert m.fs.vagmd.config.property_package is m.fs.properties
 
     @pytest.mark.unit
+    def test_build(self, VAGMD_frame):
+        m = VAGMD_frame
+
+        # test ports
+        port_lst = ["feed", "permeate"]
+        for port_str in port_lst:
+            port = getattr(m.fs.vagmd, port_str)
+            assert isinstance(port, Port)
+            assert len(port.vars) == 3
+
+        # test statistics
+        assert number_variables(m) == 4850
+        assert number_total_constraints(m) == 2521
+        assert (
+            number_unused_variables(m) == 2300
+        )  # vars from property package parameters
+
+    @pytest.mark.unit
     def test_dof(self, VAGMD_frame):
         m = VAGMD_frame
         assert degrees_of_freedom(m) == 0
@@ -122,11 +140,11 @@ class TestVAGMD:
         unscaled_constraint_list = list(unscaled_constraints_generator(m))
         assert len(unscaled_constraint_list) == 0
 
-    # @pytest.mark.component
-    # def test_var_scaling(self, VAGMD_frame):
-    #     m = VAGMD_frame
-    #     badly_scaled_var_lst = list(badly_scaled_var_generator(m))
-    #     assert badly_scaled_var_lst == []
+    @pytest.mark.component
+    def test_var_scaling(self, VAGMD_frame):
+        m = VAGMD_frame
+        badly_scaled_var_lst = list(badly_scaled_var_generator(m))
+        assert badly_scaled_var_lst == []
 
     @pytest.mark.component
     def test_solve(self, VAGMD_frame):
