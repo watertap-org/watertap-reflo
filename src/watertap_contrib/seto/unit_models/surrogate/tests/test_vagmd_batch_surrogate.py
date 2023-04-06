@@ -46,27 +46,27 @@ class TestVAGMD:
     @pytest.fixture(scope="class")
     def VAGMD_frame(self):
 
-        k = 7  # Module type
-        RR = 0.5  # Target recovery rate
-        S0 = 35  # Feed salinity (g/L)
-        TEI = 80  # Evaporator inelt temperature (degC)
-        FFR = 600  # Feed flow rate (L/h)
-        TCI = 25  # Condensor outlet temperature (degC)
-        Ttank = 25  # Initial temperature of the feed (degC)
-        V0 = 50  # Initial batch volume
+        module_type = "AS7C1.5L"  # Module type
+        recovery_ratio = 0.5  # Target recovery rate
+        feed_salinity = 35  # Feed salinity (g/L)
+        temp_evap_in = 80  # Evaporator inelt temperature (degC)
+        feed_flow_rate = 600  # Feed flow rate (L/h)
+        temp_cond_in = 25  # Condensor inlet temperature (degC)
+        temp_tank = 25  # Initial temperature of the feed (degC)
+        batch_volume = 50  # Initial batch volume
 
-        # Calculate Sf temporarily (final salinity)
-        Sf = S0 / (1 - RR)
+        # Calculate final salinity temporarily
+        final_salinity = feed_salinity / (1 - recovery_ratio)
 
-        # Estimate the number of timesteps
-        PFlux_init, TCO_init, TEO_init, A = self._get_membrane_performance(
-            TEI, FFR, TCI, S0, Ttank, k, Sf
+        # Estimate the initial membrane performance
+        permeate_flux_init, temp_cond_out_init, temp_evap_out_init, Area = self._get_membrane_performance(
+            temp_evap_in, feed_flow_rate, temp_cond_in, feed_salinity, temp_tank, module_type, final_salinity
         )
-        PFR_init = PFlux_init * A  # Initial permeate flow rate (L/h)
+        permeate_flow_rate_init = permeate_flux_init * Area  # Initial permeate flow rate (L/h)
 
-        dt = 20352.55 / FFR  # Time step (s) # TODO: move it to unit model
-        Vd_init = PFR_init * dt / 3600  # Initial permeate volume (L)
-        N = int(V0 * RR / Vd_init) + 2  # TODO: Update model to calculate N
+        dt = 20352.55 / feed_flow_rate  # Time step (s) # TODO: move it to unit model
+        V_init = permeate_flow_rate_init * dt / 3600  # Initial permeate volume (L)
+        N = int(batch_volume * recovery_ratio / V_init) + 2  # TODO: Update model to calculate N
 
         m = ConcreteModel()
         m.fs = FlowsheetBlock(
@@ -75,22 +75,22 @@ class TestVAGMD:
         m.fs.properties = SeawaterParameterBlock()
         m.fs.vagmd = VAGMDbatch_surrogate(
             property_package=m.fs.properties,
-            module_type="AS7C1.5L",
-            high_brine_salinity=False,
+            module_type=module_type,
+            high_brine_salinity=final_salinity > 175.3,
             cooling_system_type="closed",
             number_cycles=N + 1,
         )
 
-        m.fs.vagmd.feed_props[0, 0].conc_mass_phase_comp["Liq", "TDS"].fix(S0)
-        m.fs.vagmd.feed_props[0, 0].temperature.fix(Ttank + 273.15)
-        m.fs.vagmd.feed_props[0, 0].flow_vol_phase["Liq"].fix(FFR / 3600 / 1000)
-        m.fs.vagmd.evaporator_in_props[0, 0].temperature.fix(TEI + 273.15)
-        m.fs.vagmd.condenser_in_props[0, 0].temperature.fix(TCI + 273.15)
+        m.fs.vagmd.feed_props[0, 0].conc_mass_phase_comp["Liq", "TDS"].fix(feed_salinity)
+        m.fs.vagmd.feed_props[0, 0].temperature.fix(temp_tank + 273.15)
+        m.fs.vagmd.feed_props[0, 0].flow_vol_phase["Liq"].fix(feed_flow_rate / 3600 / 1000) # TODO: convert unit here
+        m.fs.vagmd.evaporator_in_props[0, 0].temperature.fix(temp_evap_in + 273.15)
+        m.fs.vagmd.condenser_in_props[0, 0].temperature.fix(temp_cond_in + 273.15)
 
         if m.fs.vagmd.config.cooling_system_type == "open":
             m.fs.vagmd.TCoolIn.fix(TCoolIn)
         m.fs.vagmd.dt.fix(dt)
-        m.fs.vagmd.initial_batch_volume.fix(V0)
+        m.fs.vagmd.initial_batch_volume.fix(batch_volume)
 
         return m
 
@@ -98,7 +98,7 @@ class TestVAGMD:
     def test_config(self, VAGMD_frame):
         m = VAGMD_frame
         # check unit config arguments
-        assert len(m.fs.vagmd.config) == 11
+        assert len(m.fs.vagmd.config) == 8
 
         assert not m.fs.vagmd.config.dynamic
         assert not m.fs.vagmd.config.has_holdup
@@ -379,7 +379,7 @@ class TestVAGMD:
         ]
 
         # Model calculations
-        if k == 7:
+        if k == "AS7C1.5L":
             A = 7.2  # Membrane Area [m2]
             if Sf > 175.3:
                 TEI = 0

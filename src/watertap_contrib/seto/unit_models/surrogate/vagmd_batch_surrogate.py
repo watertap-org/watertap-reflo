@@ -78,30 +78,6 @@ class VAGMDbatchData(UnitModelBlockData):
         ),
     )
     CONFIG.declare(
-        "time",
-        ConfigValue(
-            description="",
-            doc="""Indicates whether this model will be dynamic or not,
-    **default** = False.""",
-        ),
-    )
-    CONFIG.declare(
-        "time_units",
-        ConfigValue(
-            description="Dynamic model flag - must be False",
-            doc="""In.""",
-        ),
-    )
-    CONFIG.declare(
-        "time_set",
-        ConfigValue(
-            description="Dynamic model flag - must be False",
-            doc="""Indicates whether this model will be dynamic or not,
-    **default** = False. The filtration unit does not support dynamic
-    behavior, thus this must be False.""",
-        ),
-    )
-    CONFIG.declare(
         "has_holdup",
         ConfigValue(
             default=False,
