@@ -130,36 +130,42 @@ def cost_lt_med_surrogate(blk):
 
     blk.total_system_cost = pyo.Var(
         initialize=100,
+        bounds=(0, None),
         units=base_currency,
         doc="MED system cost",
     )
 
     blk.membrane_system_cost = pyo.Var(
         initialize=100,
+        bounds=(0, None),
         units=base_currency,
         doc="Membrane system cost",
     )
 
     blk.evaporator_system_cost = pyo.Var(
         initialize=100,
+        bounds=(0, None),
         units=base_currency,
         doc="Evaporator system cost",
     )
 
     blk.med_specific_cost = pyo.Var(
         initialize=100,
+        bounds=(0, None),
         units=pyo.units.USD_2018 / (pyo.units.m**3 / pyo.units.day),
         doc="MED system cost per m3/day distillate",
     )
 
     blk.heat_exchanger_specific_area = pyo.Var(
         initialize=100,
+        bounds=(0, None),
         units=pyo.units.m**2 / (pyo.units.kg / pyo.units.s),
         doc="Specific heat exchanger area",
     )
 
     blk.thermal_storage_capacity = pyo.Var(
         initialize=5,
+        bounds=(0, None),
         units=pyo.units.kWh,
         doc="Thermal storage capacity",
     )
