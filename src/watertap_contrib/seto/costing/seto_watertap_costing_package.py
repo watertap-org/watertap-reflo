@@ -42,10 +42,10 @@ from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
-from watertap_contrib.seto.unit_models.zero_order.chemical_softening_0D import (
-    ChemicalSoftening0D,
+from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
+    ChemicalSofteningZO,
 )
-from watertap_contrib.seto.costing.units.chemical_softening_0D import (
+from watertap_contrib.seto.costing.units.chemical_softening_zo import (
     cost_chem_softening,
 )
 
@@ -72,7 +72,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         Electrodialysis1D: cost_electrodialysis,
         IonExchange0D: cost_ion_exchange,
         GAC: cost_gac,
-        ChemicalSoftening0D: cost_chem_softening,
+        ChemicalSofteningZO: cost_chem_softening,
     }
 
     def build_global_params(self):
