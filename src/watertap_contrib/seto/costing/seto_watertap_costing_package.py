@@ -41,7 +41,9 @@ from watertap.costing.units.uv_aop import cost_uv_aop
 from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
+from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
 from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
+from watertap_contrib.seto.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
 from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
     ChemicalSofteningZO,
 )
@@ -57,6 +59,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
 
     unit_mapping = {
         LTMEDSurrogate: cost_lt_med_surrogate,
+        MEDTVCSurrogate: cost_med_tvc_surrogate,
         Photovoltaic: cost_pv,
         Mixer: cost_mixer,
         Pump: cost_pump,

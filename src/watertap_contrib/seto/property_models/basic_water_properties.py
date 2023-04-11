@@ -14,7 +14,7 @@ from idaes.core import (
 from idaes.core.base.components import Solvent, Solute
 from idaes.core.base.phases import LiquidPhase
 from idaes.core.solvers.get_solver import get_solver
-
+from idaes.core.util.misc import add_object_reference
 from idaes.core.util.initialization import (
     fix_state_vars,
     revert_state_vars,
@@ -29,13 +29,11 @@ import idaes.core.util.scaling as iscale
 from idaes.core.util.exceptions import InitializationError
 
 from pyomo.environ import (
-    Expression,
     Param,
     PositiveReals,
     units as pyunits,
     Var,
     Constraint,
-    Set,
     Suffix,
     value,
     check_optimal_termination,
@@ -80,29 +78,31 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
 
         self.H2O = Solvent()
 
-        # Get component set from database if provided
-        self.component_set = Set()
-
         # Check definition of solute list
         solute_list = self.config.solute_list
 
         for j in solute_list:
             self.add_component(str(j), Solute())
-            self.component_set.add(str(j))
 
-        # Define default value for mass density of solution
-        self.dens_mass_default = 1000 * pyunits.kg / pyunits.m**3
-        # Define default value for dynamic viscosity of solution
-        self.visc_d_default = 0.001 * pyunits.kg / pyunits.m / pyunits.s
+        self.dens_mass = Param(
+            initialize=1000,
+            units=pyunits.kg / pyunits.m**3,
+            mutable=True,
+            doc="Mass density of flow",
+        )
 
+        self.visc_d = Param(
+            initialize=0.001,
+            units=pyunits.kg / pyunits.m / pyunits.s,
+            mutable=True,
+            doc="Dynamic viscosity of solution",
+        )
         # ---------------------------------------------------------------------
         # Set default scaling factors
-        self.default_scaling_factor = {
-            ("temperature"): 1e-3,
-            ("pressure"): 1e-5,
-            ("dens_mass"): 1e-3,
-            ("visc_d"): 1e3,
-        }
+        self.set_default_scaling("temperature", 1e-3)
+        self.set_default_scaling("pressure", 1e-5)
+        self.set_default_scaling("dens_mass", 1e-3)
+        self.set_default_scaling("visc_d", 1e3)
 
     @classmethod
     def define_metadata(cls, obj):
@@ -191,7 +191,7 @@ class _BasicWaterStateBlock(StateBlock):
         # Fix state variables
         flags = fix_state_vars(self, state_args)
 
-        # initialize vars caculated from state vars
+        # initialize vars calculated from state vars
         for k in self.keys():
             for j in self[k].params.component_list:
                 if self[k].is_property_constructed("flow_mass_comp"):
@@ -208,7 +208,6 @@ class _BasicWaterStateBlock(StateBlock):
         for k in self.keys():
             dof = degrees_of_freedom(self[k])
             if dof != 0:
-                # print(f'DOF = {dof}')
                 raise InitializationError(
                     "\nWhile initializing {sb_name}, the degrees of freedom "
                     "are {dof}, when zero is required. \nInitialization assumes "
@@ -224,7 +223,6 @@ class _BasicWaterStateBlock(StateBlock):
         skip_solve = True  # skip solve if only state variables are present
         for k in self.keys():
             if number_unfixed_variables(self[k]) != 0:
-
                 skip_solve = False
 
         if not skip_solve:
@@ -247,7 +245,7 @@ class _BasicWaterStateBlock(StateBlock):
             else:
                 self.release_state(flags)
 
-    def release_state(blk, flags, outlvl=idaeslog.NOTSET):
+    def release_state(self, flags, outlvl=idaeslog.NOTSET):
         """
         Method to release state variables fixed during initialization.
 
@@ -258,13 +256,13 @@ class _BasicWaterStateBlock(StateBlock):
                     hold_state=True.
             outlvl : sets output level of of logging
         """
-        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="properties")
+        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="properties")
 
         if flags is None:
             return
 
         # Unfix state variables
-        revert_state_vars(blk, flags)
+        revert_state_vars(self, flags)
         init_log.info("State Released.")
 
 
@@ -287,14 +285,13 @@ class BasicWaterStateBlockData(StateBlockData):
         )
 
         self.conc_mass_comp = Var(
-            self.params.component_set,
+            self.params.solute_set,
             initialize=1,
             domain=PositiveReals,
             doc="Mass concentration of each solute",
             units=pyunits.kg / pyunits.m**3,
         )
 
-    # # -------------------------------------------------------------------------
     # Other properties
     def _flow_mass_comp(self):
 
@@ -333,29 +330,22 @@ class BasicWaterStateBlockData(StateBlockData):
         )
 
     def _dens_mass(self):
-        self.dens_mass = Param(
-            initialize=self.params.dens_mass_default,
-            units=pyunits.kg / pyunits.m**3,
-            mutable=True,
-            doc="Mass density of flow",
-        )
+        add_object_reference(self, "dens_mass", self.params.dens_mass)
 
     def _visc_d(self):
-        self.visc_d = Param(
-            initialize=self.params.visc_d_default,
-            units=pyunits.kg / pyunits.m / pyunits.s,
-            mutable=True,
-            doc="Dynamic viscosity of solution",
-        )
+        add_object_reference(self, "visc_d", self.params.visc_d)
 
-    def get_material_flow_terms(blk, p, j):
-        return blk.flow_mass_comp[j]
+    def get_material_flow_terms(self, j):
+        return self.flow_mass_comp[j]
 
-    def get_enthalpy_flow_terms(blk, p):
+    def get_enthalpy_flow_terms(self, p):
         raise NotImplementedError
 
-    def get_material_density_terms(blk, p, j):
-        return blk.conc_mass_comp[j]
+    def get_material_density_terms(self, j):
+        if j == "H2O":
+            return self.dens_mass
+        else:
+            return self.conc_mass_comp[j]
 
     def get_energy_density_terms(self, p):
         raise NotImplementedError
@@ -393,7 +383,7 @@ class BasicWaterStateBlockData(StateBlockData):
                 try:
                     sf_c = self.params.default_scaling_factor[("conc_mass_comp", j)]
                 except KeyError:
-                    iscale.get_scaling_factor(
+                    iscale.set_scaling_factor(
                         self.conc_mass_comp[j], default=1, warning=True
                     )
 
