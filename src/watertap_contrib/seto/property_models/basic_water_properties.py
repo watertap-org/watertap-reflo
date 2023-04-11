@@ -104,6 +104,7 @@ class BasicWaterParameterBlockData(PhysicalParameterBlock):
         self.set_default_scaling("dens_mass", 1e-3)
         self.set_default_scaling("visc_d", 1e3)
 
+
     @classmethod
     def define_metadata(cls, obj):
         obj.add_default_units(
@@ -381,7 +382,7 @@ class BasicWaterStateBlockData(StateBlockData):
             sf_c = iscale.get_scaling_factor(self.conc_mass_comp[j])
             if sf_c is None:
                 try:
-                    sf_c = self.params.default_scaling_factor[("conc_mass_comp", j)]
+                    sf_c = self.params.set_default_scaling[("conc_mass_comp", j)]
                 except KeyError:
                     iscale.set_scaling_factor(
                         self.conc_mass_comp[j], default=1, warning=True
