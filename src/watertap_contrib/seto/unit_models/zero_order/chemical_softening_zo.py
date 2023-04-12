@@ -180,10 +180,10 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         prop_in = self.properties_in[0]
         prop_out = self.properties_out[0]
         prop_waste = self.properties_waste[0]
-        comps = self.config.property_package.component_set
+        comps = self.config.property_package.solute_set
         non_hardness_comps = [
             j
-            for j in self.config.property_package.component_set
+            for j in self.config.property_package.solute_set
             if j not in ["Ca_2+", "Mg_2+"]
         ]
 
@@ -925,10 +925,10 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         iscale.set_scaling_factor(self.CO2_CaCO3, 1)
         iscale.set_scaling_factor(self.sludge_prod, 1e-6)
 
-        comps = self.config.property_package.component_set
+        comps = self.config.property_package.solute_set
         non_hardness_comps = [
             j
-            for j in self.config.property_package.component_set
+            for j in self.config.property_package.solute_set
             if j not in ["Ca_2+", "Mg_2+"]
         ]
 
@@ -1030,7 +1030,7 @@ class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
         var_dict["CO2 in second basin"] = self.CO2_second_basin.value
         if (
             self.config.silica_removal
-            and ["SiO2"] in self.config.property_package.component_set
+            and ["SiO2"] in self.config.property_package.solute_set
         ):
             var_dict["MgCl2 dose"] = self.MgCl2_dosing()
         else:

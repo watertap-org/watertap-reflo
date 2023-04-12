@@ -955,14 +955,14 @@ def cost_chem_softening(blk):
         expr=blk.mixer_power
         == (blk.unit_model.vel_gradient_mix**2)
         * blk.unit_model.volume_mixer
-        * blk.unit_model.properties_in[0].params.visc_d_default
+        * blk.unit_model.properties_in[0].params.visc_d
     )
 
     blk.floc_power_constraint = Constraint(
         expr=blk.floc_power
         == (blk.unit_model.vel_gradient_floc**2)
         * blk.unit_model.volume_floc
-        * blk.unit_model.properties_in[0].params.visc_d_default
+        * blk.unit_model.properties_in[0].params.visc_d
     )
 
     blk.electricity_flow_constraint = Constraint(
