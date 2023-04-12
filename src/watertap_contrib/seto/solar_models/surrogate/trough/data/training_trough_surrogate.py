@@ -151,7 +151,7 @@ def plot_training_validation(
 
 #########################################################################################################
 if __name__ == "__main__":
-    dataset_filename = join(dirname(__file__), "data/dataset.pkl")
+    dataset_filename = join(dirname(__file__), "trough_data.pkl")
     surrogate_filename = join(dirname(__file__), "trough_surrogate_testing.json")
     n_samples = 100  # number of points to use from overall dataset
     training_fraction = 0.8
