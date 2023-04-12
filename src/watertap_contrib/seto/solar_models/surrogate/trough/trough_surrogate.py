@@ -115,51 +115,36 @@ class TroughSurrogateData(SolarEnergyBaseData):
         self.n_samples = 100
         self.training_fraction = 0.8
 
+    def calculate_scaling_factors(self):
+
+        if iscale.get_scaling_factor(self.hours_storage) is None:
+            sf = iscale.get_scaling_factor(self.hours_storage, default=1)
+            iscale.set_scaling_factor(self.hours_storage, sf)
+
+        if iscale.get_scaling_factor(self.heat_load) is None:
+            sf = iscale.get_scaling_factor(self.heat_load, default=1e-2, warning=True)
+            iscale.set_scaling_factor(self.heat_load, sf)
+
+        if iscale.get_scaling_factor(self.heat_annual) is None:
+            sf = iscale.get_scaling_factor(self.heat_annual, default=1e-4, warning=True)
+            iscale.set_scaling_factor(self.heat_annual, sf)
+
+        if iscale.get_scaling_factor(self.heat) is None:
+            sf = iscale.get_scaling_factor(self.heat, default=1e-4, warning=True)
+            iscale.set_scaling_factor(self.heat, sf)
+
+        if iscale.get_scaling_factor(self.electricity_annual) is None:
+            sf = iscale.get_scaling_factor(
+                self.electricity_annual, default=1e-3, warning=True
+            )
+            iscale.set_scaling_factor(self.electricity_annual, sf)
+
+        if iscale.get_scaling_factor(self.electricity) is None:
+            sf = iscale.get_scaling_factor(self.electricity, default=1e-3, warning=True)
+            iscale.set_scaling_factor(self.electricity, sf)
+
     def initialize_build(self):
         pass
-
-        # solver = get_solver()
-
-        # results = solver.solve(self)
-
-    def calculate_scaling_factors(self):
-        pass
-        # if iscale.get_scaling_factor(self.heat_load) is None:
-        #     iscale.set_scaling_factor(self.heat_load, 1)
-
-        # if iscale.get_scaling_factor(self.hours_storage) is None:
-        #     iscale.set_scaling_factor(self.hours_storage, 1)
-
-        # if iscale.get_scaling_factor(self.heat) is None:
-        #     iscale.set_scaling_factor(self.heat, 1)
-
-        # if iscale.get_scaling_factor(self.electricity) is None:
-        #     iscale.set_scaling_factor(self.electricity, 1)
-
-        # if iscale.get_scaling_factor(self.heat_annual) is None:
-        #     sf = iscale.get_scaling_factor(self.heat_annual, default=1, warning=True)
-        #     iscale.set_scaling_factor(self.heat_annual, sf)
-        
-        # if iscale.get_scaling_factor(self.electricity_annual) is None:
-        #     sf = iscale.get_scaling_factor(self.electricity_annual, default=1, warning=True)
-        #     iscale.set_scaling_factor(self.electricity_annual, sf)
-
-        # if iscale.get_scaling_factor(self.heat_constraint) is None:
-        #     sf = iscale.get_scaling_factor(self.heat_constraint, default=1, warning=True)
-        #     iscale.constraint_scaling_transform(self.heat_constraint, sf)
-
-        # if iscale.get_scaling_factor(self.electricity_constraint) is None:
-        #     sf = iscale.get_scaling_factor(self.electricity_constraint, default=1, warning=True)
-        #     iscale.constraint_scaling_transform(self.electricity_constraint, sf)
-
-        # for i, c in self.surrogate_blk.pysmo_constraint.items():
-        #     if iscale.get_scaling_factor(c) is None:
-        #         if "electricity" in i:
-        #             sf = iscale.get_scaling_factor(self.electricity_annual)
-        #             iscale.constraint_scaling_transform(c, sf)
-        #         if "heat" in i:
-        #             sf = iscale.get_scaling_factor(self.heat_annual)
-        #             iscale.constraint_scaling_transform(c, sf)
 
     def _create_rbf_surrogate(
         self, save_surrogate=False, output_filename="trough_surrogate_new.json"
@@ -260,8 +245,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
                 modeled_values=np.array(training_output[output_label]),
                 label=label + " - Training",
             )
-            # plt.savefig('/plots/parity_residual_plots.png')
-            # plt.close()
 
             # Validate model using validation data
             validation_output = surrogate.evaluate_surrogate(
@@ -272,8 +255,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
                 modeled_values=np.array(validation_output[output_label]),
                 label=label + " - Validation",
             )
-            # plt.savefig('/plots/parity_residual_plots.png')
-            # plt.close()
 
     def _parity_residual_plots(
         self,
@@ -311,5 +292,3 @@ class TroughSurrogateData(SolarEnergyBaseData):
         ax2.set_title(r"Residual plot", fontsize=axis_fontsize)
 
         plt.show()
-
-        return
