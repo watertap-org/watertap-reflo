@@ -17,8 +17,8 @@ def read_module_datafile(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
 
-    if 'constant' in data.keys():
-            data['adjust:constant'] = data.pop('constant')  # rename key
+    if "constant" in data.keys():
+        data["adjust:constant"] = data.pop("constant")  # rename key
     return data
 
 
@@ -74,8 +74,8 @@ def setup_model(
     config_data=None,
 ):
 
-    config_data['tech_model'] = 'swh'
-    config_data['financial_model'] = 'none'
+    config_data["tech_model"] = "swh"
+    config_data["financial_model"] = "none"
     tech_model = PySSC(config_data)
 
     if weather_file is not None:
@@ -154,19 +154,23 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     mdot_collectors = tech_model.value("test_flow") * tech_model.value("ncoll")
     tech_model.value("mdot", mdot_collectors)  # [kg/s]
     T_hot = tech_model.value("T_set")  # [C]
-    mdot_hot = tech_model.value("system_capacity") / (CP_WATER * (T_hot - T_cold)) * 3600  # [kg/hr]
+    mdot_hot = (
+        tech_model.value("system_capacity") / (CP_WATER * (T_hot - T_cold)) * 3600
+    )  # [kg/hr]
     tech_model.value("scaled_draw", 8760 * (mdot_hot,))  # [kg/hr]
 
     # Set pipe diameter and pump power
-    pipe_length = PIPE_LENGTH_FIXED + PIPE_LENGTH_PER_COLLECTOR * tech_model.value("ncoll")
+    pipe_length = PIPE_LENGTH_FIXED + PIPE_LENGTH_PER_COLLECTOR * tech_model.value(
+        "ncoll"
+    )
     tech_model.value("pipe_length", pipe_length)  # [m] default is 0.019 m
     pumping_power = PUMP_POWER_PER_COLLECTOR * tech_model.value("ncoll")
     tech_model.value("pump_power", pumping_power)  # [W]
 
     tech_model.execute()
 
-    annual_energy = (
-        tech_model.value("annual_Q_deliv")
+    annual_energy = tech_model.value(
+        "annual_Q_deliv"
     )  # [kWh] does not include electric heat, includes losses
     electrical_load = sum(tech_model.value("P_pump"))  # [kWh]
     frac_electrical_load = (
@@ -190,7 +194,9 @@ def setup_and_run(
     return result
 
 
-def plot_contour(df, x_label, y_label, z_label, units=None, grid=False, countour_lines=False):
+def plot_contour(
+    df, x_label, y_label, z_label, units=None, grid=False, countour_lines=False
+):
     def _set_aspect(ax, aspect):
         x_left, x_right = ax.get_xlim()
         y_low, y_high = ax.get_ylim()
@@ -212,9 +218,9 @@ def plot_contour(df, x_label, y_label, z_label, units=None, grid=False, countour
     fig.colorbar(cs)
 
     if units is None:
-        x_units, y_units, z_units = '', '', ''
+        x_units, y_units, z_units = "", "", ""
     else:
-        x_units, y_units, z_units = ['  [' + unit + ']' for unit in units]
+        x_units, y_units, z_units = ["  [" + unit + "]" for unit in units]
     ax.set_xlabel(x_label + x_units)
     ax.set_ylabel(y_label + y_units)
     ax.set_title(z_label + z_units)
@@ -222,14 +228,16 @@ def plot_contour(df, x_label, y_label, z_label, units=None, grid=False, countour
 
 
 def plot_3d(df, x_label, y_label, z_label, units=None):
-    fig = plt.figure(figsize=(8,6))
-    ax = fig.add_subplot(1, 1, 1, projection='3d')
-    surf = ax.plot_trisurf(df[x_label], df[y_label], df[z_label], cmap=plt.cm.viridis, linewidth=0.2)
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(1, 1, 1, projection="3d")
+    surf = ax.plot_trisurf(
+        df[x_label], df[y_label], df[z_label], cmap=plt.cm.viridis, linewidth=0.2
+    )
 
     if units is None:
-        x_units, y_units, z_units = '', '', ''
+        x_units, y_units, z_units = "", "", ""
     else:
-        x_units, y_units, z_units = ['  [' + unit + ']' for unit in units]
+        x_units, y_units, z_units = ["  [" + unit + "]" for unit in units]
     ax.set_xlabel(x_label + x_units)
     ax.set_ylabel(y_label + y_units)
     ax.set_title(z_label + z_units)
@@ -237,57 +245,132 @@ def plot_3d(df, x_label, y_label, z_label, units=None):
 
 
 def plot_2d(df, x_label, y_label, units=None):
-    fig = plt.figure(figsize=(8,6))
+    fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(1, 1, 1)
     surf = ax.plot(df[x_label], df[y_label])
 
     if units is None:
-        x_units, y_units = '', ''
+        x_units, y_units = "", ""
     else:
-        x_units, y_units = ['  [' + unit + ']' for unit in units]
+        x_units, y_units = ["  [" + unit + "]" for unit in units]
     ax.set_xlabel(x_label + x_units)
     ax.set_ylabel(y_label + y_units)
     plt.show()
 
 
 def plot_contours(df):
-    plot_contour(df.query('temperature_hot == 70'), 'heat_load', 'hours_storage', 'annual_energy', units=['MWt', 'hr', 'kWht'])
-    plot_contour(df.query('hours_storage == 12'), 'heat_load', 'temperature_hot', 'annual_energy', units=['MWt', 'C', 'kWht'])
-    plot_contour(df.query('heat_load == 500'), 'hours_storage', 'temperature_hot', 'annual_energy', units=['hr', 'C', 'kWht'])
-    plot_contour(df.query('temperature_hot == 70'), 'heat_load', 'hours_storage', 'electrical_load', units=['MWt', 'hr', 'kWhe'])
-    plot_contour(df.query('hours_storage == 12'), 'heat_load', 'temperature_hot', 'electrical_load', units=['MWt', 'C', 'kWhe'])
-    plot_contour(df.query('heat_load == 500'), 'hours_storage', 'temperature_hot', 'electrical_load', units=['hr', 'C', 'kWhe'])
+    plot_contour(
+        df.query("temperature_hot == 70"),
+        "heat_load",
+        "hours_storage",
+        "annual_energy",
+        units=["MWt", "hr", "kWht"],
+    )
+    plot_contour(
+        df.query("hours_storage == 12"),
+        "heat_load",
+        "temperature_hot",
+        "annual_energy",
+        units=["MWt", "C", "kWht"],
+    )
+    plot_contour(
+        df.query("heat_load == 500"),
+        "hours_storage",
+        "temperature_hot",
+        "annual_energy",
+        units=["hr", "C", "kWht"],
+    )
+    plot_contour(
+        df.query("temperature_hot == 70"),
+        "heat_load",
+        "hours_storage",
+        "electrical_load",
+        units=["MWt", "hr", "kWhe"],
+    )
+    plot_contour(
+        df.query("hours_storage == 12"),
+        "heat_load",
+        "temperature_hot",
+        "electrical_load",
+        units=["MWt", "C", "kWhe"],
+    )
+    plot_contour(
+        df.query("heat_load == 500"),
+        "hours_storage",
+        "temperature_hot",
+        "electrical_load",
+        units=["hr", "C", "kWhe"],
+    )
 
 
 def plot_3ds(df):
-    plot_3d(df.query('temperature_hot == 70'), 'heat_load', 'hours_storage', 'annual_energy', units=['MWt', 'hr', 'kWht'])
-    plot_3d(df.query('hours_storage == 12'), 'heat_load', 'temperature_hot', 'annual_energy', units=['MWt', 'C', 'kWht'])
-    plot_3d(df.query('heat_load == 500'), 'hours_storage', 'temperature_hot', 'annual_energy', units=['hr', 'C', 'kWht'])
-    plot_3d(df.query('temperature_hot == 70'), 'heat_load', 'hours_storage', 'electrical_load', units=['MWt', 'hr', 'kWhe'])
-    plot_3d(df.query('hours_storage == 12'), 'heat_load', 'temperature_hot', 'electrical_load', units=['MWt', 'C', 'kWhe'])
-    plot_3d(df.query('heat_load == 500'), 'hours_storage', 'temperature_hot', 'electrical_load', units=['hr', 'C', 'kWhe'])
+    plot_3d(
+        df.query("temperature_hot == 70"),
+        "heat_load",
+        "hours_storage",
+        "annual_energy",
+        units=["MWt", "hr", "kWht"],
+    )
+    plot_3d(
+        df.query("hours_storage == 12"),
+        "heat_load",
+        "temperature_hot",
+        "annual_energy",
+        units=["MWt", "C", "kWht"],
+    )
+    plot_3d(
+        df.query("heat_load == 500"),
+        "hours_storage",
+        "temperature_hot",
+        "annual_energy",
+        units=["hr", "C", "kWht"],
+    )
+    plot_3d(
+        df.query("temperature_hot == 70"),
+        "heat_load",
+        "hours_storage",
+        "electrical_load",
+        units=["MWt", "hr", "kWhe"],
+    )
+    plot_3d(
+        df.query("hours_storage == 12"),
+        "heat_load",
+        "temperature_hot",
+        "electrical_load",
+        units=["MWt", "C", "kWhe"],
+    )
+    plot_3d(
+        df.query("heat_load == 500"),
+        "hours_storage",
+        "temperature_hot",
+        "electrical_load",
+        units=["hr", "C", "kWhe"],
+    )
 
 
 def debug_t_hot(tech_model):
-    # Running at 73.5 and 74 C
-    # result = run_model(tech_model)
-    # result = run_model(tech_model, 500, 12, 73)
-    # result = run_model(tech_model, 500, 12, 73.5)
-    # result = run_model(tech_model, 500, 12, 74)
-
-
     dataset_filename = join(
         dirname(__file__), "debugging_t_hot.pkl"
     )  # output dataset for surrogate training
 
     if False:
         df = pd.read_pickle(dataset_filename)
-        plot_2d(df.query('hours_storage == 12 & heat_load == 500'), 'temperature_hot', 'annual_energy', units=['C', 'kWht'])
+        plot_2d(
+            df.query("hours_storage == 12 & heat_load == 500"),
+            "temperature_hot",
+            "annual_energy",
+            units=["C", "kWht"],
+        )
 
-    heat_loads = [500]                              # [MWt]
-    hours_storages = [12]                           # [hr]
-    temperature_hots = np.arange(50, 100.5, 0.5)    # [C]
-    comb = [(hl, hs, th) for hl in heat_loads for hs in hours_storages for th in temperature_hots]
+    heat_loads = [500]  # [MWt]
+    hours_storages = [12]  # [hr]
+    temperature_hots = np.arange(50, 100.5, 0.5)  # [C]
+    comb = [
+        (hl, hs, th)
+        for hl in heat_loads
+        for hs in hours_storages
+        for th in temperature_hots
+    ]
     data = []
     for heat_load, hours_storage, temperature_hot in comb:
         result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
@@ -300,26 +383,40 @@ def debug_t_hot(tech_model):
                 result["electrical_load"],
             ]
         )
-    df = pd.DataFrame(data, columns=["heat_load", "hours_storage", "temperature_hot", "annual_energy", "electrical_load"])
+    df = pd.DataFrame(
+        data,
+        columns=[
+            "heat_load",
+            "hours_storage",
+            "temperature_hot",
+            "annual_energy",
+            "electrical_load",
+        ],
+    )
     df.to_pickle(dataset_filename)
-    plot_2d(df.query('hours_storage == 12 & heat_load == 500'), 'temperature_hot', 'annual_energy', units=['C', 'kWht'])
+    plot_2d(
+        df.query("hours_storage == 12 & heat_load == 500"),
+        "temperature_hot",
+        "annual_energy",
+        units=["C", "kWht"],
+    )
     x = 1
 
 
 #########################################################################################################
 if __name__ == "__main__":
-    DEBUG = True
-    PLOT_SAVED_DATASET = False                   # plot previously run, saved data?
+    DEBUG = False
+    PLOT_SAVED_DATASET = True  # plot previously run, saved data?
     RUN_PARAMETRICS = False
     USE_MULTIPROCESSING = True
 
     # HEAT_LOADS = np.arange(5, 115, 10)          # [MWt]
-    HEAT_LOADS = np.arange(100, 1100, 25)       # [MWt]
-    HOURS_STORAGES = np.arange(0, 27, 1)        # [hr]
-    TEMPERATURE_HOTS = np.arange(50, 102, 2)    # [C]
+    HEAT_LOADS = np.arange(100, 1100, 25)  # [MWt]
+    HOURS_STORAGES = np.arange(0, 27, 1)  # [hr]
+    TEMPERATURE_HOTS = np.arange(50, 102, 2)  # [C]
     TEMPERATURES = {
         "T_cold": 20,
-        "T_hot": 70,        # this will be overwritten by temperature_hot value
+        "T_hot": 70,  # this will be overwritten by temperature_hot value
         "T_amb": 18,
     }
     MODEL_NAME = "SolarWaterHeatingCommercial"
@@ -346,19 +443,28 @@ if __name__ == "__main__":
     if PLOT_SAVED_DATASET:
         # Load and plot saved df (x, y z)
         df = pd.read_pickle(DATASET_FILENAME)
-        plot_2d(df.query('hours_storage == 12 & heat_load == 500'), 'temperature_hot', 'annual_energy', units=['C', 'kWht'])
-        # plot_3ds(df)
-        # plot_contours(df)
+        plot_2d(
+            df.query("hours_storage == 12 & heat_load == 500"),
+            "temperature_hot",
+            "annual_energy",
+            units=["C", "kWht"],
+        )
+        plot_3ds(df)
+        plot_contours(df)
 
     # Run model for single parameter set
-    result = run_model(tech_model, heat_load_mwt=1000, hours_storage=1, temperature_hot=70)
+    result = run_model(
+        tech_model, heat_load_mwt=1000, hours_storage=1, temperature_hot=70
+    )
 
     # Run parametrics
     data = []
     if RUN_PARAMETRICS:
         if USE_MULTIPROCESSING:
             arguments = list(product(HEAT_LOADS, HOURS_STORAGES, TEMPERATURE_HOTS))
-            df = pd.DataFrame(arguments, columns=["heat_load", "hours_storage", "temperature_hot"])
+            df = pd.DataFrame(
+                arguments, columns=["heat_load", "hours_storage", "temperature_hot"]
+            )
 
             time_start = time.process_time()
             with multiprocessing.Pool(processes=6) as pool:
@@ -384,9 +490,16 @@ if __name__ == "__main__":
                 axis=1,
             )
         else:
-            comb = [(hl, hs, th) for hl in HEAT_LOADS for hs in HOURS_STORAGES for th in TEMPERATURE_HOTS]
+            comb = [
+                (hl, hs, th)
+                for hl in HEAT_LOADS
+                for hs in HOURS_STORAGES
+                for th in TEMPERATURE_HOTS
+            ]
             for heat_load, hours_storage, temperature_hot in comb:
-                result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
+                result = run_model(
+                    tech_model, heat_load, hours_storage, temperature_hot
+                )
                 data.append(
                     [
                         heat_load,
