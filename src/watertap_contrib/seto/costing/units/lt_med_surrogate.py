@@ -251,14 +251,10 @@ def cost_lt_med_surrogate(blk):
         * lt_med_params.cost_disposal_per_vol_brine
     )
 
-    blk.heat_flow = pyo.Expression(
-        expr=lt_med.specific_energy_consumption_thermal
-        * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
-    )
     blk.electricity_flow = pyo.Expression(
         expr=lt_med_params.specific_energy_consumption_electric
         * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
     )
 
-    blk.costing_package.cost_flow(blk.heat_flow, "heat")
+    blk.costing_package.cost_flow(lt_med.thermal_power_requirement, "heat")
     blk.costing_package.cost_flow(blk.electricity_flow, "electricity")
