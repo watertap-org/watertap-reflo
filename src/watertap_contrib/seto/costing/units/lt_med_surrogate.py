@@ -109,8 +109,6 @@ def build_lt_med_surrogate_cost_param_block(blk):
         doc="Exponent for specific heat exchanger cost equation",
     )
 
-    blk.fix_all_vars()
-
 
 @register_costing_parameter_block(
     build_rule=build_lt_med_surrogate_cost_param_block,
