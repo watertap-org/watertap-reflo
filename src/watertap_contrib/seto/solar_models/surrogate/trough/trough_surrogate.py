@@ -146,9 +146,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
     def initialize_build(self):
         pass
 
-    def _create_rbf_surrogate(
-        self, data_training=None, output_filename=None
-    ):
+    def _create_rbf_surrogate(self, data_training=None, output_filename=None):
 
         if data_training is None:
             self._get_surrogate_data()
