@@ -21,7 +21,7 @@ import numpy as np
 from io import StringIO
 import matplotlib.pyplot as plt
 
-from pyomo.environ import Var, Constraint, units as pyunits
+from pyomo.environ import Var, Constraint, Suffix, units as pyunits
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
@@ -45,6 +45,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
     def build(self):
         super().build()
 
+        self.scaling_factor = Suffix(direction=Suffix.EXPORT)
         self._tech_type = "trough"
 
         self.heat_load = Var(
@@ -146,10 +147,13 @@ class TroughSurrogateData(SolarEnergyBaseData):
         pass
 
     def _create_rbf_surrogate(
-        self, save_surrogate=False, output_filename="trough_surrogate_new.json"
+        self, data_training=None, output_filename=None
     ):
 
-        self._get_surrogate_data()
+        if data_training is None:
+            self._get_surrogate_data()
+        else:
+            self.data_training = data_training
 
         # Capture long output
         stream = StringIO()
@@ -190,7 +194,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
         )
 
         # Save model to JSON
-        if save_surrogate:
+        if output_filename is not None:
             model = self.rbf_surr.save_to_file(output_filename, overwrite=True)
 
         # Revert back to standard output
