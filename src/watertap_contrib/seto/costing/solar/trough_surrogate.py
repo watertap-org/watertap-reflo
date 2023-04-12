@@ -60,15 +60,6 @@ def build_trough_surrogate_cost_param_block(blk):
         doc="Variable operating cost of trough plant per kWh generated",
     )
 
-    blk.electricity_rate = pyo.Var(
-        initialize=0.06,
-        units=costing.base_currency / pyo.units.kWh,
-        bounds=(0, None),
-        doc="Cost per kWh of electricity that is used by plant operations",
-    )
-
-    blk.fix_all_vars()
-
 
 @register_costing_parameter_block(
     build_rule=build_trough_surrogate_cost_param_block,
@@ -93,7 +84,7 @@ def cost_trough_surrogate(blk):
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
         == (
-            trough.heat_load
+            pyo.units.convert(trough.heat_load, to_units=pyo.units.kW)
             * (
                 trough_params.cost_per_capacity_capital
                 - trough_params.base_storage_hours
@@ -112,7 +103,8 @@ def cost_trough_surrogate(blk):
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == trough_params.fixed_operating_by_capacity * trough.heat_load
+        == trough_params.fixed_operating_by_capacity
+        * pyo.units.convert(trough.heat_load, to_units=pyo.units.kW)
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
@@ -120,7 +112,6 @@ def cost_trough_surrogate(blk):
         == trough_params.variable_operating_by_generation * trough.heat_annual
     )
 
-    # register the flows, e.g.,:
     blk.costing_package.cost_flow(
         trough.electricity,
         "electricity",
