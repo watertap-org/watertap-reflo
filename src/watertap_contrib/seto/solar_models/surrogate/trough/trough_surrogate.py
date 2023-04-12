@@ -25,7 +25,6 @@ from pyomo.environ import Var, Constraint, units as pyunits
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
-from idaes.core.solvers import get_solver
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
