@@ -50,11 +50,6 @@ __author__ = "Mukta Hardikar, Abdiel Lugo"
 _log = idaeslog.getLogger(__name__)
 
 
-class SofteningTrainType(StrEnum):
-    conventional = "conventional"
-    solid_contact = "solid_contact"
-
-
 class SofteningProcedureType(StrEnum):
     single_stage_lime = "single_stage_lime"
     excess_lime = "excess_lime"
