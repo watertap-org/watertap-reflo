@@ -587,35 +587,6 @@ def cost_chem_softening(blk):
         units=blk.costing_package.base_currency,
     )
 
-    blk.soda_ash_add_op_cost = Var(
-        initialize=1e4,
-        doc="Operation cost of adding soda ash - chemical addition cost",
-        domain=NonNegativeReals,
-        units=blk.costing_package.base_currency,
-    )
-
-    blk.lime_add_op_cost = Var(
-        initialize=1e4,
-        doc="Operation cost of adding lime - chemical addition cost",
-        domain=NonNegativeReals,
-        units=blk.costing_package.base_currency,
-    )
-
-    blk.CO2_add_op_cost = Var(
-        initialize=1e4,
-        doc="Operation cost of adding carbon dioxide - chemical addition cost",
-        domain=NonNegativeReals,
-        units=blk.costing_package.base_currency,
-    )
-
-    if blk.unit_model.config.silica_removal:
-        blk.mg_add_op_cost = Var(
-            initialize=1e4,
-            doc="Operational cost of adding Mg - chemical addition cost",
-            domain=NonNegativeReals,
-            units=blk.costing_package.base_currency,
-        )
-
     blk.lime_sludge_mngt_op_cost = Var(
         initialize=1e5,
         doc="Operational cost of lime sludge management",
