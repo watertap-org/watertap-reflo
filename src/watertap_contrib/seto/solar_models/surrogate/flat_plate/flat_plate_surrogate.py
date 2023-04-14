@@ -58,6 +58,12 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             units=pyunits.hour,
             doc="Rated plant hours of storage",
         )
+        self.temperature_hot = Var(
+            initialize=70,
+            bounds=[50, 100],
+            units=pyunits.C,
+            doc="Hot outlet temperature",
+        )
 
         self.heat_annual = Var(
             initialize=1000,
@@ -74,10 +80,10 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         oldstdout = sys.stdout
         sys.stdout = stream
 
-        self.surrogate_inputs = [self.heat_load, self.hours_storage]
+        self.surrogate_inputs = [self.heat_load, self.hours_storage, self.temperature_hot]
         self.surrogate_outputs = [self.heat_annual, self.electricity_annual]
 
-        self.input_labels = ["heat_load", "hours_storage"]
+        self.input_labels = ["heat_load", "hours_storage", "temperature_hot"]
         self.output_labels = ["annual_energy", "electrical_load"]
 
         self.surrogate_file = os.path.join(
@@ -146,7 +152,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             raise e
 
         # Create callable surrogate object
-        xmin, xmax = [100, 0], [1000, 26]
+        xmin, xmax = [100, 0, 50], [1000, 26, 100]
         self.input_bounds = {
             self.input_labels[i]: (xmin[i], xmax[i])
             for i in range(len(self.input_labels))
