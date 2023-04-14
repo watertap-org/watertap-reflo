@@ -4,48 +4,46 @@ import sys
 from io import StringIO
 from os.path import join, dirname, getsize
 import pandas as pd
-import numpy as np
-from matplotlib import pyplot as plt
 from pyomo.environ import ConcreteModel, assert_optimal_termination, Var, value
 from watertap_contrib.seto.solar_models.surrogate.flat_plate.data.training_flat_plate_surrogate import (
     create_rbf_surrogate,
 )
-from watertap_contrib.seto.costing import SETOWaterTAPCosting, EnergyCosting
+from watertap_contrib.seto.costing import EnergyCosting
 from idaes.core.solvers import get_solver
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from idaes.core import FlowsheetBlock
 
 DATASET_FILENAME = join(dirname(__file__), "data/flat_plate_data.pkl")
 SURROGATE_FILENAME = join(dirname(__file__), "flat_plate_surrogate.json")
 N_SAMPLES = 100  # number of points to use from overall dataset
 TRAINING_FRACTION = 0.8
-INPUT_LABELS = ["heat_load", "hours_storage"]
+INPUT_LABELS = ["heat_load", "hours_storage", "temperature_hot"]
 OUTPUT_LABELS = ["annual_energy", "electrical_load"]
 EXPECTED_HEAT_ENERGIES = [
-    3.772e8,
-    2.374e8,
-    2.663e8,
-    2.962e8,
-    3.252e8,
-    3.519e8,
-    3.748e8,
-    3.933e8,
-    4.070e8,
-    4.162e8,
+    2.215e9,
+    2.546e9,
+    2.266e9,
+    1.478e9,
+    2.599e9,
+    3.544e8,
+    3.171e8,
+    2.206e9,
+    6.610e8,
+    1.137e9,
 ]
 
 EXPECTED_ELECTRICITY_USE = [
-    8.196e6,
-    1.330e7,
-    1.228e7,
-    1.147e7,
-    1.086e7,
-    1.045e7,
-    1.020e7,
-    1.006e7,
-    1.000e7,
-    9.972e6,
+    4.866e7,
+    5.680e7,
+    4.930e7,
+    3.296e7,
+    5.717e7,
+    7.738e6,
+    7.517e6,
+    4.823e7,
+    1.532e7,
+    2.565e7,
 ]
 
 
@@ -54,6 +52,7 @@ class TestFlatPlate:
     def data(self):
         # Read data manually for repeatability instead of using the training/validation function with random splits
         df = pd.read_pickle(DATASET_FILENAME)
+        df = df.sample(n=90, random_state=1)    # random_state ensures reproducibility
         return {"training": df[:80], "validation": df[80:90]}
 
     @pytest.fixture(scope="class")
@@ -69,6 +68,9 @@ class TestFlatPlate:
         m.fs.hours_storage = Var(
             initialize=20, bounds=[0, 26], doc="rated plant hours of storage"
         )
+        m.fs.temperature_hot = Var(
+            initialize=70, bounds=[50, 100], doc="hot outlet temperature"
+    )
 
         # add flowsheet output variable
         m.fs.heat_annual = Var(
@@ -79,7 +81,7 @@ class TestFlatPlate:
         )
 
         # create input and output variable object lists for flowsheet
-        inputs = [m.fs.heat_load, m.fs.hours_storage]
+        inputs = [m.fs.heat_load, m.fs.hours_storage, m.fs.temperature_hot]
         outputs = [m.fs.heat_annual, m.fs.electricity_annual]
 
         # capture long output
@@ -101,28 +103,29 @@ class TestFlatPlate:
     def test_training(self, data):
         """Test the creation and use of a new surrogate model"""
         EXPECTED_HEAT_ENERGIES_TEST = [
-            3.759e8,
-            3.291e8,
-            3.348e8,
-            3.404e8,
-            3.460e8,
-            3.516e8,
-            3.571e8,
-            3.624e8,
-            3.677e8,
-            3.728e8,
+            2.206e9,
+            2.556e9,
+            2.267e9,
+            1.467e9,
+            2.603e9,
+            3.486e8,
+            3.089e8,
+            2.196e9,
+            6.569e8,
+            1.144e9,
         ]
+
         EXPECTED_ELECTRICITY_USE_TEST = [
-            8.069e6,
-            5.436e6,
-            5.435e6,
-            5.433e6,
-            5.432e6,
-            5.431e6,
-            5.431e6,
-            5.430e6,
-            5.430e6,
-            5.430e6,
+            4.918e7,
+            5.697e7,
+            5.019e7,
+            3.214e7,
+            5.723e7,
+            8.150e6,
+            6.365e6,
+            4.783e7,
+            1.539e7,
+            2.598e7,
         ]
 
         # Create a new surrogate model and verify it saved to file
@@ -172,6 +175,7 @@ class TestFlatPlate:
         for row in data["validation"].itertuples():
             m.fs.heat_load.fix(row.heat_load)
             m.fs.hours_storage.fix(row.hours_storage)
+            m.fs.temperature_hot.fix(row.temperature_hot)
             solver = get_solver()
             results = solver.solve(m)
             assert_optimal_termination(results)
@@ -181,47 +185,3 @@ class TestFlatPlate:
         # ensure surrogate model gives same results when inside a flowsheet
         assert heat_annual == pytest.approx(EXPECTED_HEAT_ENERGIES, 1e-3)
         assert electricity_annual == pytest.approx(EXPECTED_ELECTRICITY_USE, 1e-3)
-
-    def plot_smoothness(self, data):
-        """Plot 'official' saved surrogate model to show any local minima"""
-        N_DIVISIONS = 15
-        LABEL_X = "heat_load"
-        LABEL_Y = "hours_storage"
-        LABEL_Z = "annual_energy"
-        LABEL_Z2 = "electrical_load"
-
-        surrogate = PysmoSurrogate.load_from_file(SURROGATE_FILENAME)
-        x = np.linspace(*surrogate._input_bounds[LABEL_X], N_DIVISIONS, endpoint=True)
-        y = np.linspace(*surrogate._input_bounds[LABEL_Y], N_DIVISIONS, endpoint=True)
-        xx, yy = np.meshgrid(x, y)  # create combinations of x and y
-        input = pd.DataFrame(
-            {
-                LABEL_X: xx.flatten(),
-                LABEL_Y: yy.flatten(),
-            }
-        )
-        output = surrogate.evaluate_surrogate(input)
-        df = input.join(output)
-
-        # 3D Plot of Z
-        fig = plt.figure(figsize=(8, 6))
-        ax = fig.add_subplot(1, 1, 1, projection="3d")
-        surf = ax.plot_trisurf(
-            df[LABEL_X], df[LABEL_Y], df[LABEL_Z], cmap=plt.cm.viridis, linewidth=0.2
-        )
-        ax.set_xlabel(LABEL_X)
-        ax.set_ylabel(LABEL_Y)
-        ax.set_zlabel(LABEL_Z)
-        plt.show()
-
-        # 3D Plot of Z2
-        fig = plt.figure(figsize=(8, 6))
-        ax = fig.add_subplot(1, 1, 1, projection="3d")
-        surf = ax.plot_trisurf(
-            df[LABEL_X], df[LABEL_Y], df[LABEL_Z2], cmap=plt.cm.viridis, linewidth=0.2
-        )
-        ax.set_xlabel(LABEL_X)
-        ax.set_ylabel(LABEL_Y)
-        ax.set_zlabel(LABEL_Z2)
-        plt.show()
-        x = 1  # for breakpoint
