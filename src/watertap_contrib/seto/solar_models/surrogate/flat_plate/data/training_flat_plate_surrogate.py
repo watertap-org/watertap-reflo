@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 import matplotlib.pyplot as plt
+import itertools
 from pyomo.environ import ConcreteModel, SolverFactory, value, Var, Objective, maximize
 from pyomo.common.timing import TicTocTimer
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
@@ -149,8 +150,58 @@ def plot_training_validation(
         # plt.close()
 
 
+def plot_3d(surrogate):
+    """Plot 'official' saved surrogate model to show any local minima"""
+    N_DIVISIONS = 15
+    INPUT_DEFAULTS = {
+        "heat_load": 500,
+        "hours_storage": 10,
+        "temperature_hot": 70,
+    }
+    OUTPUT_LABELS = ["annual_energy", "electrical_load"]
+    
+    def eval_and_plot(x_label, y_label, z_label):
+        # Eval:
+        x = np.linspace(*surrogate._input_bounds[x_label], N_DIVISIONS, endpoint=True)
+        y = np.linspace(*surrogate._input_bounds[y_label], N_DIVISIONS, endpoint=True)
+        xx, yy = np.meshgrid(x, y)  # create combinations of x and y
+
+        df = pd.DataFrame(
+            {
+                x_label: xx.flatten(),
+                y_label: yy.flatten(),
+            }
+        )
+
+        plot_label = ""
+        other_labels = [label for label in INPUT_DEFAULTS.keys() if label not in [x_label, y_label]]
+        for label in other_labels:
+            df[label] = [INPUT_DEFAULTS[label]] * len(df)     # repeat default value
+            plot_label += f"{label} = {INPUT_DEFAULTS[label]}, "
+
+        output = surrogate.evaluate_surrogate(df)
+        df = df.join(output)
+
+        # Plot:
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(1, 1, 1, projection="3d")
+        surf = ax.plot_trisurf(
+                df[x_label], df[y_label], df[z_label], cmap=plt.cm.viridis, linewidth=0.2
+            )
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_zlabel(z_label)
+        ax.set_title(f"{plot_label}")
+        plt.show()
+
+    for x_label, y_label in itertools.combinations(INPUT_DEFAULTS.keys(), 2):
+        for z_label in OUTPUT_LABELS:
+            eval_and_plot(x_label, y_label, z_label)
+
+
 #########################################################################################################
 if __name__ == "__main__":
+    CREATE_PLOTS = True
     dataset_filename = join(dirname(__file__), "../data/flat_plate_data.pkl")
     surrogate_filename = join(dirname(__file__), "../flat_plate_surrogate.json")
     n_samples = 100  # number of points to use from overall dataset
@@ -167,6 +218,9 @@ if __name__ == "__main__":
     surrogate = create_rbf_surrogate(
         data_training, input_labels, output_labels, surrogate_filename
     )
+
+    if CREATE_PLOTS:
+        plot_3d(surrogate)
 
     # Load surrogate model from file
     surrogate = PysmoSurrogate.load_from_file(surrogate_filename)
