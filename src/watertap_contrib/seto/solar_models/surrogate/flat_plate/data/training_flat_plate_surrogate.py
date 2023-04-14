@@ -159,7 +159,7 @@ def plot_3d(surrogate):
         "temperature_hot": 70,
     }
     OUTPUT_LABELS = ["annual_energy", "electrical_load"]
-    
+
     def eval_and_plot(x_label, y_label, z_label):
         # Eval:
         x = np.linspace(*surrogate._input_bounds[x_label], N_DIVISIONS, endpoint=True)
@@ -174,9 +174,11 @@ def plot_3d(surrogate):
         )
 
         plot_label = ""
-        other_labels = [label for label in INPUT_DEFAULTS.keys() if label not in [x_label, y_label]]
+        other_labels = [
+            label for label in INPUT_DEFAULTS.keys() if label not in [x_label, y_label]
+        ]
         for label in other_labels:
-            df[label] = [INPUT_DEFAULTS[label]] * len(df)     # repeat default value
+            df[label] = [INPUT_DEFAULTS[label]] * len(df)  # repeat default value
             plot_label += f"{label} = {INPUT_DEFAULTS[label]}, "
 
         output = surrogate.evaluate_surrogate(df)
@@ -186,8 +188,8 @@ def plot_3d(surrogate):
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(1, 1, 1, projection="3d")
         surf = ax.plot_trisurf(
-                df[x_label], df[y_label], df[z_label], cmap=plt.cm.viridis, linewidth=0.2
-            )
+            df[x_label], df[y_label], df[z_label], cmap=plt.cm.viridis, linewidth=0.2
+        )
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
         ax.set_zlabel(z_label)

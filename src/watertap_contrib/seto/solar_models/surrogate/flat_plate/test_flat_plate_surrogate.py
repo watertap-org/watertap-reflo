@@ -52,7 +52,7 @@ class TestFlatPlate:
     def data(self):
         # Read data manually for repeatability instead of using the training/validation function with random splits
         df = pd.read_pickle(DATASET_FILENAME)
-        df = df.sample(n=90, random_state=1)    # random_state ensures reproducibility
+        df = df.sample(n=90, random_state=1)  # random_state ensures reproducibility
         return {"training": df[:80], "validation": df[80:90]}
 
     @pytest.fixture(scope="class")
@@ -70,7 +70,7 @@ class TestFlatPlate:
         )
         m.fs.temperature_hot = Var(
             initialize=70, bounds=[50, 100], doc="hot outlet temperature"
-    )
+        )
 
         # add flowsheet output variable
         m.fs.heat_annual = Var(

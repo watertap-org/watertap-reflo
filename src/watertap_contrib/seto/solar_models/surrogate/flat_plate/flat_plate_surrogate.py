@@ -80,7 +80,11 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         oldstdout = sys.stdout
         sys.stdout = stream
 
-        self.surrogate_inputs = [self.heat_load, self.hours_storage, self.temperature_hot]
+        self.surrogate_inputs = [
+            self.heat_load,
+            self.hours_storage,
+            self.temperature_hot,
+        ]
         self.surrogate_outputs = [self.heat_annual, self.electricity_annual]
 
         self.input_labels = ["heat_load", "hours_storage", "temperature_hot"]
