@@ -14,6 +14,7 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.seto.costing import SETOWaterTAPCosting
 from idaes.core.util.testing import initialization_tester
+from idaes.core.util.exceptions import ConfigurationError, InitializationError
 from watertap.core.util.initialization import assert_no_degrees_of_freedom
 from pyomo.util.check_units import assert_units_consistent
 
@@ -155,8 +156,8 @@ class TestMEDTVC:
         m.fs.water_prop = SeawaterParameterBlock()
         m.fs.steam_prop = WaterParameterBlock()
 
-        error_msg = "invalid value for configuration 'number_effects'"
-        with pytest.raises(ValueError, match=error_msg):
+        error_msg = "The number of effects should be an integer between 8 to 16"
+        with pytest.raises(ConfigurationError, match=error_msg):
             m.fs.lt_med = MEDTVCSurrogate(
                 property_package_liquid=m.fs.water_prop,
                 property_package_vapor=m.fs.steam_prop,

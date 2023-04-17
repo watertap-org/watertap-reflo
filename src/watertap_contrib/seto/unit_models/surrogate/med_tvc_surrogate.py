@@ -23,7 +23,7 @@ from pyomo.environ import (
     check_optimal_termination,
     units as pyunits,
 )
-from pyomo.common.config import ConfigBlock, ConfigValue, In
+from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
 
 # Import IDAES cores
 from idaes.core import (
@@ -119,7 +119,7 @@ class MEDTVCData(UnitModelBlockData):
         "number_effects",
         ConfigValue(
             default=12,
-            domain=In(range(8, 17)),
+            domain=PositiveInt,
             description="Number of effects of the MED_TVC system",
             doc="""A ConfigBlock specifying the number of effects, which should be an integer between 8 to 16.""",
         ),
