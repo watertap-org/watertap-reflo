@@ -40,72 +40,101 @@ class TestLTMED:
         # create model, flowsheet
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.water_prop = SeawaterParameterBlock()
-        m.fs.steam_prop = WaterParameterBlock()
+        m.fs.liquid_prop = SeawaterParameterBlock()
+        m.fs.vapor_prop = WaterParameterBlock()
         m.fs.lt_med = LTMEDSurrogate(
-            property_package_water=m.fs.water_prop,
-            property_package_steam=m.fs.steam_prop,
+            property_package_liquid=m.fs.liquid_prop,
+            property_package_vapor=m.fs.vapor_prop,
+            number_effects=12,  # assuming 12 effects by default
         )
+
         lt_med = m.fs.lt_med
         feed = lt_med.feed_props[0]
         dist = lt_med.distillate_props[0]
         steam = lt_med.steam_props[0]
 
         # System specification
+        # Input variable 1: Feed salinity (30-60 g/L = kg/m3)
         feed_salinity = 35 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
-        feed_dens = 1000 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+
+        # Input variable 2: Feed temperature (15-35 deg C)
         feed_temperature = 25  # degC
+
+        # Input variable 3: Heating steam temperature (60-85 deg C)
         steam_temperature = 80  # degC
+
+        # Input variable 4: System capacity (> 2000 m3/day)
         sys_capacity = 2000 * pyunits.m**3 / pyunits.day  # m3/day
+
+        # Input variable 5: Recovery ratio (30%- 50%)
         recovery_ratio = 0.5 * pyunits.dimensionless  # dimensionless
+
         feed_flow = pyunits.convert(
             (sys_capacity / recovery_ratio), to_units=pyunits.m**3 / pyunits.s
         )
 
-        feed.flow_mass_phase_comp["Liq", "TDS"].fix(feed_salinity * feed_flow)
-        feed.flow_mass_phase_comp["Liq", "H2O"].fix(feed_dens * feed_flow)
-        feed.temperature.fix(feed_temperature + 273.15)
-        feed.pressure.fix(101325)
-        steam.temperature.fix(steam_temperature + 273.15)
-        # flow rate of liquid steam is zero
-        steam.flow_mass_phase_comp["Liq", "H2O"].fix(0)
-        dist.flow_mass_phase_comp["Liq", "TDS"].fix(0)  # salinity in distillate is zero
+        """
+        Specify feed flow state properties
+        """
+        # Specify feed flow state properties
+        lt_med.feed_props.calculate_state(
+            var_args={
+                ("flow_vol_phase", "Liq"): feed_flow,
+                ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
+                ("temperature", None): feed_temperature + 273.15,
+                # feed flow is at atmospheric pressure
+                ("pressure", None): 101325,
+            },
+            hold_state=True,
+        )
 
+        # Fix input steam temperature
+        steam.temperature.fix(steam_temperature + 273.15)
+
+        # Fix target recovery rate
         lt_med.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
-        m.fs.water_prop.set_default_scaling(
+
+        m.fs.liquid_prop.set_default_scaling(
             "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
         )
-        m.fs.water_prop.set_default_scaling(
+        m.fs.liquid_prop.set_default_scaling(
             "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
         )
-        m.fs.steam_prop.set_default_scaling(
+        m.fs.vapor_prop.set_default_scaling(
             "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
         )
-        m.fs.steam_prop.set_default_scaling(
+        m.fs.vapor_prop.set_default_scaling(
             "flow_mass_phase_comp", 1, index=("Vap", "H2O")
         )
 
         return m
 
     @pytest.mark.unit
+    def test_num_effects_domain(self):
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.liquid_prop = SeawaterParameterBlock()
+        m.fs.vapor_prop = WaterParameterBlock()
+
+        error_msg = "invalid value for configuration 'number_effects'"
+        with pytest.raises(ValueError, match=error_msg):
+            m.fs.lt_med = LTMEDSurrogate(
+                property_package_liquid=m.fs.liquid_prop,
+                property_package_vapor=m.fs.vapor_prop,
+                number_effects=15,
+            )
+
+    @pytest.mark.unit
     def test_config(self, LT_MED_frame):
         m = LT_MED_frame
         # check LT-MED config arguments
-        assert len(m.fs.lt_med.config) == 5
+        assert len(m.fs.lt_med.config) == 6
 
         assert not m.fs.lt_med.config.dynamic
         assert not m.fs.lt_med.config.has_holdup
-        assert m.fs.lt_med.config.property_package_water is m.fs.water_prop
-        assert m.fs.lt_med.config.property_package_steam is m.fs.steam_prop
-
-    @pytest.mark.unit
-    def test_num_effects_domain(self, LT_MED_frame):
-        m = LT_MED_frame
-        error_msg = re.escape(
-            "Invalid parameter value: fs.lt_med.number_effects[None] = '100', value type=<class 'int'>.\n\tValue not in parameter domain fs.lt_med.number_effects_domain"
-        )
-        with pytest.raises(ValueError, match=error_msg):
-            m.fs.lt_med.number_effects.set_value(100)
+        assert m.fs.lt_med.config.property_package_liquid is m.fs.liquid_prop
+        assert m.fs.lt_med.config.property_package_vapor is m.fs.vapor_prop
+        assert m.fs.lt_med.config.number_effects in range(3, 15)
 
     @pytest.mark.unit
     def test_build(self, LT_MED_frame):
@@ -119,9 +148,9 @@ class TestLTMED:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 190
-        assert number_total_constraints(m) == 50
-        assert number_unused_variables(m) == 90  # vars from property package parameters
+        assert number_variables(m) == 193
+        assert number_total_constraints(m) == 52
+        assert number_unused_variables(m) == 89  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, LT_MED_frame):
@@ -166,10 +195,10 @@ class TestLTMED:
 
         lt_med = m.fs.lt_med
 
-        feed_flow_m3_hr = 168.6778
-        dist_flow_m3_hr = 84.3389
-        brine_flow_m3_hr = 84.3389
-        cool_flow_m3_hr = 410.7059
+        feed_flow_m3_hr = 166.66
+        dist_flow_m3_hr = 83.33
+        brine_flow_m3_hr = 83.33
+        cool_flow_m3_hr = 406.00
 
         feed_mass_flow_tot = 47.91666
         cool_mass_flow_tot = 116.4225
@@ -200,20 +229,32 @@ class TestLTMED:
             lt_med.brine_props[0].flow_mass_phase_comp["Liq", "TDS"]
             - lt_med.feed_props[0].flow_mass_phase_comp["Liq", "TDS"]
         ) == pytest.approx(feed_mass_flow_tds - brine_mass_flow_tds, rel=1e-6)
+        assert value(
+            lt_med.brine_props[0].flow_mass_phase_comp["Liq", "TDS"]
+            - lt_med.feed_props[0].flow_mass_phase_comp["Liq", "TDS"]
+        ) == pytest.approx(0, abs=1e-3)
 
     @pytest.mark.component
     def test_solution(self, LT_MED_frame):
         m = LT_MED_frame
         assert pytest.approx(9.9127, rel=1e-3) == value(m.fs.lt_med.gain_output_ratio)
-        assert pytest.approx(3.9592, rel=1e-3) == value(m.fs.lt_med.specific_area)
+        assert pytest.approx(3.9592, rel=1e-3) == value(
+            m.fs.lt_med.specific_area_per_m3_day
+        )
         assert pytest.approx(6.4290e1, rel=1e-3) == value(
             m.fs.lt_med.specific_energy_consumption_thermal
         )
-        assert pytest.approx(5.4222e3, rel=1e-3) == value(
+        assert pytest.approx(5.3575e3, rel=1e-3) == value(
             m.fs.lt_med.thermal_power_requirement
         )
-        assert pytest.approx(2.3490, rel=1e-3) == value(
+        assert pytest.approx(2.321, rel=1e-3) == value(
             m.fs.lt_med.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
+        )
+        assert pytest.approx(406.00, rel=1e-3) == value(
+            pyunits.convert(
+                m.fs.lt_med.cooling_out_props[0].flow_vol_phase["Liq"],
+                to_units=pyunits.m**3 / pyunits.hr,
+            )
         )
 
     @pytest.mark.component
@@ -240,26 +281,133 @@ class TestLTMED:
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        assert pytest.approx(2251.009, rel=1e-3) == value(
+        assert pytest.approx(2254.658, rel=1e-3) == value(
             m.fs.lt_med.costing.med_specific_cost
         )
-        assert pytest.approx(4710164.3678, rel=1e-3) == value(
+        assert pytest.approx(4662455.768, rel=1e-3) == value(
             m.fs.lt_med.costing.capital_cost
         )
-        assert pytest.approx(2733806.960, rel=1e-3) == value(
+        assert pytest.approx(2705589.357, rel=1e-3) == value(
             m.fs.lt_med.costing.membrane_system_cost
         )
-        assert pytest.approx(1976357.40761, rel=1e-3) == value(
+        assert pytest.approx(1956866.411, rel=1e-3) == value(
             m.fs.lt_med.costing.evaporator_system_cost
         )
-        assert pytest.approx(210907.779, rel=1e-3) == value(
+        assert pytest.approx(208604.394, rel=1e-3) == value(
             m.fs.lt_med.costing.fixed_operating_cost
         )
 
         assert pytest.approx(1.58295, rel=1e-3) == value(m.fs.costing.LCOW)
-        assert pytest.approx(757501.748, rel=1e-3) == value(
+        assert pytest.approx(748697.447, rel=1e-3) == value(
             m.fs.costing.total_operating_cost
         )
-        assert pytest.approx(4710164.367, rel=1e-3) == value(
+        assert pytest.approx(4662455.768, rel=1e-3) == value(
             m.fs.costing.total_capital_cost
+        )
+
+    @pytest.mark.parametrize("number_effects", [4, 5, 7, 8, 10, 11, 13])
+    def test_interp_values(self, number_effects):
+        # create flowsheet with interpolated values of number of effects
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.liquid_prop = SeawaterParameterBlock()
+        m.fs.vapor_prop = WaterParameterBlock()
+        m.fs.lt_med = LTMEDSurrogate(
+            property_package_liquid=m.fs.liquid_prop,
+            property_package_vapor=m.fs.vapor_prop,
+            number_effects=number_effects,
+        )
+
+        lt_med = m.fs.lt_med
+        feed = lt_med.feed_props[0]
+        dist = lt_med.distillate_props[0]
+        steam = lt_med.steam_props[0]
+
+        # System specification
+        # Input variable 1: Feed salinity (30-60 g/L = kg/m3)
+        feed_salinity = 35 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+
+        # Input variable 2: Feed temperature (15-35 deg C)
+        feed_temperature = 25  # degC
+
+        # Input variable 3: Heating steam temperature (60-85 deg C)
+        steam_temperature = 80  # degC
+
+        # Input variable 4: System capacity (> 2000 m3/day)
+        sys_capacity = 2000 * pyunits.m**3 / pyunits.day  # m3/day
+
+        # Input variable 5: Recovery ratio (30%- 50%)
+        recovery_ratio = 0.5 * pyunits.dimensionless  # dimensionless
+
+        feed_flow = pyunits.convert(
+            (sys_capacity / recovery_ratio), to_units=pyunits.m**3 / pyunits.s
+        )
+
+        """
+        Specify feed flow state properties
+        """
+        # Specify feed flow state properties
+        lt_med.feed_props.calculate_state(
+            var_args={
+                ("flow_vol_phase", "Liq"): feed_flow,
+                ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
+                ("temperature", None): feed_temperature + 273.15,
+                # feed flow is at atmospheric pressure
+                ("pressure", None): 101325,
+            },
+            hold_state=True,
+        )
+
+        # Fix input steam temperature
+        steam.temperature.fix(steam_temperature + 273.15)
+
+        # Fix target recovery rate
+        lt_med.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
+
+        m.fs.liquid_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        )
+        m.fs.liquid_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+        )
+        m.fs.vapor_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        )
+        m.fs.vapor_prop.set_default_scaling(
+            "flow_mass_phase_comp", 1, index=("Vap", "H2O")
+        )
+
+        calculate_scaling_factors(m)
+        # For 10 and 11 effects, specific area may need a new initialization value,
+        # because the surrogate eqn for 9 and 12 effects are largely different
+        if number_effects == 11:
+            m.fs.lt_med.specific_area_per_m3_day.value = 3
+        initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.DEBUG)
+        results = solver.solve(m)
+
+        # Check interpolated results for different number of effects: {number_effects: result}
+        gain_output_ratios = {
+            4: 3.584,
+            5: 4.431,
+            7: 6.073,
+            8: 6.869,
+            10: 8.414,
+            11: 9.163,
+            13: 10.626,
+        }
+        specific_areas = {
+            4: 2.757,
+            5: 2.507,
+            7: 2.507,
+            8: 2.758,
+            10: 3.325,
+            11: 3.642,
+            13: 4.159,
+        }
+
+        assert pytest.approx(gain_output_ratios[number_effects], rel=1e-3) == value(
+            m.fs.lt_med.gain_output_ratio
+        )
+        assert pytest.approx(specific_areas[number_effects], rel=1e-3) == value(
+            m.fs.lt_med.specific_area_per_m3_day
         )
