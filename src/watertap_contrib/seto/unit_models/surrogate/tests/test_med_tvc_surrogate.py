@@ -9,7 +9,6 @@ import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
-from watertap_contrib.seto.unit_models.surrogate import VAGMDsurrogate
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
