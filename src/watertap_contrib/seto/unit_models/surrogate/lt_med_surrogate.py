@@ -127,7 +127,7 @@ class LTMEDData(UnitModelBlockData):
         # Check if the number of effects is valid
         if self.config.number_effects not in [i for i in range(3, 15)]:
             raise ConfigurationError(
-                "The number of effects should be an integer between 3 to 14"
+                f"The number of effects was specified as {self.config.number_effects}. The number of effects should be specified as an integer between 3 to 14."
             )
 
         """

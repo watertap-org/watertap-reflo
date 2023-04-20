@@ -156,12 +156,13 @@ class TestMEDTVC:
         m.fs.water_prop = SeawaterParameterBlock()
         m.fs.steam_prop = WaterParameterBlock()
 
-        error_msg = "The number of effects should be an integer between 8 to 16"
+        tested_number_effects = 50
+        error_msg = f"The number of effects was specified as {tested_number_effects}. The number of effects should be specified as an integer between 8 to 16."
         with pytest.raises(ConfigurationError, match=error_msg):
             m.fs.lt_med = MEDTVCSurrogate(
                 property_package_liquid=m.fs.water_prop,
                 property_package_vapor=m.fs.steam_prop,
-                number_effects=17,
+                number_effects=tested_number_effects,
             )
 
     @pytest.mark.unit

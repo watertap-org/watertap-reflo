@@ -137,7 +137,7 @@ class MEDTVCData(UnitModelBlockData):
         # Check if the number of effects is valid
         if self.config.number_effects not in [i for i in range(8, 17)]:
             raise ConfigurationError(
-                "The number of effects should be an integer between 8 to 16"
+                f"The number of effects was specified as {self.config.number_effects}. The number of effects should be specified as an integer between 8 to 16."
             )
 
         """

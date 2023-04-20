@@ -117,12 +117,13 @@ class TestLTMED:
         m.fs.liquid_prop = SeawaterParameterBlock()
         m.fs.vapor_prop = WaterParameterBlock()
 
-        error_msg = f"The number of effects was specified as {object_pointing_to_num_effects}. The number of effects should be specified as an integer between 3 to 14."
+        tested_number_effects = 50
+        error_msg = f"The number of effects was specified as {tested_number_effects}. The number of effects should be specified as an integer between 3 to 14."
         with pytest.raises(ConfigurationError, match=error_msg):
             m.fs.lt_med = LTMEDSurrogate(
                 property_package_liquid=m.fs.liquid_prop,
                 property_package_vapor=m.fs.vapor_prop,
-                number_effects=15,
+                number_effects=tested_number_effects,
             )
 
     @pytest.mark.unit
