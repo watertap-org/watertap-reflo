@@ -139,7 +139,7 @@ def cost_lt_med_surrogate(blk):
         units=pyo.units.USD_2018 / (pyo.units.m**3 / pyo.units.day),
         doc="MED system cost per m3/day distillate",
     )
-    
+
     blk.capacity = pyo.units.convert(
         dist.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.day
     )
