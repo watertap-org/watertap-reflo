@@ -220,7 +220,7 @@ class VAGMDData(UnitModelBlockData):
             **tmp_dict
         )
         # salinity in permeate is zero
-        self.permeate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(1e-9)
+        self.permeate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
 
         # permeate temperature is assumed the same as feed water
         @self.Constraint(doc="distillate temperature")
