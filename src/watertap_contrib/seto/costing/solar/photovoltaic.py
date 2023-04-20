@@ -74,8 +74,6 @@ def build_photovoltaic_cost_param_block(blk):
         doc="Annual operating cost of PV system per MWh generated",
     )
 
-    blk.fix_all_vars()
-
 
 @register_costing_parameter_block(
     build_rule=build_photovoltaic_cost_param_block, parameter_block_name="photovoltaic"
