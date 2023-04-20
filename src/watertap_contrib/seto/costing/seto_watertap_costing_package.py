@@ -42,6 +42,8 @@ from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
 from watertap_contrib.seto.solar_models.surrogate.flat_plate import FlatPlateSurrogate
 from watertap_contrib.seto.costing.solar.flat_plate_surrogate import cost_flat_plate
+from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
+from watertap_contrib.seto.costing.solar.trough_surrogate import cost_trough_surrogate
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
 from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
@@ -57,6 +59,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         MEDTVCSurrogate: cost_med_tvc_surrogate,
         Photovoltaic: cost_pv,
         FlatPlateSurrogate: cost_flat_plate,
+        TroughSurrogate: cost_trough_surrogate,
         Mixer: cost_mixer,
         Pump: cost_pump,
         EnergyRecoveryDevice: cost_energy_recovery_device,
