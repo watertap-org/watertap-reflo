@@ -58,7 +58,7 @@ class SofteningProcedureType(StrEnum):
 
 
 @declare_process_block_class("ChemicalSofteningZO")
-class ChemicalSoftening0DData(InitializationMixin, UnitModelBlockData):
+class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
     """
     Zero order chemical softening model
     """
