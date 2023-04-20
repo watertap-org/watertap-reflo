@@ -1,5 +1,15 @@
 import sys, os
-from ctypes import *
+from ctypes import (
+    c_double,
+    c_int,
+    c_void_p,
+    c_char_p,
+    c_float,
+    pointer,
+    POINTER,
+    byref,
+    CDLL,
+)
 
 c_number = c_double
 
