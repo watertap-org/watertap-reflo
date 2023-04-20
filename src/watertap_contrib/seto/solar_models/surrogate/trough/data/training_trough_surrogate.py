@@ -15,7 +15,7 @@ from idaes.core import FlowsheetBlock
 
 
 def create_rbf_surrogate(
-    training_dataframe, input_labels, output_labels, output_filename=None
+    training_dataframe, input_labels, output_labels, output_filename=None, tee=False
 ):
     # Capture long output
     stream = StringIO()
@@ -59,15 +59,16 @@ def create_rbf_surrogate(
     # Revert back to standard output
     sys.stdout = oldstdout
 
-    # Display first 50 lines and last 50 lines of output
-    # celloutput = stream.getvalue().split('\n')
-    # for line in celloutput[:50]:
-    #     print(line)
-    # print('.')
-    # print('.')
-    # print('.')
-    # for line in celloutput[-50:]:
-    #     print(line)
+    if tee:
+        # Display first 50 lines and last 50 lines of output
+        celloutput = stream.getvalue().split("\n")
+        for line in celloutput[:50]:
+            print(line)
+        print(".")
+        print(".")
+        print(".")
+        for line in celloutput[-50:]:
+            print(line)
 
     return rbf_surr
 
@@ -81,19 +82,19 @@ def get_training_validation(dataset_filename, n_samples, training_fraction):
     return data_training, data_validation
 
 
-def _parity_residual_plots(true_values, modeled_values, label=None):
-    AXIS_FONTSIZE = 18
-    TITLE_FONTSIZE = 22
+def _parity_residual_plots(
+    true_values, modeled_values, label=None, axis_fontsize=18, title_fontsize=22
+):
 
     fig1 = plt.figure(figsize=(13, 6), tight_layout=True)
     if label is not None:
-        fig1.suptitle(label, fontsize=TITLE_FONTSIZE)
+        fig1.suptitle(label, fontsize=title_fontsize)
     ax = fig1.add_subplot(121)
     ax.plot(true_values, true_values, "-")
     ax.plot(true_values, modeled_values, "o")
-    ax.set_xlabel(r"True data", fontsize=AXIS_FONTSIZE)
-    ax.set_ylabel(r"Surrogate values", fontsize=AXIS_FONTSIZE)
-    ax.set_title(r"Parity plot", fontsize=AXIS_FONTSIZE)
+    ax.set_xlabel(r"True data", fontsize=axis_fontsize)
+    ax.set_ylabel(r"Surrogate values", fontsize=axis_fontsize)
+    ax.set_title(r"Parity plot", fontsize=axis_fontsize)
 
     ax2 = fig1.add_subplot(122)
     ax2.plot(
@@ -105,9 +106,9 @@ def _parity_residual_plots(true_values, modeled_values, label=None):
         ms=6,
     )
     ax2.axhline(y=0, xmin=0, xmax=1)
-    ax2.set_xlabel(r"True data", fontsize=AXIS_FONTSIZE)
-    ax2.set_ylabel(r"Residuals", fontsize=AXIS_FONTSIZE)
-    ax2.set_title(r"Residual plot", fontsize=AXIS_FONTSIZE)
+    ax2.set_xlabel(r"True data", fontsize=axis_fontsize)
+    ax2.set_ylabel(r"Residuals", fontsize=axis_fontsize)
+    ax2.set_title(r"Residual plot", fontsize=axis_fontsize)
 
     plt.show()
 
@@ -115,7 +116,12 @@ def _parity_residual_plots(true_values, modeled_values, label=None):
 
 
 def plot_training_validation(
-    surrogate, data_training, data_validation, input_labels, output_labels
+    surrogate,
+    data_training,
+    data_validation,
+    input_labels,
+    output_labels,
+    save_figs=False,
 ):
     for output_label in output_labels:
         # Output fit metrics and create parity and residual plots
@@ -135,8 +141,9 @@ def plot_training_validation(
             modeled_values=np.array(training_output[output_label]),
             label=label,
         )
-        # plt.savefig('/plots/parity_residual_plots.png')
-        # plt.close()
+        if save_figs is not None:
+            plt.savefig("/plots/parity_residual_plots.png")
+            plt.close()
 
         # Validate model using validation data
         validation_output = surrogate.evaluate_surrogate(data_validation[input_labels])
@@ -145,8 +152,10 @@ def plot_training_validation(
             modeled_values=np.array(validation_output[output_label]),
             label=label,
         )
-        # plt.savefig('/plots/parity_residual_plots.png')
-        # plt.close()
+
+        if save_figs is not None:
+            plt.savefig("/plots/parity_residual_plots.png")
+            plt.close()
 
 
 #########################################################################################################
