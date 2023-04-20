@@ -195,7 +195,6 @@ class VAGMDData(UnitModelBlockData):
             doc="Thermal energy consumption",
         )
 
-
         """
         Add block for the batched feed water
         """
@@ -208,7 +207,7 @@ class VAGMDData(UnitModelBlockData):
             self.flowsheet().config.time,
             doc="Material properties of feed water",
             **tmp_dict
-        )    
+        )
 
         """
         Add block for the permeated water
@@ -221,10 +220,10 @@ class VAGMDData(UnitModelBlockData):
             **tmp_dict
         )
         # salinity in permeate is zero
-        self.permeate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
+        self.permeate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(1e-9)
 
         # permeate temperature is assumed the same as feed water
-        @self.Constraint( doc="distillate temperature")
+        @self.Constraint(doc="distillate temperature")
         def eq_distillate_temp(b):
             return b.permeate_props[0].temperature == b.feed_props[0].temperature
 
@@ -238,7 +237,6 @@ class VAGMDData(UnitModelBlockData):
             doc="Material properties of evaporator inlet water",
             **tmp_dict
         )
-
 
         """
         Add block for water at the evaporator outlet
@@ -298,40 +296,37 @@ class VAGMDData(UnitModelBlockData):
 
         @self.Constraint(doc="Average temperature of the feed flow in the heat source")
         def eq_avg_temp_heat_tank(b):
-            return (
-                b.avg_feed_props[0].temperature
-                == (TEI + TCO) / 2
-            )
+            return b.avg_feed_props[0].temperature == (TEI + TCO) / 2
+
         @self.Constraint(doc="Average salinity of the feed flow")
         def eq_avg_salinity_feed_tank(b):
             return (
                 b.avg_feed_props[0].mass_frac_phase_comp["Liq", "TDS"]
                 == b._get_membrane_performance(TEI, FFR, TCI, S)[3] / 1000
             )
-            
+
         @self.Constraint(doc="Average flowrate of the feed flow")
-        def eq_feed_volumetric_flow_rate_0(b):
+        def eq_feed_volumetric_flow_rate(b):
             return (
                 b.avg_feed_props[0].flow_vol_phase["Liq"]
                 == b.feed_props[0].flow_vol_phase["Liq"]
             )
 
-        @self.Constraint(doc="Permeate flux",)
+        @self.Constraint(
+            doc="Permeate flux",
+        )
         def eq_permeate_flux(b):
-            return (
-                b.permeate_flux
-                ==  b._get_membrane_performance(TEI, FFR, TCI, S)[0]
-            )
+            return b.permeate_flux == b._get_membrane_performance(TEI, FFR, TCI, S)[0]
 
         @self.Constraint(doc="Evaporatore outlet temperature")
-        def eq_evaporator_outlet_temp_0(b):
+        def eq_evaporator_outlet_temp(b):
             return (
                 b.evaporator_out_props[0].temperature
                 == b._get_membrane_performance(TEI, FFR, TCI, S)[2] + 273.15
             )
 
         @self.Constraint(doc="Condenser outlet temperature")
-        def eq_condenser_outlet_temp_0(b):
+        def eq_condenser_outlet_temp(b):
             return (
                 b.condenser_out_props[0].temperature
                 == b._get_membrane_performance(TEI, FFR, TCI, S)[1] + 273.15
@@ -356,50 +351,116 @@ class VAGMDData(UnitModelBlockData):
             RhoF = b.avg_feed_props[0].dens_mass_phase["Liq"]
             return b.thermal_power == pyunits.convert(
                 (FFR * CpF * (TEI - TCO)) * (RhoF), to_units=pyunits.kW
-            )        
-        
+            )
+
         @self.Constraint(doc="Thermal energy consumption")
         def eq_thermal_energy(b):
             return b.thermal_energy == pyunits.convert(
                 b.thermal_power * b.dt, to_units=pyunits.kWh
             )
 
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+
+        if iscale.get_scaling_factor(self.dt) is None:
+            iscale.set_scaling_factor(self.dt, 1e-1)
+
+        if iscale.get_scaling_factor(self.permeate_flux) is None:
+            iscale.set_scaling_factor(self.permeate_flux, 1)
+
+        if iscale.get_scaling_factor(self.log_mean_temp_dif) is None:
+            iscale.set_scaling_factor(self.log_mean_temp_dif, 1e-1)
+
+        if iscale.get_scaling_factor(self.thermal_power) is None:
+            iscale.set_scaling_factor(self.thermal_power, 1)
+
+        if iscale.get_scaling_factor(self.thermal_energy) is None:
+            iscale.set_scaling_factor(self.thermal_energy, 1e1)
+
+        # Transforming constraint
+
+        # sf = iscale.get_scaling_factor(self.avg_feed_props[0].temperature)
+        iscale.constraint_scaling_transform(self.eq_avg_temp_heat_tank, 1e-2)
+
+        # sf = iscale.get_scaling_factor(
+        #     self.avg_feed_props[0].mass_frac_phase_comp["Liq", "TDS"]
+        # )
+        iscale.constraint_scaling_transform(self.eq_avg_salinity_feed_tank, 1e-1)
+
+        # sf = iscale.get_scaling_factor(
+        #     self.avg_feed_props[0].flow_vol_phase["Liq"]
+        # )
+        iscale.constraint_scaling_transform(self.eq_feed_volumetric_flow_rate, 1e5)
+
+        sf = iscale.get_scaling_factor(self.permeate_flux)
+        iscale.constraint_scaling_transform(self.eq_permeate_flux, sf)
+
+        # sf = iscale.get_scaling_factor(
+        #     self.evaporator_out_props[0].temperature
+        # )
+        iscale.constraint_scaling_transform(self.eq_evaporator_outlet_temp, 1e-2)
+
+        # sf = iscale.get_scaling_factor(
+        #     self.condenser_out_props[0].temperature
+        # )
+        iscale.constraint_scaling_transform(self.eq_condenser_outlet_temp, 1e-2)
+
+        # sf = iscale.get_scaling_factor(
+        #     self.permeate_props[0].flow_vol_phase["Liq"]
+        # )
+        iscale.constraint_scaling_transform(self.eq_permeate_volumetric_flow_rate, 1e5)
+
+        sf = iscale.get_scaling_factor(self.log_mean_temp_dif)
+        iscale.constraint_scaling_transform(self.eq_log_mean_temp_dif, sf)
+
+        sf = iscale.get_scaling_factor(self.thermal_power)
+        iscale.constraint_scaling_transform(self.eq_thermal_power, sf)
+
+        sf = iscale.get_scaling_factor(self.thermal_energy)
+        iscale.constraint_scaling_transform(self.eq_thermal_energy, sf)
+
     # def initialize_build(self, state_args=None,
     #                solver=None, optarg=None, outlvl=idaeslog.NOTSET):
     #     init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
-    #     init_log.info_low("Starting initialization...")                   
-
+    #     init_log.info_low("Starting initialization...")
 
     """
     Equation to calculate pressure drop
     """
+
     def _get_pressure_drop(self, flow_rate, salinity):
-        if self.config.module_type == 'AS7C1.5L':
-            coefficients = [-158.2007422,
-                            0.39402609,
-                            0,
-                            0.000585345,
-                            8.93618e-5,
-                            -0.000287828]
-        else: # self.config.module_type == 'AS26C7.2L'
-            coefficients = [-72.53793298,
-                            0.110437201,
-                            0,
-                            0.000643495,
-                            0.000189924,
-                            -0.001111447]
+        if self.config.module_type == "AS7C1.5L":
+            coefficients = [
+                -158.2007422,
+                0.39402609,
+                0,
+                0.000585345,
+                8.93618e-5,
+                -0.000287828,
+            ]
+        else:  # self.config.module_type == 'AS26C7.2L'
+            coefficients = [
+                -72.53793298,
+                0.110437201,
+                0,
+                0.000643495,
+                0.000189924,
+                -0.001111447,
+            ]
 
-        return   (coefficients[0] 
-                + coefficients[1] * flow_rate
-                + coefficients[2] * salinity
-                + coefficients[3] * flow_rate * salinity
-                + coefficients[4] * flow_rate**2
-                + coefficients[5] * salinity**2)
-
+        return (
+            coefficients[0]
+            + coefficients[1] * flow_rate
+            + coefficients[2] * salinity
+            + coefficients[3] * flow_rate * salinity
+            + coefficients[4] * flow_rate**2
+            + coefficients[5] * salinity**2
+        )
 
     """
     Surrogate equations for membrane performance
     """
+
     def _get_membrane_performance(self, TEI, FFR, TCI, SgL):
         # Model parameters
         PFluxAS26 = [
