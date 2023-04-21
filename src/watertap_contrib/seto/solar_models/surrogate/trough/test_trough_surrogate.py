@@ -89,8 +89,8 @@ class TestTrough:
         assert m.fs.trough.surrogate.input_labels() == surr_input_str
         assert m.fs.trough.output_labels == surr_output_str
         assert m.fs.trough.surrogate.output_labels() == surr_output_str
-        assert m.fs.trough.surrogate_file == surrogate_filename
-        assert m.fs.trough.dataset_filename == dataset_filename
+        assert os.path.samefile(m.fs.trough.surrogate_file, surrogate_filename)
+        assert os.path.samefile(m.fs.trough.dataset_filename, dataset_filename)
         assert m.fs.trough.surrogate.n_inputs() == 2
         assert m.fs.trough.surrogate.n_outputs() == 2
 
@@ -147,7 +147,9 @@ class TestTrough:
             os.path.dirname(__file__), "test_surrogate.json"
         )
         m.fs.trough._create_rbf_surrogate(
-            data_training=data["training"], output_filename=test_surrogate_filename
+            bounds={"xmin": (100, 0), "xmax": (1000, 26)},
+            data_training=data["training"],
+            output_filename=test_surrogate_filename
         )
         assert os.path.getsize(test_surrogate_filename) > 1e4
         os.remove(test_surrogate_filename)
