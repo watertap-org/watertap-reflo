@@ -149,7 +149,7 @@ class TestTrough:
         m.fs.trough._create_rbf_surrogate(
             bounds={"xmin": (100, 0), "xmax": (1000, 26)},
             data_training=data["training"],
-            output_filename=test_surrogate_filename
+            output_filename=test_surrogate_filename,
         )
         assert os.path.getsize(test_surrogate_filename) > 1e4
         os.remove(test_surrogate_filename)

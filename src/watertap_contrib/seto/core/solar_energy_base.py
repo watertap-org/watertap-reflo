@@ -130,8 +130,7 @@ class SolarEnergyBase(SolarEnergyBaseData):
 
     CONFIG = SolarEnergyBaseData.CONFIG()
 
-    def _create_rbf_surrogate(
-        self, bounds, data_training=None, output_filename=None):
+    def _create_rbf_surrogate(self, bounds, data_training=None, output_filename=None):
 
         if data_training is None:
             self._get_surrogate_data()
@@ -168,7 +167,7 @@ class SolarEnergyBase(SolarEnergyBaseData):
 
         # Create callable surrogate object
         self.input_bounds = {
-            self.input_labels[i]: (bounds['xmin'][i], bounds['xmax'][i])
+            self.input_labels[i]: (bounds["xmin"][i], bounds["xmax"][i])
             for i in range(len(self.input_labels))
         }
         self.rbf_surr = PysmoSurrogate(

@@ -124,7 +124,9 @@ class FlatPlateSurrogateData(SolarEnergyBase):
             iscale.set_scaling_factor(self.heat_load, sf)
 
         if iscale.get_scaling_factor(self.temperature_hot) is None:
-            sf = iscale.get_scaling_factor(self.temperature_hot, default=1e-1, warning=True)
+            sf = iscale.get_scaling_factor(
+                self.temperature_hot, default=1e-1, warning=True
+            )
             iscale.set_scaling_factor(self.temperature_hot, sf)
 
         if iscale.get_scaling_factor(self.heat_annual) is None:

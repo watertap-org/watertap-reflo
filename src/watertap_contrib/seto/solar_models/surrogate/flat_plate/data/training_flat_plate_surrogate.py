@@ -299,7 +299,9 @@ if __name__ == "__main__":
     print("Hot outlet temperature = {x:.1f} C".format(x=value(m.fs.temperature_hot)))
     print("Annual heat output = {x:.2e} kWht".format(x=value(m.fs.heat_annual)))
     print(
-        "Annual electricity input = {x:.2e} kWhe".format(x=value(m.fs.electricity_annual))
+        "Annual electricity input = {x:.2e} kWhe".format(
+            x=value(m.fs.electricity_annual)
+        )
     )
 
     ### Optimize the surrogate model #########################################################################################
@@ -322,7 +324,9 @@ if __name__ == "__main__":
     print("Hot outlet temperature = {x:.1f} C".format(x=value(m.fs.temperature_hot)))
     print("Annual heat output = {x:.2e} kWht".format(x=value(m.fs.heat_annual)))
     print(
-        "Annual electricity input = {x:.2e} kWhe".format(x=value(m.fs.electricity_annual))
+        "Annual electricity input = {x:.2e} kWhe".format(
+            x=value(m.fs.electricity_annual)
+        )
     )
 
     x = 1
