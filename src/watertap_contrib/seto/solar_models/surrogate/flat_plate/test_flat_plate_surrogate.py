@@ -216,6 +216,9 @@ class TestFlatPlate:
         m.fs.costing.factor_maintenance_labor_chemical.fix(0)
         m.fs.costing.factor_total_investment.fix(1)
         m.fs.costing.cost_process()
+        m.fs.flatplate.heat_load.fix(550)
+        m.fs.flatplate.hours_storage.fix(13)
+        m.fs.flatplate.temperature_hot.fix(75)
 
         solver = SolverFactory("ipopt")
         results = solver.solve(m)
