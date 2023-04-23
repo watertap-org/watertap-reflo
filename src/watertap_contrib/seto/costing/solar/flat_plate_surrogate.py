@@ -13,14 +13,14 @@ def build_flat_plate_surrogate_cost_param_block(blk):
 
     blk.cost_per_area_collector = pyo.Var(
         initialize=600,
-        units=costing.base_currency / pyo.units.m2,
+        units=costing.base_currency / pyo.units.m**2,
         bounds=(0, None),
         doc="Cost per area for solar collector",
     )
 
     blk.cost_per_volume_storage = pyo.Var(
         initialize=2000,
-        units=costing.base_currency / pyo.units.m3,
+        units=costing.base_currency / pyo.units.m**3,
         bounds=(0, None),
         doc="Cost per volume for thermal storage",
     )
@@ -118,14 +118,14 @@ def cost_flat_plate(blk):
 
     blk.collector_area = pyo.Var(
         initialize=0,
-        units=pyo.units.m2,
+        units=pyo.units.m**2,
         bounds=(0, None),
         doc="Collector area for flat plate system",
     )
 
     blk.storage_volume = pyo.Var(
         initialize=0,
-        units=pyo.units.m3,
+        units=pyo.units.m**3,
         bounds=(0, None),
         doc="Storage volume for flat plate system",
     )
