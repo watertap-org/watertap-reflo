@@ -169,17 +169,17 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
 
     tech_model.execute()
 
-    annual_energy = tech_model.value(
+    heat_annual = tech_model.value(
         "annual_Q_deliv"
     )  # [kWh] does not include electric heat, includes losses
-    electrical_load = sum(tech_model.value("P_pump"))  # [kWh]
-    frac_electrical_load = (
-        electrical_load / annual_energy
+    electricity_annual = sum(tech_model.value("P_pump"))  # [kWh]
+    frac_electricity_annual = (
+        electricity_annual / heat_annual
     )  # [-] for analysis only, plant beneficial if < 1
 
     return {
-        "annual_energy": annual_energy,  # [kWh] annual net thermal energy in year 1
-        "electrical_load": electrical_load,  # [kWhe]
+        "heat_annual": heat_annual,  # [kWh] annual net thermal energy in year 1
+        "electricity_annual": electricity_annual,  # [kWhe]
     }
 
 
@@ -263,42 +263,42 @@ def plot_contours(df):
         df.query("temperature_hot == 70"),
         "heat_load",
         "hours_storage",
-        "annual_energy",
+        "heat_annual",
         units=["MWt", "hr", "kWht"],
     )
     plot_contour(
         df.query("hours_storage == 12"),
         "heat_load",
         "temperature_hot",
-        "annual_energy",
+        "heat_annual",
         units=["MWt", "C", "kWht"],
     )
     plot_contour(
         df.query("heat_load == 500"),
         "hours_storage",
         "temperature_hot",
-        "annual_energy",
+        "heat_annual",
         units=["hr", "C", "kWht"],
     )
     plot_contour(
         df.query("temperature_hot == 70"),
         "heat_load",
         "hours_storage",
-        "electrical_load",
+        "electricity_annual",
         units=["MWt", "hr", "kWhe"],
     )
     plot_contour(
         df.query("hours_storage == 12"),
         "heat_load",
         "temperature_hot",
-        "electrical_load",
+        "electricity_annual",
         units=["MWt", "C", "kWhe"],
     )
     plot_contour(
         df.query("heat_load == 500"),
         "hours_storage",
         "temperature_hot",
-        "electrical_load",
+        "electricity_annual",
         units=["hr", "C", "kWhe"],
     )
 
@@ -308,42 +308,42 @@ def plot_3ds(df):
         df.query("temperature_hot == 70"),
         "heat_load",
         "hours_storage",
-        "annual_energy",
+        "heat_annual",
         units=["MWt", "hr", "kWht"],
     )
     plot_3d(
         df.query("hours_storage == 12"),
         "heat_load",
         "temperature_hot",
-        "annual_energy",
+        "heat_annual",
         units=["MWt", "C", "kWht"],
     )
     plot_3d(
         df.query("heat_load == 500"),
         "hours_storage",
         "temperature_hot",
-        "annual_energy",
+        "heat_annual",
         units=["hr", "C", "kWht"],
     )
     plot_3d(
         df.query("temperature_hot == 70"),
         "heat_load",
         "hours_storage",
-        "electrical_load",
+        "electricity_annual",
         units=["MWt", "hr", "kWhe"],
     )
     plot_3d(
         df.query("hours_storage == 12"),
         "heat_load",
         "temperature_hot",
-        "electrical_load",
+        "electricity_annual",
         units=["MWt", "C", "kWhe"],
     )
     plot_3d(
         df.query("heat_load == 500"),
         "hours_storage",
         "temperature_hot",
-        "electrical_load",
+        "electricity_annual",
         units=["hr", "C", "kWhe"],
     )
 
@@ -358,7 +358,7 @@ def debug_t_hot(tech_model):
         plot_2d(
             df.query("hours_storage == 12 & heat_load == 500"),
             "temperature_hot",
-            "annual_energy",
+            "heat_annual",
             units=["C", "kWht"],
         )
 
@@ -379,8 +379,8 @@ def debug_t_hot(tech_model):
                 heat_load,
                 hours_storage,
                 temperature_hot,
-                result["annual_energy"],
-                result["electrical_load"],
+                result["heat_annual"],
+                result["electricity_annual"],
             ]
         )
     df = pd.DataFrame(
@@ -389,15 +389,15 @@ def debug_t_hot(tech_model):
             "heat_load",
             "hours_storage",
             "temperature_hot",
-            "annual_energy",
-            "electrical_load",
+            "heat_annual",
+            "electricity_annual",
         ],
     )
     df.to_pickle(dataset_filename)
     plot_2d(
         df.query("hours_storage == 12 & heat_load == 500"),
         "temperature_hot",
-        "annual_energy",
+        "heat_annual",
         units=["C", "kWht"],
     )
     x = 1
@@ -446,7 +446,7 @@ if __name__ == "__main__":
         plot_2d(
             df.query("hours_storage == 12 & heat_load == 500"),
             "temperature_hot",
-            "annual_energy",
+            "heat_annual",
             units=["C", "kWht"],
         )
         plot_3ds(df)
@@ -482,8 +482,8 @@ if __name__ == "__main__":
                     df,
                     df_results[
                         [
-                            "annual_energy",
-                            "electrical_load",
+                            "heat_annual",
+                            "electricity_annual",
                         ]
                     ],
                 ],
@@ -505,11 +505,11 @@ if __name__ == "__main__":
                         heat_load,
                         hours_storage,
                         temperature_hot,
-                        result["annual_energy"],
-                        result["electrical_load"],
+                        result["heat_annual"],
+                        result["electricity_annual"],
                     ]
                 )
-            df = pd.DataFrame(data, columns=["annual_energy", "electrical_load"])
+            df = pd.DataFrame(data, columns=["heat_annual", "electricity_annual"])
 
         df.to_pickle(DATASET_FILENAME)
         plot_contours(df)

@@ -79,7 +79,7 @@ class FlatPlateSurrogateData(SolarEnergyBase):
         self.surrogate_outputs = [self.heat_annual, self.electricity_annual]
 
         self.input_labels = ["heat_load", "hours_storage", "temperature_hot"]
-        self.output_labels = ["annual_energy", "electrical_load"]
+        self.output_labels = ["heat_annual", "electricity_annual"]
 
         self.surrogate_file = os.path.join(
             os.path.dirname(__file__), "flat_plate_surrogate.json"

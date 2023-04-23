@@ -171,7 +171,7 @@ def plot_3d(surrogate):
         "hours_storage": 10,
         "temperature_hot": 70,
     }
-    OUTPUT_LABELS = ["annual_energy", "electrical_load"]
+    OUTPUT_LABELS = ["heat_annual", "electricity_annual"]
 
     def eval_and_plot(x_label, y_label, z_label):
         # Eval:
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     n_samples = 100  # number of points to use from overall dataset
     training_fraction = 0.8
     input_labels = ["heat_load", "hours_storage", "temperature_hot"]
-    output_labels = ["annual_energy", "electrical_load"]
+    output_labels = ["heat_annual", "electricity_annual"]
 
     # Get training and validation data
     data_training, data_validation = get_training_validation(
@@ -264,16 +264,16 @@ if __name__ == "__main__":
     )
 
     # create flowsheet output variable
-    m.fs.annual_energy = Var(
+    m.fs.heat_annual = Var(
         initialize=5e9, doc="annual heat produced by the plant in kWht"
     )
-    m.fs.electrical_load = Var(
+    m.fs.electricity_annual = Var(
         initialize=1e9, doc="annual electricity consumed by the plant in kWht"
     )
 
     # create input and output variable object lists for flowsheet
     inputs = [m.fs.heat_load, m.fs.hours_storage, m.fs.temperature_hot]
-    outputs = [m.fs.annual_energy, m.fs.electrical_load]
+    outputs = [m.fs.heat_annual, m.fs.electricity_annual]
 
     # capture long output
     stream = StringIO()
@@ -297,16 +297,16 @@ if __name__ == "__main__":
     print("Heat rate = {x:.0f} MWt".format(x=value(m.fs.heat_load)))
     print("Hours of storage = {x:.1f} hrs".format(x=value(m.fs.hours_storage)))
     print("Hot outlet temperature = {x:.1f} C".format(x=value(m.fs.temperature_hot)))
-    print("Annual heat output = {x:.2e} kWht".format(x=value(m.fs.annual_energy)))
+    print("Annual heat output = {x:.2e} kWht".format(x=value(m.fs.heat_annual)))
     print(
-        "Annual electricity input = {x:.2e} kWhe".format(x=value(m.fs.electrical_load))
+        "Annual electricity input = {x:.2e} kWhe".format(x=value(m.fs.electricity_annual))
     )
 
     ### Optimize the surrogate model #########################################################################################
     m.fs.heat_load.unfix()
     m.fs.hours_storage.unfix()
     m.fs.temperature_hot.unfix()
-    m.fs.obj = Objective(expr=m.fs.annual_energy, sense=maximize)
+    m.fs.obj = Objective(expr=m.fs.heat_annual, sense=maximize)
 
     # solve the optimization
     print("\n")
@@ -320,9 +320,9 @@ if __name__ == "__main__":
     print("Heat rate = {x:.0f} MWt".format(x=value(m.fs.heat_load)))
     print("Hours of storage = {x:.1f} hrs".format(x=value(m.fs.hours_storage)))
     print("Hot outlet temperature = {x:.1f} C".format(x=value(m.fs.temperature_hot)))
-    print("Annual heat output = {x:.2e} kWht".format(x=value(m.fs.annual_energy)))
+    print("Annual heat output = {x:.2e} kWht".format(x=value(m.fs.heat_annual)))
     print(
-        "Annual electricity input = {x:.2e} kWhe".format(x=value(m.fs.electrical_load))
+        "Annual electricity input = {x:.2e} kWhe".format(x=value(m.fs.electricity_annual))
     )
 
     x = 1
