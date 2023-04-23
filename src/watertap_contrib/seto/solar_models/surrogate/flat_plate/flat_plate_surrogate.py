@@ -15,9 +15,10 @@ import os
 import sys
 from io import StringIO
 
-from pyomo.environ import Var, Constraint, units as pyunits
+from pyomo.environ import Var, Constraint, Suffix, units as pyunits
 
 from idaes.core import declare_process_block_class
+import idaes.core.util.scaling as iscale
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 
@@ -111,3 +112,38 @@ class FlatPlateSurrogateData(SolarEnergyBase):
         )
         self.n_samples = 100
         self.training_fraction = 0.8
+
+    def calculate_scaling_factors(self):
+
+        if iscale.get_scaling_factor(self.hours_storage) is None:
+            sf = iscale.get_scaling_factor(self.hours_storage, default=1)
+            iscale.set_scaling_factor(self.hours_storage, sf)
+
+        if iscale.get_scaling_factor(self.heat_load) is None:
+            sf = iscale.get_scaling_factor(self.heat_load, default=1e-2, warning=True)
+            iscale.set_scaling_factor(self.heat_load, sf)
+
+        if iscale.get_scaling_factor(self.temperature_hot) is None:
+            sf = iscale.get_scaling_factor(self.temperature_hot, default=1e-1, warning=True)
+            iscale.set_scaling_factor(self.temperature_hot, sf)
+
+        if iscale.get_scaling_factor(self.heat_annual) is None:
+            sf = iscale.get_scaling_factor(self.heat_annual, default=1e-4, warning=True)
+            iscale.set_scaling_factor(self.heat_annual, sf)
+
+        if iscale.get_scaling_factor(self.heat) is None:
+            sf = iscale.get_scaling_factor(self.heat, default=1e-4, warning=True)
+            iscale.set_scaling_factor(self.heat, sf)
+
+        if iscale.get_scaling_factor(self.electricity_annual) is None:
+            sf = iscale.get_scaling_factor(
+                self.electricity_annual, default=1e-3, warning=True
+            )
+            iscale.set_scaling_factor(self.electricity_annual, sf)
+
+        if iscale.get_scaling_factor(self.electricity) is None:
+            sf = iscale.get_scaling_factor(self.electricity, default=1e-3, warning=True)
+            iscale.set_scaling_factor(self.electricity, sf)
+
+    def initialize_build(self):
+        pass
