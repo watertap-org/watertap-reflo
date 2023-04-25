@@ -102,8 +102,6 @@ def build_lt_med_surrogate_cost_param_block(blk):
         doc="Exponent for specific heat exchanger cost equation",
     )
 
-    blk.fix_all_vars()
-
 
 @register_costing_parameter_block(
     build_rule=build_lt_med_surrogate_cost_param_block,
@@ -123,18 +121,21 @@ def cost_lt_med_surrogate(blk):
 
     blk.membrane_system_cost = pyo.Var(
         initialize=100,
+        bounds=(0, None),
         units=base_currency,
         doc="Membrane system cost",
     )
 
     blk.evaporator_system_cost = pyo.Var(
         initialize=100,
+        bounds=(0, None),
         units=base_currency,
         doc="Evaporator system cost",
     )
 
     blk.med_specific_cost = pyo.Var(
         initialize=100,
+        bounds=(0, None),
         units=pyo.units.USD_2018 / (pyo.units.m**3 / pyo.units.day),
         doc="MED system cost per m3/day distillate",
     )
@@ -200,14 +201,10 @@ def cost_lt_med_surrogate(blk):
         * lt_med_params.cost_disposal_per_vol_brine
     )
 
-    blk.heat_flow = pyo.Expression(
-        expr=lt_med.specific_energy_consumption_thermal
-        * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
-    )
     blk.electricity_flow = pyo.Expression(
         expr=lt_med_params.specific_energy_consumption_electric
         * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)
     )
 
-    blk.costing_package.cost_flow(blk.heat_flow, "heat")
+    blk.costing_package.cost_flow(lt_med.thermal_power_requirement, "heat")
     blk.costing_package.cost_flow(blk.electricity_flow, "electricity")
