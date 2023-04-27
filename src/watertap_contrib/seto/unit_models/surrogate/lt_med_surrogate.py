@@ -23,7 +23,7 @@ from pyomo.environ import (
     check_optimal_termination,
     units as pyunits,
 )
-from pyomo.common.config import ConfigBlock, ConfigValue, In
+from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
 
 # Import IDAES cores
 from idaes.core import (
@@ -113,7 +113,7 @@ class LTMEDData(UnitModelBlockData):
         "number_effects",
         ConfigValue(
             default=12,
-            domain=In([i for i in range(3, 15)]),
+            domain=PositiveInt,
             description="Number of effects of the LT_MED system",
             doc="""A ConfigBlock specifying the number of effects, which should be an integer between 3 to 14.""",
         ),
@@ -127,7 +127,7 @@ class LTMEDData(UnitModelBlockData):
         # Check if the number of effects is valid
         if self.config.number_effects not in [i for i in range(3, 15)]:
             raise ConfigurationError(
-                "The number of effects should be an integer between 3 to 14"
+                f"The number of effects was specified as {self.config.number_effects}. The number of effects should be specified as an integer between 3 to 14."
             )
 
         """
@@ -635,6 +635,14 @@ class LTMEDData(UnitModelBlockData):
         # Check degree of freedom
         assert degrees_of_freedom(blk) == 0
 
+        # For 10 and 11 effects, specific area may need a new initialization value,
+        # because the surrogate eqn for 9 and 12 effects are largely different
+        if blk.config.number_effects == 11:
+            blk.specific_area_per_m3_day.value = 3
+
+        # Check degree of freedom
+        assert degrees_of_freedom(blk) == 0
+
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(blk, tee=slc.tee)
@@ -882,41 +890,41 @@ class LTMEDData(UnitModelBlockData):
     def _get_specific_area_coeffs(self):
         return {
             3: [
-                0.000596217,
-                -3.66e-09,
+                0.00025156,
+                -5.32e-09,
                 0,
-                -2.44e-05,
-                1.93e-09,
+                -2.27e-05,
+                1.13e-10,
                 0,
-                5.60e-05,
+                2.01e-05,
                 0,
-                -2.95e-07,
-                5.30e-11,
+                1.71e-07,
+                7.04e-13,
                 0,
-                7.14e-06,
+                2.01e-07,
                 0,
-                0.064807392,
-                2.06e-07,
-                0.00974051,
+                0.0131458,
+                6.57e-09,
+                0.00040718,
                 0,
-                -1.16e-05,
-                -3.96e-11,
+                -4.99e-07,
+                -5.30e-13,
                 0,
-                -5.27e-06,
+                -7.50e-08,
                 0,
-                -0.05718687,
-                -2.61e-07,
-                -0.011936049,
-                -0.000702529,
-                0.013464849,
-                1.65e-07,
-                0.003686623,
-                0.000759933,
+                -0.01124119,
+                -9.02e-09,
+                -0.00037472,
+                -0.00010574,
+                0.00182065,
+                5.45e-09,
+                5.19e-05,
+                0.00011658,
                 0,
-                -0.00019293,
-                -0.000182949,
+                -2.24e-05,
+                -4.41e-05,
                 0,
-                3.20e-14,
+                3.93e-14,
             ],
             6: [
                 0.00040105,
