@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
-
 from idaes.core import declare_process_block_class, FlowsheetBlock
 from idaes.models.unit_models import Mixer
+import math
 
 from watertap.costing.watertap_costing_package import (
     WaterTAPCostingData,
@@ -140,13 +140,6 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             == self.factor_maintenance_labor_chemical * self.total_capital_cost
         )
 
-        self.total_operating_cost_constraint = pyo.Constraint(
-            expr=self.total_operating_cost
-            == self.maintenance_labor_chemical_operating_cost
-            + self.aggregate_fixed_operating_cost
-            + self.aggregate_variable_operating_cost
-            + sum(self.aggregate_flow_costs.values()) * self.utilization_factor
-        )
         
         self.total_electric_operating_cost_constraint = pyo.Constraint(
             expr=self.total_electric_operating_cost
@@ -228,15 +221,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             units=self.base_currency / pyo.units.kWh,
         )
         
-        self.electricity_sell_cost = pyo.Param(
-            mutable=True,
-            initialize= 0.05,  # From EIA for 2021
-            doc="Electricity sell back",
-            units=self.base_currency / pyo.units.kWh,
-        )
-
         self.add_defined_flow("electricity", self.electricity_cost)
-        self.add_defined_flow("electricity_sell", self.electricity_sell_cost)
         
         self.electrical_carbon_intensity = pyo.Param(
             mutable=True,
@@ -290,6 +275,34 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             doc="Aggregated electricity flow",
             units=pyo.units.kW,
         )
+        
+        self.net_flow_electricity = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Aggregated electricity flow",
+            units=pyo.units.kW,
+        )
+        
+        self.net_flow_electricity_sell = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Aggregated electricity flow",
+            units=pyo.units.kW,
+        )
+        
+        self.net_flow_electricity_cost = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Aggregated electricity flow",
+            units=self.base_currency / self.base_period,
+        )
+        
+        self.net_flow_electricity_sell_cost = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Aggregated electricity flow",
+            units=self.base_currency / self.base_period,
+        )
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
@@ -298,27 +311,48 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
                 to_units=self.base_currency,
             )
         )
-
-        self.total_operating_cost_constraint = pyo.Constraint(
-            expr=self.total_operating_cost
-            == pyo.units.convert(
-                treat_cost.total_operating_cost + en_cost.total_operating_cost,
-                to_units=self.base_currency / self.base_period,
-            )
-        )
         
-        self.total_electric_operating_cost_constraint = pyo.Constraint(
-            expr=self.total_electric_operating_cost
-            == pyo.units.convert(
-                treat_cost.total_electric_operating_cost + en_cost.total_electric_operating_cost,
-                to_units=self.base_currency / self.base_period,
-            )
-        )
-
         self.aggregate_flow_electricity_constraint = pyo.Constraint(
             expr=self.aggregate_flow_electricity
             == treat_cost.aggregate_flow_electricity
             + en_cost.aggregate_flow_electricity_sell
+        )
+
+        self.total_electric_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_electric_operating_cost
+            == pyo.units.convert(
+                self.aggregate_flow_electricity*self.electricity_cost,
+                to_units=self.base_currency / self.base_period,
+            )
+        )
+
+        self.net_flow_electricity_constraint = pyo.Constraint(
+            expr=self.net_flow_electricity == (abs(self.aggregate_flow_electricity) + self.aggregate_flow_electricity)/2
+        )
+        
+        self.net_flow_electricity_sell_constraint = pyo.Constraint(
+            expr=self.net_flow_electricity_sell == -1*(abs(self.aggregate_flow_electricity) - self.aggregate_flow_electricity)/2
+        )
+        
+        self.net_flow_electricity_cost_constraint = pyo.Constraint(
+            expr=self.net_flow_electricity_cost == pyo.units.convert(self.net_flow_electricity*self.electricity_cost,
+                to_units=self.base_currency / self.base_period,
+            )
+        )
+        
+        self.net_flow_electricity_sell_cost_constraint = pyo.Constraint(
+            expr=self.net_flow_electricity_sell_cost == pyo.units.convert(self.net_flow_electricity_sell*en_cost.electricity_sell_cost,
+                to_units=self.base_currency / self.base_period,
+            )
+        )
+
+        self.total_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_operating_cost
+            == pyo.units.convert(
+                (self.net_flow_electricity*self.electricity_cost) + 
+                (self.net_flow_electricity_sell*en_cost.electricity_sell_cost),
+                to_units=self.base_currency / self.base_period,
+            )
         )
 
     def add_LCOW(self, flow_rate, name="LCOW"):
@@ -400,13 +434,13 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             )
             LCOE_expr = pyo.Expression(
                 expr=(
-                    fs.sys_costing.total_capital_cost * self.factor_capital_annualization
+                    fs.energy.costing.total_capital_cost * self.factor_capital_annualization
                     + (
                         en_cost.aggregate_fixed_operating_cost
                         + en_cost.aggregate_variable_operating_cost
                     )
                 )
-                / self.annual_energy_generated
+                / pyo.units.convert(-1*en_cost.aggregate_flow_electricity_sell, to_units=pyo.units.kWh/pyo.units.year)
                 * self.utilization_factor
             )
             self.add_component("LCOE", LCOE_expr)

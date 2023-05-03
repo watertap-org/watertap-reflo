@@ -3,7 +3,7 @@ import os
 
 absolute_path = os.path.dirname(__file__)
 
-__all__ = ["display_ro_pv_results", "display_pv_results"]
+__all__ = ["display_ro_pv_results", "display_pv_results", "display_costing_breakdown"]
 
 def display_ro_pv_results(m, sep="."):
     ro = m.fs.treatment.ro
@@ -14,7 +14,7 @@ def display_ro_pv_results(m, sep="."):
     prop_in = ro.feed_side.properties_in[0]
     prop_out = ro.feed_side.properties_out[0]
     prop_perm = ro.mixed_permeate[0]
-    pv_cost = m.fs.energy.costing.pv_surrogate
+    # pv_cost = m.fs.energy.costing.pv_surrogate
     line = f'\n{f"{sep*60}":<60s}'
     flux_lmh = pyunits.convert(
         ro.flux_mass_phase_comp_avg[0, "Liq", "H2O"]
@@ -48,10 +48,13 @@ def display_ro_pv_results(m, sep="."):
             f'{"Treatment Elect. Use":<25s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}'
         )
         print(
-            f'{"Elect. Sell Back":<25s}{f"{-1 *m.fs.sys_costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}'
+            f'{"Elect. Sell Back":<25s}{f"{-1*m.fs.sys_costing.net_flow_electricity_sell():<25.1f}"}{"kW":<10s}'
         )
         print(
-            f'{"PV Electrical %":<25s}{f"{((-100 * m.fs.energy.pv.electricity())/m.fs.sys_costing.aggregate_flow_electricity()):<25.1f}"}{"%":<10s}'
+            f'{"Elect. Sell Revenue":<24s}{f"${-1*m.fs.sys_costing.net_flow_electricity_sell_cost():<25,.0f}"}{"$/yr":<10s}'
+        )
+        print(
+            f'{"PV Electrical %":<25s}{f"{-100*(m.fs.energy.pv.electricity()/m.fs.treatment.costing.aggregate_flow_electricity()):<25.1f}"}{"%":<10s}'
         )
         print(
             f'{"Plant Lifetime":<25s}{f"{m.fs.sys_costing.plant_lifetime():<25.1f}"}{"yrs":<10s}'
@@ -63,35 +66,24 @@ def display_ro_pv_results(m, sep="."):
             f'{"PV Capital Cost":<24s}{f"${m.fs.energy.costing.total_capital_cost():<25,.0f}"}{"$":<10s}'
         )
         print(
-            f'{"PV Fixed Op.":<24s}{f"${m.fs.energy.pv.costing.fixed_operating_cost():<25.0f}"}{"$/yr":<10s}'
+            f'{"PV Design Size":<25s}{f"{m.fs.energy.pv.design_size():<25,.0f}"}{"kW":<10s}'
         )
         print(
-            f'{"PV Fixed Op. by Capcity":<24s}{f"${pv_cost.fixed_operating_by_capacity():<25.2f}"}{"$/kW":<10s}'
+            f'{"PV Annual Generation":<25s}{f"{pyunits.convert(-1*m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
         )
         print(
-            f'{"PV Var Op.":<24s}{f"${m.fs.energy.pv.costing.variable_operating_cost():<25.0f}"}{"$/yr":<10s}'
+            f'{"PV Nameplate Capacity":<25s}{f"{pyunits.convert(-1*m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)()/1000:<25,.0f}"}{"MWh/yr":<10s}'
         )
         print(
-            f'{"PV Var Op. by Ann Gen.":<24s}{f"${pv_cost.variable_operating_by_generation():<25.0f}"}{"$/MWh":<10s}'
+            f'{"PV Avg. Gen":<25s}{f"{-1*m.fs.energy.pv.electricity():<25,.0f}"}{"kW":<10s}'
         )
         print(
-            f'{"PV Annual Gen":<25s}{f"{m.fs.energy.pv.costing.annual_generation()/1000:<25.0f}"}{"MWh/yr":<10s}'
-        )
-        print(
-            f'{"PV Nameplate Capacity":<25s}{f"{m.fs.energy.pv.costing.system_capacity()/1000:<25,.1f}"}{"kW":<10s}'
-        )
-        print(
-            f'{"PV Land Required":<25s}{f"{m.fs.energy.pv.land_req():<25.4f}"}{"acres":<10s}'
+            f'{"PV Land Required":<25s}{f"{m.fs.energy.pv.land_req():<25.1f}"}{"acres":<10s}'
         )
         print(
             f'{"PV Land Cost":<24s}{f"${m.fs.energy.pv.costing.land_cost():<25,.0f}"}{"$":<10s}'
         )
-        print(
-            f'{"PV Avg. Gen":<25s}{f"{-1*m.fs.energy.pv.electricity():<25.0f}"}{"kW":<10s}'
-        )
-        print(
-            f'{"PV Design Size":<25s}{f"{m.fs.energy.pv.design_size():<25.1f}"}{"kW":<10s}'
-        )
+        
         title = f'\n{"=======> RO SYSTEM RESULTS <=======":^60}\n'
         print(title)
         print(header)
@@ -112,7 +104,7 @@ def display_ro_pv_results(m, sep="."):
             f'{"RO Fixed Op. Cost":<24s}{f"${m.fs.treatment.ro.costing.fixed_operating_cost():<25,.0f}"}{"$/yr":<10s}'
         )
         print(
-            f'{"Pumping Power":<25s}{f"{m.fs.treatment.p1.control_volume.work[0]():<25,.0f}"}{"W":<10s}'
+            f'{"Pumping Power":<25s}{f"{m.fs.treatment.p1.control_volume.work[0]()/1000:<25,.0f}"}{"kW":<10s}'
         )
         print(
             f'{"RO Capital Cost":<24s}{f"${m.fs.treatment.ro.costing.capital_cost():<25,.0f}"}{"$":<10s}'
@@ -126,7 +118,6 @@ def display_ro_pv_results(m, sep="."):
     )
     print(f'{"Membrane Area":<25s}{f"{ro.area():<25.1f}"}{"m2":<10s}')
     print(f'{"Flux":<25s}{f"{flux_lmh:<25.1f}"}{"LMH":<10s}')
-    # print(f'{"Flux Check":<25s}{f"{flow_out_L() / ro.area():<25.4f}"}{"LMH":<10s}')
     print(
         f'{"Vol. Recovery":<25s}{f"{100 * ro.recovery_vol_phase[0, liq]():<25.1f}"}{"%":<10s}'
     )
@@ -138,7 +129,6 @@ def display_ro_pv_results(m, sep="."):
     print(
         f'{"Feed Velocity":<25s}{f"{(value(ro.feed_side.velocity[0, 0])):<25.3f}"}{"m3/s":<10s}'
     )
-    # print(f'{"Feed Velocity":<25s}{f"{prop_in.velocity:<25.4f}"}{"m/s":<10s}')
     print(
         f'{"Conc. In":<25s}{f"{pyunits.convert(prop_in.conc_mass_phase_comp[liq, nacl], to_units=pyunits.mg/pyunits.L)():<25,.0f}"}{"mg/L":<10s}'
     )
@@ -167,23 +157,17 @@ def display_pv_results(m, sep="."):
     print(title)
     print(header)
     print(
-        f'{"PV Total Capital Cost":<34s}{f"${m.fs.energy.costing.total_capital_cost():<25,.2f}"}{"$":<10s}'
+        f'{"PV Total Capital Cost":<34s}{f"${m.fs.energy.costing.total_capital_cost():<25,.0f}"}{"$":<10s}'
     )
     print(
-        f'{"PV Total Operating Cost":<34s}{f"${m.fs.energy.costing.total_operating_cost():<25,.2f}"}{"$":<10s}'
-    )
-    print(
-        f'{"PV Agg Cap Cost":<34s}{f"${m.fs.energy.costing.aggregate_capital_cost():<25.4f}"}{"$":<10s}'
+        f'{"PV Agg Cap Cost":<34s}{f"${m.fs.energy.costing.aggregate_capital_cost():<25,.0f}"}{"$":<10s}'
     )
     print(
         f'{"PV Factor Tot Investment Cost":<34s}{f"${m.fs.energy.costing.factor_total_investment():<25.4f}"}{"dimless":<10s}'
     )
     print(
-        f'{"PV Annual Gen":<35s}{f"{m.fs.energy.pv.costing.annual_generation()/1000:<25.1f}"}{"MWh/yr":<10s}'
+        f'{"PV Annual Gen":<35s}{f"{pyunits.convert(-1*m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)()/1000:<25,.0f}"}{"MWh/yr":<10s}'
     )
-    # print(
-    #     f'{"LCOE":<34s}{f"${((m.fs.energy.pv.costing.capital_cost()*m.fs.sys_costing.factor_capital_annualization())+(m.fs.energy.pv.costing.fixed_operating_cost()))/(1000*(m.fs.energy.pv.costing.annual_generation())):<25.4f}"}{"$/kWh":<10s}'
-    # )
     title = f'\n{"=======> m.fs.energy.costing or m.fs.sys_costing <=======":^60}\n'
     print(title)
     print(header)
@@ -192,46 +176,45 @@ def display_pv_results(m, sep="."):
         f'{"PV Total Capital Cost":<34s}{f"${m.fs.energy.costing.total_capital_cost():<25,.0f}"}{"$":<10s}'
     )
     print(
-        f'{"PV Total Op Cost":<34s}{f"${m.fs.energy.costing.total_operating_cost():<25,.0f}"}{"$/yr":<10s}'
+        f'{"PV Annual Gen":<35s}{f"{pyunits.convert(-1*m.fs.energy.costing.aggregate_flow_electricity_sell, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
     )
     print(
-        f'{"PV Annual Gen":<35s}{f"{m.fs.sys_costing.annual_energy_generated():<25,.0f}"}{"kWh/yr":<10s}'
-    )
-    print(
-        f'{"PV Factor Cap Annualization":<35s}{f"{m.fs.sys_costing.factor_capital_annualization():<25.4f}"}{"unitless":<10s}'
+        f'{"PV Factor Cap Annualization":<35s}{f"{m.fs.sys_costing.factor_capital_annualization():<25.1f}"}{"unitless":<10s}'
     )
     print(
         f'{"PV Util Factor":<35s}{f"{m.fs.sys_costing.utilization_factor():<25.4f}"}{"dimless":<10s}'
     )
     print(
-        f'{"LCOE":<34s}{f"${((m.fs.energy.costing.total_capital_cost()*m.fs.sys_costing.factor_capital_annualization())+(m.fs.energy.costing.total_operating_cost()))/(m.fs.sys_costing.annual_energy_generated()):<25.4f}"}{"$/kWh":<10s}'
+        f'{"LCOE":<34s}{f"${((m.fs.energy.costing.total_capital_cost()*m.fs.sys_costing.factor_capital_annualization()))/(pyunits.convert(-1*m.fs.energy.costing.aggregate_flow_electricity_sell, to_units=pyunits.kWh/pyunits.year)()):<25.3f}"}{"$/kWh":<10s}'
     )
     print("\n")
-    print(
-        f'{"MLC Op Cost":<34s}{f"${m.fs.energy.costing.maintenance_labor_chemical_operating_cost():<25,.0f}"}{"$/yr":<10s}'
-    )
-    print(
-        f'{"Agg Fixed Op Cost":<34s}{f"${m.fs.energy.costing.aggregate_fixed_operating_cost():<25,.0f}"}{"$/yr":<10s}'
-    )
-    print(
-        f'{"Agg Var Op Cost":<34s}{f"${m.fs.energy.costing.aggregate_variable_operating_cost():<25,.0f}"}{"$/yr":<10s}'
-    )
-    print(
-        f'{"Treatment Agg Flow Costs [elec]":<34s}{f"${(value(list(m.fs.treatment.costing.aggregate_flow_costs.values())[0])):<25,.0f}"}{"$/yr":<10s}'
-    )
-    # print(
-    #     f'{"Energy Agg Flow Costs [elec]":<34s}{f"${(value(list(m.fs.energy.costing.aggregate_flow_costs.values())[0])):<25,.0f}"}{"$/yr":<10s}'
-    # )
-    print(
-        f'{"Energy Agg Flow Costs [elec sell]":<34s}{f"${(value(list(m.fs.energy.costing.aggregate_flow_costs.values())[0])):<25,.0f}"}{"$/yr":<10s}'
-    )
 
-    # title = f'\n{"=======> m.fs.sys_costing.LCOE() <=======":^60}\n'
-    # print(title)
-    # print(header)
-    # print(f'{"LCOE":<34s}{f"${m.fs.sys_costing.LCOE():<25.4f}"}{"$/kWh":<10s}')
-    # print(f'{"Treatment Agg Flow Electricity":<35s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
-    # print(f'{"PV Agg Flow Electricity":<35s}{f"{m.fs.energy.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
-    # print(f'{"RO Flow Electricity":<35s}{f"{m.fs.treatment.costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
-    # print(f'{"Agg Flow Electricity":<35s}{f"{m.fs.sys_costing.aggregate_flow_electricity():<25.1f}"}{"kW":<10s}')
-    # print("\n\n")
+def display_costing_breakdown(m, sep="."):
+    header = f'{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<10s}'
+    title = f'\n{"=======> Electricity  <=======":^60}\n'
+    print(title)
+    print(header)
+
+    for f in m.fs.energy.costing.used_flows:
+        print(f'{f"En. Flow [{f}]":<35s}{value(getattr(m.fs.energy.costing, f"aggregate_flow_{f}")):<25.1f}{"kW":<10s}')
+    for f in m.fs.treatment.costing.used_flows:
+        print(f'{f"Treat Flow [{f}]":<35s}{value(getattr(m.fs.treatment.costing, f"aggregate_flow_{f}")):<25.1f}{"kW":<10s}')
+    
+    print(f'{f"System Flow [electricity]":<35s}{value(m.fs.sys_costing.aggregate_flow_electricity):<25.1f}{"kW":<10s}')
+    
+    print(f'{f"Energy Total [{f}]":<35s}{pyunits.convert(m.fs.energy.costing.aggregate_flow_electricity_sell, to_units=pyunits.kWh/pyunits.year)()/1000:<25,.0f}{"MWh/yr":<10s}')
+    print(f'{f"Treat Total [{f}]":<35s}{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)()/1000:<25,.0f}{"MWh/yr":<10s}')
+    print(f'{f"System Total [{f}]":<35s}{pyunits.convert(m.fs.sys_costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)()/1000:<25,.0f}{"MWh/yr":<10s}')
+    print(f'{"Energy Op Cost Electric":<34s}{f"${m.fs.energy.costing.total_electric_operating_cost():<25,.0f}"}{"$/yr":<10s}')
+    print(f'{"Treat Op Cost Electric":<34s}{f"${m.fs.treatment.costing.total_electric_operating_cost():<25,.0f}"}{"$/yr":<10s}')
+    print(f'{"System Op Cost Electric":<34s}{f"${m.fs.sys_costing.total_electric_operating_cost():<25,.0f}"}{"$/yr":<10s}')
+    print(f'{"System Agg Flow Electric":<35s}{f"{m.fs.sys_costing.aggregate_flow_electricity():<25.2f}"}{"kW":<10s}')
+    print(f'{"System Net Electric":<35s}{f"{m.fs.sys_costing.net_flow_electricity():<25.2f}"}{"kW":<10s}')
+    print(f'{"System Net Electric Sell":<35s}{f"{m.fs.sys_costing.net_flow_electricity_sell():<25.2f}"}{"kW":<10s}')
+    print(f'{"System Net Electric":<35s}{f"{pyunits.convert(m.fs.sys_costing.net_flow_electricity, to_units=pyunits.kWh/pyunits.year)()/1000:<25.2f}"}{"MWh/yr":<10s}')
+    print(f'{"System Net Electric Sell":<35s}{f"{pyunits.convert(m.fs.sys_costing.net_flow_electricity_sell, to_units=pyunits.kWh/pyunits.year)()/1000:<25.2f}"}{"MWh/yr":<10s}')
+    print(f'{"System Agg Electric":<35s}{f"{pyunits.convert(m.fs.sys_costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)()/1000:<25.2f}"}{"MWh/yr":<10s}')
+    print(f'{"Net Electric Cost":<34s}{f"${m.fs.sys_costing.net_flow_electricity_cost():<25,.0f}"}{"$/yr":<10s}')
+    print(f'{"Net Electric Sell Rev":<34s}{f"${m.fs.sys_costing.net_flow_electricity_sell_cost():<25,.0f}"}{"$/yr":<10s}')
+    print(f'{"Total Op Cost":<34s}{f"${m.fs.sys_costing.total_operating_cost():<25,.0f}"}{"$/yr":<10s}')
+
