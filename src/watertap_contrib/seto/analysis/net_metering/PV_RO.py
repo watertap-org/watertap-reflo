@@ -1,23 +1,22 @@
 import os
 import numpy as np
-
 from pyomo.environ import (
     ConcreteModel,
-    Objective,
     Param,
-    Constraint,
-    Block,
-    log10,
     TransformationFactory,
     assert_optimal_termination,
-    value,
     units as pyunits,
+    log10,
+    Block,
+    value,
+    Objective,
+    Constraint,
 )
 from pyomo.network import Arc
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers.get_solver import get_solver
 from idaes.models.unit_models import Product, Feed
-from idaes.core.util.model_statistics import *
+from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.scaling import (
     set_scaling_factor,
     calculate_scaling_factors,
@@ -48,7 +47,7 @@ from watertap_contrib.seto.costing import (
     SETOSystemCosting,
 )
 from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
-from watertap_contrib.seto.core import SETODatabase, PySAMWaterTAP
+from watertap_contrib.seto.core import PySAMWaterTAP
 
 
 solver = get_solver()

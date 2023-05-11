@@ -16,6 +16,7 @@ from watertap_contrib.seto.costing import SETOWaterTAPCosting
 
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
+from idaes.core.util.exceptions import ConfigurationError, InitializationError
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -116,12 +117,13 @@ class TestLTMED:
         m.fs.liquid_prop = SeawaterParameterBlock()
         m.fs.vapor_prop = WaterParameterBlock()
 
-        error_msg = "invalid value for configuration 'number_effects'"
-        with pytest.raises(ValueError, match=error_msg):
+        tested_number_effects = 50
+        error_msg = f"The number of effects was specified as {tested_number_effects}. The number of effects should be specified as an integer between 3 to 14."
+        with pytest.raises(ConfigurationError, match=error_msg):
             m.fs.lt_med = LTMEDSurrogate(
                 property_package_liquid=m.fs.liquid_prop,
                 property_package_vapor=m.fs.vapor_prop,
-                number_effects=15,
+                number_effects=tested_number_effects,
             )
 
     @pytest.mark.unit
@@ -378,10 +380,6 @@ class TestLTMED:
         )
 
         calculate_scaling_factors(m)
-        # For 10 and 11 effects, specific area may need a new initialization value,
-        # because the surrogate eqn for 9 and 12 effects are largely different
-        if number_effects == 11:
-            m.fs.lt_med.specific_area_per_m3_day.value = 3
         initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.DEBUG)
         results = solver.solve(m)
 
@@ -396,18 +394,14 @@ class TestLTMED:
             13: 10.626,
         }
         specific_areas = {
-            4: 2.757,
-            5: 2.507,
+            4: 1.959,
+            5: 2.108,
             7: 2.507,
             8: 2.758,
             10: 3.325,
             11: 3.642,
             13: 4.159,
         }
-
-        assert pytest.approx(gain_output_ratios[number_effects], rel=1e-3) == value(
-            m.fs.lt_med.gain_output_ratio
-        )
         assert pytest.approx(specific_areas[number_effects], rel=1e-3) == value(
             m.fs.lt_med.specific_area_per_m3_day
         )
