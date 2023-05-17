@@ -18,6 +18,7 @@ from idaes.core.util.model_statistics import (
     number_unused_variables,
 )
 
+
 class TestFlatPlatePhysical:
     @pytest.fixture(scope="class")
     def flatplate_frame(self):
@@ -55,18 +56,20 @@ class TestFlatPlatePhysical:
     def test_tilted_radiation_model(self, flatplate_frame):
         """Duffie and Beckman 4th Edition Example 2.15.1, page 90"""
         m = flatplate_frame
-        m.fs.flatplate.phi.set_value(40)                # Latitude of collector
-        m.fs.flatplate.lon.set_value(89.4)              # Longitude of collector
-        m.fs.flatplate.std_meridian.set_value(90)       # Standard meridian corresponding to longitude
-        m.fs.flatplate.standard_time.set_value(9.695)   # Standard time, 9:41 AM
-        m.fs.flatplate.beta.set_value(60)               # Tilt angle of collector
-        m.fs.flatplate.rho_g.set_value(0.6)             # Ground reflectance
-        m.fs.flatplate.day_of_year.set_value(51)        # Day of year (Feb 20th)
-        m.fs.flatplate.G_bn.set_value(305.40)           # Beam normal radiation
-        m.fs.flatplate.G_d.set_value(796)               # Diffuse radiation on horizontal surface
+        m.fs.flatplate.phi.set_value(40)  # Latitude of collector
+        m.fs.flatplate.lon.set_value(89.4)  # Longitude of collector
+        m.fs.flatplate.std_meridian.set_value(
+            90
+        )  # Standard meridian corresponding to longitude
+        m.fs.flatplate.standard_time.set_value(9.695)  # Standard time, 9:41 AM
+        m.fs.flatplate.beta.set_value(60)  # Tilt angle of collector
+        m.fs.flatplate.rho_g.set_value(0.6)  # Ground reflectance
+        m.fs.flatplate.day_of_year.set_value(51)  # Day of year (Feb 20th)
+        m.fs.flatplate.G_bn.set_value(305.40)  # Beam normal radiation
+        m.fs.flatplate.G_d.set_value(796)  # Diffuse radiation on horizontal surface
 
         assert degrees_of_freedom(m) == 0
-        
+
         solver = SolverFactory("ipopt")
         results = solver.solve(m, tee=True)
         assert_optimal_termination(results)
