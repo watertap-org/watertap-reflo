@@ -159,62 +159,68 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             doc="Equation of time"
         )
 
-        # Equation for B, D&B 4th ed. eqn. 1.4.2
-        self.eqn_B = Constraint(
-            expr=self.B
-            == (self.day_of_year - 1) * 360 * pyunits.deg / 365
-        )
+        @self.Constraint(doc="Equation for B, D&B 4th ed. eqn. 1.4.2")
+        def eq_B(b):
+            return (
+                self.B
+                == (self.day_of_year - 1) * 360 * pyunits.deg / 365
+            )
 
-        # Solar time, D&B 4th ed. eqn. 1.5.2
-        self.eqn_solar_time = Constraint(
-            expr=self.solar_time
-            == (
+        @self.Constraint(doc="Solar time, D&B 4th ed. eqn. 1.5.2")
+        def eq_solar_time(b):
+            return (
+                self.solar_time
+                == (
                     self.standard_time + (4 * pyunits.minutes / pyunits.deg * (self.std_meridian - self.lon) + self.eqn_of_time)
                     / (60 * pyunits.minutes / pyunits.hour)
+                )
             )
-        )
 
-        # Equation of time, D&B 4th ed. eqn. 1.5.3
-        self.eq_eqn_of_time = Constraint(
-            expr=self.eqn_of_time
-            == (
+        @self.Constraint(doc="Equation of time, D&B 4th ed. eqn. 1.5.3")
+        def eq_eqn_of_time(b):
+            return (
+                self.eqn_of_time
+                == (
                     229.2 * pyunits.minutes
                     * ( 0.000075 + 0.001868 * cos(pyunits.convert(self.B, to_units=pyunits.rad))
                         - 0.032077 * sin(pyunits.convert(self.B, to_units=pyunits.rad))
                         - 0.014615 * cos(pyunits.convert(2 * self.B, to_units=pyunits.rad))
                         - 0.04089 * sin(pyunits.convert(2 * self.B, to_units=pyunits.rad)))
+                )
             )
-        )
 
-        # Hour angle of sun, D&B 4th ed. pg. 13
-        self.eq_omega = Constraint(
-            expr=self.omega
-            == 15 * pyunits.deg * (self.solar_time - 12 * pyunits.hours)
-        )
+        @self.Constraint(doc="Hour angle of sun, D&B 4th ed. pg. 13")
+        def eq_omega(b):
+            return (
+                self.omega
+                == 15 * pyunits.deg * (self.solar_time - 12 * pyunits.hours)
+            )
 
-        # Solar zenith angle, D&B 4th ed. eqn. 1.6.5
-        self.eq_theta_z = Constraint(
-            expr=cos(pyunits.convert(self.theta_z, to_units=pyunits.rad))
-            == (
+        @self.Constraint(doc="Solar zenith angle, D&B 4th ed. eqn. 1.6.5")
+        def eq_theta_z(b):
+            return (
+                cos(pyunits.convert(self.theta_z, to_units=pyunits.rad))
+                == (
                     cos(pyunits.convert(self.phi, to_units=pyunits.rad))
                     * cos(pyunits.convert(self.delta, to_units=pyunits.rad))
                     * cos(pyunits.convert(self.omega, to_units=pyunits.rad))
                     + sin(pyunits.convert(self.phi, to_units=pyunits.rad))
                     * sin(pyunits.convert(self.delta, to_units=pyunits.rad))
+                )
             )
-        )
 
-        # Declination of sun, D&B 4th ed. eqn. 1.6.1a
-        self.eq_delta = Constraint(
-            expr=self.delta
-            == 23.45 * pyunits.deg * sin(pyunits.convert(360 * pyunits.deg * (284 + self.day_of_year) / 365, to_units=pyunits.rad))
-        )
+        @self.Constraint(doc="Declination of sun, D&B 4th ed. eqn. 1.6.1a")
+        def eq_delta(b):
+            return (
+                self.delta
+                == 23.45 * pyunits.deg * sin(pyunits.convert(360 * pyunits.deg * (284 + self.day_of_year) / 365, to_units=pyunits.rad))
+            )
 
-        # Ratio of beam radiation on tilted surface to horizontal surface in northern hemisphere for collectors facing south
-        # D&B 4th ed. eqn. 1.8.2
-        self.eq_R_b = Constraint(
-            expr=self.R_b
-            == (
+        @self.Constraint(doc="Ratio of beam radiation on tilted surface to horizontal surface in northern hemisphere for collectors facing south, D&B 4th ed. eqn. 1.8.2")
+        def eq_R_b(b):
+            return (
+                self.R_b
+                == (
                     (cos(pyunits.convert(self.phi - self.beta, to_units=pyunits.rad))
                     * cos(pyunits.convert(self.delta, to_units=pyunits.rad)) * cos(pyunits.convert(self.omega, to_units=pyunits.rad))
                     + sin(pyunits.convert(self.phi - self.beta, to_units=pyunits.rad)) * sin(pyunits.convert(self.delta, to_units=pyunits.rad)))
@@ -222,51 +228,40 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                     (cos(pyunits.convert(self.phi, to_units=pyunits.rad)) * cos(pyunits.convert(self.delta, to_units=pyunits.rad))
                     * cos(pyunits.convert(self.omega, to_units=pyunits.rad))
                     + sin(pyunits.convert(self.phi, to_units=pyunits.rad)) * sin(pyunits.convert(self.delta, to_units=pyunits.rad)))
+                )
             )
-        )
-        
-        # Ratio of beam radiation on tilted surface to horizontal surface, D&B 4th ed. eqn. 1.8.1
-        self.eq_R_b_2 = Constraint(
-            expr=self.R_b
-            == (
+
+        @self.Constraint(doc="Ratio of beam radiation on tilted surface to horizontal surface, D&B 4th ed. eqn. 1.8.1")
+        def eq_R_b_2(b):
+            return (
+                self.R_b
+                == (
                     cos(pyunits.convert(self.theta, to_units=pyunits.rad))
                     / cos(pyunits.convert(self.theta_z, to_units=pyunits.rad))
+                )
             )
-        )
 
-        # Beam radiation on a horizontal surface
-        self.eq_G_b = Constraint(
-            expr=self.G_b
-            == self.G_bn * cos(pyunits.convert(self.theta, to_units=pyunits.rad))
-        )
+        @self.Constraint(doc="Beam radiation on a horizontal surface")
+        def eq_G_b(b):
+            return (
+                self.G_b
+                == self.G_bn * cos(pyunits.convert(self.theta, to_units=pyunits.rad))
+            )
 
-        # Total radiation on a horizontal surface
-        self.eq_G = Constraint(
-            expr=self.G
-            == self.G_b + self.G_d
-        )
+        @self.Constraint(doc="Total radiation on a horizontal surface")
+        def eq_G(b):
+            return (
+                self.G
+                == self.G_b + self.G_d
+            )
 
-        # Total radiation on tilted surface via isotropic diffuse sky model
-        self.eq_G_T = Constraint(
-            expr=self.G_T
-            == (
+        @self.Constraint(doc="Total radiation on tilted surface via isotropic diffuse sky model")
+        def eq_G_T(b):
+            return (
+                self.G_T
+                == (
                     self.G_b * self.R_b
                     + self.G_d * (1 + cos(pyunits.convert(self.beta, to_units=pyunits.rad))) / 2
                     + self.G * self.rho_g * (1 - cos(pyunits.convert(self.beta, to_units=pyunits.rad))) / 2
                 )
-        )
-
-        # NOTE: this is an alternative formulation for G_T that does not currently work
-        # @self.Constraint(doc="Total radiation on tilted surface via isotropic diffuse sky model")
-        # def eq_G_T():
-        #     return (
-        #         self.G_T
-        #         == (
-        #             self.G_b * self.R_b
-        #             + self.G_d * (1 + cos(pyunits.convert(self.beta, to_units=pyunits.rad))) / 2
-        #             + self.G * self.rho_g * (1 - cos(pyunits.convert(self.beta, to_units=pyunits.rad))) / 2
-        #         )
-        #     )
-
-    # def initialize_build(self):
-    #     pass
+            )
