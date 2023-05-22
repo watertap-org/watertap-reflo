@@ -1,1 +1,2 @@
+from .irradiance_model_iso import IrradianceModelIsoSky
 from .flat_plate_physical import FlatPlatePhysical
