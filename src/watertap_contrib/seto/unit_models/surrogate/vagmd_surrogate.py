@@ -10,7 +10,7 @@
 # "https://github.com/watertap-org/watertap/"
 #
 ###############################################################################
-
+from copy import deepcopy
 # Import Pyomo libraries
 from pyomo.environ import (
     Block,
@@ -45,8 +45,7 @@ from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
 
 # Import Watertap packages
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap.property_models.water_prop_pack import WaterParameterBlock
+from watertap.core.util.model_diagnostics.infeasible import *
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
@@ -89,7 +88,20 @@ class VAGMDData(UnitModelBlockData):
         ),
     )
     CONFIG.declare(
-        "property_package",
+        "property_package_seawater",
+        ConfigValue(
+            default=useDefault,
+            domain=is_physical_parameter_block,
+            description="Property package to use for control volume",
+            doc="""Property parameter object used to define property calculations,
+    **default** - useDefault.
+    **Valid values:** {
+    **useDefault** - use default package from parent model or flowsheet,
+    **PhysicalParameterObject** - a PhysicalParameterBlock object.}""",
+        ),
+    )
+    CONFIG.declare(
+        "property_package_water",
         ConfigValue(
             default=useDefault,
             domain=is_physical_parameter_block,
@@ -144,7 +156,52 @@ class VAGMDData(UnitModelBlockData):
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
-        units_meta = self.config.property_package.get_metadata().get_derived_units
+        units_meta = self.config.property_package_seawater.get_metadata().get_derived_units
+
+        """
+        Model parameters
+        """
+        self.gas_constant_1 = Param(
+            initialize = 8.314,
+            units = pyunits.J / pyunits.K / pyunits.mol,
+            doc = "Gas constan in J/K mol"
+        )
+
+        self.gas_constant_2 = Param(
+            initialize = 0.082,
+            units = pyunits.atm * pyunits.L / pyunits.K /pyunits.mol,
+            doc = "Gas constant in atm * L /K mol"
+        )
+
+        self.pump_efficiency = Param(
+            initialize = 0.6,
+            units = pyunits.dimensionless,
+            doc = "Pump efficiency"
+        )
+
+        self.heat_exchanger_area = Param(
+            initialize = 1.34,
+            units = pyunits.m**2,
+            doc = "Effective heat transfer coefficient"
+        )
+
+        self.cooling_flow_rate = Param(
+            initialize = 1265,
+            units = pyunits.L / pyunits.h,
+            doc = "Cooling water volumetric flow rate, fixed to 1265L/h, to maintain vacuum pressure inside the MD module around 200 mbar"
+        )
+
+        self.thermal_heat_transfer_coeff = Param(
+            initialize = 3168,
+            units = pyunits.W / pyunits.m**2 / pyunits.K,
+            doc = "Overall heat transfer coefficient"
+        )
+
+        self.cooling_flow_pressure_drop = Param(
+            initialize = 170,
+            units = pyunits.mbar,
+            doc = "Cooling flow pressure drop"
+        )
 
         """
         MD Module type and corresponding area
@@ -153,46 +210,80 @@ class VAGMDData(UnitModelBlockData):
             self.module_area = Param(
                 initialize=7.2, units=pyunits.m**2, doc="Area of module AS7C1.5L"
             )
-        else:  # module_type = 'AS26C7.2L'
+        else:  # module_type = "AS26C7.2L"
             self.module_area = Param(
                 initialize=25.92, units=pyunits.m**2, doc="Area of module AS26C7.2L"
             )
-
-        self.dt = Var(
-            initialize=30,
-            bounds=(0, None),
-            units=pyunits.s,
-            doc="Time step of the simulation (s)",
-        )
 
         """
         Intermediate variables
         """
         self.permeate_flux = Var(
             initialize=10,
+            bounds=(0, None),
             units=pyunits.L / pyunits.h / pyunits.m**2,
             doc="Permeate flux",
         )
 
+        self.feed_flow_pressure_drop = Var(
+            initialize = 100,
+            bounds = (0,None),
+            units = pyunits.mbar,
+            doc = "Feed flow pressure drop"
+        )
+
         self.log_mean_temp_dif = Var(
             initialize=0,
+            bounds=(0, None),
             units=pyunits.C,
             doc="Log mean temperature difference in the MD module",
         )
+
+        # self.thermal_resistance_hot = Var(
+        #     initialize = 1e3,
+        #     bounds = (0, None),
+        #     units = pyunits.W / pyunits.k,
+        #     doc = "Thermal resistance on the hot side"
+        # )
+
+        # self.thermal_resistance_cold = Var(
+        #     initialize = 1e3,
+        #     bounds = (0, None),
+        #     units = pyunits.W / pyunits.k,
+        #     doc = "Thermal resistance on the cold side"
+        # )
+
+        # self.number_transfer_units = Var(
+        #     initialize = 10,
+        #     bounds = (0, None),
+        #     units = pyunits.dimensionless,
+        #     doc = "The number of transfer units"
+        # )
+
+    
 
         """
         Output variables
         """
         self.thermal_power = Var(
             initialize=10,
+            bounds=(0, None),
             units=pyunits.kW,
             doc="Thermal power",
         )
 
-        self.thermal_energy = Var(
-            initialize=0,
-            units=pyunits.kW,
-            doc="Thermal energy consumption",
+        self.feed_pump_power_elec = Var(
+            initialize = 0.005,
+            bounds = (0, None),
+            units = pyunits.kW,
+            doc = "Electric power for pumping feed water"
+        )
+
+        self.cooling_pump_power_elec = Var(
+            initialize = 0.005,
+            bounds = (0, None),
+            units = pyunits.kW,
+            doc = "Electric power for pumping cooling water"
         )
 
         """
@@ -200,10 +291,10 @@ class VAGMDData(UnitModelBlockData):
         """
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
-        tmp_dict["parameters"] = self.config.property_package
+        tmp_dict["parameters"] = self.config.property_package_seawater
         tmp_dict["defined_state"] = True
 
-        self.feed_props = self.config.property_package.state_block_class(
+        self.feed_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of feed water",
             **tmp_dict
@@ -214,7 +305,7 @@ class VAGMDData(UnitModelBlockData):
         """
         tmp_dict["defined_state"] = False
 
-        self.permeate_props = self.config.property_package.state_block_class(
+        self.permeate_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of permeated water",
             **tmp_dict
@@ -232,7 +323,7 @@ class VAGMDData(UnitModelBlockData):
         """
         tmp_dict["defined_state"] = True
 
-        self.evaporator_in_props = self.config.property_package.state_block_class(
+        self.evaporator_in_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of evaporator inlet water",
             **tmp_dict
@@ -243,7 +334,7 @@ class VAGMDData(UnitModelBlockData):
         """
         tmp_dict["defined_state"] = False
 
-        self.evaporator_out_props = self.config.property_package.state_block_class(
+        self.evaporator_out_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of evaporator outlet water",
             **tmp_dict
@@ -254,7 +345,7 @@ class VAGMDData(UnitModelBlockData):
         """
         tmp_dict["defined_state"] = True
 
-        self.condenser_in_props = self.config.property_package.state_block_class(
+        self.condenser_in_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of condenser inlet water",
             **tmp_dict
@@ -265,7 +356,7 @@ class VAGMDData(UnitModelBlockData):
         """
         tmp_dict["defined_state"] = False
 
-        self.condenser_out_props = self.config.property_package.state_block_class(
+        self.condenser_out_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of condenser outlet water",
             **tmp_dict
@@ -274,11 +365,23 @@ class VAGMDData(UnitModelBlockData):
         """
         Add block for the average status of the feed flow
         """
-        self.avg_feed_props = self.config.property_package.state_block_class(
+        self.avg_feed_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Average properties of the feed water",
             **tmp_dict
         )
+
+        tmp_dict["parameters"] = self.config.property_package_water
+        """
+        Add block for the average status in the condenser
+        """
+        self.avg_condenser_props = self.config.property_package_water.state_block_class(
+            self.flowsheet().config.time,
+            doc="Average properties of water in the condenser",
+            **tmp_dict
+        )    
+        self.avg_condenser_props[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
+        self.avg_condenser_props[0].pressure.fix(101325)
 
         """
         Constraint equations
@@ -298,6 +401,10 @@ class VAGMDData(UnitModelBlockData):
         def eq_avg_temp_heat_tank(b):
             return b.avg_feed_props[0].temperature == (TEI + TCO) / 2
 
+        @self.Constraint(doc="Average temperature of the flow in the condenser")
+        def eq_avg_temp_condenser(b):
+            return b.avg_condenser_props[0].temperature == (TCI + TCO) / 2
+
         @self.Constraint(doc="Average salinity of the feed flow")
         def eq_avg_salinity_feed_tank(b):
             return (
@@ -305,18 +412,25 @@ class VAGMDData(UnitModelBlockData):
                 == b._get_membrane_performance(TEI, FFR, TCI, S)[3] / 1000
             )
 
-        @self.Constraint(doc="Average flowrate of the feed flow")
+        @self.Constraint(doc="Flowrate of the average feed flow block")
         def eq_feed_volumetric_flow_rate(b):
             return (
                 b.avg_feed_props[0].flow_vol_phase["Liq"]
                 == b.feed_props[0].flow_vol_phase["Liq"]
             )
 
-        @self.Constraint(
-            doc="Permeate flux",
-        )
+        @self.Constraint(doc="Permeate flux")
         def eq_permeate_flux(b):
             return b.permeate_flux == b._get_membrane_performance(TEI, FFR, TCI, S)[0]
+
+        @self.Constraint(doc="Feed flow pressure drop")
+        def eq_feed_flow_pressure_drop(b):
+            return (
+                    b.feed_flow_pressure_drop == 
+                    b._get_pressure_drop(pyunits.convert(b.feed_props[0].flow_vol_phase["Liq"], 
+                                                         to_units=pyunits.L / pyunits.h), 
+                                         b.feed_props[0].conc_mass_phase_comp["Liq", "TDS"])
+                    )
 
         @self.Constraint(doc="Evaporatore outlet temperature")
         def eq_evaporator_outlet_temp(b):
@@ -339,6 +453,10 @@ class VAGMDData(UnitModelBlockData):
                 to_units=pyunits.m**3 / pyunits.s,
             )
 
+        @self.Constraint(doc="Condenser mass flow rate")
+        def eq_condenser_mass_flow_rate(b):
+            return b.avg_condenser_props[0].flow_mass_phase_comp["Liq", "H2O"] == b.permeate_props[0].flow_mass_phase_comp["Liq", "H2O"]
+
         @self.Constraint(doc="initial log mean temperature difference")
         def eq_log_mean_temp_dif(b):
             return b.log_mean_temp_dif == ((TEI - TCO) - (TEO - TCI)) / log(
@@ -353,17 +471,28 @@ class VAGMDData(UnitModelBlockData):
                 (FFR * CpF * (TEI - TCO)) * (RhoF), to_units=pyunits.kW
             )
 
-        @self.Constraint(doc="Thermal energy consumption")
-        def eq_thermal_energy(b):
-            return b.thermal_energy == pyunits.convert(
-                b.thermal_power * b.dt, to_units=pyunits.kWh
+        @self.Constraint(doc="Electric power for pumping feed water")
+        def eq_feed_pump_power_elec(b):
+            return (
+                b.feed_pump_power_elec == pyunits.convert(
+                                        b.gas_constant_1 / b.gas_constant_2 
+                                        * b.feed_flow_pressure_drop / b.pump_efficiency
+                                        * b.feed_props[0].flow_vol_phase["Liq"],
+                                        to_units = pyunits.kW)
+            )
+
+        @self.Constraint(doc="Electric power for pumping cooling water")
+        def eq_cooling_pump_power_elec(b):
+            return (
+                b.cooling_pump_power_elec == pyunits.convert(
+                                        b.gas_constant_1 / b.gas_constant_2 
+                                        * b.cooling_flow_pressure_drop / b.pump_efficiency
+                                        * b.cooling_flow_rate,
+                                        to_units = pyunits.kW)
             )
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
-
-        if iscale.get_scaling_factor(self.dt) is None:
-            iscale.set_scaling_factor(self.dt, 1e-1)
 
         if iscale.get_scaling_factor(self.permeate_flux) is None:
             iscale.set_scaling_factor(self.permeate_flux, 1)
@@ -372,43 +501,61 @@ class VAGMDData(UnitModelBlockData):
             iscale.set_scaling_factor(self.log_mean_temp_dif, 1e-1)
 
         if iscale.get_scaling_factor(self.thermal_power) is None:
-            iscale.set_scaling_factor(self.thermal_power, 1)
+            iscale.set_scaling_factor(self.thermal_power, 1e-1)
 
-        if iscale.get_scaling_factor(self.thermal_energy) is None:
-            iscale.set_scaling_factor(self.thermal_energy, 1e1)
+        if iscale.get_scaling_factor(self.feed_flow_pressure_drop) is None:
+            iscale.set_scaling_factor(self.feed_flow_pressure_drop, 1e-1)
+
+        if iscale.get_scaling_factor(self.feed_pump_power_elec) is None:
+            iscale.set_scaling_factor(self.feed_pump_power_elec, 1e3)
+
+        if iscale.get_scaling_factor(self.cooling_pump_power_elec) is None:
+            iscale.set_scaling_factor(self.cooling_pump_power_elec, 1e3)
+
 
         # Transforming constraint
 
-        # sf = iscale.get_scaling_factor(self.avg_feed_props[0].temperature)
-        iscale.constraint_scaling_transform(self.eq_avg_temp_heat_tank, 1e-2)
+        sf = iscale.get_scaling_factor(self.feed_props[0].temperature)
+        iscale.constraint_scaling_transform(self.eq_distillate_temp, sf)
 
-        # sf = iscale.get_scaling_factor(
-        #     self.avg_feed_props[0].mass_frac_phase_comp["Liq", "TDS"]
-        # )
-        iscale.constraint_scaling_transform(self.eq_avg_salinity_feed_tank, 1e-1)
+        sf = iscale.get_scaling_factor(self.avg_feed_props[0].temperature)
+        iscale.constraint_scaling_transform(self.eq_avg_temp_heat_tank, sf)
 
-        # sf = iscale.get_scaling_factor(
-        #     self.avg_feed_props[0].flow_vol_phase["Liq"]
-        # )
-        iscale.constraint_scaling_transform(self.eq_feed_volumetric_flow_rate, 1e5)
+        sf = iscale.get_scaling_factor(self.avg_condenser_props[0].temperature)
+        iscale.constraint_scaling_transform(self.eq_avg_temp_condenser, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.avg_feed_props[0].mass_frac_phase_comp["Liq", "TDS"]
+        )
+        iscale.constraint_scaling_transform(self.eq_avg_salinity_feed_tank, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.avg_feed_props[0].flow_vol_phase["Liq"]
+        )
+        iscale.constraint_scaling_transform(self.eq_feed_volumetric_flow_rate, sf)
 
         sf = iscale.get_scaling_factor(self.permeate_flux)
         iscale.constraint_scaling_transform(self.eq_permeate_flux, sf)
 
-        # sf = iscale.get_scaling_factor(
-        #     self.evaporator_out_props[0].temperature
-        # )
-        iscale.constraint_scaling_transform(self.eq_evaporator_outlet_temp, 1e-2)
+        sf = iscale.get_scaling_factor(
+            self.evaporator_out_props[0].temperature
+        )
+        iscale.constraint_scaling_transform(self.eq_evaporator_outlet_temp, sf)
 
-        # sf = iscale.get_scaling_factor(
-        #     self.condenser_out_props[0].temperature
-        # )
-        iscale.constraint_scaling_transform(self.eq_condenser_outlet_temp, 1e-2)
+        sf = iscale.get_scaling_factor(
+            self.condenser_out_props[0].temperature
+        )
+        iscale.constraint_scaling_transform(self.eq_condenser_outlet_temp, sf)
 
-        # sf = iscale.get_scaling_factor(
-        #     self.permeate_props[0].flow_vol_phase["Liq"]
-        # )
-        iscale.constraint_scaling_transform(self.eq_permeate_volumetric_flow_rate, 1e5)
+        sf = iscale.get_scaling_factor(
+            self.permeate_props[0].flow_vol_phase["Liq"]
+        )
+        iscale.constraint_scaling_transform(self.eq_permeate_volumetric_flow_rate, sf)
+
+        sf = iscale.get_scaling_factor(
+            self.avg_condenser_props[0].flow_mass_phase_comp["Liq", "H2O"]
+        )        
+        iscale.constraint_scaling_transform(self.eq_condenser_mass_flow_rate, sf)
 
         sf = iscale.get_scaling_factor(self.log_mean_temp_dif)
         iscale.constraint_scaling_transform(self.eq_log_mean_temp_dif, sf)
@@ -416,18 +563,141 @@ class VAGMDData(UnitModelBlockData):
         sf = iscale.get_scaling_factor(self.thermal_power)
         iscale.constraint_scaling_transform(self.eq_thermal_power, sf)
 
-        sf = iscale.get_scaling_factor(self.thermal_energy)
-        iscale.constraint_scaling_transform(self.eq_thermal_energy, sf)
+        sf = iscale.get_scaling_factor(self.feed_flow_pressure_drop)
+        iscale.constraint_scaling_transform(self.eq_feed_flow_pressure_drop, sf)
 
-    # def initialize_build(self, state_args=None,
-    #                solver=None, optarg=None, outlvl=idaeslog.NOTSET):
-    #     init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
-    #     init_log.info_low("Starting initialization...")
+        sf = iscale.get_scaling_factor(self.feed_pump_power_elec)
+        iscale.constraint_scaling_transform(self.eq_feed_pump_power_elec, sf)
+
+        sf = iscale.get_scaling_factor(self.cooling_pump_power_elec)
+        iscale.constraint_scaling_transform(self.eq_cooling_pump_power_elec, sf)
+
+    def initialize_build(
+        self,
+        state_args=None,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
+    ):
+        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="properties")
+        solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="properties")
+        init_log.info_low("Starting initialization...")
+        # Iniitialize feed properties
+
+        flags = self.feed_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+            hold_state=True,
+        )
+
+        init_log.info_low("Initialization for feed Completed.")
+
+        if state_args is None:
+            self.state_args = state_args = {}
+            state_dict = self.feed_props[
+                self.flowsheet().config.time.first()
+            ].define_port_members()
+
+            for k in state_dict.keys():
+                if state_dict[k].is_indexed():
+                    state_args[k] = {}
+                    for m in state_dict[k].keys():
+                        state_args[k][m] = state_dict[k][m].value
+                else:
+                    state_args[k] = state_dict[k].value
+        init_log.info_low("Starting initialization of evaporator_in_props ")
+        self.evaporator_in_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+        )
+
+        init_log.info_low("Starting initialization of evaporator_out_props ")
+        self.evaporator_out_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+        )
+        init_log.info_low("Starting initialization of condenser_in_props ")
+        self.condenser_in_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+        )
+
+        init_log.info_low("Starting initialization of condenser_out_props ")
+        self.condenser_out_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+        )
+
+        init_log.info_low("Starting initialization of avg_feed_props ")
+        self.avg_feed_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+        )
+
+        state_args_water = {}
+        state_dict_water = self.avg_condenser_props[
+            self.flowsheet().config.time.first()
+        ].define_port_members()
+
+        for k in state_dict_water.keys():
+            if state_dict_water[k].is_indexed():
+                state_args_water[k] = {}
+                for m in state_dict_water[k].keys():
+                    state_args_water[k][m] = state_dict_water[k][m].value
+            else:
+                state_args_water[k] = state_dict_water[k].value
+
+        for p, j in self.avg_condenser_props.phase_component_set:
+            if p == "Vap" and j == "H2O":
+                state_args_water["flow_mass_phase_comp"][(p, j)] = 0
+
+        init_log.info_low("Starting initialization of avg_condenser_props ")
+        self.avg_condenser_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_water,
+        )
+
+        state_args_permeate = deepcopy(state_args)
+        for p, j in self.permeate_props.phase_component_set:
+            if j == "TDS":
+                state_args_permeate["flow_mass_phase_comp"][(p, j)] = 0
+
+        init_log.info_low("Starting initialization of permeate_props ")
+        self.permeate_props.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_permeate,
+        )
+
+        opt = get_solver(solver, optarg)
+        print('unit dof', degrees_of_freedom(self))
+        assert degrees_of_freedom(self) == 0        
+
+        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
+            res = opt.solve(self, tee=slc.tee)
+            print_close_to_bounds(self)
+            print_infeasible_constraints(self) 
+        init_log.info("Initialization status {}.".
+                      format(idaeslog.condition(res)))
 
     """
     Equation to calculate pressure drop
     """
-
     def _get_pressure_drop(self, flow_rate, salinity):
         if self.config.module_type == "AS7C1.5L":
             coefficients = [
@@ -628,6 +898,7 @@ class VAGMDData(UnitModelBlockData):
 
         TEI -= 273.15
         TCI -= 273.15
+        
         CoderVars = [
             [1, TEI, TEI**2],
             [1, FFR, FFR**2],

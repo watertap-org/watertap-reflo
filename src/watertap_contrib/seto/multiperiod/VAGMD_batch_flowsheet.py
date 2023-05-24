@@ -13,6 +13,7 @@ from pyomo.environ import (
     value,
     units as pyunits,
 )
+from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 # IDAES imports
 from idaes.core.util.model_statistics import degrees_of_freedom
@@ -28,6 +29,7 @@ from idaes.core.util.scaling import (
 
 # WaterTAP imports
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogate
 
 
@@ -53,27 +55,31 @@ def build_vagmd_flowsheet(
         m = ConcreteModel()
 
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = SeawaterParameterBlock()
+    m.fs.seawater_properties = SeawaterParameterBlock()
+    m.fs.water_properties = WaterParameterBlock()
     m.fs.vagmd = VAGMDSurrogate(
-        property_package=m.fs.properties,
+        property_package_seawater=m.fs.seawater_properties,
+        property_package_water=m.fs.water_properties,
         module_type=module_type,
         high_brine_salinity=high_brine_salinity,
         cooling_system_type=cooling_system_type,
     )
 
     # Fix the model inputs
-    m.fs.vagmd.feed_props[0].flow_vol_phase["Liq"].fix(
-        pyunits.convert(
-            feed_flow_rate * pyunits.L / pyunits.h, to_units=pyunits.m**3 / pyunits.s
-        )
-    )
     m.fs.vagmd.evaporator_in_props[0].temperature.fix(evap_inlet_temp + 273.15)
 
     if cooling_system_type == "closed":  # TODO: update closed cooling
         m.fs.vagmd.condenser_in_props[0].temperature.fix(cond_inlet_temp + 273.15)
     else:  # "open"
         m.fs.vagmd.condenser_in_props[0].temperature.fix(cond_inlet_temp + 273.15)
-
+    
+    # Define time interval
+    m.fs.dt = Var(
+        initialize=30,
+        bounds=(0, None),
+        units=pyunits.s,
+        doc="Time step of the simulation (s)",
+    )
     """
     Variables inherited from previous period
     """
@@ -112,6 +118,14 @@ def build_vagmd_flowsheet(
         doc="Accumulated thermal energy consumption from previous time step",
     )
 
+    m.fs.pre_thermal_power = Var(
+        initialize= 10,
+        bounds=(0, None),
+        units=pyunits.kW,
+        doc="Accumulated thermal power from previous time step",
+    )
+
+
     """
     Variables aggrated through periods
     """
@@ -139,6 +153,12 @@ def build_vagmd_flowsheet(
         doc="Specific thermal power consumption (kWh/m3)",
     )
 
+    m.fs.gain_output_ratio = Var(
+        initialize=10,
+        units=pyunits.dimensionless,
+        doc="Gain output ratio",
+    )
+
     """
     Constriant equatiosn
     """
@@ -147,9 +167,9 @@ def build_vagmd_flowsheet(
     @mfs.Constraint(doc="Calculate time interval of each period")
     def eq_dt(b):
         if module_type == "AS7C1.5L":
-            return b.vagmd.dt == 20352.55 / feed_flow_rate
+            return b.dt == 20352.55 / feed_flow_rate
         else:  # module_type == "AS26C7.2L"
-            return b.vagmd.dt == 73269.19 / feed_flow_rate
+            return b.dt == 73269.19 / feed_flow_rate
 
     @mfs.Constraint(doc="Calculate current feed salinity")
     def eq_feed_salinity(b):
@@ -161,12 +181,12 @@ def build_vagmd_flowsheet(
     def eq_feed_temp(b):
         return b.vagmd.feed_props[0].temperature == (
             feed_flow_rate
-            * pyunits.convert(b.vagmd.dt, to_units=pyunits.h)
+            * pyunits.convert(b.dt, to_units=pyunits.h)
             * b.pre_evap_out_temp
             + (initial_batch_volume - b.pre_acc_distillate_volume)
             * b.pre_feed_temperature
         ) / (
-            feed_flow_rate * pyunits.convert(b.vagmd.dt, to_units=pyunits.h)
+            feed_flow_rate * pyunits.convert(b.dt, to_units=pyunits.h)
             + initial_batch_volume
             - b.pre_acc_distillate_volume
         )
@@ -174,7 +194,7 @@ def build_vagmd_flowsheet(
     @mfs.Constraint(doc="Calculate accumulated distillate volume")
     def eq_acc_distillate_volume(b):
         return b.acc_distillate_volume == b.pre_acc_distillate_volume + pyunits.convert(
-            b.pre_permeate_flow_rate * b.vagmd.dt, to_units=pyunits.L
+            b.pre_permeate_flow_rate * b.dt, to_units=pyunits.L
         )
 
     @mfs.Constraint(doc="Calculate accmulated recovery ratio")
@@ -187,22 +207,83 @@ def build_vagmd_flowsheet(
 
     @mfs.Constraint(doc="Calculate accmulated thermal energy consumption")
     def eq_acc_thermal_energy(b):
-        return b.acc_thermal_energy == b.pre_acc_thermal_energy + b.vagmd.thermal_energy
+        return b.acc_thermal_energy == b.pre_acc_thermal_energy + pyunits.convert(b.pre_thermal_power * b.dt, to_units = pyunits.kWh)
 
-    # @m.Constraint(doc="Calculate specific thermal energy consumption")
-    # def eq_specific_thermal_energy_consumption(b):
-    #     return (b.fs.specific_energy_consumption_thermal == pyunits.convert(b.fs.acc_thermal_energy / (b.fs.acc_distillate_volume+1e-8*pyunits.L),
-    #                                                                         to_units= pyunits.kWh / pyunits.m**3))
+    @mfs.Constraint(doc="Calculate specific thermal energy consumption")
+    def eq_specific_energy_consumption_thermal(b):
+        return (b.specific_energy_consumption_thermal == pyunits.convert(b.acc_thermal_energy / (b.acc_distillate_volume+1e-8*pyunits.L),
+                                                                            to_units= pyunits.kWh / pyunits.m**3))
+
+    @mfs.Constraint(doc="Calculate gain output ratio")
+    def eq_gain_output_ratio(b):
+        return (b.gain_output_ratio == pyunits.convert(b.acc_distillate_volume * 
+                                                       b.vagmd.avg_condenser_props[0].dens_mass_phase["Liq"] *
+                                                       b.vagmd.avg_condenser_props[0].dh_vap_mass / 
+                                                       (b.acc_thermal_energy + 1e-8*pyunits.kWh),
+                                                       to_units= pyunits.dimensionless))
 
     return m
 
 
 def fix_dof_and_initialize(
     m,
+    feed_flow_rate = 600,
+    feed_salinity = 35,
+    feed_temp = 25,
     outlvl=idaeslog.WARNING,
 ):
 
-    m.fs.vagmd.calculate_scaling_factors()
+    # Initialize 2
+
+    # m.fs.vagmd.feed_props.calculate_state(
+    #     var_args={
+    #         ("flow_vol_phase", "Liq"): pyunits.convert(feed_flow_rate * pyunits.L / pyunits.h, to_units= pyunits.m**3 / pyunits.s),
+    #         ("conc_mass_phase_comp", ("Liq", "TDS")): 35.2555,
+    #         ("temperature", None): 25.9726 + 273.15,
+    #         ("pressure", None): 101325,
+    #     },
+    #     hold_state=True,
+    # )
+
+    # m.fs.pre_feed_temperature.fix(feed_temp + 273.15)
+    # m.fs.pre_feed_salinity.fix(feed_salinity)
+    # m.fs.pre_evap_out_temp.fix(34.5742 + 273.15)
+    # m.fs.pre_permeate_flow_rate.fix(1.068e-5)
+    # m.fs.pre_acc_distillate_volume.fix(0)
+    # m.fs.pre_acc_thermal_energy.fix(0)
+    # m.fs.pre_thermal_power.fix(0)
+
+    # m.fs.vagmd.initialize_build(outlvl=outlvl)
+    # m.fs.vagmd.feed_props[0].temperature.unfix()
+    # m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"].unfix()
+ 
+
+    # Initialize 1
+    m.fs.vagmd.feed_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): pyunits.convert(feed_flow_rate * pyunits.L / pyunits.h, to_units= pyunits.m**3 / pyunits.s),
+            ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
+            ("temperature", None): feed_temp + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+    calculate_variable_from_constraint(m.fs.pre_feed_temperature, m.fs.eq_feed_temp)
+    m.fs.pre_feed_temperature.fix()
+    m.fs.pre_permeate_flow_rate.fix(0)
+    m.fs.acc_distillate_volume.fix(0)
+    m.fs.acc_thermal_energy.fix(0)
+    m.fs.pre_thermal_power.fix(0)
+
+
+    m.fs.vagmd.initialize_build(outlvl=outlvl)
+
+
+    calculate_scaling_factors(m.fs.vagmd)
+
+
+    if iscale.get_scaling_factor(m.fs.dt) is None:
+        iscale.set_scaling_factor(m.fs.dt, 1e-1)
 
     if iscale.get_scaling_factor(m.fs.pre_feed_salinity) is None:
         iscale.set_scaling_factor(m.fs.pre_feed_salinity, 1e-2)
@@ -231,25 +312,39 @@ def fix_dof_and_initialize(
     if iscale.get_scaling_factor(m.fs.acc_thermal_energy) is None:
         iscale.set_scaling_factor(m.fs.acc_thermal_energy, 1e0)
 
+    if iscale.get_scaling_factor(m.fs.pre_thermal_power) is None:
+        iscale.set_scaling_factor(m.fs.pre_thermal_power, 1e-1)
+
     if iscale.get_scaling_factor(m.fs.specific_energy_consumption_thermal) is None:
         iscale.set_scaling_factor(m.fs.specific_energy_consumption_thermal, 1e-2)
 
-    # Transforming constraint
-    sf = iscale.get_scaling_factor(m.fs.vagmd.dt)
+    if iscale.get_scaling_factor(m.fs.gain_output_ratio) is None:
+        iscale.set_scaling_factor(m.fs.gain_output_ratio, 1e-1)
+
+    # # Transforming constraint
+    sf = iscale.get_scaling_factor(m.fs.dt)
     iscale.constraint_scaling_transform(m.fs.eq_dt, sf)
 
-    # sf = (iscale.get_scaling_factor(m.fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"]) *
-    #     iscale.get_scaling_factor(m.fs.acc_distillate_volume))
-    iscale.constraint_scaling_transform(m.fs.eq_feed_salinity, 1e4)
+    sf = (iscale.get_scaling_factor(m.fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"]) *
+        iscale.get_scaling_factor(m.fs.acc_distillate_volume))
+    iscale.constraint_scaling_transform(m.fs.eq_feed_salinity, sf)
 
-    # sf = iscale.get_scaling_factor(m.fs.vagmd.feed_props[0].temperature )
-    iscale.constraint_scaling_transform(m.fs.eq_feed_temp, 1e-2)
+    sf = iscale.get_scaling_factor(m.fs.vagmd.feed_props[0].temperature )
+    iscale.constraint_scaling_transform(m.fs.eq_feed_temp, sf)
 
-    # sf = iscale.get_scaling_factor(m.fs.eq_acc_distillate_volume )
-    iscale.constraint_scaling_transform(m.fs.eq_acc_distillate_volume, 1e-1)
+    sf = iscale.get_scaling_factor(m.fs.acc_distillate_volume )
+    iscale.constraint_scaling_transform(m.fs.eq_acc_distillate_volume, sf)
 
-    # sf = iscale.get_scaling_factor(m.fs.acc_recovery_ratio )
-    iscale.constraint_scaling_transform(m.fs.eq_acc_recovery_ratio, 1e2)
+    sf = iscale.get_scaling_factor(m.fs.acc_recovery_ratio )
+    iscale.constraint_scaling_transform(m.fs.eq_acc_recovery_ratio, sf)
 
-    # sf = iscale.get_scaling_factor(m.fs.acc_thermal_energy )
-    iscale.constraint_scaling_transform(m.fs.eq_acc_thermal_energy, 1e0)
+    sf = iscale.get_scaling_factor(m.fs.acc_thermal_energy )
+    iscale.constraint_scaling_transform(m.fs.eq_acc_thermal_energy, sf)
+
+    sf = iscale.get_scaling_factor(m.fs.specific_energy_consumption_thermal )
+    iscale.constraint_scaling_transform(m.fs.eq_specific_energy_consumption_thermal, sf)
+
+    sf = iscale.get_scaling_factor(m.fs.gain_output_ratio )
+    iscale.constraint_scaling_transform(m.fs.eq_gain_output_ratio, sf)
+
+
