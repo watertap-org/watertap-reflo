@@ -54,7 +54,8 @@ class TestVAGMD:
         initial_batch_volume=50
         module_type="AS7C1.5L"
         high_brine_salinity=False
-        cooling_system_type="closed"
+        cooling_system_type="open"
+        cooling_inlet_temp = 25 # Required when cooling system type is "open"
 
         m.fs.vagmd = VAGMDSurrogate(
             property_package_seawater=m.fs.seawater_properties,
@@ -85,7 +86,9 @@ class TestVAGMD:
         if cooling_system_type == "closed":  # TODO: update closed cooling
             m.fs.vagmd.condenser_in_props[0].temperature.fix(cond_inlet_temp + 273.15)
         else:  # "open"
-            m.fs.vagmd.condenser_in_props[0].temperature.fix(cond_inlet_temp + 273.15)
+            m.fs.vagmd.cooling_in_props[0].temperature.fix(cooling_inlet_temp + 273.15)
+
+        
 
         return m
 
@@ -127,4 +130,7 @@ class TestVAGMD:
 
         # Check for optimal solution
         assert_optimal_termination(results)
+
+        
+        assert m.fs.vagmd.condenser_in_props[0].temperature.value - 273.15 == pytest.approx(25, abs=1e-3)
 

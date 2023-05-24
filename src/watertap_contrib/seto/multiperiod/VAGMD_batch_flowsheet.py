@@ -44,6 +44,7 @@ def build_vagmd_flowsheet(
     module_type="AS7C1.5L",
     high_brine_salinity=False,
     cooling_system_type="closed",
+    cooling_inlet_temp = 25, # Required when cooling system type is "open"
 ):
     """
     This function builds a unit model for a certain time period
@@ -68,10 +69,10 @@ def build_vagmd_flowsheet(
     # Fix the model inputs
     m.fs.vagmd.evaporator_in_props[0].temperature.fix(evap_inlet_temp + 273.15)
 
-    if cooling_system_type == "closed":  # TODO: update closed cooling
+    if cooling_system_type == "closed":  
         m.fs.vagmd.condenser_in_props[0].temperature.fix(cond_inlet_temp + 273.15)
     else:  # "open"
-        m.fs.vagmd.condenser_in_props[0].temperature.fix(cond_inlet_temp + 273.15)
+        m.fs.vagmd.cooling_in_props[0].temperature.fix(cooling_inlet_temp + 273.15)
     
     # Define time interval
     m.fs.dt = Var(
@@ -118,12 +119,26 @@ def build_vagmd_flowsheet(
         doc="Accumulated thermal energy consumption from previous time step",
     )
 
+    m.fs.pre_acc_cooling_energy = Var(
+        initialize=0,
+        units=pyunits.kWh,
+        doc="Accumulated cooling energy consumption from previous time step",
+    )
+
     m.fs.pre_thermal_power = Var(
         initialize= 10,
         bounds=(0, None),
         units=pyunits.kW,
-        doc="Accumulated thermal power from previous time step",
+        doc="Thermal power consumption from previous time step",
     )
+
+    m.fs.pre_cooling_power = Var(
+        initialize= 10,
+        bounds=(0, None),
+        units=pyunits.kW,
+        doc="Cooling power consumption from previous time step",
+    )
+
 
 
     """
@@ -145,6 +160,12 @@ def build_vagmd_flowsheet(
         initialize=0,
         units=pyunits.kWh,
         doc="Accumulated thermal energy consumption",
+    )
+
+    m.fs.acc_cooling_energy = Var(
+        initialize=0,
+        units=pyunits.kWh,
+        doc="Accumulated cooling energy consumption",
     )
 
     m.fs.specific_energy_consumption_thermal = Var(
@@ -208,6 +229,10 @@ def build_vagmd_flowsheet(
     @mfs.Constraint(doc="Calculate accmulated thermal energy consumption")
     def eq_acc_thermal_energy(b):
         return b.acc_thermal_energy == b.pre_acc_thermal_energy + pyunits.convert(b.pre_thermal_power * b.dt, to_units = pyunits.kWh)
+
+    @mfs.Constraint(doc="Calculate accmulated thermal energy consumption")
+    def eq_acc_cooling_energy(b):
+        return b.acc_cooling_energy == b.pre_acc_cooling_energy + pyunits.convert(b.pre_cooling_power * b.dt, to_units = pyunits.kWh)
 
     @mfs.Constraint(doc="Calculate specific thermal energy consumption")
     def eq_specific_energy_consumption_thermal(b):
@@ -273,7 +298,9 @@ def fix_dof_and_initialize(
     m.fs.pre_permeate_flow_rate.fix(0)
     m.fs.acc_distillate_volume.fix(0)
     m.fs.acc_thermal_energy.fix(0)
+    m.fs.acc_cooling_energy.fix(0)
     m.fs.pre_thermal_power.fix(0)
+    m.fs.pre_cooling_power.fix(0)
 
 
     m.fs.vagmd.initialize_build(outlvl=outlvl)
@@ -303,6 +330,9 @@ def fix_dof_and_initialize(
     if iscale.get_scaling_factor(m.fs.pre_acc_thermal_energy) is None:
         iscale.set_scaling_factor(m.fs.pre_acc_thermal_energy, 1e0)
 
+    if iscale.get_scaling_factor(m.fs.pre_acc_cooling_energy) is None:
+        iscale.set_scaling_factor(m.fs.pre_acc_cooling_energy, 1e0)
+
     if iscale.get_scaling_factor(m.fs.acc_distillate_volume) is None:
         iscale.set_scaling_factor(m.fs.acc_distillate_volume, 1e-1)
 
@@ -312,8 +342,14 @@ def fix_dof_and_initialize(
     if iscale.get_scaling_factor(m.fs.acc_thermal_energy) is None:
         iscale.set_scaling_factor(m.fs.acc_thermal_energy, 1e0)
 
+    if iscale.get_scaling_factor(m.fs.acc_cooling_energy) is None:
+        iscale.set_scaling_factor(m.fs.acc_cooling_energy, 1e0)
+
     if iscale.get_scaling_factor(m.fs.pre_thermal_power) is None:
         iscale.set_scaling_factor(m.fs.pre_thermal_power, 1e-1)
+
+    if iscale.get_scaling_factor(m.fs.pre_cooling_power) is None:
+        iscale.set_scaling_factor(m.fs.pre_cooling_power, 1e-1)
 
     if iscale.get_scaling_factor(m.fs.specific_energy_consumption_thermal) is None:
         iscale.set_scaling_factor(m.fs.specific_energy_consumption_thermal, 1e-2)

@@ -48,7 +48,7 @@ class TestVAGMDbatch:
             initial_batch_volume=50,
             module_type= "AS26C7.2L",
             high_brine_salinity=False,
-            cooling_system_type="closed",
+            cooling_system_type="open",
         )
 
         return mp
@@ -66,9 +66,11 @@ class TestVAGMDbatch:
     def test_solution(self, VAGMD_batch_frame):
         mp = VAGMD_batch_frame
         blks = mp.get_active_process_blocks()
-        print(len(blks))
+        # print_close_to_bounds(mp)
+        # print_infeasible_constraints(mp)
+        # print(len(blks))
         print(
-            "{:<3}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}".format(
+            "{:<3}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}".format(
                 "t  ",
                 "t_minute",
                 "S",
@@ -79,16 +81,19 @@ class TestVAGMDbatch:
                 "TCO",
                 "RR",
                 "ThPower",
-                "AccThEnergy",
-                " STEC",
-                "ElPowerF",
-                "ElPowerC",
+                "AccThE",
+                "STEC",
                 "GOR",
+                "Cpower",
+                "CEnergy",
+                "TCI",
+                "TCoolIn",
+                "TCoolOut"
             )
         )
         for i in range(len(blks)):
             print(
-                "{:<3}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}".format(
+                "{:<3}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}".format(
                     round(i),
                     round(value(blks[i].fs.dt) * i / 60, 4),
                     round(
@@ -119,13 +124,22 @@ class TestVAGMDbatch:
                         value(blks[i].fs.specific_energy_consumption_thermal), 4
                     ),
                     round(
-                        value(blks[i].fs.vagmd.feed_pump_power_elec), 4
-                    ),
-                    round(
-                        value(blks[i].fs.vagmd.cooling_pump_power_elec), 4
-                    ),
-                    round(
                         value(blks[i].fs.gain_output_ratio), 4
+                    ),
+                    round(
+                        value(blks[i].fs.vagmd.cooling_power_thermal), 4
+                    ),
+                    round(
+                        value(blks[i].fs.acc_cooling_energy), 4
+                    ),
+                    round(
+                        value(blks[i].fs.vagmd.condenser_in_props[0].temperature)-273.15, 4
+                    ),
+                    round(
+                        value(blks[i].fs.vagmd.cooling_in_props[0].temperature)-273.15, 4
+                    ),
+                    round(
+                        value(blks[i].fs.vagmd.cooling_out_props[0].temperature)-273.15, 4
                     ),
                 )
             )

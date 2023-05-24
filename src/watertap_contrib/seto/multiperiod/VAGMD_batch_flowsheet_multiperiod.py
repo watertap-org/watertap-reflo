@@ -56,8 +56,10 @@ def get_vagmd_batch_variable_pairs(t1, t2):
             t2.fs.pre_permeate_flow_rate,
         ),
         (t1.fs.acc_thermal_energy, t2.fs.pre_acc_thermal_energy),
+        (t1.fs.acc_cooling_energy, t2.fs.pre_acc_cooling_energy),
         (t1.fs.acc_distillate_volume, t2.fs.pre_acc_distillate_volume),
-        (t1.fs.vagmd.thermal_power, t2.fs.pre_thermal_power)
+        (t1.fs.vagmd.thermal_power, t2.fs.pre_thermal_power),
+        (t1.fs.vagmd.cooling_power_thermal, t2.fs.pre_cooling_power),
     ]
 
 def unfix_dof(m, feed_flow_rate):
@@ -88,6 +90,8 @@ def unfix_dof(m, feed_flow_rate):
     m.fs.acc_distillate_volume.unfix()
     m.fs.acc_thermal_energy.unfix()
     m.fs.pre_thermal_power.unfix()
+    m.fs.acc_cooling_energy.unfix()
+    m.fs.pre_cooling_power.unfix()
 
     m.fs.vagmd.feed_props[0].temperature.unfix()
     m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"].unfix()   
@@ -161,6 +165,8 @@ def create_multiperiod_vagmd_batch_model(
     active_blks[0].fs.pre_permeate_flow_rate.fix(0)
     active_blks[0].fs.acc_thermal_energy.fix(0)
     active_blks[0].fs.pre_thermal_power.fix(0)
+    active_blks[0].fs.acc_cooling_energy.fix(0)
+    active_blks[0].fs.pre_cooling_power.fix(0)
 
     return mp
 
