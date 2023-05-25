@@ -46,16 +46,30 @@ class TestVAGMD:
         m.fs.seawater_properties = SeawaterParameterBlock()
         m.fs.water_properties = WaterParameterBlock()
 
-        feed_flow_rate=600
-        evap_inlet_temp=80
-        cond_inlet_temp=25
-        feed_temp=25
-        feed_salinity=35
-        initial_batch_volume=50
-        module_type="AS7C1.5L"
-        high_brine_salinity=False
-        cooling_system_type="open"
-        cooling_inlet_temp = 25 # Required when cooling system type is "open"
+        # System specification (Input variables)
+        feed_flow_rate = 600
+        evap_inlet_temp = 80
+        cond_inlet_temp = 25
+        feed_temp = 25
+        feed_salinity = 35
+        initial_batch_volume = 50
+        recovery_ratio = 0.5
+        module_type = "AS7C1.5L"
+        cooling_system_type = "open"
+        cooling_inlet_temp = 25  # Not required when cooling system type is "close"
+
+        # Identify if the final brine salinity is larger than 175.3 g/L for module "AS7C1.5L"
+        # If yes, then operational parameters need to be fixed at a certain value, 
+        # and coolying circuit is closed to maintain condenser inlet temperature constant
+        final_brine_salinity = feed_salinity / (1- recovery_ratio) # g/L
+        if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
+            cooling_system_type = "closed"
+            feed_flow_rate = 1100
+            evap_inlet_temp = 80
+            cond_inlet_temp = 25
+            high_brine_salinity = True
+        else:
+            high_brine_salinity = False
 
         m.fs.vagmd = VAGMDSurrogate(
             property_package_seawater=m.fs.seawater_properties,
@@ -64,9 +78,6 @@ class TestVAGMD:
             high_brine_salinity=high_brine_salinity,
             cooling_system_type=cooling_system_type,
         )
-
-        # System specification
-        # Fix the model inputs
 
         # Specify feed flow state properties
         m.fs.vagmd.feed_props.calculate_state(
@@ -81,14 +92,12 @@ class TestVAGMD:
         )
 
         m.fs.vagmd.evaporator_in_props[0].temperature.fix(evap_inlet_temp + 273.15)
-        # m.fs.vagmd.dt.fix(20352.55 / feed_flow_rate)
 
-        if cooling_system_type == "closed":  # TODO: update closed cooling
+        # Identify cooling system type
+        if cooling_system_type == "closed":
             m.fs.vagmd.condenser_in_props[0].temperature.fix(cond_inlet_temp + 273.15)
         else:  # "open"
             m.fs.vagmd.cooling_in_props[0].temperature.fix(cooling_inlet_temp + 273.15)
-
-        
 
         return m
 
@@ -96,7 +105,7 @@ class TestVAGMD:
     def test_dof(self, VAGMD_frame):
         m = VAGMD_frame
         assert degrees_of_freedom(m) == 0
-        
+
     @pytest.mark.unit
     def test_calculate_scaling(self, VAGMD_frame):
         m = VAGMD_frame
@@ -131,6 +140,6 @@ class TestVAGMD:
         # Check for optimal solution
         assert_optimal_termination(results)
 
-        
-        assert m.fs.vagmd.condenser_in_props[0].temperature.value - 273.15 == pytest.approx(25, abs=1e-3)
-
+        assert m.fs.vagmd.condenser_in_props[
+            0
+        ].temperature.value - 273.15 == pytest.approx(25, abs=1e-3)

@@ -19,13 +19,15 @@ from idaes.core.solvers.get_solver import get_solver
 
 # WaterTAP imports
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.core.util.model_diagnostics.infeasible import *
 
 # Flowsheet function imports
 from watertap_contrib.seto.multiperiod.VAGMD_batch_flowsheet import (
     build_vagmd_flowsheet,
     fix_dof_and_initialize,
 )
-from watertap.core.util.model_diagnostics.infeasible import *
+from watertap_contrib.seto.multiperiod.VAGMD_batch_design_model import get_n_time_points
+
 
 __author__ = "Zhuoran Zhang"
 
@@ -62,6 +64,7 @@ def get_vagmd_batch_variable_pairs(t1, t2):
         (t1.fs.vagmd.cooling_power_thermal, t2.fs.pre_cooling_power),
     ]
 
+
 def unfix_dof(m, feed_flow_rate):
     """
     This function unfixes a few degrees of freedom for optimization
@@ -94,23 +97,28 @@ def unfix_dof(m, feed_flow_rate):
     m.fs.pre_cooling_power.unfix()
 
     m.fs.vagmd.feed_props[0].temperature.unfix()
-    m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"].unfix()   
-    m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "H2O"].unfix()   
-    m.fs.vagmd.feed_props[0].flow_vol_phase["Liq"].fix(pyunits.convert(feed_flow_rate * pyunits.L / pyunits.h, to_units=pyunits.m**3 / pyunits.s))
+    m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"].unfix()
+    m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
+    m.fs.vagmd.feed_props[0].flow_vol_phase["Liq"].fix(
+        pyunits.convert(
+            feed_flow_rate * pyunits.L / pyunits.h, to_units=pyunits.m**3 / pyunits.s
+        )
+    )
 
     return
 
+
 def create_multiperiod_vagmd_batch_model(
-    n_time_points=5,
-    feed_flow_rate=600,
-    evap_inlet_temp=80,
-    cond_inlet_temp=25,
-    feed_temp=25,
-    feed_salinity=35,
-    initial_batch_volume=50,
-    module_type="AS7C1.5L",
-    high_brine_salinity=False,
-    cooling_system_type="closed",
+    feed_flow_rate = 600,
+    evap_inlet_temp = 80,
+    cond_inlet_temp = 25,
+    feed_temp = 25,
+    feed_salinity = 35,
+    recovery_ratio = 0.5,
+    initial_batch_volume = 50,
+    module_type = "AS7C1.5L",
+    cooling_system_type = "closed",
+    cooling_inlet_temp = 25, # not required if cooling system type is "open"
 ):
     """
     This function creates a multi-period vagmd batch flowsheet object. This object contains
@@ -122,6 +130,22 @@ def create_multiperiod_vagmd_batch_model(
     Returns:
         Object containing multi-period vagmd batch flowsheet model
     """
+
+
+    # Calculate the number of periods to reach target recovery rate by solving the system first
+    n_time_points = get_n_time_points(
+                    feed_flow_rate = feed_flow_rate,
+                    evap_inlet_temp = evap_inlet_temp,
+                    cond_inlet_temp = cond_inlet_temp,
+                    feed_temp = feed_temp,
+                    feed_salinity = feed_salinity,
+                    recovery_ratio = recovery_ratio,
+                    initial_batch_volume = initial_batch_volume,
+                    module_type = module_type,
+                    cooling_system_type = cooling_system_type,
+                    cooling_inlet_temp = cooling_inlet_temp, # not required if cooling system type is "open"
+                    )
+    
     mp = MultiPeriodModel(
         n_time_points=n_time_points,
         process_model_func=build_vagmd_flowsheet,
@@ -137,20 +161,23 @@ def create_multiperiod_vagmd_batch_model(
         "cond_inlet_temp": cond_inlet_temp,
         "feed_temp": feed_temp,
         "feed_salinity": feed_salinity,
+        "recovery_ratio": recovery_ratio,
         "module_type": module_type,
-        "high_brine_salinity": high_brine_salinity,
         "cooling_system_type": cooling_system_type,
+        "cooling_inlet_temp": cooling_inlet_temp
     }
 
     mp.build_multi_period_model(
         model_data_kwargs={t: model_options for t in range(n_time_points)},
         flowsheet_options=model_options,
-        initialization_options={"feed_flow_rate": feed_flow_rate,
-                                "feed_salinity": feed_salinity,
-                                "feed_temp": feed_temp,},
+        initialization_options={
+            "feed_flow_rate": feed_flow_rate,
+            "feed_salinity": feed_salinity,
+            "feed_temp": feed_temp,
+        },
         unfix_dof_options={"feed_flow_rate": feed_flow_rate},
     )
-    print('dof after creating model and initialized:', degrees_of_freedom(mp))
+    print("dof after creating model and initialized:", degrees_of_freedom(mp))
 
     active_blks = mp.get_active_process_blocks()
     # Set-up for the first time period
@@ -159,8 +186,6 @@ def create_multiperiod_vagmd_batch_model(
     )
     active_blks[0].fs.vagmd.feed_props[0].temperature.fix(feed_temp + 273.15)
     active_blks[0].fs.acc_distillate_volume.fix(0)
-    # calculate_variable_from_constraint(active_blks[0].fs.pre_feed_temperature, active_blks[0].fs.eq_feed_temp)
-    # active_blks[0].fs.pre_feed_temperature.fix()
     active_blks[0].fs.pre_feed_temperature.fix(feed_temp + 273.15)
     active_blks[0].fs.pre_permeate_flow_rate.fix(0)
     active_blks[0].fs.acc_thermal_energy.fix(0)
@@ -170,78 +195,3 @@ def create_multiperiod_vagmd_batch_model(
 
     return mp
 
-
-#%% Local test
-if __name__ == "__main__":
-    mp = create_multiperiod_vagmd_batch_model(
-        n_time_points=72,
-        feed_flow_rate=600,
-        evap_inlet_temp=80,
-        cond_inlet_temp=25,
-        feed_temp=25,
-        feed_salinity=35,
-        initial_batch_volume=50,
-        module_type="AS7C1.5L",
-        high_brine_salinity=False,
-        cooling_system_type="closed",
-    )
-
-    blks = mp.get_active_process_blocks()
-    for i in range(len(blks)):
-        blks[i].fs.vagmd.feed_props[0].flow_vol_phase["Liq"].fix(600/1000/3600)
-
-    print("degree of freedom: ", degrees_of_freedom(mp))
-    solver = get_solver()
-    results = solver.solve(mp)
-    print_close_to_bounds(mp)
-    print_infeasible_constraints(mp)
-    print(
-        "{:<3}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}".format(
-            "t  ",
-            "t_minute",
-            "S",
-            "Pflux",
-            "AccVd",
-            "Ttank",
-            "TEO",
-            "TCO",
-            "RR",
-            "ThPower",
-            "AccThEnergy",
-            "PFR",
-        )
-    )
-    for i in range(len(blks)):
-        print(
-            "{:<3}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}".format(
-                round(i),
-                round(value(blks[i].fs.dt) * i / 60, 4),
-                round(
-                    value(
-                        blks[i]
-                        .fs.vagmd.feed_props[0]
-                        .conc_mass_phase_comp["Liq", "TDS"]
-                    ),
-                    4,
-                ),
-                round(value(blks[i].fs.vagmd.permeate_flux), 4),
-                round(value(blks[i].fs.acc_distillate_volume), 4),
-                round(value(blks[i].fs.vagmd.feed_props[0].temperature - 273.15), 4),
-                round(
-                    value(
-                        blks[i].fs.vagmd.evaporator_out_props[0].temperature - 273.15
-                    ),
-                    4,
-                ),
-                round(
-                    value(blks[i].fs.vagmd.condenser_out_props[0].temperature - 273.15),
-                    4,
-                ),
-                round(value(blks[i].fs.acc_recovery_ratio), 6),
-                round(value(blks[i].fs.vagmd.thermal_power), 4),
-                round(value(blks[i].fs.acc_thermal_energy), 4),
-                round(
-                    value(blks[i].fs.vagmd.permeate_props[0].flow_vol_phase["Liq"]), 8
-                ),
-            )
-        )

@@ -35,20 +35,22 @@ solver = get_solver()
 
 from watertap.core.util.model_diagnostics.infeasible import *
 
+
 class TestVAGMDbatch:
     @pytest.fixture(scope="class")
     def VAGMD_batch_frame(self):
         mp = create_multiperiod_vagmd_batch_model(
-            n_time_points=20,
+            # n_time_points=34,
             feed_flow_rate=600,
             evap_inlet_temp=80,
             cond_inlet_temp=25,
             feed_temp=25,
-            feed_salinity=35,
+            feed_salinity= 50,
+            recovery_ratio=0.72,
             initial_batch_volume=50,
-            module_type= "AS26C7.2L",
-            high_brine_salinity=False,
+            module_type="AS7C1.5L",
             cooling_system_type="open",
+            cooling_inlet_temp = 25, # not required if cooling system type is "closed"
         )
 
         return mp
@@ -56,7 +58,7 @@ class TestVAGMDbatch:
     @pytest.mark.component
     def test_solve(self, VAGMD_batch_frame):
         mp = VAGMD_batch_frame
-        print('multi dof', degrees_of_freedom(mp))
+        print("multi dof", degrees_of_freedom(mp))
         assert degrees_of_freedom(mp) == 0
         results = solver.solve(mp)
         # Check for optimal solution
@@ -66,9 +68,9 @@ class TestVAGMDbatch:
     def test_solution(self, VAGMD_batch_frame):
         mp = VAGMD_batch_frame
         blks = mp.get_active_process_blocks()
-        # print_close_to_bounds(mp)
-        # print_infeasible_constraints(mp)
-        # print(len(blks))
+        print_close_to_bounds(mp)
+        print_infeasible_constraints(mp)
+        print(len(blks)) 
         print(
             "{:<3}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}{:<8}".format(
                 "t  ",
@@ -88,7 +90,7 @@ class TestVAGMDbatch:
                 "CEnergy",
                 "TCI",
                 "TCoolIn",
-                "TCoolOut"
+                "TCoolOut",
             )
         )
         for i in range(len(blks)):
@@ -106,40 +108,43 @@ class TestVAGMDbatch:
                     ),
                     round(value(blks[i].fs.vagmd.permeate_flux), 4),
                     round(value(blks[i].fs.acc_distillate_volume), 4),
-                    round(value(blks[i].fs.vagmd.feed_props[0].temperature - 273.15), 4),
+                    round(
+                        value(blks[i].fs.vagmd.feed_props[0].temperature - 273.15), 4
+                    ),
                     round(
                         value(
-                            blks[i].fs.vagmd.evaporator_out_props[0].temperature - 273.15
+                            blks[i].fs.vagmd.evaporator_out_props[0].temperature
+                            - 273.15
                         ),
                         4,
                     ),
                     round(
-                        value(blks[i].fs.vagmd.condenser_out_props[0].temperature - 273.15),
+                        value(
+                            blks[i].fs.vagmd.condenser_out_props[0].temperature - 273.15
+                        ),
                         4,
                     ),
-                    round(value(blks[i].fs.acc_recovery_ratio)*100, 4),
+                    round(value(blks[i].fs.acc_recovery_ratio) * 100, 4),
                     round(value(blks[i].fs.vagmd.thermal_power), 4),
                     round(value(blks[i].fs.acc_thermal_energy), 4),
+                    round(value(blks[i].fs.specific_energy_consumption_thermal), 4),
+                    round(value(blks[i].fs.gain_output_ratio), 4),
+                    round(value(blks[i].fs.vagmd.cooling_power_thermal), 4),
+                    round(value(blks[i].fs.acc_cooling_energy), 4),
                     round(
-                        value(blks[i].fs.specific_energy_consumption_thermal), 4
+                        value(blks[i].fs.vagmd.condenser_in_props[0].temperature)
+                        - 273.15,
+                        4,
                     ),
                     round(
-                        value(blks[i].fs.gain_output_ratio), 4
+                        value(blks[i].fs.vagmd.cooling_in_props[0].temperature)
+                        - 273.15,
+                        4,
                     ),
                     round(
-                        value(blks[i].fs.vagmd.cooling_power_thermal), 4
-                    ),
-                    round(
-                        value(blks[i].fs.acc_cooling_energy), 4
-                    ),
-                    round(
-                        value(blks[i].fs.vagmd.condenser_in_props[0].temperature)-273.15, 4
-                    ),
-                    round(
-                        value(blks[i].fs.vagmd.cooling_in_props[0].temperature)-273.15, 4
-                    ),
-                    round(
-                        value(blks[i].fs.vagmd.cooling_out_props[0].temperature)-273.15, 4
+                        value(blks[i].fs.vagmd.cooling_out_props[0].temperature)
+                        - 273.15,
+                        4,
                     ),
                 )
             )
