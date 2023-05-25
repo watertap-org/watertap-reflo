@@ -128,6 +128,48 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
             initialize=1, units=pyunits.minutes, doc="Equation of time"
         )
 
+        self.G_trans = Var(
+            initialize=1,
+            units=pyunits.W / pyunits.m**2,
+            bounds=(0, None),
+            doc="Total radiation transmitted through glazing of tilted collector",
+        )
+
+        self.theta_ground = Var(
+            initialize=1,
+            units=pyunits.degrees,
+            bounds=(0, None),
+            doc="Effective incidence angle of ground reflected radiation [deg], D&B 4th Ed. Eq. 5.4.1, pg. 213",
+        )
+
+        self.theta_diffuse = Var(
+            initialize=1,
+            units=pyunits.degrees,
+            bounds=(0, None),
+            doc="Effective incidence angle of sky diffuse radiation [deg], D&B 4th Ed. Eq. 5.4.2, pg. 213",
+        )
+
+        self.Kta_b = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            bounds=(0, None),
+            doc="Incidence angle modifier coefficient for beam radiation",
+        )
+
+        self.Kta_d = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            bounds=(0, None),
+            doc="Incidence angle modifier coefficient for sky diffuse radiation",
+        )
+
+        self.Kta_g = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            bounds=(0, None),
+            doc="Incidence angle modifier coefficient for ground reflected radiation",
+        )
+
         # ==========CONSTRAINTS==========
 
         @self.Constraint(doc="Equation for B, D&B 4th ed. eqn. 1.4.2")
@@ -235,6 +277,51 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
                 / 2
                 + self.G
                 * self.rho_g
+                * (1 - cos(pyunits.convert(self.beta, to_units=pyunits.rad)))
+                / 2
+            )
+        
+        @self.Constraint(doc="Effective incidence angle of ground reflected radiation [deg], D&B 4th Ed. Eq. 5.4.1, pg. 213")
+        def eq_theta_ground(b):
+            return self.theta_ground == (
+                90 * pyunits.deg \
+                - 0.5788 * self.beta \
+                + 0.002693 * pyunits.deg**-1 * self.beta**2
+            )
+
+        @self.Constraint(doc="Effective incidence angle of sky diffuse radiation [deg], D&B 4th Ed. Eq. 5.4.2, pg. 213")
+        def eq_theta_diffuse(b):
+            return self.theta_diffuse == (
+                59.7 * pyunits.deg \
+                - 0.1388 * self.beta \
+                + 0.001497 * pyunits.deg**-1 * self.beta**2
+            )
+
+        def Kta(theta_deg):
+            return 1 - 0.136 * (1 / cos(pyunits.convert(theta_deg, to_units=pyunits.rad)) - 1)
+        
+        @self.Constraint(doc="Incidence angle modifier coefficient for beam radiation [-]")
+        def eq_Kta_b(b):
+            return self.Kta_b == Kta(self.theta)
+        
+        @self.Constraint(doc="Incidence angle modifier coefficient for diffuse radiation [-]")
+        def eq_Kta_d(b):
+            return self.Kta_d == Kta(self.theta_diffuse)
+        
+        @self.Constraint(doc="Incidence angle modifier coefficient for ground reflected radiation [-]")
+        def eq_Kta_g(b):
+            return self.Kta_g == Kta(self.theta_ground)
+
+        @self.Constraint(
+            doc="Total radiation transmitted through glazing of tilted collector"
+        )
+        def eq_G_trans(b):
+            return self.G_trans == (
+                self.G_b * self.R_b * self.Kta_b
+                + self.G_d * self.Kta_d
+                * (1 + cos(pyunits.convert(self.beta, to_units=pyunits.rad)))
+                / 2
+                + self.G * self.rho_g * self.Kta_g
                 * (1 - cos(pyunits.convert(self.beta, to_units=pyunits.rad)))
                 / 2
             )

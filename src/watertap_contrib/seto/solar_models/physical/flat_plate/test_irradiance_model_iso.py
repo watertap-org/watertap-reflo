@@ -43,9 +43,9 @@ class TestIrradianceModelIsoSky:
             if isinstance(c, Port):
                 no_ports.append(c)
         assert len(no_ports) == 0
-        assert number_variables(m.fs.isosky) == 13
+        assert number_variables(m.fs.isosky) == 19
         assert number_unused_variables(m.fs.isosky) == 2
-        assert number_total_constraints(m.fs.isosky) == 11
+        assert number_total_constraints(m.fs.isosky) == 17
 
     @pytest.mark.unit
     def test_tilted_radiation_model(self, isosky_frame):
@@ -79,3 +79,4 @@ class TestIrradianceModelIsoSky:
         assert pytest.approx(243.9, rel=1e-3) == value(m.fs.isosky.G_b)
         assert pytest.approx(1040, rel=1e-3) == value(m.fs.isosky.G)
         assert pytest.approx(1171.24, rel=1e-3) == value(m.fs.isosky.G_T)
+        assert pytest.approx(1060.95, rel=1e-3) == value(m.fs.isosky.G_trans)
