@@ -28,7 +28,7 @@ class TestFlatPlatePhysical:
         m.fs.flatplate = FlatPlatePhysical()
 
         return m
-    
+
     @pytest.mark.unit
     def test_build(self, flatplate_frame):
         m = flatplate_frame
@@ -57,13 +57,13 @@ class TestFlatPlatePhysical:
         m.fs.flatplate.iam.set_value(0.2)
         m.fs.flatplate.mdot_test.set_value(0.045528)
         m.fs.flatplate.cp_test.set_value(3400)  # specific heat of glycol [J/kg-K]
-        m.fs.flatplate.cp_use.set_value(3400)   # specific heat of glycol [J/kg-K]
+        m.fs.flatplate.cp_use.set_value(3400)  # specific heat of glycol [J/kg-K]
         m.fs.flatplate.ncoll.set_value(2)
         m.fs.flatplate.pump_watts.set_value(45)
         m.fs.flatplate.pump_eff.set_value(0.85)
-        m.fs.flatplate.T_amb.set_value(12)      # default SAM model at noon on Jan. 1
-        m.fs.flatplate.T_in.set_value(38.2)     # default SAM model at noon on Jan. 1
-        m.fs.flatplate.G_trans.set_value(540)   # default SAM model at noon on Jan. 1
+        m.fs.flatplate.T_amb.set_value(12)  # default SAM model at noon on Jan. 1
+        m.fs.flatplate.T_in.set_value(38.2)  # default SAM model at noon on Jan. 1
+        m.fs.flatplate.G_trans.set_value(540)  # default SAM model at noon on Jan. 1
 
         assert degrees_of_freedom(m) == 0
 
@@ -73,5 +73,7 @@ class TestFlatPlatePhysical:
 
         assert pytest.approx(4.00, rel=1e-3) == value(m.fs.flatplate.FprimeUL)
         assert pytest.approx(1.00, rel=1e-3) == value(m.fs.flatplate.r)
-        assert pytest.approx(1616.29, rel=1e-3) == value(m.fs.flatplate.Q_useful)   # [W], with no pipe or heat exchanger losses
-        assert pytest.approx(52.94, rel=1e-3) == value(m.fs.flatplate.P_pump)       # [W]
+        assert pytest.approx(1616.29, rel=1e-3) == value(
+            m.fs.flatplate.Q_useful
+        )  # [W], with no pipe or heat exchanger losses
+        assert pytest.approx(52.94, rel=1e-3) == value(m.fs.flatplate.P_pump)  # [W]

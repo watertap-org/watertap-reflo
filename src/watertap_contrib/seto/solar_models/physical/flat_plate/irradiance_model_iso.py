@@ -36,9 +36,7 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
         self._tech_type = "irradiance_model_iso_sky"
 
         # ==========PARAMETERS==========
-        self.phi = Param(
-            initialize=1, units=pyunits.degrees, doc="Latitude of surface"
-        )
+        self.phi = Param(initialize=1, units=pyunits.degrees, doc="Latitude of surface")
 
         self.lon = Param(
             initialize=1, units=pyunits.degrees, doc="Longitude of surface"
@@ -281,35 +279,47 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
                 * (1 - cos(pyunits.convert(self.beta, to_units=pyunits.rad)))
                 / 2
             )
-        
-        @self.Constraint(doc="Effective incidence angle of ground reflected radiation [deg], D&B Eq. 5.4.1, pg. 213")
+
+        @self.Constraint(
+            doc="Effective incidence angle of ground reflected radiation [deg], D&B Eq. 5.4.1, pg. 213"
+        )
         def eq_theta_ground(b):
             return self.theta_ground == (
-                90 * pyunits.deg \
-                - 0.5788 * self.beta \
+                90 * pyunits.deg
+                - 0.5788 * self.beta
                 + 0.002693 * pyunits.deg**-1 * self.beta**2
             )
 
-        @self.Constraint(doc="Effective incidence angle of sky diffuse radiation [deg], D&B Eq. 5.4.2, pg. 213")
+        @self.Constraint(
+            doc="Effective incidence angle of sky diffuse radiation [deg], D&B Eq. 5.4.2, pg. 213"
+        )
         def eq_theta_diffuse(b):
             return self.theta_diffuse == (
-                59.7 * pyunits.deg \
-                - 0.1388 * self.beta \
+                59.7 * pyunits.deg
+                - 0.1388 * self.beta
                 + 0.001497 * pyunits.deg**-1 * self.beta**2
             )
 
         def Kta(theta_deg):
-            return 1 - 0.136 * (1 / cos(pyunits.convert(theta_deg, to_units=pyunits.rad)) - 1)
-        
-        @self.Constraint(doc="Incidence angle modifier coefficient for beam radiation [-]")
+            return 1 - 0.136 * (
+                1 / cos(pyunits.convert(theta_deg, to_units=pyunits.rad)) - 1
+            )
+
+        @self.Constraint(
+            doc="Incidence angle modifier coefficient for beam radiation [-]"
+        )
         def eq_Kta_b(b):
             return self.Kta_b == Kta(self.theta)
-        
-        @self.Constraint(doc="Incidence angle modifier coefficient for diffuse radiation [-]")
+
+        @self.Constraint(
+            doc="Incidence angle modifier coefficient for diffuse radiation [-]"
+        )
         def eq_Kta_d(b):
             return self.Kta_d == Kta(self.theta_diffuse)
-        
-        @self.Constraint(doc="Incidence angle modifier coefficient for ground reflected radiation [-]")
+
+        @self.Constraint(
+            doc="Incidence angle modifier coefficient for ground reflected radiation [-]"
+        )
         def eq_Kta_g(b):
             return self.Kta_g == Kta(self.theta_ground)
 
@@ -319,10 +329,13 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
         def eq_G_trans(b):
             return self.G_trans == (
                 self.G_b * self.R_b * self.Kta_b
-                + self.G_d * self.Kta_d
+                + self.G_d
+                * self.Kta_d
                 * (1 + cos(pyunits.convert(self.beta, to_units=pyunits.rad)))
                 / 2
-                + self.G * self.rho_g * self.Kta_g
+                + self.G
+                * self.rho_g
+                * self.Kta_g
                 * (1 - cos(pyunits.convert(self.beta, to_units=pyunits.rad)))
                 / 2
             )
