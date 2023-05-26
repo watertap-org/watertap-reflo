@@ -23,7 +23,8 @@ __author__ = "Matthew Boyd"
 @declare_process_block_class("IrradianceModelIsoSky")
 class IrradianceModelIsoSkyData(SolarEnergyBaseData):
     """
-    Isotropic sky irradiance model for sloped surfaces.
+    Isotropic sky irradiance model for sloped surfaces
+    based on equations in Solar Engineering of Thermal Processes, Duffie and Beckman, 4th ed.
     """
 
     CONFIG = SolarEnergyBaseData.CONFIG()
@@ -139,14 +140,14 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
             initialize=1,
             units=pyunits.degrees,
             bounds=(0, None),
-            doc="Effective incidence angle of ground reflected radiation [deg], D&B 4th Ed. Eq. 5.4.1, pg. 213",
+            doc="Effective incidence angle of ground reflected radiation [deg], D&B Eq. 5.4.1, pg. 213",
         )
 
         self.theta_diffuse = Var(
             initialize=1,
             units=pyunits.degrees,
             bounds=(0, None),
-            doc="Effective incidence angle of sky diffuse radiation [deg], D&B 4th Ed. Eq. 5.4.2, pg. 213",
+            doc="Effective incidence angle of sky diffuse radiation [deg], D&B Eq. 5.4.2, pg. 213",
         )
 
         self.Kta_b = Var(
@@ -172,11 +173,11 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
 
         # ==========CONSTRAINTS==========
 
-        @self.Constraint(doc="Equation for B, D&B 4th ed. eqn. 1.4.2")
+        @self.Constraint(doc="Equation for B, D&B eqn. 1.4.2")
         def eq_B(b):
             return self.B == (self.day_of_year - 1) * 360 * pyunits.deg / 365
 
-        @self.Constraint(doc="Solar time, D&B 4th ed. eqn. 1.5.2")
+        @self.Constraint(doc="Solar time, D&B eqn. 1.5.2")
         def eq_solar_time(b):
             return self.solar_time == (
                 self.standard_time
@@ -187,7 +188,7 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
                 / (60 * pyunits.minutes / pyunits.hour)
             )
 
-        @self.Constraint(doc="Equation of time, D&B 4th ed. eqn. 1.5.3")
+        @self.Constraint(doc="Equation of time, D&B eqn. 1.5.3")
         def eq_eqn_of_time(b):
             return self.eqn_of_time == (
                 229.2
@@ -201,13 +202,13 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
                 )
             )
 
-        @self.Constraint(doc="Hour angle of sun, D&B 4th ed. pg. 13")
+        @self.Constraint(doc="Hour angle of sun, D&B pg. 13")
         def eq_omega(b):
             return self.omega == 15 * pyunits.deg * (
                 self.solar_time - 12 * pyunits.hours
             )
 
-        @self.Constraint(doc="Solar zenith angle, D&B 4th ed. eqn. 1.6.5")
+        @self.Constraint(doc="Solar zenith angle, D&B eqn. 1.6.5")
         def eq_theta_z(b):
             return cos(pyunits.convert(self.theta_z, to_units=pyunits.rad)) == (
                 cos(pyunits.convert(self.phi, to_units=pyunits.rad))
@@ -217,7 +218,7 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
                 * sin(pyunits.convert(self.delta, to_units=pyunits.rad))
             )
 
-        @self.Constraint(doc="Declination of sun, D&B 4th ed. eqn. 1.6.1a")
+        @self.Constraint(doc="Declination of sun, D&B eqn. 1.6.1a")
         def eq_delta(b):
             return self.delta == 23.45 * pyunits.deg * sin(
                 pyunits.convert(
@@ -227,7 +228,7 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
             )
 
         @self.Constraint(
-            doc="Ratio of beam radiation on tilted surface to horizontal surface in northern hemisphere for surfaces facing south, D&B 4th ed. eqn. 1.8.2"
+            doc="Ratio of beam radiation on tilted surface to horizontal surface in northern hemisphere for surfaces facing south, D&B eqn. 1.8.2"
         )
         def eq_R_b(b):
             return self.R_b == (
@@ -248,7 +249,7 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
             )
 
         @self.Constraint(
-            doc="Ratio of beam radiation on tilted surface to horizontal surface, D&B 4th ed. eqn. 1.8.1"
+            doc="Ratio of beam radiation on tilted surface to horizontal surface, D&B eqn. 1.8.1"
         )
         def eq_R_b_2(b):
             return self.R_b == (
@@ -267,7 +268,7 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
             return self.G == self.G_b + self.G_d
 
         @self.Constraint(
-            doc="Total radiation on tilted surface via isotropic diffuse sky model, D&B 4th ed. eqn. 2.15.1"
+            doc="Total radiation on tilted surface via isotropic diffuse sky model, D&B eqn. 2.15.1"
         )
         def eq_G_T(b):
             return self.G_T == (
@@ -281,7 +282,7 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
                 / 2
             )
         
-        @self.Constraint(doc="Effective incidence angle of ground reflected radiation [deg], D&B 4th Ed. Eq. 5.4.1, pg. 213")
+        @self.Constraint(doc="Effective incidence angle of ground reflected radiation [deg], D&B Eq. 5.4.1, pg. 213")
         def eq_theta_ground(b):
             return self.theta_ground == (
                 90 * pyunits.deg \
@@ -289,7 +290,7 @@ class IrradianceModelIsoSkyData(SolarEnergyBaseData):
                 + 0.002693 * pyunits.deg**-1 * self.beta**2
             )
 
-        @self.Constraint(doc="Effective incidence angle of sky diffuse radiation [deg], D&B 4th Ed. Eq. 5.4.2, pg. 213")
+        @self.Constraint(doc="Effective incidence angle of sky diffuse radiation [deg], D&B Eq. 5.4.2, pg. 213")
         def eq_theta_diffuse(b):
             return self.theta_diffuse == (
                 59.7 * pyunits.deg \
