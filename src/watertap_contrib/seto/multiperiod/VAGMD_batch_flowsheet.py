@@ -80,6 +80,20 @@ def build_vagmd_flowsheet(
         high_brine_salinity=high_brine_salinity,
         cooling_system_type=cooling_system_type,
     )
+    
+    # Specify feed flow state properties
+    m.fs.vagmd.feed_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): pyunits.convert(
+                feed_flow_rate * pyunits.L / pyunits.h,
+                to_units=pyunits.m**3 / pyunits.s,
+            ),
+            ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
+            ("temperature", None): feed_temp + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
 
     # Fix the model inputs
     m.fs.vagmd.evaporator_in_props[0].temperature.fix(evap_inlet_temp + 273.15)
@@ -297,37 +311,44 @@ def fix_dof_and_initialize(
     # m.fs.pre_permeate_flow_rate.fix(1.068e-5)
     # m.fs.pre_acc_distillate_volume.fix(0)
     # m.fs.pre_acc_thermal_energy.fix(0)
+    # m.fs.pre_acc_cooling_energy.fix(0)
     # m.fs.pre_thermal_power.fix(0)
+    # # m.fs.pre_cooling_power.fix(0)
 
     # m.fs.vagmd.initialize_build(outlvl=outlvl)
     # m.fs.vagmd.feed_props[0].temperature.unfix()
     # m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"].unfix()
+    # m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
+    # m.fs.vagmd.feed_props[0].flow_vol_phase["Liq"].fix(
+    #     pyunits.convert(
+    #         feed_flow_rate * pyunits.L / pyunits.h, to_units=pyunits.m**3 / pyunits.s
+    #     )
+    # )
 
     # Initialize 1
-    m.fs.vagmd.feed_props.calculate_state(
-        var_args={
-            ("flow_vol_phase", "Liq"): pyunits.convert(
-                feed_flow_rate * pyunits.L / pyunits.h,
-                to_units=pyunits.m**3 / pyunits.s,
-            ),
-            ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
-            ("temperature", None): feed_temp + 273.15,
-            ("pressure", None): 101325,
-        },
-        hold_state=True,
+
+
+    m.fs.seawater_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e1, index=("Liq", "H2O")
     )
-    calculate_variable_from_constraint(m.fs.pre_feed_temperature, m.fs.eq_feed_temp)
-    m.fs.pre_feed_temperature.fix()
+    m.fs.seawater_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+    )
+    m.fs.water_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e1, index=("Liq", "H2O")
+    )
+    # calculate_variable_from_constraint(m.fs.pre_feed_temperature, m.fs.eq_feed_temp)
+    m.fs.pre_feed_temperature.fix(feed_temp + 273.15)
     m.fs.pre_permeate_flow_rate.fix(0)
     m.fs.acc_distillate_volume.fix(0)
     m.fs.acc_thermal_energy.fix(0)
     m.fs.acc_cooling_energy.fix(0)
     m.fs.pre_thermal_power.fix(0)
     m.fs.pre_cooling_power.fix(0)
-
+    
+    calculate_scaling_factors(m.fs.vagmd)
     m.fs.vagmd.initialize_build(outlvl=outlvl)
 
-    calculate_scaling_factors(m.fs.vagmd)
 
     if iscale.get_scaling_factor(m.fs.dt) is None:
         iscale.set_scaling_factor(m.fs.dt, 1e-1)
@@ -377,7 +398,7 @@ def fix_dof_and_initialize(
     if iscale.get_scaling_factor(m.fs.gain_output_ratio) is None:
         iscale.set_scaling_factor(m.fs.gain_output_ratio, 1e-1)
 
-    # # Transforming constraint
+    # Transforming constraint
     sf = iscale.get_scaling_factor(m.fs.dt)
     iscale.constraint_scaling_transform(m.fs.eq_dt, sf)
 
@@ -397,6 +418,9 @@ def fix_dof_and_initialize(
 
     sf = iscale.get_scaling_factor(m.fs.acc_thermal_energy)
     iscale.constraint_scaling_transform(m.fs.eq_acc_thermal_energy, sf)
+
+    sf = iscale.get_scaling_factor(m.fs.acc_cooling_energy)
+    iscale.constraint_scaling_transform(m.fs.eq_acc_cooling_energy, sf)
 
     sf = iscale.get_scaling_factor(m.fs.specific_energy_consumption_thermal)
     iscale.constraint_scaling_transform(m.fs.eq_specific_energy_consumption_thermal, sf)

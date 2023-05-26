@@ -45,11 +45,11 @@ class TestVAGMDbatch:
             evap_inlet_temp=80,
             cond_inlet_temp=25,
             feed_temp=25,
-            feed_salinity= 50,
-            recovery_ratio=0.72,
+            feed_salinity= 100,
+            recovery_ratio=0.5,
             initial_batch_volume=50,
             module_type="AS7C1.5L",
-            cooling_system_type="open",
+            cooling_system_type="closed",
             cooling_inlet_temp = 25, # not required if cooling system type is "closed"
         )
 

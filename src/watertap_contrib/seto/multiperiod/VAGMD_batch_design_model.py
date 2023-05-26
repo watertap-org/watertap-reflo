@@ -92,7 +92,7 @@ def get_n_time_points(
                                         'TCO',
                                         'TEO',])
 
-    return  len(PFlux)
+    return len(PFlux)
 
 def _get_membrane_performance( TEI, FFR, TCI, SgL, module_type, high_brine_salinity):
     # Model parameters
@@ -272,9 +272,6 @@ def _get_membrane_performance( TEI, FFR, TCI, SgL, module_type, high_brine_salin
     # Model calculations
     if module_type == "AS7C1.5L":
         if high_brine_salinity:
-            TEI = 0
-            FFR = 0
-            TCI = 0
             S_r = S_c
 
             PFluxAS7, TCOAS7, TEOAS7 = PFluxAS7_high, TCOAS7_high, TEOAS7_high
@@ -323,7 +320,7 @@ def _get_membrane_performance( TEI, FFR, TCI, SgL, module_type, high_brine_salin
         TCO = sum(VarsAS7_TCO[j] * TCOAS7[j] for j in range(len(VarsAS7_TCO)))
         TEO = sum(VarsAS7[j] * TEOAS7[j] for j in range(len(VarsAS7)))
 
-    else:
+    else: # module_type == "AS26C7.2L":
         TEI = sum(CoderVars[0][j] * Coder[4][j] for j in range(len(Coder[0])))
         FFR = sum(CoderVars[1][j] * Coder[5][j] for j in range(len(Coder[1])))
         TCI = sum(CoderVars[2][j] * Coder[6][j] for j in range(len(Coder[2])))

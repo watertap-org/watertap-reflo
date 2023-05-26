@@ -51,11 +51,11 @@ class TestVAGMD:
         evap_inlet_temp = 80
         cond_inlet_temp = 25
         feed_temp = 25
-        feed_salinity = 35
+        feed_salinity = 100
         initial_batch_volume = 50
         recovery_ratio = 0.5
         module_type = "AS7C1.5L"
-        cooling_system_type = "open"
+        cooling_system_type = "closed"
         cooling_inlet_temp = 25  # Not required when cooling system type is "close"
 
         # Identify if the final brine salinity is larger than 175.3 g/L for module "AS7C1.5L"
@@ -99,6 +99,15 @@ class TestVAGMD:
         else:  # "open"
             m.fs.vagmd.cooling_in_props[0].temperature.fix(cooling_inlet_temp + 273.15)
 
+        m.fs.seawater_properties.set_default_scaling(
+            "flow_mass_phase_comp", 1e1, index=("Liq", "H2O")
+        )
+        m.fs.seawater_properties.set_default_scaling(
+            "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+        )
+        m.fs.water_properties.set_default_scaling(
+            "flow_mass_phase_comp", 1e1, index=("Liq", "H2O")
+        )
         return m
 
     @pytest.mark.unit
@@ -143,3 +152,14 @@ class TestVAGMD:
         assert m.fs.vagmd.condenser_in_props[
             0
         ].temperature.value - 273.15 == pytest.approx(25, abs=1e-3)
+        assert m.fs.vagmd.condenser_out_props[0].temperature.value - 273.15 == pytest.approx(65.6459, abs=1e-3)
+        assert m.fs.vagmd.evaporator_out_props[0].temperature.value - 273.15 == pytest.approx(37.4374, abs=1e-3)
+        assert m.fs.vagmd.thermal_power.value == pytest.approx(17.2473, abs=1e-3)
+
+        print(pyunits.convert(m.fs.vagmd.feed_props[0].flow_vol_phase["Liq"].value * pyunits.m**3/ pyunits.s, to_units=pyunits.L / pyunits.h))
+        print(m.fs.vagmd.avg_feed_props[0].cp_mass_phase["Liq"].value)
+        print(m.fs.vagmd.condenser_out_props[0].temperature.value - 273.15)
+        print(m.fs.vagmd.avg_feed_props[0].dens_mass_phase["Liq"].value)
+
+
+        assert False

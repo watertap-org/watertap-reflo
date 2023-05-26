@@ -391,14 +391,14 @@ class VAGMDData(UnitModelBlockData):
         )
 
         # Specify the concentration and temperature with any value for initialization,
-        # because only volumetric flow rate is known and the temperature will be released and calculated after
+        # because only volumetric flow rate is known and the temperature will be released and calculated afterwards
         self.cooling_in_props.calculate_state(
             var_args={
                 # Cooling water volumetric flow rate, fixed to 1265L/h, to maintain vacuum pressure inside the MD module around 200 mbar
                 ("flow_vol_phase", "Liq"): pyunits.convert(
                     1265 * pyunits.L / pyunits.h, to_units=pyunits.m**3 / pyunits.s
                 ),
-                ("conc_mass_phase_comp", ("Liq", "TDS")): 30,
+                ("conc_mass_phase_comp", ("Liq", "TDS")): 50,
                 ("temperature", None): 25 + 273.15,
                 ("pressure", None): 101325,
             },
@@ -417,14 +417,14 @@ class VAGMDData(UnitModelBlockData):
             )
         )
         # Specify the concentration and temperature with any value for initialization,
-        # because only volumetric flow rate is known and the temperature will be released and calculated after
+        # because only volumetric flow rate is known and the temperature will be released and calculated afterwards
         self.cooling_out_props.calculate_state(
             var_args={
                 # Cooling water volumetric flow rate, fixed to 1265L/h, to maintain vacuum pressure inside the MD module around 200 mbar
                 ("flow_vol_phase", "Liq"): pyunits.convert(
                     1265 * pyunits.L / pyunits.h, to_units=pyunits.m**3 / pyunits.s
                 ),
-                ("conc_mass_phase_comp", ("Liq", "TDS")): 30,
+                ("conc_mass_phase_comp", ("Liq", "TDS")): 50,
                 ("temperature", None): 25 + 273.15,
                 ("pressure", None): 101325,
             },
@@ -469,24 +469,19 @@ class VAGMDData(UnitModelBlockData):
         """
         # Cooling system specification
         if self.config.cooling_system_type == "closed":
-
             @self.Constraint(doc="Calculate cooling power requirment")
             def eq_cooling_power_thermal(b):
-                return b.cooling_power_thermal == pyunits.convert(
-                    b.thermal_resistance_hot
-                    * (
-                        b.feed_props[0].temperature
-                        - b.condenser_in_props[0].temperature
-                    ),
-                    to_units=pyunits.kW,
+                return (b.cooling_power_thermal
+                    == pyunits.convert(b.thermal_resistance_hot
+                    * (b.feed_props[0].temperature - b.condenser_in_props[0].temperature),
+                    to_units=pyunits.kW,)
                 )
 
             @self.Constraint(
-                doc="Calculate inlet cooling water temperature in closed looping mode"
+                doc="Calculate inlet cooling water temperature in closed cooling mode"
             )
             def eq_cooling_in_temp(b):
-                return (
-                    b.cooling_in_props[0].temperature
+                return (b.cooling_in_props[0].temperature
                     == b.feed_props[0].temperature
                     - pyunits.convert(b.cooling_power_thermal, to_units=pyunits.W)
                     / b.effectiveness_heat_exchanger
@@ -494,16 +489,19 @@ class VAGMDData(UnitModelBlockData):
                 )
 
             @self.Constraint(
-                doc="Calculate outlet cooling water temperature in closed looping mode"
+                doc="Calculate outlet cooling water temperature in closed cooling mode"
             )
             def eq_cooling_out_temp(b):
-                return b.cooling_out_props[0].temperature == b.cooling_in_props[
-                    0
-                ].temperature + b.thermal_resistance_hot / b.thermal_resistance_cold * (
-                    b.feed_props[0].temperature - b.condenser_in_props[0].temperature
+                return (b.cooling_out_props[0].temperature 
+                    == b.cooling_in_props[0].temperature
+                    + b.thermal_resistance_hot 
+                    / b.thermal_resistance_cold 
+                    * (b.feed_props[0].temperature
+                    - b.condenser_in_props[0].temperature)
                 )
 
-        else:  # "open"
+
+        else:  # self.config.cooling_system_type == "open"
 
             @self.Constraint(doc="Calculate cooling power requirment")
             def eq_cooling_power_thermal(b):
@@ -526,7 +524,7 @@ class VAGMDData(UnitModelBlockData):
                 )
 
             @self.Constraint(
-                doc="Calculate outlet cooling water temperature in open looping mode"
+                doc="Calculate outlet cooling water temperature in open cooling mode"
             )
             def eq_cooling_out_temp(b):
                 return (
@@ -1192,9 +1190,6 @@ class VAGMDData(UnitModelBlockData):
         # Model calculations
         if self.config.module_type == "AS7C1.5L":
             if self.config.high_brine_salinity:
-                # TEI = 0
-                # FFR = 0
-                # TCI = 0
                 S_r = S_c
 
                 PFluxAS7, TCOAS7, TEOAS7 = PFluxAS7_high, TCOAS7_high, TEOAS7_high
@@ -1243,7 +1238,7 @@ class VAGMDData(UnitModelBlockData):
             TCO = sum(VarsAS7_TCO[j] * TCOAS7[j] for j in range(len(VarsAS7_TCO)))
             TEO = sum(VarsAS7[j] * TEOAS7[j] for j in range(len(VarsAS7)))
 
-        else:
+        else: # self.config.module_type == "AS26C7.2L"
             TEI = sum(CoderVars[0][j] * Coder[4][j] for j in range(len(Coder[0])))
             FFR = sum(CoderVars[1][j] * Coder[5][j] for j in range(len(Coder[1])))
             TCI = sum(CoderVars[2][j] * Coder[6][j] for j in range(len(Coder[2])))

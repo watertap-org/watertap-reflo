@@ -85,6 +85,8 @@ def unfix_dof(m, feed_flow_rate):
     # m.fs.pre_acc_distillate_volume.unfix()
     # m.fs.pre_acc_thermal_energy.unfix()
     # m.fs.pre_thermal_power.unfix()
+    # m.fs.pre_acc_cooling_energy.unfix()
+    # m.fs.pre_cooling_power.unfix()
 
     # Initialize 1
 
@@ -166,6 +168,12 @@ def create_multiperiod_vagmd_batch_model(
         "cooling_system_type": cooling_system_type,
         "cooling_inlet_temp": cooling_inlet_temp
     }
+    
+    # For module AS7C1.5L, when the final brine salinity is larger than 175.3 g/L,
+    # the feed flow rate will be fixed at 1100 L/h
+    final_brine_salinity = feed_salinity / (1- recovery_ratio) # g/L
+    if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
+        feed_flow_rate = 1100    # L/h
 
     mp.build_multi_period_model(
         model_data_kwargs={t: model_options for t in range(n_time_points)},
