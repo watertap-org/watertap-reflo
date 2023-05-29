@@ -4,21 +4,23 @@ import numpy as np
 """
 Calculate the number of periods to reach target recovery rate by solving the system first
 """
+
+
 def get_n_time_points(
-    feed_flow_rate = 600,
-    evap_inlet_temp = 80,
-    cond_inlet_temp = 25,
-    feed_temp = 25,
-    feed_salinity = 35,
-    recovery_ratio = 0.5,
-    initial_batch_volume = 50,
-    module_type = "AS7C1.5L",
-    cooling_system_type = "closed",
-    cooling_inlet_temp = 25, # not required if cooling system type is "open"
-    ):
+    feed_flow_rate=600,
+    evap_inlet_temp=80,
+    cond_inlet_temp=25,
+    feed_temp=25,
+    feed_salinity=35,
+    recovery_ratio=0.5,
+    initial_batch_volume=50,
+    module_type="AS7C1.5L",
+    cooling_system_type="closed",
+    cooling_inlet_temp=25,  # not required if cooling system type is "open"
+):
 
     # Identify if the final brine salinity is larger than 175.3 for module "AS7C1.5L"
-    final_brine_salinity = feed_salinity / (1- recovery_ratio) # g/L
+    final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # g/L
     if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
         cooling_system_type = "closed"
         feed_flow_rate = 1100
@@ -40,61 +42,86 @@ def get_n_time_points(
     else:  # module_type == "AS26C7.2L"
         dt = 73269.19 / feed_flow_rate
 
-    initial_status = _get_membrane_performance(evap_inlet_temp,
-                                               feed_flow_rate,
-                                               cond_inlet_temp,
-                                               feed_salinity,
-                                               module_type,
-                                               high_brine_salinity)
+    initial_status = _get_membrane_performance(
+        evap_inlet_temp,
+        feed_flow_rate,
+        cond_inlet_temp,
+        feed_salinity,
+        module_type,
+        high_brine_salinity,
+    )
 
-    PFlux = [initial_status[0]] # Permeate flux, kg/h/m2
-    TCO = [initial_status[1]]   # Condenser outlet temperature, oC
-    TEO = [initial_status[2]]   # Evaporator outlet temperature, oC
-    TCI = [cond_inlet_temp]     # Condenser inlet temperature, oC
-    Ttank = [feed_temp]         # Feed temperature in thetank, oC
+    PFlux = [initial_status[0]]  # Permeate flux, kg/h/m2
+    TCO = [initial_status[1]]  # Condenser outlet temperature, oC
+    TEO = [initial_status[2]]  # Evaporator outlet temperature, oC
+    TCI = [cond_inlet_temp]  # Condenser inlet temperature, oC
+    Ttank = [feed_temp]  # Feed temperature in thetank, oC
     V = [initial_batch_volume]  # Volume remaining in the tank, L
-    Vd = [0]                    # Volume of distillate, L
-    PFR = [PFlux[0] * module_area] # Permeate flow rate, L/h
-    AccVd = [0]                 # Accumulated volume of distillate, L
-    RR = [0]                    # Accumlated recovery ratio, dimensionless
-    S = [feed_salinity]                     # Feed salinity in the tank, g/L
+    Vd = [0]  # Volume of distillate, L
+    PFR = [PFlux[0] * module_area]  # Permeate flow rate, L/h
+    AccVd = [0]  # Accumulated volume of distillate, L
+    RR = [0]  # Accumlated recovery ratio, dimensionless
+    S = [feed_salinity]  # Feed salinity in the tank, g/L
 
     while S[-1] < final_brine_salinity:
         Vd.append(PFR[-1] * dt / 3600)
-        V.append(V[-1] -Vd[-1])
+        V.append(V[-1] - Vd[-1])
         S.append(V[-2] / V[-1] * S[-1])
-        Ttank.append((feed_flow_rate * dt/3600 * TEO[-1] + V[-2] * Ttank[-1]) / (V[-2] + feed_flow_rate * dt/3600))
+        Ttank.append(
+            (feed_flow_rate * dt / 3600 * TEO[-1] + V[-2] * Ttank[-1])
+            / (V[-2] + feed_flow_rate * dt / 3600)
+        )
 
-        if cooling_system_type == 'closed':
+        if cooling_system_type == "closed":
             TCI.append(TCI[-1])
-        
-        current_status =  _get_membrane_performance(evap_inlet_temp,
-                                                    feed_flow_rate,
-                                                    TCI[-1],
-                                                    S[-1],
-                                                    module_type,
-                                                    high_brine_salinity)
+
+        current_status = _get_membrane_performance(
+            evap_inlet_temp,
+            feed_flow_rate,
+            TCI[-1],
+            S[-1],
+            module_type,
+            high_brine_salinity,
+        )
 
         PFlux.append(current_status[0])
         TCO.append(current_status[1])
         TEO.append(current_status[2])
         PFR.append(PFlux[-1] * module_area)
         AccVd.append(Vd[-1] + AccVd[-1])
-        RR.append(( 1- ((feed_flow_rate - PFR[-1])/feed_flow_rate*(S[-1]/S[0])*(1-RR[-1]))))
-    
-    output = np.array([[i for i in range(len(PFlux))], V, AccVd, S, PFlux, RR, TCO, TEO])    
-    df = pd.DataFrame(data=output, index=['Step',            
-                                        'Batch volume (L)',
-                                        'Accumulated discharge volume (L)',
-                                        'Brine salinity (g/L)',
-                                        'Permeate flux (kg/hr/m2)',
-                                        'Recovery rate (%)',
-                                        'TCO',
-                                        'TEO',])
+        RR.append(
+            (
+                1
+                - (
+                    (feed_flow_rate - PFR[-1])
+                    / feed_flow_rate
+                    * (S[-1] / S[0])
+                    * (1 - RR[-1])
+                )
+            )
+        )
+
+    output = np.array(
+        [[i for i in range(len(PFlux))], V, AccVd, S, PFlux, RR, TCO, TEO]
+    )
+    df = pd.DataFrame(
+        data=output,
+        index=[
+            "Step",
+            "Batch volume (L)",
+            "Accumulated discharge volume (L)",
+            "Brine salinity (g/L)",
+            "Permeate flux (kg/hr/m2)",
+            "Recovery rate (%)",
+            "TCO",
+            "TEO",
+        ],
+    )
 
     return len(PFlux)
 
-def _get_membrane_performance( TEI, FFR, TCI, SgL, module_type, high_brine_salinity):
+
+def _get_membrane_performance(TEI, FFR, TCI, SgL, module_type, high_brine_salinity):
     # Model parameters
     PFluxAS26 = [
         0.798993148477908,
@@ -320,7 +347,7 @@ def _get_membrane_performance( TEI, FFR, TCI, SgL, module_type, high_brine_salin
         TCO = sum(VarsAS7_TCO[j] * TCOAS7[j] for j in range(len(VarsAS7_TCO)))
         TEO = sum(VarsAS7[j] * TEOAS7[j] for j in range(len(VarsAS7)))
 
-    else: # module_type == "AS26C7.2L":
+    else:  # module_type == "AS26C7.2L":
         TEI = sum(CoderVars[0][j] * Coder[4][j] for j in range(len(Coder[0])))
         FFR = sum(CoderVars[1][j] * Coder[5][j] for j in range(len(Coder[1])))
         TCI = sum(CoderVars[2][j] * Coder[6][j] for j in range(len(Coder[2])))
@@ -350,10 +377,10 @@ def _get_membrane_performance( TEI, FFR, TCI, SgL, module_type, high_brine_salin
 
     return [PFlux, TCO, TEO, S_c]
 
+
 #%% Test block
 
 if __name__ == "__main__":
 
     test_case = get_n_time_points()
     print(test_case)
-

@@ -308,7 +308,7 @@ class VAGMDData(UnitModelBlockData):
         self.feed_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of feed water",
-            **tmp_dict
+            **tmp_dict,
         )
 
         """
@@ -319,7 +319,7 @@ class VAGMDData(UnitModelBlockData):
         self.permeate_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of permeated water",
-            **tmp_dict
+            **tmp_dict,
         )
         # salinity in permeate is zero
         self.permeate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
@@ -338,7 +338,7 @@ class VAGMDData(UnitModelBlockData):
             self.config.property_package_seawater.state_block_class(
                 self.flowsheet().config.time,
                 doc="Material properties of evaporator inlet water",
-                **tmp_dict
+                **tmp_dict,
             )
         )
 
@@ -351,7 +351,7 @@ class VAGMDData(UnitModelBlockData):
             self.config.property_package_seawater.state_block_class(
                 self.flowsheet().config.time,
                 doc="Material properties of evaporator outlet water",
-                **tmp_dict
+                **tmp_dict,
             )
         )
 
@@ -364,7 +364,7 @@ class VAGMDData(UnitModelBlockData):
             self.config.property_package_seawater.state_block_class(
                 self.flowsheet().config.time,
                 doc="Material properties of condenser inlet water",
-                **tmp_dict
+                **tmp_dict,
             )
         )
 
@@ -377,7 +377,7 @@ class VAGMDData(UnitModelBlockData):
             self.config.property_package_seawater.state_block_class(
                 self.flowsheet().config.time,
                 doc="Material properties of condenser outlet water",
-                **tmp_dict
+                **tmp_dict,
             )
         )
 
@@ -387,7 +387,7 @@ class VAGMDData(UnitModelBlockData):
         self.cooling_in_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of the inlet cooling water",
-            **tmp_dict
+            **tmp_dict,
         )
 
         # Specify the concentration and temperature with any value for initialization,
@@ -413,7 +413,7 @@ class VAGMDData(UnitModelBlockData):
             self.config.property_package_seawater.state_block_class(
                 self.flowsheet().config.time,
                 doc="Material properties of the outlet cooling water",
-                **tmp_dict
+                **tmp_dict,
             )
         )
         # Specify the concentration and temperature with any value for initialization,
@@ -439,7 +439,7 @@ class VAGMDData(UnitModelBlockData):
             self.config.property_package_seawater.state_block_class(
                 self.flowsheet().config.time,
                 doc="Average properties in the cooler",
-                **tmp_dict
+                **tmp_dict,
             )
         )
 
@@ -449,7 +449,7 @@ class VAGMDData(UnitModelBlockData):
         self.avg_feed_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
             doc="Average properties of the feed water",
-            **tmp_dict
+            **tmp_dict,
         )
 
         tmp_dict["parameters"] = self.config.property_package_water
@@ -459,7 +459,7 @@ class VAGMDData(UnitModelBlockData):
         self.avg_condenser_props = self.config.property_package_water.state_block_class(
             self.flowsheet().config.time,
             doc="Average properties of water in the condenser",
-            **tmp_dict
+            **tmp_dict,
         )
         self.avg_condenser_props[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
         self.avg_condenser_props[0].pressure.fix(101325)
@@ -469,19 +469,24 @@ class VAGMDData(UnitModelBlockData):
         """
         # Cooling system specification
         if self.config.cooling_system_type == "closed":
+
             @self.Constraint(doc="Calculate cooling power requirment")
             def eq_cooling_power_thermal(b):
-                return (b.cooling_power_thermal
-                    == pyunits.convert(b.thermal_resistance_hot
-                    * (b.feed_props[0].temperature - b.condenser_in_props[0].temperature),
-                    to_units=pyunits.kW,)
+                return b.cooling_power_thermal == pyunits.convert(
+                    b.thermal_resistance_hot
+                    * (
+                        b.feed_props[0].temperature
+                        - b.condenser_in_props[0].temperature
+                    ),
+                    to_units=pyunits.kW,
                 )
 
             @self.Constraint(
                 doc="Calculate inlet cooling water temperature in closed cooling mode"
             )
             def eq_cooling_in_temp(b):
-                return (b.cooling_in_props[0].temperature
+                return (
+                    b.cooling_in_props[0].temperature
                     == b.feed_props[0].temperature
                     - pyunits.convert(b.cooling_power_thermal, to_units=pyunits.W)
                     / b.effectiveness_heat_exchanger
@@ -492,14 +497,11 @@ class VAGMDData(UnitModelBlockData):
                 doc="Calculate outlet cooling water temperature in closed cooling mode"
             )
             def eq_cooling_out_temp(b):
-                return (b.cooling_out_props[0].temperature 
-                    == b.cooling_in_props[0].temperature
-                    + b.thermal_resistance_hot 
-                    / b.thermal_resistance_cold 
-                    * (b.feed_props[0].temperature
-                    - b.condenser_in_props[0].temperature)
+                return b.cooling_out_props[0].temperature == b.cooling_in_props[
+                    0
+                ].temperature + b.thermal_resistance_hot / b.thermal_resistance_cold * (
+                    b.feed_props[0].temperature - b.condenser_in_props[0].temperature
                 )
-
 
         else:  # self.config.cooling_system_type == "open"
 
@@ -708,6 +710,16 @@ class VAGMDData(UnitModelBlockData):
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
+
+        self.config.property_package_seawater.set_default_scaling(
+            "flow_mass_phase_comp", 1e1, index=("Liq", "H2O")
+        )
+        self.config.property_package_seawater.set_default_scaling(
+            "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+        )
+        self.config.property_package_water.set_default_scaling(
+            "flow_mass_phase_comp", 1e1, index=("Liq", "H2O")
+        )
 
         if iscale.get_scaling_factor(self.permeate_flux) is None:
             iscale.set_scaling_factor(self.permeate_flux, 1)
@@ -965,9 +977,13 @@ class VAGMDData(UnitModelBlockData):
             state_args=state_args_permeate,
         )
 
+        if degrees_of_freedom(self) != 0:
+            raise Exception(
+                f"Degrees of freedom of {self.name} is {degrees_of_freedom(self)}"
+                f"before the initialization of VAGMD unit model."
+            )
+
         opt = get_solver(solver, optarg)
-        print("unit dof", degrees_of_freedom(self))
-        assert degrees_of_freedom(self) == 0
 
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
@@ -1238,7 +1254,7 @@ class VAGMDData(UnitModelBlockData):
             TCO = sum(VarsAS7_TCO[j] * TCOAS7[j] for j in range(len(VarsAS7_TCO)))
             TEO = sum(VarsAS7[j] * TEOAS7[j] for j in range(len(VarsAS7)))
 
-        else: # self.config.module_type == "AS26C7.2L"
+        else:  # self.config.module_type == "AS26C7.2L"
             TEI = sum(CoderVars[0][j] * Coder[4][j] for j in range(len(Coder[0])))
             FFR = sum(CoderVars[1][j] * Coder[5][j] for j in range(len(Coder[1])))
             TCI = sum(CoderVars[2][j] * Coder[6][j] for j in range(len(Coder[2])))

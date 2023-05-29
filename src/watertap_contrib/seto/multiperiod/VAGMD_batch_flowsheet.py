@@ -35,16 +35,16 @@ from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogate
 
 def build_vagmd_flowsheet(
     m=None,
-    feed_flow_rate = 600,
-    evap_inlet_temp = 80,
-    cond_inlet_temp = 25,
-    feed_temp = 25,
-    feed_salinity = 35,
-    recovery_ratio = 0.5,
-    initial_batch_volume = 50,
-    module_type = "AS7C1.5L",
-    cooling_system_type = "closed",
-    cooling_inlet_temp = 25,  # Not required when cooling system type is "closed"
+    feed_flow_rate=600,
+    evap_inlet_temp=80,
+    cond_inlet_temp=25,
+    feed_temp=25,
+    feed_salinity=35,
+    recovery_ratio=0.5,
+    initial_batch_volume=50,
+    module_type="AS7C1.5L",
+    cooling_system_type="closed",
+    cooling_inlet_temp=25,  # Not required when cooling system type is "closed"
 ):
     """
     This function builds a unit model for a certain time period
@@ -60,9 +60,9 @@ def build_vagmd_flowsheet(
     m.fs.water_properties = WaterParameterBlock()
 
     # Identify if the final brine salinity is larger than 175.3 g/L for module "AS7C1.5L"
-    # If yes, then operational parameters need to be fixed at a certain value, 
+    # If yes, then operational parameters need to be fixed at a certain value,
     # and coolying circuit is closed to maintain condenser inlet temperature constant
-    final_brine_salinity = feed_salinity / (1- recovery_ratio) # g/L
+    final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # g/L
     if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
         cooling_system_type = "closed"
         feed_flow_rate = 1100
@@ -72,7 +72,6 @@ def build_vagmd_flowsheet(
     else:
         high_brine_salinity = False
 
-
     m.fs.vagmd = VAGMDSurrogate(
         property_package_seawater=m.fs.seawater_properties,
         property_package_water=m.fs.water_properties,
@@ -80,7 +79,7 @@ def build_vagmd_flowsheet(
         high_brine_salinity=high_brine_salinity,
         cooling_system_type=cooling_system_type,
     )
-    
+
     # Specify feed flow state properties
     m.fs.vagmd.feed_props.calculate_state(
         var_args={
@@ -148,6 +147,12 @@ def build_vagmd_flowsheet(
         doc="Accumulated thermal energy consumption from previous time step",
     )
 
+    m.fs.pre_acc_electric_energy = Var(
+        initialize=0,
+        units=pyunits.kWh,
+        doc="Accumulated electric energy consumption from previous time step",
+    )
+
     m.fs.pre_acc_cooling_energy = Var(
         initialize=0,
         units=pyunits.kWh,
@@ -166,6 +171,20 @@ def build_vagmd_flowsheet(
         bounds=(0, None),
         units=pyunits.kW,
         doc="Cooling power consumption from previous time step",
+    )
+
+    m.fs.pre_cooling_pump_power_elec = Var(
+        initialize=10,
+        bounds=(0, None),
+        units=pyunits.kW,
+        doc="Electric power for pumping cooling water from previous time step",
+    )
+
+    m.fs.pre_feed_pump_power_elec = Var(
+        initialize=10,
+        bounds=(0, None),
+        units=pyunits.kW,
+        doc="Electric power for pumping feed water from previous time step",
     )
 
     """
@@ -195,10 +214,22 @@ def build_vagmd_flowsheet(
         doc="Accumulated cooling energy consumption",
     )
 
+    m.fs.acc_electric_energy = Var(
+        initialize=0,
+        units=pyunits.kWh,
+        doc="Accumulated electric energy consumption",
+    )
+
     m.fs.specific_energy_consumption_thermal = Var(
         initialize=100,
         units=pyunits.kWh / pyunits.m**3,
         doc="Specific thermal power consumption (kWh/m3)",
+    )
+
+    m.fs.specific_energy_consumption_electric = Var(
+        initialize=1,
+        units=pyunits.kWh / pyunits.m**3,
+        doc="Specific electric power consumption (kWh/m3)",
     )
 
     m.fs.gain_output_ratio = Var(
@@ -272,6 +303,20 @@ def build_vagmd_flowsheet(
             to_units=pyunits.kWh / pyunits.m**3,
         )
 
+    @mfs.Constraint(doc="Calculate accmulated electric energy consumption")
+    def eq_acc_electric_energy(b):
+        return b.acc_electric_energy == b.pre_acc_electric_energy + pyunits.convert(
+            (b.pre_feed_pump_power_elec + b.pre_cooling_pump_power_elec) * b.dt,
+            to_units=pyunits.kWh,
+        )
+
+    @mfs.Constraint(doc="Calculate specific electric energy consumption")
+    def eq_specific_energy_consumption_electric(b):
+        return b.specific_energy_consumption_electric == pyunits.convert(
+            b.acc_electric_energy / (b.acc_distillate_volume + 1e-8 * pyunits.L),
+            to_units=pyunits.kWh / pyunits.m**3,
+        )
+
     @mfs.Constraint(doc="Calculate gain output ratio")
     def eq_gain_output_ratio(b):
         return b.gain_output_ratio == pyunits.convert(
@@ -293,62 +338,20 @@ def fix_dof_and_initialize(
     outlvl=idaeslog.WARNING,
 ):
 
-    # Initialize 2
-
-    # m.fs.vagmd.feed_props.calculate_state(
-    #     var_args={
-    #         ("flow_vol_phase", "Liq"): pyunits.convert(feed_flow_rate * pyunits.L / pyunits.h, to_units= pyunits.m**3 / pyunits.s),
-    #         ("conc_mass_phase_comp", ("Liq", "TDS")): 35.2555,
-    #         ("temperature", None): 25.9726 + 273.15,
-    #         ("pressure", None): 101325,
-    #     },
-    #     hold_state=True,
-    # )
-
-    # m.fs.pre_feed_temperature.fix(feed_temp + 273.15)
-    # m.fs.pre_feed_salinity.fix(feed_salinity)
-    # m.fs.pre_evap_out_temp.fix(34.5742 + 273.15)
-    # m.fs.pre_permeate_flow_rate.fix(1.068e-5)
-    # m.fs.pre_acc_distillate_volume.fix(0)
-    # m.fs.pre_acc_thermal_energy.fix(0)
-    # m.fs.pre_acc_cooling_energy.fix(0)
-    # m.fs.pre_thermal_power.fix(0)
-    # # m.fs.pre_cooling_power.fix(0)
-
-    # m.fs.vagmd.initialize_build(outlvl=outlvl)
-    # m.fs.vagmd.feed_props[0].temperature.unfix()
-    # m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"].unfix()
-    # m.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-    # m.fs.vagmd.feed_props[0].flow_vol_phase["Liq"].fix(
-    #     pyunits.convert(
-    #         feed_flow_rate * pyunits.L / pyunits.h, to_units=pyunits.m**3 / pyunits.s
-    #     )
-    # )
-
-    # Initialize 1
-
-
-    m.fs.seawater_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e1, index=("Liq", "H2O")
-    )
-    m.fs.seawater_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
-    )
-    m.fs.water_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e1, index=("Liq", "H2O")
-    )
-    # calculate_variable_from_constraint(m.fs.pre_feed_temperature, m.fs.eq_feed_temp)
+    # Initialize the flowsheet to the beginning of the batch operation (t = 0)
     m.fs.pre_feed_temperature.fix(feed_temp + 273.15)
     m.fs.pre_permeate_flow_rate.fix(0)
     m.fs.acc_distillate_volume.fix(0)
     m.fs.acc_thermal_energy.fix(0)
     m.fs.acc_cooling_energy.fix(0)
+    m.fs.acc_electric_energy.fix(0)
     m.fs.pre_thermal_power.fix(0)
     m.fs.pre_cooling_power.fix(0)
-    
+    m.fs.pre_feed_pump_power_elec.fix(0)
+    m.fs.pre_cooling_pump_power_elec.fix(0)
+
     calculate_scaling_factors(m.fs.vagmd)
     m.fs.vagmd.initialize_build(outlvl=outlvl)
-
 
     if iscale.get_scaling_factor(m.fs.dt) is None:
         iscale.set_scaling_factor(m.fs.dt, 1e-1)
@@ -371,6 +374,9 @@ def fix_dof_and_initialize(
     if iscale.get_scaling_factor(m.fs.pre_acc_thermal_energy) is None:
         iscale.set_scaling_factor(m.fs.pre_acc_thermal_energy, 1e0)
 
+    if iscale.get_scaling_factor(m.fs.pre_acc_electric_energy) is None:
+        iscale.set_scaling_factor(m.fs.pre_acc_electric_energy, 1e2)
+
     if iscale.get_scaling_factor(m.fs.pre_acc_cooling_energy) is None:
         iscale.set_scaling_factor(m.fs.pre_acc_cooling_energy, 1e0)
 
@@ -383,6 +389,9 @@ def fix_dof_and_initialize(
     if iscale.get_scaling_factor(m.fs.acc_thermal_energy) is None:
         iscale.set_scaling_factor(m.fs.acc_thermal_energy, 1e0)
 
+    if iscale.get_scaling_factor(m.fs.acc_electric_energy) is None:
+        iscale.set_scaling_factor(m.fs.acc_electric_energy, 1e2)
+
     if iscale.get_scaling_factor(m.fs.acc_cooling_energy) is None:
         iscale.set_scaling_factor(m.fs.acc_cooling_energy, 1e0)
 
@@ -392,8 +401,17 @@ def fix_dof_and_initialize(
     if iscale.get_scaling_factor(m.fs.pre_cooling_power) is None:
         iscale.set_scaling_factor(m.fs.pre_cooling_power, 1e-1)
 
+    if iscale.get_scaling_factor(m.fs.pre_feed_pump_power_elec) is None:
+        iscale.set_scaling_factor(m.fs.pre_feed_pump_power_elec, 1e3)
+
+    if iscale.get_scaling_factor(m.fs.pre_cooling_pump_power_elec) is None:
+        iscale.set_scaling_factor(m.fs.pre_cooling_pump_power_elec, 1e3)
+
     if iscale.get_scaling_factor(m.fs.specific_energy_consumption_thermal) is None:
         iscale.set_scaling_factor(m.fs.specific_energy_consumption_thermal, 1e-2)
+
+    if iscale.get_scaling_factor(m.fs.specific_energy_consumption_electric) is None:
+        iscale.set_scaling_factor(m.fs.specific_energy_consumption_electric, 1)
 
     if iscale.get_scaling_factor(m.fs.gain_output_ratio) is None:
         iscale.set_scaling_factor(m.fs.gain_output_ratio, 1e-1)
@@ -422,8 +440,16 @@ def fix_dof_and_initialize(
     sf = iscale.get_scaling_factor(m.fs.acc_cooling_energy)
     iscale.constraint_scaling_transform(m.fs.eq_acc_cooling_energy, sf)
 
+    sf = iscale.get_scaling_factor(m.fs.acc_electric_energy)
+    iscale.constraint_scaling_transform(m.fs.eq_acc_electric_energy, sf)
+
     sf = iscale.get_scaling_factor(m.fs.specific_energy_consumption_thermal)
     iscale.constraint_scaling_transform(m.fs.eq_specific_energy_consumption_thermal, sf)
+
+    sf = iscale.get_scaling_factor(m.fs.specific_energy_consumption_electric)
+    iscale.constraint_scaling_transform(
+        m.fs.eq_specific_energy_consumption_electric, sf
+    )
 
     sf = iscale.get_scaling_factor(m.fs.gain_output_ratio)
     iscale.constraint_scaling_transform(m.fs.eq_gain_output_ratio, sf)
