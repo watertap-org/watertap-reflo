@@ -19,10 +19,10 @@ from idaes.core import FlowsheetBlock
 from idaes.core.solvers.get_solver import get_solver
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import *
-from idaes.core.util.scaling import *
+
 from idaes.core import UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
-
+from idaes.core.util.scaling import *
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.unit_models.pressure_changer import Pump, EnergyRecoveryDevice
 

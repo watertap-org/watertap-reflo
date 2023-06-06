@@ -77,6 +77,30 @@ def get_rep_days(result_df):
             frame_track.append(new_df)
     return pd.concat(frame_track)
 
+def get_rep_weeks(result_df, days = 7):
+    year_start = datetime.datetime(year=2020, month=1, day=1, hour=0, minute=0)
+    sum_solstice = datetime.datetime(year=2020, month=6, day=20, hour=0, minute=0)
+    win_solstice = datetime.datetime(year=2020, month=12, day=21, hour=0, minute=0)
+    ver_eq = datetime.datetime(year=2020, month=3, day=20, hour=0, minute=0)
+    aut_eq = datetime.datetime(year=2020, month=9, day=22, hour=0, minute=0)
+    key_days = [sum_solstice, win_solstice, ver_eq, aut_eq]
+    rep_days = [(x-year_start).days*24 for x in key_days]
+
+    n = days*24
+    day_labels = ['Summer Solstice','Winter Solstice','Spring Eq', 'Fall Eq']
+    key_days = dict.fromkeys(day_labels)
+    frame_track = []
+    for idx1, size in enumerate(result_df['design_size'].unique()):
+        for idx, day in enumerate(rep_days):
+            temp_df = result_df[result_df['design_size'] == size].copy()
+            new_df = temp_df[day:day+(days*24)].copy()
+            new_df.loc[:,'Hour'] = np.linspace(0,n-1,n)%24
+            new_df.loc[:,'Day'] = np.linspace(0,n-1,n)//24
+            new_df['Key'] = day_labels[idx]
+            frame_track.append(new_df)
+
+    return pd.concat(frame_track)
+
 def plot_2D(frame, x_var='design_size', y_var ='period_energy', x_label='Desired Size (kW)', y_label='Period Energy'):
     fig, ax = plt.subplots(figsize=(6,6))
     # ax2 = ax.twinx()
@@ -137,7 +161,7 @@ def create_rbf_surrogate(
         raise e
 
     # Create callable surrogate object
-    xmin, xmax = [0, 0], [1000000, 12]
+    xmin, xmax = [0, 0, 0], [1000000, 23, 6]
     input_bounds = {
         input_labels[i]: (xmin[i], xmax[i]) for i in range(len(input_labels))
     }
@@ -324,6 +348,25 @@ def plot_key_day_parities(idx, surrogate, data_training, data_validation, input_
             R_val=r2_testing
         )
 
+def create_training_data():
+    # Run parametrics via multiprocessing
+    data = []
+    pv_size = np.linspace(10,100000,30) ################################
+    pv_size = np.logspace(1,5,30) ################################
+    pv_size = np.logspace(1,5,10) ################################
+    df = pd.DataFrame()
+
+    time_start = time.process_time()
+    with multiprocessing.Pool(processes=8) as pool:
+        # results = pool.map(run, pv_size)
+        results = pool.map(get_hourly, pv_size)
+    time_stop = time.process_time()
+    print("Multiprocessing time:", time_stop - time_start, "\n")
+    df = pd.concat(results)
+    key_df = get_rep_weeks(df)
+
+    return key_df
+
 def create_yearly_surrogate():
         # Run parametrics via multiprocessing
     data = []
@@ -366,45 +409,59 @@ def create_yearly_surrogate():
     )
 
 def create_daily_surrogate():
-    # Run parametrics via multiprocessing
-    data = []
-    pv_size = np.linspace(10,100000,30) ################################
-    pv_size = np.logspace(1,5,20) ################################
-    df = pd.DataFrame()
-
-    time_start = time.process_time()
-    with multiprocessing.Pool(processes=8) as pool:
-        # results = pool.map(run, pv_size)
-        results = pool.map(get_hourly, pv_size)
-    time_stop = time.process_time()
-    print("Multiprocessing time:", time_stop - time_start, "\n")
-    df = pd.concat(results)
-    key_df = get_rep_days(df)
-    # df.to_pickle(daily_dataset_filename)
+    key_df = create_training_data()
     fig, ax = plt.subplots(2,4,figsize=(14,12))
     for idx, period in enumerate(key_df['Key'].unique()):
         period_df = key_df.loc[key_df['Key'] == period].copy()
-        data = period_df.sample(n=int(1*len(period_df)))
+        data = period_df
         data_training, data_validation = split_training_validation(
-            data, 0.95, seed=len(data) ######################################
+            data, 0.95, seed=7 ######################################
         ) 
 
-        surrogate_filename = join(dirname(__file__), "pv_"+period.replace(" ","_")+"_surrogate_w_land.json")
+        surrogate_filename = join(dirname(__file__), "pv_"+period.replace(" ","_")+"_surrogate_week.json")
         surrogate = create_rbf_surrogate(
-            data_training, ['design_size', 'Hour'], ['hourly_gen']
+            data_training, ['design_size', 'Hour', 'Day'], ['hourly_gen'], output_filename=surrogate_filename
         )
 
-        selected_labels = ['hourly_gen']
-        # Create parity and residual plots for training and validation
-        plot_key_day_parities(
-            idx, surrogate, data_training, data_validation, ['design_size', 'Hour'], selected_labels, axes=ax, title=period
-        )
+    #     selected_labels = ['hourly_gen']
+    #     # Create parity and residual plots for training and validation
+    #     plot_key_day_parities(
+    #         idx, surrogate, data_training, data_validation, ['design_size', 'Hour', 'Day'], selected_labels, axes=ax, title=period
+    #     )
 
-    plt.tight_layout()
+    # plt.tight_layout()
+    # plt.savefig(f'/Users/zbinger/watertap-seto/src/watertap_contrib/seto/solar_models/surrogate/plots/multiperiod_parity_week.png', dpi=900)
+    # plt.show()
+
+
+def evaluate_surrogate(data, surrogate = None, surrogate_filename = None, size=10000.0, input_labels = ['design_size', 'Hour', 'Day'], output_label=''):
+    def sort():
+        train = data.copy()
+        val = data.copy()
+        return train, val
+    
+    def eval(train, val):
+        train_eval = surrogate.evaluate_surrogate(train[input_labels])
+        val_eval = surrogate.evaluate_surrogate(val[input_labels])
+        corr_matrix = np.corrcoef(val[output_label], val_eval[output_label])
+        corr = corr_matrix[0,1]
+        r2_testing = round(corr**2,3)      
+        r2_training=round(surrogate._trained._data[output_label].model.R2,3)
+        rmse_training=round(surrogate._trained._data[output_label].model.rmse,3)
+        return train_eval, val_eval, r2_testing, r2_training, rmse_training
+
+    fig, ax = plt.subplots(4,7,figsize=(24,12))
+    for idx, period in enumerate(data['Key'].unique()):
+        for idx2, day in enumerate(data['Day'].unique()):
+            surrogate = load_surrogate(join(dirname(__file__), "pv_"+period.replace(" ","_")+"_surrogate_week.json"))
+            period_df = data.loc[(data['Key'] == period) & (data['design_size'] == size) & (data['Day'] == day)].copy()
+            surr_eval = surrogate.evaluate_surrogate(period_df[input_labels])
+            ax[idx, idx2].plot(period_df['Hour'], period_df['hourly_gen'], 'o', color='black')
+            ax[idx, idx2].plot(period_df['Hour'], surr_eval['hourly_gen'], '-.', color='red')
+  
     plt.show()
-        # plot_period_parities(
-        # surrogate, data_training, data_validation, ['design_size', 'Hour'], selected_labels
-        # )
 
 if __name__ == "__main__":
     create_daily_surrogate()
+    data = create_training_data()
+    evaluate_surrogate(data, surrogate_filename='/Users/zbinger/watertap-seto/src/watertap_contrib/seto/analysis/net_metering/pysam_data/pv_Winter_Solstice_surrogate_week.json')
