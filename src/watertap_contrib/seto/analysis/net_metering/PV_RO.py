@@ -17,6 +17,7 @@ from idaes.core import FlowsheetBlock
 from idaes.core.solvers.get_solver import get_solver
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import degrees_of_freedom
+import idaes.core.util.scaling as iscale
 from idaes.core.util.scaling import (
     set_scaling_factor,
     calculate_scaling_factors,
@@ -241,6 +242,14 @@ def initialize_treatment(m, water_recovery=0.5):
     p1.initialize()
 
     propagate_state(m.fs.treatment.a2)
+
+    ro.calculate_scaling_factors()
+    iscale.constraint_scaling_transform(ro.eq_mass_frac_permeate[0, 1, "NaCl"], 1e3)
+    iscale.constraint_scaling_transform(ro.eq_mass_frac_permeate[0, 0, "NaCl"], 1e3)
+    iscale.constraint_scaling_transform(ro.feed_side.eq_K[0, 1, "NaCl"], 1e3)
+    iscale.constraint_scaling_transform(ro.feed_side.eq_K[0, 0, "NaCl"], 1e3)
+    iscale.constraint_scaling_transform(ro.eq_flux_mass[0, 1, "Liq", "NaCl"], 1e3)
+    iscale.constraint_scaling_transform(ro.eq_flux_mass[0, 0, "Liq", "NaCl"], 1e3)
     ro.initialize()
     ro.area.unfix()
     ro.recovery_mass_phase_comp[0, "Liq", "H2O"].fix(water_recovery)
