@@ -1179,7 +1179,7 @@ class VAGMDData(UnitModelBlockData):
             0,
             0.808447211000000,
         ]
-        Coder = [
+        coefficients = [
             [-5.68487382500000, 0.0705622560000000, 0.000152146000000000],
             [-1.58460599600000, 0.00102338700000000, 1.20000000000000e-06],
             [-4.27697973100000, 0.175533630000000, -0.000178178000000000],
@@ -1196,7 +1196,7 @@ class VAGMDData(UnitModelBlockData):
         TEI -= 273.15
         TCI -= 273.15
 
-        CoderVars = [
+        surrogate_vars = [
             [1, TEI, TEI**2],
             [1, FFR, FFR**2],
             [1, TCI, TCI**2],
@@ -1210,10 +1210,22 @@ class VAGMDData(UnitModelBlockData):
 
                 PFluxAS7, TCOAS7, TEOAS7 = PFluxAS7_high, TCOAS7_high, TEOAS7_high
             else:
-                TEI = sum(CoderVars[0][j] * Coder[0][j] for j in range(len(Coder[0])))
-                FFR = sum(CoderVars[1][j] * Coder[1][j] for j in range(len(Coder[1])))
-                TCI = sum(CoderVars[2][j] * Coder[2][j] for j in range(len(Coder[2])))
-                S_r = sum(CoderVars[3][j] * Coder[3][j] for j in range(len(Coder[3])))
+                TEI = sum(
+                    surrogate_vars[0][j] * coefficients[0][j]
+                    for j in range(len(coefficients[0]))
+                )
+                FFR = sum(
+                    surrogate_vars[1][j] * coefficients[1][j]
+                    for j in range(len(coefficients[1]))
+                )
+                TCI = sum(
+                    surrogate_vars[2][j] * coefficients[2][j]
+                    for j in range(len(coefficients[2]))
+                )
+                S_r = sum(
+                    surrogate_vars[3][j] * coefficients[3][j]
+                    for j in range(len(coefficients[3]))
+                )
 
                 PFluxAS7, TCOAS7, TEOAS7 = PFluxAS7_low, TCOAS7_low, TEOAS7_low
 
@@ -1255,10 +1267,22 @@ class VAGMDData(UnitModelBlockData):
             TEO = sum(VarsAS7[j] * TEOAS7[j] for j in range(len(VarsAS7)))
 
         else:  # self.config.module_type == "AS26C7.2L"
-            TEI = sum(CoderVars[0][j] * Coder[4][j] for j in range(len(Coder[0])))
-            FFR = sum(CoderVars[1][j] * Coder[5][j] for j in range(len(Coder[1])))
-            TCI = sum(CoderVars[2][j] * Coder[6][j] for j in range(len(Coder[2])))
-            S_r = sum(CoderVars[3][j] * Coder[7][j] for j in range(len(Coder[3])))
+            TEI = sum(
+                surrogate_vars[0][j] * coefficients[4][j]
+                for j in range(len(coefficients[0]))
+            )
+            FFR = sum(
+                surrogate_vars[1][j] * coefficients[5][j]
+                for j in range(len(coefficients[1]))
+            )
+            TCI = sum(
+                surrogate_vars[2][j] * coefficients[6][j]
+                for j in range(len(coefficients[2]))
+            )
+            S_r = sum(
+                surrogate_vars[3][j] * coefficients[7][j]
+                for j in range(len(coefficients[3]))
+            )
 
             VarsAS26 = [
                 1,

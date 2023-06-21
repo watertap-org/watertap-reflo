@@ -101,23 +101,6 @@ def get_n_time_points(
             )
         )
 
-    output = np.array(
-        [[i for i in range(len(PFlux))], V, AccVd, S, PFlux, RR, TCO, TEO]
-    )
-    df = pd.DataFrame(
-        data=output,
-        index=[
-            "Step",
-            "Batch volume (L)",
-            "Accumulated discharge volume (L)",
-            "Brine salinity (g/L)",
-            "Permeate flux (kg/hr/m2)",
-            "Recovery rate (%)",
-            "TCO",
-            "TEO",
-        ],
-    )
-
     return len(PFlux)
 
 
@@ -272,7 +255,7 @@ def _get_membrane_performance(TEI, FFR, TCI, SgL, module_type, high_brine_salini
         0,
         0.808447211000000,
     ]
-    Coder = [
+    coefficients = [
         [-5.68487382500000, 0.0705622560000000, 0.000152146000000000],
         [-1.58460599600000, 0.00102338700000000, 1.20000000000000e-06],
         [-4.27697973100000, 0.175533630000000, -0.000178178000000000],
@@ -289,7 +272,7 @@ def _get_membrane_performance(TEI, FFR, TCI, SgL, module_type, high_brine_salini
     # TEI -= 273.15
     # TCI -= 273.15
 
-    CoderVars = [
+    surrogate_variables = [
         [1, TEI, TEI**2],
         [1, FFR, FFR**2],
         [1, TCI, TCI**2],
@@ -303,10 +286,22 @@ def _get_membrane_performance(TEI, FFR, TCI, SgL, module_type, high_brine_salini
 
             PFluxAS7, TCOAS7, TEOAS7 = PFluxAS7_high, TCOAS7_high, TEOAS7_high
         else:
-            TEI = sum(CoderVars[0][j] * Coder[0][j] for j in range(len(Coder[0])))
-            FFR = sum(CoderVars[1][j] * Coder[1][j] for j in range(len(Coder[1])))
-            TCI = sum(CoderVars[2][j] * Coder[2][j] for j in range(len(Coder[2])))
-            S_r = sum(CoderVars[3][j] * Coder[3][j] for j in range(len(Coder[3])))
+            TEI = sum(
+                surrogate_variables[0][j] * coefficients[0][j]
+                for j in range(len(coefficients[0]))
+            )
+            FFR = sum(
+                surrogate_variables[1][j] * coefficients[1][j]
+                for j in range(len(coefficients[1]))
+            )
+            TCI = sum(
+                surrogate_variables[2][j] * coefficients[2][j]
+                for j in range(len(coefficients[2]))
+            )
+            S_r = sum(
+                surrogate_variables[3][j] * coefficients[3][j]
+                for j in range(len(coefficients[3]))
+            )
 
             PFluxAS7, TCOAS7, TEOAS7 = PFluxAS7_low, TCOAS7_low, TEOAS7_low
 
@@ -348,10 +343,22 @@ def _get_membrane_performance(TEI, FFR, TCI, SgL, module_type, high_brine_salini
         TEO = sum(VarsAS7[j] * TEOAS7[j] for j in range(len(VarsAS7)))
 
     else:  # module_type == "AS26C7.2L":
-        TEI = sum(CoderVars[0][j] * Coder[4][j] for j in range(len(Coder[0])))
-        FFR = sum(CoderVars[1][j] * Coder[5][j] for j in range(len(Coder[1])))
-        TCI = sum(CoderVars[2][j] * Coder[6][j] for j in range(len(Coder[2])))
-        S_r = sum(CoderVars[3][j] * Coder[7][j] for j in range(len(Coder[3])))
+        TEI = sum(
+            surrogate_variables[0][j] * coefficients[4][j]
+            for j in range(len(coefficients[0]))
+        )
+        FFR = sum(
+            surrogate_variables[1][j] * coefficients[5][j]
+            for j in range(len(coefficients[1]))
+        )
+        TCI = sum(
+            surrogate_variables[2][j] * coefficients[6][j]
+            for j in range(len(coefficients[2]))
+        )
+        S_r = sum(
+            surrogate_variables[3][j] * coefficients[7][j]
+            for j in range(len(coefficients[3]))
+        )
 
         VarsAS26 = [
             1,

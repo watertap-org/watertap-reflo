@@ -31,8 +31,6 @@ from idaes.core.util.scaling import (
 )
 import idaes.logger as idaeslog
 
-from watertap.core.util.model_diagnostics.infeasible import *
-
 # Get default solver for testing
 solver = get_solver()
 

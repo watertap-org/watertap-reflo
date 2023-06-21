@@ -9,7 +9,7 @@ import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogate
-from watertap_contrib.seto.multiperiod.VAGMD_batch_flowsheet import (
+from watertap_contrib.seto.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import (
     build_vagmd_flowsheet,
     fix_dof_and_initialize,
 )
