@@ -62,7 +62,7 @@ from idaes.core.util.scaling import (
 @declare_process_block_class("VAGMDSurrogate")
 class VAGMDData(UnitModelBlockData):
     """
-    Vacuumed Membrane distillation (air-gapped) - batch operation model
+    Vacuum Air-Gap Membrane Distillation - batch operation model
     """
 
     CONFIG = ConfigBlock()
