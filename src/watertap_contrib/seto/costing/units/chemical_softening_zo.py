@@ -899,28 +899,16 @@ def cost_chem_softening(blk):
 
     # Sum of all operational costs
 
-    if blk.unit_model.config.silica_removal:
-        blk.fixed_operating_cost_constraint = Constraint(
-            expr=blk.fixed_operating_cost
-            == blk.mix_tank_op_cost
-            + blk.floc_tank_op_cost
-            + blk.sed_basin_op_cost
-            + blk.recarb_basin_op_cost
-            + blk.lime_feed_op_cost
-            + blk.lime_sludge_mngt_op_cost
-            + blk.admin_op_cost
-        )
-    else:
-        blk.fixed_operating_cost_constraint = Constraint(
-            expr=blk.fixed_operating_cost
-            == blk.mix_tank_op_cost
-            + blk.floc_tank_op_cost
-            + blk.sed_basin_op_cost
-            + blk.recarb_basin_op_cost
-            + blk.lime_feed_op_cost
-            + blk.lime_sludge_mngt_op_cost
-            + blk.admin_op_cost
-        )
+    blk.fixed_operating_cost_constraint = Constraint(
+        expr=blk.fixed_operating_cost
+        == blk.mix_tank_op_cost
+        + blk.floc_tank_op_cost
+        + blk.sed_basin_op_cost
+        + blk.recarb_basin_op_cost
+        + blk.lime_feed_op_cost
+        + blk.lime_sludge_mngt_op_cost
+        + blk.admin_op_cost
+    )
 
     blk.mixer_power_constraint = Constraint(
         expr=blk.mixer_power
@@ -941,28 +929,34 @@ def cost_chem_softening(blk):
         == pyunits.convert((blk.mixer_power + blk.floc_power), to_units=pyunits.kW)
     )
 
-    CaO_dosing = pyunits.convert(
-        blk.unit_model.CaO_dosing
-        + pyunits.convert(
-            blk.unit_model.excess_CaO * blk.unit_model.properties_in[0].flow_vol,
-            to_units=pyunits.kg / pyunits.day,
-        ),
-        to_units=pyunits.kg / pyunits.year,
-    )
+    @blk.Expression(doc="Costing block lime dosing")
+    def cao_dosing(b):
+        return pyunits.convert(
+            b.unit_model.CaO_dosing
+            + pyunits.convert(
+                b.unit_model.excess_CaO * b.unit_model.properties_in[0].flow_vol,
+                to_units=pyunits.kg / pyunits.day,
+            ),
+            to_units=pyunits.kg / pyunits.year,
+        )
 
-    mgcl2_dosing = pyunits.convert(
-        blk.unit_model.MgCl2_dosing * blk.unit_model.properties_in[0].flow_vol,
-        to_units=pyunits.kg / pyunits.year,
-    )
+    @blk.Expression(doc="Costing block MgCl2 dosing")
+    def mgcl2_dosing(b):
+        return pyunits.convert(
+            b.unit_model.MgCl2_dosing * b.unit_model.properties_in[0].flow_vol,
+            to_units=pyunits.kg / pyunits.year,
+        )
 
-    co2_dosing = pyunits.convert(
-        blk.unit_model.CO2_first_basin + blk.unit_model.CO2_second_basin,
-        to_units=pyunits.kg / pyunits.year,
-    )
+    @blk.Expression(doc="Costing block co2 dosing")
+    def co2_dosing(b):
+        return pyunits.convert(
+            b.unit_model.CO2_first_basin + b.unit_model.CO2_second_basin,
+            to_units=pyunits.kg / pyunits.year,
+        )
 
     blk.costing_package.cost_flow(blk.electricity_flow, "electricity")
 
-    blk.costing_package.cost_flow(CaO_dosing, "lime")
+    blk.costing_package.cost_flow(blk.cao_dosing, "lime")
     blk.costing_package.cost_flow(blk.unit_model.Na2CO3_dosing, "soda ash")
-    blk.costing_package.cost_flow(mgcl2_dosing, "mgcl2")
-    blk.costing_package.cost_flow(co2_dosing, "co2")
+    blk.costing_package.cost_flow(blk.mgcl2_dosing, "mgcl2")
+    blk.costing_package.cost_flow(blk.co2_dosing, "co2")
