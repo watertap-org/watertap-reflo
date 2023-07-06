@@ -90,6 +90,14 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             units=pyo.units.dimensionless,
         )
 
+        self.heat_cost = pyo.Param(
+            mutable=True,
+            initialize=0.01,
+            doc="Heat cost",
+            units=pyo.units.USD_2018 / pyo.units.kWh,
+        )
+        self.add_defined_flow("heat", self.heat_cost)
+
         self.electricity_sell_cost = pyo.Param(
             mutable=True,
             initialize= 0.05,  # From EIA for 2021
@@ -140,7 +148,13 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             == self.factor_maintenance_labor_chemical * self.total_capital_cost
         )
 
-        
+        self.total_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_operating_cost
+            == self.maintenance_labor_chemical_operating_cost
+            + self.aggregate_fixed_operating_cost
+            + self.aggregate_variable_operating_cost
+            + sum(self.aggregate_flow_costs.values()) * self.utilization_factor)
+
         self.total_electric_operating_cost_constraint = pyo.Constraint(
             expr=self.total_electric_operating_cost
             == sum(self.aggregate_flow_costs.values()) * self.utilization_factor
@@ -276,6 +290,14 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             units=pyo.units.kW,
         )
         
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+            self.aggregate_flow_heat = pyo.Var(
+                initialize=1e3,
+                # domain=pyo.NonNegativeReals,
+                doc="Aggregated heat flow",
+                units=pyo.units.kW,
+            )
+
         self.net_flow_electricity = pyo.Var(
             initialize=1e3,
             # domain=pyo.NonNegativeReals,
@@ -472,6 +494,35 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             "specific_electric_energy_consumption_constraint",
             specific_electric_energy_consumption_constraint,
         )
+
+    def add_specific_thermal_energy_consumption(self, flow_rate):
+        """
+        Add specific thermal energy consumption (kWh/m**3) to costing block.
+        Args:
+            flow_rate - flow rate of water (volumetric) to be used in
+                        calculating specific energy consumption
+        """
+
+        specific_thermal_energy_consumption = pyo.Var(
+            initialize=100,
+            doc=f"Specific thermal energy consumption based on flow {flow_rate.name}",
+        )
+
+        self.add_component(
+            "specific_thermal_energy_consumption", specific_thermal_energy_consumption
+        )
+
+        specific_thermal_energy_consumption_constraint = pyo.Constraint(
+            expr=specific_thermal_energy_consumption
+            == self.aggregate_flow_heat
+            / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr)
+        )
+
+        self.add_component(
+            "specific_thermal_energy_consumption_constraint",
+            specific_thermal_energy_consumption_constraint,
+        )
+
 
     def add_defined_flow(self, flow_name, flow_cost):
         """
