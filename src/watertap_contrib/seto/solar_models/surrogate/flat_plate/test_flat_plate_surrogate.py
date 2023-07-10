@@ -79,7 +79,7 @@ class TestFlatPlate:
     def test_build(self, flat_plate_frame):
         m = flat_plate_frame
 
-        assert len(m.fs.flatplate.config) == 3
+        assert len(m.fs.flatplate.config) == 2
         assert not m.fs.flatplate.config.dynamic
         assert not m.fs.flatplate.config.has_holdup
         assert m.fs.flatplate._tech_type == "flat_plate"
@@ -221,6 +221,7 @@ class TestFlatPlate:
         m.fs.flatplate.temperature_hot.fix(75)
 
         solver = SolverFactory("ipopt")
+        solver = get_solver()
         results = solver.solve(m)
         assert_optimal_termination(results)
 
