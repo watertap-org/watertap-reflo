@@ -36,7 +36,6 @@ class TroughSurrogateData(SolarEnergyBase):
     def build(self):
         super().build()
 
-        self.scaling_factor = Suffix(direction=Suffix.EXPORT)
         self._tech_type = "trough"
 
         self.heat_load = Var(

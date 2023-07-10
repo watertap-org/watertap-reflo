@@ -15,7 +15,7 @@ import os
 import sys
 from io import StringIO
 
-from pyomo.environ import Var, Param, Constraint, Suffix, units as pyunits
+from pyomo.environ import Var, Param, Constraint, units as pyunits
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
@@ -37,7 +37,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         super().build()
 
         self._tech_type = "flat_plate"
-        self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
         self.specific_heat_water = Param(
             initialize=4.181,  # defaults from SAM

@@ -31,7 +31,7 @@ from idaes.core.surrogate.sampling.data_utils import split_training_validation
 import idaes.logger as idaeslog
 
 from pyomo.common.config import ConfigBlock, ConfigValue, In
-from pyomo.environ import Var, units as pyunits
+from pyomo.environ import Var, Suffix, units as pyunits
 
 __author__ = "Kurban Sitterley"
 
@@ -64,6 +64,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
     def build(self):
         super().build()
+        self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
         self._tech_type = None
         self._scaling = None
