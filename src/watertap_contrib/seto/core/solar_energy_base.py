@@ -36,10 +36,6 @@ from pyomo.environ import Var, units as pyunits
 __author__ = "Kurban Sitterley"
 
 
-class SolarEnergyType(StrEnum):
-    PV = "PV"
-
-
 @declare_process_block_class("SolarEnergyBase")
 class SolarEnergyBaseData(UnitModelBlockData):
     """
@@ -65,14 +61,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             doc="""Solar energy models do not include holdup""",
         ),
     )
-    CONFIG.declare(
-        "solar_energy_type",
-        ConfigValue(
-            default="PV",
-            domain=In(SolarEnergyType),
-            description="Indicates type of solar energy source",
-        ),
-    )
 
     def build(self):
         super().build()
@@ -84,14 +72,14 @@ class SolarEnergyBaseData(UnitModelBlockData):
             initialize=1e3,
             units=pyunits.kW,
             bounds=(None, None),
-            doc="Electricity production of solar process",
+            doc="Electricity balance of solar process",
         )
 
         self.heat = Var(
             initialize=1e3,
             units=pyunits.kW,
             bounds=(None, None),
-            doc="Heat production of solar process",
+            doc="Heat balance of solar process",
         )
 
     def initialize_build(
@@ -121,14 +109,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         if callable(self._scaling):
             self._scaling(self)
-
-
-class SolarEnergyBase(SolarEnergyBaseData):
-    """
-    Base class for solar energy surrogate models.
-    """
-
-    CONFIG = SolarEnergyBaseData.CONFIG()
 
     def _create_rbf_surrogate(self, bounds, data_training=None, output_filename=None):
 
