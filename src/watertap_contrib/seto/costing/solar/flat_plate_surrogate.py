@@ -109,39 +109,14 @@ def cost_flat_plate(blk):
         doc="Sales tax for flat plate system",
     )
 
-    blk.system_capacity = pyo.Var(
-        initialize=0,
-        units=pyo.units.kW,
-        bounds=(0, None),
-        doc="Thermal system capacity for flat plate system",
-    )
-
-    blk.collector_area = pyo.Var(
-        initialize=0,
-        units=pyo.units.m**2,
-        bounds=(0, None),
-        doc="Collector area for flat plate system",
-    )
-
-    blk.storage_volume = pyo.Var(
-        initialize=0,
-        units=pyo.units.m**3,
-        bounds=(0, None),
-        doc="Storage volume for flat plate system",
-    )
-
-    blk.annual_generation = pyo.Var(
-        initialize=0,
-        units=pyo.units.MWh,
-        bounds=(0, None),
-        doc="Annual thermal generation of flat plate system",
-    )
-
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
         == (
-            blk.collector_area * flat_plate_params.cost_per_area_collector
-            + blk.storage_volume * flat_plate_params.cost_per_volume_storage
+            (
+                flat_plate.collector_area_total
+                * flat_plate_params.cost_per_area_collector
+            )
+            + (flat_plate.storage_volume * flat_plate_params.cost_per_volume_storage)
             + flat_plate_params.balance_of_system_cost
             + flat_plate_params.installation_cost
         )
