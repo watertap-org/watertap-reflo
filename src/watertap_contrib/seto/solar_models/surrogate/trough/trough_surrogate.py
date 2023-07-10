@@ -15,7 +15,7 @@ import os
 import sys
 from io import StringIO
 
-from pyomo.environ import Var, Constraint, Suffix, units as pyunits
+from pyomo.environ import Var, Constraint, units as pyunits
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
