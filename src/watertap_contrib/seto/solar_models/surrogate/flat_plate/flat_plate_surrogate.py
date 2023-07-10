@@ -15,20 +15,20 @@ import os
 import sys
 from io import StringIO
 
-from pyomo.environ import Var, Constraint, Suffix, units as pyunits
+from pyomo.environ import Var, Param, Constraint, Suffix, units as pyunits
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 
-from watertap_contrib.seto.core import SolarEnergyBase
+from watertap_contrib.seto.core import SolarEnergyBaseData
 
-__author__ = "Matthew Boyd"
+__author__ = "Matthew Boyd, Kurban Sitterley"
 
 
 @declare_process_block_class("FlatPlateSurrogate")
-class FlatPlateSurrogateData(SolarEnergyBase):
+class FlatPlateSurrogateData(SolarEnergyBaseData):
     """
     Surrogate model for flat plate.
     """
@@ -37,9 +37,78 @@ class FlatPlateSurrogateData(SolarEnergyBase):
         super().build()
 
         self._tech_type = "flat_plate"
+        self.scaling_factor = Suffix(direction=Suffix.EXPORT)
+
+        self.specific_heat_water = Param(
+            initialize=4.181,  # defaults from SAM
+            units=pyunits.kJ / (pyunits.kg * pyunits.K),
+            doc="Specific heat of water",
+        )
+        self.dens_water = Param(
+            initialize=1000,  # defaults from SAM
+            units=pyunits.kg / pyunits.m**3,
+            mutable=True,
+            doc="Density of water",
+        )
+
+        self.temperature_cold = Param(
+            initialize=293,  # defaults from SAM
+            units=pyunits.K,
+            mutable=True,
+            doc="Cold temperature",
+        )
+
+        self.factor_delta_T = Param(
+            initialize=0.03,  # this is a guess as to what the 30 represents in the equation for total collector area in SAM documentation
+            units=pyunits.K,
+            mutable=True,
+            doc="Influent minus ambient temperature",
+        )
+
+        self.collector_area_per = Param(
+            initialize=2.98,  # defaults from SAM
+            units=pyunits.m**2,
+            mutable=True,
+            doc="Area for single collector",
+        )
+
+        self.FR_ta = Param(
+            initialize=0.689,  # optical gain "a" in Hottel-Whillier-Bliss equation [hcoll = a - b*dT]; defaults from SAM
+            units=pyunits.kilowatt / pyunits.m**2,
+            mutable=True,
+            doc="Product of collector heat removal factor (FR), cover transmittance (t), and shortwave absorptivity of absorber (a)",
+        )
+
+        self.FR_UL = Param(
+            initialize=3.85,  # Thermal loss coeff "b" in Hottel-Whillier-Bliss equation [hcoll = a - b*dT]; defaults from SAM
+            units=pyunits.kilowatt / (pyunits.m**2 * pyunits.K),
+            mutable=True,
+            doc="Product of collector heat removal factor (FR) and overall heat loss coeff. of collector (UL)",
+        )
+
+        self.collector_area_total = Var(
+            initialize=3,
+            units=pyunits.m**2,
+            bounds=(0, None),
+            doc="Total collector area needed",
+        )
+
+        self.number_collectors = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            bounds=(1, None),
+            doc="Number of collectors needed",
+        )
+
+        self.storage_volume = Var(
+            initialize=10,
+            units=pyunits.m**3,
+            bounds=(0, None),
+            doc="Storage volume for flat plate system",
+        )
 
         self.heat_load = Var(
-            initialize=1000,
+            initialize=500,
             bounds=[100, 1000],
             units=pyunits.MW,
             doc="Rated plant heat capacity in MWt",
@@ -102,6 +171,32 @@ class FlatPlateSurrogateData(SolarEnergyBase):
             expr=self.electricity_annual
             == self.electricity
             * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
+        )
+
+        self.collector_area_total_constraint = Constraint(
+            expr=self.collector_area_total
+            * (self.FR_ta - self.FR_UL * self.factor_delta_T)
+            == pyunits.convert(self.heat_load, to_units=pyunits.kilowatt)
+        )
+
+        self.number_collectors_constraint = Constraint(
+            expr=self.number_collectors
+            == self.collector_area_total / self.collector_area_per
+        )
+
+        self.storage_volume_constraint = Constraint(
+            expr=self.storage_volume
+            == pyunits.convert(
+                (
+                    (self.hours_storage * self.heat_load)
+                    / (
+                        self.specific_heat_water
+                        * self.temperature_cold
+                        * self.dens_water
+                    )
+                ),
+                to_units=pyunits.m**3,
+            )
         )
 
         # Revert back to standard output
