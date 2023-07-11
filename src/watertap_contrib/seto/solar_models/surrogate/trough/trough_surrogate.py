@@ -22,13 +22,13 @@ import idaes.core.util.scaling as iscale
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 
-from watertap_contrib.seto.core import SolarEnergyBase
+from watertap_contrib.seto.core import SolarEnergyBaseData
 
 __author__ = "Matthew Boyd, Kurban Sitterley"
 
 
 @declare_process_block_class("TroughSurrogate")
-class TroughSurrogateData(SolarEnergyBase):
+class TroughSurrogateData(SolarEnergyBaseData):
     """
     Surrogate model for trough.
     """
@@ -64,26 +64,23 @@ class TroughSurrogateData(SolarEnergyBase):
             doc="Annual electricity consumed by trough",
         )
 
-        stream = StringIO()
-        oldstdout = sys.stdout
-        sys.stdout = stream
-
         self.surrogate_inputs = [self.heat_load, self.hours_storage]
         self.surrogate_outputs = [self.heat_annual, self.electricity_annual]
 
         self.input_labels = ["heat_load", "hours_storage"]
         self.output_labels = ["heat_annual", "electricity_annual"]
 
-        self.surrogate_file = os.path.join(
-            os.path.dirname(__file__), "trough_surrogate.json"
-        )
-        self.surrogate_blk = SurrogateBlock(concrete=True)
-        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
-        self.surrogate_blk.build_model(
-            self.surrogate,
-            input_vars=self.surrogate_inputs,
-            output_vars=self.surrogate_outputs,
-        )
+        if self.config.surrogate_model_file:
+            self.surrogate_file = os.path.join(
+                os.path.dirname(__file__), self.config.surrogate_model_file
+            )
+
+        else:
+            self.surrogate_file = os.path.join(
+                os.path.dirname(__file__), "trough_surrogate.json"
+            )
+
+        self._load_surrogate()
 
         self.heat_constraint = Constraint(
             expr=self.heat_annual
@@ -96,14 +93,9 @@ class TroughSurrogateData(SolarEnergyBase):
             * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
         )
 
-        # Revert back to standard output
-        sys.stdout = oldstdout
-
         self.dataset_filename = os.path.join(
             os.path.dirname(__file__), "data/trough_data.pkl"
         )
-        self.n_samples = 100
-        self.training_fraction = 0.8
 
     def calculate_scaling_factors(self):
 

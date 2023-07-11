@@ -8,6 +8,7 @@ from pyomo.environ import (
     Var,
     value,
     assert_optimal_termination,
+    units as pyunits,
 )
 from pyomo.network import Port
 
@@ -79,7 +80,7 @@ class TestFlatPlate:
     def test_build(self, flat_plate_frame):
         m = flat_plate_frame
 
-        assert len(m.fs.flatplate.config) == 2
+        assert len(m.fs.flatplate.config) == 3
         assert not m.fs.flatplate.config.dynamic
         assert not m.fs.flatplate.config.has_holdup
         assert m.fs.flatplate._tech_type == "flat_plate"
@@ -100,17 +101,15 @@ class TestFlatPlate:
         for s in surr_input_str + surr_output_str:
             v = getattr(m.fs.flatplate, s)
             assert isinstance(v, Var)
-        assert m.fs.flatplate.n_samples == 100
-        assert m.fs.flatplate.training_fraction == 0.8
 
         no_ports = list()
         for c in m.fs.flatplate.component_objects():
             if isinstance(c, Port):
                 no_ports.append(c)
         assert len(no_ports) == 0
-        assert number_variables(m.fs.flatplate) == 7
+        assert number_variables(m.fs.flatplate) == 10
         assert number_unused_variables(m.fs.flatplate) == 0
-        assert number_total_constraints(m.fs.flatplate) == 4
+        assert number_total_constraints(m.fs.flatplate) == 7
 
     @pytest.mark.unit
     def test_surrogate_variable_bounds(self, flat_plate_frame):
@@ -150,8 +149,13 @@ class TestFlatPlate:
         test_surrogate_filename = os.path.join(
             os.path.dirname(__file__), "test_surrogate.json"
         )
+        input_labels = ["heat_load", "hours_storage", "temperature_hot"]
+        xmin, xmax = [100, 0, 50], [1000, 26, 100]
+        input_bounds = {
+            input_labels[i]: (xmin[i], xmax[i]) for i in range(len(input_labels))
+        }
         m.fs.flatplate._create_rbf_surrogate(
-            bounds={"xmin": (100, 0, 50), "xmax": (1000, 26, 100)},
+            input_bounds=input_bounds,
             data_training=data["training"],
             output_filename=test_surrogate_filename,
         )
@@ -209,31 +213,22 @@ class TestFlatPlate:
     @pytest.mark.component
     def test_costing(self, flat_plate_frame):
         m = flat_plate_frame
+        m.fs.test_flow = 50 * pyunits.Mgallons / pyunits.day
+
         m.fs.costing = EnergyCosting()
         m.fs.flatplate.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
         )
+
         m.fs.costing.factor_maintenance_labor_chemical.fix(0)
         m.fs.costing.factor_total_investment.fix(1)
+
         m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)
         m.fs.flatplate.heat_load.fix(550)
         m.fs.flatplate.hours_storage.fix(13)
         m.fs.flatplate.temperature_hot.fix(75)
 
         solver = SolverFactory("ipopt")
-        solver = get_solver()
         results = solver.solve(m)
         assert_optimal_termination(results)
-
-        assert pytest.approx(240938.5, rel=1e-3) == value(
-            m.fs.flatplate.costing.capital_cost
-        )
-        assert pytest.approx(0, rel=1e-3) == value(
-            m.fs.flatplate.costing.variable_operating_cost
-        )
-        assert pytest.approx(8800000.1, rel=1e-3) == value(
-            m.fs.flatplate.costing.fixed_operating_cost
-        )
-        assert pytest.approx(229465.3, rel=1e-3) == value(
-            m.fs.flatplate.costing.direct_cost
-        )

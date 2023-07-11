@@ -97,8 +97,6 @@ class TestTrough:
         for s in surr_input_str + surr_output_str:
             v = getattr(m.fs.trough, s)
             assert isinstance(v, Var)
-        assert m.fs.trough.n_samples == 100
-        assert m.fs.trough.training_fraction == 0.8
 
         no_ports = list()
         for c in m.fs.trough.component_objects():
@@ -146,8 +144,13 @@ class TestTrough:
         test_surrogate_filename = os.path.join(
             os.path.dirname(__file__), "test_surrogate.json"
         )
+        input_labels = ["heat_load", "hours_storage"]
+        xmin, xmax = [100, 0], [1000, 26]
+        input_bounds = {
+            input_labels[i]: (xmin[i], xmax[i]) for i in range(len(input_labels))
+        }
         m.fs.trough._create_rbf_surrogate(
-            bounds={"xmin": (100, 0), "xmax": (1000, 26)},
+            input_bounds=input_bounds,
             data_training=data["training"],
             output_filename=test_surrogate_filename,
         )
@@ -212,6 +215,7 @@ class TestTrough:
         m.fs.costing.cost_process()
 
         solver = SolverFactory("ipopt")
+        # solver = get_solver()
         results = solver.solve(m)
         assert_optimal_termination(results)
 

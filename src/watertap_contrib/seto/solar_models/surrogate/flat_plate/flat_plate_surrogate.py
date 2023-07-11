@@ -136,10 +136,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             doc="Annual electricity consumed by flat plate",
         )
 
-        stream = StringIO()
-        oldstdout = sys.stdout
-        sys.stdout = stream
-
         self.surrogate_inputs = [
             self.heat_load,
             self.hours_storage,
@@ -150,16 +146,20 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         self.input_labels = ["heat_load", "hours_storage", "temperature_hot"]
         self.output_labels = ["heat_annual", "electricity_annual"]
 
-        self.surrogate_file = os.path.join(
-            os.path.dirname(__file__), "flat_plate_surrogate.json"
-        )
-        self.surrogate_blk = SurrogateBlock(concrete=True)
-        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
-        self.surrogate_blk.build_model(
-            self.surrogate,
-            input_vars=self.surrogate_inputs,
-            output_vars=self.surrogate_outputs,
-        )
+        if self.config.surrogate_model_file:
+            self.surrogate_file = os.path.join(
+                os.path.dirname(__file__), self.config.surrogate_model_file
+            )
+
+        else:
+            self.dataset_filename = os.path.join(
+                os.path.dirname(__file__), "data/flat_plate_data.pkl"
+            )
+            self.surrogate_file = os.path.join(
+                os.path.dirname(__file__), "flat_plate_surrogate.json"
+            )
+
+        self._load_surrogate()
 
         self.heat_constraint = Constraint(
             expr=self.heat_annual
@@ -198,15 +198,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             )
         )
 
-        # Revert back to standard output
-        sys.stdout = oldstdout
-
-        self.dataset_filename = os.path.join(
-            os.path.dirname(__file__), "data/flat_plate_data.pkl"
-        )
-        self.n_samples = 100
-        self.training_fraction = 0.8
-
     def calculate_scaling_factors(self):
 
         if iscale.get_scaling_factor(self.hours_storage) is None:
@@ -240,6 +231,24 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         if iscale.get_scaling_factor(self.electricity) is None:
             sf = iscale.get_scaling_factor(self.electricity, default=1e-3, warning=True)
             iscale.set_scaling_factor(self.electricity, sf)
+
+        if iscale.get_scaling_factor(self.number_collectors) is None:
+            sf = iscale.get_scaling_factor(
+                self.number_collectors, default=1e-4, warning=True
+            )
+            iscale.set_scaling_factor(self.number_collectors, sf)
+
+        if iscale.get_scaling_factor(self.collector_area_total) is None:
+            sf = iscale.get_scaling_factor(
+                self.collector_area_total, default=1e-6, warning=True
+            )
+            iscale.set_scaling_factor(self.collector_area_total, sf)
+
+        if iscale.get_scaling_factor(self.storage_volume) is None:
+            sf = iscale.get_scaling_factor(
+                self.storage_volume, default=1e-4, warning=True
+            )
+            iscale.set_scaling_factor(self.storage_volume, sf)
 
     def initialize_build(self):
         pass
