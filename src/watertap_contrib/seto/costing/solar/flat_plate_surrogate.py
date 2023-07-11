@@ -25,20 +25,6 @@ def build_flat_plate_surrogate_cost_param_block(blk):
         doc="Cost per volume for thermal storage",
     )
 
-    blk.balance_of_system_cost = pyo.Var(
-        initialize=1000,
-        units=pyo.units.dimensionless,
-        bounds=(0, None),
-        doc="Balance of system cost",
-    )
-
-    blk.installation_cost = pyo.Var(
-        initialize=2500,
-        units=pyo.units.dimensionless,
-        bounds=(0, None),
-        doc="Installation cost",
-    )
-
     blk.contingency_frac_direct_cost = pyo.Var(
         initialize=0,
         units=pyo.units.dimensionless,
@@ -89,21 +75,21 @@ def cost_flat_plate(blk):
     make_fixed_operating_cost_var(blk)
 
     blk.direct_cost = pyo.Var(
-        initialize=0,
+        initialize=1e4,
         units=blk.config.flowsheet_costing_block.base_currency,
         bounds=(0, None),
         doc="Direct cost of flat plate plant",
     )
 
     blk.indirect_cost = pyo.Var(
-        initialize=0,
+        initialize=1e4,
         units=blk.config.flowsheet_costing_block.base_currency,
         bounds=(0, None),
         doc="Indirect costs of flat plate system",
     )
 
     blk.sales_tax = pyo.Var(
-        initialize=0,
+        initialize=1e2,
         units=blk.config.flowsheet_costing_block.base_currency,
         bounds=(0, None),
         doc="Sales tax for flat plate system",
@@ -117,8 +103,6 @@ def cost_flat_plate(blk):
                 * flat_plate_params.cost_per_area_collector
             )
             + (flat_plate.storage_volume * flat_plate_params.cost_per_volume_storage)
-            + flat_plate_params.balance_of_system_cost
-            + flat_plate_params.installation_cost
         )
         * (1 + flat_plate_params.contingency_frac_direct_cost)
     )
@@ -153,6 +137,6 @@ def cost_flat_plate(blk):
         "electricity",
     )
     blk.costing_package.cost_flow(
-        -1 * flat_plate.heat,
+        flat_plate.heat,
         "heat",
     )
