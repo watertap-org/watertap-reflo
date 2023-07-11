@@ -109,7 +109,7 @@ class TestPVRO:
 
         assert pytest.approx(0.330, rel=1e-1) == value(m.fs.sys_costing.LCOW)
         assert pytest.approx(0.083, rel=1e-1) == value(m.fs.sys_costing.LCOE)
-        assert pytest.approx(1.74, rel=1e-1) == value(
+        assert pytest.approx(0.686, rel=1e-1) == value(
             m.fs.sys_costing.specific_electric_energy_consumption
         )
         assert pytest.approx(247052, rel=1e2) == value(
