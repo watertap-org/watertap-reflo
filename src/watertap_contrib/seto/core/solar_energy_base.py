@@ -26,6 +26,7 @@ from idaes.core.util.misc import StrEnum
 from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.exceptions import InitializationError
+from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 import idaes.logger as idaeslog
@@ -59,6 +60,15 @@ class SolarEnergyBaseData(UnitModelBlockData):
             domain=In([False]),
             description="Holdup construction flag - must be False",
             doc="""Solar energy models do not include holdup""",
+        ),
+    )
+    CONFIG.declare(
+        "surrogate_model_file",
+        ConfigValue(
+            default=None,
+            domain=str,
+            description="Path to surrogate model file",
+            doc="""User provided surrogate model .json file. Must be in same directory as unit model file.""",
         ),
     )
 
@@ -111,10 +121,44 @@ class SolarEnergyBaseData(UnitModelBlockData):
         if callable(self._scaling):
             self._scaling(self)
 
-    def _create_rbf_surrogate(self, bounds, data_training=None, output_filename=None):
+    def _load_surrogate(self):
+
+        stream = StringIO()
+        oldstdout = sys.stdout
+        sys.stdout = stream
+
+        self.surrogate_blk = SurrogateBlock(concrete=True)
+        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
+        self.surrogate_blk.build_model(
+            self.surrogate,
+            input_vars=self.surrogate_inputs,
+            output_vars=self.surrogate_outputs,
+        )
+        sys.stdout = oldstdout
+
+    def _create_rbf_surrogate(
+        self,
+        input_bounds,
+        data_training=None,
+        n_samples=100,
+        training_fraction=0.8,
+        dataset_filename=None,
+        output_filename=None,
+        input_labels=None,
+        output_labels=None,
+        build_model=False,
+    ):
+        if not hasattr(self, "input_labels"):
+            self.input_labels = input_labels
+        if not hasattr(self, "output_labels"):
+            self.output_labels = output_labels
 
         if data_training is None:
-            self._get_surrogate_data()
+            self._get_surrogate_data(
+                dataset_filename=dataset_filename,
+                n_samples=n_samples,
+                training_fraction=training_fraction,
+            )
         else:
             self.data_training = data_training
 
@@ -146,27 +190,56 @@ class SolarEnergyBaseData(UnitModelBlockData):
         except Exception as e:
             raise e
 
-        # Create callable surrogate object
-        self.input_bounds = {
-            self.input_labels[i]: (bounds["xmin"][i], bounds["xmax"][i])
-            for i in range(len(self.input_labels))
-        }
         self.rbf_surr = PysmoSurrogate(
-            self.rbf_train, self.input_labels, self.output_labels, self.input_bounds
+            self.rbf_train, self.input_labels, self.output_labels, input_bounds
         )
 
         # Save model to JSON
         if output_filename is not None:
-            model = self.rbf_surr.save_to_file(output_filename, overwrite=True)
+            self.surrogate_file = output_filename
+            _ = self.rbf_surr.save_to_file(output_filename, overwrite=True)
+
+        if build_model:
+            self.surrogate_inputs = []
+            for input_var_name in self.input_labels:
+                bounds = input_bounds[input_var_name]
+                print(input_var_name, bounds, np.mean(bounds))
+                v_in = Var(
+                    initialize=np.mean(bounds),
+                    bounds=bounds,
+                    doc=f"{input_var_name.replace('_', ' ').title()}",
+                )
+                self.surrogate_inputs.append(v_in)
+                self.add_component(input_var_name, v_in)
+
+            self.surrogate_outputs = []
+            for output_var_name in self.output_labels:
+                bounds = (0, None)
+                v_out = Var(
+                    initialize=1e4,
+                    bounds=bounds,
+                    doc=f"{input_var_name.replace('_', ' ').title()}",
+                )
+                self.surrogate_outputs.append(v_out)
+                self.add_component(output_var_name, v_out)
+
+            self._load_surrogate()
 
         # Revert back to standard output
         sys.stdout = oldstdout
 
-    def _get_surrogate_data(self, return_data=False):
-        self.pickle_df = pd.read_pickle(self.dataset_filename)
-        self.data = self.pickle_df.sample(n=self.n_samples)
+    def _get_surrogate_data(
+        self,
+        return_data=False,
+        n_samples=100,
+        training_fraction=0.8,
+        dataset_filename=None,
+    ):
+
+        self.pickle_df = pd.read_pickle(dataset_filename)
+        self.data = self.pickle_df.sample(n=n_samples)
         self.data_training, self.data_validation = split_training_validation(
-            self.data, self.training_fraction, seed=len(self.data)
+            self.data, training_fraction, seed=len(self.data)
         )
         if return_data:
             return self.data_training, self.data_validation
@@ -175,20 +248,12 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self,
         data_training=None,
         data_validation=None,
-        surrogate=None,
-        surrogate_filename="surrogate.json",
     ):
         if data_training is None and data_validation is None:
             data_training = self.data_training
             data_validation = self.data_validation
 
-        if surrogate is None and surrogate_filename is not None:
-            surr_file = os.path.join(os.path.dirname(__file__), surrogate_filename)
-            surrogate = PysmoSurrogate.load_from_file(surr_file)
-        elif surrogate is None and surrogate_filename is None:
-            raise Exception
-        else:
-            surrogate = self.surrogate
+        surrogate = self.surrogate
 
         for output_label in self.output_labels:
             # Output fit metrics and create parity and residual plots
