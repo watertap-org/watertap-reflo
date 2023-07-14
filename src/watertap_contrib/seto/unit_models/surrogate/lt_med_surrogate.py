@@ -201,7 +201,7 @@ class LTMEDData(UnitModelBlockData):
             )
 
         # Salinity in distillate is zero
-        self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
+        self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(1e-8)
 
         """
         Add block for brine
@@ -689,85 +689,85 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.feed_cool_vol_flow) is None:
             iscale.set_scaling_factor(self.feed_cool_vol_flow, 1e-3)
 
-        # Transforming constraints
+        # # Transforming constraints
 
-        sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
-        iscale.constraint_scaling_transform(self.eq_distillate_temp, sf)
+        # sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
+        # iscale.constraint_scaling_transform(self.eq_distillate_temp, sf)
 
-        sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
-        iscale.constraint_scaling_transform(self.eq_cooling_temp, sf)
+        # sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
+        # iscale.constraint_scaling_transform(self.eq_cooling_temp, sf)
 
-        sf = iscale.get_scaling_factor(
-            self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"]
-        )
-        iscale.constraint_scaling_transform(self.eq_heating_steam_liquid_mass, sf)
+        # sf = iscale.get_scaling_factor(
+        #     self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"]
+        # )
+        # iscale.constraint_scaling_transform(self.eq_heating_steam_liquid_mass, sf)
 
-        sf = iscale.get_scaling_factor(
-            self.cooling_out_props[0].conc_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.eq_cooling_salinity, sf)
+        # sf = iscale.get_scaling_factor(
+        #     self.cooling_out_props[0].conc_mass_phase_comp["Liq", "TDS"]
+        # )
+        # iscale.constraint_scaling_transform(self.eq_cooling_salinity, sf)
 
-        sf = iscale.get_scaling_factor(self.brine_props[0].temperature)
-        iscale.constraint_scaling_transform(self.eq_brine_temp, sf)
+        # sf = iscale.get_scaling_factor(self.brine_props[0].temperature)
+        # iscale.constraint_scaling_transform(self.eq_brine_temp, sf)
 
-        sf = iscale.get_scaling_factor(
-            self.brine_props[0].conc_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.eq_brine_salinity, sf)
+        # sf = iscale.get_scaling_factor(
+        #     self.brine_props[0].conc_mass_phase_comp["Liq", "TDS"]
+        # )
+        # iscale.constraint_scaling_transform(self.eq_brine_salinity, sf)
 
-        sf = iscale.get_scaling_factor(self.feed_props[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_dist_vol_flow, sf)
+        # sf = iscale.get_scaling_factor(self.feed_props[0].flow_vol_phase["Liq"])
+        # iscale.constraint_scaling_transform(self.eq_dist_vol_flow, sf)
 
-        sf = iscale.get_scaling_factor(self.brine_props[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_brine_vol_flow, sf)
+        # sf = iscale.get_scaling_factor(self.brine_props[0].flow_vol_phase["Liq"])
+        # iscale.constraint_scaling_transform(self.eq_brine_vol_flow, sf)
 
-        sf = iscale.get_scaling_factor(self.gain_output_ratio)
-        iscale.constraint_scaling_transform(self.eq_gain_output_ratio, sf)
+        # sf = iscale.get_scaling_factor(self.gain_output_ratio)
+        # iscale.constraint_scaling_transform(self.eq_gain_output_ratio, sf)
 
-        sf = iscale.get_scaling_factor(self.specific_area_per_m3_day)
-        iscale.constraint_scaling_transform(self.eq_specific_area_per_m3_day, sf)
+        # sf = iscale.get_scaling_factor(self.specific_area_per_m3_day)
+        # iscale.constraint_scaling_transform(self.eq_specific_area_per_m3_day, sf)
 
-        sf = iscale.get_scaling_factor(self.specific_area_per_kg_s)
-        iscale.constraint_scaling_transform(self.eq_specific_area_kg_s, sf)
+        # sf = iscale.get_scaling_factor(self.specific_area_per_kg_s)
+        # iscale.constraint_scaling_transform(self.eq_specific_area_kg_s, sf)
 
-        sf = iscale.get_scaling_factor(
-            self.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
-        )
-        iscale.constraint_scaling_transform(self.eq_steam_mass_flow, sf)
+        # sf = iscale.get_scaling_factor(
+        #     self.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
+        # )
+        # iscale.constraint_scaling_transform(self.eq_steam_mass_flow, sf)
 
-        sf = iscale.get_scaling_factor(self.specific_energy_consumption_thermal)
-        iscale.constraint_scaling_transform(
-            self.eq_specific_thermal_energy_consumption, sf
-        )
+        # sf = iscale.get_scaling_factor(self.specific_energy_consumption_thermal)
+        # iscale.constraint_scaling_transform(
+        #     self.eq_specific_thermal_energy_consumption, sf
+        # )
 
-        sf = iscale.get_scaling_factor(self.thermal_power_requirement)
-        iscale.constraint_scaling_transform(self.eq_thermal_power_requirement, sf)
+        # sf = iscale.get_scaling_factor(self.thermal_power_requirement)
+        # iscale.constraint_scaling_transform(self.eq_thermal_power_requirement, sf)
 
-        sf = (
-            iscale.get_scaling_factor(self.feed_cool_mass_flow)
-            * iscale.get_scaling_factor(
-                self.cooling_out_props[0].enth_mass_phase["Liq"]
-            )
-            * 1e-3
-        )
-        iscale.constraint_scaling_transform(self.eq_feed_cool_mass_flow, sf)
+        # sf = (
+        #     iscale.get_scaling_factor(self.feed_cool_mass_flow)
+        #     * iscale.get_scaling_factor(
+        #         self.cooling_out_props[0].enth_mass_phase["Liq"]
+        #     )
+        #     * 1e-3
+        # )
+        # iscale.constraint_scaling_transform(self.eq_feed_cool_mass_flow, sf)
 
-        sf = iscale.get_scaling_factor(self.feed_cool_vol_flow)
-        iscale.constraint_scaling_transform(self.eq_feed_cool_vol_flow, sf)
+        # sf = iscale.get_scaling_factor(self.feed_cool_vol_flow)
+        # iscale.constraint_scaling_transform(self.eq_feed_cool_vol_flow, sf)
 
-        sf = (
-            iscale.get_scaling_factor(self.cooling_out_props[0].flow_vol_phase["Liq"])
-            / 3600
-        )
-        iscale.constraint_scaling_transform(self.eq_cool_vol_flow, sf)
+        # sf = (
+        #     iscale.get_scaling_factor(self.cooling_out_props[0].flow_vol_phase["Liq"])
+        #     / 3600
+        # )
+        # iscale.constraint_scaling_transform(self.eq_cool_vol_flow, sf)
 
-        for t in self.flowsheet().config.time:
-            sf = iscale.get_scaling_factor(self.feed_props[t].pressure)
-            iscale.constraint_scaling_transform(
-                self.eq_feed_to_distillate_isobaric[t], sf
-            )
-            iscale.constraint_scaling_transform(self.eq_feed_to_brine_isobaric[t], sf)
-            iscale.constraint_scaling_transform(self.eq_feed_to_cooling_isobaric[t], sf)
+        # for t in self.flowsheet().config.time:
+        #     sf = iscale.get_scaling_factor(self.feed_props[t].pressure)
+        #     iscale.constraint_scaling_transform(
+        #         self.eq_feed_to_distillate_isobaric[t], sf
+        #     )
+        #     iscale.constraint_scaling_transform(self.eq_feed_to_brine_isobaric[t], sf)
+        #     iscale.constraint_scaling_transform(self.eq_feed_to_cooling_isobaric[t], sf)
 
     def _get_stream_table_contents(self, time_point=0):
         return create_stream_table_dataframe(
