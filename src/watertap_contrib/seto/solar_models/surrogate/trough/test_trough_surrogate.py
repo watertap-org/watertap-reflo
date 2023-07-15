@@ -201,11 +201,11 @@ class TestTrough:
         assert len(list(unscaled_variables_generator(m))) == 0
 
     @pytest.mark.component
-    def test_initialization(self, trough_frame): 
+    def test_initialization(self, trough_frame):
         initialization_tester(trough_frame, unit=trough_frame.fs.trough)
-    
+
     @pytest.mark.component
-    def test_solve(self, trough_frame): 
+    def test_solve(self, trough_frame):
         results = solver.solve(trough_frame)
         assert_optimal_termination(results)
 

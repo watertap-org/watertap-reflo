@@ -21,7 +21,13 @@ import numpy as np
 from io import StringIO
 import matplotlib.pyplot as plt
 
-from pyomo.environ import Var, Constraint, Suffix, units as pyunits, check_optimal_termination
+from pyomo.environ import (
+    Var,
+    Constraint,
+    Suffix,
+    units as pyunits,
+    check_optimal_termination,
+)
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
@@ -170,16 +176,12 @@ class TroughSurrogateData(SolarEnergyBaseData):
         solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
 
         iscale.calculate_variable_from_constraint(
-            blk.heat_annual,
-            blk.surrogate_blk.pysmo_constraint["heat_annual"]
+            blk.heat_annual, blk.surrogate_blk.pysmo_constraint["heat_annual"]
         )
+        iscale.calculate_variable_from_constraint(blk.heat_annual, blk.heat_constraint)
         iscale.calculate_variable_from_constraint(
-            blk.heat_annual,
-            blk.heat_constraint
-        )
-        iscale.calculate_variable_from_constraint(
-        blk.electricity_annual,
-        blk.surrogate_blk.pysmo_constraint["electricity_annual"],
+            blk.electricity_annual,
+            blk.surrogate_blk.pysmo_constraint["electricity_annual"],
         )
 
         # Create solver
@@ -193,9 +195,8 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
-        
-        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
     def _create_rbf_surrogate(self, data_training=None, output_filename=None):
 

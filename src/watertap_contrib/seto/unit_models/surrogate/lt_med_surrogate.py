@@ -634,8 +634,10 @@ class LTMEDData(UnitModelBlockData):
         )
 
         if degrees_of_freedom(blk) != 0:
-            raise InitializationError(f'{blk.name} degrees of freedom were not 0 at the beginning of initialization. DoF = {degrees_of_freedom(blk)}')
-        
+            raise InitializationError(
+                f"{blk.name} degrees of freedom were not 0 at the beginning of initialization. DoF = {degrees_of_freedom(blk)}"
+            )
+
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(blk, tee=slc.tee)
@@ -646,9 +648,8 @@ class LTMEDData(UnitModelBlockData):
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {blk.name} failed to initialize")
-        
-        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
@@ -681,7 +682,6 @@ class LTMEDData(UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.feed_cool_vol_flow) is None:
             iscale.set_scaling_factor(self.feed_cool_vol_flow, 1e-3)
-  
 
     def _get_stream_table_contents(self, time_point=0):
         return create_stream_table_dataframe(
