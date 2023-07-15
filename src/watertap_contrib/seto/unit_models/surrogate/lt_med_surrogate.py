@@ -263,9 +263,7 @@ class LTMEDData(UnitModelBlockData):
             **tmp_dict,
         )
 
-        @self.Constraint(doc="Flow rate of liquid heating steam is zero")
-        def eq_heating_steam_liquid_mass(b):
-            return b.steam_props[0].flow_mass_phase_comp["Liq", "H2O"] == 0
+        self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"].fix(0)
 
         # Add ports
         self.add_port(name="feed", block=self.feed_props)

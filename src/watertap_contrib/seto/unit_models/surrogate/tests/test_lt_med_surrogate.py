@@ -151,8 +151,8 @@ class TestLTMED:
 
         # test statistics
         assert number_variables(m) == 193
-        assert number_total_constraints(m) == 52
-        assert number_unused_variables(m) == 89  # vars from property package parameters
+        assert number_total_constraints(m) == 51
+        assert number_unused_variables(m) == 90  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, LT_MED_frame):
