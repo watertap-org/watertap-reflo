@@ -307,6 +307,10 @@ class TestLTMED:
             m.fs.costing.total_capital_cost
         )
 
+    @pytest.mark.unit
+    def test_report(self, LT_MED_frame):
+        LT_MED_frame.fs.lt_med.report()
+
     @pytest.mark.parametrize("number_effects", [4, 5, 7, 8, 10, 11, 13])
     def test_interp_values(self, number_effects):
         # create flowsheet with interpolated values of number of effects
