@@ -635,7 +635,7 @@ class LTMEDData(UnitModelBlockData):
 
         if degrees_of_freedom(blk) != 0:
             raise InitializationError(
-                f"{blk.name} degrees of freedom were not 0 at the beginning of initialization. DoF = {degrees_of_freedom(blk)}"
+                f"{blk.name} degrees of freedom were not 0 at the beginning of initialization. DoF = {degrees_of_freedom(blk)}."
             )
 
         # Solve unit

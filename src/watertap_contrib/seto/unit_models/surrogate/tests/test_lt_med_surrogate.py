@@ -168,10 +168,6 @@ class TestLTMED:
         unscaled_var_list = list(unscaled_variables_generator(m))
         assert len(unscaled_var_list) == 0
 
-        # # check that all constraints have been scaled
-        # unscaled_constraint_list = list(unscaled_constraints_generator(m))
-        # assert len(unscaled_constraint_list) == 0
-
     @pytest.mark.component
     def test_var_scaling(self, LT_MED_frame):
         m = LT_MED_frame
@@ -310,6 +306,15 @@ class TestLTMED:
     @pytest.mark.unit
     def test_report(self, LT_MED_frame):
         LT_MED_frame.fs.lt_med.report()
+
+    @pytest.mark.unit
+    def test_init_error_dof_not_zero(self, LT_MED_frame):
+        m = LT_MED_frame
+        # unfix 1 variable to yielf a dof
+        m.fs.lt_med.steam_props[0].temperature.unfix()
+        error_msg = "fs.lt_med degrees of freedom were not 0 at the beginning of initialization. DoF = 1."
+        with pytest.raises(InitializationError, match=error_msg):
+            m.fs.lt_med.initialize()
 
     @pytest.mark.parametrize("number_effects", [4, 5, 7, 8, 10, 11, 13])
     def test_interp_values(self, number_effects):
