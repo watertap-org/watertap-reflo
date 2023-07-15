@@ -201,7 +201,7 @@ class LTMEDData(UnitModelBlockData):
             )
 
         # Salinity in distillate is zero
-        self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(1e-8)
+        self.distillate_props[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
 
         """
         Add block for brine

@@ -144,7 +144,8 @@ class TroughSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.electricity, sf)
 
     def initialize_build(self):
-        pass
+        super().initialize()
+
 
     def _create_rbf_surrogate(self, data_training=None, output_filename=None):
 
