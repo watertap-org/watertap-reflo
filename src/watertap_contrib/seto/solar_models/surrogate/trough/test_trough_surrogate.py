@@ -182,7 +182,9 @@ class TestTrough:
         for row in data["validation"].itertuples():
             m.fs.trough.heat_load.fix(row.heat_load)
             m.fs.trough.hours_storage.fix(row.hours_storage)
-            solver = SolverFactory("ipopt")
+            calculate_scaling_factors(m)
+            m.fs.trough.initialize()
+            # solver = SolverFactory("ipopt")
             results = solver.solve(m)
             assert_optimal_termination(results)
             heat_annual_list.append(value(m.fs.trough.heat_annual))
