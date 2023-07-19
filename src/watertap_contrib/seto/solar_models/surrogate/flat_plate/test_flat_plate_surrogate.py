@@ -97,8 +97,8 @@ class TestFlatPlate:
         assert m.fs.flatplate.surrogate.input_labels() == surr_input_str
         assert m.fs.flatplate.output_labels == surr_output_str
         assert m.fs.flatplate.surrogate.output_labels() == surr_output_str
-        assert m.fs.trough.surrogate_file.lower() == surrogate_filename.lower()
-        assert m.fs.trough.dataset_filename.lower() == dataset_filename.lower()
+        assert m.fs.flatplate.surrogate_file.lower() == surrogate_filename.lower()
+        assert m.fs.flatplate.dataset_filename.lower() == dataset_filename.lower()
         assert m.fs.flatplate.surrogate.n_inputs() == 3
         assert m.fs.flatplate.surrogate.n_outputs() == 2
 
@@ -214,12 +214,12 @@ class TestFlatPlate:
         assert len(list(unscaled_variables_generator(m))) == 0
 
     @pytest.mark.component
-    def test_initialization(self, trough_frame):
-        initialization_tester(trough_frame, unit=trough_frame.fs.trough)
+    def test_initialization(self, flat_plate_frame):
+        initialization_tester(flat_plate_frame, unit=flat_plate_frame.fs.flatplate)
 
     @pytest.mark.component
-    def test_solve(self, trough_frame):
-        results = solver.solve(trough_frame)
+    def test_solve(self, flat_plate_frame):
+        results = solver.solve(flat_plate_frame)
         assert_optimal_termination(results)
 
     @pytest.mark.component
