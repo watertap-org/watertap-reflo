@@ -12,13 +12,10 @@
 ###############################################################################
 
 import os
-import sys
-from io import StringIO
 
 from pyomo.environ import (
     Var,
     Constraint,
-    Suffix,
     units as pyunits,
     check_optimal_termination,
 )
@@ -86,6 +83,9 @@ class TroughSurrogateData(SolarEnergyBaseData):
             )
 
         else:
+            self.dataset_filename = os.path.join(
+                os.path.dirname(__file__), "data/trough_data.pkl"
+            )
             self.surrogate_file = os.path.join(
                 os.path.dirname(__file__), "trough_surrogate.json"
             )
@@ -101,10 +101,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
             expr=self.electricity_annual
             == self.electricity
             * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
-        )
-
-        self.dataset_filename = os.path.join(
-            os.path.dirname(__file__), "data/trough_data.pkl"
         )
 
     def calculate_scaling_factors(self):
@@ -135,9 +131,8 @@ class TroughSurrogateData(SolarEnergyBaseData):
             sf = iscale.get_scaling_factor(self.electricity, default=1e-3, warning=True)
             iscale.set_scaling_factor(self.electricity, sf)
 
-
     def initialize_build(
-        blk,
+        self,
         outlvl=idaeslog.NOTSET,
         solver=None,
         optarg=None,
@@ -153,16 +148,16 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         Returns: None
         """
-        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="unit")
-        solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
+        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
+        solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
 
         iscale.calculate_variable_from_constraint(
-            blk.heat_annual, blk.surrogate_blk.pysmo_constraint["heat_annual"]
+            self.heat_annual, self.surrogate_blk.pysmo_constraint["heat_annual"]
         )
-        iscale.calculate_variable_from_constraint(blk.heat_annual, blk.heat_constraint)
+        iscale.calculate_variable_from_constraint(self.heat, self.heat_constraint)
         iscale.calculate_variable_from_constraint(
-            blk.electricity_annual,
-            blk.surrogate_blk.pysmo_constraint["electricity_annual"],
+            self.electricity_annual,
+            self.surrogate_blk.pysmo_constraint["electricity_annual"],
         )
 
         # Create solver
@@ -170,7 +165,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
-            res = opt.solve(blk, tee=slc.tee)
+            res = opt.solve(self, tee=slc.tee)
 
         init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
 
