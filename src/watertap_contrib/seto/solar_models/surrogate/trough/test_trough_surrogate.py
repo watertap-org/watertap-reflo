@@ -4,10 +4,10 @@ import os
 import pandas as pd
 from pyomo.environ import (
     ConcreteModel,
-    SolverFactory,
     Var,
     value,
     assert_optimal_termination,
+    units as pyunits
 )
 from pyomo.network import Port
 
@@ -222,6 +222,8 @@ class TestTrough:
     @pytest.mark.component
     def test_costing(self, trough_frame):
         m = trough_frame
+        m.fs.test_flow = 50 * pyunits.Mgallons / pyunits.day
+
         m.fs.costing = EnergyCosting()
         m.fs.trough.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
@@ -229,7 +231,7 @@ class TestTrough:
         m.fs.costing.factor_maintenance_labor_chemical.fix(0)
         m.fs.costing.factor_total_investment.fix(1)
         m.fs.costing.cost_process()
-        m.fs.trough.initialize()
+        m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)
 
         results = solver.solve(m)
         assert_optimal_termination(results)
