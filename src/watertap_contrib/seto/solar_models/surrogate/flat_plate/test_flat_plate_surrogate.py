@@ -4,7 +4,6 @@ import os
 import pandas as pd
 from pyomo.environ import (
     ConcreteModel,
-    SolverFactory,
     Var,
     value,
     assert_optimal_termination,
@@ -15,6 +14,7 @@ from pyomo.network import Port
 from watertap_contrib.seto.solar_models.surrogate.flat_plate import FlatPlateSurrogate
 from watertap_contrib.seto.costing import EnergyCosting
 
+from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
@@ -29,6 +29,10 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
 )
+
+
+# Get default solver for testing
+solver = get_solver()
 
 dataset_filename = os.path.join(os.path.dirname(__file__), "data/flat_plate_data.pkl")
 surrogate_filename = os.path.join(
@@ -93,8 +97,8 @@ class TestFlatPlate:
         assert m.fs.flatplate.surrogate.input_labels() == surr_input_str
         assert m.fs.flatplate.output_labels == surr_output_str
         assert m.fs.flatplate.surrogate.output_labels() == surr_output_str
-        assert os.path.samefile(m.fs.flatplate.surrogate_file, surrogate_filename)
-        assert os.path.samefile(m.fs.flatplate.dataset_filename, dataset_filename)
+        assert m.fs.trough.surrogate_file.lower() == surrogate_filename.lower()
+        assert m.fs.trough.dataset_filename.lower() == dataset_filename.lower()
         assert m.fs.flatplate.surrogate.n_inputs() == 3
         assert m.fs.flatplate.surrogate.n_outputs() == 2
 
@@ -182,7 +186,6 @@ class TestFlatPlate:
             m.fs.flatplate.heat_load.fix(row.heat_load)
             m.fs.flatplate.hours_storage.fix(row.hours_storage)
             m.fs.flatplate.temperature_hot.fix(row.temperature_hot)
-            solver = SolverFactory("ipopt")
             results = solver.solve(m)
             assert_optimal_termination(results)
             heat_annual_list.append(value(m.fs.flatplate.heat_annual))
@@ -211,6 +214,15 @@ class TestFlatPlate:
         assert len(list(unscaled_variables_generator(m))) == 0
 
     @pytest.mark.component
+    def test_initialization(self, trough_frame):
+        initialization_tester(trough_frame, unit=trough_frame.fs.trough)
+
+    @pytest.mark.component
+    def test_solve(self, trough_frame):
+        results = solver.solve(trough_frame)
+        assert_optimal_termination(results)
+
+    @pytest.mark.component
     def test_costing(self, flat_plate_frame):
         m = flat_plate_frame
         m.fs.test_flow = 50 * pyunits.Mgallons / pyunits.day
@@ -225,10 +237,6 @@ class TestFlatPlate:
 
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)
-        m.fs.flatplate.heat_load.fix(550)
-        m.fs.flatplate.hours_storage.fix(13)
-        m.fs.flatplate.temperature_hot.fix(75)
 
-        solver = SolverFactory("ipopt")
         results = solver.solve(m)
         assert_optimal_termination(results)
