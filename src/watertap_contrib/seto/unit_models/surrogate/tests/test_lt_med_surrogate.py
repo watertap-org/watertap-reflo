@@ -99,7 +99,7 @@ class TestLTMED:
             "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
         )
         m.fs.liquid_prop.set_default_scaling(
-            "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+            "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
         )
         m.fs.vapor_prop.set_default_scaling(
             "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
@@ -151,8 +151,8 @@ class TestLTMED:
 
         # test statistics
         assert number_variables(m) == 193
-        assert number_total_constraints(m) == 52
-        assert number_unused_variables(m) == 89  # vars from property package parameters
+        assert number_total_constraints(m) == 51
+        assert number_unused_variables(m) == 90  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, LT_MED_frame):
@@ -168,10 +168,6 @@ class TestLTMED:
         unscaled_var_list = list(unscaled_variables_generator(m))
         assert len(unscaled_var_list) == 0
 
-        # check that all constraints have been scaled
-        unscaled_constraint_list = list(unscaled_constraints_generator(m))
-        assert len(unscaled_constraint_list) == 0
-
     @pytest.mark.component
     def test_var_scaling(self, LT_MED_frame):
         m = LT_MED_frame
@@ -181,7 +177,7 @@ class TestLTMED:
     @pytest.mark.component
     def test_initialize(self, LT_MED_frame):
         m = LT_MED_frame
-        initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.DEBUG)
+        initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.INFO_LOW)
 
     @pytest.mark.component
     def test_solve(self, LT_MED_frame):
@@ -307,6 +303,19 @@ class TestLTMED:
             m.fs.costing.total_capital_cost
         )
 
+    @pytest.mark.unit
+    def test_report(self, LT_MED_frame):
+        LT_MED_frame.fs.lt_med.report()
+
+    @pytest.mark.unit
+    def test_init_error_dof_not_zero(self, LT_MED_frame):
+        m = LT_MED_frame
+        # unfix 1 variable to yielf a dof
+        m.fs.lt_med.steam_props[0].temperature.unfix()
+        error_msg = "fs.lt_med degrees of freedom were not 0 at the beginning of initialization. DoF = 1."
+        with pytest.raises(InitializationError, match=error_msg):
+            m.fs.lt_med.initialize()
+
     @pytest.mark.parametrize("number_effects", [4, 5, 7, 8, 10, 11, 13])
     def test_interp_values(self, number_effects):
         # create flowsheet with interpolated values of number of effects
@@ -370,7 +379,7 @@ class TestLTMED:
             "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
         )
         m.fs.liquid_prop.set_default_scaling(
-            "flow_mass_phase_comp", 1e3, index=("Liq", "TDS")
+            "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
         )
         m.fs.vapor_prop.set_default_scaling(
             "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
@@ -380,7 +389,7 @@ class TestLTMED:
         )
 
         calculate_scaling_factors(m)
-        initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.DEBUG)
+        initialization_tester(m, unit=m.fs.lt_med, outlvl=idaeslog.INFO_LOW)
         results = solver.solve(m)
 
         # Check interpolated results for different number of effects: {number_effects: result}

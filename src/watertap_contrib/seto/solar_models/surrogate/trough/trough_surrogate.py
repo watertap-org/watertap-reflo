@@ -21,7 +21,13 @@ import numpy as np
 from io import StringIO
 import matplotlib.pyplot as plt
 
-from pyomo.environ import Var, Constraint, Suffix, units as pyunits
+from pyomo.environ import (
+    Var,
+    Constraint,
+    Suffix,
+    units as pyunits,
+    check_optimal_termination,
+)
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
@@ -30,6 +36,12 @@ from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 
 from watertap_contrib.seto.core import SolarEnergyBaseData
+from idaes.core.solvers.get_solver import get_solver
+from idaes.core.util.exceptions import InitializationError
+
+import idaes.logger as idaeslog
+
+_log = idaeslog.getLogger(__name__)
 
 __author__ = "Matthew Boyd, Kurban Sitterley"
 
@@ -143,8 +155,48 @@ class TroughSurrogateData(SolarEnergyBaseData):
             sf = iscale.get_scaling_factor(self.electricity, default=1e-3, warning=True)
             iscale.set_scaling_factor(self.electricity, sf)
 
-    def initialize_build(self):
-        pass
+    def initialize_build(
+        blk,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
+    ):
+        """
+        General wrapper for initialization routines
+
+        Keyword Arguments:
+            outlvl : sets output level of initialization routine
+            optarg : solver options dictionary object (default=None)
+            solver : str indicating which solver to use during
+                     initialization (default = None)
+
+        Returns: None
+        """
+        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="unit")
+        solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
+
+        iscale.calculate_variable_from_constraint(
+            blk.heat_annual, blk.surrogate_blk.pysmo_constraint["heat_annual"]
+        )
+        iscale.calculate_variable_from_constraint(blk.heat_annual, blk.heat_constraint)
+        iscale.calculate_variable_from_constraint(
+            blk.electricity_annual,
+            blk.surrogate_blk.pysmo_constraint["electricity_annual"],
+        )
+
+        # Create solver
+        opt = get_solver(solver, optarg)
+
+        # Solve unit
+        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
+            res = opt.solve(blk, tee=slc.tee)
+
+        init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
+
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {self.name} failed to initialize")
+
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
     def _create_rbf_surrogate(self, data_training=None, output_filename=None):
 
