@@ -278,7 +278,9 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         iscale.calculate_variable_from_constraint(
             self.heat_annual, self.surrogate_blk.pysmo_constraint["heat_annual"]
         )
-        iscale.calculate_variable_from_constraint(self.heat_annual, self.heat_constraint)
+        iscale.calculate_variable_from_constraint(
+            self.heat_annual, self.heat_constraint
+        )
         iscale.calculate_variable_from_constraint(
             self.electricity_annual,
             self.surrogate_blk.pysmo_constraint["electricity_annual"],

@@ -7,7 +7,7 @@ from pyomo.environ import (
     Var,
     value,
     assert_optimal_termination,
-    units as pyunits
+    units as pyunits,
 )
 from pyomo.network import Port
 
