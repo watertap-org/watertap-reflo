@@ -13,6 +13,8 @@ from pyomo.network import Port
 
 from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.seto.costing import EnergyCosting
+from watertap_contrib.seto.core import SolarEnergyBaseData
+
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
@@ -83,6 +85,7 @@ class TestTrough:
         assert not m.fs.trough.config.dynamic
         assert not m.fs.trough.config.has_holdup
         assert m.fs.trough._tech_type == "trough"
+        assert isinstance(m.fs.trough, SolarEnergyBaseData)
         assert isinstance(m.fs.trough.surrogate_blk, SurrogateBlock)
 
         surr_input_str = ["heat_load", "hours_storage"]
@@ -224,6 +227,7 @@ class TestTrough:
         m.fs.costing.factor_maintenance_labor_chemical.fix(0)
         m.fs.costing.factor_total_investment.fix(1)
         m.fs.costing.cost_process()
+        m.fs.trough.initialize()
 
         results = solver.solve(m)
         assert_optimal_termination(results)
