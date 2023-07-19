@@ -13,7 +13,7 @@ from pyomo.network import Port
 
 from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.seto.costing import EnergyCosting
-
+from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
@@ -28,6 +28,9 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
 )
+
+# Get default solver for testing
+solver = get_solver()
 
 dataset_filename = os.path.join(os.path.dirname(__file__), "data/trough_data.pkl")
 surrogate_filename = os.path.join(os.path.dirname(__file__), "trough_surrogate.json")
@@ -89,8 +92,8 @@ class TestTrough:
         assert m.fs.trough.surrogate.input_labels() == surr_input_str
         assert m.fs.trough.output_labels == surr_output_str
         assert m.fs.trough.surrogate.output_labels() == surr_output_str
-        assert os.path.samefile(m.fs.trough.surrogate_file, surrogate_filename)
-        assert os.path.samefile(m.fs.trough.dataset_filename, dataset_filename)
+        assert m.fs.trough.surrogate_file.lower() == surrogate_filename.lower()
+        assert m.fs.trough.dataset_filename.lower() == dataset_filename.lower()
         assert m.fs.trough.surrogate.n_inputs() == 2
         assert m.fs.trough.surrogate.n_outputs() == 2
 
@@ -198,10 +201,18 @@ class TestTrough:
 
     @pytest.mark.unit
     def test_calculate_scaling(self, trough_frame):
-
         m = trough_frame
         calculate_scaling_factors(m)
         assert len(list(unscaled_variables_generator(m))) == 0
+
+    @pytest.mark.component
+    def test_initialization(self, trough_frame):
+        initialization_tester(trough_frame, unit=trough_frame.fs.trough)
+
+    @pytest.mark.component
+    def test_solve(self, trough_frame):
+        results = solver.solve(trough_frame)
+        assert_optimal_termination(results)
 
     @pytest.mark.component
     def test_costing(self, trough_frame):
@@ -214,8 +225,6 @@ class TestTrough:
         m.fs.costing.factor_total_investment.fix(1)
         m.fs.costing.cost_process()
 
-        solver = SolverFactory("ipopt")
-        # solver = get_solver()
         results = solver.solve(m)
         assert_optimal_termination(results)
 

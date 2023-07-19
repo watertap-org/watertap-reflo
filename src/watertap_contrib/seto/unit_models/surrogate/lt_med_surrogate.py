@@ -36,6 +36,8 @@ from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.core.util.scaling as iscale
+from idaes.core.util.tables import create_stream_table_dataframe
+
 import idaes.logger as idaeslog
 
 
@@ -261,9 +263,7 @@ class LTMEDData(UnitModelBlockData):
             **tmp_dict,
         )
 
-        @self.Constraint(doc="Flow rate of liquid heating steam is zero")
-        def eq_heating_steam_liquid_mass(b):
-            return b.steam_props[0].flow_mass_phase_comp["Liq", "H2O"] == 0
+        self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"].fix(0)
 
         # Add ports
         self.add_port(name="feed", block=self.feed_props)
@@ -632,16 +632,11 @@ class LTMEDData(UnitModelBlockData):
             solver=solver,
             state_args=state_args,
         )
-        # Check degree of freedom
-        assert degrees_of_freedom(blk) == 0
 
-        # For 10 and 11 effects, specific area may need a new initialization value,
-        # because the surrogate eqn for 9 and 12 effects are largely different
-        if blk.config.number_effects == 11:
-            blk.specific_area_per_m3_day.value = 3
-
-        # Check degree of freedom
-        assert degrees_of_freedom(blk) == 0
+        if degrees_of_freedom(blk) != 0:
+            raise InitializationError(
+                f"{blk.name} degrees of freedom were not 0 at the beginning of initialization. DoF = {degrees_of_freedom(blk)}."
+            )
 
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
@@ -650,10 +645,11 @@ class LTMEDData(UnitModelBlockData):
         # ---------------------------------------------------------------------
         # Release Inlet state
         blk.feed_props.release_state(flags, outlvl=outlvl)
-        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {blk.name} failed to initialize")
+
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
@@ -687,86 +683,6 @@ class LTMEDData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.feed_cool_vol_flow) is None:
             iscale.set_scaling_factor(self.feed_cool_vol_flow, 1e-3)
 
-        # Transforming constraints
-
-        sf = iscale.get_scaling_factor(self.distillate_props[0].temperature)
-        iscale.constraint_scaling_transform(self.eq_distillate_temp, sf)
-
-        sf = iscale.get_scaling_factor(self.cooling_out_props[0].temperature)
-        iscale.constraint_scaling_transform(self.eq_cooling_temp, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.steam_props[0].flow_mass_phase_comp["Liq", "H2O"]
-        )
-        iscale.constraint_scaling_transform(self.eq_heating_steam_liquid_mass, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.cooling_out_props[0].conc_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.eq_cooling_salinity, sf)
-
-        sf = iscale.get_scaling_factor(self.brine_props[0].temperature)
-        iscale.constraint_scaling_transform(self.eq_brine_temp, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.brine_props[0].conc_mass_phase_comp["Liq", "TDS"]
-        )
-        iscale.constraint_scaling_transform(self.eq_brine_salinity, sf)
-
-        sf = iscale.get_scaling_factor(self.feed_props[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_dist_vol_flow, sf)
-
-        sf = iscale.get_scaling_factor(self.brine_props[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_brine_vol_flow, sf)
-
-        sf = iscale.get_scaling_factor(self.gain_output_ratio)
-        iscale.constraint_scaling_transform(self.eq_gain_output_ratio, sf)
-
-        sf = iscale.get_scaling_factor(self.specific_area_per_m3_day)
-        iscale.constraint_scaling_transform(self.eq_specific_area_per_m3_day, sf)
-
-        sf = iscale.get_scaling_factor(self.specific_area_per_kg_s)
-        iscale.constraint_scaling_transform(self.eq_specific_area_kg_s, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.steam_props[0].flow_mass_phase_comp["Vap", "H2O"]
-        )
-        iscale.constraint_scaling_transform(self.eq_steam_mass_flow, sf)
-
-        sf = iscale.get_scaling_factor(self.specific_energy_consumption_thermal)
-        iscale.constraint_scaling_transform(
-            self.eq_specific_thermal_energy_consumption, sf
-        )
-
-        sf = iscale.get_scaling_factor(self.thermal_power_requirement)
-        iscale.constraint_scaling_transform(self.eq_thermal_power_requirement, sf)
-
-        sf = (
-            iscale.get_scaling_factor(self.feed_cool_mass_flow)
-            * iscale.get_scaling_factor(
-                self.cooling_out_props[0].enth_mass_phase["Liq"]
-            )
-            * 1e-3
-        )
-        iscale.constraint_scaling_transform(self.eq_feed_cool_mass_flow, sf)
-
-        sf = iscale.get_scaling_factor(self.feed_cool_vol_flow)
-        iscale.constraint_scaling_transform(self.eq_feed_cool_vol_flow, sf)
-
-        sf = (
-            iscale.get_scaling_factor(self.cooling_out_props[0].flow_vol_phase["Liq"])
-            / 3600
-        )
-        iscale.constraint_scaling_transform(self.eq_cool_vol_flow, sf)
-
-        for t in self.flowsheet().config.time:
-            sf = iscale.get_scaling_factor(self.feed_props[t].pressure)
-            iscale.constraint_scaling_transform(
-                self.eq_feed_to_distillate_isobaric[t], sf
-            )
-            iscale.constraint_scaling_transform(self.eq_feed_to_brine_isobaric[t], sf)
-            iscale.constraint_scaling_transform(self.eq_feed_to_cooling_isobaric[t], sf)
-
     def _get_stream_table_contents(self, time_point=0):
         return create_stream_table_dataframe(
             {
@@ -781,7 +697,7 @@ class LTMEDData(UnitModelBlockData):
     def _get_performance_contents(self, time_point=0):
         var_dict = {}
         var_dict["Gained output ratio"] = self.gain_output_ratio
-        var_dict["Thermal power reqruiement (kW)"] = self.thermal_power_requirement
+        var_dict["Thermal power requirement (kW)"] = self.thermal_power_requirement
         var_dict[
             "Specific thermal energy consumption (kWh/m3)"
         ] = self.specific_energy_consumption_thermal
