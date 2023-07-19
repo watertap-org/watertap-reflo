@@ -12,15 +12,20 @@
 ###############################################################################
 
 import os
-import sys
-from io import StringIO
 
-from pyomo.environ import Var, Param, Constraint, units as pyunits
+from pyomo.environ import (
+    Var,
+    Param,
+    Constraint,
+    units as pyunits,
+    check_optimal_termination,
+)
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
-from idaes.core.surrogate.surrogate_block import SurrogateBlock
-from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
+from idaes.core.solvers.get_solver import get_solver
+from idaes.core.util.exceptions import InitializationError
+import idaes.logger as idaeslog
 
 from watertap_contrib.seto.core import SolarEnergyBaseData
 
@@ -250,5 +255,45 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             )
             iscale.set_scaling_factor(self.storage_volume, sf)
 
-    def initialize_build(self):
-        pass
+    def initialize_build(
+        self,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
+    ):
+        """
+        General wrapper for initialization routines
+
+        Keyword Arguments:
+            outlvl : sets output level of initialization routine
+            optarg : solver options dictionary object (default=None)
+            solver : str indicating which solver to use during
+                     initialization (default = None)
+
+        Returns: None
+        """
+        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
+        solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
+
+        iscale.calculate_variable_from_constraint(
+            self.heat_annual, self.surrogate_blk.pysmo_constraint["heat_annual"]
+        )
+        iscale.calculate_variable_from_constraint(self.heat_annual, self.heat_constraint)
+        iscale.calculate_variable_from_constraint(
+            self.electricity_annual,
+            self.surrogate_blk.pysmo_constraint["electricity_annual"],
+        )
+
+        # Create solver
+        opt = get_solver(solver, optarg)
+
+        # Solve unit
+        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
+            res = opt.solve(self, tee=slc.tee)
+
+        init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
+
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {self.name} failed to initialize")
+
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
