@@ -302,7 +302,7 @@ def optimize_setup(
     )
 
 
-def add_costing(m, cap_max = None):
+def add_costing(m, cap_max = None, elec_sell_price=None):
     treatment = m.fs.treatment
     energy = m.fs.energy
     treatment.costing = TreatmentCosting()
@@ -345,6 +345,10 @@ def add_costing(m, cap_max = None):
     if cap_max != None:
         m.fs.sys_costing.total_capital_cost.setlb(0)
         m.fs.sys_costing.total_capital_cost.setub(cap_max)
+    
+    if elec_sell_price != None:
+        m.fs.energy.costing.electricity_sell_cost = elec_sell_price
+
     
     treatment.costing.initialize()
     energy.costing.initialize()
@@ -422,7 +426,7 @@ def model_setup(Q, conc, recovery):
     m = build_ro_pv()
     set_operating_conditions(m, flow_in=Q, conc_in=conc, water_recovery=recovery)
     initialize_sys(m, water_recovery=recovery)
-    add_costing(m, cap_max = 9.0E6)
+    add_costing(m, cap_max = 9.0E6, elec_sell_price=0)
     fix_treatment_global_params(m)
     optimize_setup(m, m.fs.sys_costing.LCOW)
     return m
@@ -437,7 +441,7 @@ def mgd_to_m3s(Q):
     return 0.0438*Q
 
 def main():
-    m = model_setup(mgd_to_m3s(10), 35, 0.5)
+    m = model_setup(mgd_to_m3s(1), 30, 0.5)
     m, results = run(m)
 
     return m, results
