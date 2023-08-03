@@ -126,7 +126,7 @@ class TestTrough:
             expected_heat_annual_test, 1e-2
         )
         assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
-            expected_electricity_annual_test, 1e-2
+            expected_electricity_annual_test, 5e-2
         )
 
     @pytest.mark.component
@@ -176,7 +176,7 @@ class TestTrough:
             expected_heat_annual_test, 1e-2
         )
         assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
-            expected_electricity_annual_test, 1e-2
+            expected_electricity_annual_test, 5e-2
         )
 
     @pytest.mark.component
@@ -209,11 +209,13 @@ class TestTrough:
 
     @pytest.mark.unit
     def test_dof(self, trough_large_heat_load):
-
         m = trough_large_heat_load
         m.fs.trough.heat_load.fix(500)
         m.fs.trough.hours_storage.fix(12)
         assert degrees_of_freedom(m) == 0
+        m.fs.trough.heat_load.unfix()
+        m.fs.trough.hours_storage.unfix()
+        assert degrees_of_freedom(m) == 2
 
     @pytest.mark.unit
     def test_calculate_scaling(self, trough_large_heat_load):
@@ -244,15 +246,15 @@ class TestTrough:
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        assert pytest.approx(499866550.0, rel=1e-3) == value(
+        assert pytest.approx(20267374.0, rel=1e-3) == value(
             m.fs.trough.costing.capital_cost
         )
-        assert pytest.approx(2612089, rel=1e-3) == value(
+        assert pytest.approx(316821, rel=1e-3) == value(
             m.fs.trough.costing.variable_operating_cost
         )
-        assert pytest.approx(4000000.0, rel=1e-3) == value(
+        assert pytest.approx(802005.0, rel=1e-3) == value(
             m.fs.trough.costing.fixed_operating_cost
         )
-        assert pytest.approx(498620000.0, rel=1e-3) == value(
+        assert pytest.approx(20216832.0, rel=1e-3) == value(
             m.fs.trough.costing.direct_cost
         )

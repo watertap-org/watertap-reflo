@@ -2095,7 +2095,7 @@
     ],
     "input_bounds": {
         "heat_load": [
-            100,
+            10,
             1000
         ],
         "hours_storage": [
