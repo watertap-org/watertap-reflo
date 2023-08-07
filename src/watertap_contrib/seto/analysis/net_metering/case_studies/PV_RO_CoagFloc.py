@@ -90,9 +90,6 @@ def coag_floc_set_op_conds(m, Q, conc):
     m.fs.coag_and_floc.inlet.flow_mass_comp[0, "H2O"].fix((1-conc/1000))
     m.fs.coag_and_floc.inlet.flow_mass_comp[0, "tss"].fix(0)
     m.fs.coag_and_floc.inlet.flow_mass_comp[0, "tds"].fix((conc/1000))
-    # m.fs.coag_and_floc.inlet.flow_mass_comp[0, "H2O"].fix(1000*Q*(1-conc/1000))
-    # m.fs.coag_and_floc.inlet.flow_mass_comp[0, "tss"].fix(0)
-    # m.fs.coag_and_floc.inlet.flow_mass_comp[0, "tds"].fix(1000*Q*(conc/1000))
 
 def coag_floc_load_params(m):
     data = m.db.get_unit_operation_parameters("coag_and_floc")
