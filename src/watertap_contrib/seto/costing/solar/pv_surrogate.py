@@ -101,7 +101,7 @@ def cost_pv_surrogate(blk):
         bounds=(0, None),
         doc="Indirect costs of PV system",
     )
-    
+
     blk.land_cost = pyo.Var(
         initialize=0,
         units=blk.config.flowsheet_costing_block.base_currency,
@@ -161,10 +161,9 @@ def cost_pv_surrogate(blk):
         == (blk.system_capacity * pv_params.cost_per_watt_indirect)
         + (blk.land_area * pv_params.land_cost_per_acre)
     )
-    
+
     blk.land_cost_constraint = pyo.Constraint(
-        expr=blk.land_cost
-        == (blk.land_area * pv_params.land_cost_per_acre)
+        expr=blk.land_cost == (blk.land_area * pv_params.land_cost_per_acre)
     )
 
     blk.sales_tax_constraint = pyo.Constraint(

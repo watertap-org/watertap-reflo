@@ -58,7 +58,7 @@ class PVSurrogateData(SolarEnergyBaseData):
             units=pyunits.kWh,
             doc="annual energy produced by the plant in kWh",
         )
-        
+
         self.land_req = Var(
             initialize=7e7,
             units=pyunits.acre,
@@ -73,12 +73,13 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
-            == -1 * self.electricity
+            == -1
+            * self.electricity
             * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
         )
 
     def load_surrogate(self):
-        print('Loading surrogate file...')
+        print("Loading surrogate file...")
         self.surrogate_file = os.path.join(
             os.path.dirname(__file__), "pv_surrogate_w_land_2.json"
         )
@@ -103,20 +104,18 @@ class PVSurrogateData(SolarEnergyBaseData):
         self.dataset_filename = os.path.join(
             os.path.dirname(__file__), "data/dataset_2.pkl"
         )
-        print('Loading Training Data...\n')
+        print("Loading Training Data...\n")
         time_start = time.process_time()
         pkl_data = pd.read_pickle(self.dataset_filename)
-        data = pkl_data.sample(n=int(self.sample_fraction*len(pkl_data)))
+        data = pkl_data.sample(n=int(self.sample_fraction * len(pkl_data)))
         self.data_training, self.data_validation = split_training_validation(
             data, self.training_fraction, seed=len(data)
         )
         time_stop = time.process_time()
         print("Data Loading Time:", time_stop - time_start, "\n")
-    
-    def create_surrogate(
-            self
-        ):
-        self.sample_fraction = 0.1 # fraction of the generated data to train with. More flexible than n_samples.
+
+    def create_surrogate(self):
+        self.sample_fraction = 0.1  # fraction of the generated data to train with. More flexible than n_samples.
         self.training_fraction = 0.8
 
         self.get_training_validation()
@@ -151,13 +150,16 @@ class PVSurrogateData(SolarEnergyBaseData):
         # Create callable surrogate object
         xmin, xmax = [self.design_size.bounds[0]], [self.design_size.bounds[1]]
         input_bounds = {
-            self.input_labels[i]: (xmin[i], xmax[i]) for i in range(len(self.input_labels))
+            self.input_labels[i]: (xmin[i], xmax[i])
+            for i in range(len(self.input_labels))
         }
-        rbf_surr = PysmoSurrogate(rbf_train, self.input_labels, self.output_labels, input_bounds)
+        rbf_surr = PysmoSurrogate(
+            rbf_train, self.input_labels, self.output_labels, input_bounds
+        )
 
         # Save model to JSON
         if self.surrogate_file is not None:
-            print(f'Writing surrogate model to {self.surrogate_file}')
+            print(f"Writing surrogate model to {self.surrogate_file}")
             model = rbf_surr.save_to_file(self.surrogate_file, overwrite=True)
 
         # Revert back to standard output

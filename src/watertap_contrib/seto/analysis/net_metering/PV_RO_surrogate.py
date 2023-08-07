@@ -104,7 +104,7 @@ def build_ro_pv():
     treatment.feed.properties[0].flow_vol_phase["Liq"]
     treatment.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
     set_scaling_factor(treatment.erd.control_volume.work, 1e-3)
-    set_scaling_factor(treatment.p1.control_volume.work, 1e-3)   
+    set_scaling_factor(treatment.p1.control_volume.work, 1e-3)
     calculate_scaling_factors(m)
 
     return m
@@ -126,7 +126,7 @@ def set_operating_conditions(m, flow_in=1e-2, conc_in=30, water_recovery=0.5):
             ("flow_vol_phase", "Liq"): flow_in,  # feed volumetric flow rate [m3/s]
             ("mass_frac_phase_comp", ("Liq", "NaCl")): conc_in * 1e-3,
             ("pressure", None): 101325,
-            ("temperature", None): 298.15
+            ("temperature", None): 298.15,
         },
         hold_state=True,  # fixes the calculated component mass flow rates
     )
@@ -210,10 +210,10 @@ def initialize_treatment(m, water_recovery=0.5):
     print(
         f"\nRO Membrane Area Estimate = {round(ro_area_guess, 2)} m^2 assuming a {round(est_flux, 2)} LMH Water Flux\n"
     )
-    ro.area.setub(10**(ro_area_scale+1))
-    ro.width.setub(10**(ro_area_scale))
+    ro.area.setub(10 ** (ro_area_scale + 1))
+    ro.width.setub(10 ** (ro_area_scale))
     ro.area.fix(10**ro_area_scale)
-    
+
     set_scaling_factor(ro.area, 10 ** (-ro_area_scale))
     calculate_scaling_factors(m)
 
@@ -259,8 +259,8 @@ def optimize_setup(
     area_ub=6000000,
     prod_salinity=0.5,
     min_flux=1.0e-5,
-    min_flux_mass_phase_comp = 1.0e-5,
-    min_eq_mass_frac_permeate = 1e-6
+    min_flux_mass_phase_comp=1.0e-5,
+    min_eq_mass_frac_permeate=1e-6,
 ):
     """_summary_
 
@@ -300,7 +300,9 @@ def optimize_setup(
 
     m.fs.treatment.prod_salinity = Param(initialize=prod_salinity, mutable=True)
     m.fs.treatment.min_flux = Param(initialize=min_flux, mutable=True)
-    m.fs.treatment.flux_mass_phase_comp = Param(initialize=min_flux_mass_phase_comp, mutable=True)
+    m.fs.treatment.flux_mass_phase_comp = Param(
+        initialize=min_flux_mass_phase_comp, mutable=True
+    )
 
     m.fs.treatment.eq_prod_salinity = Constraint(
         expr=m.fs.treatment.product.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
@@ -315,15 +317,13 @@ def optimize_setup(
     )
 
 
-def add_costing(m, cap_max = None, elec_sell_price=None):
+def add_costing(m, cap_max=None, elec_sell_price=None):
     treatment = m.fs.treatment
     energy = m.fs.energy
     treatment.costing = TreatmentCosting()
     energy.costing = EnergyCosting()
 
-    energy.pv.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=energy.costing
-        )
+    energy.pv.costing = UnitModelCostingBlock(flowsheet_costing_block=energy.costing)
     treatment.ro.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing
     )
@@ -334,22 +334,23 @@ def add_costing(m, cap_max = None, elec_sell_price=None):
         flowsheet_costing_block=treatment.costing
     )
     treatment.costing.cost_process()
-        
+
     m.fs.energy.pv_design_constraint = Constraint(
-        expr=m.fs.energy.pv.design_size == m.fs.treatment.costing.aggregate_flow_electricity
+        expr=m.fs.energy.pv.design_size
+        == m.fs.treatment.costing.aggregate_flow_electricity
     )
 
     # m.fs.energy.pv_electricity_constraint = Constraint(
     #     expr=m.fs.energy.pv.electricity <= 0
     # )
-    
+
     m.fs.energy.pv.costing.land_constraint = Constraint(
         expr=m.fs.energy.pv.costing.land_area == m.fs.energy.pv.land_req
     )
-    
+
     energy.costing.cost_process()
     m.fs.sys_costing = SETOSystemCosting()
-    
+
     m.fs.sys_costing.add_LCOW(treatment.product.properties[0].flow_vol)
     m.fs.sys_costing.add_specific_electric_energy_consumption(
         treatment.product.properties[0].flow_vol
@@ -358,29 +359,30 @@ def add_costing(m, cap_max = None, elec_sell_price=None):
     if cap_max != None:
         m.fs.sys_costing.total_capital_cost.setlb(0)
         m.fs.sys_costing.total_capital_cost.setub(cap_max)
-    
 
-    
     treatment.costing.initialize()
     energy.costing.initialize()
-    
+
+
 def fix_treatment_global_params(m):
     m.fs.treatment.costing.factor_total_investment.fix(1)
     m.fs.energy.costing.factor_total_investment.fix(1)
     m.fs.treatment.costing.factor_maintenance_labor_chemical.fix(0)
 
-def automate_rescale_variables(self, rescale_factor=1, default=1):
-        if rescale_factor is None:
-            rescale_factor = 1
-        for var, sv in badly_scaled_var_generator(self):
-            sf = get_scaling_factor(var)
-            if get_scaling_factor(var) is None:
-                print(f"{var} is missing a scaling factor")
-                sf = default
-                set_scaling_factor(var, sf, data_objects=False)
 
-            set_scaling_factor(var, sf / sv * rescale_factor)
-            calculate_scaling_factors(self)
+def automate_rescale_variables(self, rescale_factor=1, default=1):
+    if rescale_factor is None:
+        rescale_factor = 1
+    for var, sv in badly_scaled_var_generator(self):
+        sf = get_scaling_factor(var)
+        if get_scaling_factor(var) is None:
+            print(f"{var} is missing a scaling factor")
+            sf = default
+            set_scaling_factor(var, sf, data_objects=False)
+
+        set_scaling_factor(var, sf / sv * rescale_factor)
+        calculate_scaling_factors(self)
+
 
 def debug(m, solver=None, automate_rescale=False, resolve=False):
     if solver is None:
@@ -405,17 +407,16 @@ def debug(m, solver=None, automate_rescale=False, resolve=False):
         automate_rescale_variables(m)
         badly_scaled_vars = list(badly_scaled_var_generator(m))
 
-    print(
-            f"\nNow {len(badly_scaled_vars)} poorly scaled\n"
-        )
+    print(f"\nNow {len(badly_scaled_vars)} poorly scaled\n")
 
     if resolve:
         results = solver.solve(m, tee=True)
         debug(m)
         return results
 
-def generate_costing_report(m, filepath = None):
-    costing_data = {"Attribute":'Value'}
+
+def generate_costing_report(m, filepath=None):
+    costing_data = {"Attribute": "Value"}
     for v in m.fs.energy.pv.costing.component_data_objects(Var, descend_into=True):
         costing_data[str(v)] = value(v)
     for v in m.fs.energy.costing.component_data_objects(Var, descend_into=True):
@@ -426,24 +427,26 @@ def generate_costing_report(m, filepath = None):
         costing_data[str(v)] = value(v)
 
     if filepath != None:
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             for key in costing_data.keys():
-                f.write("%s,%s\n"%(key,costing_data[key]))
+                f.write("%s,%s\n" % (key, costing_data[key]))
 
     return costing_data
 
+
 def extract_values(block):
-    costing_data = dict.fromkeys(['key_0','key_1','key_2','key_3'], None)
+    costing_data = dict.fromkeys(["key_0", "key_1", "key_2", "key_3"], None)
     for v in block.component_data_objects(Var, descend_into=False):
-        keys = str(v).split('.')
+        keys = str(v).split(".")
         for idx, key in enumerate(keys[:-1]):
-            costing_data['key_'+str(idx)] = key
+            costing_data["key_" + str(idx)] = key
         costing_data[keys[-1]] = value(v)
     return costing_data
 
-def generate_detailed_costing_report(m, level, filepath = None):
+
+def generate_detailed_costing_report(m, level, filepath=None):
     dict_track = []
-    if level == 'Process':
+    if level == "Process":
         cost_blocks = [m.fs.energy.costing, m.fs.treatment.costing, m.fs.sys_costing]
     else:
         cost_blocks = [m.fs.energy.pv.costing, m.fs.energy.costing.pv_surrogate]
@@ -470,6 +473,7 @@ def solve(m, solver=None, tee=False, check_termination=True):
 
     return results
 
+
 def model_setup(Q, conc, recovery):
     m = build_ro_pv()
     set_operating_conditions(m, flow_in=Q, conc_in=conc, water_recovery=recovery)
@@ -479,21 +483,25 @@ def model_setup(Q, conc, recovery):
     optimize_setup(m, m.fs.sys_costing.LCOW)
     return m
 
+
 def run(m):
     results = solve(m)
     assert_optimal_termination(results)
     display_ro_pv_results(m)
     return m, results
 
+
 def mgd_to_m3s(Q):
-    return 0.0438*Q
+    return 0.0438 * Q
+
 
 def main():
     m = model_setup(mgd_to_m3s(1), 30, 0.5)
     m, results = run(m)
-    costing_data = generate_detailed_costing_report(m, 'Process')
+    costing_data = generate_detailed_costing_report(m, "Process")
 
     return m, results
+
 
 if __name__ == "__main__":
     m, results = main()

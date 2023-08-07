@@ -135,7 +135,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             doc="Total operating cost",
             units=self.base_currency / self.base_period,
         )
-        
+
         self.total_electric_operating_cost = pyo.Var(
             initialize=1e3,
             domain=pyo.Reals,
@@ -157,7 +157,8 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             == self.maintenance_labor_chemical_operating_cost
             + self.aggregate_fixed_operating_cost
             + self.aggregate_variable_operating_cost
-            + sum(self.aggregate_flow_costs.values()) * self.utilization_factor)
+            + sum(self.aggregate_flow_costs.values()) * self.utilization_factor
+        )
 
         self.total_electric_operating_cost_constraint = pyo.Constraint(
             expr=self.total_electric_operating_cost
@@ -238,9 +239,9 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             doc="Electricity cost",
             units=self.base_currency / pyo.units.kWh,
         )
-        
+
         self.add_defined_flow("electricity", self.electricity_cost)
-        
+
         self.electrical_carbon_intensity = pyo.Param(
             mutable=True,
             initialize=0.475,
@@ -293,7 +294,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             doc="Aggregated electricity flow",
             units=pyo.units.kW,
         )
-        
+
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
             self.aggregate_flow_heat = pyo.Var(
                 initialize=1e3,
@@ -476,7 +477,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             specific_thermal_energy_consumption_constraint,
         )
 
-
     def add_defined_flow(self, flow_name, flow_cost):
         """
         This method adds a defined flow to the costing block.
@@ -506,7 +506,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
                 f"Attribute {flow_cost_name} already exists "
                 f"on the costing block, but is not {flow_cost}"
             )
-        
+
     def cost_flow(self, flow_expr, flow_type):
         """
         This method registers a given flow component (Var or expression) for
@@ -556,7 +556,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
 
         else:
             pysam = getattr(self.model(), pysam_block_test_lst[0])
-        
+
     def _get_flowsheet(self):
         block_test_lst = []
         for k, v in vars(self.model()).items():
