@@ -80,7 +80,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         Electrodialysis1D: cost_electrodialysis,
         IonExchange0D: cost_ion_exchange,
         GAC: cost_gac,
-        # ChemicalSofteningZO: cost_chem_softening,
+        ChemicalSofteningZO: cost_chem_softening,
     }
 
     def build_global_params(self):
