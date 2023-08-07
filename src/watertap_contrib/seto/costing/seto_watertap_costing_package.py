@@ -37,21 +37,22 @@ from watertap.costing.units.pressure_exchanger import cost_pressure_exchanger
 from watertap.costing.units.pump import cost_pump
 from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
 from watertap.costing.units.uv_aop import cost_uv_aop
-
+from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
+from watertap_contrib.seto.costing.solar.trough_surrogate import cost_trough_surrogate
 from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
 from watertap_contrib.seto.solar_models.surrogate.pv import PVSurrogate
 from watertap_contrib.seto.costing.solar.pv_surrogate import cost_pv_surrogate
-# from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
-# from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
-# from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
-# from watertap_contrib.seto.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
-# from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
-#     ChemicalSofteningZO,
-# )
-# from watertap_contrib.seto.costing.units.chemical_softening_zo import (
-#     cost_chem_softening,
-# )
+from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
+from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
+from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
+from watertap_contrib.seto.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
+from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
+    ChemicalSofteningZO,
+)
+from watertap_contrib.seto.costing.units.chemical_softening_zo import (
+    cost_chem_softening,
+)
 
 from watertap_contrib.seto.core import PySAMWaterTAP
 
@@ -60,7 +61,9 @@ from watertap_contrib.seto.core import PySAMWaterTAP
 class SETOWaterTAPCostingData(WaterTAPCostingData):
 
     unit_mapping = {
-        # LTMEDSurrogate: cost_lt_med_surrogate,
+        LTMEDSurrogate: cost_lt_med_surrogate,
+        MEDTVCSurrogate: cost_med_tvc_surrogate,
+        TroughSurrogate: cost_trough_surrogate,
         Photovoltaic: cost_pv,
         PVSurrogate: cost_pv_surrogate,
         Mixer: cost_mixer,
@@ -299,7 +302,11 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
                 units=pyo.units.kW,
             )
 
-        
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+            self.aggregate_flow_heat_constraint = pyo.Constraint(
+                expr=self.aggregate_flow_heat
+                == treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat
+            )
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
