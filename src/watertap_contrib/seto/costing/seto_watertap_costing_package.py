@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
-
-from idaes.core import declare_process_block_class
+from idaes.core import declare_process_block_class, FlowsheetBlock
 from idaes.models.unit_models import Mixer
+import math
 
 from watertap.costing.watertap_costing_package import (
     WaterTAPCostingData,
@@ -40,18 +40,18 @@ from watertap.costing.units.uv_aop import cost_uv_aop
 
 from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
-from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
-from watertap_contrib.seto.costing.solar.trough_surrogate import cost_trough_surrogate
-from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
-from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
-from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
-from watertap_contrib.seto.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
-from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
-    ChemicalSofteningZO,
-)
-from watertap_contrib.seto.costing.units.chemical_softening_zo import (
-    cost_chem_softening,
-)
+from watertap_contrib.seto.solar_models.surrogate.pv import PVSurrogate
+from watertap_contrib.seto.costing.solar.pv_surrogate import cost_pv_surrogate
+# from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
+# from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
+# from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
+# from watertap_contrib.seto.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
+# from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
+#     ChemicalSofteningZO,
+# )
+# from watertap_contrib.seto.costing.units.chemical_softening_zo import (
+#     cost_chem_softening,
+# )
 
 from watertap_contrib.seto.core import PySAMWaterTAP
 
@@ -60,10 +60,9 @@ from watertap_contrib.seto.core import PySAMWaterTAP
 class SETOWaterTAPCostingData(WaterTAPCostingData):
 
     unit_mapping = {
-        LTMEDSurrogate: cost_lt_med_surrogate,
-        MEDTVCSurrogate: cost_med_tvc_surrogate,
+        # LTMEDSurrogate: cost_lt_med_surrogate,
         Photovoltaic: cost_pv,
-        TroughSurrogate: cost_trough_surrogate,
+        PVSurrogate: cost_pv_surrogate,
         Mixer: cost_mixer,
         Pump: cost_pump,
         EnergyRecoveryDevice: cost_energy_recovery_device,
@@ -78,7 +77,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         Electrodialysis1D: cost_electrodialysis,
         IonExchange0D: cost_ion_exchange,
         GAC: cost_gac,
-        ChemicalSofteningZO: cost_chem_softening,
+        # ChemicalSofteningZO: cost_chem_softening,
     }
 
     def build_global_params(self):
@@ -133,6 +132,13 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             doc="Total operating cost",
             units=self.base_currency / self.base_period,
         )
+        
+        self.total_electric_operating_cost = pyo.Var(
+            initialize=1e3,
+            domain=pyo.Reals,
+            doc="Total operating cost",
+            units=self.base_currency / self.base_period,
+        )
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
@@ -148,7 +154,11 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
             == self.maintenance_labor_chemical_operating_cost
             + self.aggregate_fixed_operating_cost
             + self.aggregate_variable_operating_cost
-            + sum(self.aggregate_flow_costs.values()) * self.utilization_factor
+            + sum(self.aggregate_flow_costs.values()) * self.utilization_factor)
+
+        self.total_electric_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_electric_operating_cost
+            == sum(self.aggregate_flow_costs.values()) * self.utilization_factor
         )
 
 
@@ -225,9 +235,9 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             doc="Electricity cost",
             units=self.base_currency / pyo.units.kWh,
         )
-
+        
         self.add_defined_flow("electricity", self.electricity_cost)
-
+        
         self.electrical_carbon_intensity = pyo.Param(
             mutable=True,
             initialize=0.475,
@@ -256,14 +266,19 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
     def build_integrated_costs(self):
         treat_cost = self._get_treatment_cost_block()
         en_cost = self._get_energy_cost_block()
-
         self.total_capital_cost = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
+            domain=pyo.NonNegativeReals,
             doc="Total capital cost for integrated system",
             units=self.base_currency,
         )
         self.total_operating_cost = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Total operating cost for integrated system",
+            units=self.base_currency / self.base_period,
+        )
+        self.total_electric_operating_cost = pyo.Var(
             initialize=1e3,
             # domain=pyo.NonNegativeReals,
             doc="Total operating cost for integrated system",
@@ -275,8 +290,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             doc="Aggregated electricity flow",
             units=pyo.units.kW,
         )
-
-        # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
+        
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
             self.aggregate_flow_heat = pyo.Var(
                 initialize=1e3,
@@ -284,6 +298,8 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
                 doc="Aggregated heat flow",
                 units=pyo.units.kW,
             )
+
+        
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
@@ -306,13 +322,6 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             == treat_cost.aggregate_flow_electricity
             + en_cost.aggregate_flow_electricity
         )
-
-        # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
-            self.aggregate_flow_heat_constraint = pyo.Constraint(
-                expr=self.aggregate_flow_heat
-                == treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat
-            )
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
@@ -384,7 +393,25 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             self.add_component("LCOE", LCOE_expr)
 
         if e_model == "surrogate":
-            raise NotImplementedError("We don't have surrogate models yet!")
+            fs = self._get_flowsheet()
+            en_cost = self._get_energy_cost_block()
+            self.annual_energy_generated = pyo.Param(
+                initialize=fs.energy.pv.annual_energy,
+                units=pyo.units.kWh / pyo.units.year,
+                doc=f"Annual energy generated by {e_model}",
+            )
+            LCOE_expr = pyo.Expression(
+                expr=(
+                    en_cost.total_capital_cost * self.factor_capital_annualization
+                    + (
+                        en_cost.aggregate_fixed_operating_cost
+                        + en_cost.aggregate_variable_operating_cost
+                    )
+                )
+                / self.annual_energy_generated
+                * self.utilization_factor
+            )
+            self.add_component("LCOE", LCOE_expr)
 
     def add_specific_electric_energy_consumption(self, flow_rate):
         """
@@ -442,6 +469,7 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
             specific_thermal_energy_consumption_constraint,
         )
 
+
     def add_defined_flow(self, flow_name, flow_cost):
         """
         This method adds a defined flow to the costing block.
@@ -471,6 +499,34 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
                 f"Attribute {flow_cost_name} already exists "
                 f"on the costing block, but is not {flow_cost}"
             )
+        
+    def cost_flow(self, flow_expr, flow_type):
+        """
+        This method registers a given flow component (Var or expression) for
+        costing. All flows are required to be bounded to be non-negative (i.e.
+        a lower bound equal to or greater than 0).
+
+        Args:
+            flow_expr: Pyomo Var or expression that represents a material flow
+                that should be included in the process costing. Units are
+                expected to be on a per time basis.
+            flow_type: string identifying the material this flow represents.
+                This string must be available to the FlowsheetCostingBlock
+                as a known flow type.
+
+        Raises:
+            ValueError if flow_type is not recognized.
+            TypeError if flow_expr is an indexed Var.
+        """
+        if flow_type not in self.defined_flows:
+            raise ValueError(
+                f"{flow_type} is not a recognized flow type. Please check "
+                "your spelling and that the flow type has been available to"
+                " the FlowsheetCostingBlock."
+            )
+        if flow_type not in self.flow_types:
+            self.register_flow_type(flow_type, self.defined_flows[flow_type])
+        super().cost_flow(flow_expr, flow_type)
 
     def _get_treatment_cost_block(self):
         for b in self.model().component_objects(pyo.Block):
@@ -493,4 +549,16 @@ class SETOSystemCostingData(FlowsheetCostingBlockData):
 
         else:
             pysam = getattr(self.model(), pysam_block_test_lst[0])
-            return pysam
+        
+    def _get_flowsheet(self):
+        block_test_lst = []
+        for k, v in vars(self.model()).items():
+            if isinstance(v, FlowsheetBlock):
+                block_test_lst.append(k)
+
+        if len(block_test_lst) != 1:
+            raise Exception("There is no instance of the flowsheet on this model.")
+
+        else:
+            fs = getattr(self.model(), block_test_lst[0])
+            return fs
