@@ -127,8 +127,8 @@ class TestVAGMD_unit_model:
 
         # test statistics
         assert number_variables(m) == 231
-        assert number_total_constraints(m) == 73
-        assert number_unused_variables(m) == 126
+        assert number_total_constraints(m) == 72
+        assert number_unused_variables(m) == 127
 
     @pytest.mark.unit
     def test_dof(self, VAGMD_frame):

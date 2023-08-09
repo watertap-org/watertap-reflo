@@ -21,10 +21,10 @@ from pyomo.environ import (
     value,
     Suffix,
     ConcreteModel,
-    PositiveIntegers,
     Reference,
     Constraint,
     units as pyunits,
+    check_optimal_termination,
     exp,
     log,
 )
@@ -45,18 +45,15 @@ import idaes.core.util.scaling as iscale
 from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
 
-# Import Watertap packages
-from watertap.core.util.model_diagnostics.infeasible import *
-
-_log = idaeslog.getLogger(__name__)
-__author__ = "Zhuoran Zhang"
-
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
     badly_scaled_var_generator,
 )
+
+_log = idaeslog.getLogger(__name__)
+__author__ = "Zhuoran Zhang"
 
 
 @declare_process_block_class("VAGMDSurrogate")
@@ -171,7 +168,7 @@ class VAGMDData(UnitModelBlockData):
         self.heat_exchanger_area = Param(
             initialize=1.34,
             units=pyunits.m**2,
-            doc="Effective heat transfer coefficient",
+            doc="Effective heat transfer area",
         )
 
         self.cooling_flow_rate = Param(
@@ -222,7 +219,7 @@ class VAGMDData(UnitModelBlockData):
         self.log_mean_temp_dif = Var(
             initialize=0,
             bounds=(0, None),
-            units=pyunits.C,
+            units=pyunits.K,
             doc="Log mean temperature difference in the MD module",
         )
 
@@ -261,7 +258,7 @@ class VAGMDData(UnitModelBlockData):
             initialize=10,
             bounds=(0, None),
             units=pyunits.kW,
-            doc="Thermal power requirment",
+            doc="Thermal power requirement",
         )
 
         self.feed_pump_power_elec = Var(
@@ -362,9 +359,7 @@ class VAGMDData(UnitModelBlockData):
             )
 
         # make brine pressure at 1 bar
-        @self.Constraint(doc="brine pressure")
-        def eq_brine_pressure(b):
-            return b.evaporator_out_props[0].pressure == 101325 * pyunits.Pa
+        self.evaporator_out_props[0].pressure.fix(101325)
 
         """
         Add block for water at the condenser inlet
@@ -485,7 +480,7 @@ class VAGMDData(UnitModelBlockData):
         # Cooling system specification
         if self.config.cooling_system_type == "closed":
 
-            @self.Constraint(doc="Calculate cooling power requirment")
+            @self.Constraint(doc="Calculate cooling power requirement")
             def eq_cooling_power_thermal(b):
                 return b.cooling_power_thermal == pyunits.convert(
                     b.thermal_resistance_hot
@@ -551,7 +546,15 @@ class VAGMDData(UnitModelBlockData):
                     / b.thermal_resistance_cold
                 )
 
-        # Set alias for state properties
+        # Set alias for state properties. The acronyms below are:
+        #   FFR: Feed flow rate
+        #   S  : Feed salinity
+        #   TEI: Evaporator inlet temperature
+        #   TCI: Condenser inlet temperature
+        #   Ttank: Tank temperature
+        #   TEO: Evaporator outlet temperature
+        #   TCO: Condenser outlet temperature
+
         FFR = pyunits.convert(
             self.feed_props[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
         )
@@ -911,8 +914,10 @@ class VAGMDData(UnitModelBlockData):
 
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
-            print_close_to_bounds(self)
-            print_infeasible_constraints(self)
+
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {blk.name} failed to initialize")
+        
         init_log.info("Initialization status {}.".format(idaeslog.condition(res)))
 
     """
@@ -953,6 +958,12 @@ class VAGMDData(UnitModelBlockData):
     """
 
     def _get_membrane_performance(self, TEI, FFR, TCI, SgL):
+        # Function arguments:
+        #   FFR: Feed flow rate
+        #   TEI: Evaporator inlet temperature
+        #   TCI: Condenser inlet temperature
+        #   SgL: Feed salinity
+
         # Model parameters
         PFluxAS26 = [
             0.798993148477908,
