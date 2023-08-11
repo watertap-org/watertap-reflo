@@ -232,26 +232,33 @@ def param_sweep(Q_basis: int, x_bounds: list, y_bounds: list, x_res: int, y_res:
 
 
 if __name__ == "__main__":
+    file_dir = os.path.dirname(os.path.realpath(__file__))
+    resolution = (8, 8)
+
     m, results, temp_dict, solve_report = param_sweep(
-        Q_basis=10, x_bounds=[0.3, 0.5], y_bounds=[30, 60], x_res=3, y_res=3
+        Q_basis=10, x_bounds=[0.3, 0.5], y_bounds=[30, 60], x_res=resolution[0], y_res=resolution[1]
     )
-    x, y, z, grid = get_data(temp_dict, "LCOW", gridshape=(3, 3))
-    fig, ax, cbar = contour_LCOW(
-        x,
-        y,
-        grid,
-        x_label="Recovery (%)",
-        y_label="TDS (g/L)",
-        z_label="LCOW " + "USD/m$^3$",
-        x_scale="linear",
-        low=min(z),
-        mid=(min(z) + max(z)) / 2,
-        high=max(z),
-        xlimits=[min(x), max(x)],
-        ylimits=[min(y), max(y)],
-        cmap_pallete="RdBu_r",
-        contour_x_pos=0.4,
-        contour_label_space=20,
-        auto_ticks=np.linspace(round(min(z), 1), round(max(z), 2), 6).tolist(),
-    )
-    plt.show()
+    for i in ["LCOW", "specific_electric_energy_consumption"]:
+        x, y, z, grid = get_data(temp_dict, i, gridshape=resolution)
+        data = pd.DataFrame(grid, index=y, columns=x)
+        pd.DataFrame.to_csv(data, file_dir+'/data/'+i+'.csv')
+        fig, ax, cbar = contour_LCOW(
+            x,
+            y,
+            grid,
+            x_label="Recovery (%)",
+            y_label="TDS (g/L)",
+            z_label="LCOW " + "USD/m$^3$",
+            x_scale="linear",
+            low=min(z),
+            mid=(min(z) + max(z)) / 2,
+            high=max(z),
+            xlimits=[min(x), max(x)],
+            ylimits=[min(y), max(y)],
+            cmap_pallete="RdBu_r",
+            contour_x_pos=0.4,
+            contour_label_space=20,
+            auto_ticks=np.linspace(round(min(z), 1), round(max(z), 2), 6).tolist(),
+        )
+        plt.savefig(file_dir+'/figures/'+i+'.png', dpi=300, bbox_inches='tight')
+        plt.show()
