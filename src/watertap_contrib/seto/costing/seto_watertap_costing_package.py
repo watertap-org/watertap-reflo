@@ -52,6 +52,8 @@ from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
 from watertap_contrib.seto.costing.units.chemical_softening_zo import (
     cost_chem_softening,
 )
+from watertap_contrib.seto.unit_models.zero_order import MgCrystallizerZO
+from watertap_contrib.seto.costing.units.mg_crystallizer_zo import cost_mg_crystallizer
 
 from watertap_contrib.seto.core import PySAMWaterTAP
 
@@ -79,6 +81,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         IonExchange0D: cost_ion_exchange,
         GAC: cost_gac,
         ChemicalSofteningZO: cost_chem_softening,
+        MgCrystallizerZO: cost_mg_crystallizer,
     }
 
     def build_global_params(self):
