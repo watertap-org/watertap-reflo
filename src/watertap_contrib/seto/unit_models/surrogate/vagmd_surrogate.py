@@ -917,7 +917,7 @@ class VAGMDData(UnitModelBlockData):
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {blk.name} failed to initialize")
-        
+
         init_log.info("Initialization status {}.".format(idaeslog.condition(res)))
 
     """

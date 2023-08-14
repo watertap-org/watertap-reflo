@@ -33,6 +33,7 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
+from idaes.core.util.constants import Constants
 from idaes.core.solvers import get_solver
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
@@ -44,6 +45,7 @@ import idaes.logger as idaeslog
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
+
 
 @declare_process_block_class("MgCrystallizerZO")
 class MgCrystallizerZOData(InitializationMixin, UnitModelBlockData):
@@ -105,7 +107,7 @@ class MgCrystallizerZOData(InitializationMixin, UnitModelBlockData):
     def build(self):
         super().build()
 
-        #TODO: add references
+        # TODO: add references
 
         solvent_set = self.config.property_package.solvent_set
         solute_set = self.config.property_package.solute_set
@@ -135,219 +137,324 @@ class MgCrystallizerZOData(InitializationMixin, UnitModelBlockData):
         self.properties_out[0].pressure.fix(101325)
         self.properties_out[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
         self.properties_out[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
-        # Initial guess 
+        # Initial guess
         self.properties_out[0].flow_vol_phase["Liq"].value = 1e-5
         self.properties_out[0].flow_vol_phase["Sol"].value = 1e-5
+
         @self.Constraint(doc="Outlet temperature remains the same")
         def eq_outlet_temperature(b):
-            return (b.properties_out[0].temperature == b.properties_in[0].temperature)
+            return b.properties_out[0].temperature == b.properties_in[0].temperature
 
         self.add_port(name="inlet", block=self.properties_in)
         self.add_port(name="outlet", block=self.properties_out)
 
         # Model parameters
         self.hydromagnesite_solubility = Param(
-            initialize = 0.76071,
-            units = pyunits.g / pyunits.L,
-            doc = "Solubility of hydromagnesite [Mg5(CO3)4(OH)2 4H2O] at 25 deg C"
+            initialize=0.76071,
+            units=pyunits.g / pyunits.L,
+            doc="Solubility of hydromagnesite [Mg5(CO3)4(OH)2 4H2O] at 25 deg C",
         )
 
         self.calcite_solubility = Param(
-            initialize = 0.17631,
-            units = pyunits.g / pyunits.L,
-            doc = "Solubility of calcite [CaCO3] at 25 deg C"
+            initialize=0.17631,
+            units=pyunits.g / pyunits.L,
+            doc="Solubility of calcite [CaCO3] at 25 deg C",
         )
 
         self.Mg_molar_weight = Param(
-            initialize = 24.305,
-            units = pyunits.g / pyunits.mol,
-            doc = 'Molar weight of Mg'
+            initialize=24.305, units=pyunits.g / pyunits.mol, doc="Molar weight of Mg"
         )
 
         self.Ca_molar_weight = Param(
-            initialize = 40.087,
-            units = pyunits.g / pyunits.mol,
-            doc = 'Molar weight of Mg'
+            initialize=40.087, units=pyunits.g / pyunits.mol, doc="Molar weight of Mg"
         )
 
         self.hydromagnesite_molar_weight = Param(
-            initialize = 467.64,
-            units = pyunits.g / pyunits.mol,
-            doc = 'Molar weight of hydromagnesite [Mg5(CO3)4(OH)2 4H2O]'
+            initialize=467.64,
+            units=pyunits.g / pyunits.mol,
+            doc="Molar weight of hydromagnesite [Mg5(CO3)4(OH)2 4H2O]",
         )
 
         self.calcite_molar_weight = Param(
-            initialize = 100.0869,
-            units = pyunits.g / pyunits.mol,
-            doc = 'Molar weight of calcite [CaCO3]'
+            initialize=100.0869,
+            units=pyunits.g / pyunits.mol,
+            doc="Molar weight of calcite [CaCO3]",
         )
 
         self.calcium_hydroxide_molar_weight = Param(
-            initialize = 74.095,
-            units = pyunits.g / pyunits.mol,
-            doc = 'Molar weight of calcium hydroxide [Ca(OH)2]'
+            initialize=74.095,
+            units=pyunits.g / pyunits.mol,
+            doc="Molar weight of calcium hydroxide [Ca(OH)2]",
         )
 
         self.co2_molar_weight = Param(
-            initialize = 44.01,
-            units = pyunits.g / pyunits.mol,
-            doc = 'Molar weight of carbon dioxide [CO2]'
+            initialize=44.01,
+            units=pyunits.g / pyunits.mol,
+            doc="Molar weight of carbon dioxide [CO2]",
+        )
+
+        self.minimum_height_diameter_ratio = Param(
+            initialize=1.5,
+            units=pyunits.dimensionless,
+            doc="Minimum height to diameter ratio of the crystallizer",
         )
 
         # Model input variables
         self.conversion_factor_mg = Var(
-            initialize = 0.9,
-            units = pyunits.dimensionless,
-            doc = 'Conversion factor of Mg2+ precipitation reaction'
+            initialize=0.9,
+            units=pyunits.dimensionless,
+            doc="Conversion factor of Mg2+ precipitation reaction",
         )
 
         self.conversion_factor_ca = Var(
-            initialize = 1,
-            units = pyunits.dimensionless,
-            doc = 'Conversion factor of Ca2+ precipitation reaction'
+            initialize=1,
+            units=pyunits.dimensionless,
+            doc="Conversion factor of Ca2+ precipitation reaction",
         )
 
         self.conc_chemical_dose = Var(
-            initialize = 0.5,
-            units = pyunits.mol / pyunits.L,
-            doc = 'Concentration of calcium hydroxide addition'
-        )        
-        
+            initialize=0.5,
+            units=pyunits.mol / pyunits.L,
+            doc="Concentration of calcium hydroxide addition",
+        )
+
+        self.t_res = Var(
+            initialize=4,
+            units=pyunits.hr,
+            doc="Residence time (typically between 2-6 hr from reference)",
+        )
+
+        self.diameter_crystallizer = Var(
+            initialize=1.5, units=pyunits.m, doc="Crystallizer diamter"
+        )
 
         # Add Mg and Ca in addition to the WaterTAP crystallizer property package (cryst_prop_pack)
         self.Mg_conc_inlet = Var(
-            initialize = 35.49,
-            units = pyunits.g / pyunits.L,
-            doc = 'Mg concentration in the feed flow'
+            initialize=35.49,
+            units=pyunits.g / pyunits.L,
+            doc="Mg concentration in the feed flow",
         )
 
         self.Ca_conc_inlet = Var(
-            initialize = 10.60,
-            units = pyunits.g / pyunits.L,
-            doc = 'Ca concentration in the feed flow'
+            initialize=10.60,
+            units=pyunits.g / pyunits.L,
+            doc="Ca concentration in the feed flow",
         )
 
         # Add output variables
         self.calcium_hydroxide_vol = Var(
-            initialize = 15.53,
-            units = pyunits.m**3 / pyunits.day,
-            doc = "Volumetric chemical addition of calcium hydroxide"
+            initialize=15.53,
+            units=pyunits.m**3 / pyunits.day,
+            doc="Volumetric chemical addition of calcium hydroxide",
         )
 
         self.calcium_hydroxide_mass = Var(
-            initialize = 575.26,
-            units = pyunits.kg / pyunits.day,
-            doc = "Chemical addition mass of calcium hydroxide"
+            initialize=575.26,
+            units=pyunits.kg / pyunits.day,
+            doc="Chemical addition mass of calcium hydroxide",
         )
 
         # Add intermediate variables / paramters
-        @self.Expression(doc="Mg concentration in the feed flow after diluted by chemical additions (g/L)")
+        @self.Expression(
+            doc="Mg concentration in the feed flow after diluted by chemical additions (g/L)"
+        )
         def Mg_conc_diluted(b):
-            return (b.Mg_conc_inlet * b.properties_in[0].flow_vol_phase["Liq"]
-                    / (b.properties_in[0].flow_vol_phase["Liq"] +
-                       pyunits.convert(b.calcium_hydroxide_vol,
-                                       to_units = pyunits.m**3 / pyunits.s)))
+            return (
+                b.Mg_conc_inlet
+                * b.properties_in[0].flow_vol_phase["Liq"]
+                / (
+                    b.properties_in[0].flow_vol_phase["Liq"]
+                    + pyunits.convert(
+                        b.calcium_hydroxide_vol, to_units=pyunits.m**3 / pyunits.s
+                    )
+                )
+            )
 
-        @self.Expression(doc="Ca concentration in the feed flow after diluted by chemical additions (g/L)")
+        @self.Expression(
+            doc="Ca concentration in the feed flow after diluted by chemical additions (g/L)"
+        )
         def Ca_conc_diluted(b):
-            return (b.Ca_conc_inlet * b.properties_in[0].flow_vol_phase["Liq"]
-                    / (b.properties_in[0].flow_vol_phase["Liq"] +
-                       pyunits.convert(b.calcium_hydroxide_vol,
-                                       to_units = pyunits.m**3 / pyunits.s)))
+            return (
+                b.Ca_conc_inlet
+                * b.properties_in[0].flow_vol_phase["Liq"]
+                / (
+                    b.properties_in[0].flow_vol_phase["Liq"]
+                    + pyunits.convert(
+                        b.calcium_hydroxide_vol, to_units=pyunits.m**3 / pyunits.s
+                    )
+                )
+            )
 
         # self.Mg_solubility = Param(initialize = 0.198, units = pyunits.g/pyunits.L)
         @self.Expression(doc="Mg solubililty at 25 deg C (g/L)")
         def Mg_solubility(b):
-            return (b.hydromagnesite_solubility * 5 * b.Mg_molar_weight / b.hydromagnesite_molar_weight)
+            return (
+                b.hydromagnesite_solubility
+                * 5
+                * b.Mg_molar_weight
+                / b.hydromagnesite_molar_weight
+            )
 
         @self.Expression(doc="Mg solubililty at 25 deg C (g/L)")
         def Ca_solubility(b):
-            return (b.calcite_solubility * b.Ca_molar_weight / b.calcite_molar_weight)
+            return b.calcite_solubility * b.Ca_molar_weight / b.calcite_molar_weight
 
         # Add equations as constraints / expressions
         @self.Expression(doc="Hydromagnesite precipitation rate (kg/day)")
         def hydromagnesite_precipitated(b):
-            return ((b.Mg_conc_diluted - b.Mg_solubility)
-                    * (pyunits.convert(b.properties_in[0].flow_vol_phase["Liq"],
-                                       to_units = pyunits.m**3 / pyunits.day)
-                       + b.calcium_hydroxide_vol)
-                    * b.conversion_factor_mg
-                    * b.hydromagnesite_molar_weight / (5 * b.Mg_molar_weight))
+            return (
+                (b.Mg_conc_diluted - b.Mg_solubility)
+                * (
+                    pyunits.convert(
+                        b.properties_in[0].flow_vol_phase["Liq"],
+                        to_units=pyunits.m**3 / pyunits.day,
+                    )
+                    + b.calcium_hydroxide_vol
+                )
+                * b.conversion_factor_mg
+                * b.hydromagnesite_molar_weight
+                / (5 * b.Mg_molar_weight)
+            )
 
         @self.Expression(doc="Calcite precipitation rate from feed flow (kg/day)")
         def calcite_precipitated_feed(b):
-            return ((b.Ca_conc_diluted - b.Ca_solubility)
-                    * (pyunits.convert(b.properties_in[0].flow_vol_phase["Liq"],
-                                       to_units = pyunits.m**3 / pyunits.day)
-                       + b.calcium_hydroxide_vol)
-                    * b.conversion_factor_ca
-                    * b.calcite_molar_weight / b.Ca_molar_weight)
+            return (
+                (b.Ca_conc_diluted - b.Ca_solubility)
+                * (
+                    pyunits.convert(
+                        b.properties_in[0].flow_vol_phase["Liq"],
+                        to_units=pyunits.m**3 / pyunits.day,
+                    )
+                    + b.calcium_hydroxide_vol
+                )
+                * b.conversion_factor_ca
+                * b.calcite_molar_weight
+                / b.Ca_molar_weight
+            )
 
         @self.Expression(doc="Calcite precipitation rate from chemical dose (kg/day)")
         def calcite_precipitated_dose(b):
-            return (b.calcium_hydroxide_mass
-                    * b.calcite_molar_weight
-                    / b.calcium_hydroxide_molar_weight)
+            return (
+                b.calcium_hydroxide_mass
+                * b.calcite_molar_weight
+                / b.calcium_hydroxide_molar_weight
+            )
 
         @self.Expression(doc="Recovery rate of Mg")
         def Mg_recovery_rate(b):
-            return (b.hydromagnesite_precipitated
-                    * 5 * b.Mg_molar_weight / b.hydromagnesite_molar_weight
-                    / (b.Mg_conc_inlet
-                       * pyunits.convert(b.properties_in[0].flow_vol_phase["Liq"],
-                                         to_units = pyunits.m**3 / pyunits.day)))
+            return (
+                b.hydromagnesite_precipitated
+                * 5
+                * b.Mg_molar_weight
+                / b.hydromagnesite_molar_weight
+                / (
+                    b.Mg_conc_inlet
+                    * pyunits.convert(
+                        b.properties_in[0].flow_vol_phase["Liq"],
+                        to_units=pyunits.m**3 / pyunits.day,
+                    )
+                )
+            )
 
         @self.Expression(doc="Recovery rate of Ca")
         def Ca_recovery_rate(b):
-            return (b.calcite_precipitated_feed
-                    * b.Ca_molar_weight / b.calcite_molar_weight
-                    / (b.Ca_conc_inlet
-                       * pyunits.convert(b.properties_in[0].flow_vol_phase["Liq"],
-                                         to_units = pyunits.m**3 / pyunits.day)))
-
-        @self.Constraint(doc='Calculate NaCl concentration in the waste flow')
-        def eqn_conc_NaCl_out(b):
-            return (b.properties_out[0].conc_mass_phase_comp["Liq", "NaCl"] ==
-                    b.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
-                    * b.properties_in[0].flow_vol_phase["Liq"]
-                    / (b.properties_in[0].flow_vol_phase["Liq"] +
-                       pyunits.convert(b.calcium_hydroxide_vol,
-                                       to_units = pyunits.m**3 / pyunits.s)))
-
-        @self.Constraint(doc='Calculate mass flow rate of calcium hydroxide addition')
-        def eqn_CaOH2_mass(b):
-            return (b.calcium_hydroxide_mass ==
-                    b.hydromagnesite_precipitated
-                    * 5 * b.calcium_hydroxide_molar_weight
-                    / b.hydromagnesite_molar_weight
-                    + b.calcite_precipitated_feed
-                    * b.calcium_hydroxide_molar_weight
-                    / b.calcite_molar_weight
+            return (
+                b.calcite_precipitated_feed
+                * b.Ca_molar_weight
+                / b.calcite_molar_weight
+                / (
+                    b.Ca_conc_inlet
+                    * pyunits.convert(
+                        b.properties_in[0].flow_vol_phase["Liq"],
+                        to_units=pyunits.m**3 / pyunits.day,
                     )
+                )
+            )
 
-        @self.Constraint(doc='Calculate volumetric flow rate of calcium hydroxide addition')
+        @self.Constraint(doc="Calculate NaCl concentration in the waste flow")
+        def eqn_conc_NaCl_out(b):
+            return b.properties_out[0].conc_mass_phase_comp[
+                "Liq", "NaCl"
+            ] == b.properties_in[0].conc_mass_phase_comp[
+                "Liq", "NaCl"
+            ] * b.properties_in[
+                0
+            ].flow_vol_phase[
+                "Liq"
+            ] / (
+                b.properties_in[0].flow_vol_phase["Liq"]
+                + pyunits.convert(
+                    b.calcium_hydroxide_vol, to_units=pyunits.m**3 / pyunits.s
+                )
+            )
+
+        @self.Constraint(doc="Calculate mass flow rate of calcium hydroxide addition")
+        def eqn_CaOH2_mass(b):
+            return (
+                b.calcium_hydroxide_mass
+                == b.hydromagnesite_precipitated
+                * 5
+                * b.calcium_hydroxide_molar_weight
+                / b.hydromagnesite_molar_weight
+                + b.calcite_precipitated_feed
+                * b.calcium_hydroxide_molar_weight
+                / b.calcite_molar_weight
+            )
+
+        @self.Constraint(
+            doc="Calculate volumetric flow rate of calcium hydroxide addition"
+        )
         def eqn_CaOH2_vol(b):
-            return (b.calcium_hydroxide_vol ==
-                    b.calcium_hydroxide_mass
-                    / b.calcium_hydroxide_molar_weight
-                    / b.conc_chemical_dose)
+            return (
+                b.calcium_hydroxide_vol
+                == b.calcium_hydroxide_mass
+                / b.calcium_hydroxide_molar_weight
+                / b.conc_chemical_dose
+            )
 
-        @self.Constraint(doc='Calculate the volumetric flow rate of waste flow')
+        @self.Constraint(doc="Calculate the volumetric flow rate of waste flow")
         def eqn_outflow_vol(b):
-            return (b.properties_out[0].flow_vol_phase["Liq"]
-                    == b.properties_in[0].flow_vol_phase["Liq"]
-                    + pyunits.convert(b.calcium_hydroxide_vol,
-                                      to_units = pyunits.m**3 / pyunits.s))
+            return b.properties_out[0].flow_vol_phase["Liq"] == b.properties_in[
+                0
+            ].flow_vol_phase["Liq"] + pyunits.convert(
+                b.calcium_hydroxide_vol, to_units=pyunits.m**3 / pyunits.s
+            )
 
-        @self.Expression(doc='CO2 mass flow rate required')
+        @self.Expression(doc="CO2 mass flow rate required")
         def co2_mass_rate(b):
-            return (b.hydromagnesite_precipitated
-                    * 4 * b.co2_molar_weight
-                    / b.hydromagnesite_molar_weight
-                    + b.calcite_precipitated_feed
-                    * b.co2_molar_weight
-                    / b.calcite_molar_weight)
+            return (
+                b.hydromagnesite_precipitated
+                * 4
+                * b.co2_molar_weight
+                / b.hydromagnesite_molar_weight
+                + b.calcite_precipitated_feed
+                * b.co2_molar_weight
+                / b.calcite_molar_weight
+            )
 
+        @self.Expression(doc="Calculate suspension volume (m3)")
+        def volume_suspension(b):
+            return pyunits.convert(b.t_res, to_units=pyunits.s) * (
+                b.properties_in[0].flow_vol_phase["Liq"]
+                + pyunits.convert(
+                    b.calcium_hydroxide_vol, to_units=pyunits.m**3 / pyunits.s
+                )
+            )
+
+        @self.Expression(doc="Calculate slurry height")
+        def height_slurry(b):
+            return (
+                b.volume_suspension * 4 / (Constants.pi * b.diameter_crystallizer**2)
+            )
+
+        @self.Expression(doc="Calculate crystallizer height")
+        def height_crystallizer(b):
+            # Max value of the slurry height and the minimum height
+            # Manual smooth max implementation used here: max(a,b) = 0.5(a + b + |a-b|)
+            a = b.height_slurry
+            b = b.minimum_height_diameter_ratio * b.diameter_crystallizer
+            eps = 1e-20 * pyunits.m
+            return 0.5 * (a + b + ((a - b) ** 2 + eps**2) ** 0.5)
 
     def initialize_build(
         blk,
@@ -451,28 +558,38 @@ class MgCrystallizerZOData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.calcium_hydroxide_mass) is None:
             iscale.set_scaling_factor(self.calcium_hydroxide_mass, 1e-3)
 
+        if iscale.get_scaling_factor(self.t_res) is None:
+            iscale.set_scaling_factor(self.t_res, 1e0)
+
+        if iscale.get_scaling_factor(self.diameter_crystallizer) is None:
+            iscale.set_scaling_factor(self.diameter_crystallizer, 1e0)
+
     def _get_stream_table_contents(self, time_point=0):
         return create_stream_table_dataframe(
             {
                 "Feed Water Inlet": self.properties_in,
-                "Waste Outlet": self.properties_out
+                "Waste Outlet": self.properties_out,
             },
             time_point=time_point,
         )
 
     def _get_performance_contents(self, time_point=0):
         var_dict = {}
-        var_dict["NaCl concentration in the waste flow (g/L)"] = value(self.properties_out[0].conc_mass_phase_comp["Liq", "NaCl"])
-        var_dict["Hydromagnesite precipitated (kg/day)"] = value(self.hydromagnesite_precipitated)
-        var_dict["Calcite precipitated (kg/day)"] = value(self.calcite_precipitated_feed + self.calcite_precipitated_dose)
+        var_dict["NaCl concentration in the waste flow (g/L)"] = value(
+            self.properties_out[0].conc_mass_phase_comp["Liq", "NaCl"]
+        )
+        var_dict["Hydromagnesite precipitated (kg/day)"] = value(
+            self.hydromagnesite_precipitated
+        )
+        var_dict["Calcite precipitated (kg/day)"] = value(
+            self.calcite_precipitated_feed + self.calcite_precipitated_dose
+        )
         var_dict["Mg recovery rate"] = value(self.Mg_recovery_rate)
         var_dict["Ca recovery rate"] = value(self.Ca_recovery_rate)
         var_dict["Ca(OH)2 dose (kg/day)"] = value(self.calcium_hydroxide_mass)
         var_dict["Ca(OH)2 dose (m3/day)"] = value(self.calcium_hydroxide_vol)
         var_dict["CO2 dose (kg/day)"] = value(self.co2_mass_rate)
+        var_dict["Suspension Volume (m3)"] = value(self.volume_suspension)
+        var_dict["Crystallizer height (m)"] = value(self.height_crystallizer)
 
         return {"vars": var_dict}
-
-
-
-
