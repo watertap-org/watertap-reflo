@@ -646,8 +646,11 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="initial log mean temperature difference")
         def eq_log_mean_temp_dif(b):
-            return b.log_mean_temp_dif == ((TEI - TCO) - (TEO - TCI)) / log(
-                (TEI - TCO) / (TEO - TCI + 1e-6)
+            delta_t1 = TEI - TCO
+            delta_t2 = TEO - TCI
+            # Using approxication equation for model stability
+            return b.log_mean_temp_dif == (
+                (delta_t1 * delta_t2 * (delta_t1 + delta_t2) / 2) ** (1 / 3)
             )
 
         @self.Constraint(doc="Thermal power")
