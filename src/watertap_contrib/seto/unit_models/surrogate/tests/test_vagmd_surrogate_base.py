@@ -7,16 +7,14 @@ from pyomo.environ import (
 )
 import re
 from pyomo.network import Port
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogate
+from idaes.core import FlowsheetBlock
+from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogateBase
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.seto.costing import SETOWaterTAPCosting
 
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
-from idaes.core.util.exceptions import ConfigurationError, InitializationError
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -26,7 +24,6 @@ from idaes.core.util.model_statistics import (
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
-    unscaled_constraints_generator,
     badly_scaled_var_generator,
 )
 import idaes.logger as idaeslog
@@ -51,33 +48,34 @@ class TestVAGMD_unit_model:
         cond_inlet_temp = 25  # 20 - 30 deg C
         feed_temp = 25  # 20 - 30 deg C
         feed_salinity = 35  # 35 - 292 g/L
-        initial_batch_volume = 50  # > 50 L
-        recovery_ratio = 0.5  # -
         module_type = "AS7C1.5L"
         cooling_system_type = "closed"
+        high_brine_salinity = False  # True if brine salinity > 175.3 g/L
         cooling_inlet_temp = (
             25  # deg C, not required when cooling system type is "closed"
         )
 
-        # Identify if the final brine salinity is larger than 175.3 g/L for module "AS7C1.5L"
-        # If yes, then operational parameters need to be fixed at a certain value,
-        # and coolying circuit is closed to maintain condenser inlet temperature constant
-        final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # = 70 g/L
-        if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
-            cooling_system_type = "closed"
-            feed_flow_rate = 1100  # L/h
-            evap_inlet_temp = 80  # deg C
-            cond_inlet_temp = 25  # deg C
-            high_brine_salinity = True
-        else:
-            high_brine_salinity = False
-
-        m.fs.vagmd = VAGMDSurrogate(
+        m.fs.vagmd = VAGMDSurrogateBase(
             property_package_seawater=m.fs.seawater_properties,
             property_package_water=m.fs.water_properties,
             module_type=module_type,
             high_brine_salinity=high_brine_salinity,
             cooling_system_type=cooling_system_type,
+        )
+
+        # Run helper function to determine the salinity mode
+        (
+            feed_flow_rate,
+            evap_inlet_temp,
+            cond_inlet_temp,
+            cooling_system_type,
+        ) = m.fs.vagmd._determine_salinity_mode(
+            feed_flow_rate,
+            evap_inlet_temp,
+            cond_inlet_temp,
+            module_type,
+            high_brine_salinity,
+            cooling_system_type,
         )
 
         # Specify feed flow state properties
@@ -133,6 +131,7 @@ class TestVAGMD_unit_model:
     @pytest.mark.unit
     def test_dof(self, VAGMD_frame):
         m = VAGMD_frame
+
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.unit
@@ -193,30 +192,41 @@ class TestVAGMD_unit_model:
         cond_inlet_temp = 25  # deg C
         feed_temp = 25  # deg C
         feed_salinity = 100  # g/L
-        initial_batch_volume = 50  # L
-        recovery_ratio = 0.5  # -
         module_type = "AS7C1.5L"
         cooling_system_type = "closed"
         cooling_inlet_temp = (
             25  # deg C, not required when cooling system type is "closed"
         )
+        high_brine_salinity = True
 
-        final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # = 200 g/L
-        if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
-            cooling_system_type = "closed"
-            feed_flow_rate = 1100  # L/h
-            evap_inlet_temp = 80  # deg C
-            cond_inlet_temp = 25  # deg C
-            high_brine_salinity = True
-        else:
-            high_brine_salinity = False
+        # If the brine salinity is high (>175.3 g/L) for module AS7C1.5L,
+        # the operational parameters need to be fixed at at certain values,
+        # and cooling circuit is closed to maintain condenser inlet temperature constant
+        feed_flow_rate = 1100  # L/h
+        evap_inlet_temp = 80  # deg C
+        cond_inlet_temp = 25  # deg C
 
-        m.fs.vagmd = VAGMDSurrogate(
+        m.fs.vagmd = VAGMDSurrogateBase(
             property_package_seawater=m.fs.seawater_properties,
             property_package_water=m.fs.water_properties,
             module_type=module_type,
             high_brine_salinity=high_brine_salinity,
             cooling_system_type=cooling_system_type,
+        )
+
+        # Run helper function to determine salinity mode
+        (
+            feed_flow_rate,
+            evap_inlet_temp,
+            cond_inlet_temp,
+            cooling_system_type,
+        ) = m.fs.vagmd._determine_salinity_mode(
+            feed_flow_rate,
+            evap_inlet_temp,
+            cond_inlet_temp,
+            module_type,
+            high_brine_salinity,
+            cooling_system_type,
         )
 
         # Specify feed flow state properties
@@ -276,30 +286,34 @@ class TestVAGMD_unit_model:
         cond_inlet_temp = 25  # deg C
         feed_temp = 25  # deg C
         feed_salinity = 50  # g/L
-        initial_batch_volume = 50  # L
-        recovery_ratio = 0.5  # -
         module_type = "AS7C1.5L"
         cooling_system_type = "open"
         cooling_inlet_temp = (
             25  # deg C, not required when cooling system type is "closed"
         )
+        high_brine_salinity = False
 
-        final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # = 200 g/L
-        if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
-            cooling_system_type = "closed"
-            feed_flow_rate = 1100  # L/h
-            evap_inlet_temp = 80  # deg C
-            cond_inlet_temp = 25  # deg C
-            high_brine_salinity = True
-        else:
-            high_brine_salinity = False
-
-        m.fs.vagmd = VAGMDSurrogate(
+        m.fs.vagmd = VAGMDSurrogateBase(
             property_package_seawater=m.fs.seawater_properties,
             property_package_water=m.fs.water_properties,
             module_type=module_type,
             high_brine_salinity=high_brine_salinity,
             cooling_system_type=cooling_system_type,
+        )
+
+        # Run helper function to determine salinity mode
+        (
+            feed_flow_rate,
+            evap_inlet_temp,
+            cond_inlet_temp,
+            cooling_system_type,
+        ) = m.fs.vagmd._determine_salinity_mode(
+            feed_flow_rate,
+            evap_inlet_temp,
+            cond_inlet_temp,
+            module_type,
+            high_brine_salinity,
+            cooling_system_type,
         )
 
         # Specify feed flow state properties
@@ -366,24 +380,17 @@ class TestVAGMD_unit_model:
         cooling_inlet_temp = (
             25  # deg C, not required when cooling system type is "closed"
         )
+        high_brine_salinity = False
 
-        final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # = 200 g/L
-        if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
-            cooling_system_type = "closed"
-            feed_flow_rate = 1100  # L/h
-            evap_inlet_temp = 80  # deg C
-            cond_inlet_temp = 25  # deg C
-            high_brine_salinity = True
-        else:
-            high_brine_salinity = False
-
-        m.fs.vagmd = VAGMDSurrogate(
+        m.fs.vagmd = VAGMDSurrogateBase(
             property_package_seawater=m.fs.seawater_properties,
             property_package_water=m.fs.water_properties,
             module_type=module_type,
             high_brine_salinity=high_brine_salinity,
             cooling_system_type=cooling_system_type,
         )
+
+        # No need to run _determine_salinity_mode for module AS26C7.2L
 
         # Specify feed flow state properties
         m.fs.vagmd.feed_props.calculate_state(
@@ -449,24 +456,17 @@ class TestVAGMD_unit_model:
         cooling_inlet_temp = (
             25  # deg C, not required when cooling system type is "closed"
         )
+        high_brine_salinity = False
 
-        final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # = 200 g/L
-        if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
-            cooling_system_type = "closed"
-            feed_flow_rate = 1100  # L/h
-            evap_inlet_temp = 80  # deg C
-            cond_inlet_temp = 25  # deg C
-            high_brine_salinity = True
-        else:
-            high_brine_salinity = False
-
-        m.fs.vagmd = VAGMDSurrogate(
+        m.fs.vagmd = VAGMDSurrogateBase(
             property_package_seawater=m.fs.seawater_properties,
             property_package_water=m.fs.water_properties,
             module_type=module_type,
             high_brine_salinity=high_brine_salinity,
             cooling_system_type=cooling_system_type,
         )
+
+        # No need to run _determine_salinity_mode for module AS26C7.2L
 
         # Specify feed flow state properties
         m.fs.vagmd.feed_props.calculate_state(

@@ -14,15 +14,9 @@ from copy import deepcopy
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    Block,
-    Set,
     Var,
     Param,
-    value,
     Suffix,
-    ConcreteModel,
-    Reference,
-    Constraint,
     units as pyunits,
     check_optimal_termination,
     exp,
@@ -30,12 +24,11 @@ from pyomo.environ import (
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
 
-from pyomo.dae import ContinuousSet
+# Import WaterTAP cores
+from watertap.core import InitializationMixin
 
 # Import IDAES cores
 from idaes.core import (
-    FlowsheetBlock,
-    ControlVolume0DBlock,
     declare_process_block_class,
     UnitModelBlockData,
     useDefault,
@@ -43,23 +36,29 @@ from idaes.core import (
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
 from idaes.core.solvers import get_solver
+from idaes.core.util.misc import StrEnum
 import idaes.logger as idaeslog
-
+from idaes.core.util.exceptions import InitializationError
 from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.util.scaling import (
-    calculate_scaling_factors,
-    unscaled_variables_generator,
-    badly_scaled_var_generator,
-)
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
 
 
-@declare_process_block_class("VAGMDSurrogate")
-class VAGMDData(UnitModelBlockData):
+class ModuleType(StrEnum):
+    AS7C15L = "AS7C1.5L"
+    AS26C72L = "AS7C7.2L"
+
+
+class CoolingType(StrEnum):
+    open = "open"
+    closed = "closed"
+
+
+@declare_process_block_class("VAGMDSurrogateBase")
+class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
     """
-    Vacuum Air-Gap Membrane Distillation - batch operation model
+    Vacuum Air-Gap Membrane Distillation - simulation of one Aquastill module
     """
 
     CONFIG = ConfigBlock()
@@ -190,11 +189,11 @@ class VAGMDData(UnitModelBlockData):
         """
         MD Module type and corresponding area
         """
-        if self.config.module_type == "AS7C1.5L":
+        if self.config.module_type == ModuleType.AS7C15L:
             self.module_area = Param(
                 initialize=7.2, units=pyunits.m**2, doc="Area of module AS7C1.5L"
             )
-        else:  # module_type = "AS26C7.2L"
+        else:  # module_type = ModuleType.AS26C72L
             self.module_area = Param(
                 initialize=25.92, units=pyunits.m**2, doc="Area of module AS26C7.2L"
             )
@@ -459,6 +458,7 @@ class VAGMDData(UnitModelBlockData):
         )
 
         tmp_dict["parameters"] = self.config.property_package_water
+
         """
         Add block for the average status in the condenser
         """
@@ -478,7 +478,7 @@ class VAGMDData(UnitModelBlockData):
         Constraint equations
         """
         # Cooling system specification
-        if self.config.cooling_system_type == "closed":
+        if self.config.cooling_system_type == CoolingType.closed:
 
             @self.Constraint(doc="Calculate cooling power requirement")
             def eq_cooling_power_thermal(b):
@@ -513,7 +513,7 @@ class VAGMDData(UnitModelBlockData):
                     b.feed_props[0].temperature - b.condenser_in_props[0].temperature
                 )
 
-        else:  # self.config.cooling_system_type == "open"
+        else:  # self.config.cooling_system_type == CoolingType.open
 
             @self.Constraint(doc="Calculate cooling power requirment")
             def eq_cooling_power_thermal(b):
@@ -917,15 +917,35 @@ class VAGMDData(UnitModelBlockData):
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {blk.name} failed to initialize")
-        
+
         init_log.info("Initialization status {}.".format(idaeslog.condition(res)))
+
+    def _determine_salinity_mode(
+        self,
+        feed_flow_rate,
+        evap_inlet_temp,
+        cond_inlet_temp,
+        module_type,
+        high_brine_salinity,
+        cooling_system_type,
+    ):
+        # This function rewrites the operation parameters and cooling type
+        # when the brine salinity is high (>175.3 g/L) for module AS7C1.5L
+        if module_type == ModuleType.AS7C15L and high_brine_salinity:
+            feed_flow_rate = 1100  # L/h
+            evap_inlet_temp = 80  # deg C
+            cond_inlet_temp = 25  # deg C
+            self.config.cooling_system_type = CoolingType.closed
+            cooling_system_type = CoolingType.closed
+
+        return (feed_flow_rate, evap_inlet_temp, cond_inlet_temp, cooling_system_type)
 
     """
     Equation to calculate pressure drop
     """
 
     def _get_pressure_drop(self, flow_rate, salinity):
-        if self.config.module_type == "AS7C1.5L":
+        if self.config.module_type == ModuleType.AS7C15L:
             coefficients = [
                 -158.2007422,
                 0.39402609,
@@ -934,7 +954,7 @@ class VAGMDData(UnitModelBlockData):
                 8.93618e-5,
                 -0.000287828,
             ]
-        else:  # self.config.module_type == 'AS26C7.2L'
+        else:  # self.config.module_type == ModuleType.AS26C72L
             coefficients = [
                 -72.53793298,
                 0.110437201,
@@ -1139,7 +1159,7 @@ class VAGMDData(UnitModelBlockData):
         ]
 
         # Model calculations
-        if self.config.module_type == "AS7C1.5L":
+        if self.config.module_type == ModuleType.AS7C15L:
             if self.config.high_brine_salinity:
                 S_r = S_c
 
@@ -1201,7 +1221,7 @@ class VAGMDData(UnitModelBlockData):
             TCO = sum(VarsAS7_TCO[j] * TCOAS7[j] for j in range(len(VarsAS7_TCO)))
             TEO = sum(VarsAS7[j] * TEOAS7[j] for j in range(len(VarsAS7)))
 
-        else:  # self.config.module_type == "AS26C7.2L"
+        else:  # self.config.module_type == ModuleType.AS26C72L
             TEI = sum(
                 surrogate_vars[0][j] * coefficients[4][j]
                 for j in range(len(coefficients[0]))
