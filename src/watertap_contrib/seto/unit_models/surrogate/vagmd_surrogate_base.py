@@ -44,16 +44,13 @@ from idaes.core.util.model_statistics import degrees_of_freedom
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
 
-
 class ModuleType(StrEnum):
     AS7C15L = "AS7C1.5L"
     AS26C72L = "AS7C7.2L"
 
-
 class CoolingType(StrEnum):
     open = "open"
     closed = "closed"
-
 
 @declare_process_block_class("VAGMDSurrogateBase")
 class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
@@ -646,11 +643,8 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="initial log mean temperature difference")
         def eq_log_mean_temp_dif(b):
-            delta_t1 = TEI - TCO
-            delta_t2 = TEO - TCI
-            # Using approxication equation for model stability
-            return b.log_mean_temp_dif == (
-                (delta_t1 * delta_t2 * (delta_t1 + delta_t2) / 2) ** (1 / 3)
+            return b.log_mean_temp_dif == ((TEI - TCO) - (TEO - TCI)) / log(
+                (TEI - TCO) / (TEO - TCI + 1e-6)
             )
 
         @self.Constraint(doc="Thermal power")
@@ -920,24 +914,21 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {blk.name} failed to initialize")
-
+        
         init_log.info("Initialization status {}.".format(idaeslog.condition(res)))
 
-    def _determine_salinity_mode(
-        self,
-        feed_flow_rate,
-        evap_inlet_temp,
-        cond_inlet_temp,
-        module_type,
-        high_brine_salinity,
-        cooling_system_type,
-    ):
+    def _determine_salinity_mode(self, feed_flow_rate,
+                                       evap_inlet_temp,
+                                       cond_inlet_temp,
+                                       module_type,
+                                       high_brine_salinity,
+                                       cooling_system_type):
         # This function rewrites the operation parameters and cooling type
         # when the brine salinity is high (>175.3 g/L) for module AS7C1.5L
         if module_type == ModuleType.AS7C15L and high_brine_salinity:
             feed_flow_rate = 1100  # L/h
             evap_inlet_temp = 80  # deg C
-            cond_inlet_temp = 25  # deg C
+            cond_inlet_temp = 25  # deg C 
             self.config.cooling_system_type = CoolingType.closed
             cooling_system_type = CoolingType.closed
 
@@ -946,7 +937,6 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
     """
     Equation to calculate pressure drop
     """
-
     def _get_pressure_drop(self, flow_rate, salinity):
         if self.config.module_type == ModuleType.AS7C15L:
             coefficients = [
