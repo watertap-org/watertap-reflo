@@ -56,17 +56,17 @@ class TroughSurrogateData(SolarEnergyBaseData):
     """
 
     CONFIG = SolarEnergyBaseData.CONFIG()
-    CONFIG.declare("heat_load_range", ConfigValue(
-        domain=ListOf(float),
-        default=[10, 100],
-        description="Range of the Heat Load input",
-        doc="""Heat load range [min, max]. Options are: [10, 100] or [100, 500]"""
-    ))
+    CONFIG.declare(
+        "heat_load_range",
+        ConfigValue(
+            domain=ListOf(float),
+            default=[10, 100],
+            description="Range of the Heat Load input",
+            doc="""Heat load range [min, max]. Options are: [10, 100] or [100, 500]""",
+        ),
+    )
 
-    surrogate_scaling_dict = {
-        (10, 100): 1e-8,
-        (100, 500): 1e-9
-    }
+    surrogate_scaling_dict = {(10, 100): 1e-8, (100, 500): 1e-9}
 
     def build(self):
         super().build()
@@ -78,7 +78,8 @@ class TroughSurrogateData(SolarEnergyBaseData):
         if heat_load_range in self.surrogate_scaling_dict.keys():
             self.surrogate_scaling = self.surrogate_scaling_dict[heat_load_range]
             self.surrogate_file = os.path.join(
-                os.path.dirname(__file__), f"trough_surrogate_{int(heat_load_range[0])}_{int(heat_load_range[1])}.json"
+                os.path.dirname(__file__),
+                f"trough_surrogate_{int(heat_load_range[0])}_{int(heat_load_range[1])}.json",
             )
         else:
             raise ValueError("config's heat_load_range must be [10, 100] or [100, 500]")
@@ -126,7 +127,10 @@ class TroughSurrogateData(SolarEnergyBaseData):
         sys.stdout = stream
 
         self.surrogate_inputs = [self.heat_load, self.hours_storage]
-        self.surrogate_outputs = [self.heat_annual_scaled, self.electricity_annual_scaled]
+        self.surrogate_outputs = [
+            self.heat_annual_scaled,
+            self.electricity_annual_scaled,
+        ]
 
         self.input_labels = ["heat_load", "hours_storage"]
         self.output_labels = ["heat_annual_scaled", "electricity_annual_scaled"]
@@ -170,7 +174,9 @@ class TroughSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.heat_load, sf)
 
         if iscale.get_scaling_factor(self.heat_annual_scaled) is None:
-            sf = iscale.get_scaling_factor(self.heat_annual_scaled, default=1, warning=True)
+            sf = iscale.get_scaling_factor(
+                self.heat_annual_scaled, default=1, warning=True
+            )
             iscale.set_scaling_factor(self.heat_annual_scaled, sf)
 
         if iscale.get_scaling_factor(self.heat) is None:
@@ -208,9 +214,12 @@ class TroughSurrogateData(SolarEnergyBaseData):
         solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
 
         iscale.calculate_variable_from_constraint(
-            blk.heat_annual_scaled, blk.surrogate_blk.pysmo_constraint["heat_annual_scaled"]
+            blk.heat_annual_scaled,
+            blk.surrogate_blk.pysmo_constraint["heat_annual_scaled"],
         )
-        iscale.calculate_variable_from_constraint(blk.heat_annual_scaled, blk.heat_constraint)
+        iscale.calculate_variable_from_constraint(
+            blk.heat_annual_scaled, blk.heat_constraint
+        )
         iscale.calculate_variable_from_constraint(
             blk.electricity_annual_scaled,
             blk.surrogate_blk.pysmo_constraint["electricity_annual_scaled"],
@@ -266,7 +275,10 @@ class TroughSurrogateData(SolarEnergyBaseData):
             raise e
 
         # Create callable surrogate object
-        xmin, xmax = [self.config.heat_load_range[0], 0], [self.config.heat_load_range[1], 26]
+        xmin, xmax = [self.config.heat_load_range[0], 0], [
+            self.config.heat_load_range[1],
+            26,
+        ]
         self.input_bounds = {
             self.input_labels[i]: (xmin[i], xmax[i])
             for i in range(len(self.input_labels))
@@ -285,9 +297,16 @@ class TroughSurrogateData(SolarEnergyBaseData):
     def _get_surrogate_data(self, return_data=False):
         self.pickle_df = pd.read_pickle(self.dataset_filename)
         heat_load_range = self.config.heat_load_range
-        self.pickle_df = self.pickle_df[(self.pickle_df['heat_load'] >= heat_load_range[0]) & (self.pickle_df['heat_load'] <= heat_load_range[1])]
-        self.pickle_df['heat_annual_scaled'] = self.pickle_df['heat_annual'] * self.surrogate_scaling
-        self.pickle_df['electricity_annual_scaled'] = self.pickle_df['electricity_annual'] * self.surrogate_scaling
+        self.pickle_df = self.pickle_df[
+            (self.pickle_df["heat_load"] >= heat_load_range[0])
+            & (self.pickle_df["heat_load"] <= heat_load_range[1])
+        ]
+        self.pickle_df["heat_annual_scaled"] = (
+            self.pickle_df["heat_annual"] * self.surrogate_scaling
+        )
+        self.pickle_df["electricity_annual_scaled"] = (
+            self.pickle_df["electricity_annual"] * self.surrogate_scaling
+        )
 
         self.data = self.pickle_df.sample(n=self.n_samples)
         self.data_training, self.data_validation = split_training_validation(
