@@ -154,8 +154,6 @@ class TestTrough:
         heat_annual_list = []
         electricity_annual_list = []
 
-        solver = SolverFactory("ipopt")
-
         expected_heat_annual = data["validation"]["heat_annual"]
         expected_electricity_annual = data["validation"]["electricity_annual"]
 
