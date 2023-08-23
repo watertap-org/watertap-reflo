@@ -936,7 +936,6 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
             evap_inlet_temp = 80  # deg C
             cond_inlet_temp = 25  # deg C
             self.config.cooling_system_type = CoolingType.closed
-            cooling_system_type = CoolingType.closed
 
         return (feed_flow_rate, evap_inlet_temp, cond_inlet_temp, cooling_system_type)
 
