@@ -8,17 +8,6 @@ This Low Temperature Multi-effect Distillation (LT-MED) unit model
 #TODO: Add index/reference to home page
 
 
-Ports
----------
-
-The model provides four ports (Pyomo notation in parenthesis):
-
-* Feed flow port (feed)
-* Distillate port (distillate)
-* Brine flow port (brine)
-* Heating steam port (steam)
-
-
 Degrees of Freedom
 ------------------
 The LT-MED model has at least 5 degrees of freedom that should be fixed for the unit to be fully specified.
@@ -34,6 +23,43 @@ The first four variables are independent input variables to the surrogate equati
 
 
 
+Model Structure
+------------------
+This LT-MED model consists of 4 StateBlocks (as 4 Ports in parenthesis below).
+
+* Feed flow (feed)
+* Distillate (distillate)
+* Brine flow (brine)
+* Heating steam (steam)
+
+
+Sets
+----
+.. csv-table::
+   :header: "Description", "Symbol", "Indices"
+
+   "Time", ":math:`t`", "[0]"
+   "Phases", ":math:`p`", "['Liq', 'Vap']"
+   "Components", ":math:`j`", "['H2O', 'TDS']"
+
+
+Variables
+----
+The system configuration variables should be fixed at the default values, with which the surrogate model was developed:
+
+.. csv-table::
+   :header: "Description", "Symbol", "Variable Name", "Value", "Units"
+
+   "Temperature difference between the last and first effect", ":math:`\delta\T_{last}`", "delta_T_last_effect", "None", ":math:`\text{K}`"
+   "Temperature decrease in cooling reject water", ":math:`\delta\T_{cooling}`", "delta_T_cooling_reject", "None", ":math:`\text{K}`"
+
+The following performance variables are derived from the surrogate equations:
+
+.. csv-table::
+   :header: "Description", "Symbol", "Variable Name", "Index", "Units"
+
+   "Gain output ratio", ":math:`GOR`", "gain_output_ratio", "None", ":math:`\text{dimensionless}`"
+   "Specific total area", ":math:`sA`", "specific_area_per_m3_day", "None", ":math:`\text{m}^2\text{/m}^3\text{/day}`"
 
 
 References
