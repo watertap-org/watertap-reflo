@@ -50,8 +50,9 @@ The system configuration variables should be fixed at the default values, with w
 .. csv-table::
    :header: "Description", "Symbol", "Variable Name", "Value", "Units"
 
-   "Temperature difference between the last and first effect", ":math:`\delta\T_{last}`", "delta_T_last_effect", "None", ":math:`\text{K}`"
-   "Temperature decrease in cooling reject water", ":math:`\delta\T_{cooling}`", "delta_T_cooling_reject", "None", ":math:`\text{K}`"
+   "Temperature difference between the last and first effect", ":math:`\delta\T_{last}`", "delta_T_last_effect", "10", ":math:`\text{K}`"
+   "Temperature decrease in cooling reject water", ":math:`\delta\T_{cooling}`", "delta_T_cooling_reject", "-3", ":math:`\text{K}`"
+
 
 The following performance variables are derived from the surrogate equations:
 
