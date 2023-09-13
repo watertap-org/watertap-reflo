@@ -22,9 +22,8 @@ Typically, the following variables are fixed, including the state variables at t
 The first four variables are independent input variables to the surrogate equations.
 
 
-
 Model Structure
-------------------
+---------------
 This LT-MED model consists of 4 StateBlocks (as 4 Ports in parenthesis below).
 
 * Feed flow (feed)
@@ -44,14 +43,14 @@ Sets
 
 
 Variables
-----
+---------
 The system configuration variables should be fixed at the default values, with which the surrogate model was developed:
 
 .. csv-table::
    :header: "Description", "Symbol", "Variable Name", "Value", "Units"
 
-   "Temperature difference between the last and first effect", ":math:`\delta\T_{last}`", "delta_T_last_effect", "10", ":math:`\text{K}`"
-   "Temperature decrease in cooling reject water", ":math:`\delta\T_{cooling}`", "delta_T_cooling_reject", "-3", ":math:`\text{K}`"
+   "Temperature difference between the last and first effect", ":math:`\Delta\T_{last}`", "delta_T_last_effect", "10", ":math:`\text{K}`"
+   "Temperature decrease in cooling reject water", ":math:`\Delta\T_{cooling}`", "delta_T_cooling_reject", "-3", ":math:`\text{K}`"
 
 
 The following performance variables are derived from the surrogate equations:
@@ -61,6 +60,14 @@ The following performance variables are derived from the surrogate equations:
 
    "Gain output ratio", ":math:`GOR`", "gain_output_ratio", "None", ":math:`\text{dimensionless}`"
    "Specific total area", ":math:`sA`", "specific_area_per_m3_day", "None", ":math:`\text{m}^2\text{/m}^3\text{/day}`"
+
+
+Equations
+---------
+.. csv-table::
+   :header: "Description", "Equation"
+
+   "Surrogate equation foor calculating GOR", ":math:`GOR = a_{1}X_{f}+a_{2}RR+a_{3}RRX_{f}+a_{4}T_{N}+a_{5}T_{N}X_{f}+a_{6}T_{N}RR+a_{7}T_{s}X_{f}+a_{8}T_{s}X_{f}+a_{9}T_{s}RR+a_{10}T_{s}T_{N}+a_{11}+a_{12}{T_s}^2+a_{13}{T_N}^2+a_{14}{RR^2+a_{15}{X_f}^2`"
 
 
 References
