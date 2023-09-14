@@ -148,7 +148,6 @@ class TestTrough:
 
     @pytest.mark.component
     def test_validation_large(self, trough_large_heat_load):
-
         m = trough_large_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
         heat_annual_list = []
@@ -202,7 +201,6 @@ class TestTrough:
 
     @pytest.mark.component
     def test_validation_small(self, trough_small_heat_load):
-
         m = trough_small_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
         heat_annual_list = []

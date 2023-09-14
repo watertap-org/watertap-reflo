@@ -164,7 +164,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
         self.training_fraction = 0.8
 
     def calculate_scaling_factors(self):
-
         if iscale.get_scaling_factor(self.hours_storage) is None:
             sf = iscale.get_scaling_factor(self.hours_storage, default=1)
             iscale.set_scaling_factor(self.hours_storage, sf)
@@ -240,7 +239,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
     def _create_rbf_surrogate(self, data_training=None, output_filename=None):
-
         if data_training is None:
             self._get_surrogate_data()
         else:
@@ -375,7 +373,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
         axis_fontsize=12,
         title_fontsize=15,
     ):
-
         fig1 = plt.figure(figsize=(figx, figy), tight_layout=True)
         if label is not None:
             fig1.suptitle(label, fontsize=title_fontsize)

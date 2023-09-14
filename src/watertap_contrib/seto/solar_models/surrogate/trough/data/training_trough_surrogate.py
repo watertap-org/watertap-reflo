@@ -88,6 +88,11 @@ def get_training_validation(
         (pkl_data["hours_storage"] >= hours_storage_range[0])
         & (pkl_data["hours_storage"] <= hours_storage_range[1])
     ]
+    if len(pkl_data) < n_samples:
+        raise ValueError(
+            "The provided dataset doesn't have enough entries matching the ranges in `heat_load_range` and `hours_storage_range` to give the requested number of samples. "
+            "Check that the range is correct, reduce the number of samples, or generate a new dataset that contains enough samples."
+        )
     data = pkl_data.sample(n=n_samples)
     data_training, data_validation = split_training_validation(
         data, training_fraction, seed=len(data)
@@ -98,7 +103,6 @@ def get_training_validation(
 def _parity_residual_plots(
     true_values, modeled_values, label=None, axis_fontsize=18, title_fontsize=22
 ):
-
     fig1 = plt.figure(figsize=(13, 6), tight_layout=True)
     if label is not None:
         fig1.suptitle(label, fontsize=title_fontsize)
