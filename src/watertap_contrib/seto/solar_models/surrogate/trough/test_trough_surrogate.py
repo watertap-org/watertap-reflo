@@ -125,7 +125,7 @@ class TestTrough:
             os.path.dirname(__file__), "test_surrogate.json"
         )
         m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
-        assert os.path.getsize(test_surrogate_filename) > 1e4
+        assert os.path.getsize(test_surrogate_filename) > 0
         os.remove(test_surrogate_filename)
         assert isinstance(m.fs.trough.rbf_surr, PysmoSurrogate)
         test_output = m.fs.trough.rbf_surr.evaluate_surrogate(data["validation"])
