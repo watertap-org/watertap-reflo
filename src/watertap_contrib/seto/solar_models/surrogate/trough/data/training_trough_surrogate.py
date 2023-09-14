@@ -6,8 +6,9 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 import matplotlib.pyplot as plt
-from pyomo.environ import ConcreteModel, SolverFactory, value, Var, Objective, maximize
+from pyomo.environ import ConcreteModel, value, Var, Objective, maximize
 from pyomo.common.timing import TicTocTimer
+from idaes.core.solvers import get_solver
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
@@ -271,7 +272,7 @@ if __name__ == "__main__":
     # fix input values and solve flowsheet
     m.fs.heat_load.fix(heat_load_range[0])
     m.fs.hours_storage.fix(hours_storage_range[0])
-    solver = SolverFactory("ipopt")
+    solver = get_solver()
     results = solver.solve(m)
 
     print("\n")
