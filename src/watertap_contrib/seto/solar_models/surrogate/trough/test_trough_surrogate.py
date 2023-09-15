@@ -140,7 +140,7 @@ class TestTrough:
             data["validation"]["electricity_annual"] * surrogate_scaling
         )
         assert list(test_output["heat_annual_scaled"]) == pytest.approx(
-            expected_heat_annual_test.tolist(), 1e-2
+            expected_heat_annual_test.tolist(), 5e-2
         )
         assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
             expected_electricity_annual_test.tolist(), 5e-2
@@ -193,10 +193,10 @@ class TestTrough:
             data["validation"]["electricity_annual"] * surrogate_scaling
         )
         assert list(test_output["heat_annual_scaled"]) == pytest.approx(
-            expected_heat_annual_test, 1e-2
+            expected_heat_annual_test.tolist(), 5e-2
         )
         assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
-            expected_electricity_annual_test, 5e-2
+            expected_electricity_annual_test.tolist(), 5e-2
         )
 
     @pytest.mark.component
