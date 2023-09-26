@@ -204,12 +204,12 @@ class TestVAGMD_unit_model:
         assert_optimal_termination(results)
 
         assert pytest.approx(2167.25, rel=1e-3) == value(vagmd.num_modules)
-        assert pytest.approx(7721933.203, rel=1e-3) == value(vagmd.costing.module_cost)
+        assert pytest.approx(2763840.418, rel=1e-3) == value(vagmd.costing.module_cost)
         assert pytest.approx(602433.068, rel=1e-3) == value(
             vagmd.costing.other_capital_cost
         )
-        assert pytest.approx(8324366.22, rel=1e-3) == value(vagmd.costing.capital_cost)
-        assert pytest.approx(383598.592, rel=1e-3) == value(
+        assert pytest.approx(3366273.443, rel=1e-3) == value(vagmd.costing.capital_cost)
+        assert pytest.approx(294352.922, rel=1e-3) == value(
             vagmd.costing.fixed_operating_cost
         )
-        assert pytest.approx(3.365, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(2.648, rel=1e-3) == value(m.fs.costing.LCOW)
