@@ -236,8 +236,8 @@ def cost_vagmd_surrogate(blk):
         expr=blk.module_cost
         == vagmd_params.base_module_cost
         * vagmd_params.base_module_capacity
-        * vagmd.num_modules
-        / vagmd_params.base_module_capacity**vagmd_params.module_cost_index
+        * (vagmd.num_modules / vagmd_params.base_module_capacity)
+        ** vagmd_params.module_cost_index
         + vagmd_params.membrane_cost * vagmd.module_area * vagmd.num_modules
     )
 
