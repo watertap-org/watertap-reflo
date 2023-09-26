@@ -7,6 +7,7 @@ Calculate the number of periods to reach target recovery rate by solving the sys
 
 
 def get_n_time_points(
+    dt=None,
     feed_flow_rate=600,
     evap_inlet_temp=80,
     cond_inlet_temp=25,
@@ -37,10 +38,11 @@ def get_n_time_points(
         module_area = 25.92
 
     # Identify the time step of the simulation (second)
-    if module_type == "AS7C1.5L":
-        dt = 20352.55 / feed_flow_rate
-    else:  # module_type == "AS26C7.2L"
-        dt = 73269.19 / feed_flow_rate
+    if dt is None:
+        if module_type == "AS7C1.5L":
+            dt = 20352.55 / feed_flow_rate
+        else:  # module_type == "AS26C7.2L"
+            dt = 73269.19 / feed_flow_rate
 
     initial_status = _get_membrane_performance(
         evap_inlet_temp,

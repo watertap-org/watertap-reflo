@@ -363,6 +363,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
 
         # Calculate the number of periods to reach target recovery rate by solving the system first
         n_time_points = get_n_time_points(
+            dt=dt,
             feed_flow_rate=feed_flow_rate,
             evap_inlet_temp=evap_inlet_temp,
             cond_inlet_temp=cond_inlet_temp,
