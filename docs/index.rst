@@ -22,6 +22,8 @@ Content
 
 .. toctree::
    :maxdepth: 2
+   
+   technical_reference/index
 
 ..
    getting_started
@@ -29,8 +31,7 @@ Content
    tutorials/index
 ..
    how_to_guides/index
-..
-   technical_reference/index
+
 ..
    background/index
 ..
