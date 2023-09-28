@@ -118,7 +118,7 @@ class TestVAGMDbatch:
     @pytest.mark.unit
     def test_cooling_system_type_domain(self):
 
-        tested_cooling_system_type = "hyrbid"
+        tested_cooling_system_type = "hybrid"
         error_msg = (
             f"The cooling system type '{tested_cooling_system_type}' is not available."
             f"Available options include 'open' and 'closed'."
