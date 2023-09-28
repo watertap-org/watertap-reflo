@@ -22,7 +22,7 @@ from idaes.core.util.exceptions import InitializationError
 import idaes.logger as idaeslog
 
 from pyomo.common.config import ConfigBlock, ConfigValue, In
-from pyomo.environ import Var, units as pyunits
+from pyomo.environ import Var, units as pyunits, NonNegativeReals
 
 __author__ = "Kurban Sitterley"
 
@@ -74,14 +74,14 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self.electricity = Var(
             initialize=1e3,
             units=pyunits.kW,
-            bounds=(None, None),
+            domain=NonNegativeReals,
             doc="Electricity production of solar process",
         )
 
         self.heat = Var(
             initialize=1e3,
             units=pyunits.kW,
-            bounds=(None, None),
+            domain=NonNegativeReals,
             doc="Heat production of solar process",
         )
 
