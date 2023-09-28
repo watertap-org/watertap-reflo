@@ -247,7 +247,7 @@ def build_vagmd_flowsheet(
     )
 
     """
-    Constriant equatiosn
+    Constraint equations
     """
     mfs = m.fs
 
