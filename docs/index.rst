@@ -25,6 +25,7 @@ Content
    
    getting_started
    technical_reference/index
+   license
 
 
 ..
@@ -34,8 +35,7 @@ Content
 
 ..
    background/index
-..
-   license
+
 ..
    copyright
 ..
