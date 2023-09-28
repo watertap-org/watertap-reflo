@@ -1,7 +1,7 @@
-Low Temperature - Multi-effect Distillation (LT-MED)
-====================================================
+Multi-effect Distillation with Thermal Vapor Compression (MED-TVC)
+==================================================================
 
-This Low Temperature Multi-effect Distillation (LT-MED) unit model
+This Multi-effect Distillation with Thermal Vapor Compression (MED-TVC) unit model
    * supports steady-state only
    * is a surrogate model
    * is verified against the operation data in Plataforma Solar de Almeria (PSA)
@@ -11,7 +11,7 @@ This Low Temperature Multi-effect Distillation (LT-MED) unit model
 
 Degrees of Freedom
 ------------------
-The LT-MED model has at least 5 degrees of freedom that should be fixed for the unit to be fully specified.
+The MED-TVC model has at least 5 degrees of freedom that should be fixed for the unit to be fully specified.
 
 Typically, the following variables are fixed, including the state variables at the inlet. 
 The valid range of each variable is listed based on the tested range of the surrogate equations.
@@ -20,12 +20,12 @@ The valid range of each variable is listed based on the tested range of the surr
    :header: "Variables", "Symbol", "Valid range", "Unit"
 
    "Feed salinity", "feed_props.conc_mass_phase_comp['Liq', 'TDS']", ":math:`X_{f}`", "30 - 60", ":math:`\text{g/}\text{L}`"
-   "Feed temperature", "feed_props.temperature", ":math:`T_{f}`", "15 - 35", ":math:`^o\text{C}`"
-   "Heating steam temperature", "steam_props.temperature", ":math:`T_{s}`", "60 - 85", ":math:`^o\text{C}`"
-   "Recovery ratio", "recovery_vol_phase['Liq']", ":math:`RR`", "0.3 - 0.5", ":math:`\text{dimensionless}`"
+   "Feed temperature", "feed_props.temperature", ":math:`T_{f}`", "25 - 35", ":math:`^o\text{C}`"
+   "Motive steam pressure entering the thermocompressor", "motive_steam_props.pressure", ":math:`P_{m}`", "4 - 45", ":math:`bar`"
+   "Recovery ratio", "recovery_vol_phase['Liq']", ":math:`RR`", "0.3 - 0.4", ":math:`\text{dimensionless}`"
    "Feed volume flow rate", "feed_props.flow_vol_phase['Liq']", ":math:`v_{f}`", "", ":math:`\text{m}^3 / \text{s}`"
    
-The first four variables are independent input variables to the surrogate equations. 
+All five variables above are independent input variables to the surrogate equations. 
 Typicall the feed volume flow rate can be determined given a desired system capacity:
 
 :math:`v_{f}` = :math:`\frac{sys_capacity}{RR}`
@@ -35,21 +35,22 @@ Design configuration
 The number of effects, as a key design parameter of the LT-MED model, 
 should be provided in the spefic configuration key-value pair:
 
-Set ``num_effects`` to an integer between 3 to 14. 
+Set ``num_effects`` to an integer between 8 to 16. 
 
-In this model, numbers of effects of 3, 6, 9, 12, 14 are verified with the 
+In this model, numbers of effects of 8, 10, 12, 14, 16 are verified with the 
 operational data, and the other numbers in between are interpolated by those 
 validated numbers.
 
 Model Structure
 ---------------
 
-This LT-MED model consists of 4 StateBlocks (as 4 Ports in parenthesis below).
+This MED-TVC model consists of 5 StateBlocks (as 5 Ports in parenthesis below).
 
 * Feed flow (feed)
 * Distillate (distillate)
 * Brine flow (brine)
 * Heating steam (steam)
+* Motive steam (motive)
 
 
 Sets
@@ -81,6 +82,8 @@ The following performance variables are derived from the surrogate equations:
 
    "Gain output ratio", ":math:`GOR`", "gain_output_ratio", "None", ":math:`\text{dimensionless}`"
    "Specific total area", ":math:`sA`", "specific_area_per_m3_day", "None", ":math:`\text{m}^2\text{ per m}^3\text{/day}`"
+   "Heating steam mass flow rate entering the first effect", ":math:`q_s`","None", ":math:`kg/s`"
+   "Motive steam mass flow rate entering the thermocompressor", ":math:`q_m`","None", ":math:`kg/s`"
 
 The following variables are calculated by fixing the default degree of freedoms above.
 
@@ -102,21 +105,18 @@ Equations
    "Temperature of outlet cooling water", ":math:`T_{cool_out} = \Delta T_{cooling} + T_{feed}`"
    "Distillate volumetric flow rate (production rate)", ":math:`v_{distillate} = v_{feed} T_{feed}`"
    "Steam mass flow rate", ":math:`m_{steam} = m_{distillate} / GOR`"
-   "Specific thermal energy consumption", ":math:`STEC = \frac{\Delta H_{vap} \times \rho_{distillate}}{GOR}`"
+   "Specific thermal energy consumption", ":math:`STEC = \frac{(H_{motive,vap} - H_{heating,liq}) \rho_{distillate}}{GOR}`"
    "Thermal power requirement", ":math:`P_req = STEC \times v_{distillate}`"
    "Energy balance", ":math:`v_{seawater_total} \times (H_cooling - H_feed) = (1 - f_{Q_loss})\times P_req - m_brine H_brine - m_distillate H_distillate + m_feed H_cooling`"
 
 Surrogate equations and the corresponding coefficients for different number of effects can be found in the unit model class.
 
-.. TODO: add link to the code of LT-MED unit model class
+.. TODO: add link to the code of MED-TVC unit model class
 
 References
 ----------
 
-[1] Palenzuela, P., Hassan, A. S., Zaragoza, G., & Alarcón-Padilla, D. C. (2014). Steady state model for
-multi-effect distillation case study: Plataforma Solar de Almería MED pilot plant. Desalination, 337,
-31-42.
-
-[2] Ortega-Delgado, B., Garcia-Rodriguez, L., & Alarcón-Padilla, D. C. (2017). Opportunities of
-improvement of the MED seawater desalination process by pretreatments allowing high-temperature
-operation. Desalin Water Treat, 97, 94-108.
+[1] Ortega-Delgado, B., Palenzuela, P., & Alarcón-Padilla, D. C. (2016). 
+Parametric study of a multi-effect distillation plant with thermal vapor 
+compression for its integration into a Rankine cycle power block. 
+Desalination, 394, 18-29.
