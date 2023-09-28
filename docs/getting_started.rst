@@ -1,3 +1,3 @@
-.. _watertap-reflo-getting-started:
+.. _getting-started:
 
 .. include:: ../README.md
