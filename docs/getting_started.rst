@@ -1,14 +1,14 @@
 Getting Started
 ==============
 
-These instructions are currently intended for contributors to WaterTAP-REFLO
+These instructions are currently intended for contributors to WaterTAP-REFLO.
 
 **WaterTAP-REFLO** supports Python versions 3.8 through 3.10.
 
 Prerequisites
 -------------
 
-- The conda package and environment manager, for example by using the `Miniconda installer <https://docs.conda.io/en/latest/miniconda.html#miniconda>`_ following the steps appropriate for your operating system
+- The conda package and environment manager, for example by using the `Miniconda installer <https://docs.conda.io/en/latest/miniconda.html#miniconda>`_ following the steps appropriate for your operating system.
 
 Installation
 ------------
