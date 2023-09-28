@@ -25,6 +25,7 @@ Running tests
 -------------
 
 .. code-block:: shell
+    
     conda activate watertap-seto-dev-env
     pytest --pyargs watertap_contrib.seto
 
@@ -36,6 +37,7 @@ Before committing, the Python code must be formatted with `Black <https://black.
 Black is installed by default as part of the developer dependencies. To format the code, run the following command from the local repository root directory:
 
 .. code-block:: shell
+    
     conda activate watertap-seto-dev-env
     black .
 
