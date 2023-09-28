@@ -1,13 +1,13 @@
 .. index::
    pair: watertap-seto;Home
 
-Welcome to WaterTAP-SETO's documentation!
+Welcome to WaterTAP-REFLO's documentation!
 =========================================
 
 WaterTAP is a National Alliance for Water Innovation (NAWI) funded initiative to create an open-source water treatment model library
 that is compatible with the IDAES Platform, an advanced process systems engineering tool developed by the U.S. Department of Energy.
 
-WaterTAP-SETO is an extension of WaterTAP that incorporates solar energy models for solar-driven desalination systems.
+WaterTAP-REFLO (Water treatment Technoeconomic Assessment Platform with Renewable Energy and Flexible Load Optimization )is an extension of WaterTAP that incorporates solar energy models for solar-driven desalination systems.
 
 Collaborating Institutions
 --------------------------
