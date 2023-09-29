@@ -16,7 +16,6 @@ from importlib import metadata
 
 sys.path.insert(0, os.path.abspath(".."))
 # sys.path.insert(0,os.path.dirname(sys.path[0]))
-license_file = 'LICENSE.md'
 
 # -- Project information -----------------------------------------------------
 

@@ -25,7 +25,6 @@ Content
    
    getting_started
    technical_reference/index
-   license
 
 
 ..
@@ -39,6 +38,7 @@ Content
 ..
    copyright
 ..
+    license
 
 Indices and tables
 ------------------
