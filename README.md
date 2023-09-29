@@ -24,15 +24,15 @@ To install **WaterTAP-REFLO**, run:
 
 ```sh
 git clone https://github.com/watertap-org/watertap-seto && cd watertap-seto
-conda create --yes --name watertap-seto-dev-env python=3.10 && conda activate watertap-seto-dev-env
+conda create --yes --name watertap-reflo-dev-env python=3.10 && conda activate watertap-reflo-dev-env
 pip install -r requirements-dev.txt
 ```
 
 ### Running tests
 
 ```sh
-conda activate watertap-REFLO-dev-env
-pytest --pyargs watertap_contrib.REFLO
+conda activate watertap-reflo-dev-env
+pytest --pyargs watertap_contrib.seto
 ```
 
 ### Formatting code
@@ -42,6 +42,6 @@ Before committing, the Python code must be formatted with [Black](https://black.
 Black is installed by default as part of the developer dependencies. To format the code, run the following command from the local repository root directory:
 
 ```sh
-conda activate watertap-REFLO-dev-env
+conda activate watertap-reflo-dev-env
 black .
 ```
