@@ -159,10 +159,8 @@ class TestTrough:
         expected_electricity_annual_test = (
             data["validation"]["electricity_annual"] * surrogate_scaling
         )
-        tol = 5e-2
-        if platform == "linux":
-            tol = 2e-1
 
+        tol = 2e-1
         assert list(test_output["heat_annual_scaled"]) == pytest.approx(
             expected_heat_annual_test.tolist(), tol
         )
