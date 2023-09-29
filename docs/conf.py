@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath(".."))
 
 project = "WaterTAP-SETO"
 copyright = "2022-2023, NREL et al."
-author = "WaterTAP-SETO dev team"
+author = "WaterTAP-REFLO dev team"
 
 # Version and release
 # release = version = metadata.version("watertap-seto")
