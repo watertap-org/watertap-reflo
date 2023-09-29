@@ -12,9 +12,9 @@ from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.seto.costing import SETOWaterTAPCosting
+from watertap_contrib.seto.costing import REFLOCosting 
 from idaes.core.util.testing import initialization_tester
-from idaes.core.util.exceptions import ConfigurationError, InitializationError
+from idaes.core.util.exceptions import ConfigurationError
 from watertap.core.util.initialization import assert_no_degrees_of_freedom
 from pyomo.util.check_units import assert_units_consistent
 
@@ -308,7 +308,7 @@ class TestMEDTVC:
         m = MED_TVC_frame
         med_tvc = m.fs.med_tvc
         dist = med_tvc.distillate_props[0]
-        m.fs.costing = SETOWaterTAPCosting()
+        m.fs.costing = REFLOCosting()
         med_tvc.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         m.fs.costing.factor_total_investment.fix(1)

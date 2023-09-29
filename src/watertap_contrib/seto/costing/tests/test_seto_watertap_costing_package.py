@@ -6,14 +6,14 @@ from idaes.core import FlowsheetBlock
 
 from watertap.costing.watertap_costing_package import _DefinedFlowsDict
 
-from watertap_contrib.seto.costing import SETOWaterTAPCosting
+from watertap_contrib.seto.costing import REFLOCosting
 
 
 @pytest.mark.component
 def test_lazy_flow_costing():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.costing = SETOWaterTAPCosting()
+    m.fs.costing = REFLOCosting()
     m.fs.electricity = Var(units=pyunits.kW)
     m.fs.costing.cost_flow(m.fs.electricity, "electricity")
 

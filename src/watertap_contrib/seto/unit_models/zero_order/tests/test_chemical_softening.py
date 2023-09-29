@@ -5,7 +5,6 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
@@ -16,11 +15,7 @@ from watertap_contrib.seto.property_models.basic_water_properties import (
     BasicWaterParameterBlock,
 )
 
-from watertap_contrib.seto.costing import (
-    TreatmentCosting,
-    EnergyCosting,
-    SETOSystemCosting,
-)
+from watertap_contrib.seto.costing import TreatmentCosting
 
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver

@@ -44,7 +44,7 @@ from watertap_contrib.seto.analysis.net_metering.util import (
 from watertap_contrib.seto.costing import (
     TreatmentCosting,
     EnergyCosting,
-    SETOSystemCosting,
+    REFLOCosting,
 )
 from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
 from watertap_contrib.seto.core import PySAMWaterTAP
@@ -336,7 +336,7 @@ def add_costing(m):
     treatment.costing.cost_process()
     energy.costing.cost_process()
 
-    m.fs.sys_costing = SETOSystemCosting()
+    m.fs.sys_costing = REFLOCosting()
     m.fs.sys_costing.add_LCOW(treatment.product.properties[0].flow_vol)
     m.fs.sys_costing.add_specific_electric_energy_consumption(
         treatment.product.properties[0].flow_vol

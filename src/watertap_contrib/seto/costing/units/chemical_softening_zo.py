@@ -13,21 +13,13 @@
 
 from pyomo.environ import (
     Constraint,
-    Expression,
-    Reals,
     NonNegativeReals,
-    log,
     Var,
     Param,
-    Set,
-    Suffix,
-    value,
-    check_optimal_termination,
     units as pyunits,
 )
 
 from watertap.costing.util import register_costing_parameter_block
-from idaes.core.util.misc import StrEnum
 from ..util import (
     make_capital_cost_var,
     make_fixed_operating_cost_var,

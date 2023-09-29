@@ -12,7 +12,7 @@ from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.seto.costing import SETOWaterTAPCosting
+from watertap_contrib.seto.costing import REFLOCosting
 
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
@@ -260,7 +260,7 @@ class TestLTMED:
         m = LT_MED_frame
         lt_med = m.fs.lt_med
         dist = lt_med.distillate_props[0]
-        m.fs.costing = SETOWaterTAPCosting()
+        m.fs.costing = REFLOCosting()
         m.fs.costing.base_currency = pyunits.USD_2020
         lt_med.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 

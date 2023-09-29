@@ -13,7 +13,7 @@ from watertap_contrib.seto.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowshee
 )
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap_contrib.seto.costing import SETOWaterTAPCosting
+from watertap_contrib.seto.costing import REFLOCosting
 
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
@@ -244,7 +244,7 @@ class TestVAGMDbatch:
         # # The costing model is built upon the last time step
         vagmd = m.fs.VAGMD_b.mp.get_active_process_blocks()[-1].fs.vagmd
 
-        m.fs.costing = SETOWaterTAPCosting()
+        m.fs.costing = REFLOCosting()
         m.fs.costing.base_currency = pyunits.USD_2020
 
         m.fs.VAGMD_b.add_costing_module(m.fs.costing)

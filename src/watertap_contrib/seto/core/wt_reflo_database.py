@@ -15,7 +15,6 @@ This module contains the base class for interacting with WaterTAP data files
 with zero-order model parameter data.
 """
 import os
-import yaml
 from copy import deepcopy
 from watertap.core.wt_database import Database
 
