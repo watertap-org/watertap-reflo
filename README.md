@@ -1,6 +1,6 @@
-# WaterTAP-SETO
+# WaterTAP-REFLO
 
-Welcome to the code repository for **WaterTAP-SETO**!
+Welcome to the code repository for **WaterTAP-REFLO**!
 
 ![GitHub issues](https://img.shields.io/github/issues/watertap-org/watertap-seto)
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/watertap-org/watertap-seto)
@@ -8,11 +8,11 @@ Welcome to the code repository for **WaterTAP-SETO**!
 
 ## Documentation
 
-The WaterTAP documentation is available online at <https://watertap-seto.readthedocs.io>.
+WaterTAP-REFLO documentation is available online at <https://watertap-seto.readthedocs.io>.
 
 ## Getting started (for Contributors)
 
-**WaterTAP-SETO** supports Python versions 3.8 through 3.10.
+**WaterTAP-REFLO** supports Python versions 3.8 through 3.10.
 
 ### Prerequisites
 
@@ -20,7 +20,7 @@ The WaterTAP documentation is available online at <https://watertap-seto.readthe
 
 ### Installation
 
-To install **WaterTAP-SETO**, run:
+To install **WaterTAP-REFLO**, run:
 
 ```sh
 git clone https://github.com/watertap-org/watertap-seto && cd watertap-seto
@@ -31,8 +31,8 @@ pip install -r requirements-dev.txt
 ### Running tests
 
 ```sh
-conda activate watertap-seto-dev-env
-pytest --pyargs watertap_contrib.seto
+conda activate watertap-REFLO-dev-env
+pytest --pyargs watertap_contrib.REFLO
 ```
 
 ### Formatting code
@@ -42,6 +42,6 @@ Before committing, the Python code must be formatted with [Black](https://black.
 Black is installed by default as part of the developer dependencies. To format the code, run the following command from the local repository root directory:
 
 ```sh
-conda activate watertap-seto-dev-env
+conda activate watertap-REFLO-dev-env
 black .
 ```
