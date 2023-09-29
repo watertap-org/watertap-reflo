@@ -28,7 +28,7 @@ The valid range of each variable is listed based on the tested range of the surr
 All five variables above are independent input variables to the surrogate equations. 
 Typicall the feed volume flow rate can be determined given a desired system capacity:
 
-:math:`v_{f}` = :math:`\frac{sys_capacity}{RR}`
+:math:`v_{f}` = :math:`\frac{sys_{capacity}}{RR}`
 
 Design configuration
 --------------------
@@ -73,7 +73,7 @@ with which the surrogate model was developed:
 
    "Temperature difference between the last and first effect", ":math:`\Delta T_{last}`", "delta_T_last_effect", "10", ":math:`\text{K}`"
    "Temperature decrease in cooling reject water", ":math:`\Delta T_{cooling}`", "delta_T_cooling_reject", "-3", ":math:`\text{K}`"
-   "System thermal loss faction", ":math:`f_{Q_loss}`", "thermal_loss", "0.054", ":math:`\text{dimensionless}`"
+   "System thermal loss faction", ":math:`f_{Q_{loss}}`", "thermal_loss", "0.054", ":math:`\text{dimensionless}`"
 
 The following performance variables are derived from the surrogate equations:
 
@@ -90,10 +90,10 @@ The following variables are calculated by fixing the default degree of freedoms 
 .. csv-table::
    :header: "Description", "Symbol", "Variable Name", "Units"
 
-   "Thermal power requirement", ":math:`P_req`", "thermal_power_requirement",  ":math:`\text{kW}`"
+   "Thermal power requirement", ":math:`P_{req}`", "thermal_power_requirement",  ":math:`\text{kW}`"
    "Specific thermal energy consumption", ":math:`STEC`", "specific_energy_consumption_thermal",  ":math:`\text{kWh} / \text{m}^3`"
-   "Total seawater mass flow rate (feed + cooling)", ":math:`m_{seawater_total}`", "feed_cool_mass_flow",  ":math:`\text{kg} / \text{s}`"
-   "Total seawater volumetric flow rate (feed + cooling)", ":math:`v_{seawater_total}`", "feed_cool_vol_flow",  ":math:`\text{m}^3 / \text{h}`"
+   "Total seawater mass flow rate (feed + cooling)", ":math:`m_{seawater_{total}}`", "feed_cool_mass_flow",  ":math:`\text{kg} / \text{s}`"
+   "Total seawater volumetric flow rate (feed + cooling)", ":math:`v_{seawater_{total}}`", "feed_cool_vol_flow",  ":math:`\text{m}^3 / \text{h}`"
 
 
 Equations
@@ -102,12 +102,12 @@ Equations
    :header: "Description", "Equation"
 
    "Temperature in the last effect", ":math:`T_{last} = \Delta T_{last} + T_{feed}`"
-   "Temperature of outlet cooling water", ":math:`T_{cool_out} = \Delta T_{cooling} + T_{feed}`"
-   "Distillate volumetric flow rate (production rate)", ":math:`v_{distillate} = v_{feed} T_{feed}`"
+   "Temperature of outlet cooling water", ":math:`T_{cooling,out} = \Delta T_{cooling,in} + T_{f}`"
+   "Distillate volumetric flow rate (production rate)", ":math:`v_{distillate} = v_{feed} T_{f}`"
    "Steam mass flow rate", ":math:`m_{steam} = m_{distillate} / GOR`"
    "Specific thermal energy consumption", ":math:`STEC = \frac{(H_{motive,vap} - H_{heating,liq}) \rho_{distillate}}{GOR}`"
-   "Thermal power requirement", ":math:`P_req = STEC \times v_{distillate}`"
-   "Energy balance", ":math:`v_{seawater_total} \times (H_cooling - H_feed) = (1 - f_{Q_loss})\times P_req - m_brine H_brine - m_distillate H_distillate + m_feed H_cooling`"
+   "Thermal power requirement", ":math:`P_{req} = STEC \times v_{distillate}`"
+   "Energy balance", ":math:`v_{seawater_{total}} \times (H_{cooling} - H_{feed}) = (1 - f_{Q_{loss}})\times P_{req} - m_{brine} H_{brine} - m_{distillate} H_{distillate} + m_{feed} H_{cooling}`"
 
 Surrogate equations and the corresponding coefficients for different number of effects can be found in the unit model class.
 

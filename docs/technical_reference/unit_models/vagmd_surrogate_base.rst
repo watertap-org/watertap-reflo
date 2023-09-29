@@ -1,13 +1,13 @@
 Vacuum Air-gapped Membrane Distillation - base model (VAGMD-base)
 =================================================================
 
-This Vacuum Air-gapped Membrane Distillation - base model (VAGMD-base) unit model
+This Vacuum Air-gapped Membrane Distillation - base (VAGMD-base) unit model
    * supports steady-state only
    * represents a single module from Aquastill
    * is a surrogate model
    * is verified against the operation data in Plataforma Solar de Almeria (PSA)
 
-... : Add index/reference to home page
+.. : Add index/reference to home page
 
 
 Degrees of Freedom
@@ -15,7 +15,7 @@ Degrees of Freedom
 The VAGMD model has at least 6 degrees of freedom that should be fixed for the unit to be fully specified.
 
 .. csv-table::
-   :header: "Variables", "Symbol", "Valid range", "Unit"
+   :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
 
    "Feed salinity", "feed_props.conc_mass_phase_comp['Liq', 'TDS']", ":math:`X_{f}`", "35 - 292", ":math:`\text{g/}\text{L}`"
    "Feed temperature", "feed_props.temperature", ":math:`T_{f}`", "20 - 30", ":math:`^o\text{C}`"
@@ -32,15 +32,15 @@ Different operation mode will be selected in the model by specifying the followi
 configuration key-value pairs:
 
 ``module_type``: Selection between two available Aquastill MD modules: 
-``AS7C1.5L`` or ``AS26C7.2L``. The first one has a length of 1.5 :math:`m`"
+``AS7C1.5L`` or ``AS26C7.2L``. The first one has a length of 1.5 :math:`m`
 and an area of 7 :math:`m^2`, while the latter has a length of 7.2 :math:`m`
 with an area of 25.92 :math:`m^2`.
 
 ``cooling_system_type``: Selection between ``closed`` or ``open``.
 In the closed cooling circuit, the condenser inlet temperature (TCI) is forced to be 
-constant and the cooling water temperature (:math:`T_{cooling_in}`) can be adjusted.
+constant and the cooling water temperature (:math:`T_{cooling,in}`) can be adjusted.
 In the open cooling circuit, the cooling process is available at a constant water 
-temperature (:math:`T_{cooling_in}`) and condenser inlet temperature (TCI) varies.
+temperature (:math:`T_{cooling,in}`) and condenser inlet temperature (TCI) varies.
 
 ``high_brine_salinity``: ``True`` of ``False`` indicate whether the brine salinity 
 is high (> 175.3 g/L) or not. It can be inferred given a feed salinity. 
@@ -73,31 +73,33 @@ Sets
    :header: "Description", "Symbol", "Indices"
 
    "Time", ":math:`t`", "[0]"
-   "Phases", ":math:`p`", "['Liq', 'Vap']"
+   "Phases", ":math:`p`", "['Liq']"
    "Components", ":math:`j`", "['H2O', 'TDS']"
 
 
 Variables
 ---------
 The system configuration variables should be fixed at the default values, 
-with which the surrogate model was developed:
+which are corresponded to a single Aquastill module:
 
 .. csv-table::
    :header: "Description", "Symbol", "Variable Name", "Value", "Units"
-
-   "Temperature difference between the last and first effect", ":math:`\Delta T_{last}`", "delta_T_last_effect", "10", ":math:`\text{K}`"
-   "Temperature decrease in cooling reject water", ":math:`\Delta T_{cooling}`", "delta_T_cooling_reject", "-3", ":math:`\text{K}`"
-   "System thermal loss faction", ":math:`f_{Q_loss}`", "thermal_loss", "0.054", ":math:`\text{dimensionless}`"
+   
+   "Pump efficiency", ":math:`\eta`", "pump_efficiency", "0.6", ":math:`\text{dimensionless}`"
+   "Heat exchanger area", ":math:`A_{exchanger}`", "heat_exchanger_area", "1.34", ":math:`\text{m}^2`"
+   "Cooling water volumetric flow rate", ":math:`v_{cooling}`", "cooling_flow_rate", "1265", ":math:`\text{L}/\text{h}`"
+   "Overall heat transfer coefficient", ":math:`U`", "thermal_heat_transfer_coeff", "3168", ":math:`\text{W}/(\text{m}^2 \text{K})`"
 
 The following performance variables are derived from the surrogate equations:
 
 .. csv-table::
-   :header: "Description", "Symbol", "Variable Name", "Index", "Units"
+   :header: "Description", "Symbol", "Variable Name", "Units"
 
-   "Permeate flux", ":math:`PFlux`", "permeate_flux", "None", ":math:`\text{L}\text{ per m}^2\text{/L}`"
-   "Pressure drop", ":math:`\Delta P`", "None", ":math:`Pa`"
-   "Evaporator outlet temperature", ":math:`TEO`", "None", ":math:`K`"
-   "Condenser outlet temperature", ":math:`TCO`", "None", ":math:`K`"
+   "Permeate flux", ":math:`PFlux`", "permeate_flux", ":math:`\text{L}\text{ per m}^2\text{/L}`"
+   "Pressure drop of the feed flow", ":math:`\Delta P_{feed}`", "feed_flow_pressure_drop", ":math:`Pa`"
+   "Pressure drop of the feed flow", ":math:`\Delta P_{cool}`", "cooling_flow_pressure_drop", ":math:`Pa`"   
+   "Evaporator outlet temperature", ":math:`TEO`", "evaporator_out_props.temperature", ":math:`K`"
+   "Condenser outlet temperature", ":math:`TCO`", "condenser_out_props.temperature", ":math:`K`"
 
 
 Equations
@@ -108,20 +110,20 @@ Equations
    "Permeate flow rate", ":math:`v_{permeate} = PFlux \times A`"
    "Brine volumetric flow rate", ":math:`v_{brine} = v_{feed} - v_{permeate}`"
    "Brine salinity", ":math:`X_{brine} = \frac{v_{feed} X_{feed}}{v_brine}`"
-   "Cooling power requirement", ":math:`P_{cooling} = R_hot * (T_feed - TCI)`"
-   "Thermal resistance on the hot side", ":math:`R_hot = v_{cooling_in} \times /rho_{heater} \times C_{p, heater}`"
-   "Thermal resistance on the cold side", ":math:`R_cold = v_{cooling_in} \times /rho_{cooler} \times C_{p, cooler}`"
-   "Number of transfer units", ":math:`NTU = \frac{\ita A_exchanger}{R_hot}`"
-   "Effectiveness of the heat exchanger", ":math:`/epsilon = \frac{1 - e^{1-NTU\frac{R_hot}{R_cold}}}{1-\frac{R_hot}{R_cold}e^(1-NTC\frac{R_hot}{R_cold})}`"
+   "Cooling power requirement", ":math:`P_{cooling} = R_{hot} * (T_{f} - TCI)`"
+   "Thermal resistance on the hot side", ":math:`R_{hot} = v_{cooling,in} \times \rho_{heater} \times C_{p, heater}`"
+   "Thermal resistance on the cold side", ":math:`R_{cold} = v_{cooling,in} \times \rho_{cooler} \times C_{p, cooler}`"
+   "Number of transfer units", ":math:`NTU = \frac{\eta A_{exchanger}}{R_{hot}}`"
+   "Effectiveness of the heat exchanger", ":math:`/epsilon = \frac{1 - e^{1-NTU\frac{R_{hot}}{R_{cold}}}}{1-\frac{R_{hot}}{R_{cold}}e^(1-NTC\frac{R_{hot}}{R_{cold}})}`"
 
 Cooling water properties will be calculated based on the cooling system type
 
 .. csv-table::
    :header: "Description", "Equation"
 
-   "Inlet cooling watet temperature", ":math:`TCI = T_feed - \frac{P_{cooling}}{\epsilon R_hot}`"
-   "Outlet cooling water temperature (closed)", ":math:`TCO = TCI + \frac{R_hot (T_feed - TCI)}{R_cold}`"
-   "Outlet cooling water temperature (open)", ":math:`TCO = TCI + \frac{P_cooling}{R_cold}`"   
+   "Inlet cooling watet temperature", ":math:`TCI = T_{feed} - \frac{P_{cooling}}{\epsilon R_{hot}}`"
+   "Outlet cooling water temperature (closed)", ":math:`TCO = TCI + \frac{R_{hot} (T_{feed} - TCI)}{R_{cold}}`"
+   "Outlet cooling water temperature (open)", ":math:`TCO = TCI + \frac{P_{cooling}}{R_{cold}}`"   
 
 Surrogate equations and the corresponding coefficients for different number of effects can be found in the unit model class.
 
@@ -130,10 +132,10 @@ Surrogate equations and the corresponding coefficients for different number of e
 References
 ----------
 
-[1] J.A. Andr´es-Manas, ˜ I. Requena, G. Zaragoza, Characterization of the use of vacuum
+[1] J.A. Andres-Manas, I. Requena, G. Zaragoza, Characterization of the use of vacuum
 enhancement in commercial pilot-scale air gap membrane distillation modules
 with different designs, Desalination 528 (2022), 115490, https://doi.org/10.1016/j.desal.2021.115490.
 
-[2] J.A. Andr´es-Manas, ˜ A. Ruiz-Aguirre, F.G. Aci´en, G. Zaragoza, Performance increase
+[2] J.A. Andres-Manas, A. Ruiz-Aguirre, F.G. Acien, G. Zaragoza, Performance increase
 of membrane distillation pilot scale modules operating in vacuum-enhanced airgap configuration, 
 Desalination 475 (2020), 114202, https://doi.org/10.1016/j.desal.2019.114202. 
