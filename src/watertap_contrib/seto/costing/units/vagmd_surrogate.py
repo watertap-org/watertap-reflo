@@ -260,7 +260,9 @@ def cost_vagmd_surrogate(blk):
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == blk.annual_dist_production
+        == pyo.units.convert(
+            vagmd.system_capacity, to_units=pyo.units.m**3 / pyo.units.year
+        )
         * (
             vagmd_params.membrane_replacement_cost
             + vagmd_params.specific_operational_cost
