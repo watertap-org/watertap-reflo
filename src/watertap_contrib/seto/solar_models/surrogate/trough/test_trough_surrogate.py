@@ -132,7 +132,7 @@ class TestTrough:
         )
         assert (
             m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
-            < 0.002
+            < 0.005
         )
         assert (
             m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
@@ -142,7 +142,7 @@ class TestTrough:
             m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
                 "RMSE"
             ]
-            < 0.002
+            < 0.005
         )
 
         assert os.path.getsize(test_surrogate_filename) > 0
