@@ -4,7 +4,7 @@ Low Temperature - Multi-effect Distillation (LT-MED)
 This Low Temperature Multi-effect Distillation (LT-MED) unit model
    * supports steady-state only
    * is a surrogate model
-   * is verified against the operation data in Plataforma Solar de Almeria (PSA)
+   * is verified against the operation data from pilot-scale systems in Plataforma Solar de Almeria (PSA)
 
 .. TODO: Add index/reference to home page
 
@@ -26,14 +26,14 @@ The valid range of each variable is listed based on the tested range of the surr
    "Feed volume flow rate", "feed_props.flow_vol_phase['Liq']", ":math:`v_{f}`", "", ":math:`\text{m}^3 / \text{s}`"
    
 The first four variables are independent input variables to the surrogate equations. 
-Typicall the feed volume flow rate can be determined given a desired system capacity:
+Typically the feed volume flow rate can be determined given a desired system capacity:
 
-:math:`v_{f}` = :math:`\frac{Capacity}}{RR}`
+:math:`v_{f} = \frac{Capacity}{RR}`
 
 Design configuration
 --------------------
 The number of effects, as a key design parameter of the LT-MED model, 
-should be provided in the spefic configuration key-value pair:
+should be provided in the specific configuration key-value pair:
 
 Set ``num_effects`` to an integer between 3 to 14. 
 

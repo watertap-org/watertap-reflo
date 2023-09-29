@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath(".."))
 
 project = "WaterTAP-SETO"
 copyright = "2022-2023, NREL et al."
-author = "WaterTAP-SETO dev team"
+author = "WaterTAP-REFLO dev team"
 
 # Version and release
 # release = version = metadata.version("watertap-seto")
@@ -71,7 +71,7 @@ html_css_files = ["custom.css"]
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 #
-# html_logo = "_static/NAWI_logo.png"
+html_logo = "_static/watertap-reflo-logo.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
