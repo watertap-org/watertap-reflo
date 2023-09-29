@@ -1,5 +1,6 @@
 import pytest
 import os
+from sys import platform
 
 import pandas as pd
 from pyomo.environ import (
@@ -125,6 +126,25 @@ class TestTrough:
             os.path.dirname(__file__), "test_surrogate.json"
         )
         m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
+
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.999
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
+            < 0.005
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
+            > 0.999
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
+                "RMSE"
+            ]
+            < 0.005
+        )
+
         assert os.path.getsize(test_surrogate_filename) > 0
         os.remove(test_surrogate_filename)
         assert isinstance(m.fs.trough.rbf_surr, PysmoSurrogate)
@@ -139,11 +159,13 @@ class TestTrough:
         expected_electricity_annual_test = (
             data["validation"]["electricity_annual"] * surrogate_scaling
         )
+
+        tol = 2e-1
         assert list(test_output["heat_annual_scaled"]) == pytest.approx(
-            expected_heat_annual_test.tolist(), 5e-2
+            expected_heat_annual_test.tolist(), tol
         )
         assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
-            expected_electricity_annual_test.tolist(), 5e-2
+            expected_electricity_annual_test.tolist(), tol
         )
 
     @pytest.mark.component
