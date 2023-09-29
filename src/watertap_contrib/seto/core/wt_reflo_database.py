@@ -20,9 +20,9 @@ from copy import deepcopy
 from watertap.core.wt_database import Database
 
 
-class SETODatabase(Database):
+class REFLODatabase(Database):
     """
-    WaterTap Database class.
+    WaterTAP Database class.
 
     Used to instantiate an instance of a database for loading parameters
     associated with zero-order models in WaterTap.

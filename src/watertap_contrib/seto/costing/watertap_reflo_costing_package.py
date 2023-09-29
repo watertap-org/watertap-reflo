@@ -58,8 +58,8 @@ from watertap_contrib.seto.costing.units.chemical_softening_zo import (
 from watertap_contrib.seto.core import PySAMWaterTAP
 
 
-@declare_process_block_class("SETOWaterTAPCosting")
-class SETOWaterTAPCostingData(WaterTAPCostingData):
+@declare_process_block_class("REFLOCosting")
+class REFLOCostingData(WaterTAPCostingData):
 
     unit_mapping = {
         LTMEDSurrogate: cost_lt_med_surrogate,
@@ -156,7 +156,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
 
 
 @declare_process_block_class("TreatmentCosting")
-class TreatmentCostingData(SETOWaterTAPCostingData):
+class TreatmentCostingData(REFLOCostingData):
     def build_global_params(self):
         super().build_global_params()
 
@@ -165,7 +165,7 @@ class TreatmentCostingData(SETOWaterTAPCostingData):
 
 
 @declare_process_block_class("EnergyCosting")
-class EnergyCostingData(SETOWaterTAPCostingData):
+class EnergyCostingData(REFLOCostingData):
     def build_global_params(self):
         super().build_global_params()
 
@@ -173,8 +173,8 @@ class EnergyCostingData(SETOWaterTAPCostingData):
         super().build_process_costs()
 
 
-@declare_process_block_class("SETOSystemCosting")
-class SETOSystemCostingData(FlowsheetCostingBlockData):
+@declare_process_block_class("REFLOSystemCosting")
+class REFLOSystemCostingData(FlowsheetCostingBlockData):
     def build(self):
         super().build()
 
