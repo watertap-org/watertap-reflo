@@ -104,6 +104,7 @@ The following performance variables are derived from the surrogate equations:
 
 Equations
 ---------
+
 .. csv-table::
    :header: "Description", "Equation"
 
