@@ -12,17 +12,11 @@
 
 from copy import deepcopy
 from pyomo.environ import (
-    Set,
     Var,
-    Constraint,
     check_optimal_termination,
     Param,
     Suffix,
-    value,
-    log,
     units as pyunits,
-    Expression,
-    NonNegativeReals,
     Expr_if,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
@@ -35,11 +29,10 @@ from idaes.core import (
 )
 from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.tables import create_stream_table_dataframe
-from idaes.core.util.constants import Constants
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.misc import StrEnum
 
-from idaes.core.util.exceptions import ConfigurationError, InitializationError
+from idaes.core.util.exceptions import InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
