@@ -126,6 +126,25 @@ class TestTrough:
             os.path.dirname(__file__), "test_surrogate.json"
         )
         m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
+
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.999
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
+            < 0.002
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
+            > 0.999
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
+                "RMSE"
+            ]
+            < 0.002
+        )
+
         assert os.path.getsize(test_surrogate_filename) > 0
         os.remove(test_surrogate_filename)
         assert isinstance(m.fs.trough.rbf_surr, PysmoSurrogate)
