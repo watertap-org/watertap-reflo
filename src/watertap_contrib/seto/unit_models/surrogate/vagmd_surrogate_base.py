@@ -438,7 +438,7 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
         self.cooling_out_props[0].temperature.unfix()
 
         """
-        Add block for the average status in the cooleravg_feed_props
+        Add block for the average status in the cooler
         """
         self.avg_cooling_props = (
             self.config.property_package_seawater.state_block_class(
@@ -449,7 +449,7 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
         )
 
         """
-        Add block for the average status of the feed flow
+        Add block for the average status in the heater
         """
         self.avg_feed_props = self.config.property_package_seawater.state_block_class(
             self.flowsheet().config.time,
@@ -916,7 +916,7 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
             res = opt.solve(self, tee=slc.tee)
 
         if not check_optimal_termination(res):
-            raise InitializationError(f"Unit model {blk.name} failed to initialize")
+            raise InitializationError(f"Unit model {self.name} failed to initialize")
 
         init_log.info("Initialization status {}.".format(idaeslog.condition(res)))
 

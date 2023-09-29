@@ -1,6 +1,5 @@
 import pytest
 import os
-from sys import platform
 
 import pandas as pd
 from pyomo.environ import (
