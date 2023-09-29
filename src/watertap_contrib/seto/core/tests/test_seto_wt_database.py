@@ -1,19 +1,19 @@
 """
-Tests for SETO WaterTAP database wrapper
+Tests for WaterTAP-REFLO database wrapper
 """
 
 import pytest
 import os
 
-from watertap_contrib.seto.core.seto_wt_database import SETODatabase
+from watertap_contrib.seto.core.wt_reflo_database import REFLODatabase
 
 
 @pytest.mark.unit
 def test_default_path():
-    seto_db = SETODatabase()
+    reflo_db = REFLODatabase()
 
     assert (
-        os.path.normpath(seto_db._dbpath).casefold()
+        os.path.normpath(reflo_db._dbpath).casefold()
         == os.path.normpath(
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
@@ -33,42 +33,42 @@ def test_invalid_path():
         match="Could not find requested path foobar. Please "
         "check that this path exists.",
     ):
-        SETODatabase(dbpath="foobar")
+        REFLODatabase(dbpath="foobar")
 
 
 @pytest.mark.unit
 def test_custom_path():
     # Pick a path we know will exist, even if it isn't a data folder
-    seto_db = SETODatabase(
+    reflo_db = REFLODatabase(
         dbpath=os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "..", "..", "core"
         )
     )
 
-    assert seto_db._dbpath == os.path.join(
+    assert reflo_db._dbpath == os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "..", "core"
     )
 
 
-class TestSETODatabase:
+class TestREFLODatabase:
     @pytest.fixture(scope="class")
-    def seto_db(self):
-        return SETODatabase()
+    def reflo_db(self):
+        return REFLODatabase()
 
     @pytest.mark.unit
-    def test_component_list(self, seto_db):
-        assert seto_db._component_list is None
+    def test_component_list(self, reflo_db):
+        assert reflo_db._component_list is None
 
-        assert isinstance(seto_db.component_list, dict)
+        assert isinstance(reflo_db.component_list, dict)
 
     @pytest.mark.unit
-    def test_get_technology(self, seto_db):
-        assert seto_db._cached_files == {}
+    def test_get_technology(self, reflo_db):
+        assert reflo_db._cached_files == {}
 
-        data = seto_db._get_technology("solar_energy")
+        data = reflo_db._get_technology("solar_energy")
 
-        assert "solar_energy" in seto_db._cached_files
-        assert seto_db._cached_files["solar_energy"] is data
+        assert "solar_energy" in reflo_db._cached_files
+        assert reflo_db._cached_files["solar_energy"] is data
 
         assert "default" in data
         assert "pv" in data
@@ -77,20 +77,20 @@ class TestSETODatabase:
         assert "variable_op_by_generation" in data["pv"]["operating_cost"]
 
     @pytest.mark.unit
-    def test_get_technology_invalid(self, seto_db):
+    def test_get_technology_invalid(self, reflo_db):
         with pytest.raises(
             KeyError, match="Could not find entry for foobar in database."
         ):
-            seto_db._get_technology("foobar")
+            reflo_db._get_technology("foobar")
 
-        assert len(seto_db._cached_files) == 1
-        assert "foobar" not in seto_db._cached_files
+        assert len(reflo_db._cached_files) == 1
+        assert "foobar" not in reflo_db._cached_files
 
     @pytest.mark.unit
-    def test_get_unit_operation_parameters_default(self, seto_db):
-        data = seto_db.get_unit_operation_parameters("solar_energy")
+    def test_get_unit_operation_parameters_default(self, reflo_db):
+        data = reflo_db.get_unit_operation_parameters("solar_energy")
 
-        assert data == seto_db._cached_files["solar_energy"]["default"]
+        assert data == reflo_db._cached_files["solar_energy"]["default"]
 
         # Check for a few expected keys to check what we got back looks right
         assert "removal_frac_mass_comp" not in data
@@ -98,23 +98,23 @@ class TestSETODatabase:
         assert "reference_state" in data["capital_cost"]
 
     @pytest.mark.unit
-    def test_get_unit_operation_parameters_invalid_subtype(self, seto_db):
+    def test_get_unit_operation_parameters_invalid_subtype(self, reflo_db):
         with pytest.raises(
             KeyError,
             match="Received unrecognised subtype foobar for "
             "technology solar_energy.",
         ):
-            seto_db.get_unit_operation_parameters("solar_energy", subtype="foobar")
+            reflo_db.get_unit_operation_parameters("solar_energy", subtype="foobar")
 
     @pytest.mark.unit
-    def test_get_unit_operation_parameters_single_subtype(self, seto_db):
+    def test_get_unit_operation_parameters_single_subtype(self, reflo_db):
 
-        seto_db._cached_files["solar_energy"]["coal"] = {
+        reflo_db._cached_files["solar_energy"]["coal"] = {
             "solar_radiation": "sufficient",
             "new_param": True,
         }
 
-        data = seto_db.get_unit_operation_parameters("solar_energy", subtype="coal")
+        data = reflo_db.get_unit_operation_parameters("solar_energy", subtype="coal")
 
         for k, v in data.items():
             if k == "solar_radiation":
@@ -122,18 +122,18 @@ class TestSETODatabase:
             elif k == "new_param":
                 assert v is True
             else:
-                assert v == seto_db._cached_files["solar_energy"]["default"][k]
+                assert v == reflo_db._cached_files["solar_energy"]["default"][k]
 
     @pytest.mark.unit
-    def test_get_unit_operation_parameters_multi_subtype(self, seto_db):
+    def test_get_unit_operation_parameters_multi_subtype(self, reflo_db):
         # First, insert some data for a 2nd subtype into nanofiltration entry
-        seto_db._cached_files["solar_energy"]["natural_gas"] = {
+        reflo_db._cached_files["solar_energy"]["natural_gas"] = {
             "solar_radiation": "still_sufficient",
             "new_param_2": False,
         }
 
         # Load data for subtype
-        data = seto_db.get_unit_operation_parameters(
+        data = reflo_db.get_unit_operation_parameters(
             "solar_energy", subtype="natural_gas"
         )
 
@@ -147,19 +147,19 @@ class TestSETODatabase:
                 assert v is False
             else:
                 # All other entries should match defaults
-                assert v == seto_db._cached_files["solar_energy"]["default"][k]
+                assert v == reflo_db._cached_files["solar_energy"]["default"][k]
 
     @pytest.mark.unit
-    def test_get_unit_operation_parameters_subtype_argument(self, seto_db):
+    def test_get_unit_operation_parameters_subtype_argument(self, reflo_db):
         with pytest.raises(
             TypeError,
             match="Unexpected type for subtype 400: must be " "string or list like.",
         ):
-            seto_db.get_unit_operation_parameters("solar_energy", subtype=400)
+            reflo_db.get_unit_operation_parameters("solar_energy", subtype=400)
 
     @pytest.mark.unit
-    def test_get_solute_set_default(self, seto_db):
-        comp_set = seto_db.get_solute_set()
+    def test_get_solute_set_default(self, reflo_db):
+        comp_set = reflo_db.get_solute_set()
 
         assert comp_set == [
             "boron",
@@ -176,8 +176,8 @@ class TestSETODatabase:
         ]
 
     @pytest.mark.unit
-    def test_get_solute_set_specified(self, seto_db):
-        comp_set = seto_db.get_solute_set("seawater")
+    def test_get_solute_set_specified(self, reflo_db):
+        comp_set = reflo_db.get_solute_set("seawater")
 
         assert comp_set == [
             "boron",
@@ -194,19 +194,19 @@ class TestSETODatabase:
         ]
 
     @pytest.mark.unit
-    def test_get_solute_set_no_default(self, seto_db):
+    def test_get_solute_set_no_default(self, reflo_db):
         # First, delete default entry from database
-        del seto_db._cached_files["water_sources"]["default"]
+        del reflo_db._cached_files["water_sources"]["default"]
 
         with pytest.raises(
             KeyError,
             match="Database has not defined a default water "
             "source and none was provided.",
         ):
-            seto_db.get_solute_set()
+            reflo_db.get_solute_set()
 
     @pytest.mark.unit
-    def test_flush_cache(self, seto_db):
-        seto_db.flush_cache()
+    def test_flush_cache(self, reflo_db):
+        reflo_db.flush_cache()
 
-        assert seto_db._cached_files == {}
+        assert reflo_db._cached_files == {}
