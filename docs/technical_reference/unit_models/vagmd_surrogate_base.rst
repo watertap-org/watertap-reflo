@@ -22,7 +22,7 @@ The VAGMD model has at least 6 degrees of freedom that should be fixed for the u
    "Feed flow rate", "steam_props.temperature", ":math:`FFR`", "400 - 1100", ":math:`\text{L}/\text{h}`"
    "Condenser inlet temperature", "condenser_in_props.temperature", ":math:`TCI`", "20 - 30", ":math:`^o\text{C}`"
    "Evaporator inlet temperature", "evaporator_in_props.temperature", ":math:`TEI`", "60 - 80", ":math:`^o\text{C}`"
-   "Cooling water inlet temperature", "cooling_in_props.temperature", ":math:`T_{cooling_in}`", "20 - 30", ":math:`^o\text{C}`"
+   "Cooling water inlet temperature", "cooling_in_props.temperature", ":math:`T_{cooling,in}`", "20 - 30", ":math:`^o\text{C}`"
    
 The cooling water inlet temperature is not required when cooling system type is set to "closed". See details in Design Configurations below.
 
@@ -95,7 +95,7 @@ The following performance variables are derived from the surrogate equations:
 .. csv-table::
    :header: "Description", "Symbol", "Variable Name", "Units"
 
-   "Permeate flux", ":math:`PFlux`", "permeate_flux", ":math:`\text{L}\text{ per m}^2\text{/L}`"
+   "Permeate flux", ":math:`PFlux`", "permeate_flux", ":math:`\text{L} / (\text{m}^2\text{/h})`"
    "Pressure drop of the feed flow", ":math:`\Delta P_{feed}`", "feed_flow_pressure_drop", ":math:`Pa`"
    "Pressure drop of the feed flow", ":math:`\Delta P_{cool}`", "cooling_flow_pressure_drop", ":math:`Pa`"   
    "Evaporator outlet temperature", ":math:`TEO`", "evaporator_out_props.temperature", ":math:`K`"
@@ -109,14 +109,14 @@ Equations
 
    "Permeate flow rate", ":math:`v_{permeate} = PFlux \times A`"
    "Brine volumetric flow rate", ":math:`v_{brine} = v_{feed} - v_{permeate}`"
-   "Brine salinity", ":math:`X_{brine} = \frac{v_{feed} X_{feed}}{v_brine}`"
+   "Brine salinity", ":math:`X_{brine} = \frac{v_{feed} X_{feed}}{v_{brine}}`"
    "Cooling power requirement", ":math:`P_{cooling} = R_{hot} * (T_{f} - TCI)`"
    "Thermal resistance on the hot side", ":math:`R_{hot} = v_{cooling,in} \times \rho_{heater} \times C_{p, heater}`"
    "Thermal resistance on the cold side", ":math:`R_{cold} = v_{cooling,in} \times \rho_{cooler} \times C_{p, cooler}`"
    "Number of transfer units", ":math:`NTU = \frac{\eta A_{exchanger}}{R_{hot}}`"
-   "Effectiveness of the heat exchanger", ":math:`/epsilon = \frac{1 - e^{1-NTU\frac{R_{hot}}{R_{cold}}}}{1-\frac{R_{hot}}{R_{cold}}e^(1-NTC\frac{R_{hot}}{R_{cold}})}`"
+   "Effectiveness of the heat exchanger", ":math:`\epsilon = \frac{1 - e^{1-NTU\frac{R_{hot}}{R_{cold}}}}{1-\frac{R_{hot}}{R_{cold}}e^(1-NTC\frac{R_{hot}}{R_{cold}})}`"
 
-Cooling water properties will be calculated based on the cooling system type
+Cooling water properties will be calculated based on the cooling system type：
 
 .. csv-table::
    :header: "Description", "Equation"

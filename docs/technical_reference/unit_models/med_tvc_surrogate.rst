@@ -28,7 +28,7 @@ The valid range of each variable is listed based on the tested range of the surr
 All five variables above are independent input variables to the surrogate equations. 
 Typicall the feed volume flow rate can be determined given a desired system capacity:
 
-:math:`v_{f}` = :math:`\frac{sys_{capacity}}{RR}`
+:math:`v_{f}` = :math:`\frac{Capacity}}{RR}`
 
 Design configuration
 --------------------

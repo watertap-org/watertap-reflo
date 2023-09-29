@@ -28,7 +28,7 @@ The valid range of each variable is listed based on the tested range of the surr
 The first four variables are independent input variables to the surrogate equations. 
 Typicall the feed volume flow rate can be determined given a desired system capacity:
 
-:math:`v_{f}` = :math:`\frac{sys_{capacity}}{RR}`
+:math:`v_{f}` = :math:`\frac{Capacity}}{RR}`
 
 Design configuration
 --------------------
@@ -89,8 +89,8 @@ The following variables are calculated by fixing the default degree of freedoms 
 
    "Thermal power requirement", ":math:`P_{req}`", "thermal_power_requirement",  ":math:`\text{kW}`"
    "Specific thermal energy consumption", ":math:`STEC`", "specific_energy_consumption_thermal",  ":math:`\text{kWh} / \text{m}^3`"
-   "Total seawater mass flow rate (feed + cooling)", ":math:`m_{seawater_{total}}`", "feed_cool_mass_flow",  ":math:`\text{kg} / \text{s}`"
-   "Total seawater volumetric flow rate (feed + cooling)", ":math:`v_{seawater_{total}}`", "feed_cool_vol_flow",  ":math:`\text{m}^3 / \text{h}`"
+   "Total seawater mass flow rate (feed + cooling)", ":math:`m_{seawater,total}`", "feed_cool_mass_flow",  ":math:`\text{kg} / \text{s}`"
+   "Total seawater volumetric flow rate (feed + cooling)", ":math:`v_{seawater,total}`", "feed_cool_vol_flow",  ":math:`\text{m}^3 / \text{h}`"
 
 
 Equations
@@ -104,7 +104,7 @@ Equations
    "Steam mass flow rate", ":math:`m_{steam} = m_{distillate} / GOR`"
    "Specific thermal energy consumption", ":math:`STEC = \frac{\Delta H_{vap} \times \rho_{distillate}}{GOR}`"
    "Thermal power requirement", ":math:`P_{req} = STEC \times v_{distillate}`"
-   "Energy balance", ":math:`v_{seawater_{total}} \times (H_{cooling} - H_{feed}) = (1 - f_{Q_{loss}})\times P_{req} - m_{brine} H_{brine} - m_{distillate} H_{distillate} + m_{feed} H_{cooling}`"
+   "Energy balance", ":math:`v_{seawater,total} \times (H_{cooling} - H_{feed}) = (1 - f_{Q_{loss}})\times P_{req} - m_{brine} H_{brine} - m_{distillate} H_{distillate} + m_{feed} H_{cooling}`"
 
 Surrogate equations and the corresponding coefficients for different number of effects can be found in the unit model class.
 
