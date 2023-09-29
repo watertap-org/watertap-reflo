@@ -19,12 +19,12 @@ sys.path.insert(0, os.path.abspath(".."))
 
 # -- Project information -----------------------------------------------------
 
-project = "WaterTAP-SETO"
+project = "WaterTAP-REFLO"
 copyright = "2022-2023, NREL et al."
-author = "WaterTAP-SETO dev team"
+author = "WaterTAP-REFLO dev team"
 
 # Version and release
-release = version = metadata.version("watertap-seto")
+# release = version = metadata.version("watertap-seto")
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -65,19 +65,19 @@ html_theme = "sphinx_rtd_theme"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ["_static"]
+html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 #
-# html_logo = "_static/NAWI_logo.png"
+html_logo = "_static/watertap_reflo_logo.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
 #
-# html_favicon = "_static/favicon.ico"
+html_favicon = "_static/watertap_reflo_logo.ico"
 
 
 def run_apidoc(*args):
