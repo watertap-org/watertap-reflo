@@ -195,8 +195,8 @@ class TestVAGMD_unit_model:
         m.fs.costing.factor_capital_annualization.fix(0.08764)
 
         m.fs.costing.cost_process()
-        m.fs.costing.add_annual_water_production(vagmd.costing.annual_dist_production)
-        m.fs.costing.add_LCOW(vagmd.costing.annual_dist_production)
+        m.fs.costing.add_annual_water_production(vagmd.system_capacity)
+        m.fs.costing.add_LCOW(vagmd.system_capacity)
 
         assert degrees_of_freedom(m) == 0
 
