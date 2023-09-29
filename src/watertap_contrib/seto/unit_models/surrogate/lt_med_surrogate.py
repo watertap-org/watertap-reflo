@@ -15,11 +15,9 @@ from copy import deepcopy
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    Set,
     Var,
     Param,
     Suffix,
-    Constraint,
     check_optimal_termination,
     units as pyunits,
 )
