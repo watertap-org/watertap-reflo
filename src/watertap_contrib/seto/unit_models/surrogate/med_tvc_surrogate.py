@@ -15,11 +15,9 @@ from copy import deepcopy
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    Set,
     Var,
     Param,
     Suffix,
-    Constraint,
     check_optimal_termination,
     units as pyunits,
 )
@@ -27,8 +25,6 @@ from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
 
 # Import IDAES cores
 from idaes.core import (
-    FlowsheetBlock,
-    ControlVolume0DBlock,
     declare_process_block_class,
     UnitModelBlockData,
     useDefault,
@@ -39,10 +35,6 @@ import idaes.core.util.scaling as iscale
 from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
-
-# Import Watertap packages
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 
 _log = idaeslog.getLogger(__name__)
