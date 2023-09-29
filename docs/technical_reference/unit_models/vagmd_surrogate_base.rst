@@ -42,7 +42,7 @@ constant and the cooling water temperature (:math:`T_{cooling,in}`) can be adjus
 In the open cooling circuit, the cooling process is available at a constant water 
 temperature (:math:`T_{cooling,in}`) and condenser inlet temperature (TCI) varies.
 
-``high_brine_salinity``: ``True`` of ``False`` indicate whether the brine salinity 
+``high_brine_salinity``: ``True`` or ``False``, indicates whether the brine salinity 
 is high (> 175.3 g/L) or not. It can be inferred given a feed salinity. 
 
 Different surrogate equations will be applied based on the ``module_type`` and
@@ -104,6 +104,7 @@ The following performance variables are derived from the surrogate equations:
 
 Equations
 ---------
+
 .. csv-table::
    :header: "Description", "Equation"
 
