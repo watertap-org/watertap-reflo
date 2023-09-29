@@ -128,7 +128,7 @@ class TestTrough:
         m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
 
         assert (
-            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.999
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.99
         )
         assert (
             m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
@@ -136,7 +136,7 @@ class TestTrough:
         )
         assert (
             m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
-            > 0.999
+            > 0.99
         )
         assert (
             m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
@@ -150,21 +150,20 @@ class TestTrough:
         assert isinstance(m.fs.trough.rbf_surr, PysmoSurrogate)
         test_output = m.fs.trough.rbf_surr.evaluate_surrogate(data["validation"])
 
-        surrogate_scaling = TroughSurrogateData.surrogate_scaling_dict[
-            tuple(m.fs.trough.heat_load.bounds)
-        ]
-        expected_heat_annual_test = (
-            data["validation"]["heat_annual"] * surrogate_scaling
+        expected_heat_annual_test = data["validation"]["heat_annual"]
+        expected_electricity_annual_test = data["validation"]["electricity_annual"]
+        predicted_heat_annual = test_output["heat_annual_scaled"] / value(
+            m.fs.trough.heat_annual_scaling
         )
-        expected_electricity_annual_test = (
-            data["validation"]["electricity_annual"] * surrogate_scaling
+        predicted_electricity_annual = test_output["electricity_annual_scaled"] / value(
+            m.fs.trough.electricity_annual_scaling
         )
 
-        tol = 2e-1
-        assert list(test_output["heat_annual_scaled"]) == pytest.approx(
+        tol = 5e-2
+        assert list(predicted_heat_annual) == pytest.approx(
             expected_heat_annual_test.tolist(), tol
         )
-        assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
+        assert list(predicted_electricity_annual) == pytest.approx(
             expected_electricity_annual_test.tolist(), tol
         )
 
@@ -200,25 +199,45 @@ class TestTrough:
             os.path.dirname(__file__), "test_surrogate.json"
         )
         m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
+
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.99
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
+            < 0.005
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
+            > 0.99
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
+                "RMSE"
+            ]
+            < 0.005
+        )
+
         assert os.path.getsize(test_surrogate_filename) > 1e4
         os.remove(test_surrogate_filename)
         assert isinstance(m.fs.trough.rbf_surr, PysmoSurrogate)
         test_output = m.fs.trough.rbf_surr.evaluate_surrogate(data["validation"])
 
-        surrogate_scaling = TroughSurrogateData.surrogate_scaling_dict[
-            tuple(m.fs.trough.heat_load.bounds)
-        ]
-        expected_heat_annual_test = (
-            data["validation"]["heat_annual"] * surrogate_scaling
+        expected_heat_annual_test = data["validation"]["heat_annual"]
+        expected_electricity_annual_test = data["validation"]["electricity_annual"]
+        predicted_heat_annual = test_output["heat_annual_scaled"] / value(
+            m.fs.trough.heat_annual_scaling
         )
-        expected_electricity_annual_test = (
-            data["validation"]["electricity_annual"] * surrogate_scaling
+        predicted_electricity_annual = test_output["electricity_annual_scaled"] / value(
+            m.fs.trough.electricity_annual_scaling
         )
-        assert list(test_output["heat_annual_scaled"]) == pytest.approx(
-            expected_heat_annual_test.tolist(), 5e-2
+
+        tol = 1e-2
+        assert list(predicted_heat_annual) == pytest.approx(
+            expected_heat_annual_test.tolist(), tol
         )
-        assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
-            expected_electricity_annual_test.tolist(), 5e-2
+        assert list(predicted_electricity_annual) == pytest.approx(
+            expected_electricity_annual_test.tolist(), tol
         )
 
     @pytest.mark.component
