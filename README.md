@@ -6,6 +6,10 @@ Welcome to the code repository for **WaterTAP-SETO**!
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/watertap-org/watertap-seto)
 ![CI status](https://img.shields.io/github/workflow/status/watertap-org/watertap-seto/Checks)
 
+## Documentation
+
+The WaterTAP documentation is available online at <https://watertap-seto.readthedocs.io>.
+
 ## Getting started (for Contributors)
 
 **WaterTAP-SETO** supports Python versions 3.8 through 3.10.
