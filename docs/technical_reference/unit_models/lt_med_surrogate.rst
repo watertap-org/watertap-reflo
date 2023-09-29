@@ -11,13 +11,13 @@ This Low Temperature Multi-effect Distillation (LT-MED) unit model
 
 Degrees of Freedom
 ------------------
-The LT-MED model has at least 5 degrees of freedom that should be fixed for the unit to be fully specified.
+The LT-MED model has 5 degrees of freedom that should be fixed for the unit to be fully specified.
 
 Typically, the following variables are fixed, including the state variables at the inlet. 
 The valid range of each variable is listed based on the tested range of the surrogate equations.
 
 .. csv-table::
-   :header: "Variables", "Symbol", "Valid range", "Unit"
+   :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
 
    "Feed salinity", "feed_props.conc_mass_phase_comp['Liq', 'TDS']", ":math:`X_{f}`", "30 - 60", ":math:`\text{g/}\text{L}`"
    "Feed temperature", "feed_props.temperature", ":math:`T_{f}`", "15 - 35", ":math:`^o\text{C}`"
@@ -30,16 +30,6 @@ Typically the feed volume flow rate can be determined given a desired system cap
 
 :math:`v_{f} = \frac{Capacity}{RR}`
 
-Design configuration
---------------------
-The number of effects, as a key design parameter of the LT-MED model, 
-should be provided in the specific configuration key-value pair:
-
-Set ``num_effects`` to an integer between 3 to 14. 
-
-In this model, numbers of effects of 3, 6, 9, 12, 14 are verified with the 
-operational data, and the other numbers in between are interpolated by those 
-validated numbers.
 
 Model Structure
 ---------------
@@ -50,6 +40,15 @@ This LT-MED model consists of 4 StateBlocks (as 4 Ports in parenthesis below).
 * Distillate (distillate)
 * Brine flow (brine)
 * Heating steam (steam)
+
+The number of effects, as a key design parameter of the LT-MED model, 
+should be provided in the specific configuration key-value pair below.
+
+``num_effects``: an integer between 3 to 14. 
+
+In this model, numbers of effects of 3, 6, 9, 12, 14 are verified with the 
+operational data, and the other numbers in between are interpolated by those 
+validated numbers.
 
 
 Sets

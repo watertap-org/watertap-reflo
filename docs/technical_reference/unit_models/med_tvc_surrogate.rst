@@ -4,20 +4,20 @@ Multi-effect Distillation with Thermal Vapor Compression (MED-TVC)
 This Multi-effect Distillation with Thermal Vapor Compression (MED-TVC) unit model
    * supports steady-state only
    * is a surrogate model
-   * is verified against the operation data in Plataforma Solar de Almeria (PSA)
+   * is verified against the operation data in Plataforma Solar de Almeria (PSA) [1]
 
 .. TODO: Add index/reference to home page
 
 
 Degrees of Freedom
 ------------------
-The MED-TVC model has at least 5 degrees of freedom that should be fixed for the unit to be fully specified.
+The MED-TVC model has 5 degrees of freedom that should be fixed for the unit to be fully specified.
 
 Typically, the following variables are fixed, including the state variables at the inlet. 
 The valid range of each variable is listed based on the tested range of the surrogate equations.
 
 .. csv-table::
-   :header: "Variables", "Symbol", "Valid range", "Unit"
+   :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
 
    "Feed salinity", "feed_props.conc_mass_phase_comp['Liq', 'TDS']", ":math:`X_{f}`", "30 - 60", ":math:`\text{g/}\text{L}`"
    "Feed temperature", "feed_props.temperature", ":math:`T_{f}`", "25 - 35", ":math:`^o\text{C}`"
@@ -28,18 +28,8 @@ The valid range of each variable is listed based on the tested range of the surr
 All five variables above are independent input variables to the surrogate equations. 
 Typicall the feed volume flow rate can be determined given a desired system capacity:
 
-:math:`v_{f}` = :math:`\frac{Capacity}}{RR}`
+:math:`v_{f}` = :math:`\frac{Capacity}{RR}`
 
-Design configuration
---------------------
-The number of effects, as a key design parameter of the LT-MED model, 
-should be provided in the spefic configuration key-value pair:
-
-Set ``num_effects`` to an integer between 8 to 16. 
-
-In this model, numbers of effects of 8, 10, 12, 14, 16 are verified with the 
-operational data, and the other numbers in between are interpolated by those 
-validated numbers.
 
 Model Structure
 ---------------
@@ -51,6 +41,15 @@ This MED-TVC model consists of 5 StateBlocks (as 5 Ports in parenthesis below).
 * Brine flow (brine)
 * Heating steam (steam)
 * Motive steam (motive)
+
+The number of effects, as a key design parameter of the LT-MED model, 
+should be provided in the spefic configuration key-value pair below.
+
+``num_effects``: an integer between 8 to 16. 
+
+In this model, numbers of effects of 8, 10, 12, 14, 16 are verified with the 
+operational data, and the other numbers in between are interpolated by those 
+validated numbers.
 
 
 Sets
