@@ -44,8 +44,10 @@ from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.seto.costing.solar.trough_surrogate import cost_trough_surrogate
 from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
+from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogate
 from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 from watertap_contrib.seto.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
+from watertap_contrib.seto.costing.units.vagmd_surrogate import cost_vagmd_surrogate
 from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
     ChemicalSofteningZO,
 )
@@ -62,6 +64,7 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
     unit_mapping = {
         LTMEDSurrogate: cost_lt_med_surrogate,
         MEDTVCSurrogate: cost_med_tvc_surrogate,
+        VAGMDSurrogate: cost_vagmd_surrogate,
         Photovoltaic: cost_pv,
         TroughSurrogate: cost_trough_surrogate,
         Mixer: cost_mixer,
