@@ -111,6 +111,15 @@ class SETOWaterTAPCostingData(WaterTAPCostingData):
         )
         self.add_defined_flow("heat", self.heat_cost)
 
+        self.electricity_cost = pyo.Param(
+            mutable=True,
+            initialize=0.0718,  # From EIA for 2021
+            doc="Electricity cost",
+            units=self.base_currency / pyo.units.kWh,
+        )
+
+        self.add_defined_flow("electricity", self.electricity_cost)
+
         self.plant_lifetime.fix()
         self.utilization_factor.fix(1)
 
