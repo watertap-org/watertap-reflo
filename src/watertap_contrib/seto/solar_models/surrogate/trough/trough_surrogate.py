@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 from pyomo.environ import (
     Var,
     Param,
+    value,
     Expression,
     Constraint,
     Suffix,
@@ -73,15 +74,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
         self._tech_type = "trough"
 
-        heat_load_range = tuple(self.config.heat_load_range)
-        try:
-            self.surrogate_file = os.path.join(
-                os.path.dirname(__file__),
-                f"trough_surrogate_{int(heat_load_range[0])}_{int(heat_load_range[1])}.json",
-            )
-        except:
-            raise ValueError("config's heat_load_range must be [10, 100] or [100, 500]")
-
         self.heat_load = Var(
             initialize=self.config.heat_load_range[0],
             bounds=self.config.heat_load_range,
@@ -119,7 +111,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         self.electricity_annual_scaling = Param(
             initialize=1e-9,
-            units=pyunits.kWh,
             domain=NonNegativeReals,
             mutable=True,
             doc="Scaling factor of annual electricity consumed by trough scaled for surrogate model",
@@ -148,33 +139,31 @@ class TroughSurrogateData(SolarEnergyBaseData):
         self.input_labels = ["heat_load", "hours_storage"]
         self.output_labels = ["heat_annual_scaled", "electricity_annual_scaled"]
 
-        self.surrogate_blk = SurrogateBlock(concrete=True)
-        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
-        self.surrogate_blk.build_model(
-            self.surrogate,
-            input_vars=self.surrogate_inputs,
-            output_vars=self.surrogate_outputs,
-        )
-
-        self.heat_constraint = Constraint(
-            expr=self.heat_annual
-            == self.heat * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
-        )
-
-        self.electricity_constraint = Constraint(
-            expr=self.electricity_annual
-            == self.electricity
-            * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
-        )
-
-        # Revert back to standard output
-        sys.stdout = oldstdout
-
         self.dataset_filename = os.path.join(
             os.path.dirname(__file__), "data/trough_data.pkl"
         )
         self.n_samples = 100
         self.training_fraction = 0.8
+
+        heat_load_range = tuple(self.config.heat_load_range)
+        self.surrogate_file = os.path.join(
+            os.path.dirname(__file__),
+            f"trough_surrogate_{int(heat_load_range[0])}_{int(heat_load_range[1])}.json",
+        )
+        self._create_rbf_surrogate(output_filename=self.surrogate_file)
+
+        self.heat_constraint = Constraint(
+            expr=self.heat == 
+            self.heat_annual * pyunits.convert(1 * pyunits.hour, to_units=pyunits.year)
+        )
+
+        self.electricity_constraint = Constraint(
+            expr=self.electricity == 
+            self.electricity_annual * pyunits.convert(1 * pyunits.hour, to_units=pyunits.year)
+        )
+
+        # Revert back to standard output
+        sys.stdout = oldstdout
 
     def calculate_scaling_factors(self):
         if iscale.get_scaling_factor(self.hours_storage) is None:
@@ -182,7 +171,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.hours_storage, sf)
 
         if iscale.get_scaling_factor(self.heat_load) is None:
-            sf = iscale.get_scaling_factor(self.heat_load, default=1e-2, warning=True)
+            sf = iscale.get_scaling_factor(self.heat_load, default=1, warning=True)
             iscale.set_scaling_factor(self.heat_load, sf)
 
         if iscale.get_scaling_factor(self.heat_annual_scaled) is None:
@@ -192,7 +181,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.heat_annual_scaled, sf)
 
         if iscale.get_scaling_factor(self.heat) is None:
-            sf = iscale.get_scaling_factor(self.heat, default=1e-4, warning=True)
+            sf = iscale.get_scaling_factor(self.heat, default=1, warning=True)
             iscale.set_scaling_factor(self.heat, sf)
 
         if iscale.get_scaling_factor(self.electricity_annual_scaled) is None:
@@ -225,22 +214,17 @@ class TroughSurrogateData(SolarEnergyBaseData):
         init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="unit")
         solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
 
-        iscale.calculate_variable_from_constraint(
-            blk.heat_annual_scaled,
-            blk.surrogate_blk.pysmo_constraint["heat_annual_scaled"],
-        )
-        iscale.calculate_variable_from_constraint(
-            blk.heat_annual_scaled, blk.heat_constraint
-        )
-        iscale.calculate_variable_from_constraint(
-            blk.electricity_annual_scaled,
-            blk.surrogate_blk.pysmo_constraint["electricity_annual_scaled"],
-        )
-
-        # Create solver
-        opt = get_solver(solver, optarg)
+        # Initialize surrogate
+        data = pd.DataFrame({'heat_load': [value(blk.heat_load)],
+                             'hours_storage': [value(blk.hours_storage)]})
+        test_output = blk.surrogate.evaluate_surrogate(data)      
+        blk.heat_annual_scaled.set_value(test_output.heat_annual_scaled.values[0])
+        blk.electricity_annual_scaled.set_value(test_output.electricity_annual_scaled.values[0])
+        blk.heat.set_value(value(blk.heat_annual) / 8766)
+        blk.electricity.set_value(value(blk.electricity_annual) / 8766)
 
         # Solve unit
+        opt = get_solver(solver, optarg)
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(blk, tee=slc.tee)
 
@@ -294,16 +278,23 @@ class TroughSurrogateData(SolarEnergyBaseData):
             self.input_labels[i]: (xmin[i], xmax[i])
             for i in range(len(self.input_labels))
         }
-        self.rbf_surr = PysmoSurrogate(
+        self.surrogate = PysmoSurrogate(
             self.rbf_train, self.input_labels, self.output_labels, self.input_bounds
         )
 
         # Save model to JSON
         if output_filename is not None:
-            model = self.rbf_surr.save_to_file(output_filename, overwrite=True)
+            model = self.surrogate.save_to_file(output_filename, overwrite=True)
 
         # Revert back to standard output
         sys.stdout = oldstdout
+
+        self.surrogate_blk = SurrogateBlock(concrete=True)
+        self.surrogate_blk.build_model(
+            self.surrogate,
+            input_vars=self.surrogate_inputs,
+            output_vars=self.surrogate_outputs
+        )
 
     def _get_surrogate_data(self, return_data=False):
         self.pickle_df = pd.read_pickle(self.dataset_filename)
