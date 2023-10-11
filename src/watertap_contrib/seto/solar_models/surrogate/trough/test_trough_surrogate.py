@@ -303,13 +303,11 @@ class TestTrough:
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        assert pytest.approx(823079441., rel=1e-2) == value(
-            m.fs.trough.heat_annual
-        )
+        assert pytest.approx(823079441.0, rel=1e-2) == value(m.fs.trough.heat_annual)
         assert pytest.approx(93537260.0, rel=1e-2) == value(
             m.fs.trough.costing.capital_cost
         )
-        assert pytest.approx(823079., rel=1e-2) == value(
+        assert pytest.approx(823079.0, rel=1e-2) == value(
             m.fs.trough.costing.variable_operating_cost
         )
         assert pytest.approx(1600000.0, rel=1e-2) == value(

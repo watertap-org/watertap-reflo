@@ -153,13 +153,15 @@ class TroughSurrogateData(SolarEnergyBaseData):
         self._create_rbf_surrogate(output_filename=self.surrogate_file)
 
         self.heat_constraint = Constraint(
-            expr=self.heat == 
-            self.heat_annual * pyunits.convert(1 * pyunits.hour, to_units=pyunits.year)
+            expr=self.heat
+            == self.heat_annual
+            * pyunits.convert(1 * pyunits.hour, to_units=pyunits.year)
         )
 
         self.electricity_constraint = Constraint(
-            expr=self.electricity == 
-            self.electricity_annual * pyunits.convert(1 * pyunits.hour, to_units=pyunits.year)
+            expr=self.electricity
+            == self.electricity_annual
+            * pyunits.convert(1 * pyunits.hour, to_units=pyunits.year)
         )
 
         # Revert back to standard output
@@ -215,11 +217,17 @@ class TroughSurrogateData(SolarEnergyBaseData):
         solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
 
         # Initialize surrogate
-        data = pd.DataFrame({'heat_load': [value(blk.heat_load)],
-                             'hours_storage': [value(blk.hours_storage)]})
-        test_output = blk.surrogate.evaluate_surrogate(data)      
+        data = pd.DataFrame(
+            {
+                "heat_load": [value(blk.heat_load)],
+                "hours_storage": [value(blk.hours_storage)],
+            }
+        )
+        test_output = blk.surrogate.evaluate_surrogate(data)
         blk.heat_annual_scaled.set_value(test_output.heat_annual_scaled.values[0])
-        blk.electricity_annual_scaled.set_value(test_output.electricity_annual_scaled.values[0])
+        blk.electricity_annual_scaled.set_value(
+            test_output.electricity_annual_scaled.values[0]
+        )
         blk.heat.set_value(value(blk.heat_annual) / 8766)
         blk.electricity.set_value(value(blk.electricity_annual) / 8766)
 
@@ -293,7 +301,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
         self.surrogate_blk.build_model(
             self.surrogate,
             input_vars=self.surrogate_inputs,
-            output_vars=self.surrogate_outputs
+            output_vars=self.surrogate_outputs,
         )
 
     def _get_surrogate_data(self, return_data=False):
