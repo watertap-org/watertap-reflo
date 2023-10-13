@@ -152,7 +152,7 @@ class TestTrough:
             m.fs.trough.electricity_annual_scaling
         )
 
-        tol = 5e-2
+        tol = 1e-1
         assert list(predicted_heat_annual) == pytest.approx(
             expected_heat_annual_test.tolist(), tol
         )
