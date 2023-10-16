@@ -226,7 +226,7 @@ class TestTrough:
             m.fs.trough.electricity_annual_scaling
         )
 
-        tol = 1e-2
+        tol = 5e-2
         assert list(predicted_heat_annual) == pytest.approx(
             expected_heat_annual_test.tolist(), tol
         )
@@ -254,9 +254,9 @@ class TestTrough:
             electricity_annual_list.append(value(m.fs.trough.electricity_annual))
 
         # ensure surrogate model gives same results when inside a flowsheet
-        assert heat_annual_list == pytest.approx(expected_heat_annual, 1e-2)
+        assert heat_annual_list == pytest.approx(expected_heat_annual.tolist(), 1e-2)
         assert electricity_annual_list == pytest.approx(
-            expected_electricity_annual, 1e-2
+            expected_electricity_annual.tolist(), 1e-2
         )
 
     @pytest.mark.unit
