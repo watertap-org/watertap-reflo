@@ -12,6 +12,7 @@ build:
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
   #TODO: set fail_on_warning to true, once apidoc warnings are figured out
+    configuration: docs/conf.py
     fail_on_warning: false
 
 python:
