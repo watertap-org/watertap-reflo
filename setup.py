@@ -20,7 +20,17 @@ setup(
             "nbsphinx",  # jupyter notebook support for sphinx
             "jinja2<3.1.0",  # see watertap-org/watertap#449
             "Sphinx==7.1.*",  # docs
-            "sphinx-rtd-theme",  # docs
-        ]
+            "sphinx_rtd_theme",  # docs
+            "urllib3 < 2",  # see watertap-org/watertap#1021,
+            # other requirements
+            "linkify-it-py",
+            "json-schema-for-humans",  # pretty JSON schema in HTML
+            "black",  # code formatting
+            # other requirements
+            "pytest",  # test framework
+            "pytest-cov",  # code coverage
+            "mongomock",  # mongodb mocking for testing
+            "nbmake",
+        ],
     },
 )
