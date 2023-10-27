@@ -25,7 +25,7 @@ copyright = "2022-2023, NREL et al."
 author = "WaterTAP-SETO dev team"
 
 # Version and release
-# release = version = metadata.version("watertap-seto")
+release = version = metadata.version("watertap-seto")
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
