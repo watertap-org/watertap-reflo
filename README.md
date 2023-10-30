@@ -8,7 +8,7 @@ Welcome to the code repository for **WaterTAP-REFLO**!
 
 ## Documentation
 
-WaterTAP-REFLO documentation is available online at <https://watertap-seto.readthedocs.io>.
+WaterTAP-REFLO documentation is available online at <https://watertap-reflo.readthedocs.io>.
 
 ## Getting started (for Contributors)
 
