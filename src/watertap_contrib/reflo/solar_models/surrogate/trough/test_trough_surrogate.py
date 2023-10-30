@@ -10,11 +10,11 @@ from pyomo.environ import (
 )
 from pyomo.network import Port
 
-from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
-from watertap_contrib.seto.solar_models.surrogate.trough.trough_surrogate import (
+from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
+from watertap_contrib.reflo.solar_models.surrogate.trough.trough_surrogate import (
     TroughSurrogateData,
 )
-from watertap_contrib.seto.costing import EnergyCosting
+from watertap_contrib.reflo.costing import EnergyCosting
 import idaes.logger as idaeslog
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
