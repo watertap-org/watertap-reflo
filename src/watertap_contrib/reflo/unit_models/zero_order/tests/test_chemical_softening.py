@@ -7,15 +7,15 @@ from pyomo.environ import (
 )
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
+from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
     ChemicalSofteningZO,
 )
 
-from watertap_contrib.seto.property_models.basic_water_properties import (
+from watertap_contrib.reflo.property_models.basic_water_properties import (
     BasicWaterParameterBlock,
 )
 
-from watertap_contrib.seto.costing import TreatmentCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver

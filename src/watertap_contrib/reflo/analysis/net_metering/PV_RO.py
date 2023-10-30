@@ -37,17 +37,17 @@ from watertap.unit_models.reverse_osmosis_0D import (
 from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
     calculate_operating_pressure,
 )
-from watertap_contrib.seto.analysis.net_metering.util import (
+from watertap_contrib.reflo.analysis.net_metering.util import (
     display_ro_pv_results,
     display_pv_results,
 )
-from watertap_contrib.seto.costing import (
+from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
     REFLOCosting,
 )
-from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
-from watertap_contrib.seto.core import PySAMWaterTAP
+from watertap_contrib.reflo.solar_models.zero_order import Photovoltaic
+from watertap_contrib.reflo.core import PySAMWaterTAP
 
 
 solver = get_solver()

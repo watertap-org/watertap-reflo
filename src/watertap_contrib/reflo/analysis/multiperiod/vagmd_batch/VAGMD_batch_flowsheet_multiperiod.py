@@ -35,14 +35,14 @@ from idaes.core.solvers.get_solver import get_solver
 
 # WaterTAP imports
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap_contrib.seto.costing import SETOWaterTAPCosting
+from watertap_contrib.reflo.costing import REFLOCosting
 
 # Flowsheet function imports
-from watertap_contrib.seto.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import (
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import (
     build_vagmd_flowsheet,
     fix_dof_and_initialize,
 )
-from watertap_contrib.seto.analysis.multiperiod.vagmd_batch.VAGMD_batch_design_model import (
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_design_model import (
     get_n_time_points,
 )
 

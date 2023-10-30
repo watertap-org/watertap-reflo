@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import idaes.core.util.scaling as iscale
 from watertap.costing.util import register_costing_parameter_block
-from watertap_contrib.seto.costing.util import (
+from watertap_contrib.reflo.costing.util import (
     make_capital_cost_var,
     make_fixed_operating_cost_var,
 )

@@ -8,19 +8,17 @@ from pyomo.environ import (
 import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.seto.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet_multiperiod import (
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet_multiperiod import (
     VAGMDbatchSurrogate,
 )
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap_contrib.seto.costing import REFLOCosting
+from watertap_contrib.reflo.costing import REFLOCosting
 
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import (
     ConfigurationError,
-    UserModelError,
-    InitializationError,
 )
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,

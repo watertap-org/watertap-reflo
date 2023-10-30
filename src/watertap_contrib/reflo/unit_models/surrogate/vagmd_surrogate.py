@@ -28,7 +28,7 @@ from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
 from watertap.core import InitializationMixin
 
 # Import base model from WaterTAP REFLO
-from watertap_contrib.seto.unit_models.surrogate.vagmd_surrogate_base import (
+from watertap_contrib.reflo.unit_models.surrogate.vagmd_surrogate_base import (
     VAGMDBaseData,
 )
 

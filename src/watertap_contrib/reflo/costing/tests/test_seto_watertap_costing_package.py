@@ -6,7 +6,7 @@ from idaes.core import FlowsheetBlock
 
 from watertap.costing.watertap_costing_package import _DefinedFlowsDict
 
-from watertap_contrib.seto.costing import REFLOCosting
+from watertap_contrib.reflo.costing import REFLOCosting
 
 
 @pytest.mark.component

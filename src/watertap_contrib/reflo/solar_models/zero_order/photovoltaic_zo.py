@@ -15,7 +15,7 @@ from idaes.core import declare_process_block_class
 
 from pyomo.environ import Param, units as pyunits
 
-from watertap_contrib.seto.core import SolarEnergyBaseData
+from watertap_contrib.reflo.core import SolarEnergyBaseData
 
 __author__ = "Kurban Sitterley"
 

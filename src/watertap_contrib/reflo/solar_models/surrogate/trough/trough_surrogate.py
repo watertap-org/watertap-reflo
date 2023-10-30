@@ -40,7 +40,7 @@ from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 
-from watertap_contrib.seto.core import SolarEnergyBaseData
+from watertap_contrib.reflo.core import SolarEnergyBaseData
 from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.exceptions import InitializationError
 

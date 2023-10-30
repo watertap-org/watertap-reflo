@@ -34,7 +34,7 @@ from idaes.core.util.scaling import calculate_scaling_factors
 from watertap.core.util.initialization import check_dof
 from watertap.property_models.tests.property_test_harness import PropertyAttributeError
 
-from watertap_contrib.seto.property_models.basic_water_properties import (
+from watertap_contrib.reflo.property_models.basic_water_properties import (
     BasicWaterParameterBlock,
     BasicWaterStateBlock,
 )

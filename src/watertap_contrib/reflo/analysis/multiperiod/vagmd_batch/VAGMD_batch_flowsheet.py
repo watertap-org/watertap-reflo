@@ -2,15 +2,6 @@
 from pyomo.environ import (
     ConcreteModel,
     Var,
-    Objective,
-    Param,
-    Expression,
-    Constraint,
-    Block,
-    log10,
-    TransformationFactory,
-    assert_optimal_termination,
-    value,
     units as pyunits,
 )
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
@@ -23,14 +14,12 @@ from idaes.core.solvers.get_solver import get_solver
 import idaes.logger as idaeslog
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
-    unscaled_variables_generator,
-    badly_scaled_var_generator,
 )
 
 # WaterTAP imports
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogate
+from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
 
 
 def build_vagmd_flowsheet(
