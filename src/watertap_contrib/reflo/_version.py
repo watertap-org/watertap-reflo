@@ -1,4 +1,4 @@
 from importlib import metadata
 
 
-__version__ = metadata.version("watertap-seto")
+__version__ = metadata.version("watertap-reflo")
