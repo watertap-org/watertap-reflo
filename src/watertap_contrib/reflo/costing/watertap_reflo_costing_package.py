@@ -46,7 +46,9 @@ from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
 from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
 from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
-from watertap_contrib.reflo.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
+from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
+    cost_med_tvc_surrogate,
+)
 from watertap_contrib.reflo.costing.units.vagmd_surrogate import cost_vagmd_surrogate
 from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
     ChemicalSofteningZO,
