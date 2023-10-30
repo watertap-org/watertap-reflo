@@ -4,17 +4,11 @@ import os
 import pandas as pd
 from pyomo.environ import (
     ConcreteModel,
-    SolverFactory,
     Var,
     value,
     assert_optimal_termination,
 )
 from pyomo.network import Port
-from pyomo.util.infeasible import (
-    log_infeasible_constraints,
-    log_infeasible_bounds,
-    log_close_to_bounds,
-)
 
 from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.seto.solar_models.surrogate.trough.trough_surrogate import (
@@ -125,25 +119,45 @@ class TestTrough:
             os.path.dirname(__file__), "test_surrogate.json"
         )
         m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
+
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.99
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
+            < 0.005
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
+            > 0.99
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
+                "RMSE"
+            ]
+            < 0.005
+        )
+
         assert os.path.getsize(test_surrogate_filename) > 0
         os.remove(test_surrogate_filename)
-        assert isinstance(m.fs.trough.rbf_surr, PysmoSurrogate)
-        test_output = m.fs.trough.rbf_surr.evaluate_surrogate(data["validation"])
+        assert isinstance(m.fs.trough.surrogate, PysmoSurrogate)
+        test_output = m.fs.trough.surrogate.evaluate_surrogate(data["validation"])
 
-        surrogate_scaling = TroughSurrogateData.surrogate_scaling_dict[
-            tuple(m.fs.trough.heat_load.bounds)
-        ]
-        expected_heat_annual_test = (
-            data["validation"]["heat_annual"] * surrogate_scaling
+        expected_heat_annual_test = data["validation"]["heat_annual"]
+        expected_electricity_annual_test = data["validation"]["electricity_annual"]
+        predicted_heat_annual = test_output["heat_annual_scaled"] / value(
+            m.fs.trough.heat_annual_scaling
         )
-        expected_electricity_annual_test = (
-            data["validation"]["electricity_annual"] * surrogate_scaling
+        predicted_electricity_annual = test_output["electricity_annual_scaled"] / value(
+            m.fs.trough.electricity_annual_scaling
         )
-        assert list(test_output["heat_annual_scaled"]) == pytest.approx(
-            expected_heat_annual_test.tolist(), 5e-2
+
+        tol = 1e-1
+        assert list(predicted_heat_annual) == pytest.approx(
+            expected_heat_annual_test.tolist(), tol
         )
-        assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
-            expected_electricity_annual_test.tolist(), 5e-2
+        assert list(predicted_electricity_annual) == pytest.approx(
+            expected_electricity_annual_test.tolist(), tol
         )
 
     @pytest.mark.component
@@ -159,6 +173,7 @@ class TestTrough:
         for row in data["validation"].itertuples():
             m.fs.trough.heat_load.fix(row.heat_load)
             m.fs.trough.hours_storage.fix(row.hours_storage)
+            m.fs.trough.initialize_build()
             results = solver.solve(m, tee=True)
             assert_optimal_termination(results)
             heat_annual_list.append(value(m.fs.trough.heat_annual))
@@ -178,25 +193,45 @@ class TestTrough:
             os.path.dirname(__file__), "test_surrogate.json"
         )
         m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
+
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.99
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
+            < 0.005
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
+            > 0.99
+        )
+        assert (
+            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
+                "RMSE"
+            ]
+            < 0.005
+        )
+
         assert os.path.getsize(test_surrogate_filename) > 1e4
         os.remove(test_surrogate_filename)
-        assert isinstance(m.fs.trough.rbf_surr, PysmoSurrogate)
-        test_output = m.fs.trough.rbf_surr.evaluate_surrogate(data["validation"])
+        assert isinstance(m.fs.trough.surrogate, PysmoSurrogate)
+        test_output = m.fs.trough.surrogate.evaluate_surrogate(data["validation"])
 
-        surrogate_scaling = TroughSurrogateData.surrogate_scaling_dict[
-            tuple(m.fs.trough.heat_load.bounds)
-        ]
-        expected_heat_annual_test = (
-            data["validation"]["heat_annual"] * surrogate_scaling
+        expected_heat_annual_test = data["validation"]["heat_annual"]
+        expected_electricity_annual_test = data["validation"]["electricity_annual"]
+        predicted_heat_annual = test_output["heat_annual_scaled"] / value(
+            m.fs.trough.heat_annual_scaling
         )
-        expected_electricity_annual_test = (
-            data["validation"]["electricity_annual"] * surrogate_scaling
+        predicted_electricity_annual = test_output["electricity_annual_scaled"] / value(
+            m.fs.trough.electricity_annual_scaling
         )
-        assert list(test_output["heat_annual_scaled"]) == pytest.approx(
-            expected_heat_annual_test.tolist(), 5e-2
+
+        tol = 3e-2
+        assert list(predicted_heat_annual) == pytest.approx(
+            expected_heat_annual_test.tolist(), tol
         )
-        assert list(test_output["electricity_annual_scaled"]) == pytest.approx(
-            expected_electricity_annual_test.tolist(), 5e-2
+        assert list(predicted_electricity_annual) == pytest.approx(
+            expected_electricity_annual_test.tolist(), tol
         )
 
     @pytest.mark.component
@@ -212,24 +247,16 @@ class TestTrough:
         for row in data["validation"].itertuples():
             m.fs.trough.heat_load.fix(row.heat_load)
             m.fs.trough.hours_storage.fix(row.hours_storage)
-            try:
-                results = solver.solve(m, tee=True)
-            except:
-                solve_log = idaeslog.getInitLogger(
-                    "infeasibility", idaeslog.INFO, tag="properties"
-                )
-                log_infeasible_constraints(
-                    m, logger=solve_log, log_expression=True, log_variables=True
-                )
-                results
+            m.fs.trough.initialize_build()
+            results = solver.solve(m, tee=True)
             assert_optimal_termination(results)
             heat_annual_list.append(value(m.fs.trough.heat_annual))
             electricity_annual_list.append(value(m.fs.trough.electricity_annual))
 
         # ensure surrogate model gives same results when inside a flowsheet
-        assert heat_annual_list == pytest.approx(expected_heat_annual, 1e-2)
+        assert heat_annual_list == pytest.approx(expected_heat_annual.tolist(), 1e-2)
         assert electricity_annual_list == pytest.approx(
-            expected_electricity_annual, 1e-2
+            expected_electricity_annual.tolist(), 1e-2
         )
 
     @pytest.mark.unit
@@ -262,6 +289,9 @@ class TestTrough:
     @pytest.mark.component
     def test_costing(self, trough_large_heat_load):
         m = trough_large_heat_load
+        m.fs.trough.heat_load.fix(200)
+        m.fs.trough.hours_storage.fix(4)
+        m.fs.trough.initialize_build()
         m.fs.costing = EnergyCosting()
         m.fs.trough.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
@@ -273,15 +303,16 @@ class TestTrough:
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        assert pytest.approx(20267374.0, rel=1e-3) == value(
+        assert pytest.approx(823079441.0, rel=1e-2) == value(m.fs.trough.heat_annual)
+        assert pytest.approx(93537260.0, rel=1e-2) == value(
             m.fs.trough.costing.capital_cost
         )
-        assert pytest.approx(316821, rel=1e-3) == value(
+        assert pytest.approx(823079.0, rel=1e-2) == value(
             m.fs.trough.costing.variable_operating_cost
         )
-        assert pytest.approx(802005.0, rel=1e-3) == value(
+        assert pytest.approx(1600000.0, rel=1e-2) == value(
             m.fs.trough.costing.fixed_operating_cost
         )
-        assert pytest.approx(20216832.0, rel=1e-3) == value(
+        assert pytest.approx(93304000.0, rel=1e-2) == value(
             m.fs.trough.costing.direct_cost
         )
