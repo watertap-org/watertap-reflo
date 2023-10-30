@@ -239,7 +239,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
         init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
 
         if not check_optimal_termination(res):
-            raise InitializationError(f"Unit model {self.name} failed to initialize")
+            raise InitializationError(f"Unit model {blk.name} failed to initialize")
 
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
