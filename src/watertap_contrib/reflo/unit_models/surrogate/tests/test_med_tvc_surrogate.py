@@ -8,11 +8,11 @@ from pyomo.environ import (
 import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
+from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.seto.costing import REFLOCosting
+from watertap_contrib.reflo.costing import REFLOCosting
 from idaes.core.util.testing import initialization_tester
 from idaes.core.util.exceptions import ConfigurationError
 from watertap.core.util.initialization import assert_no_degrees_of_freedom

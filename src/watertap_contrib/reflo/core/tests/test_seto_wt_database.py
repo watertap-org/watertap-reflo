@@ -5,7 +5,7 @@ Tests for WaterTAP-REFLO database wrapper
 import pytest
 import os
 
-from watertap_contrib.seto.core.wt_reflo_database import REFLODatabase
+from watertap_contrib.reflo.core.wt_reflo_database import REFLODatabase
 
 
 @pytest.mark.unit

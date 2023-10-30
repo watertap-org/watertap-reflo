@@ -38,24 +38,24 @@ from watertap.costing.units.pump import cost_pump
 from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
 from watertap.costing.units.uv_aop import cost_uv_aop
 
-from watertap_contrib.seto.solar_models.zero_order import Photovoltaic
-from watertap_contrib.seto.costing.solar.photovoltaic import cost_pv
-from watertap_contrib.seto.solar_models.surrogate.trough import TroughSurrogate
-from watertap_contrib.seto.costing.solar.trough_surrogate import cost_trough_surrogate
-from watertap_contrib.seto.unit_models.surrogate import LTMEDSurrogate
-from watertap_contrib.seto.unit_models.surrogate import MEDTVCSurrogate
-from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogate
-from watertap_contrib.seto.costing.units.lt_med_surrogate import cost_lt_med_surrogate
-from watertap_contrib.seto.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
-from watertap_contrib.seto.costing.units.vagmd_surrogate import cost_vagmd_surrogate
-from watertap_contrib.seto.unit_models.zero_order.chemical_softening_zo import (
+from watertap_contrib.reflo.solar_models.zero_order import Photovoltaic
+from watertap_contrib.reflo.costing.solar.photovoltaic import cost_pv
+from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
+from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
+from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
+from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
+from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
+from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
+from watertap_contrib.reflo.costing.units.med_tvc_surrogate import cost_med_tvc_surrogate
+from watertap_contrib.reflo.costing.units.vagmd_surrogate import cost_vagmd_surrogate
+from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
     ChemicalSofteningZO,
 )
-from watertap_contrib.seto.costing.units.chemical_softening_zo import (
+from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
     cost_chem_softening,
 )
 
-from watertap_contrib.seto.core import PySAMWaterTAP
+from watertap_contrib.reflo.core import PySAMWaterTAP
 
 
 @declare_process_block_class("REFLOCosting")

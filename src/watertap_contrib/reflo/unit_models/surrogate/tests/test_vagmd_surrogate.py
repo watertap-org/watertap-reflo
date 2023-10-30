@@ -6,10 +6,10 @@ from pyomo.environ import (
     units as pyunits,
 )
 
-from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogate
+from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.seto.costing import TreatmentCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.testing import initialization_tester

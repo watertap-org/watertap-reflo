@@ -1,4 +1,4 @@
-import watertap_contrib.seto
+import watertap_contrib.reflo
 
 
 def test_dunder_version_module_attribute():

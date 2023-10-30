@@ -8,7 +8,7 @@ from pyomo.environ import (
 import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock
-from watertap_contrib.seto.unit_models.surrogate import VAGMDSurrogateBase
+from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogateBase
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock

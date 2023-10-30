@@ -13,7 +13,7 @@ from idaes.core.surrogate.sampling.data_utils import split_training_validation
 from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock
-from watertap_contrib.seto.solar_models.surrogate.trough.trough_surrogate import (
+from watertap_contrib.reflo.solar_models.surrogate.trough.trough_surrogate import (
     TroughSurrogateData,
 )
 
