@@ -54,6 +54,7 @@ __author__ = "Zhuoran Zhang"
 _log = idaeslog.getLogger(__name__)
 solver = get_solver()
 
+
 def get_variable_pairs(t1, t2):
     """
     This function returns paris of variables that need to be connected across two time periods
@@ -66,30 +67,36 @@ def get_variable_pairs(t1, t2):
     return [
         # Take MD feed properties from last step mixer
         (t1.fs.S2.MD_feed_state[0].temperature, t2.fs.vagmd.feed_props[0].temperature),
-
         (t1.fs.S2.MD_feed_state[0].pressure, t2.fs.vagmd.feed_props[0].pressure),
-
-        (t1.fs.S2.MD_feed_state[0].flow_mass_phase_comp["Liq","TDS"],
-         t2.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq","TDS"]),
-
-        (t1.fs.S2.MD_feed_state[0].flow_mass_phase_comp["Liq","H2O"],
-         t2.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq","H2O"]),
-
+        (
+            t1.fs.S2.MD_feed_state[0].flow_mass_phase_comp["Liq", "TDS"],
+            t2.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"],
+        ),
+        (
+            t1.fs.S2.MD_feed_state[0].flow_mass_phase_comp["Liq", "H2O"],
+            t2.fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "H2O"],
+        ),
         # Inherit mixer properties from last step
-        (t1.fs.S2.remained_liquid_state[0].temperature, t2.fs.M1.remained_liquid_state[0].temperature),
-
-        (t1.fs.S2.remained_liquid_state[0].pressure, t2.fs.M1.remained_liquid_state[0].pressure),
-
-        (t1.fs.S2.remained_liquid_state[0].flow_mass_phase_comp["Liq","TDS"],
-         t2.fs.M1.remained_liquid_state[0].flow_mass_phase_comp["Liq","TDS"]),
-         
-        (t1.fs.S2.remained_liquid_state[0].flow_mass_phase_comp["Liq","H2O"],
-         t2.fs.M1.remained_liquid_state[0].flow_mass_phase_comp["Liq","H2O"]),
-
+        (
+            t1.fs.S2.remained_liquid_state[0].temperature,
+            t2.fs.M1.remained_liquid_state[0].temperature,
+        ),
+        (
+            t1.fs.S2.remained_liquid_state[0].pressure,
+            t2.fs.M1.remained_liquid_state[0].pressure,
+        ),
+        (
+            t1.fs.S2.remained_liquid_state[0].flow_mass_phase_comp["Liq", "TDS"],
+            t2.fs.M1.remained_liquid_state[0].flow_mass_phase_comp["Liq", "TDS"],
+        ),
+        (
+            t1.fs.S2.remained_liquid_state[0].flow_mass_phase_comp["Liq", "H2O"],
+            t2.fs.M1.remained_liquid_state[0].flow_mass_phase_comp["Liq", "H2O"],
+        ),
         # Mixer volume
-        (t1.fs.volume_in_tank, t2.fs.volume_in_tank_previous)
+        (t1.fs.volume_in_tank, t2.fs.volume_in_tank_previous),
+    ]
 
-        ]
 
 def unfix_dof(m):
     """
@@ -113,6 +120,7 @@ def unfix_dof(m):
     m.fs.volume_in_tank_previous.unfix()
 
     return
+
 
 @declare_process_block_class("MEDVAGMDsemibatch")
 class MEDVAGMDsemibatchData(UnitModelBlockData):
@@ -167,20 +175,23 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         super().build()
 
         self.mp = self.create_multiperiod_ltmed_vagmd_model(
-                n_time_points= self.config.model_input["n_time_points"],
-                med_feed_salinity = self.config.model_input["med_feed_salinity"],
-                med_feed_temp     = self.config.model_input["med_feed_temp"],
-                med_steam_temp    = self.config.model_input["med_steam_temp"],
-                med_capacity      = self.config.model_input["med_capacity"],
-                med_recovry_ratio = self.config.model_input["med_recovry_ratio"],
-                md_feed_flow_rate = self.config.model_input["md_feed_flow_rate"],
-                dt = self.config.model_input["dt"],
-                batch_volume= self.config.model_input["batch_volume"],)
+            n_time_points=self.config.model_input["n_time_points"],
+            med_feed_salinity=self.config.model_input["med_feed_salinity"],
+            med_feed_temp=self.config.model_input["med_feed_temp"],
+            med_steam_temp=self.config.model_input["med_steam_temp"],
+            med_capacity=self.config.model_input["med_capacity"],
+            med_recovry_ratio=self.config.model_input["med_recovry_ratio"],
+            md_feed_flow_rate=self.config.model_input["md_feed_flow_rate"],
+            dt=self.config.model_input["dt"],
+            batch_volume=self.config.model_input["batch_volume"],
+        )
 
-        # Setup the stats of the first time period 
-        self.add_initial_constraints(batch_volume = self.config.model_input["batch_volume"],
-                                     md_feed_flow_rate=self.config.model_input["md_feed_flow_rate"],
-                                     dt = self.config.model_input["dt"],)
+        # Setup the stats of the first time period
+        self.add_initial_constraints(
+            batch_volume=self.config.model_input["batch_volume"],
+            md_feed_flow_rate=self.config.model_input["md_feed_flow_rate"],
+            dt=self.config.model_input["dt"],
+        )
 
         # Setup the refilling phase stats
         self.add_refilling_phase()
@@ -233,21 +244,20 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         # if iscale.get_scaling_factor(self.overall_elec_power_requirement) is None:
         #     iscale.set_scaling_factor(self.overall_elec_power_requirement, 1e-3)
 
-
     def create_multiperiod_ltmed_vagmd_model(
-            self,
-            n_time_points=2,
-            med_feed_salinity = 30,
-            med_feed_temp     = 25,
-            med_steam_temp    = 80,
-            med_capacity      = 1,
-            med_recovry_ratio = 0.5,
-            md_feed_flow_rate = 600,
-            dt = None,
-            batch_volume = 50,
-        ):
+        self,
+        n_time_points=2,
+        med_feed_salinity=30,
+        med_feed_temp=25,
+        med_steam_temp=80,
+        med_capacity=1,
+        med_recovry_ratio=0.5,
+        md_feed_flow_rate=600,
+        dt=None,
+        batch_volume=50,
+    ):
         """
-        This function creates a multi-period pv battery flowsheet object. This object contains 
+        This function creates a multi-period pv battery flowsheet object. This object contains
         a pyomo model with a block for each time instance.
         Args:
             n_time_points: Number of time blocks to create
@@ -263,17 +273,18 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             outlvl=logging.WARNING,
         )
 
-        processing_options = {"med_feed_salinity": med_feed_salinity, 
-                        "med_feed_temp": med_feed_temp,
-                        "med_steam_temp": med_steam_temp, 
-                        "med_capacity": med_capacity,
-                        "med_recovry_ratio": med_recovry_ratio,
-                        'md_feed_flow_rate': md_feed_flow_rate,
-                        'dt': dt,
-                        'batch_volume': batch_volume,
-                        'phase': 'processing',
-                        }
-        
+        processing_options = {
+            "med_feed_salinity": med_feed_salinity,
+            "med_feed_temp": med_feed_temp,
+            "med_steam_temp": med_steam_temp,
+            "med_capacity": med_capacity,
+            "med_recovry_ratio": med_recovry_ratio,
+            "md_feed_flow_rate": md_feed_flow_rate,
+            "dt": dt,
+            "batch_volume": batch_volume,
+            "phase": "processing",
+        }
+
         model_options = {t: processing_options for t in range(n_time_points)}
 
         # create the multiperiod object
@@ -282,7 +293,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             flowsheet_options=processing_options,
             initialization_options=None,
             unfix_dof_options=None,
-            )
+        )
 
         return mp
 
@@ -290,29 +301,35 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         """
         This function adds the refilling phase of the batch operation
         and initializes it
-        """    
-        self.dt_discharging_phase = Var(initialize = 60,
-                                      bounds = (0, None),
-                                      units = pyunits.s,
-                                      doc = 'Time interval of discharging the tank')
+        """
+        self.dt_discharging_phase = Var(
+            initialize=60,
+            bounds=(0, None),
+            units=pyunits.s,
+            doc="Time interval of discharging the tank",
+        )
 
-        self.dt_refilling_phase = Var(initialize = 120,
-                                      bounds = (None, None),
-                                      units = pyunits.s,
-                                      doc = 'Time interval of the refilling phase')
+        self.dt_refilling_phase = Var(
+            initialize=120,
+            bounds=(None, None),
+            units=pyunits.s,
+            doc="Time interval of the refilling phase",
+        )
 
         # Get the last period for refilling phase calculations
         first_blk = self.mp.get_active_process_blocks()[0]
         last_blk = self.mp.get_active_process_blocks()[-1]
-        @self.Constraint(doc = 'Calculate time interval of the refilling phase')
+
+        @self.Constraint(doc="Calculate time interval of the refilling phase")
         def eq_dt_refilling(b):
-            return ((first_blk.fs.med.brine_props[0].flow_vol_phase["Liq"]
-                    - first_blk.fs.vagmd.permeate_props[0].flow_vol_phase["Liq"])
-                    * b.dt_refilling_phase
-                    == pyunits.convert(self.config.model_input["batch_volume"] * pyunits.L,
-                                       to_units = pyunits.m**3)
-                       - last_blk.fs.volume_in_tank )
-        
+            return (
+                first_blk.fs.med.brine_props[0].flow_vol_phase["Liq"]
+                - first_blk.fs.vagmd.permeate_props[0].flow_vol_phase["Liq"]
+            ) * b.dt_refilling_phase == pyunits.convert(
+                self.config.model_input["batch_volume"] * pyunits.L,
+                to_units=pyunits.m**3,
+            ) - last_blk.fs.volume_in_tank
+
         return
 
     def add_initial_constraints(self, batch_volume, md_feed_flow_rate, dt):
@@ -335,18 +352,20 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
 
         blk.fs.M1.remained_liquid_state.calculate_state(
             var_args={
-                ("flow_vol_phase", "Liq"): 50/1000/dt,
-                ("conc_mass_phase_comp", ("Liq", "TDS")): 70 * pyunits.kg / pyunits.m**3,
-                ("temperature", None): 35+273.15,
+                ("flow_vol_phase", "Liq"): 50 / 1000 / dt,
+                ("conc_mass_phase_comp", ("Liq", "TDS")): 70
+                * pyunits.kg
+                / pyunits.m**3,
+                ("temperature", None): 35 + 273.15,
                 # feed flow is at atmospheric pressure
                 ("pressure", None): 101325,
             },
-            hold_state=True,  
+            hold_state=True,
         )
 
         blk.fs.volume_in_tank_previous.fix(0)
 
-        return 
+        return
 
     def get_model_performance(self):
         """
@@ -356,11 +375,17 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         blks = self.mp.get_active_process_blocks()
         n_time_points = len(blks)
 
-        recovery_ratio = (1 - blks[0].fs.med.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].value / 
-                            blks[-1].fs.vagmd.evaporator_out_props[0].conc_mass_phase_comp["Liq", "TDS"].value)
+        recovery_ratio = (
+            1
+            - blks[0].fs.med.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].value
+            / blks[-1]
+            .fs.vagmd.evaporator_out_props[0]
+            .conc_mass_phase_comp["Liq", "TDS"]
+            .value
+        )
 
         # Water production during one batch (processing phase + refilling phase)
-        # batch_water_production = 
+        # batch_water_production =
 
         overall_performance = {
             "Overall recovery ratio": recovery_ratio,
@@ -376,7 +401,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         }
 
         time_period = [i for i in range(n_time_points)]
-        
+
         t_minutes = []
         for t in time_period:
             if not t_minutes:
@@ -392,32 +417,29 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             value(blks[i].fs.vagmd.feed_props[0].temperature - 273.15)
             for i in range(n_time_points)
         ]
-        tank_volume = [
-            value(blks[i].fs.volume_in_tank)
-            for i in range(n_time_points)
-        ]
-        med_brine_temp =[
+        tank_volume = [value(blks[i].fs.volume_in_tank) for i in range(n_time_points)]
+        med_brine_temp = [
             value(blks[i].fs.med.brine_props[0].temperature - 273.15)
             for i in range(n_time_points)
         ]
-        md_brine_temp =[
+        md_brine_temp = [
             value(blks[i].fs.vagmd.evaporator_out_props[0].temperature - 273.15)
             for i in range(n_time_points)
         ]
 
         remained_flow_rate = [
-            value(blks[i].fs.M1.remained_liquid_state[0].flow_vol_phase["Liq"] )
+            value(blks[i].fs.M1.remained_liquid_state[0].flow_vol_phase["Liq"])
             for i in range(n_time_points)
         ]
-        remained_volume = [ remained_flow_rate[i] * 
-            value(blks[i].fs.dt * 1000)
+        remained_volume = [
+            remained_flow_rate[i] * value(blks[i].fs.dt * 1000)
             for i in range(n_time_points)
         ]
-        mixed_volume = [ value(blks[i].fs.M1.mixed_state[0].flow_vol_phase["Liq"] )
-                        * value(blks[i].fs.dt * 1000)
+        mixed_volume = [
+            value(blks[i].fs.M1.mixed_state[0].flow_vol_phase["Liq"])
+            * value(blks[i].fs.dt * 1000)
             for i in range(n_time_points)
         ]
-
 
         time_series = np.array(
             [
@@ -444,11 +466,12 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
                 "Feed temperature (C)",
                 "Tank volume",
                 "remained volume",
-                "mixed_volume"
+                "mixed_volume",
             ],
         )
 
         return overall_performance, data_table
+
 
 if __name__ == "__main__":
 
@@ -468,19 +491,20 @@ if __name__ == "__main__":
     m.fs.semibatch = VAGMDbatchSurrogate(model_input=model_input)
 
     mp = create_multiperiod_ltmed_vagmd_model(
-        n_time_points= 2,
-        med_feed_salinity = 35,
-        med_feed_temp     = 25,
-        med_steam_temp    = 80,
-        med_capacity      = 1,
-        med_recovry_ratio = 0.5,
-        md_feed_flow_rate = 600,
-        dt = 60,
-        batch_volume=50,)
-    
+        n_time_points=2,
+        med_feed_salinity=35,
+        med_feed_temp=25,
+        med_steam_temp=80,
+        med_capacity=1,
+        med_recovry_ratio=0.5,
+        md_feed_flow_rate=600,
+        dt=60,
+        batch_volume=50,
+    )
+
     # model_debug(mp)
 
-    # check_jac(mp)    
+    # check_jac(mp)
     results = solver.solve(mp)
     assert_optimal_termination(results)
 
@@ -491,4 +515,3 @@ if __name__ == "__main__":
     # print(blk.fs.S2.remained_liquid_state[0].flow_vol_phase["Liq"].value * 1000 * 3600)
     # print(blk.fs.M1.remained_liquid_state[0].flow_vol_phase["Liq"].value * 1000 * 3600)
     # print(blk.fs.vagmd.feed_props[0].flow_vol_phase["Liq"].value* 1000 * 3600)
-    

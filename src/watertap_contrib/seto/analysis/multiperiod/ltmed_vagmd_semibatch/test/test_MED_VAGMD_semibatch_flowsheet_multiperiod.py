@@ -78,7 +78,7 @@ class TestVAGMDbatch:
 
         print(data_table)
         print(overall_performance)
-        
+
         assert overall_performance["Overall recovery ratio"] == pytest.approx(
             0.713, abs=1e-3
         )
