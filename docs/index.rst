@@ -1,5 +1,5 @@
 .. index::
-   pair: watertap-seto;Home
+   pair: watertap-reflo;Home
 
 Welcome to WaterTAP-REFLO's documentation!
 ==========================================
