@@ -153,19 +153,21 @@ def build_med_md_flowsheet(
     return m
 
 
-def property_initial_value(mfs):
-    mfs.S1.overflow_state[0].conc_mass_phase_comp["Liq", "TDS"].value = 15
-    mfs.S1.overflow_state[0].flow_vol_phase["Liq"].value = 1
-    mfs.S1.separator_to_mixer_state[0].conc_mass_phase_comp["Liq", "TDS"].value = 15
-    mfs.S1.separator_to_mixer_state[0].flow_vol_phase["Liq"].value = 1
-    mfs.M1.mixed_state[0].conc_mass_phase_comp["Liq", "TDS"].value = 15
-    mfs.M1.mixed_state[0].flow_vol_phase["Liq"].value = 1
-    mfs.M1.MED_brine_state[0].flow_vol_phase["Liq"].value = 1
-    mfs.M1.MD_brine_state[0].flow_vol_phase["Liq"].value = 1
-    mfs.S2.remained_liquid_state[0].conc_mass_phase_comp["Liq", "TDS"].value = 15
-    mfs.S2.remained_liquid_state[0].flow_vol_phase["Liq"].value = 1
-    mfs.M1.remained_liquid_state[0].conc_mass_phase_comp["Liq", "TDS"].value = 15
-    mfs.M1.remained_liquid_state[0].flow_vol_phase["Liq"].value = 1
+def property_initial_value(mfs): # construct_properties
+    mfs.S1.overflow_state[0].conc_mass_phase_comp 
+    mfs.S1.overflow_state[0].flow_vol_phase
+    mfs.S1.separator_to_mixer_state[0].conc_mass_phase_comp
+    mfs.S1.separator_to_mixer_state[0].flow_vol_phase
+    mfs.M1.mixed_state[0].conc_mass_phase_comp
+    mfs.M1.mixed_state[0].flow_vol_phase
+    mfs.M1.MED_brine_state[0].flow_vol_phase
+    mfs.M1.MD_brine_state[0].flow_vol_phase
+    mfs.S2.remained_liquid_state[0].conc_mass_phase_comp
+    mfs.S2.remained_liquid_state[0].flow_vol_phase
+    mfs.M1.remained_liquid_state[0].conc_mass_phase_comp
+    mfs.M1.remained_liquid_state[0].flow_vol_phase
+
+
 
 
 def add_processing_phase_constraint(
