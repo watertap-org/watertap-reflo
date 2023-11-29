@@ -17,6 +17,7 @@ Air-water equilibrium property package
 import idaes.logger as idaeslog
 
 from enum import Enum, auto
+import itertools
 
 # Import Pyomo libraries
 from pyomo.environ import (
@@ -30,6 +31,7 @@ from pyomo.environ import (
     Param,
     exp,
     log,
+    log10,
     value,
     check_optimal_termination,
 )
@@ -71,12 +73,21 @@ from idaes.core.util.exceptions import (
     PropertyPackageError,
 )
 import idaes.core.util.scaling as iscale
-# from watertap.property_models.multicomp_aq_sol_prop_pack import DiffusivityCalculation
 
+# from watertap.property_models.multicomp_aq_sol_prop_pack import DiffusivityCalculation
+boltzmann = pyunits.convert(
+    Constants.boltzmann_constant,
+    to_units=(pyunits.g * pyunits.cm**2) / (pyunits.second**2 * pyunits.degK),
+)
 # Set up logger
 _log = idaeslog.getLogger(__name__)
 
 __author__ = "Kurban Sitterley"
+
+
+class MolarVolumeCalculation(Enum):
+    none = auto()
+    TynCalus = auto()
 
 
 class LiqDiffusivityCalculation(Enum):
@@ -94,6 +105,14 @@ class AirWaterEqData(PhysicalParameterBlock):
     CONFIG = PhysicalParameterBlock.CONFIG()
 
     CONFIG.declare(
+        "solute_list",
+        ConfigValue(
+            domain=list,
+            description="Required argument. List of strings that specify names of solute species.",
+        ),
+    )
+
+    CONFIG.declare(
         "mw_data",
         ConfigValue(
             default={},
@@ -106,9 +125,10 @@ class AirWaterEqData(PhysicalParameterBlock):
         ConfigValue(
             default={},
             domain=dict,
-            description="Dict of solute species names (keys) and bulk ion diffusivity data (values)",
+            description="Dict of phase, solute species names (keys) and bulk ion diffusivity data (values)",
         ),
     )
+
     CONFIG.declare(
         "molar_volume_data",
         ConfigValue(
@@ -117,31 +137,95 @@ class AirWaterEqData(PhysicalParameterBlock):
             description="Dict of solute species names and molar volume of aqueous species",
         ),
     )
+
     CONFIG.declare(
-        "solute_list",
+        "critical_molar_volume_data",
         ConfigValue(
-            domain=list,
-            description="Required argument.List of strings that specify names of solute species.",
+            default={},
+            domain=dict,
+            description="Dict of solute species names and critical molar volume of aqueous species. Used for Tyn-Calus method for calculating molar bolume",
         ),
     )
+
     CONFIG.declare(
-        "charge", ConfigValue(default={}, domain=dict, description="Ion charge")
+        "density_data",
+        ConfigValue(
+            default={
+                "Liq": 998.2,
+                "Vap": 1.204,
+            },  # default is for pure water and air at 20C
+            domain=dict,
+            description="Dict of phases and density of vapor and liquid phases",
+        ),
     )
+
     CONFIG.declare(
-        "henry_constant",
-        ConfigValue(default={}, domain=dict, description="Henry's Constant"),
+        "dynamic_viscosity_data",
+        ConfigValue(
+            default={
+                "Liq": 1e-3,
+                "Vap": 1.813e-5,
+            },  # default is for pure water and air at 20C
+            domain=dict,
+            description="Dict of phases and dynamic viscosity of vapor and liquid phases",
+        ),
+    )
+
+    CONFIG.declare(
+        "henry_constant_data",
+        ConfigValue(
+            default={},
+            domain=dict,
+            description="Dict of solute species names and Henry's Law Constant",
+        ),
+    )
+
+    CONFIG.declare(
+        "temp_adjust_henry",
+        ConfigValue(
+            default=False,
+            domain=bool,
+            description="Flag to indicate if provided Henry's Law Constant should be adjusted for temperature.",
+        ),
+    )
+
+    CONFIG.declare(
+        "standard_enthalpy_change_data",
+        ConfigValue(
+            default={},  # default is for pure water and air at 20C
+            domain=dict,
+            description="Dict of solute species names and standard enthalpy change of dissolution in water. Used to temperature adjust Henry's Law Constant.",
+        ),
+    )
+
+    CONFIG.declare(
+        "temperature_boiling_data",
+        ConfigValue(
+            default={},
+            domain=dict,
+            description="Dict of solute species names and boiling temperature data",
+        ),
+    )
+
+    CONFIG.declare(
+        "charge_data",
+        ConfigValue(
+            default={},
+            domain=dict,
+            description="Dict of solute species names and ion charge",
+        ),
     )
 
     CONFIG.declare(
         "liq_diffus_calculation",
         ConfigValue(
-            default=LiqDiffusivityCalculation.none,
+            default=LiqDiffusivityCalculation.HaydukLaudie,
             domain=In(LiqDiffusivityCalculation),
             description="Liquid diffusivity calculation flag",
             doc="""
            Options to account for ionic or molecular diffusivity.
 
-           **default** - ``LiqDiffusivityCalculation.none``
+           **default** - ``LiqDiffusivityCalculation.HaydukLaudie``
 
        .. csv-table::
            :header: "Configuration Options", "Description"
@@ -155,13 +239,13 @@ class AirWaterEqData(PhysicalParameterBlock):
     CONFIG.declare(
         "vap_diffus_calculation",
         ConfigValue(
-            default=VapDiffusivityCalculation.none,
+            default=VapDiffusivityCalculation.WilkeLee,
             domain=In(VapDiffusivityCalculation),
             description="Vapor diffusivity calculation flag",
             doc="""
            Options to account for ionic or molecular diffusivity.
 
-           **default** - ``VapDiffusivityCalculation.none``
+           **default** - ``VapDiffusivityCalculation.WilkeLee``
 
        .. csv-table::
            :header: "Configuration Options", "Description"
@@ -172,14 +256,32 @@ class AirWaterEqData(PhysicalParameterBlock):
         ),
     )
 
+    CONFIG.declare(
+        "molar_volume_calculation",
+        ConfigValue(
+            default=MolarVolumeCalculation.TynCalus,
+            domain=In(MolarVolumeCalculation),
+            description="Molar volume calculation flag",
+            doc="""
+           Options to estimate molar volume for a component.
+
+           **default** - ``MolarVolumeCalculation.TynCalus``
+
+       .. csv-table::
+           :header: "Configuration Options", "Description"
+
+           "``MolarVolumeCalculation.none``", "Users provide data via the molar_volume_data configuration"
+           "``MolarVolumeCalculation.TynCalus``", "Allow the component species to calculate molar volume from the Tyn-Calus equation"
+       """,
+        ),
+    )
+
     def build(self):
         super().build()
 
         self._state_block_class = AirWaterEqStateBlock
 
-        # Component
         self.H2O = Solvent(valid_phase_types=[PT.liquidPhase, PT.vaporPhase])
-        # self.Air = Solvent(valid_phase_types=[PT.vaporPhase])
 
         # Phases
         self.Liq = LiquidPhase()
@@ -187,192 +289,76 @@ class AirWaterEqData(PhysicalParameterBlock):
 
         # self.component_list = Set(dimen=1)
         self.solute_set = Set()
-        # self.H2O = Solvent()
 
         for j in self.config.solute_list:
             self.add_component(j, Solute())
 
-        self.visc_d_phase = Param(
-            self.phase_list,
-            mutable=True,
-            default=1e-3,
-            initialize=1e-3,
-            units=pyunits.Pa * pyunits.s,
-            doc="Fluid viscosity",
-        )
+        self.phase_solute_set = self.phase_list * self.solute_set
 
-        # Unit definitions
-        dens_units = pyunits.kg / pyunits.m**3
-        t_inv_units = pyunits.K**-1
+        self.vap_comps = self.solute_set | Set(initialize=["Air"])
+        self.vap_idx = list(itertools.product(["Vap"], self.vap_comps))
+        self.vap_set = Set(initialize=self.vap_idx, doc="Set for all solutes plus air")
 
-        # molecular weights of solute and solvent
         mw_dict = {"H2O": 18e-3, "Air": 29e-3}
         mw_dict.update(self.config.mw_data)
         self.mw_comp = Param(
-            self.component_list,
+            mw_dict.keys() | self.component_list,
             mutable=False,
             initialize=mw_dict,
             units=pyunits.kg / pyunits.mol,
             doc="Molecular weight kg/mol",
         )
 
-        self.molar_volume_phase_comp = Param(
-            ["Liq"],
+        self.dens_mass_phase = Var(
+            self.phase_list,
+            initialize=self.config.density_data,
+            units=pyunits.kg / pyunits.m**3,
+            doc="Mass density for each phase",
+        )
+
+        self.visc_d_phase = Var(
+            self.phase_list,
+            initialize=self.config.dynamic_viscosity_data,
+            units=pyunits.Pa * pyunits.s,
+            doc="Dynamic viscosity",
+        )
+
+        self.molar_volume_comp = Var(
             self.solute_set,
-            mutable=True,
-            default=1e-5,
             initialize=self.config.molar_volume_data,
+            units=pyunits.m**3 / pyunits.mol,
+            doc="Molar volume of solutes",
+        )
+
+        self.critical_molar_volume_comp = Var(
+            self.solute_set,
+            initialize=self.config.critical_molar_volume_data,
             units=pyunits.m**3 / pyunits.mol,
             doc="Molar volume of solutes",
         )
 
         self.henry_constant_comp = Var(
             self.solute_set,
-            initialize=self.config.henry_constant,
+            initialize=self.config.henry_constant_data,
             units=pyunits.dimensionless,
             doc="Henry's constant",
         )
 
-        # Mass density parameters for solvent in liquid phase, eq. 8 in Sharqawy et al. (2010)
-        self.dens_mass_param_A1 = Var(
-            within=Reals,
-            initialize=9.999e2,
-            units=dens_units,
-            doc="Mass density parameter A1",
-        )
-        self.dens_mass_param_A2 = Var(
-            within=Reals,
-            initialize=2.034e-2,
-            units=dens_units * t_inv_units,
-            doc="Mass density parameter A2",
-        )
-        self.dens_mass_param_A3 = Var(
-            within=Reals,
-            initialize=-6.162e-3,
-            units=dens_units * t_inv_units**2,
-            doc="Mass density parameter A3",
-        )
-        self.dens_mass_param_A4 = Var(
-            within=Reals,
-            initialize=2.261e-5,
-            units=dens_units * t_inv_units**3,
-            doc="Mass density parameter A4",
-        )
-        self.dens_mass_param_A5 = Var(
-            within=Reals,
-            initialize=-4.657e-8,
-            units=dens_units * t_inv_units**4,
-            doc="Mass density parameter A5",
-        )
+        if self.config.temp_adjust_henry:
 
-        if self.config.vap_diffus_calculation is VapDiffusivityCalculation.WilkeLee:
-
-            self.wilke_lee_param_A = Param(
-                within=Reals,
-                initialize=1.084,
-                units=pyunits.dimensionless,
-                doc="Wilke-Lee parameter A",
-            )
-
-            self.wilke_lee_param_B = Param(
-                initialize=-0.249,
-                units=pyunits.dimensionless,
-                doc="Wilke-Lee parameter B",
-            )
-
-            self.collision_molecular_separation_air = Param(
-                initialize=0.3711,
-                mutable=True,
-                units=pyunits.nanometer,
-                doc="Molecular separation at collision for air",  # r_B
-            )
-
-            self.collision_function_ee_param_A = Param(
-                # within=NonNegativeReals,
-                initialize=-0.14329,
-                units=pyunits.dimensionless,
-                doc="Collision function ee equation - A parameter", # ???
-            )
-
-            self.collision_function_ee_param_B = Param(
-                # within=NonNegativeReals,
-                initialize=-0.48343,
-                units=pyunits.dimensionless,
-                doc="Collision function ee equation - B parameter", # ???
-            )
-
-            self.collision_function_ee_param_C = Param(
-                # within=NonNegativeReals,
-                initialize=0.1939,
-                units=pyunits.dimensionless,
-                doc="Collision function ee equation - C parameter", # ???
-            )
-
-            self.collision_function_ee_param_D = Param(
-                # within=NonNegativeReals,
-                initialize=0.13612,
-                units=pyunits.dimensionless,
-                doc="Collision function ee equation - D parameter", # ???
-            )
-
-            self.collision_function_ee_param_E = Param(
-                # within=NonNegativeReals,
-                initialize=-0.20578,
-                units=pyunits.dimensionless,
-                doc="Collision function ee equation - E parameter", # ???
-            )
-
-            self.collision_function_ee_param_F = Param(
-                # within=NonNegativeReals,
-                initialize=0.083899,
-                units=pyunits.dimensionless,
-                doc="Collision function ee equation - F parameter", # ???
-            )
-
-            self.collision_function_ee_param_G = Param(
-                # within=NonNegativeReals,
-                initialize=-0.011491,
-                units=pyunits.dimensionless,
-                doc="Collision function ee equation - G parameter", # ???
-            )
-
-            self.collision_molecular_separation_comp = Var(
+            self.enth_change_dissolution_comp = Var(
                 self.solute_set,
-                within=NonNegativeReals,
-                initialize=0.1,
-                units=pyunits.nanometer,
-                doc="Molecular separation at collision for components",  # r_A
+                initialize=self.config.standard_enthalpy_change_data,
+                units=pyunits.joule / pyunits.mol,
+                doc="Standard enthalpy change of dissolution in water for compound",
             )
 
-            self.energy_molecular_attraction = Var(
-                self.solute_set,
-                within=NonNegativeReals,
-                initialize=1,
-                units=pyunits.erg,
-                doc="Energy of molecular attraction",
-            )
-
-            self.collision_function = Var(
-                # within=NonNegativeReals,
-                initialize=0.1,
-                units=pyunits.dimensionless,
-                doc="Collision function",
-            )
-
-            self.collision_function_zeta = Var(
-                # within=NonNegativeReals,
-                initialize=0.1,
-                units=pyunits.dimensionless,
-                doc="Collision function zeta",
-            )
-
-            self.collision_function_ee = Var(
-                # within=NonNegativeReals,
-                initialize=0.1,
-                units=pyunits.dimensionless,
-                doc="Collision function ee", # ???
-            )
-
+        self.temperature_boiling_comp = Var(
+            self.solute_set,
+            initialize=self.config.temperature_boiling_data,
+            units=pyunits.degK,
+            doc="Boiling point temperature",
+        )
 
         for v in self.component_objects(Var):
             v.fix()
@@ -410,9 +396,6 @@ class AirWaterEqData(PhysicalParameterBlock):
                 # "pressure_sat": {"method": "_pressure_sat"},
                 "conc_mass_phase_comp": {"method": "_conc_mass_phase_comp"},
                 "enth_mass_phase": {"method": "_enth_mass_phase"},
-                # "dh_crystallization_mass_comp": {
-                #     "method": "_dh_crystallization_mass_comp"
-                # },
                 "diffus_phase_comp": {"method": "_diffus_phase_comp"},
                 "flow_mol_phase_comp": {"method": "_flow_mol_phase_comp"},
                 "mole_frac_phase_comp": {"method": "_mole_frac_phase_comp"},
@@ -421,18 +404,41 @@ class AirWaterEqData(PhysicalParameterBlock):
 
         obj.define_custom_properties(
             {
-            "debye_huckel_constant": {"method": "_debye_huckel_constant"},
-            "ionic_strength_molal": {"method": "_ionic_strength_molal"},
-            "molar_volume_phase_comp": {"method": "_molar_volume_phase_comp"},
-        # "dens_mass_solvent": {"method": "_dens_mass_solvent"},
-        # "dens_mass_solute": {"method": "_dens_mass_solute"},
-        # "dh_vap_mass_solvent": {"method": "_dh_vap_mass_solvent"},
-        # "cp_mass_solvent": {"method": "_cp_mass_solvent"},
-        # "cp_mass_solute": {"method": "_cp_mass_solute"},
-        # "temperature_sat_solvent": {"method": "_temperature_sat_solvent"},
-        # "enth_mass_solvent": {"method": "_enth_mass_solvent"},
-        # "enth_mass_solute": {"method": "_enth_mass_solute"},
-        # "enth_flow": {"method": "_enth_flow"},
+                "mw_comp": {"method": "_mw_comp"},
+                "visc_d_phase": {"method": "_visc_d_phase"},
+                "debye_huckel_constant": {"method": "_debye_huckel_constant"},
+                "ionic_strength_molal": {"method": "_ionic_strength_molal"},
+                "molar_volume_comp": {"method": "_molar_volume_comp"},
+                "critical_molar_volume_comp": {"method": "_critical_molar_volume_comp"},
+                "energy_molecular_attraction_phase_comp": {
+                    "method": "_energy_molecular_attraction_phase_comp"
+                },
+                "energy_molecular_attraction": {
+                    "method": "_energy_molecular_attraction"
+                },
+                "collision_molecular_separation_phase_comp": {
+                    "method": "_collision_molecular_separation_phase_comp"
+                },
+                "collision_molecular_separation": {
+                    "method": "_collision_molecular_separation"
+                },
+                "temperature_boiling_comp": {"method": "_temperature_boiling_comp"},
+                "henry_constant_comp": {"method": "_henry_constant_comp"},
+                "collision_function_comp": {"method": "_collision_function_comp"},
+                "collision_function_zeta_comp": {
+                    "method": "_collision_function_zeta_comp"
+                },
+                "collision_function_ee_comp": {"method": "_collision_function_ee_comp"},
+                "enth_change_dissolution_comp": {
+                    "method": "_enth_change_dissolution_comp"
+                },
+                # "dh_vap_mass_solvent": {"method": "_dh_vap_mass_solvent"},
+                # "cp_mass_solvent": {"method": "_cp_mass_solvent"},
+                # "cp_mass_solute": {"method": "_cp_mass_solute"},
+                # "temperature_sat_solvent": {"method": "_temperature_sat_solvent"},
+                # "enth_mass_solvent": {"method": "_enth_mass_solvent"},
+                # "enth_mass_solute": {"method": "_enth_mass_solute"},
+                # "enth_flow": {"method": "_enth_flow"},
             }
         )
 
@@ -738,162 +744,146 @@ class AirWaterEqStateBlockData(StateBlockData):
             self.phase_component_set, rule=rule_mass_frac_phase_comp
         )
 
-    # 4. Density of solvent (pure water in liquid and vapour phases)
-    def _dens_mass_solvent(self):
-        self.dens_mass_solvent = Var(
-            ["Liq", "Vap"],
-            initialize=1e3,
-            bounds=(1e-4, 1e4),
-            units=pyunits.kg * pyunits.m**-3,
-            doc="Mass density of pure water",
-        )
-
-        def rule_dens_mass_solvent(b, p):
-            if p == "Liq":  # density, eq. 8 in Sharqawy
-                t = b.temperature - 273.15 * pyunits.K
-                dens_mass_w = (
-                    b.params.dens_mass_param_A1
-                    + b.params.dens_mass_param_A2 * t
-                    + b.params.dens_mass_param_A3 * t**2
-                    + b.params.dens_mass_param_A4 * t**3
-                    + b.params.dens_mass_param_A5 * t**4
-                )
-                return b.dens_mass_solvent[p] == dens_mass_w
-            elif p == "Vap":
-                return b.dens_mass_solvent[p] == (
-                    b.params.mw_comp["H2O"] * b.pressure
-                ) / (Constants.gas_constant * b.temperature)
-
-        self.eq_dens_mass_solvent = Constraint(
-            ["Liq", "Vap"], rule=rule_dens_mass_solvent
-        )
-
     def _diffus_phase_comp(self):
-        # Retrieve component string names from diffusivity_data configuration
-        diffus_data_indices = {i[1] for i in self.params.config.diffusivity_data.keys()}
-        # Retrieve component string names from molar_volume_data configuration
-        molar_volume_data_indices = {
-            i[1] for i in self.params.config.molar_volume_data.keys()
-        }
-        missing_diffus_ind = [
-            i
-            for i in self.params.solute_set
-            if i not in (molar_volume_data_indices | diffus_data_indices)
-        ]
 
-        if self.params.config.diffus_calculation == LiqDiffusivityCalculation.HaydukLaudie:
-            # warning for components with neither diffusivity_data nor molar_volume_data entry
-            if not missing_diffus_ind == []:
-                _log.warning(
-                    f"Neither diffusivity_data nor molar_volume_data was provided for {missing_diffus_ind}; "
-                    "there will be no diffus_phase_comp properties for these components."
-                )
-            common_ind = [
-                i for i in molar_volume_data_indices if i in diffus_data_indices
-            ]
-            if not common_ind == []:
-                # warning for components whose diffusivity_data will be overwritten by the HaydukLaudie method.
-                _log.warning(
-                    f"Both diffusivity_data and molar_volume_data were provided for {common_ind}; "
-                    f"since the the HaydukLaudie method was selected, the diffus_phase_comp property of these components will "
-                    f"be calculated based on their molar_volume_data and overwritten."
-                )
-            self.diffus_phase_comp = Var(
-                self.params.phase_list,
-                molar_volume_data_indices | diffus_data_indices,
-                initialize=1e-9,
-                units=pyunits.m**2 * pyunits.s**-1,
-                doc="Mass diffusivity of solute components",
-            )
-            self.hl_diffus_cont = Param(
-                mutable=True,
-                default=13.26e-9,
-                initialize=13.26e-9,
-                units=pyunits.dimensionless,
-                doc="Hayduk-Laudie correlation constant",
-            )
-            self.hl_visc_coeff = Param(
-                mutable=True,
-                default=1.14,
-                initialize=1.14,
-                units=pyunits.dimensionless,
-                doc="Hayduk-Laudie viscosity coefficient",
-            )
-            self.hl_molar_volume_coeff = Param(
-                mutable=True,
-                default=0.589,
-                initialize=0.589,
-                units=pyunits.dimensionless,
-                doc="Hayduk-Laudie molar volume coefficient",
-            )
-
-            def rule_diffus_phase_comp(b, p, j):
-                if p == "Liq": 
-                    if (
-                        self.params.config.liq_diffus_calculation
-                        == LiqDiffusivityCalculation.HaydukLaudie
-                    ):
-                        if j not in molar_volume_data_indices:
-                            b.diffus_phase_comp[p, j].fix(
-                                self.params.config.diffusivity_data[p, j]
-                            )
-                            return Constraint.Skip
-                        else:
-                            diffus_coeff_inv_units = pyunits.s * pyunits.m**-2
-                            visc_solvent_inv_units = pyunits.cP**-1
-                            molar_volume_inv_units = pyunits.mol * pyunits.cm**-3
-                            return (b.diffus_phase_comp[p, j] * diffus_coeff_inv_units) * (
-                                (
-                                    pyunits.convert(b.visc_d_phase[p], to_units=pyunits.cP)
-                                    * visc_solvent_inv_units
-                                )
-                                ** b.hl_visc_coeff
-                            ) * (
-                                (
-                                    pyunits.convert(
-                                        b.molar_volume_phase_comp[p, j],
-                                        to_units=pyunits.cm**3 * pyunits.mol**-1,
-                                    )
-                                    * molar_volume_inv_units
-                                )
-                                ** b.hl_molar_volume_coeff
-                            ) == b.hl_diffus_cont
-                    if p == "Vap":
-                        if self.params.config.vap_diffus_calculation == VapDiffusivityCalculation.WilkeLee:
-                            pass
-
-            
-
-            self.eq_diffus_phase_comp = Constraint(
-                self.params.phase_list,
-                molar_volume_data_indices | diffus_data_indices,
-                rule=rule_diffus_phase_comp,
-            )
-
-        elif self.params.config.diffus_calculation == LiqDiffusivityCalculation.none:
-            # warning for components with no diffusivity_data entry
-            if not missing_diffus_ind == []:
-                _log.warning(
-                    f"Diffusivity data was not provided for {missing_diffus_ind}. "
-                )
-
-            add_object_reference(
-                self, "diffus_phase_comp", self.params.diffus_phase_comp
-            )
-
-    def _dens_mass_phase(self):
-        self.dens_mass_phase = Var(
-            self.phase_list,
-            initialize=1e3,
-            bounds=(5e2, 1e4),
-            units=pyunits.kg * pyunits.m**-3,
-            doc="Mass density",
+        self.diffus_phase_comp = Var(
+            self.params.phase_solute_set,
+            initialize=1e-9,
+            units=pyunits.m**2 * pyunits.s**-1,
+            doc="Mass diffusivity of solute components in liquid and vapor",
+        )
+        self.hl_diffus_cont = Param(
+            mutable=True,
+            default=13.26e-9,
+            initialize=13.26e-9,
+            units=pyunits.dimensionless,
+            doc="Hayduk-Laudie correlation constant",
+        )
+        self.hl_visc_coeff = Param(
+            mutable=True,
+            default=1.14,
+            initialize=1.14,
+            units=pyunits.dimensionless,
+            doc="Hayduk-Laudie viscosity coefficient",
+        )
+        self.hl_molar_volume_coeff = Param(
+            mutable=True,
+            default=0.589,
+            initialize=0.589,
+            units=pyunits.dimensionless,
+            doc="Hayduk-Laudie molar volume coefficient",
         )
 
-        def rule_dens_mass_phase(b, p):  # density, eq. 6 of Laliberte paper
-            return b.dens_mass_phase[p] == 1
+        self.wilke_lee_param_A = Param(
+            within=Reals,
+            initialize=1.084,
+            units=pyunits.cm**2 * pyunits.degK**-1.5,
+            doc="Wilke-Lee parameter A",
+        )
 
-        self.eq_dens_mass_phase = Constraint(rule=rule_dens_mass_phase)
+        self.wilke_lee_param_B = Param(
+            initialize=0.249,
+            units=pyunits.cm**2 * pyunits.degK**-1.5,
+            doc="Wilke-Lee parameter B",
+        )
+        #  if (
+        #             self.params.config.vap_diffus_calculation
+        #             == VapDiffusivityCalculation.WilkeLee
+        #         ):
+        def rule_diffus_phase_comp(b, p, j):
+            diffus_coeff_inv_units = pyunits.s * pyunits.m**-2
+            visc_solvent_inv_units = pyunits.cP**-1
+            molar_volume_inv_units = pyunits.mol * pyunits.cm**-3
+            mw_air = pyunits.convert(b.mw_comp["Air"], to_units=pyunits.g / pyunits.mol)
+            mw_j = pyunits.convert(b.mw_comp[j], to_units=pyunits.g / pyunits.mol)
+            wilke_lee_denom_units = (
+                pyunits.s**3 * pyunits.m * pyunits.kg**-1 * pyunits.nm**-2
+            )
+            if p == "Liq":
+                if (
+                    b.params.config.liq_diffus_calculation
+                    == LiqDiffusivityCalculation.HaydukLaudie
+                ):
+                    return (b.diffus_phase_comp[p, j] * diffus_coeff_inv_units) * (
+                        (
+                            pyunits.convert(b.visc_d_phase[p], to_units=pyunits.cP)
+                            * visc_solvent_inv_units
+                        )
+                        ** b.hl_visc_coeff
+                    ) * (
+                        (
+                            pyunits.convert(
+                                b.molar_volume_comp[j],
+                                to_units=pyunits.cm**3 * pyunits.mol**-1,
+                            )
+                            * molar_volume_inv_units
+                        )
+                        ** b.hl_molar_volume_coeff
+                    ) == b.hl_diffus_cont
+                elif (
+                    b.params.config.liq_diffus_calculation
+                    == LiqDiffusivityCalculation.none
+                ):
+                    if (p, j) not in self.params.config.diffusivity_data.keys():
+                        raise ConfigurationError(
+                            f"\nThere is no {p} diffusivity provided for {j} in configuration argument 'diffusivity_data' for {b.config.parameters.name}.\n"
+                            "Please provide that data or use LiqDiffusivityCalculation.HaydukLaudie configuration."
+                        )
+                    self.diffus_phase_comp[p, j].fix(
+                        self.params.config.diffusivity_data[p, j]
+                    )
+                    return Constraint.Skip
+            if p == "Vap":
+                if (
+                    self.params.config.vap_diffus_calculation
+                    == VapDiffusivityCalculation.WilkeLee
+                ):
+
+                    sqrt_term = (1 / mw_j + 1 / mw_air) ** 0.5 * (
+                        pyunits.g / pyunits.mol
+                    ) ** 0.5  # units = dimensionless
+                    numerator = (
+                        (b.wilke_lee_param_A - b.wilke_lee_param_B * sqrt_term)
+                        * (b.temperature[p] ** 1.5)
+                        * sqrt_term
+                    )  # units = cm2
+                    denominator = (
+                        b.pressure
+                        * (b.collision_molecular_separation[j]) ** 2
+                        * b.collision_function_comp[j]
+                    ) * wilke_lee_denom_units  # units = s
+                    diffusivity_cm2_s = numerator / denominator
+                    # return (
+                    #     b.diffus_phase_comp[p, j] * diffus_coeff_inv_units
+                    # ) == numerator / denominator
+                    # return b.diffus_phase_comp[p, j] == pyunits.convert(diffusivity_cm2_s, to_units=pyunits.m**2/pyunits.s)
+                    return b.diffus_phase_comp[p, j] == pyunits.convert(
+                        numerator / denominator, to_units=pyunits.m**2 / pyunits.s
+                    )
+                elif (
+                    b.params.config.vap_diffus_calculation
+                    == VapDiffusivityCalculation.none
+                ):
+                    if (p, j) not in self.params.config.diffusivity_data.keys():
+                        raise ConfigurationError(
+                            f"\nThere is no {p} diffusivity provided for {j} in configuration argument 'diffusivity_data' for {b.config.parameters.name}.\n"
+                            "Please provide that data or use VapDiffusivityCalculation.WilkeLee configuration."
+                        )
+                    self.diffus_phase_comp[p, j].fix(
+                        self.params.config.diffusivity_data[p, j]
+                    )
+                    return Constraint.Skip
+
+        self.eq_diffus_phase_comp = Constraint(
+            self.params.phase_solute_set,
+            rule=rule_diffus_phase_comp,
+        )
+
+        # elif (
+        #     self.params.config.liq_diffus_calculation == LiqDiffusivityCalculation.none
+        # ):
+
+        #     self.diffus_phase_comp["Liq"].fix(self.params.config.diffusivity_data["Liq"])
 
     def _flow_vol_phase(self):
         self.flow_vol_phase = Var(
@@ -923,7 +913,7 @@ class AirWaterEqStateBlockData(StateBlockData):
                         for j in self.params.component_list
                         if (p, j) in self.phase_component_set
                     )
-                    / b.dens_mass_solvent["Vap"]
+                    / b.dens_mass_phase["Vap"]
                 )
 
         self.eq_flow_vol_phase = Constraint(
@@ -1041,7 +1031,6 @@ class AirWaterEqStateBlockData(StateBlockData):
             self.params.component_list, rule=rule_conc_mass_phase_comp
         )
 
-    # 16. Specific enthalpy of solvent (pure water in liquid and vapour phases)
     def _enth_mass_solvent(self):
         self.enth_mass_solvent = Var(
             ["Liq", "Vap"],
@@ -1052,7 +1041,7 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
         def rule_enth_mass_solvent(b, p):
-            t = b.temperature - 273.15 * pyunits.K
+            t = b.temperature[p] - 273.15 * pyunits.K
             h_w = (
                 b.params.enth_mass_solvent_param_A1
                 + b.params.enth_mass_solvent_param_A2 * t
@@ -1075,72 +1064,6 @@ class AirWaterEqStateBlockData(StateBlockData):
             ["Liq", "Vap"], rule=rule_enth_mass_solvent
         )
 
-    # 17. Specific enthalpy of NaCl solution
-    def _enth_mass_phase(self):
-        self.enth_mass_phase = Var(
-            ["Liq"],
-            initialize=500,
-            bounds=(1, 1000),
-            units=pyunits.kJ * pyunits.kg**-1,
-            doc="Specific enthalpy of NaCl solution",
-        )
-
-        def rule_enth_mass_phase(
-            b,
-        ):  # specific enthalpy calculation based on Sparrow (2003).
-            t = (
-                b.temperature - 273.15 * pyunits.K
-            )  # temperature in degC, but pyunits in K
-            S = b.mass_frac_phase_comp["Liq", "NaCl"]
-
-            enth_a = (
-                b.params.enth_phase_param_A1
-                + (b.params.enth_phase_param_A2 * S)
-                + (b.params.enth_phase_param_A3 * S**2)
-                + (b.params.enth_phase_param_A4 * S**3)
-                + (b.params.enth_phase_param_A5 * S**4)
-            )
-
-            enth_b = (
-                b.params.enth_phase_param_B1
-                + (b.params.enth_phase_param_B2 * S)
-                + (b.params.enth_phase_param_B3 * S**2)
-                + (b.params.enth_phase_param_B4 * S**3)
-                + (b.params.enth_phase_param_B5 * S**4)
-            )
-
-            enth_c = (
-                b.params.enth_phase_param_C1
-                + (b.params.enth_phase_param_C2 * S)
-                + (b.params.enth_phase_param_C3 * S**2)
-                + (b.params.enth_phase_param_C4 * S**3)
-                + (b.params.enth_phase_param_C5 * S**4)
-            )
-
-            enth_d = (
-                b.params.enth_phase_param_D1
-                + (b.params.enth_phase_param_D2 * S)
-                + (b.params.enth_phase_param_D3 * S**2)
-                + (b.params.enth_phase_param_D4 * S**3)
-                + (b.params.enth_phase_param_D5 * S**4)
-            )
-
-            enth_e = (
-                b.params.enth_phase_param_E1
-                + (b.params.enth_phase_param_E2 * S)
-                + (b.params.enth_phase_param_E3 * S**2)
-                + (b.params.enth_phase_param_E4 * S**3)
-                + (b.params.enth_phase_param_E5 * S**4)
-            )
-
-            return b.enth_mass_phase["Liq"] == enth_a + (enth_b * t) + (
-                enth_c * t**2
-            ) + (enth_d * t**3) + (enth_e * t**4)
-
-        self.eq_enth_mass_phase = Constraint(rule=rule_enth_mass_phase)
-
-    # 20. Total enthalpy flow for any stream: adds up the enthalpies for the solid, liquid and vapour phases
-    # Assumes no NaCl is vapour stream or water in crystals
     def _enth_flow(self):
         # enthalpy flow expression for get_enthalpy_flow_terms method
 
@@ -1154,7 +1077,6 @@ class AirWaterEqStateBlockData(StateBlockData):
 
         self.enth_flow = Expression(rule=rule_enth_flow)
 
-    # 21. Molar flows
     def _flow_mol_phase_comp(self):
         self.flow_mol_phase_comp = Var(
             self.phase_component_set,
@@ -1175,7 +1097,6 @@ class AirWaterEqStateBlockData(StateBlockData):
             self.phase_component_set, rule=rule_flow_mol_phase_comp
         )
 
-    # 22. Mole fractions
     def _mole_frac_phase_comp(self):
         self.mole_frac_phase_comp = Var(
             self.phase_component_set,
@@ -1202,12 +1123,348 @@ class AirWaterEqStateBlockData(StateBlockData):
             self.phase_component_set, rule=rule_mole_frac_phase_comp
         )
 
-    # -----------------------------------------------------------------------------
-    # Boilerplate Methods
-    def _molar_volume_phase_comp(self):
-        add_object_reference(
-            self, "molar_volume_phase_comp", self.params.molar_volume_phase_comp
+    def _energy_molecular_attraction_phase_comp(self):
+
+        self.energy_molecular_attraction_comp_param = Param(
+            initialize=1.21,
+            units=pyunits.dimensionless,
+            doc="Energy of molecular attraction equation parameter for non-air component",
         )
+
+        self.energy_molecular_attraction_air_param = Param(
+            initialize=78.6,
+            units=pyunits.degK,
+            doc="Energy of molecular attraction equation parameter for air",
+        )
+
+        self.energy_molecular_attraction_phase_comp = Var(
+            self.params.vap_set,
+            within=NonNegativeReals,
+            initialize=1,
+            units=pyunits.erg,
+            doc="Energy of molecular attraction for individual components",
+        )
+
+        # self.energy_molecular_attraction = Var(
+        #     ["Air"],
+        #     self.params.solute_set,
+        #     within=NonNegativeReals,
+        #     initialize=1,
+        #     units=pyunits.erg,
+        #     doc="Energy of molecular attraction between air and components",
+        # )
+
+        def rule_energy_molecular_attraction_phase_comp(b, p, j):
+            # boltzmann_units = pyunits.degK / pyunits.joule
+            # k = pyunits.convert(
+            #     Constants.boltzmann_constant,
+            #     to_units=(pyunits.g * pyunits.cm**2)
+            #     / (pyunits.second**2 * pyunits.degK),
+            # )
+            # k = Constants.boltzmann_constant
+            if j == "Air":
+                return b.energy_molecular_attraction_phase_comp[
+                    p, j
+                ] == pyunits.convert(
+                    boltzmann * b.energy_molecular_attraction_air_param,
+                    to_units=pyunits.erg,
+                )
+            else:
+                return b.energy_molecular_attraction_phase_comp[
+                    p, j
+                ] == pyunits.convert(
+                    boltzmann
+                    * b.energy_molecular_attraction_comp_param
+                    * b.temperature_boiling_comp[j],
+                    to_units=pyunits.erg,
+                )
+
+        self.eq_energy_molecular_attraction_phase_comp = Constraint(
+            self.params.vap_set, rule=rule_energy_molecular_attraction_phase_comp
+        )
+
+    def _energy_molecular_attraction(self):
+        def rule_energy_molecular_attraction(b, a, j):
+            # k = Constants.boltzmann_constant
+            return pyunits.convert(
+                boltzmann
+                * (
+                    b.energy_molecular_attraction_phase_comp["Vap", j]
+                    / boltzmann
+                    * b.energy_molecular_attraction_phase_comp["Vap", "Air"]
+                    / boltzmann
+                )
+                ** 0.5,
+                to_units=pyunits.erg,
+            )
+
+        self.energy_molecular_attraction = Expression(
+            ["Air"], self.params.solute_set, rule=rule_energy_molecular_attraction
+        )
+
+    def _collision_molecular_separation_phase_comp(self):
+
+        self.collision_molecular_separation_param = Param(
+            initialize=1.18,
+            units=(pyunits.nm * pyunits.mol)
+            / (pyunits.liter)
+            * (pyunits.mol ** (1 / 3)),
+            doc="Molecular separation at collision parameter",
+        )
+        self.collision_molecular_separation_exp = Param(
+            initialize=1 / 3,
+            units=pyunits.dimensionless,
+            doc="Molecular separation at collision exponent",
+        )
+
+        self.collision_molecular_separation_phase_comp = Var(
+            self.params.vap_set,
+            within=NonNegativeReals,
+            initialize=0.3711,  # default value is for Air
+            units=pyunits.nanometer,
+            doc="Molecular separation at collision for components",
+        )
+
+        def rule_collision_molecular_separation_phase_comp(b, p, j):
+            if j == "Air":
+                cms_air = 0.3711 * pyunits.nanometer
+                return b.collision_molecular_separation_phase_comp[p, j] == cms_air
+            else:
+                molar_vol = pyunits.convert(
+                    b.molar_volume_comp[j],
+                    to_units=pyunits.liter / pyunits.mol,
+                )
+                return b.collision_molecular_separation_phase_comp[
+                    p, j
+                ] == b.collision_molecular_separation_param * molar_vol ** (
+                    b.collision_molecular_separation_exp
+                )
+
+        self.eq_collision_molecular_separation_phase_comp = Constraint(
+            self.params.vap_set, rule=rule_collision_molecular_separation_phase_comp
+        )
+
+    def _collision_molecular_separation(self):
+        def rule_collision_molecular_separation(b, j):
+            return 0.5 * (
+                b.collision_molecular_separation_phase_comp["Vap", j]
+                + b.collision_molecular_separation_phase_comp["Vap", "Air"]
+            )
+
+        self.collision_molecular_separation = Expression(
+            self.params.solute_set, rule=rule_collision_molecular_separation
+        )
+
+    def _collision_function_comp(self):
+
+        self.collision_function_comp = Var(
+            self.params.solute_set,
+            initialize=0.1,
+            units=pyunits.dimensionless,
+            doc="Collision function",
+        )
+
+        def rule_collision_function_comp(b, j):
+            return b.collision_function_comp[j] == 10 ** (
+                b.collision_function_zeta_comp[j]
+            )
+
+        self.eq_collision_function_comp = Constraint(
+            self.params.solute_set, rule=rule_collision_function_comp
+        )
+
+    def _collision_function_zeta_comp(self):
+
+        self.collision_function_zeta_param_A = a = Param(
+            initialize=-0.14329,
+            units=pyunits.dimensionless,
+            doc="Collision function zeta equation - A parameter",
+        )
+
+        self.collision_function_zeta_param_B = b_ = Param(
+            initialize=-0.48343,
+            units=pyunits.dimensionless,
+            doc="Collision function zeta equation - B parameter",
+        )
+
+        self.collision_function_zeta_param_C = c = Param(
+            initialize=0.1939,
+            units=pyunits.dimensionless,
+            doc="Collision function zeta equation - C parameter",
+        )
+
+        self.collision_function_zeta_param_D = d = Param(
+            initialize=0.13612,
+            units=pyunits.dimensionless,
+            doc="Collision function zeta equation - D parameter",
+        )
+
+        self.collision_function_zeta_param_E = e = Param(
+            initialize=-0.20578,
+            units=pyunits.dimensionless,
+            doc="Collision function zeta equation - E parameter",
+        )
+
+        self.collision_function_zeta_param_F = f = Param(
+            initialize=0.083899,
+            units=pyunits.dimensionless,
+            doc="Collision function zeta equation - F parameter",
+        )
+
+        self.collision_function_zeta_param_G = g = Param(
+            initialize=-0.011491,
+            units=pyunits.dimensionless,
+            doc="Collision function zeta equation - G parameter",
+        )
+
+        self.collision_function_zeta_comp = Var(
+            self.params.solute_set,
+            initialize=0.1,
+            units=pyunits.dimensionless,
+            doc="Collision function zeta",
+        )
+
+        def rule_collision_function_zeta_comp(b, j):
+            ee = b.collision_function_ee_comp[j]
+            return b.collision_function_zeta_comp[j] == (
+                a
+                + b_ * ee
+                + c * ee**2
+                + d * ee**3
+                + e * ee**4
+                + f * ee**5
+                + g * ee**6
+            )
+
+        self.eq_collision_function_zeta_comp = Constraint(
+            self.params.solute_set, rule=rule_collision_function_zeta_comp
+        )
+
+    def _collision_function_ee_comp(self):
+
+        self.collision_function_ee_comp = Var(
+            self.params.solute_set,
+            initialize=0.1,
+            units=pyunits.dimensionless,
+            doc="Collision function ee",
+        )
+
+        def rule_collision_function_ee_comp(b, j):
+            # k = Constants.boltzmann_constant
+            t = b.temperature["Vap"]
+            return b.collision_function_ee_comp[j] == log10(
+                (boltzmann * t) / b.energy_molecular_attraction["Air", j]
+            )
+
+        self.eq_collision_function_ee_comp = Constraint(
+            self.params.solute_set, rule=rule_collision_function_ee_comp
+        )
+
+    def _temperature_boiling_comp(self):
+        add_object_reference(
+            self, "temperature_boiling_comp", self.params.temperature_boiling_comp
+        )
+
+    def _molar_volume_comp(self):
+
+        if (
+            self.params.config.molar_volume_calculation
+            == MolarVolumeCalculation.TynCalus
+        ):
+            self.molar_volume_comp = Var(
+                self.params.solute_set,
+                initialize=self.params.config.molar_volume_data,
+                units=pyunits.m**3 / pyunits.mol,
+                doc="Molar volume of solutes",
+            )
+
+            self.tyn_calus_param = Param(
+                initialize=0.285,
+                units=pyunits.dimensionless,
+                doc="Tyn-Calus equation parameter",
+            )
+
+            self.tyn_calus_exponent = Param(
+                initialize=1.048,
+                units=pyunits.dimensionless,
+                doc="Tyn-Calus equation exponent",
+            )
+
+            def rule_molar_volume_comp(b, j):
+                return (
+                    b.molar_volume_comp[j]
+                    == b.tyn_calus_param
+                    * b.critical_molar_volume_comp[j] ** b.tyn_calus_exponent
+                )
+
+            self.eq_molar_volume_comp = Constraint(
+                self.params.solute_set, rule=rule_molar_volume_comp
+            )
+
+        else:
+            add_object_reference(
+                self, "molar_volume_comp", self.params.molar_volume_comp
+            )
+
+    def _henry_constant_comp(self):
+        if self.params.config.temp_adjust_henry:
+
+            add_object_reference(
+                self, "henry_constant_std_comp", self.params.henry_constant_comp
+            )  # assume the data provided to config.henry_constant_comp is @20C
+
+            self.henry_constant_comp = Var(
+                self.params.solute_set,
+                initialize=self.params.config.henry_constant_data,
+                units=pyunits.dimensionless,
+                doc="Temperature adjusted dimensionless Henry's constant",
+            )
+
+            def rule_henry_constant_comp(b, j, doc="van't Hoff equation"):
+                t0 = 298 * pyunits.degK
+                exponential_term = pyunits.convert(
+                    (-b.enth_change_dissolution_comp[j] / Constants.gas_constant)
+                    * (1 / b.temperature["Liq"] - 1 / t0),
+                    to_units=pyunits.dimensionless,
+                )
+                return b.henry_constant_comp[j] == b.henry_constant_std_comp[j] * exp(
+                    exponential_term
+                )
+
+            self.eq_henry_constant_comp = Constraint(
+                self.params.solute_set, rule=rule_henry_constant_comp
+            )
+
+        else:
+
+            add_object_reference(
+                self, "henry_constant_comp", self.params.henry_constant_comp
+            )
+
+    def _critical_molar_volume_comp(self):
+        add_object_reference(
+            self,
+            "critical_molar_volume_comp",
+            self.params.critical_molar_volume_comp,
+        )
+
+    def _mw_comp(self):
+        add_object_reference(self, "mw_comp", self.params.mw_comp)
+
+    def _dens_mass_phase(self):
+        add_object_reference(self, "dens_mass_phase", self.params.dens_mass_phase)
+
+    def _visc_d_phase(self):
+        add_object_reference(self, "visc_d_phase", self.params.visc_d_phase)
+
+    def _enth_change_dissolution_comp(self):
+
+        add_object_reference(
+            self,
+            "enth_change_dissolution_comp",
+            self.params.enth_change_dissolution_comp,
+        )
+
     def get_material_flow_terms(self, p, j):
         """Create material flow terms for control volume."""
         return self.flow_mass_phase_comp[p, j]
