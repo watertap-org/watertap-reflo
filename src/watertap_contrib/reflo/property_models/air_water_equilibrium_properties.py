@@ -844,7 +844,7 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
         self.flow_mass_phase_comp = Var(
-            self.phase_component_set,
+            self.phase_component_set | self.params.vap_set,
             initialize=0.1,
             bounds=(0, None),
             domain=NonNegativeReals,
@@ -1680,7 +1680,7 @@ class AirWaterEqStateBlockData(StateBlockData):
                         self.energy_molecular_attraction_phase_comp[p, j], 1e12
                     )
 
-        transform_property_constraints(self)
+        # transform_property_constraints(self)
         if hasattr(self, "eq_diffus_phase_comp"):
             for ind, v in self.eq_diffus_phase_comp.items():
                 iscale.constraint_scaling_transform(v, 1e2)
