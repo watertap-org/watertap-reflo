@@ -23,7 +23,7 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
-
+from enum import Enum, auto
 # Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
@@ -50,11 +50,14 @@ __author__ = "Kurban Sitterley"
 
 _log = idaeslog.getLogger(__name__)
 
+class PackingMaterial(Enum):
+    none = auto()
+
 
 @declare_process_block_class("AirStripping0D")
 class AirStripping0DData(InitializationMixin, UnitModelBlockData):
     """
-    Zero order air stripping model
+    Zero dimensional air stripping model
     """
 
     CONFIG = ConfigBlock()
@@ -162,6 +165,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
     )
 
 
+
     def build(self):
         super().build()
 
@@ -174,14 +178,14 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             property_package_args=self.config.property_package_args,
         )
 
-        self.process_flow.add_state_blocks(has_phase_equilibrium=False)
+        self.process_flow.add_state_blocks(has_phase_equilibrium=True)
         self.process_flow.add_material_balances(
             balance_type=self.config.material_balance_type, has_mass_transfer=True
         )
         self.process_flow.add_energy_balances(
             balance_type=self.config.energy_balance_type, has_enthalpy_transfer=False
         )
-        self.process_flow.add_isothermal_assumption()
+        # self.process_flow.add_isothermal_assumption()
         self.process_flow.add_momentum_balances(
             balance_type=self.config.momentum_balance_type,
             has_pressure_change=False,
@@ -196,6 +200,11 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
         tmp_dict["defined_state"] = False
+
+        self.surface_area_packing = Var(units=pyunits.m**-1)
+        self.diam_nominal_packing = Var(units=pyunits.m)
+        self.critical_surf_tension_packing = Var(units=pyunits.kg*pyunits.s**-2)
+
 
 
     def initialize_build(
