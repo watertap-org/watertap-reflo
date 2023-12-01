@@ -2,13 +2,13 @@
 
 Welcome to the code repository for **WaterTAP-REFLO**!
 
-![GitHub issues](https://img.shields.io/github/issues/watertap-org/watertap-seto)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/watertap-org/watertap-seto)
-![CI status](https://img.shields.io/github/workflow/status/watertap-org/watertap-seto/Checks)
+![GitHub issues](https://img.shields.io/github/issues/watertap-org/watertap-reflo)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/watertap-org/watertap-reflo)
+![CI status](https://img.shields.io/github/workflow/status/watertap-org/watertap-reflo/Checks)
 
 ## Documentation
 
-WaterTAP-REFLO documentation is available online at <https://watertap-seto.readthedocs.io>.
+WaterTAP-REFLO documentation is available online at <https://watertap-reflo.readthedocs.io>.
 
 ## Getting started (for Contributors)
 
@@ -23,16 +23,16 @@ WaterTAP-REFLO documentation is available online at <https://watertap-seto.readt
 To install **WaterTAP-REFLO**, run:
 
 ```sh
-git clone https://github.com/watertap-org/watertap-seto && cd watertap-seto
-conda create --yes --name watertap-reflo-dev-env python=3.10 && conda activate watertap-reflo-dev-env
+git clone https://github.com/watertap-org/watertap-reflo && cd watertap-reflo
+conda create --yes --name watertap-reflo-dev python=3.10 && conda activate watertap-reflo-dev
 pip install -r requirements-dev.txt
 ```
 
 ### Running tests
 
 ```sh
-conda activate watertap-reflo-dev-env
-pytest --pyargs watertap_contrib.seto
+conda activate watertap-reflo-dev
+pytest --pyargs watertap_contrib.reflo
 ```
 
 ### Formatting code
@@ -42,6 +42,7 @@ Before committing, the Python code must be formatted with [Black](https://black.
 Black is installed by default as part of the developer dependencies. To format the code, run the following command from the local repository root directory:
 
 ```sh
-conda activate watertap-reflo-dev-env
+conda activate watertap-reflo-dev
 black .
 ```
+

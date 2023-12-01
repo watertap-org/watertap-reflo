@@ -1,11 +1,11 @@
 from setuptools import setup, find_namespace_packages
 
 setup(
-    name="watertap-seto",
+    name="watertap-reflo",
     version="0.1.0.dev0",
     packages=find_namespace_packages(where="src"),
     package_dir={"": "src"},
-    author="WaterTAP-SETO contributors",
+    author="WaterTAP-REFLO contributors",
     python_requires=">=3.8",
     install_requires=[
         "watertap @ https://github.com/watertap-org/watertap/archive/refs/tags/pr967.zip",

@@ -24,7 +24,7 @@ copyright = "2022-2023, NREL et al."
 author = "WaterTAP-REFLO dev team"
 
 # Version and release
-# release = version = metadata.version("watertap-seto")
+# release = version = metadata.version("watertap-reflo")
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -90,9 +90,9 @@ def run_apidoc(*args):
 
     path_to_conf_py_file = Path(__file__).resolve()
     path_to_repo_root = path_to_conf_py_file.parent.parent
-    path_to_seto_py_source = path_to_repo_root / "src" / "watertap_contrib" / "seto"
+    path_to_reflo_py_source = path_to_repo_root / "src" / "watertap_contrib" / "reflo"
     args = [
-        str(path_to_seto_py_source),
+        str(path_to_reflo_py_source),
         "-o",
         "apidoc",
         "--force",
