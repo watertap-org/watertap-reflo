@@ -382,6 +382,7 @@ class AirWaterEqData(PhysicalParameterBlock):
                 "mass_frac_phase_comp": {"method": "_mass_frac_phase_comp"},
                 "dens_mass_phase": {"method": "_dens_mass_phase"},
                 "flow_vol_phase": {"method": "_flow_vol_phase"},
+                "flow_mass_phase": {"method": "_flow_mass_phase"},
                 "flow_vol": {"method": "_flow_vol"},
                 "conc_mass_phase_comp": {"method": "_conc_mass_phase_comp"},
                 "enth_mass_phase": {"method": "_enth_mass_phase"},
@@ -532,9 +533,8 @@ class _AirWaterEqStateBlock(StateBlock):
                         b.params.config.molar_volume_calculation
                         == MolarVolumeCalculation.TynCalus
                     ):
-                        b.molar_volume_comp[j].set_value(
-                            b.tyn_calus_param
-                            * b.critical_molar_volume_comp[j] ** b.tyn_calus_exponent
+                        calculate_variable_from_constraint(
+                            b.molar_volume_comp[j], b.eq_molar_volume_comp[j]
                         )
                     else:
                         pass
@@ -657,7 +657,7 @@ class _AirWaterEqStateBlock(StateBlock):
                     if b.is_property_constructed("flow_vol_phase"):
                         b.flow_vol_phase[p].set_value(
                             sum(
-                                b.flow_mole_phase_comp[p, j] * b.params.mw_comp[j]
+                                b.flow_mass_phase_comp[p, j]
                                 for j in b.params.component_list
                             )
                             / b.dens_mass_phase[p]
@@ -1029,33 +1029,38 @@ class AirWaterEqStateBlockData(StateBlockData):
             initialize=1,
             bounds=(0, None),
             units=pyunits.m**3 / pyunits.s,
-            doc="Volumetric flow rate",
+            doc="Total volumetric flow rate for phase",
         )
 
         def rule_flow_vol_phase(b, p):
-            if p == "Liq":
-                return (
-                    b.flow_vol_phase[p]
-                    == sum(
-                        b.flow_mass_phase_comp[p, j]
-                        for j in self.params.component_list
-                        if (p, j) in self.phase_component_set
-                    )
-                    / b.dens_mass_phase[p]
+            return (
+                b.flow_vol_phase[p]
+                == sum(
+                    b.flow_mass_phase_comp[p, j]
+                    for j in self.params.component_list | self.params.vap_comps
+                    if (p, j) in self.phase_component_set | self.params.vap_set
                 )
-            elif p == "Vap":
-                return (
-                    b.flow_vol_phase[p]
-                    == sum(
-                        b.flow_mass_phase_comp[p, j]
-                        for j in self.params.component_list
-                        if (p, j) in self.phase_component_set
-                    )
-                    / b.dens_mass_phase["Vap"]
-                )
+                / b.dens_mass_phase[p]
+            )
 
         self.eq_flow_vol_phase = Constraint(
             self.params.phase_list, rule=rule_flow_vol_phase
+        )
+
+    def _flow_mass_phase(self):
+        self.flow_mass_phase = Var(
+            self.params.phase_list,
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.s,
+            doc="Total mass flow rate for phase",
+        )
+
+        def rule_flow_mass_phase(b, p):
+            return b.flow_mass_phase[p] == b.flow_vol_phase[p] * b.dens_mass_phase[p]
+
+        self.eq_flow_mass_phase = Constraint(
+            self.params.phase_list, rule=rule_flow_mass_phase
         )
 
     def _flow_vol(self):
@@ -1382,7 +1387,7 @@ class AirWaterEqStateBlockData(StateBlockData):
 
             self.tyn_calus_param = Param(
                 initialize=0.285,
-                units=pyunits.mol**0.048 * pyunits.m**-0.144,
+                units=pyunits.mol**0.048 * pyunits.cm**-0.144,
                 doc="Tyn-Calus equation parameter",
             )
 
@@ -1393,10 +1398,14 @@ class AirWaterEqStateBlockData(StateBlockData):
             )
 
             def rule_molar_volume_comp(b, j):
-                return (
-                    b.molar_volume_comp[j]
-                    == b.tyn_calus_param
-                    * b.critical_molar_volume_comp[j] ** b.tyn_calus_exponent
+                return b.molar_volume_comp[j] == pyunits.convert(
+                    b.tyn_calus_param
+                    * pyunits.convert(
+                        b.critical_molar_volume_comp[j],
+                        to_units=pyunits.cm**3 / pyunits.mol,
+                    )
+                    ** b.tyn_calus_exponent,
+                    to_units=pyunits.m**3 / pyunits.mol,
                 )
 
             self.eq_molar_volume_comp = Constraint(
