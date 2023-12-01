@@ -422,12 +422,14 @@ class AirWaterEqData(PhysicalParameterBlock):
                 "enth_change_dissolution_comp": {
                     "method": "_enth_change_dissolution_comp"
                 },
+                "saturation_vap_pressure": {"method": "_saturation_vap_pressure"},
+                "vap_pressure": {"method": "_vap_pressure"},
+                "relative_humidity": {"method": "_relative_humidity"},
             }
         )
 
 
 class _AirWaterEqStateBlock(StateBlock):
-
     def initialize(
         self,
         state_args=None,
@@ -778,8 +780,8 @@ class _AirWaterEqStateBlock(StateBlock):
                             f"Unfix the variable before calling the calculate_state "
                             "method or update var_args."
                             ""
-                            )
-                        
+                        )
+
                 else:
                     flags[(k, v_name, ind)] = False
                     var[ind].fix(val)
@@ -794,9 +796,7 @@ class _AirWaterEqStateBlock(StateBlock):
         # Solve
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             results = solve_indexed_blocks(opt, [self], tee=slc.tee)
-            solve_log.info_high(
-                f"Calculate state: {idaeslog.condition(results)}."
-            )
+            solve_log.info_high(f"Calculate state: {idaeslog.condition(results)}.")
 
         if not check_optimal_termination(results):
             _log.warning(
@@ -1443,6 +1443,112 @@ class AirWaterEqStateBlockData(StateBlockData):
                 self, "henry_constant_comp", self.params.henry_constant_comp
             )
 
+    def _saturation_vap_pressure(self):
+
+        # Huang, J. (2018). A Simple Accurate Formula for Calculating Saturation Vapor Pressure of Water and Ice.
+        # Journal of Applied Meteorology and Climatology, 57(6), 1265-1272. doi:10.1175/jamc-d-17-0334.1
+
+        self.sat_vap_press_A = a = Param(
+            initialize=34.494,
+            units=pyunits.dimensionless,
+            doc="Huang correlation: A parameter",
+        )
+        self.sat_vap_press_B = b_ = Param(
+            initialize=4924.99,
+            units=pyunits.dimensionless,
+            doc="Huang correlation: B parameter",
+        )
+        self.sat_vap_press_C = c = Param(
+            initialize=1.57,
+            units=pyunits.dimensionless,
+            doc="Huang correlation: C parameter",
+        )
+        self.sat_vap_press_D1 = d1 = Param(
+            initialize=237.1,
+            units=pyunits.dimensionless,
+            doc="Huang correlation: D1 parameter",
+        )
+        self.sat_vap_press_D2 = d2 = Param(
+            initialize=105,
+            units=pyunits.dimensionless,
+            doc="Huang correlation: D2 parameter",
+        )
+
+        self.saturation_vap_pressure = Var(
+            ["H2O"],
+            initialize=101325,
+            units=pyunits.Pa,
+            doc="Saturation vapor pressure of water",
+        )
+
+        def rule_saturation_vap_pressure(b, h2o):
+            t = b.temperature["Vap"] - 273.15 * pyunits.degK
+            return (
+                b.saturation_vap_pressure[h2o]
+                == exp(a - (b_ / (t + d1))) / (t + d2) ** c
+            )
+
+        self.eq_saturation_vap_pressure = Constraint(
+            ["H2O"], rule=rule_saturation_vap_pressure
+        )
+
+    def _vap_pressure(self):
+
+        # Antoine Eq
+        # log10(P_vap) = A - B / (C + T)
+        # coefficients valid for 1-100 degC
+
+        self.antoine_A = a = Param(
+            initialize=8.07131,
+            units=pyunits.dimensionless,
+            doc="Antoine correlation: A parameter",
+        )
+        self.antoine_B = b_ = Param(
+            initialize=1730.63,
+            units=pyunits.dimensionless,
+            doc="Antoine correlation: B parameter",
+        )
+        self.antoine_C = c = Param(
+            initialize=233.426,
+            units=pyunits.dimensionless,
+            doc="Antoine correlation: C parameter",
+        )
+
+        self.vap_pressure = Var(
+            ["H2O"],
+            initialize=1000,
+            units=pyunits.Pa,
+            doc="Vapor pressure of water",
+        )
+
+        def rule_vap_pressure(b, h2o):
+            t = pyunits.convert(
+                (b.temperature["Liq"] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                to_units=pyunits.dimensionless,
+            )
+            antoine = a - (b_ / (c + t))
+            p_vap = 10 ** (antoine) * pyunits.mmHg
+            return b.vap_pressure[h2o] == pyunits.convert(p_vap, to_units=pyunits.Pa)
+
+        self.eq_vap_pressure = Constraint(["H2O"], rule=rule_vap_pressure)
+
+    def _relative_humidity(self):
+        self.relative_humidity = Var(
+            ["H2O"],
+            initialize=0.5,
+            bounds=(0, 1),
+            units=pyunits.dimensionless,
+            doc="Relative humidity of air-water system",
+        )
+
+        def rule_relative_humidity(b, h2o):
+            return (
+                b.relative_humidity[h2o]
+                == b.vap_pressure[h2o] / b.saturation_vap_pressure[h2o]
+            )
+
+        self.eq_relative_humidity = Constraint(["H2O"], rule=rule_relative_humidity)
+
     def _critical_molar_volume_comp(self):
         add_object_reference(
             self,
@@ -1504,25 +1610,22 @@ class AirWaterEqStateBlockData(StateBlockData):
         for j, v in self.mw_comp.items():
             if iscale.get_scaling_factor(v) is None:
                 iscale.set_scaling_factor(self.mw_comp[j], value(v) ** -1)
-        
+
         for p, j in self.phase_component_set:
             # print("phase_component_set", p, j)
             if iscale.get_scaling_factor(self.flow_mass_phase_comp[p, j]) is None:
                 sf = 1 / value(self.flow_mass_phase_comp[p, j])
                 # print("\tflow_mass", p, j, sf)
                 iscale.set_scaling_factor(self.flow_mass_phase_comp[p, j], sf)
-            
+
             if self.is_property_constructed("flow_mole_phase_comp"):
-                if (
-                    iscale.get_scaling_factor(self.flow_mole_phase_comp[p, j])
-                    is None
-                ):
+                if iscale.get_scaling_factor(self.flow_mole_phase_comp[p, j]) is None:
                     sf = iscale.get_scaling_factor(
                         self.flow_mass_phase_comp[p, j]
                     ) / iscale.get_scaling_factor(self.mw_comp[j])
                     # print("\tflow_mol", p, j, sf)
                     iscale.set_scaling_factor(self.flow_mole_phase_comp[p, j], sf)
-        
+
         for p, j in self.params.phase_solute_set:
             # print("phase_solute_set", p, j)
             if self.is_property_constructed("diffus_phase_comp"):
@@ -1692,4 +1795,3 @@ class AirWaterEqStateBlockData(StateBlockData):
         if hasattr(self, "eq_energy_molecular_attraction_phase_comp"):
             for ind, v in self.eq_energy_molecular_attraction_phase_comp.items():
                 iscale.constraint_scaling_transform(v, 1e-12)
-
