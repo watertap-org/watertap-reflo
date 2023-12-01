@@ -41,9 +41,8 @@ from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.constants import Constants
 from idaes.core.util.config import is_physical_parameter_block
-from idaes.core.util.misc import StrEnum
+from idaes.core.util.misc import StrEnum, extract_data
 from idaes.core.util.exceptions import InitializationError, ConfigurationError
-
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
@@ -226,32 +225,55 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             units=pyunits.dimensionless,
             doc="Factor multiplied by minimum air-to-water ratio for design",
         )
-        self.surface_area_packing_total = Var(
-            units=pyunits.m**-1,
+
+        @self.Expression(doc="Air-to-water flow ratio")
+        def ratio_vap_liq_flow_vol(b):
+            return prop_in.flow_vol_phase["Vap"] / prop_in.flow_vol_phase["Liq"]
+
+        self.packing_surface_area_total = Var(
             bounds=(0, None),
+            units=pyunits.m**-1,
             doc="Total specific surface area of packing.",
         )
-        self.surface_area_packing_wetted = Var(
-            units=pyunits.m**-1,
+
+        self.packing_surface_area_wetted = Var(
             bounds=(0, None),
+            units=pyunits.m**-1,
             doc="Wetted specific surface area of packing.",
         )
 
-        self.diam_nominal_packing = Var(units=pyunits.m, bounds=(0, None))
-
-        self.surf_tension_packing = Var(
-            units=pyunits.kg * pyunits.s**-2,
+        self.packing_diam_nominal = Var(
+            initialize=0.1,
             bounds=(0, None),
+            units=pyunits.m,
+            doc="Nominal diameter of packing material.",
+        )
+
+        self.packing_factor = Var(
+            initialize=0.1,
+            bounds=(0, None),
+            units=pyunits.m**-1,
+            doc="Packing factor.",
+        )
+
+        self.packing_surf_tension = Var(
+            initialize=0.05,
+            bounds=(0, None),
+            units=pyunits.kg * pyunits.s**-2,
             doc="Surface tension of packing",
         )
         self.surf_tension_water = Var(
-            units=pyunits.kg * pyunits.s**-2,
+            initialize=0.05,
             bounds=(0, None),
+            units=pyunits.kg * pyunits.s**-2,
             doc="Surface tension of water",
         )
 
         self.stripping_factor = Var(
-            initialize=2, bounds=(1, 20), units=pyunits.dimensionless
+            initialize=2,
+            bounds=(1, 20),
+            units=pyunits.dimensionless,
+            doc="Stripping factor",
         )
 
         self.min_air_water_ratio = Var(
@@ -268,18 +290,11 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Optimum air-to-water ratio",
         )
 
-        self.height_packed_tower = Var(
+        self.tower_height = Var(
             initialize=1,
             # bounds=(0, 10),
             units=pyunits.m,
             doc="Height of packed tower",
-        )
-
-        self.diam_packed_tower = Var(
-            initialize=1,
-            bounds=(0, None),
-            units=pyunits.m,
-            doc="Diameter of packed tower",
         )
 
         self.mass_transfer_coeff = Var(
@@ -290,10 +305,12 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Mass transfer coefficient in tower",
         )
 
+        mass_load_bounds = {"Liq": (0.75, 44), "Vap": (0.013, 1.8)}  # Edzvald, 2011
+
         self.mass_loading_rate = Var(
-            self.phase_target_set,
+            phase_set,
             initialize=1,
-            bounds=(0, None),
+            bounds=extract_data(mass_load_bounds),
             units=pyunits.kg / (pyunits.m**2 * pyunits.s),
             doc="Mass loading rate in tower",
         )
@@ -335,7 +352,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         )
 
         self.N_Sc = Var(
-            phase_set,
+            self.phase_target_set,
             initialize=700,
             bounds=(0, None),
             units=pyunits.dimensionless,
@@ -378,16 +395,102 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Expression()
         def pressure_drop(b):
-            return b.pressure_drop_gradient * b.height_packed_tower
+            return b.pressure_drop_gradient * b.tower_height
+
+        @self.Expression(doc="Cross sectional area of tower")
+        def tower_area(b):
+            return prop_in.flow_mass_phase["Liq"] / b.mass_loading_rate["Liq"]
+
+        @self.Expression(doc="Diameter of tower")
+        def tower_diam(b):
+            return ((4 * b.tower_area) / Constants.pi) ** 0.5
+
+        @self.Expression(doc="Diameter of tower")
+        def tower_volume(b):
+            return b.tower_area * b.tower_height
+
+        @self.Constraint(phase_set, doc="Reynolds number by phase")
+        def eq_Re(b, p):
+            return b.N_Re[p] == b.mass_loading_rate[p] / (
+                b.packing_surface_area_total * prop_in.visc_d_phase[p]
+            )
+
+        @self.Constraint(self.phase_target_set, doc="Schmidt number by phase")
+        def eq_Sc(b, p, j):
+            return (
+                b.N_Sc[p, j]
+                * (prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j])
+                == prop_in.visc_d_phase[p]
+            )
+
+        @self.Constraint(doc="Sherwood number")
+        def eq_Sh(b):
+            return (
+                b.N_Sh * prop_in.visc_d_phase["Liq"] * Constants.acceleration_gravity
+                == prop_in.dens_mass_phase["Liq"]
+            )
+
+        @self.Constraint(doc="Froude number")
+        def eq_Fr(b):
+            return (
+                b.N_Fr
+                * prop_in.dens_mass_phase["Liq"] ** 2
+                * Constants.acceleration_gravity
+                == b.mass_loading_rate["Liq"] ** 2 * b.packing_surface_area_total
+            )
+
+        @self.Constraint(doc="Weber number")
+        def eq_We(b):
+            return (
+                b.N_We
+                * prop_in.dens_mass_phase["Liq"]
+                * b.packing_surface_area_total
+                * b.surf_tension_water
+                == b.mass_loading_rate["Liq"] ** 2
+            )
+
+        @self.Constraint(phase_set)
+        def eq_mass_loading_rate(b, p):
+            if p == "Vap":
+                dens_vap = prop_in.dens_mass_phase[p]
+                dens_liq = prop_in.dens_mass_phase["Liq"]
+                visc_liq = prop_in.visc_d_phase["Liq"]
+                M = b.onda_M
+                return (
+                    b.mass_loading_rate[p]
+                    == (
+                        (M * dens_vap * (dens_liq - dens_vap))
+                        / (b.packing_factor * (visc_liq**0.1))
+                    )
+                    ** 0.5
+                )
+            if p == "Liq":
+                return (
+                    b.mass_loading_rate[p]
+                    == (b.mass_loading_rate["Vap"] * prop_in.flow_mass_phase[p])
+                    / prop_in.flow_mass_phase["Vap"]
+                )
 
     def build_onda(self):
 
         self.onda = Block()
 
+        self.onda_E = E = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            doc="Onda E parameter",
+        )
+
         self.onda_F = F = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop F term",
+            doc="Onda F parameter",
+        )
+
+        self.onda_M = M = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            doc="Onda M parameter",
         )
 
         # a0 = -6.6599 + 4.3077*F - 1.3503*F^2 + 0.15931*F^3
@@ -483,6 +586,21 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(doc="Onda a2 equation")
         def eq_onda_a2(b):
             return a2 == a21 + a22 * F + a23 * F**2 + a24 * F**3
+
+        @self.Constraint(doc="Onda E Parameter")
+        def eq_onda_E(b):
+            dens_vap = b.process_flow.properties_in[0].dens_mass_phase["Vap"]
+            dens_liq = b.process_flow.properties_in[0].dens_mass_phase["Liq"]
+            return E == -1 * (
+                log10(
+                    (b.ratio_vap_liq_flow_vol)
+                    * (dens_vap / dens_liq - (dens_vap / dens_liq) ** 2) ** 0.5
+                )
+            )
+
+        @self.Constraint(doc="Onda M Parameter")
+        def eq_onda_M(b):
+            return M == 10 ** (a0 + a1 * E + a2 * E**2)
 
     def initialize_build(
         self,
