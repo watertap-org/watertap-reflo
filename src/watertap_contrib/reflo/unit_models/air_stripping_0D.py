@@ -19,11 +19,15 @@ from pyomo.environ import (
     check_optimal_termination,
     Param,
     Suffix,
+    Block,
     log,
+    log10,
+    exp,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 from enum import Enum, auto
+
 # Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
@@ -49,6 +53,7 @@ __author__ = "Kurban Sitterley"
 
 
 _log = idaeslog.getLogger(__name__)
+
 
 class PackingMaterial(Enum):
     none = auto()
@@ -164,10 +169,24 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         ),
     )
 
-
+    CONFIG.declare(
+        "target",
+        ConfigValue(
+            default="X",
+            domain=str,
+            description="Designates targeted species for removal",
+        ),
+    )
 
     def build(self):
         super().build()
+
+        target = self.config.target
+        self.target_set = Set(initialize=[target])
+        comps = self.config.property_package.component_list
+        solutes = self.config.property_package.solute_set
+        phase_set = self.config.property_package.phase_list
+        self.phase_target_set = phase_set * self.target_set
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
@@ -201,12 +220,263 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         tmp_dict["parameters"] = self.config.property_package
         tmp_dict["defined_state"] = False
 
-        self.surface_area_packing = Var(units=pyunits.m**-1)
-        self.diam_nominal_packing = Var(units=pyunits.m)
-        self.critical_surf_tension_packing = Var(units=pyunits.kg*pyunits.s**-2)
+        self.opt_air_water_ratio_param = Param(
+            initialize=3.5,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Factor multiplied by minimum air-to-water ratio for design",
+        )
+        self.surface_area_packing_total = Var(
+            units=pyunits.m**-1,
+            bounds=(0, None),
+            doc="Total specific surface area of packing.",
+        )
+        self.surface_area_packing_wetted = Var(
+            units=pyunits.m**-1,
+            bounds=(0, None),
+            doc="Wetted specific surface area of packing.",
+        )
+
+        self.diam_nominal_packing = Var(units=pyunits.m, bounds=(0, None))
+
+        self.surf_tension_packing = Var(
+            units=pyunits.kg * pyunits.s**-2,
+            bounds=(0, None),
+            doc="Surface tension of packing",
+        )
+        self.surf_tension_water = Var(
+            units=pyunits.kg * pyunits.s**-2,
+            bounds=(0, None),
+            doc="Surface tension of water",
+        )
+
+        self.stripping_factor = Var(
+            initialize=2, bounds=(1, 20), units=pyunits.dimensionless
+        )
+
+        self.min_air_water_ratio = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Minumum air-to-water ratio",
+        )
+
+        self.opt_air_water_ratio = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Optimum air-to-water ratio",
+        )
+
+        self.height_packed_tower = Var(
+            initialize=1,
+            bounds=(0, 10),
+            units=pyunits.m,
+            doc="Height of packed tower",
+        )
+
+        self.diam_packed_tower = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m,
+            doc="Diameter of packed tower",
+        )
+
+        self.mass_transfer_coeff = Var(
+            self.phase_target_set,
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m / pyunits.s,
+            doc="Mass transfer coefficient in tower",
+        )
+
+        self.mass_loading_rate = Var(
+            self.phase_target_set,
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.kg / (pyunits.m**2 * pyunits.s),
+            doc="Mass loading rate in tower",
+        )
+
+        self.height_transfer_unit = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.m,
+            doc="Height of one transfer unit",
+        )
+
+        self.number_transfer_unit = Var(
+            initialize=1,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Number of transfer units",
+        )
+
+        self.N_Re = Var(
+            phase_set,
+            initialize=10,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Reynolds number",
+        )
+
+        self.N_Fr = Var(
+            initialize=0.1,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Froude number",
+        )
+
+        self.N_We = Var(
+            initialize=1000,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Weber number",
+        )
+
+        self.N_Sc = Var(
+            phase_set,
+            initialize=700,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Schmidt number",
+        )
+
+        self.N_Sh = Var(
+            initialize=30,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Sherwood number",
+        )
+
+        self.N_We = Var(
+            initialize=30,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Weber number",
+        )
+
+        self.wettability_parameter = Var(
+            initialize=30,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Wettability parameter",
+        )
+
+        self.packing_efficiency_number = Var(
+            initialize=30,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Packing efficiency number",
+        )
+
+        self.build_onda()
+
+    def build_onda(self):
+
+        self.onda = Block()
+
+        self.onda_F = F = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop F term",
+        )
+
+        # a0 = -6.6599 + 4.3077*F - 1.3503*F^2 + 0.15931*F^3
+        self.onda_a0_param1 = a01 = Param(
+            initialize=-6.6599,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a0 term, first parameter",
+        )
+        self.onda_a0_param2 = a02 = Param(
+            initialize=4.3077,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a0 term, second parameter",
+        )
+        self.onda_a0_param3 = a03 = Param(
+            initialize=-1.3503,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a0 term, third parameter",
+        )
+        self.onda_a0_param4 = a04 = Param(
+            initialize=0.15931,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a0 term, fourth parameter",
+        )
+
+        self.onda_a0 = a0 = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a0 term",
+        )
+
+        @self.Constraint(doc="Onda a0 equation")
+        def eq_onda_a0(b):
+            return a0 == a01 + a02*F + a03*F**2 + a04*F**3
 
 
+        # a1 = 3.0945 - 4.3512*F + 1.6240*F^2 - 0.20855*F^3
+        self.onda_a1_param1 = a11 = Param(
+            initialize=3.0945,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a1 term, first parameter",
+        )
+        self.onda_a1_param2 = a12 = Param(
+            initialize=-4.3512,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a1 term, second parameter",
+        )
+        self.onda_a1_param3 = a13 = Param(
+            initialize=1.6240,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a1 term, third parameter",
+        )
+        self.onda_a1_param4 = a14 = Param(
+            initialize=-0.20855,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a1 term, fourth parameter",
+        )
+        self.onda_a1 = a1 = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a1 term",
+        )
 
+        @self.Constraint(doc="Onda a1 equation")
+        def eq_onda_a1(b):
+            return a1 == a11 + a12*F + a13*F**2 + a14*F**3
+
+        # a2 = 1.7611 - 2.3394*F + 0.89914*F^2 - 0.11597*F^3
+        self.onda_a2_param1 = a21 = Param(
+            initialize=1.7611,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a2 term, first parameter",
+        )
+        self.onda_a2_param2 = a22 = Param(
+            initialize=-2.3394,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a2 term, second parameter",
+        )
+        self.onda_a2_param3 = a23 = Param(
+            initialize=0.89914,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a2 term, third parameter",
+        )
+        self.onda_a2_param4 = a24 = Param(
+            initialize=-0.115971,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a2 term, fourth parameter",
+        )
+        self.onda_a2 = a2 = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            doc="Onda correlation: Pressure drop a2 term",
+        )
+
+        @self.Constraint(doc="Onda a2 equation")
+        def eq_onda_a2(b):
+            return a2 == a21 + a22*F + a23*F**2 + a24*F**3
+        
     def initialize_build(
         self,
         state_args=None,
@@ -229,7 +499,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         Returns: None
         """
-        pass 
+        pass
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
         solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
 
@@ -304,7 +574,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         super().calculate_scaling_factors()
         pass
 
-
         # if iscale.get_scaling_factor(self.t_breakthru) is None:
         #     iscale.set_scaling_factor(self.t_breakthru, 1e-6)
 
@@ -318,7 +587,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
     def _get_performance_contents(self, time_point=0):
         var_dict = {}
-
 
         return {"vars": var_dict}
 
