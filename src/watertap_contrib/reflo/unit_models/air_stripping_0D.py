@@ -119,7 +119,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
     CONFIG.declare(
         "material_balance_type",
         ConfigValue(
-            default=MaterialBalanceType.useDefault,
+            default=MaterialBalanceType.componentPhase,
             domain=In(MaterialBalanceType),
             description="Material balance construction flag",
             doc="""Indicates what type of mass balance should be constructed,
@@ -204,7 +204,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.process_flow.add_energy_balances(
             balance_type=self.config.energy_balance_type, has_enthalpy_transfer=False
         )
-        # self.process_flow.add_isothermal_assumption()
+        # self.process_flow.add_phase_component_balance()
         self.process_flow.add_momentum_balances(
             balance_type=self.config.momentum_balance_type,
             has_pressure_change=False,
@@ -270,7 +270,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         self.height_packed_tower = Var(
             initialize=1,
-            bounds=(0, 10),
+            # bounds=(0, 10),
             units=pyunits.m,
             doc="Height of packed tower",
         )
@@ -349,14 +349,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Sherwood number",
         )
 
-        self.N_We = Var(
-            initialize=30,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Weber number",
-        )
-
-        self.wettability_parameter = Var(
+        self.wetability_parameter = Var(
             initialize=30,
             bounds=(0, None),
             units=pyunits.dimensionless,
@@ -371,6 +364,21 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         )
 
         self.build_onda()
+
+        self.pressure_drop_gradient = Var(
+            initialize=100,
+            bounds=(20, 1200),
+            units=pyunits.Pa / pyunits.m,
+            doc="Pressure drop per length of packed bed",
+        )
+
+        @self.Constraint()
+        def eq_p_drop(b):
+            return b.pressure_drop_gradient == 10**b.onda_F
+
+        @self.Expression()
+        def pressure_drop(b):
+            return b.pressure_drop_gradient * b.height_packed_tower
 
     def build_onda(self):
 
@@ -412,8 +420,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="Onda a0 equation")
         def eq_onda_a0(b):
-            return a0 == a01 + a02*F + a03*F**2 + a04*F**3
-
+            return a0 == a01 + a02 * F + a03 * F**2 + a04 * F**3
 
         # a1 = 3.0945 - 4.3512*F + 1.6240*F^2 - 0.20855*F^3
         self.onda_a1_param1 = a11 = Param(
@@ -444,7 +451,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="Onda a1 equation")
         def eq_onda_a1(b):
-            return a1 == a11 + a12*F + a13*F**2 + a14*F**3
+            return a1 == a11 + a12 * F + a13 * F**2 + a14 * F**3
 
         # a2 = 1.7611 - 2.3394*F + 0.89914*F^2 - 0.11597*F^3
         self.onda_a2_param1 = a21 = Param(
@@ -475,8 +482,8 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="Onda a2 equation")
         def eq_onda_a2(b):
-            return a2 == a21 + a22*F + a23*F**2 + a24*F**3
-        
+            return a2 == a21 + a22 * F + a23 * F**2 + a24 * F**3
+
     def initialize_build(
         self,
         state_args=None,
