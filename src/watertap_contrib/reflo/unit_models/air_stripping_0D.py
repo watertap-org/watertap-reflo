@@ -231,12 +231,14 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             return prop_in.flow_vol_phase["Vap"] / prop_in.flow_vol_phase["Liq"]
 
         self.packing_surface_area_total = Var(
+            initialize=100,
             bounds=(0, None),
             units=pyunits.m**-1,
             doc="Total specific surface area of packing.",
         )
 
         self.packing_surface_area_wetted = Var(
+            initialize=100,
             bounds=(0, None),
             units=pyunits.m**-1,
             doc="Wetted specific surface area of packing.",
@@ -373,14 +375,18 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Wettability parameter",
         )
 
-        self.packing_efficiency_number = Var(
-            initialize=30,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Packing efficiency number",
-        )
+        @self.Expression()
+        def packing_efficiency_number(b):
+            return b.packing_surface_area_total * b.packing_diam_nominal
 
-        self.build_onda()
+        # self.packing_efficiency_number = Var(
+        #     initialize=30,
+        #     bounds=(0, None),
+        #     units=pyunits.dimensionless,
+        #     doc="Packing efficiency number",
+        # )
+
+        self.build_oto()
 
         self.pressure_drop_gradient = Var(
             initialize=100,
@@ -391,7 +397,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint()
         def eq_p_drop(b):
-            return b.pressure_drop_gradient == 10**b.onda_F
+            return b.pressure_drop_gradient == 10**b.oto_F
 
         @self.Expression()
         def pressure_drop(b):
@@ -411,8 +417,12 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(phase_set, doc="Reynolds number by phase")
         def eq_Re(b, p):
+            if p == "Liq":
+                surf_area = b.packing_surface_area_wetted
+            if p == "Vap":
+                surf_area = b.packing_surface_area_total
             return b.N_Re[p] == b.mass_loading_rate[p] / (
-                b.packing_surface_area_total * prop_in.visc_d_phase[p]
+                surf_area * prop_in.visc_d_phase[p]
             )
 
         @self.Constraint(self.phase_target_set, doc="Schmidt number by phase")
@@ -455,7 +465,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 dens_vap = prop_in.dens_mass_phase[p]
                 dens_liq = prop_in.dens_mass_phase["Liq"]
                 visc_liq = prop_in.visc_d_phase["Liq"]
-                M = b.onda_M
+                M = b.oto_M
                 return (
                     b.mass_loading_rate[p]
                     == (
@@ -471,124 +481,135 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                     / prop_in.flow_mass_phase["Vap"]
                 )
 
-    def build_onda(self):
+    def build_oto(self):
+        """
 
-        self.onda = Block()
+        OTO = Onda, Takeuchi, Okumoto
+        Method to build parameters, variables, and constraints for OTO Model.
 
-        self.onda_E = E = Var(
+        Onda, K., Takeuchi, H., & Okumoto, Y. (1968).
+        Mass Transfer Coefficients between Gas and Liquid Phases in Packed Columns.
+        Journal of Chemical Engineering of Japan, 1(1), 56-62. doi:10.1252/jcej.1.56
+
+        """
+        prop_in = self.process_flow.properties_in[0]
+        phase_set = self.config.property_package.phase_list
+
+        self.oto_E = E = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="Onda E parameter",
+            doc="OTO E parameter",
         )
 
-        self.onda_F = F = Var(
+        self.oto_F = F = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="Onda F parameter",
+            doc="OTO F parameter",
         )
 
-        self.onda_M = M = Var(
+        self.oto_M = M = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="Onda M parameter",
+            doc="OTO M parameter",
         )
 
         # a0 = -6.6599 + 4.3077*F - 1.3503*F^2 + 0.15931*F^3
-        self.onda_a0_param1 = a01 = Param(
+        self.oto_a0_param1 = a01 = Param(
             initialize=-6.6599,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a0 term, first parameter",
+            doc="OTO correlation: Pressure drop a0 term, first parameter",
         )
-        self.onda_a0_param2 = a02 = Param(
+        self.oto_a0_param2 = a02 = Param(
             initialize=4.3077,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a0 term, second parameter",
+            doc="OTO correlation: Pressure drop a0 term, second parameter",
         )
-        self.onda_a0_param3 = a03 = Param(
+        self.oto_a0_param3 = a03 = Param(
             initialize=-1.3503,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a0 term, third parameter",
+            doc="OTO correlation: Pressure drop a0 term, third parameter",
         )
-        self.onda_a0_param4 = a04 = Param(
+        self.oto_a0_param4 = a04 = Param(
             initialize=0.15931,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a0 term, fourth parameter",
+            doc="OTO correlation: Pressure drop a0 term, fourth parameter",
         )
 
-        self.onda_a0 = a0 = Var(
+        self.oto_a0 = a0 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a0 term",
+            doc="OTO correlation: Pressure drop a0 term",
         )
 
-        @self.Constraint(doc="Onda a0 equation")
-        def eq_onda_a0(b):
+        @self.Constraint(doc="OTO a0 equation")
+        def eq_oto_a0(b):
             return a0 == a01 + a02 * F + a03 * F**2 + a04 * F**3
 
         # a1 = 3.0945 - 4.3512*F + 1.6240*F^2 - 0.20855*F^3
-        self.onda_a1_param1 = a11 = Param(
+        self.oto_a1_param1 = a11 = Param(
             initialize=3.0945,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a1 term, first parameter",
+            doc="OTO correlation: Pressure drop a1 term, first parameter",
         )
-        self.onda_a1_param2 = a12 = Param(
+        self.oto_a1_param2 = a12 = Param(
             initialize=-4.3512,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a1 term, second parameter",
+            doc="OTO correlation: Pressure drop a1 term, second parameter",
         )
-        self.onda_a1_param3 = a13 = Param(
+        self.oto_a1_param3 = a13 = Param(
             initialize=1.6240,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a1 term, third parameter",
+            doc="OTO correlation: Pressure drop a1 term, third parameter",
         )
-        self.onda_a1_param4 = a14 = Param(
+        self.oto_a1_param4 = a14 = Param(
             initialize=-0.20855,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a1 term, fourth parameter",
+            doc="OTO correlation: Pressure drop a1 term, fourth parameter",
         )
-        self.onda_a1 = a1 = Var(
+        self.oto_a1 = a1 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a1 term",
+            doc="OTO correlation: Pressure drop a1 term",
         )
 
-        @self.Constraint(doc="Onda a1 equation")
-        def eq_onda_a1(b):
+        @self.Constraint(doc="OTO a1 equation")
+        def eq_oto_a1(b):
             return a1 == a11 + a12 * F + a13 * F**2 + a14 * F**3
 
         # a2 = 1.7611 - 2.3394*F + 0.89914*F^2 - 0.11597*F^3
-        self.onda_a2_param1 = a21 = Param(
+        self.oto_a2_param1 = a21 = Param(
             initialize=1.7611,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a2 term, first parameter",
+            doc="OTO correlation: Pressure drop a2 term, first parameter",
         )
-        self.onda_a2_param2 = a22 = Param(
+        self.oto_a2_param2 = a22 = Param(
             initialize=-2.3394,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a2 term, second parameter",
+            doc="OTO correlation: Pressure drop a2 term, second parameter",
         )
-        self.onda_a2_param3 = a23 = Param(
+        self.oto_a2_param3 = a23 = Param(
             initialize=0.89914,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a2 term, third parameter",
+            doc="OTO correlation: Pressure drop a2 term, third parameter",
         )
-        self.onda_a2_param4 = a24 = Param(
+        self.oto_a2_param4 = a24 = Param(
             initialize=-0.115971,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a2 term, fourth parameter",
+            doc="OTO correlation: Pressure drop a2 term, fourth parameter",
         )
-        self.onda_a2 = a2 = Var(
+
+        self.oto_a2 = a2 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="Onda correlation: Pressure drop a2 term",
+            doc="OTO correlation: Pressure drop a2 term",
         )
 
-        @self.Constraint(doc="Onda a2 equation")
-        def eq_onda_a2(b):
+        @self.Constraint(doc="OTO a2 equation")
+        def eq_oto_a2(b):
             return a2 == a21 + a22 * F + a23 * F**2 + a24 * F**3
 
-        @self.Constraint(doc="Onda E Parameter")
-        def eq_onda_E(b):
+        @self.Constraint(doc="OTO E Parameter")
+        def eq_oto_E(b):
             dens_vap = b.process_flow.properties_in[0].dens_mass_phase["Vap"]
             dens_liq = b.process_flow.properties_in[0].dens_mass_phase["Liq"]
             return E == -1 * (
@@ -598,9 +619,126 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 )
             )
 
-        @self.Constraint(doc="Onda M Parameter")
-        def eq_onda_M(b):
+        @self.Constraint(doc="OTO M Parameter")
+        def eq_oto_M(b):
             return M == 10 ** (a0 + a1 * E + a2 * E**2)
+
+        self.oto_aw_param = aw_param = Param(
+            initialize=-1.45,
+            units=pyunits.dimensionless,
+            doc="OTO wetted surface area of packing correlation parameter",
+        )
+        self.oto_aw_exp1 = aw_exp1 = Param(
+            initialize=0.75,
+            units=pyunits.dimensionless,
+            doc="OTO wetted surface area of packing correlation - exponent 1",
+        )
+        self.oto_aw_exp2 = aw_exp2 = Param(
+            initialize=0.1,
+            units=pyunits.dimensionless,
+            doc="OTO wetted surface area of packing correlation - exponent 2",
+        )
+        self.oto_aw_exp3 = aw_exp3 = Param(
+            initialize=-0.05,
+            units=pyunits.dimensionless,
+            doc="OTO wetted surface area of packing correlation - exponent 3",
+        )
+        self.oto_aw_exp4 = aw_exp4 = Param(
+            initialize=0.2,
+            units=pyunits.dimensionless,
+            doc="OTO wetted surface area of packing correlation - exponent 4",
+        )
+
+        @self.Constraint(doc="OTO equation for wetted surface area of packing material")
+        def eq_packing_surf_area_wetted(b):
+            a_t = b.packing_surface_area_total
+            a_w = b.packing_surface_area_wetted
+            sigma_c = b.packing_surf_tension
+            sigma_w = b.surf_tension_water
+            Lm = b.mass_loading_rate["Liq"]
+            visc_liq = prop_in.visc_d_phase["Liq"]
+            dens_liq = prop_in.dens_mass_phase["Liq"]
+            g = Constants.acceleration_gravity
+
+            exp_term = (
+                aw_param
+                * (sigma_c / sigma_w) ** aw_exp1
+                * (Lm / (a_t * visc_liq)) ** aw_exp2
+                * ((Lm**2 * a_t) / (dens_liq**2 * g)) ** aw_exp3
+                * (Lm**2 / (dens_liq * a_t * sigma_w)) ** aw_exp4
+            )
+            return a_w / a_t == 1 - exp(exp_term)
+
+        self.oto_liq_mass_xfr_param = kl_param = Param(
+            initialize=0.0051,
+            units=pyunits.m / pyunits.s,
+            doc="OTO liquid mass transfer correlation parameter",
+        )
+        self.oto_liq_mass_xfr_exp1 = kl_exp1 = Param(
+            initialize=0.667,
+            units=pyunits.dimensionless,
+            doc="OTO liquid mass transfer correlation Re exponent",
+        )
+        self.oto_liq_mass_xfr_exp2 = kl_exp2 = Param(
+            initialize=-0.5,
+            units=pyunits.dimensionless,
+            doc="OTO liquid mass transfer correlation Sc exponent",
+        )
+        self.oto_liq_mass_xfr_exp3 = kl_exp3 = Param(
+            initialize=0.4,
+            units=pyunits.dimensionless,
+            doc="OTO liquid mass transfer correlation Er exponent",
+        )
+        self.oto_liq_mass_xfr_exp4 = kl_exp4 = Param(
+            initialize=-0.3334,
+            units=pyunits.dimensionless,
+            doc="OTO liquid mass transfer correlation Sh exponent",
+        )
+
+        self.oto_gas_mass_xfr_param = kg_param = Param(
+            initialize=5.23,
+            units=pyunits.dimensionless,
+            doc="OTO gas mass transfer correlation parameter",
+        )
+        self.oto_gas_mass_xfr_exp1 = kg_exp1 = Param(
+            initialize=0.7,
+            units=pyunits.dimensionless,
+            doc="OTO gas mass transfer correlation Re exponent",
+        )
+        self.oto_gas_mass_xfr_exp2 = kg_exp2 = Param(
+            initialize=0.3334,
+            units=pyunits.dimensionless,
+            doc="OTO gas mass transfer correlation Sc exponent",
+        )
+        self.oto_gas_mass_xfr_exp3 = kg_exp3 = Param(
+            initialize=-2,
+            units=pyunits.dimensionless,
+            doc="OTO gas mass transfer correlation Er exponent",
+        )
+
+        @self.Constraint(
+            self.phase_target_set, doc="OTO model mass transfer coefficient equation"
+        )
+        def eq_mass_transfer_coeff(b, p, j):
+            print(p, j)
+            if p == "Liq":
+                return (
+                    b.mass_transfer_coeff[p, j]
+                    == kl_param
+                    * b.N_Re[p] ** kl_exp1
+                    * b.N_Sc[p, j] ** kl_exp2
+                    * b.packing_efficiency_number**kl_exp3
+                    * b.N_Sh**kl_exp4
+                )
+            if p == "Vap":
+                return (
+                    b.mass_transfer_coeff[p, j]
+                    == kg_param
+                    * (b.packing_surface_area_total * prop_in.diffus_phase_comp[p, j])
+                    * b.N_Re[p] ** kg_exp1
+                    * b.N_Sc[p, j] ** kg_exp2
+                    * b.packing_efficiency_number**kg_exp3
+                )
 
     def initialize_build(
         self,
@@ -717,4 +855,4 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
     @property
     def default_costing_method(self):
-        return cost_ion_exchange
+        pass
