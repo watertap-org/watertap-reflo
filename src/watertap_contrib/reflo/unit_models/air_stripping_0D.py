@@ -272,29 +272,30 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         )
 
         self.stripping_factor = Var(
+            self.target_set,
             initialize=2,
             bounds=(1, 20),
             units=pyunits.dimensionless,
             doc="Stripping factor",
         )
 
-        self.min_air_water_ratio = Var(
+        self.air_water_ratio_min = Var(
             initialize=1,
             bounds=(0, None),
             units=pyunits.dimensionless,
             doc="Minumum air-to-water ratio",
         )
 
-        self.opt_air_water_ratio = Var(
+        self.air_water_ratio_op = Var(
             initialize=1,
             bounds=(0, None),
             units=pyunits.dimensionless,
-            doc="Optimum air-to-water ratio",
+            doc="Operating air-to-water ratio",
         )
 
         self.tower_height = Var(
             initialize=1,
-            # bounds=(0, 10),
+            bounds=(0, 14),
             units=pyunits.m,
             doc="Height of packed tower",
         )
@@ -480,6 +481,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                     == (b.mass_loading_rate["Vap"] * prop_in.flow_mass_phase[p])
                     / prop_in.flow_mass_phase["Vap"]
                 )
+
+        @self.Constraint(self.target_set, doc="Stripping factor equation")
+        def eq_stripping_factor(b, j):
+            return (
+                b.stripping_factor[j]
+                == b.air_water_ratio_op * prop_in.henry_constant_comp[j]
+            )
 
     def build_oto(self):
         """
