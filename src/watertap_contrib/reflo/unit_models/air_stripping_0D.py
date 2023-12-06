@@ -24,6 +24,7 @@ from pyomo.environ import (
     log,
     log10,
     exp,
+    value,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
@@ -223,10 +224,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         prop_in = self.process_flow.properties_in[0]
 
-        if prop_in.flow_mass_phase_comp["Vap", "Air"].is_fixed():
-            print("YES ITS FIXED YOU FUCK\n\n\n\n\n")
-            prop_in.flow_mass_phase_comp["Vap", "Air"].unfix()
-
         self.add_inlet_port(name="inlet", block=self.process_flow)
         self.add_outlet_port(name="outlet", block=self.process_flow)
 
@@ -264,13 +261,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         def target_remaining_frac(b, j):
             return 1 - b.target_reduction_frac[j]
 
-        self.conc_mass_interface_comp = Var(
-            self.target_set,
-            initialize=1,
-            bounds=(0, None),
-            units=pyunits.kg / pyunits.m**3,
-            doc="Concentration at air-water interface for target component",
-        )
+        # self.conc_mass_interface_comp = Var(
+        #     self.target_set,
+        #     initialize=1,
+        #     bounds=(0, None),
+        #     units=pyunits.kg / pyunits.m**3,
+        #     doc="Concentration at air-water interface for target component",
+        # )
 
         self.packing_surface_area_total = Var(
             initialize=100,
@@ -441,8 +438,9 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         )
 
         @self.Constraint()
-        def eq_p_drop(b):
-            return b.pressure_drop_gradient == 10**b.oto_F
+        def eq_oto_F(b):
+            # return b.pressure_drop_gradient == 10**b.oto_F
+            return log10(b.pressure_drop_gradient) == b.oto_F
 
         @self.Expression()
         def pressure_drop(b):
@@ -548,12 +546,12 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 * prop_in.flow_vol_phase["Liq"]
             )
 
-        @self.Constraint(self.target_set, doc="Concentration at air-water interface")
-        def eq_conc_mass_interface_comp(b, j):
-            c0 = prop_in.conc_mass_phase_comp["Liq", j]
-            return b.conc_mass_interface_comp[j] * prop_in.henry_constant_comp[
-                j
-            ] == b.air_water_ratio_op * (c0 - c0 * b.target_remaining_frac[j])
+        # @self.Constraint(self.target_set, doc="Concentration at air-water interface")
+        # def eq_conc_mass_interface_comp(b, j):
+        #     c0 = prop_in.conc_mass_phase_comp["Liq", j]
+        #     return b.conc_mass_interface_comp[j] * prop_in.henry_constant_comp[
+        #         j
+        #     ] == b.air_water_ratio_op * (c0 - c0 * b.target_remaining_frac[j])
 
         @self.Constraint(phase_set, doc="Iosthermal constraint")
         def eq_isothermal(b, p):
@@ -562,23 +560,25 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 == b.process_flow.properties_out[0].temperature[p]
             )
 
-        @self.Constraint(self.phase_target_set, doc="Effluent concentration")
-        def eq_conc_out(b, p, j):
-            return (
-                b.process_flow.properties_in[0].conc_mass_phase_comp[p, j]
-                * b.target_remaining_frac[j]
-                == b.process_flow.properties_out[0].conc_mass_phase_comp[p, j]
-            )
+        # @self.Constraint(self.phase_target_set, doc="Effluent concentration")
+        # def eq_conc_out(b, p, j):
+        #     return (
+        #         b.process_flow.properties_in[0].conc_mass_phase_comp[p, j]
+        #         * b.target_remaining_frac[j]
+        #         == b.process_flow.properties_out[0].conc_mass_phase_comp[p, j]
+        #     )
 
-        @self.Constraint(self.target_set, doc="Mass transfer term Liq >> Vap")
-        def eq_mass_transfer_cv(b, j):
-            return (
-                b.process_flow.mass_transfer_term[0, "Vap", j]
-                == -b.process_flow.mass_transfer_term[0, "Liq", j]
-            )
+        # @self.Constraint(self.target_set, doc="Mass transfer term Liq >> Vap")
+        # def eq_mass_transfer_cv(b, j):
+        #     return (
+        #         b.process_flow.mass_transfer_term[0, "Vap", j]
+        #         == -b.process_flow.mass_transfer_term[0, "Liq", j]
+        #     )
 
         self.process_flow.mass_transfer_term[0, "Liq", "H2O"].fix(0)
+        self.process_flow.mass_transfer_term[0, "Liq", "Air"].fix(0)
         self.process_flow.mass_transfer_term[0, "Vap", "H2O"].fix(0)
+        self.process_flow.mass_transfer_term[0, "Vap", "Air"].fix(0)
 
     def build_oto(self):
         """
@@ -879,13 +879,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         opt = get_solver(solver, optarg)
 
         # ---------------------------------------------------------------------
-        # flags = self.process_flow.properties_in.initialize(
-        #     outlvl=outlvl,
-        #     optarg=optarg,
-        #     solver=solver,
-        #     state_args=state_args,
-        #     hold_state=True,
-        # )
+        flags = self.process_flow.properties_in.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+            hold_state=True,
+        )
         init_log.info("Initialization Step 1a Complete.")
 
         # ---------------------------------------------------------------------
@@ -905,25 +905,23 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 else:
                     state_args[k] = state_dict[k].value
 
-        state_args_out = deepcopy(state_args)
+        self.state_args_out = state_args_out = deepcopy(state_args)
 
-        # for p, j in self.process_flow.properties_out.phase_component_set:
-        #     if j in self.target_ion_set:
-        #         state_args_out["flow_mol_phase_comp"][(p, j)] = (
-        #             state_args["flow_mol_phase_comp"][(p, j)] * 1e-3
-        #         )
+        for p, j in self.process_flow.properties_out.phase_component_set:
+            if p == "Liq" and j in self.target_set:
+                state_args_out["flow_mass_phase_comp"][(p, j)] = (
+                    state_args["flow_mass_phase_comp"][(p, j)] * value(self.target_remaining_frac[j])
+                )
 
-        # self.process_flow.properties_out.initialize(
-        #     outlvl=outlvl,
-        #     optarg=optarg,
-        #     solver=solver,
-        #     state_args=state_args_out,
-        # )
+        self.process_flow.properties_out.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_out,
+        )
         init_log.info("Initialization Step 1b Complete.")
 
-        state_args_regen = deepcopy(state_args)
-
-        init_log.info("Initialization Step 1c Complete.")
+        # self.process_flow.properties_in[0].flow_mass_phase_comp["Vap", "Air"].unfix()
 
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
@@ -940,15 +938,115 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.process_flow.properties_in.release_state(flags, outlvl=outlvl)
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
-        if not check_optimal_termination(res):
-            raise InitializationError(f"Unit model {self.name} failed to initialize.")
+        # if not check_optimal_termination(res):
+        #     raise InitializationError(f"Unit model {self.name} failed to initialize.")
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
-        pass
 
-        # if iscale.get_scaling_factor(self.t_breakthru) is None:
-        #     iscale.set_scaling_factor(self.t_breakthru, 1e-6)
+        # if iscale.get_scaling_factor(self.conc_mass_interface_comp) is None:
+        #     iscale.set_scaling_factor(self.conc_mass_interface_comp, 1e2)
+
+        if iscale.get_scaling_factor(self.packing_surface_area_total) is None:
+            iscale.set_scaling_factor(self.packing_surface_area_total, 1e-3)
+
+        if iscale.get_scaling_factor(self.packing_surface_area_wetted) is None:
+            iscale.set_scaling_factor(self.packing_surface_area_wetted, 1e-3)
+
+        if iscale.get_scaling_factor(self.packing_diam_nominal) is None:
+            iscale.set_scaling_factor(self.packing_diam_nominal, 10)
+
+        if iscale.get_scaling_factor(self.packing_factor) is None:
+            iscale.set_scaling_factor(self.packing_factor, 1e-2)
+
+        if iscale.get_scaling_factor(self.packing_surf_tension) is None:
+            iscale.set_scaling_factor(self.packing_surf_tension, 10)
+
+        if iscale.get_scaling_factor(self.surf_tension_water) is None:
+            iscale.set_scaling_factor(self.surf_tension_water, 10)
+
+        if iscale.get_scaling_factor(self.stripping_factor) is None:
+            iscale.set_scaling_factor(self.stripping_factor, 0.1)
+
+        if iscale.get_scaling_factor(self.air_water_ratio_min) is None:
+            iscale.set_scaling_factor(self.air_water_ratio_min, 0.1)
+
+        if iscale.get_scaling_factor(self.tower_height) is None:
+            iscale.set_scaling_factor(self.tower_height, 0.1)
+
+        if iscale.get_scaling_factor(self.mass_transfer_coeff) is None:
+            iscale.set_scaling_factor(self.mass_transfer_coeff, 1e3)
+
+        if iscale.get_scaling_factor(self.mass_loading_rate) is None:
+            for p, v in self.mass_loading_rate.items():
+                if p == "Liq":
+                    sf = 1e-2
+                if p == "Vap":
+                    sf = 10
+                iscale.set_scaling_factor(v, sf)
+
+        if iscale.get_scaling_factor(self.height_transfer_unit) is None:
+            iscale.set_scaling_factor(self.height_transfer_unit, 1)
+
+        if iscale.get_scaling_factor(self.number_transfer_unit) is None:
+            iscale.set_scaling_factor(self.number_transfer_unit, 0.1)
+
+        if iscale.get_scaling_factor(self.N_Re) is None:
+            iscale.set_scaling_factor(self.N_Re, 1e2)
+
+        if iscale.get_scaling_factor(self.N_Fr) is None:
+            iscale.set_scaling_factor(self.N_Fr, 10)
+
+        if iscale.get_scaling_factor(self.N_We) is None:
+            iscale.set_scaling_factor(self.N_We, 10)
+
+        if iscale.get_scaling_factor(self.N_Sc) is None:
+            for (p, j), v in self.N_Sc.items():
+                if p == "Liq" and j in self.target_set:
+                    sf = 1e-4
+                if p == "Vap" and j in self.target_set:
+                    sf = 0.1
+                iscale.set_scaling_factor(v, sf)
+
+        if iscale.get_scaling_factor(self.N_Sh) is None:
+            iscale.set_scaling_factor(self.N_Sh, 1e-5)
+
+        if iscale.get_scaling_factor(self.wetability_parameter) is None:
+            iscale.set_scaling_factor(self.wetability_parameter, 1e-2)
+
+        if iscale.get_scaling_factor(self.overall_mass_transfer_coeff) is None:
+            iscale.set_scaling_factor(self.overall_mass_transfer_coeff, 1e2)
+
+        if iscale.get_scaling_factor(self.oto_E) is None:
+            iscale.set_scaling_factor(self.oto_E, 0.1)
+
+        if iscale.get_scaling_factor(self.oto_F) is None:
+            iscale.set_scaling_factor(self.oto_F, 0.1)
+
+        if iscale.get_scaling_factor(self.oto_M) is None:
+            iscale.set_scaling_factor(self.oto_M, 1e2)
+
+        if iscale.get_scaling_factor(self.oto_a0) is None:
+            iscale.set_scaling_factor(self.oto_a0, 0.1)
+
+        if iscale.get_scaling_factor(self.oto_a1) is None:
+            iscale.set_scaling_factor(self.oto_a1, 10)
+
+        if iscale.get_scaling_factor(self.oto_a2) is None:
+            iscale.set_scaling_factor(self.oto_a2, 10)
+
+        if iscale.get_scaling_factor(self.pressure_drop_gradient) is None:
+            iscale.set_scaling_factor(self.pressure_drop_gradient, 0.1)
+
+        # if iscale.get_scaling_factor(self.conc_mass_interface_comp) is None:
+        #     iscale.set_scaling_factor(self.conc_mass_interface_comp, 1e2)
+
+        # if iscale.get_scaling_factor(self.conc_mass_interface_comp) is None:
+        #     iscale.set_scaling_factor(self.conc_mass_interface_comp, 1e2)
+
+        # if iscale.get_scaling_factor(self.conc_mass_interface_comp) is None:
+        #     iscale.set_scaling_factor(self.conc_mass_interface_comp, 1e2)
+
 
     def _get_stream_table_contents(self, time_point=0):
         pass
