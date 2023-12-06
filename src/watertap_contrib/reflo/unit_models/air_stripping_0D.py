@@ -538,13 +538,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 c0 - c0 * b.target_remaining_frac[j]
             )
 
-        @self.Constraint(doc="Operational air-to-water ratio")
-        def eq_air_water_ratio_op(b):
-            return (
-                prop_in.flow_vol_phase["Vap"]
-                == (b.air_water_ratio_min * b.air_water_ratio_param)
-                * prop_in.flow_vol_phase["Liq"]
-            )
+        # @self.Constraint(doc="Operational air-to-water ratio")
+        # def eq_air_water_ratio_op(b):
+        #     return (
+        #         prop_in.flow_vol_phase["Vap"]
+        #         == (b.air_water_ratio_min * b.air_water_ratio_param)
+        #         * prop_in.flow_vol_phase["Liq"]
+        #     )
 
         # @self.Constraint(self.target_set, doc="Concentration at air-water interface")
         # def eq_conc_mass_interface_comp(b, j):
@@ -560,13 +560,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 == b.process_flow.properties_out[0].temperature[p]
             )
 
-        # @self.Constraint(self.phase_target_set, doc="Effluent concentration")
-        # def eq_conc_out(b, p, j):
-        #     return (
-        #         b.process_flow.properties_in[0].conc_mass_phase_comp[p, j]
-        #         * b.target_remaining_frac[j]
-        #         == b.process_flow.properties_out[0].conc_mass_phase_comp[p, j]
-        #     )
+        @self.Constraint(self.phase_target_set, doc="Effluent concentration")
+        def eq_conc_out(b, p, j):
+            return (
+                b.process_flow.properties_in[0].conc_mass_phase_comp[p, j]
+                * b.target_remaining_frac[j]
+                == b.process_flow.properties_out[0].conc_mass_phase_comp[p, j]
+            )
 
         # @self.Constraint(self.target_set, doc="Mass transfer term Liq >> Vap")
         # def eq_mass_transfer_cv(b, j):
