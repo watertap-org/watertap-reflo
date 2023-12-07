@@ -216,13 +216,14 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.process_flow.add_energy_balances(
             balance_type=self.config.energy_balance_type, has_enthalpy_transfer=False
         )
-        # self.process_flow.add_phase_component_balance()
+
         self.process_flow.add_momentum_balances(
             balance_type=self.config.momentum_balance_type,
             has_pressure_change=False,
         )
 
         prop_in = self.process_flow.properties_in[0]
+        prop_out = self.process_flow.properties_out[0]
 
         self.add_inlet_port(name="inlet", block=self.process_flow)
         self.add_outlet_port(name="outlet", block=self.process_flow)
@@ -232,16 +233,17 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         tmp_dict["parameters"] = self.config.property_package
         tmp_dict["defined_state"] = False
 
+        self.process_flow.mass_transfer_term[0, "Liq", "H2O"].fix(0)
+        self.process_flow.mass_transfer_term[0, "Liq", "Air"].fix(0)
+        self.process_flow.mass_transfer_term[0, "Vap", "H2O"].fix(0)
+        self.process_flow.mass_transfer_term[0, "Vap", "Air"].fix(0)
+
         self.air_water_ratio_param = Param(
             initialize=3.5,
             mutable=True,
             units=pyunits.dimensionless,
             doc="Factor multiplied by minimum air-to-water flow ratio for operating air-to-water flow ratio",
         )
-
-        @self.Expression(doc="Operational air-to-water ratio")
-        def air_water_ratio_op(b):
-            return prop_in.flow_vol_phase["Vap"] / prop_in.flow_vol_phase["Liq"]
 
         self.target_reduction_frac = Param(
             self.target_set,
@@ -256,18 +258,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             units=pyunits.dimensionless,
             doc="Safety factor for overall mass transfer coeff",
         )
-
-        @self.Expression(self.target_set, doc="Remaining fraction of target component")
-        def target_remaining_frac(b, j):
-            return 1 - b.target_reduction_frac[j]
-
-        # self.conc_mass_interface_comp = Var(
-        #     self.target_set,
-        #     initialize=1,
-        #     bounds=(0, None),
-        #     units=pyunits.kg / pyunits.m**3,
-        #     doc="Concentration at air-water interface for target component",
-        # )
 
         self.packing_surface_area_total = Var(
             initialize=100,
@@ -352,6 +342,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         )
 
         self.height_transfer_unit = Var(
+            self.target_set,
             initialize=1,
             bounds=(0, None),
             units=pyunits.m,
@@ -359,6 +350,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         )
 
         self.number_transfer_unit = Var(
+            self.target_set,
             initialize=1,
             bounds=(0, None),
             units=pyunits.dimensionless,
@@ -402,23 +394,12 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Sherwood number",
         )
 
-        self.wetability_parameter = Var(
-            initialize=30,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Wettability parameter",
+        self.pressure_drop_gradient = Var(
+            initialize=100,
+            bounds=(20, 1200),
+            units=pyunits.Pa / pyunits.m,
+            doc="Pressure drop per length of packed bed",
         )
-
-        @self.Expression()
-        def packing_efficiency_number(b):
-            return b.packing_surface_area_total * b.packing_diam_nominal
-
-        # self.packing_efficiency_number = Var(
-        #     initialize=30,
-        #     bounds=(0, None),
-        #     units=pyunits.dimensionless,
-        #     doc="Packing efficiency number",
-        # )
 
         self.overall_mass_transfer_coeff = Var(
             self.target_set,
@@ -430,19 +411,15 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         self.build_oto()
 
-        self.pressure_drop_gradient = Var(
-            initialize=100,
-            bounds=(20, 1200),
-            units=pyunits.Pa / pyunits.m,
-            doc="Pressure drop per length of packed bed",
-        )
-
-        @self.Constraint()
-        def eq_oto_F(b):
-            # return b.pressure_drop_gradient == 10**b.oto_F
-            return log10(b.pressure_drop_gradient) == b.oto_F
-
+        @self.Expression(doc="Operational air-to-water ratio")
+        def air_water_ratio_op(b):
+            return prop_in.flow_vol_phase["Vap"] / prop_in.flow_vol_phase["Liq"]
+        
         @self.Expression()
+        def packing_efficiency_number(b):
+            return b.packing_surface_area_total * b.packing_diam_nominal
+
+        @self.Expression(doc="Pressure drop")
         def pressure_drop(b):
             return b.pressure_drop_gradient * b.tower_height
 
@@ -454,9 +431,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         def tower_diam(b):
             return ((4 * b.tower_area) / Constants.pi) ** 0.5
 
-        @self.Expression(doc="Diameter of tower")
+        @self.Expression(doc="Volume of tower")
         def tower_volume(b):
             return b.tower_area * b.tower_height
+
+        @self.Expression(self.target_set, doc="Remaining fraction of target component")
+        def target_remaining_frac(b, j):
+            return 1 - b.target_reduction_frac[j]
 
         @self.Constraint(phase_set, doc="Reynolds number by phase")
         def eq_Re(b, p):
@@ -546,13 +527,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         #         * prop_in.flow_vol_phase["Liq"]
         #     )
 
-        # @self.Constraint(self.target_set, doc="Concentration at air-water interface")
-        # def eq_conc_mass_interface_comp(b, j):
-        #     c0 = prop_in.conc_mass_phase_comp["Liq", j]
-        #     return b.conc_mass_interface_comp[j] * prop_in.henry_constant_comp[
-        #         j
-        #     ] == b.air_water_ratio_op * (c0 - c0 * b.target_remaining_frac[j])
-
         @self.Constraint(phase_set, doc="Iosthermal constraint")
         def eq_isothermal(b, p):
             return (
@@ -568,17 +542,30 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 == b.process_flow.properties_out[0].conc_mass_phase_comp[p, j]
             )
 
-        # @self.Constraint(self.target_set, doc="Mass transfer term Liq >> Vap")
-        # def eq_mass_transfer_cv(b, j):
-        #     return (
-        #         b.process_flow.mass_transfer_term[0, "Vap", j]
-        #         == -b.process_flow.mass_transfer_term[0, "Liq", j]
-        #     )
+        @self.Constraint(self.target_set, doc="Height of transfer unit")
+        def eq_htu(b, j):
+            return b.height_transfer_unit[j] == prop_in.flow_vol_phase["Liq"] / (
+                b.tower_area * b.overall_mass_transfer_coeff[j]
+            )
 
-        self.process_flow.mass_transfer_term[0, "Liq", "H2O"].fix(0)
-        self.process_flow.mass_transfer_term[0, "Liq", "Air"].fix(0)
-        self.process_flow.mass_transfer_term[0, "Vap", "H2O"].fix(0)
-        self.process_flow.mass_transfer_term[0, "Vap", "Air"].fix(0)
+        @self.Constraint(self.target_set, doc="Number of transfer unit")
+        def eq_ntu(b, j):
+            S = b.stripping_factor[j]
+            log_term = (
+                1
+                + (
+                    prop_in.conc_mass_phase_comp["Liq", j]
+                    / prop_out.conc_mass_phase_comp["Liq", j]
+                )
+                * (S - 1)
+            ) / S
+            return b.number_transfer_unit[j] == (S / (S - 1)) * log(log_term)
+
+        @self.Constraint(self.target_set, doc="Tower height calculation")
+        def eq_tower_height(b, j):
+            return (
+                b.tower_height == b.height_transfer_unit[j] * b.number_transfer_unit[j]
+            )
 
     def build_oto(self):
         """
@@ -592,7 +579,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         """
         prop_in = self.process_flow.properties_in[0]
-        phase_set = self.config.property_package.phase_list
 
         self.oto_E = E = Var(
             initialize=1,
@@ -600,17 +586,26 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="OTO E parameter",
         )
 
+        @self.Constraint(doc="OTO model E calculation")
+        def eq_oto_E(b):
+            dens_vap = b.process_flow.properties_in[0].dens_mass_phase["Vap"]
+            dens_liq = b.process_flow.properties_in[0].dens_mass_phase["Liq"]
+            return E == -1 * (
+                log10(
+                    (b.air_water_ratio_op)
+                    * (dens_vap / dens_liq - (dens_vap / dens_liq) ** 2) ** 0.5
+                )
+            )
+
         self.oto_F = F = Var(
             initialize=1,
             units=pyunits.dimensionless,
             doc="OTO F parameter",
         )
 
-        self.oto_M = M = Var(
-            initialize=1,
-            units=pyunits.dimensionless,
-            doc="OTO M parameter",
-        )
+        @self.Constraint(doc="OTO model F calculation")
+        def eq_oto_F(b):
+            return log10(b.pressure_drop_gradient) == b.oto_F
 
         # a0 = -6.6599 + 4.3077*F - 1.3503*F^2 + 0.15931*F^3
         self.oto_a0_param1 = a01 = Param(
@@ -707,16 +702,11 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         def eq_oto_a2(b):
             return a2 == a21 + a22 * F + a23 * F**2 + a24 * F**3
 
-        @self.Constraint(doc="OTO E Parameter")
-        def eq_oto_E(b):
-            dens_vap = b.process_flow.properties_in[0].dens_mass_phase["Vap"]
-            dens_liq = b.process_flow.properties_in[0].dens_mass_phase["Liq"]
-            return E == -1 * (
-                log10(
-                    (b.air_water_ratio_op)
-                    * (dens_vap / dens_liq - (dens_vap / dens_liq) ** 2) ** 0.5
-                )
-            )
+        self.oto_M = M = Var(
+            initialize=1,
+            units=pyunits.dimensionless,
+            doc="OTO M parameter",
+        )
 
         @self.Constraint(doc="OTO M Parameter")
         def eq_oto_M(b):
@@ -909,9 +899,9 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         for p, j in self.process_flow.properties_out.phase_component_set:
             if p == "Liq" and j in self.target_set:
-                state_args_out["flow_mass_phase_comp"][(p, j)] = (
-                    state_args["flow_mass_phase_comp"][(p, j)] * value(self.target_remaining_frac[j])
-                )
+                state_args_out["flow_mass_phase_comp"][(p, j)] = state_args[
+                    "flow_mass_phase_comp"
+                ][(p, j)] * value(self.target_remaining_frac[j])
 
         self.process_flow.properties_out.initialize(
             outlvl=outlvl,
@@ -920,8 +910,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             state_args=state_args_out,
         )
         init_log.info("Initialization Step 1b Complete.")
-
-        # self.process_flow.properties_in[0].flow_mass_phase_comp["Vap", "Air"].unfix()
 
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
@@ -938,14 +926,11 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.process_flow.properties_in.release_state(flags, outlvl=outlvl)
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
-        # if not check_optimal_termination(res):
-        #     raise InitializationError(f"Unit model {self.name} failed to initialize.")
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {self.name} failed to initialize.")
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
-
-        # if iscale.get_scaling_factor(self.conc_mass_interface_comp) is None:
-        #     iscale.set_scaling_factor(self.conc_mass_interface_comp, 1e2)
 
         if iscale.get_scaling_factor(self.packing_surface_area_total) is None:
             iscale.set_scaling_factor(self.packing_surface_area_total, 1e-3)
@@ -1011,9 +996,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.N_Sh) is None:
             iscale.set_scaling_factor(self.N_Sh, 1e-5)
 
-        if iscale.get_scaling_factor(self.wetability_parameter) is None:
-            iscale.set_scaling_factor(self.wetability_parameter, 1e-2)
-
         if iscale.get_scaling_factor(self.overall_mass_transfer_coeff) is None:
             iscale.set_scaling_factor(self.overall_mass_transfer_coeff, 1e2)
 
@@ -1037,16 +1019,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.pressure_drop_gradient) is None:
             iscale.set_scaling_factor(self.pressure_drop_gradient, 0.1)
-
-        # if iscale.get_scaling_factor(self.conc_mass_interface_comp) is None:
-        #     iscale.set_scaling_factor(self.conc_mass_interface_comp, 1e2)
-
-        # if iscale.get_scaling_factor(self.conc_mass_interface_comp) is None:
-        #     iscale.set_scaling_factor(self.conc_mass_interface_comp, 1e2)
-
-        # if iscale.get_scaling_factor(self.conc_mass_interface_comp) is None:
-        #     iscale.set_scaling_factor(self.conc_mass_interface_comp, 1e2)
-
 
     def _get_stream_table_contents(self, time_point=0):
         pass
