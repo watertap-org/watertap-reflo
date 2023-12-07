@@ -1122,7 +1122,7 @@ class AirWaterEqStateBlockData(StateBlockData):
                     self.params.config.vap_diffus_calculation
                     == VapDiffusivityCalculation.WilkeLee
                 ):
-
+                    pressure_amb = 101325 * pyunits.Pa
                     sqrt_term = (1 / mw_j + 1 / mw_air) ** 0.5 * (
                         pyunits.g / pyunits.mol
                     ) ** 0.5  # units = dimensionless
@@ -1132,7 +1132,7 @@ class AirWaterEqStateBlockData(StateBlockData):
                         * sqrt_term
                     )  # units = cm2
                     denominator = (
-                        b.pressure
+                        pressure_amb
                         * (b.collision_molecular_separation[j]) ** 2
                         * b.collision_function_comp[j]
                     ) * wilke_lee_denom_units  # units = s
