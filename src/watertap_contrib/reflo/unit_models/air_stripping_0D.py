@@ -219,7 +219,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         self.process_flow.add_momentum_balances(
             balance_type=self.config.momentum_balance_type,
-            has_pressure_change=False,
+            has_pressure_change=True,
         )
 
         prop_in = self.process_flow.properties_in[0]
@@ -243,6 +243,27 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             mutable=True,
             units=pyunits.dimensionless,
             doc="Factor multiplied by minimum air-to-water flow ratio for operating air-to-water flow ratio",
+        )
+
+        self.pressure_drop_tower_param = Param(
+            initialize=275,
+            mutable=True,
+            units=(pyunits.newton * pyunits.s**2) / pyunits.m**4,
+            doc="Factor to calculate pressure drop through tower",
+        )
+
+        self.tower_height_safety_factor = Param(
+            initialize=1.2,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Safety factor for tower height",
+        )
+
+        self.pressure_ambient = Param(
+            initialize=101325,
+            mutable=True,
+            units=pyunits.Pa,
+            doc="Ambient pressure",
         )
 
         self.target_reduction_frac = Param(
@@ -409,19 +430,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Overall mass transfer coeff (K_L*a)",
         )
 
-        self.build_oto()
-
         @self.Expression(doc="Operational air-to-water ratio")
         def air_water_ratio_op(b):
             return prop_in.flow_vol_phase["Vap"] / prop_in.flow_vol_phase["Liq"]
-        
+
         @self.Expression()
         def packing_efficiency_number(b):
             return b.packing_surface_area_total * b.packing_diam_nominal
-
-        @self.Expression(doc="Pressure drop")
-        def pressure_drop(b):
-            return b.pressure_drop_gradient * b.tower_height
 
         @self.Expression(doc="Cross sectional area of tower")
         def tower_area(b):
@@ -438,6 +453,22 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         @self.Expression(self.target_set, doc="Remaining fraction of target component")
         def target_remaining_frac(b, j):
             return 1 - b.target_reduction_frac[j]
+
+        @self.Expression(doc="Pressure drop")
+        def pressure_drop(b):
+            return b.pressure_drop_gradient * b.tower_height
+
+        @self.Expression(
+            doc="Pressure drop through demister, packing support plate, duct work, and inlet/outlet"
+        )
+        def pressure_drop_tower(b):
+            return pyunits.convert(
+                (prop_in.flow_vol_phase["Vap"] / b.tower_area) ** 2
+                * b.pressure_drop_tower_param,
+                to_units=pyunits.Pa,
+            )
+
+        self.build_oto()
 
         @self.Constraint(phase_set, doc="Reynolds number by phase")
         def eq_Re(b, p):
@@ -519,20 +550,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 c0 - c0 * b.target_remaining_frac[j]
             )
 
-        # @self.Constraint(doc="Operational air-to-water ratio")
-        # def eq_air_water_ratio_op(b):
-        #     return (
-        #         prop_in.flow_vol_phase["Vap"]
-        #         == (b.air_water_ratio_min * b.air_water_ratio_param)
-        #         * prop_in.flow_vol_phase["Liq"]
-        #     )
-
         @self.Constraint(phase_set, doc="Iosthermal constraint")
         def eq_isothermal(b, p):
-            return (
-                b.process_flow.properties_in[0].temperature[p]
-                == b.process_flow.properties_out[0].temperature[p]
-            )
+            return prop_in.temperature[p] == prop_out.temperature[p]
+
+        @self.Constraint(doc="Control volume deltaP")
+        def eq_deltaP(b):
+            return b.process_flow.deltaP[0] == (b.pressure_drop + b.pressure_drop_tower)
 
         @self.Constraint(self.phase_target_set, doc="Effluent concentration")
         def eq_conc_out(b, p, j):
@@ -564,7 +588,10 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(self.target_set, doc="Tower height calculation")
         def eq_tower_height(b, j):
             return (
-                b.tower_height == b.height_transfer_unit[j] * b.number_transfer_unit[j]
+                b.tower_height
+                == b.height_transfer_unit[j]
+                * b.number_transfer_unit[j]
+                * b.tower_height_safety_factor
             )
 
     def build_oto(self):
