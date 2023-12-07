@@ -39,9 +39,7 @@ from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
 from watertap.costing.units.uv_aop import cost_uv_aop
 
 from watertap_contrib.reflo.solar_models.zero_order import Photovoltaic
-from watertap_contrib.reflo.costing.solar.photovoltaic import cost_pv
 from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
-from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
 from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
 from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
@@ -51,6 +49,9 @@ from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import 
 from watertap_contrib.reflo.unit_models.air_stripping_0D import (
     AirStripping0D,
 )
+
+from watertap_contrib.reflo.costing.solar.photovoltaic import cost_pv
+from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
 from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
     cost_med_tvc_surrogate,
@@ -96,11 +97,6 @@ class REFLOCostingData(WaterTAPCostingData):
 
     def build_global_params(self):
         super().build_global_params()
-
-        if "USD_2021" not in pyo.units._pint_registry:
-            pyo.units.load_definitions_from_strings(
-                ["USD_2021 = 500/708.0 * USD_CE500"]
-            )
 
         self.base_currency = pyo.units.USD_2021
         self.plant_lifetime = pyo.Var(
