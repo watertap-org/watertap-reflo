@@ -13,6 +13,7 @@
 Air-water equilibrium property package
 """
 from copy import deepcopy
+
 # Import Python libraries
 import idaes.logger as idaeslog
 
@@ -1701,7 +1702,7 @@ class AirWaterEqStateBlockData(StateBlockData):
                     sf = 1 / mass_frac
 
                 # if iscale.get_scaling_factor(self.mass_frac_phase_comp[p, j]) is None:
-                    # print("\tmass_frac_phase_comp", p, j, sf)
+                # print("\tmass_frac_phase_comp", p, j, sf)
                 iscale.set_scaling_factor(self.mass_frac_phase_comp[p, j], sf)
 
             if self.is_property_constructed("mole_frac_phase_comp"):
@@ -1737,7 +1738,6 @@ class AirWaterEqStateBlockData(StateBlockData):
                     sf = 1 / conc_mol
                 if iscale.get_scaling_factor(self.conc_mole_phase_comp[p, j]) is None:
                     iscale.set_scaling_factor(self.conc_mole_phase_comp[p, j], sf)
-
 
         for j in self.params.solute_set:
             # print("solute_set", j)
@@ -1801,7 +1801,7 @@ class AirWaterEqStateBlockData(StateBlockData):
         if hasattr(self, "eq_diffus_phase_comp"):
             for ind, v in self.eq_diffus_phase_comp.items():
                 iscale.constraint_scaling_transform(v, 1e2)
-        
+
         if hasattr(self, "eq_conc_mass_phase_comp"):
             for ind, v in self.eq_conc_mass_phase_comp.items():
                 iscale.constraint_scaling_transform(v, 1e4)
