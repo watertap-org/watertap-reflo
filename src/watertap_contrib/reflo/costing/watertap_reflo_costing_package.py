@@ -45,16 +45,23 @@ from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_su
 from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
 from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
 from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
+from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
+    ChemicalSofteningZO,
+)
+from watertap_contrib.reflo.unit_models.air_stripping_0D import (
+    AirStripping0D,
+)
 from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
     cost_med_tvc_surrogate,
 )
 from watertap_contrib.reflo.costing.units.vagmd_surrogate import cost_vagmd_surrogate
-from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
-    ChemicalSofteningZO,
-)
+
 from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
     cost_chem_softening,
+)
+from watertap_contrib.reflo.costing.units.air_stripping import (
+    cost_air_stripping,
 )
 
 from watertap_contrib.reflo.core import PySAMWaterTAP
@@ -84,6 +91,7 @@ class REFLOCostingData(WaterTAPCostingData):
         IonExchange0D: cost_ion_exchange,
         GAC: cost_gac,
         ChemicalSofteningZO: cost_chem_softening,
+        AirStripping0D: cost_air_stripping
     }
 
     def build_global_params(self):
