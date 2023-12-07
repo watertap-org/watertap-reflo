@@ -259,11 +259,18 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Safety factor for tower height",
         )
 
-        self.pressure_ambient = Param(
-            initialize=101325,
+        self.tower_port_diameter = Param(
+            initialize=6,
             mutable=True,
-            units=pyunits.Pa,
-            doc="Ambient pressure",
+            units=pyunits.inches,
+            doc="Diameter of tower access ports: 2-24 inches",
+        )
+
+        self.tower_pipe_diameter = Param(
+            initialize=6,
+            mutable=True,
+            units=pyunits.inches,
+            doc="Diameter of tower inlet and outlet piping: 2-24 inches",
         )
 
         self.target_reduction_frac = Param(
