@@ -31,7 +31,6 @@ from pyomo.environ import (
     Var,
     Param,
     exp,
-    log,
     log10,
     value,
     check_optimal_termination,
@@ -72,12 +71,11 @@ from idaes.core.util.model_statistics import (
 from idaes.core.util.exceptions import (
     ConfigurationError,
     InitializationError,
-    PropertyPackageError,
 )
 import idaes.core.util.scaling as iscale
+
 from watertap.core.util.scaling import transform_property_constraints
 
-# from watertap.property_models.multicomp_aq_sol_prop_pack import DiffusivityCalculation
 boltzmann = pyunits.convert(
     Constants.boltzmann_constant,
     to_units=(pyunits.g * pyunits.cm**2) / (pyunits.second**2 * pyunits.degK),
@@ -290,7 +288,6 @@ class AirWaterEqData(PhysicalParameterBlock):
         self.Liq = LiquidPhase()
         self.Vap = VaporPhase()
 
-        # self.component_list = Set(dimen=1)
         self.solute_set = Set()
         self.Air = Solute(valid_phase_types=PT.vaporPhase)
 
@@ -303,9 +300,6 @@ class AirWaterEqData(PhysicalParameterBlock):
         self.vap_comps = self.solute_set | Set(initialize=["Air"])
         self.vap_idx = list(itertools.product(["Vap"], self.vap_comps))
         self.vap_set = Set(initialize=self.vap_idx, doc="Set for all solutes plus air")
-        # self.del_component(self.component_list)
-        # self.component_list = deepcopy(self.vap_set)
-        # self.component_list.remove("Air")
 
         self.all_comps = self.component_list | self.vap_comps
 
@@ -1616,16 +1610,15 @@ class AirWaterEqStateBlockData(StateBlockData):
     # Scaling methods
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
+
         # default scaling factors have already been set with idaes.core.property_base.calculate_scaling_factors()
         for j, v in self.mw_comp.items():
             if iscale.get_scaling_factor(v) is None:
                 iscale.set_scaling_factor(self.mw_comp[j], value(v) ** -1)
 
         for p, j in self.phase_component_air_set:
-            # print("phase_component_set", p, j)
             if iscale.get_scaling_factor(self.flow_mass_phase_comp[p, j]) is None:
                 sf = 1 / value(self.flow_mass_phase_comp[p, j])
-                # print("\tflow_mass", p, j, sf)
                 iscale.set_scaling_factor(self.flow_mass_phase_comp[p, j], sf)
 
             if self.is_property_constructed("flow_mole_phase_comp"):
@@ -1633,11 +1626,9 @@ class AirWaterEqStateBlockData(StateBlockData):
                     sf = iscale.get_scaling_factor(
                         self.flow_mass_phase_comp[p, j]
                     ) / iscale.get_scaling_factor(self.mw_comp[j])
-                    # print("\tflow_mol", p, j, sf)
                     iscale.set_scaling_factor(self.flow_mole_phase_comp[p, j], sf)
 
         for p, j in self.params.phase_solute_set:
-            # print("phase_solute_set", p, j)
             if self.is_property_constructed("diffus_phase_comp"):
                 if iscale.get_scaling_factor(self.diffus_phase_comp[p, j]) is None:
                     if (p, j) in self.params.config.diffusivity_data.keys():
@@ -1647,7 +1638,6 @@ class AirWaterEqStateBlockData(StateBlockData):
                             sf = 1e10
                         else:
                             sf = 1e6
-                    # print("\tdiffus_phase_comp", p, j, sf)
                     iscale.set_scaling_factor(self.diffus_phase_comp[p, j], sf)
 
         for p in self.params.phase_list:
@@ -1656,14 +1646,9 @@ class AirWaterEqStateBlockData(StateBlockData):
                 for j in self.params.all_comps
                 if (p, j) in self.phase_component_air_set
             )
-            # print("phase_list", p)
             if self.is_property_constructed("dens_mass_phase"):
                 if iscale.get_scaling_factor(self.dens_mass_phase[p]) is None:
-                    # if p == "Liq":
                     sf = 1 / self.params.config.density_data[p]
-                    # else:
-                    #     sf = 1
-                    # print("\tdens_mass_phase", p, sf)
                     iscale.set_scaling_factor(self.dens_mass_phase[p], sf)
 
             if self.is_property_constructed("visc_d_phase"):
@@ -1672,18 +1657,14 @@ class AirWaterEqStateBlockData(StateBlockData):
                     iscale.set_scaling_factor(self.visc_d_phase[p], sf)
 
             if self.is_property_constructed("flow_vol_phase"):
-                # if p == "Liq":
-
                 flow_vol = value(flow_mass_phase_tot / self.dens_mass_phase[p])
                 sf = 1 / flow_vol
                 if iscale.get_scaling_factor(self.flow_vol_phase[p]) is None:
                     iscale.set_scaling_factor(self.flow_vol_phase[p], sf)
-                    # print("\tflow_vol_phase", p, sf)
             if self.is_property_constructed("flow_mass_phase"):
                 sf = 1 / flow_mass_phase_tot
                 if iscale.get_scaling_factor(self.flow_mass_phase[p]) is None:
                     iscale.set_scaling_factor(self.flow_mass_phase[p], sf)
-                    # print("\tflow_mass_phase", p, sf)
         for p, j in self.phase_component_air_set:
             phase_comp_list = [
                 (p, _j)
@@ -1693,17 +1674,15 @@ class AirWaterEqStateBlockData(StateBlockData):
             flow_mass_phase_tot = sum(
                 self.flow_mass_phase_comp[p, _j] for p, _j in phase_comp_list
             )
-            # print("phase_component_air_set", p, j)
             if self.is_property_constructed("mass_frac_phase_comp"):
                 mass_frac = value(self.flow_mass_phase_comp[p, j] / flow_mass_phase_tot)
                 if mass_frac == 0:
-                    sf = 1e8
+                    sf = 1e12
                 else:
                     sf = 1 / mass_frac
 
-                # if iscale.get_scaling_factor(self.mass_frac_phase_comp[p, j]) is None:
-                # print("\tmass_frac_phase_comp", p, j, sf)
-                iscale.set_scaling_factor(self.mass_frac_phase_comp[p, j], sf)
+                if iscale.get_scaling_factor(self.mass_frac_phase_comp[p, j]) is None:
+                    iscale.set_scaling_factor(self.mass_frac_phase_comp[p, j], sf)
 
             if self.is_property_constructed("mole_frac_phase_comp"):
                 mole_frac = value(
@@ -1713,34 +1692,30 @@ class AirWaterEqStateBlockData(StateBlockData):
                     for p, _j in phase_comp_list
                 )
                 if mole_frac == 0:
-                    sf = 1e8
+                    sf = 1e12
                 else:
                     sf = 1 / mole_frac
                 if iscale.get_scaling_factor(self.mole_frac_phase_comp[p, j]) is None:
-                    # print("\tmole_frac", p, j, sf)
                     iscale.set_scaling_factor(self.mole_frac_phase_comp[p, j], sf)
 
             if self.is_property_constructed("conc_mass_phase_comp"):
                 conc_mass = value(self.dens_mass_phase[p] * mass_frac)
                 if conc_mass == 0:
-                    sf = 1e8
+                    sf = 1e12
                 else:
                     sf = 1 / conc_mass
-                # print("\tconc_mass ", p, j, sf)
-                # if iscale.get_scaling_factor(self.conc_mass_phase_comp[p, j]) is None:
                 iscale.set_scaling_factor(self.conc_mass_phase_comp[p, j], sf)
 
             if self.is_property_constructed("conc_mole_phase_comp"):
                 conc_mol = value(conc_mass / self.params.mw_comp[j])
                 if conc_mol == 0:
-                    sf = 1e8
+                    sf = 1e12
                 else:
                     sf = 1 / conc_mol
                 if iscale.get_scaling_factor(self.conc_mole_phase_comp[p, j]) is None:
                     iscale.set_scaling_factor(self.conc_mole_phase_comp[p, j], sf)
 
         for j in self.params.solute_set:
-            # print("solute_set", j)
             if self.is_property_constructed("collision_function_zeta_comp"):
                 if (
                     iscale.get_scaling_factor(self.collision_function_zeta_comp[j])
@@ -1757,8 +1732,9 @@ class AirWaterEqStateBlockData(StateBlockData):
                 if iscale.get_scaling_factor(self.collision_function_comp[j]) is None:
                     iscale.set_scaling_factor(self.collision_function_comp[j], 10)
             if self.is_property_constructed("molar_volume_comp"):
+
                 if iscale.get_scaling_factor(self.molar_volume_comp[j]) is None:
-                    iscale.set_scaling_factor(self.molar_volume_comp[j], 1e3)
+                    iscale.set_scaling_factor(self.molar_volume_comp[j], 1e5)
             if self.is_property_constructed("critical_molar_volume_comp"):
                 if (
                     iscale.get_scaling_factor(self.critical_molar_volume_comp[j])
@@ -1773,7 +1749,6 @@ class AirWaterEqStateBlockData(StateBlockData):
                     iscale.set_scaling_factor(self.temperature_boiling_comp[j], 0.1)
 
         for p, j in self.params.vap_set:
-            # print("vap_set", p, j)
             if self.is_property_constructed(
                 "collision_molecular_separation_phase_comp"
             ):
