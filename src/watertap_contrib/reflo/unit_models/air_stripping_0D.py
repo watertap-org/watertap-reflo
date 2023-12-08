@@ -175,9 +175,9 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
     CONFIG.declare(
         "target",
         ConfigValue(
-            default="X",
+            default="VOC",
             domain=str,
-            description="Designates targeted species for removal",
+            description="Designates targeted species for removal.",
         ),
     )
 
@@ -186,7 +186,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         ConfigValue(
             default=PackingMaterial.PVC,
             domain=In(PackingMaterial),
-            description="Material used for product. ",
+            description="Packing material used in tower.",
         ),
     )
 
@@ -344,9 +344,9 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Minumum air-to-water ratio",
         )
 
-        self.tower_height = Var(
+        self.packing_height = Var(
             initialize=1,
-            bounds=(0, 14),
+            bounds=(0, 25),
             units=pyunits.m,
             doc="Height of packed tower",
         )
@@ -453,9 +453,17 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         def tower_diam(b):
             return ((4 * b.tower_area) / Constants.pi) ** 0.5
 
+        @self.Expression(doc="Height of tower")
+        def tower_height(b):
+            return b.packing_height * b.tower_height_safety_factor
+
         @self.Expression(doc="Volume of tower")
         def tower_volume(b):
             return b.tower_area * b.tower_height
+
+        @self.Expression(doc="Volume of tower")
+        def packing_volume(b):
+            return b.tower_area * b.packing_height
 
         @self.Expression(self.target_set, doc="Remaining fraction of target component")
         def target_remaining_frac(b, j):
@@ -592,13 +600,11 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             ) / S
             return b.number_transfer_unit[j] == (S / (S - 1)) * log(log_term)
 
-        @self.Constraint(self.target_set, doc="Tower height calculation")
-        def eq_tower_height(b, j):
+        @self.Constraint(self.target_set, doc="Packing height calculation")
+        def eq_packing_height(b, j):
             return (
-                b.tower_height
-                == b.height_transfer_unit[j]
-                * b.number_transfer_unit[j]
-                * b.tower_height_safety_factor
+                b.packing_height
+                == b.height_transfer_unit[j] * b.number_transfer_unit[j]
             )
 
     def build_oto(self):
