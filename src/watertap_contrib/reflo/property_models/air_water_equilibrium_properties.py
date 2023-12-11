@@ -282,22 +282,24 @@ class AirWaterEqData(PhysicalParameterBlock):
 
         self._state_block_class = AirWaterEqStateBlock
 
-        self.H2O = Solvent(valid_phase_types=[PT.liquidPhase, PT.vaporPhase])
-
-        # Phases
-        self.Liq = LiquidPhase()
-        self.Vap = VaporPhase()
-
-        self.solute_set = Set()
+        self.H2O = Solute(valid_phase_types=PT.liquidPhase)
         self.Air = Solute(valid_phase_types=PT.vaporPhase)
 
+        self.liq_comp_list = ["H2O"] + self.config.solute_list
+        self.liq_comps = Set(initialize=self.liq_comp_list)
+        self.vap_comp_list = ["Air"] + self.config.solute_list
+        self.vap_comps = Set(initialize=self.vap_comp_list)
+
+        self.Liq = LiquidPhase(component_list=self.liq_comps)
+        self.Vap = VaporPhase(component_list=self.vap_comps)
+
+        # Phases
         for j in self.config.solute_list:
             self.add_component(j, Solute())
 
-        self.solute_set.remove("Air")
         self.phase_solute_set = self.phase_list * self.solute_set
 
-        self.vap_comps = self.solute_set | Set(initialize=["Air"])
+        # self.vap_comps = self.solute_set | Set(initialize=["Air"])
         self.vap_idx = list(itertools.product(["Vap"], self.vap_comps))
         self.vap_set = Set(initialize=self.vap_idx, doc="Set for all solutes plus air")
 
@@ -1228,17 +1230,17 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
         self.collision_molecular_separation_phase_comp = Var(
-            self.params.vap_set,
+            self.params.vap_comps,
             within=NonNegativeReals,
             initialize=0.3711,  # default value is for Air
             units=pyunits.nanometer,
             doc="Molecular separation at collision for components",
         )
 
-        def rule_collision_molecular_separation_phase_comp(b, p, j):
+        def rule_collision_molecular_separation_phase_comp(b, j):
             if j == "Air":
                 cms_air = 0.3711 * pyunits.nanometer
-                return b.collision_molecular_separation_phase_comp[p, j] == cms_air
+                return b.collision_molecular_separation_phase_comp[j] == cms_air
             else:
                 molar_vol = pyunits.convert(
                     b.molar_volume_comp[j],
@@ -1251,18 +1253,18 @@ class AirWaterEqStateBlockData(StateBlockData):
                 )
 
         self.eq_collision_molecular_separation_phase_comp = Constraint(
-            self.params.vap_set, rule=rule_collision_molecular_separation_phase_comp
+            self.params.vap_comps, rule=rule_collision_molecular_separation_phase_comp
         )
 
     def _collision_molecular_separation(self):
-        def rule_collision_molecular_separation(b, j):
+        def rule_collision_molecular_separation(b, p, j):
             return 0.5 * (
-                b.collision_molecular_separation_phase_comp["Vap", j]
-                + b.collision_molecular_separation_phase_comp["Vap", "Air"]
+                b.collision_molecular_separation_phase_comp[p, j]
+                + b.collision_molecular_separation_phase_comp[p, "Air"]
             )
 
         self.collision_molecular_separation = Expression(
-            self.params.solute_set, rule=rule_collision_molecular_separation
+            self.params.vap_set, rule=rule_collision_molecular_separation
         )
 
     def _collision_function_comp(self):
