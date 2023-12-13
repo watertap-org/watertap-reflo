@@ -364,9 +364,15 @@ class AirWaterEqData(PhysicalParameterBlock):
             v.fix()
 
         # ---default scaling---
-        self.set_default_scaling("temperature", 1e-2)
         self.set_default_scaling("pressure", 1e-5)
-
+        self.set_default_scaling("temperature", 1e-2, index="Liq")
+        self.set_default_scaling("temperature", 1e-2, index="Vap")
+        self.set_default_scaling("dens_mass_phase", 1e-3, index="Liq")
+        self.set_default_scaling("dens_mass_phase", 1, index="Vap")
+        self.set_default_scaling("visc_d_phase", 1e3, index="Liq")
+        self.set_default_scaling("visc_d_phase", 1e5, index="Vap")
+        self.set_default_scaling("diffus_phase_comp", 1e10, index="Liq")
+        self.set_default_scaling("diffus_phase_comp", 1e6, index="Vap")
     @classmethod
     def define_metadata(cls, obj):
         obj.add_default_units(
@@ -385,27 +391,32 @@ class AirWaterEqData(PhysicalParameterBlock):
                 "temperature": {"method": None},
                 "pressure": {"method": None},
                 "mass_frac_phase_comp": {"method": "_mass_frac_phase_comp"},
-                "dens_mass_phase": {"method": "_dens_mass_phase"},
-                "flow_vol_phase": {"method": "_flow_vol_phase"},
-                "flow_mass_phase": {"method": "_flow_mass_phase"},
-                "flow_vol": {"method": "_flow_vol"},
                 "conc_mass_phase_comp": {"method": "_conc_mass_phase_comp"},
-                "enth_mass_phase": {"method": "_enth_mass_phase"},
+                "dens_mass_phase": {"method": "_dens_mass_phase"},
                 "diffus_phase_comp": {"method": "_diffus_phase_comp"},
+                "visc_d_phase": {"method": "_visc_d_phase"},
                 "flow_mole_phase_comp": {"method": "_flow_mole_phase_comp"},
                 "mole_frac_phase_comp": {"method": "_mole_frac_phase_comp"},
                 "conc_mole_phase_comp": {"method": "_conc_mole_phase_comp"},
+                "flow_vol_phase": {"method": "_flow_vol_phase"},
+                "flow_mass_phase": {"method": "_flow_mass_phase"},
+                "flow_vol": {"method": "_flow_vol"},
+                "enth_mass_phase": {"method": "_enth_mass_phase"},
+                "mw_comp": {"method": "_mw_comp"},
             }
         )
 
         obj.define_custom_properties(
             {
-                "mw_comp": {"method": "_mw_comp"},
-                "visc_d_phase": {"method": "_visc_d_phase"},
-                "debye_huckel_constant": {"method": "_debye_huckel_constant"},
-                "ionic_strength_molal": {"method": "_ionic_strength_molal"},
+                "henry_constant_comp": {"method": "_henry_constant_comp"},
                 "molar_volume_comp": {"method": "_molar_volume_comp"},
+                "saturation_vap_pressure": {"method": "_saturation_vap_pressure"},
+                "vap_pressure": {"method": "_vap_pressure"},
+                "relative_humidity": {"method": "_relative_humidity"},
                 "critical_molar_volume_comp": {"method": "_critical_molar_volume_comp"},
+                "enth_change_dissolution_comp": {
+                    "method": "_enth_change_dissolution_comp"
+                },
                 "energy_molecular_attraction_phase_comp": {
                     "method": "_energy_molecular_attraction_phase_comp"
                 },
@@ -418,19 +429,12 @@ class AirWaterEqData(PhysicalParameterBlock):
                 "collision_molecular_separation": {
                     "method": "_collision_molecular_separation"
                 },
-                "temperature_boiling_comp": {"method": "_temperature_boiling_comp"},
-                "henry_constant_comp": {"method": "_henry_constant_comp"},
                 "collision_function_comp": {"method": "_collision_function_comp"},
                 "collision_function_zeta_comp": {
                     "method": "_collision_function_zeta_comp"
                 },
                 "collision_function_ee_comp": {"method": "_collision_function_ee_comp"},
-                "enth_change_dissolution_comp": {
-                    "method": "_enth_change_dissolution_comp"
-                },
-                "saturation_vap_pressure": {"method": "_saturation_vap_pressure"},
-                "vap_pressure": {"method": "_vap_pressure"},
-                "relative_humidity": {"method": "_relative_humidity"},
+                "temperature_boiling_comp": {"method": "_temperature_boiling_comp"},
             }
         )
 
