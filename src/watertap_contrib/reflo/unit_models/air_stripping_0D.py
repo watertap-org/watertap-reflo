@@ -228,16 +228,8 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.add_inlet_port(name="inlet", block=self.process_flow)
         self.add_outlet_port(name="outlet", block=self.process_flow)
 
-        tmp_dict = dict(**self.config.property_package_args)
-        tmp_dict["has_phase_equilibrium"] = False
-        tmp_dict["parameters"] = self.config.property_package
-        tmp_dict["defined_state"] = False
-
         self.process_flow.mass_transfer_term[0, "Liq", "H2O"].fix(0)
-        # self.process_flow.mass_transfer_term[0, "Liq", "Air"].fix(0)
-        # self.process_flow.mass_transfer_term[0, "Vap", "H2O"].fix(0)
         self.process_flow.mass_transfer_term[0, "Vap", "Air"].fix(0)
-        # self.process_flow.mass_transfer_term[0, "Vap", target].fix(0)
 
         self.air_water_ratio_param = Param(
             initialize=3.5,
