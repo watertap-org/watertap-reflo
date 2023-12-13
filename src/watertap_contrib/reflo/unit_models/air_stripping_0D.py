@@ -17,11 +17,9 @@ import itertools
 from pyomo.environ import (
     Set,
     Var,
-    Constraint,
     check_optimal_termination,
     Param,
     Suffix,
-    Block,
     log,
     log10,
     exp,
@@ -30,7 +28,6 @@ from pyomo.environ import (
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
-from enum import Enum, auto
 
 # Import IDAES cores
 from idaes.core import (
@@ -920,7 +917,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
 
         opt = get_solver(solver, optarg)
-        no_flow_phase_comp = [("Vap", "H2O"), ("Liq", "Air")]
 
         # ---------------------------------------------------------------------
         flags = self.process_flow.properties_in.initialize(
@@ -953,17 +949,10 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         for p, j in self.process_flow.properties_out.phase_component_set:
             if j == self.config.target:
-                # if p == "Liq":
-                #     state_args_out["flow_mass_phase_comp"][(p, j)] = state_args[
-                #         "flow_mass_phase_comp"
-                #     ][(p, j)] * value(self.target_remaining_frac[j])
                 if p == "Vap":
-                    state_args_out["flow_mass_phase_comp"][(p, j)] = (
-                        state_args["flow_mass_phase_comp"][("Liq", j)] * 0.01
-                    )
-
-            elif (p, j) in no_flow_phase_comp:
-                state_args_out["flow_mass_phase_comp"][(p, j)] = 0
+                    state_args_out["flow_mass_phase_comp"][(p, j)] = state_args[
+                        "flow_mass_phase_comp"
+                    ][("Liq", j)] * value(self.target_remaining_frac[j])
 
         self.process_flow.properties_out.initialize(
             outlvl=outlvl,
@@ -984,10 +973,12 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         if calc_from_constr is not None:
             if not isinstance(calc_from_constr, dict):
-                raise InitializationError("calc_from_constr must be a dict with var, constraint pairs")
+                raise InitializationError(
+                    "calc_from_constr must be a dict with var, constraint pairs"
+                )
             for k, v in calc_from_constr:
                 self.calc_from_constr_dict[k] = v
-        
+
         for v, c in self.calc_from_constr_dict.items():
             axv = getattr(self, v)
             axc = getattr(self, c)
@@ -997,7 +988,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 else:
                     calculate_variable_from_constraint(axv, x)
         init_log.info("Initialization Step 1c Complete.")
-        
+
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
@@ -1018,6 +1009,18 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
+        pf = self.process_flow
+        prop_in = pf.properties_in[0]
+
+        if (
+            iscale.get_scaling_factor(
+                pf.mass_transfer_term[0, "Vap", self.config.target]
+            )
+            is None
+        ):
+            iscale.set_scaling_factor(
+                pf.mass_transfer_term[0, "Vap", self.config.target], 1e5
+            )
 
         if iscale.get_scaling_factor(self.packing_surface_area_total) is None:
             iscale.set_scaling_factor(self.packing_surface_area_total, 1e-3)
@@ -1064,7 +1067,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             iscale.set_scaling_factor(self.number_transfer_unit, 0.1)
 
         if iscale.get_scaling_factor(self.N_Re) is None:
-            iscale.set_scaling_factor(self.N_Re, 1e2)
+            iscale.set_scaling_factor(self.N_Re, 1)
 
         if iscale.get_scaling_factor(self.N_Fr) is None:
             iscale.set_scaling_factor(self.N_Fr, 10)
@@ -1106,6 +1109,27 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.pressure_drop_gradient) is None:
             iscale.set_scaling_factor(self.pressure_drop_gradient, 0.1)
+
+        iscale.constraint_scaling_transform(
+            self.eq_deltaP, iscale.get_scaling_factor(prop_in.pressure)
+        )
+
+        for (p, j), c in self.eq_oto_mass_transfer_coeff.items():
+            iscale.constraint_scaling_transform(c, 1e6)
+
+        for (p, j), c in self.eq_Sc.items():
+            iscale.constraint_scaling_transform(c, 1e6)
+
+        sf_Fr = iscale.get_scaling_factor(prop_in.dens_mass_phase["Liq"]) ** 2
+        iscale.constraint_scaling_transform(self.eq_Fr, sf_Fr)
+
+        for j, c in self.eq_liq_to_vap.items():
+            sf = iscale.get_scaling_factor(pf.mass_transfer_term[0, "Liq", j])
+            iscale.constraint_scaling_transform(c, sf)
+
+        for (p, j), c in self.eq_conc_out.items():
+            sf = iscale.get_scaling_factor(prop_in.conc_mass_phase_comp[p, j])
+            iscale.constraint_scaling_transform(c, sf)
 
     def _get_stream_table_contents(self, time_point=0):
         pass
