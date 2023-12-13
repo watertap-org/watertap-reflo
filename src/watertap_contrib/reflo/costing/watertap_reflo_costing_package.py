@@ -92,12 +92,12 @@ class REFLOCostingData(WaterTAPCostingData):
         IonExchange0D: cost_ion_exchange,
         GAC: cost_gac,
         ChemicalSofteningZO: cost_chem_softening,
-        AirStripping0D: cost_air_stripping
+        AirStripping0D: cost_air_stripping,
     }
 
     def build_global_params(self):
         super().build_global_params()
-                
+
         self.base_currency = pyo.units.USD_2021
         self.plant_lifetime = pyo.Var(
             initialize=20, units=self.base_period, doc="Plant lifetime"

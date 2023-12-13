@@ -8,6 +8,7 @@ from idaes.core.util.constants import Constants
 # Costing equations from:
 # TODO: add references for costing
 
+
 def build_air_stripping_cost_param_block(blk):
 
     blk.pressure_ambient = pyo.Param(
@@ -281,8 +282,6 @@ def cost_air_stripping(blk):
         / pyo.units.m**3,
         to_units=pyo.units.dimensionless,
     )
-
-
 
     base_currency = blk.config.flowsheet_costing_block.base_currency
 
