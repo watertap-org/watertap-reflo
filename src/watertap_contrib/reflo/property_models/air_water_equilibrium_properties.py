@@ -185,7 +185,7 @@ class AirWaterEqData(PhysicalParameterBlock):
     CONFIG.declare(
         "temp_adjust_henry",
         ConfigValue(
-            default=False,
+            default=True,
             domain=bool,
             description="Flag to indicate if provided Henry's Law Constant should be adjusted for temperature.",
         ),
@@ -194,7 +194,7 @@ class AirWaterEqData(PhysicalParameterBlock):
     CONFIG.declare(
         "standard_enthalpy_change_data",
         ConfigValue(
-            default={},  # default is for pure water and air at 20C
+            default={},
             domain=dict,
             description="Dict of solute species names and standard enthalpy change of dissolution in water. Used to temperature adjust Henry's Law Constant.",
         ),
@@ -294,7 +294,7 @@ class AirWaterEqData(PhysicalParameterBlock):
         self.liq_comp_list = ["H2O"] + self.config.solute_list
         self.liq_comps = Set(
             initialize=self.liq_comp_list, doc="Set for all components in liquid phase"
-        )
+        )  # currently no properties indexed by liq_comps; here for future development
         liq_phase_comps_idx = list(itertools.product(["Liq"], self.liq_comp_list))
         self.liq_solute_set = Set(
             initialize=liq_phase_comps_idx,
@@ -634,7 +634,7 @@ class _AirWaterEqStateBlock(StateBlock):
                             )
                         else:
                             b.diffus_phase_comp[p, j].set_value(
-                                b.params.diffusivity_data[(p, j)]
+                                b.params.config.diffusivity_data[(p, j)]
                             )
                     if p == "Vap":
                         if (
@@ -897,7 +897,10 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
         def rule_dens_mass_phase(b, p):
-            return self.dens_mass_phase[p] == self.params.config.density_data[p]
+            return (
+                self.dens_mass_phase[p]
+                == self.params.config.density_data[p] * pyunits.kg / pyunits.m**3
+            )
 
         self.eq_dens_mass_phase = Constraint(
             self.params.phase_list, rule=rule_dens_mass_phase
@@ -1446,7 +1449,7 @@ class AirWaterEqStateBlockData(StateBlockData):
 
             add_object_reference(
                 self, "henry_constant_std_comp", self.params.henry_constant_comp
-            )  # assume the data provided to config.henry_constant_data is @20C
+            )  # assume the data provided to config.henry_constant_data is @25C
 
             self.henry_constant_comp = Var(
                 self.params.solute_set,
@@ -1645,7 +1648,10 @@ class AirWaterEqStateBlockData(StateBlockData):
 
         for p, j in self.phase_component_set:
             if iscale.get_scaling_factor(self.flow_mass_phase_comp[p, j]) is None:
-                sf = value(self.flow_mass_phase_comp[p, j]) ** -1
+                try:
+                    sf = value(self.flow_mass_phase_comp[p, j]) ** -1
+                except:
+                    sf = 1
                 iscale.set_scaling_factor(self.flow_mass_phase_comp[p, j], sf)
 
         if self.is_property_constructed("flow_mole_phase_comp"):
