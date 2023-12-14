@@ -460,7 +460,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 b.packing_surface_area_total * prop_in.visc_d_phase["Liq"]
             )
 
-
         @self.Constraint(doc="Froude number")
         def eq_Fr(b):
             return (
@@ -616,7 +615,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="OTO model F calculation")
         def eq_oto_F(b):
-            return log10(b.pressure_drop_gradient) == b.oto_F
+            return log10(b.pressure_drop_gradient * (pyunits.m / pyunits.Pa)) == b.oto_F
 
         # a0 = -6.6599 + 4.3077*F - 1.3503*F^2 + 0.15931*F^3
         self.oto_a0_param1 = a01 = Param(
@@ -826,11 +825,15 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Expression(self.phase_target_set)
         def oto_kfg_term(b, p, j):
-            return prop_in.visc_d_phase[p] / (prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j])
+            return prop_in.visc_d_phase[p] / (
+                prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j]
+            )
 
         @self.Expression()
         def oto_kl_term(b):
-            return prop_in.dens_mass_phase["Liq"] / (prop_in.visc_d_phase["Liq"] * Constants.acceleration_gravity)
+            return prop_in.dens_mass_phase["Liq"] / (
+                prop_in.visc_d_phase["Liq"] * Constants.acceleration_gravity
+            )
 
         @self.Constraint(
             self.phase_target_set, doc="OTO model mass transfer coefficient equation"
@@ -853,7 +856,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                     b.oto_mass_transfer_coeff[p, j]
                     == kg_param
                     * (b.packing_surface_area_total * prop_in.diffus_phase_comp[p, j])
-                    * b.N_Re ** kg_exp1
+                    * b.N_Re**kg_exp1
                     * b.oto_kfg_term[p, j] ** kg_exp2
                     * b.packing_efficiency_number**kg_exp3
                 )
