@@ -149,8 +149,8 @@ class TestAirStripping0D:
         assert hasattr(ax, "build_oto")
 
         # test statistics
-        assert number_variables(m) == 87
-        assert number_total_constraints(m) == 65
+        assert number_variables(m) == 84
+        assert number_total_constraints(m) == 62
         assert number_unused_variables(m) == 1
 
         ax_params = [
@@ -206,9 +206,6 @@ class TestAirStripping0D:
             "mass_loading_rate",
             "height_transfer_unit",
             "number_transfer_unit",
-            "N_Re",
-            "N_Fr",
-            "N_We",
             "pressure_drop_gradient",
             "overall_mass_transfer_coeff",
             "oto_E",
@@ -294,48 +291,45 @@ class TestAirStripping0D:
         ax = m.fs.ax
 
         ax_results = {
-            "packing_surface_area_total": 242,
-            "packing_surface_area_wetted": 147.56104256952543,
+            "packing_surface_area_total": 242.0,
+            "packing_surface_area_wetted": 147.561,
             "packing_diam_nominal": 0.0889,
-            "packing_factor": 33,
+            "packing_factor": 33.0,
             "packing_surf_tension": 0.033,
             "surf_tension_water": 0.0735,
-            "stripping_factor": {"TCA": 3.3944075407821637},
-            "air_water_ratio_min": 2.0003487488842135,
-            "packing_height": 8.84170507057386,
-            "mass_loading_rate": {"Liq": 39.15028615024805, "Vap": 0.3346278220947714},
-            "height_transfer_unit": {"TCA": 1.9674725398330082},
-            "number_transfer_unit": {"TCA": 4.493940775063785},
-            "N_Re": 140.67655821145544,
-            "N_Fr": 0.03788813135077548,
-            "N_We": 0.08624550779594063,
-            "pressure_drop_gradient": 75,
-            "overall_mass_transfer_coeff": {"TCA": 0.01991569966559579},
-            "oto_E": 0.6118027698218736,
-            "oto_F": 1.8750612633917,
-            "oto_a0": -2.2799151534389868,
-            "oto_a1": -0.7293724637445429,
-            "oto_a2": -0.228704898363143,
-            "oto_M": 0.0015425807528034877,
+            "stripping_factor": {"TCA": 3.394407},
+            "air_water_ratio_min": 2.000348,
+            "packing_height": 8.841,
+            "mass_loading_rate": {"Liq": 39.15, "Vap": 0.334627822},
+            "height_transfer_unit": {"TCA": 1.967472},
+            "number_transfer_unit": {"TCA": 4.49394},
+            "pressure_drop_gradient": 75.0,
+            "overall_mass_transfer_coeff": {"TCA": 0.019915699},
+            "oto_E": 0.611802769,
+            "oto_F": 1.875061,
+            "oto_a0": -2.279915,
+            "oto_a1": -0.729372463,
+            "oto_a2": -0.228704898,
+            "oto_M": 0.00154258,
             "oto_mass_transfer_coeff": {
-                ("Liq", "TCA"): 0.00036494059888598585,
-                ("Vap", "TCA"): 0.0008429847302574568,
+                ("Liq", "TCA"): 0.00036494,
+                ("Vap", "TCA"): 0.000842984,
             },
-            "air_water_ratio_op": 6.9999988426873605,
-            "packing_efficiency_number": 21.513800000000003,
-            "tower_area": 4.032300696198099,
-            "tower_diam": 2.2658518712975364,
-            "tower_height": 10.610046084688632,
-            "tower_volume": 42.78289621398389,
-            "packing_volume": 35.65241351165324,
-            "target_remaining_frac": {"TCA": 0.030000000000000027},
-            "pressure_drop": 795.7534563516474,
-            "pressure_drop_tower": 20.68888693427152,
-            "oto_kfg_term": {
-                ("Liq", "TCA"): 1622.7980510706993,
-                ("Vap", "TCA"): 1.808300134708827,
-            },
-            "oto_kl_term": 88595.60471277365,
+            "air_water_ratio_op": 6.999,
+            "packing_efficiency_number": 21.513,
+            "tower_area": 4.0323,
+            "tower_diam": 2.265851,
+            "tower_height": 10.61,
+            "tower_volume": 42.782,
+            "packing_volume": 35.652,
+            "target_remaining_frac": {"TCA": 0.03},
+            "pressure_drop": 795.753,
+            "pressure_drop_tower": 20.688,
+            "N_Sc": {("Liq", "TCA"): 1622.798, ("Vap", "TCA"): 1.8083},
+            "N_Re": 140.676,
+            "N_Fr": 0.037888131,
+            "N_We": 0.086245507,
+            "oto_kl_term": 88595.604,
         }
 
         for v, r in ax_results.items():
@@ -367,22 +361,22 @@ class TestAirStripping0D:
         assert_optimal_termination(results)
 
         ax_costing_results = {
-            "capital_cost": 441553.90406876506,
-            "tower_cost": 20201.182326932245,
-            "port_cost": 643.0591752007437,
-            "piping_liq_cost": 2189.2543592583115,
-            "piping_air_cost": 2298.717077221223,
-            "tray_ring_cost": 1185.6322571576072,
-            "tray_cost": 3584.056298898008,
-            "plate_cost": 1745.2868653637406,
-            "tower_internals_cost": 5329.343164261669,
-            "packing_cost": 302462.95907271834,
-            "mist_eliminator_cost": 3899.8229971054097,
-            "pump_cost": 42038.54782571771,
-            "pump_power": 19.324437960940234,
-            "blower_cost": 61305.38581319186,
-            "blower_power": 2.237906669957502,
-            "electricity_flow": 21.562344630897737,
+            "capital_cost": 441553.904,
+            "tower_cost": 20201.182,
+            "port_cost": 643.059,
+            "piping_liq_cost": 2189.254,
+            "piping_air_cost": 2298.717,
+            "tray_ring_cost": 1185.632,
+            "tray_cost": 3584.056,
+            "plate_cost": 1745.286,
+            "tower_internals_cost": 5329.343,
+            "packing_cost": 302462.959,
+            "mist_eliminator_cost": 3899.822,
+            "pump_cost": 42038.547,
+            "pump_power": 19.324,
+            "blower_cost": 61305.385,
+            "blower_power": 2.237906,
+            "electricity_flow": 21.562,
         }
 
         for v, r in ax_costing_results.items():
@@ -390,16 +384,16 @@ class TestAirStripping0D:
             assert value(axc) == pytest.approx(r, rel=1e-3)
 
         m_costing_results = {
-            "aggregate_capital_cost": 441553.90406876506,
+            "aggregate_capital_cost": 441553.9,
             "aggregate_fixed_operating_cost": 0.0,
             "aggregate_variable_operating_cost": 0.0,
-            "aggregate_flow_electricity": 21.562344630897734,
-            "aggregate_flow_costs": {"electricity": 15532.430485802224},
-            "total_capital_cost": 883107.8081375301,
-            "maintenance_labor_chemical_operating_cost": 26493.234244125902,
-            "total_operating_cost": 42025.664729928125,
-            "LCOW": 0.026139953868807405,
-            "SEC": 0.037908481933808746,
+            "aggregate_flow_electricity": 21.56,
+            "aggregate_flow_costs": {"electricity": 15532.43},
+            "total_capital_cost": 883107.8,
+            "maintenance_labor_chemical_operating_cost": 26493.23,
+            "total_operating_cost": 42025.66,
+            "LCOW": 0.026139,
+            "SEC": 0.037908,
         }
 
         for v, r in m_costing_results.items():

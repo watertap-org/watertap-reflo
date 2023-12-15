@@ -370,27 +370,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Number of transfer units",
         )
 
-        self.N_Re = Var(
-            initialize=10,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Reynolds number",
-        )
-
-        self.N_Fr = Var(
-            initialize=0.1,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Froude number",
-        )
-
-        self.N_We = Var(
-            initialize=1000,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Weber number",
-        )
-
         self.pressure_drop_gradient = Var(
             initialize=100,
             bounds=(20, 1200),
@@ -452,32 +431,33 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.Pa,
             )
 
-        self.build_oto()
+        @self.Expression(self.phase_target_set, doc="Schmidt Number")
+        def N_Sc(b, p, j):
+            return prop_in.visc_d_phase[p] / (
+                prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j]
+            )
 
-        @self.Constraint(doc="Reynolds number")
-        def eq_Re(b):
-            return b.N_Re == b.mass_loading_rate["Liq"] / (
+        @self.Expression(doc="Reynolds number")
+        def N_Re(b):
+            return b.mass_loading_rate["Liq"] / (
                 b.packing_surface_area_total * prop_in.visc_d_phase["Liq"]
             )
 
-        @self.Constraint(doc="Froude number")
-        def eq_Fr(b):
-            return (
-                b.N_Fr
-                * prop_in.dens_mass_phase["Liq"] ** 2
-                * Constants.acceleration_gravity
-                == b.mass_loading_rate["Liq"] ** 2 * b.packing_surface_area_total
+        @self.Expression(doc="Froude number")
+        def N_Fr(b):
+            return (b.mass_loading_rate["Liq"] ** 2 * b.packing_surface_area_total) / (
+                prop_in.dens_mass_phase["Liq"] ** 2 * Constants.acceleration_gravity
             )
 
-        @self.Constraint(doc="Weber number")
-        def eq_We(b):
-            return (
-                b.N_We
-                * prop_in.dens_mass_phase["Liq"]
+        @self.Expression(doc="Weber number")
+        def N_We(b):
+            return b.mass_loading_rate["Liq"] ** 2 / (
+                prop_in.dens_mass_phase["Liq"]
                 * b.packing_surface_area_total
                 * b.surf_tension_water
-                == b.mass_loading_rate["Liq"] ** 2
             )
+
+        self.build_oto()
 
         @self.Constraint(phase_set)
         def eq_mass_loading_rate(b, p):
@@ -823,12 +803,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="OTO model - phase mass transfer coefficient in tower",
         )
 
-        @self.Expression(self.phase_target_set)
-        def oto_kfg_term(b, p, j):
-            return prop_in.visc_d_phase[p] / (
-                prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j]
-            )
-
         @self.Expression()
         def oto_kl_term(b):
             return prop_in.dens_mass_phase["Liq"] / (
@@ -847,7 +821,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                     b.oto_mass_transfer_coeff[p, j]
                     == kl_param
                     * term1**kl_exp1
-                    * b.oto_kfg_term[p, j] ** kl_exp2
+                    * b.N_Sc[p, j] ** kl_exp2
                     * b.packing_efficiency_number**kl_exp3
                     * b.oto_kl_term**kl_exp4
                 )
@@ -857,7 +831,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                     == kg_param
                     * (b.packing_surface_area_total * prop_in.diffus_phase_comp[p, j])
                     * b.N_Re**kg_exp1
-                    * b.oto_kfg_term[p, j] ** kg_exp2
+                    * b.N_Sc[p, j] ** kg_exp2
                     * b.packing_efficiency_number**kg_exp3
                 )
 
@@ -1038,15 +1012,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.number_transfer_unit) is None:
             iscale.set_scaling_factor(self.number_transfer_unit, 0.1)
 
-        if iscale.get_scaling_factor(self.N_Re) is None:
-            iscale.set_scaling_factor(self.N_Re, 1)
-
-        if iscale.get_scaling_factor(self.N_Fr) is None:
-            iscale.set_scaling_factor(self.N_Fr, 10)
-
-        if iscale.get_scaling_factor(self.N_We) is None:
-            iscale.set_scaling_factor(self.N_We, 10)
-
         if iscale.get_scaling_factor(self.overall_mass_transfer_coeff) is None:
             iscale.set_scaling_factor(self.overall_mass_transfer_coeff, 1e2)
 
@@ -1077,9 +1042,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         for (p, j), c in self.eq_oto_mass_transfer_coeff.items():
             iscale.constraint_scaling_transform(c, 1e6)
-
-        sf_Fr = iscale.get_scaling_factor(prop_in.dens_mass_phase["Liq"]) ** 2
-        iscale.constraint_scaling_transform(self.eq_Fr, sf_Fr)
 
         for j, c in self.eq_liq_to_vap.items():
             sf = iscale.get_scaling_factor(pf.mass_transfer_term[0, "Liq", j])
