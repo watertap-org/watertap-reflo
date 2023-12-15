@@ -743,8 +743,8 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 aw_param
                 * (sigma_c / sigma_w) ** aw_exp1
                 * (Lm / (a_t * visc_liq)) ** aw_exp2
-                * ((Lm**2 * a_t) / (dens_liq**2 * g)) ** aw_exp3
-                * (Lm**2 / (dens_liq * a_t * sigma_w)) ** aw_exp4
+                * (b.N_Fr) ** aw_exp3
+                * (b.N_We) ** aw_exp4
             )
             return a_w / a_t == 1 - exp(exp_term)
 
@@ -754,7 +754,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="OTO liquid mass transfer correlation parameter",
         )
         self.oto_liq_mass_xfr_exp1 = kl_exp1 = Param(
-            initialize=0.667,
+            initialize=(2 / 3),
             units=pyunits.dimensionless,
             doc="OTO liquid mass transfer correlation Re exponent",
         )
@@ -769,7 +769,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="OTO liquid mass transfer correlation Er exponent",
         )
         self.oto_liq_mass_xfr_exp4 = kl_exp4 = Param(
-            initialize=-0.3334,
+            initialize=-(1 / 3),
             units=pyunits.dimensionless,
             doc="OTO liquid mass transfer correlation Sh exponent",
         )
@@ -785,7 +785,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="OTO gas mass transfer correlation Re exponent",
         )
         self.oto_gas_mass_xfr_exp2 = kg_exp2 = Param(
-            initialize=0.3334,
+            initialize=(1 / 3),
             units=pyunits.dimensionless,
             doc="OTO gas mass transfer correlation Sc exponent",
         )
