@@ -102,7 +102,7 @@ class TestAirStripping0D:
         return m
 
     @pytest.mark.unit
-    def test_config(self, ax_frame1):
+    def test_config1(self, ax_frame1):
         m = ax_frame1
         ax = m.fs.ax
 
@@ -118,7 +118,7 @@ class TestAirStripping0D:
         assert ax.config.packing_material == PackingMaterial.PVC
 
     @pytest.mark.unit
-    def test_build(self, ax_frame1):
+    def test_build1(self, ax_frame1):
         m = ax_frame1
         ax = m.fs.ax
 
@@ -239,12 +239,12 @@ class TestAirStripping0D:
             assert isinstance(getattr(ax, ename), Expression)
 
     @pytest.mark.unit
-    def test_dof(self, ax_frame1):
+    def test_dof1(self, ax_frame1):
         m = ax_frame1
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.unit
-    def test_calculate_scaling(self, ax_frame1):
+    def test_calculate_scaling1(self, ax_frame1):
         m = ax_frame1
 
         calculate_scaling_factors(m)
@@ -252,18 +252,18 @@ class TestAirStripping0D:
         assert len(unscaled_var_list) == 0
 
     @pytest.mark.component
-    def test_initialize(self, ax_frame1):
+    def test_initialize1(self, ax_frame1):
         m = ax_frame1
         initialization_tester(m, unit=m.fs.ax, outlvl=idaeslog.INFO_LOW)
 
     @pytest.mark.component
-    def test_solve(self, ax_frame1):
+    def test_solve1(self, ax_frame1):
         m = ax_frame1
         results = solver.solve(m)
         assert_optimal_termination(results)
 
     @pytest.mark.component
-    def test_mass_balance(self, ax_frame1):
+    def test_mass_balance1(self, ax_frame1):
         m = ax_frame1
         ax = m.fs.ax
         prop_in = ax.process_flow.properties_in[0]
@@ -286,7 +286,7 @@ class TestAirStripping0D:
         )
 
     @pytest.mark.component
-    def test_solution(self, ax_frame1):
+    def test_solution1(self, ax_frame1):
         m = ax_frame1
         ax = m.fs.ax
 
@@ -341,7 +341,7 @@ class TestAirStripping0D:
                 assert value(axv) == pytest.approx(r, rel=1e-3)
 
     @pytest.mark.component
-    def test_costing(self, ax_frame1):
+    def test_costing1(self, ax_frame1):
         m = ax_frame1
         ax = m.fs.ax
         prop_out = ax.process_flow.properties_out[0]
@@ -394,6 +394,366 @@ class TestAirStripping0D:
             "total_operating_cost": 42025.66,
             "LCOW": 0.026139,
             "SEC": 0.037908,
+        }
+
+        for v, r in m_costing_results.items():
+            mc = getattr(m.fs.costing, v)
+            if isinstance(r, dict):
+                for i, s in r.items():
+                    assert value(mc[i]) == pytest.approx(s, rel=1e-3)
+            else:
+                assert value(mc) == pytest.approx(r, rel=1e-3)
+
+    @pytest.fixture(scope="class")
+    def ax_frame2(self):
+        target = "DCP"
+        props = {
+            "solute_list": [target],
+            "mw_data": {target: 0.11298},
+            "dynamic_viscosity_data": {"Liq": 1.307e-3, "Vap": 0.0000179},
+            "henry_constant_data": {target: 0.146},  # salinity adjusted
+            "standard_enthalpy_change_data": {target: 31.1e3},
+            "temperature_boiling_data": {target: 369.1},
+            "molar_volume_data": {target: 1.10071e-4},
+            "critical_molar_volume_data": {target: 2.26e-4},
+            "density_data": {"Liq": 999.7, "Vap": 1.247},
+        }
+
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.properties = AirWaterEq(**props)
+
+        ax_config = {"property_package": m.fs.properties, "target": target}
+
+        m.fs.ax = ax = AirStripping0D(**ax_config)
+        prop_in = ax.process_flow.properties_in[0]
+        prop_out = ax.process_flow.properties_out[0]
+
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp", 0.01, index=("Liq", "H2O")
+        )
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp", 1e4, index=("Liq", target)
+        )
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp", 1, index=("Vap", target)
+        )
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp", 0.133654, index=("Vap", "Air")
+        )
+        set_scaling_factor(prop_out.flow_mass_phase_comp["Vap", target], 1e6)
+
+        prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(99.97)
+        prop_in.flow_mass_phase_comp["Liq", target].fix(1e-4)
+        prop_in.flow_mass_phase_comp["Vap", "Air"].fix(7.482)
+        prop_in.flow_mass_phase_comp["Vap", target].fix(0)  # assume pure air into unit
+        prop_in.temperature["Liq"].fix(283)
+        prop_in.temperature["Vap"].fix(283)
+        prop_in.pressure.fix(101325)
+
+        ax.pressure_drop_gradient.fix(50)
+        ax.packing_surf_tension.fix(0.033)
+        ax.packing_diam_nominal.fix(0.0889)
+        ax.packing_surface_area_total.fix(125)
+        ax.packing_factor.fix(39)
+        ax.surf_tension_water.fix(0.0742)
+        ax.target_reduction_frac[target].set_value(0.9)
+
+        return m
+
+    @pytest.mark.unit
+    def test_config2(self, ax_frame2):
+        m = ax_frame2
+        ax = m.fs.ax
+
+        assert len(ax.config) == 9
+
+        assert not ax.config.dynamic
+        assert not ax.config.has_holdup
+        assert ax.config.property_package is m.fs.properties
+        assert ax.config.material_balance_type == MaterialBalanceType.componentPhase
+        assert ax.config.energy_balance_type is EnergyBalanceType.none
+        assert ax.config.momentum_balance_type is MomentumBalanceType.pressureTotal
+        assert ax.config.target == "DCP"
+        assert ax.config.packing_material == PackingMaterial.PVC
+
+    @pytest.mark.unit
+    def test_build2(self, ax_frame2):
+        m = ax_frame2
+        ax = m.fs.ax
+
+        # test ports
+        port_lst = ["inlet", "outlet"]
+        for port_str in port_lst:
+            port = getattr(ax, port_str)
+            assert isinstance(port, Port)
+            assert len(port.vars) == 3
+
+        assert isinstance(ax.process_flow, ControlVolume0DBlock)
+        assert hasattr(ax.process_flow, "mass_transfer_term")
+        assert hasattr(ax.process_flow, "deltaP")
+
+        assert isinstance(ax.target_set, Set)
+        assert len(ax.target_set) == 1
+        assert ax.target_set.at(1) == ax.config.target
+
+        assert isinstance(ax.liq_target_set, Set)
+        assert len(ax.liq_target_set) == 1
+        assert ax.liq_target_set.at(1) == ("Liq", ax.config.target)
+
+        assert isinstance(ax.phase_target_set, Set)
+        assert len(ax.phase_target_set) == 2
+        assert ax.phase_target_set.at(1) == ("Liq", ax.config.target)
+        assert ax.phase_target_set.at(2) == ("Vap", ax.config.target)
+
+        assert hasattr(ax, "build_oto")
+
+        # test statistics
+        assert number_variables(m) == 84
+        assert number_total_constraints(m) == 62
+        assert number_unused_variables(m) == 1
+
+        ax_params = [
+            "air_water_ratio_param",
+            "pressure_drop_tower_param",
+            "tower_height_safety_factor",
+            "tower_port_diameter",
+            "tower_pipe_diameter",
+            "target_reduction_frac",
+            "overall_mass_transfer_coeff_sf",
+            "oto_a0_param1",
+            "oto_a0_param2",
+            "oto_a0_param3",
+            "oto_a0_param4",
+            "oto_a1_param1",
+            "oto_a1_param2",
+            "oto_a1_param3",
+            "oto_a1_param4",
+            "oto_a2_param1",
+            "oto_a2_param2",
+            "oto_a2_param3",
+            "oto_a2_param4",
+            "oto_aw_param",
+            "oto_aw_exp1",
+            "oto_aw_exp2",
+            "oto_aw_exp3",
+            "oto_aw_exp4",
+            "oto_liq_mass_xfr_param",
+            "oto_liq_mass_xfr_exp1",
+            "oto_liq_mass_xfr_exp2",
+            "oto_liq_mass_xfr_exp3",
+            "oto_liq_mass_xfr_exp4",
+            "oto_gas_mass_xfr_param",
+            "oto_gas_mass_xfr_exp1",
+            "oto_gas_mass_xfr_exp2",
+            "oto_gas_mass_xfr_exp3",
+        ]
+
+        for pname in ax_params:
+            assert hasattr(ax, pname)
+            assert isinstance(getattr(ax, pname), Param)
+
+        ax_vars = [
+            "packing_surface_area_total",
+            "packing_surface_area_wetted",
+            "packing_diam_nominal",
+            "packing_factor",
+            "packing_surf_tension",
+            "surf_tension_water",
+            "stripping_factor",
+            "air_water_ratio_min",
+            "packing_height",
+            "mass_loading_rate",
+            "height_transfer_unit",
+            "number_transfer_unit",
+            "pressure_drop_gradient",
+            "overall_mass_transfer_coeff",
+            "oto_E",
+            "oto_F",
+            "oto_a0",
+            "oto_a1",
+            "oto_a2",
+            "oto_M",
+            "oto_mass_transfer_coeff",
+        ]
+
+        for vname in ax_vars:
+            assert hasattr(ax, vname)
+            assert isinstance(getattr(ax, vname), Var)
+
+        ax_expr = [
+            "air_water_ratio_op",
+            "packing_efficiency_number",
+            "tower_area",
+            "tower_diam",
+            "tower_height",
+            "tower_volume",
+            "packing_volume",
+            "target_remaining_frac",
+            "pressure_drop",
+            "pressure_drop_tower",
+        ]
+
+        for ename in ax_expr:
+            assert hasattr(ax, ename)
+            assert isinstance(getattr(ax, ename), Expression)
+
+    @pytest.mark.unit
+    def test_dof2(self, ax_frame2):
+        m = ax_frame2
+        assert degrees_of_freedom(m) == 0
+
+    @pytest.mark.unit
+    def test_calculate_scaling2(self, ax_frame2):
+        m = ax_frame2
+
+        calculate_scaling_factors(m)
+        unscaled_var_list = list(unscaled_variables_generator(m))
+        assert len(unscaled_var_list) == 0
+
+    @pytest.mark.component
+    def test_initialize2(self, ax_frame2):
+        m = ax_frame2
+        initialization_tester(m, unit=m.fs.ax, outlvl=idaeslog.INFO_LOW)
+
+    @pytest.mark.component
+    def test_solve2(self, ax_frame2):
+        m = ax_frame2
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+    @pytest.mark.component
+    def test_mass_balance2(self, ax_frame2):
+        m = ax_frame2
+        ax = m.fs.ax
+        prop_in = ax.process_flow.properties_in[0]
+        prop_out = ax.process_flow.properties_out[0]
+
+        assert sum(
+            value(prop_in.flow_mass_phase_comp[p, ax.config.target])
+            for p in m.fs.properties.phase_list
+        ) == sum(
+            value(prop_out.flow_mass_phase_comp[p, ax.config.target])
+            for p in m.fs.properties.phase_list
+        )
+
+        assert value(prop_in.flow_mass_phase_comp["Liq", "H2O"]) == value(
+            prop_out.flow_mass_phase_comp["Liq", "H2O"]
+        )
+
+        assert value(prop_in.flow_mass_phase_comp["Vap", "Air"]) == value(
+            prop_out.flow_mass_phase_comp["Vap", "Air"]
+        )
+
+    @pytest.mark.component
+    def test_solution2(self, ax_frame2):
+        m = ax_frame2
+        ax = m.fs.ax
+
+        ax_results = {
+            "packing_surface_area_total": 125.0,
+            "packing_surface_area_wetted": 56.766,
+            "packing_diam_nominal": 0.0889,
+            "packing_factor": 39.0,
+            "packing_surf_tension": 0.033,
+            "surf_tension_water": 0.0742,
+            "stripping_factor": {"DCP": 4.503699},
+            "air_water_ratio_min": 11.99,
+            "packing_height": 11.824,
+            "mass_loading_rate": {"Liq": 7.7, "Vap": 0.5763451},
+            "height_transfer_unit": {"DCP": 4.423251},
+            "number_transfer_unit": {"DCP": 2.673204},
+            "pressure_drop_gradient": 50.0,
+            "overall_mass_transfer_coeff": {"DCP": 0.0017415},
+            "oto_E": -0.325878163,
+            "oto_F": 1.69897,
+            "oto_a0": -2.457618,
+            "oto_a1": -0.633128697,
+            "oto_a2": -0.186834171,
+            "oto_M": 0.00535628,
+            "oto_mass_transfer_coeff": {
+                ("Liq", "DCP"): 0.000162215,
+                ("Vap", "DCP"): 0.000800008,
+            },
+            "air_water_ratio_op": 59.999,
+            "packing_efficiency_number": 11.112,
+            "tower_area": 12.981,
+            "tower_diam": 4.06558,
+            "tower_height": 14.189,
+            "tower_volume": 184.2,
+            "packing_volume": 153.5,
+            "target_remaining_frac": {"DCP": 0.099999999},
+            "pressure_drop": 709.455,
+            "pressure_drop_tower": 58.744,
+            "N_Sc": {("Liq", "DCP"): 1813.198, ("Vap", "DCP"): 1.673158},
+            "N_Re": 47.135,
+            "N_Fr": 0.000756345,
+            "N_We": 0.006395675,
+            "oto_kl_term": 77996.197,
+        }
+
+        for v, r in ax_results.items():
+            axv = getattr(ax, v)
+            if isinstance(r, dict):
+                for i, s in r.items():
+                    assert value(axv[i]) == pytest.approx(s, rel=1e-3)
+            else:
+                assert value(axv) == pytest.approx(r, rel=1e-3)
+
+    @pytest.mark.component
+    def test_costing2(self, ax_frame2):
+        m = ax_frame2
+        ax = m.fs.ax
+        prop_out = ax.process_flow.properties_out[0]
+
+        m.fs.costing = REFLOCosting()
+        ax.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(prop_out.flow_vol_phase["Liq"])
+        m.fs.costing.add_specific_energy_consumption(
+            prop_out.flow_vol_phase["Liq"], name="SEC"
+        )
+        m.fs.costing.initialize()
+
+        assert degrees_of_freedom(m) == 0
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        ax_costing_results = {
+            "capital_cost": 1631701.944,
+            "tower_cost": 37232.248,
+            "port_cost": 643.059,
+            "piping_liq_cost": 2189.254,
+            "piping_air_cost": 2298.717,
+            "tray_ring_cost": 2402.264,
+            "tray_cost": 10295.84,
+            "plate_cost": 5255.23,
+            "tower_internals_cost": 15551.071,
+            "packing_cost": 1302243.352,
+            "mist_eliminator_cost": 10036.566,
+            "pump_cost": 38366.194,
+            "pump_power": 16.365,
+            "blower_cost": 220739.214,
+            "blower_power": 11.475,
+            "electricity_flow": 27.84,
+        }
+
+        for v, r in ax_costing_results.items():
+            axc = getattr(ax.costing, v)
+            assert value(axc) == pytest.approx(r, rel=1e-3)
+
+        m_costing_results = {
+            "aggregate_capital_cost": 1631701.944,
+            "aggregate_fixed_operating_cost": 0.0,
+            "aggregate_variable_operating_cost": 0.0,
+            "aggregate_flow_electricity": 27.84,
+            "aggregate_flow_costs": {"electricity": 20054.989},
+            "total_capital_cost": 3263403.888,
+            "maintenance_labor_chemical_operating_cost": 97902.116,
+            "total_operating_cost": 117957.105,
+            "LCOW": 0.140789366,
+            "SEC": 0.077335064,
         }
 
         for v, r in m_costing_results.items():

@@ -736,8 +736,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             sigma_w = b.surf_tension_water
             Lm = b.mass_loading_rate["Liq"]
             visc_liq = prop_in.visc_d_phase["Liq"]
-            dens_liq = prop_in.dens_mass_phase["Liq"]
-            g = Constants.acceleration_gravity
 
             exp_term = (
                 aw_param
