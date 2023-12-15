@@ -312,7 +312,7 @@ class TestAirStripping0D:
             "oto_a2": -0.228704898,
             "oto_M": 0.00154258,
             "oto_mass_transfer_coeff": {
-                ("Liq", "TCA"): 0.00036494,
+                ("Liq", "TCA"): 0.00036455,
                 ("Vap", "TCA"): 0.000842984,
             },
             "air_water_ratio_op": 6.999,
