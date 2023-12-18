@@ -86,7 +86,7 @@ _log = idaeslog.getLogger(__name__)
 
 __author__ = "Kurban Sitterley"
 
-'''
+"""
 REFERENCES: 
 
 Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
@@ -104,7 +104,7 @@ Huang, J. (2018).
 A Simple Accurate Formula for Calculating Saturation Vapor Pressure of Water and Ice.
 Journal of Applied Meteorology and Climatology, 57(6), 1265-1272. doi:10.1175/jamc-d-17-0334.1
 
-'''
+"""
 
 
 class MolarVolumeCalculation(Enum):
