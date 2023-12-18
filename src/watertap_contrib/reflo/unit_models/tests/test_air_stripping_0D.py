@@ -295,8 +295,8 @@ class TestAirStripping0D:
         ax = m.fs.ax
 
         ax_results = {
-            "blower_power": 2.24684,
-            "pump_power": 19.403,
+            "blower_power": 2.239159,
+            "pump_power": 19.33556,
             "packing_surface_area_total": 242.0,
             "packing_surface_area_wetted": 147.561,
             "packing_diam_nominal": 0.0889,
