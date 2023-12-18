@@ -402,7 +402,7 @@ def print_results(mp):
         print(f'{labels[idx]:<20s}', f'{value(v):<10,.2f}')
 
 def print_system_results(m):
-    for v in m.fs.component_data_objects(ctype=Var, active=True, descend_into=True):
+    for v in m.fs.component_data_objects(ctype=Var, active=True, descend_into=False):
         print(f'{str(v):<40s}', f'{value(v):<10,.1f}', pyunits.get_units(v))
 
 

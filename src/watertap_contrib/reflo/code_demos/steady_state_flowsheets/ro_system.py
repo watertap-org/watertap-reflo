@@ -100,7 +100,16 @@ def _initialize(m, blk, optarg):
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
 
-def build_system():    
+def build_system(m):    
+    m.fs.feed = Feed(property_package=m.fs.properties)
+    m.fs.product = Product(property_package=m.fs.properties)
+    m.fs.disposal = Product(property_package=m.fs.properties)
+    
+    m.fs.primary_pump = Pump(property_package=m.fs.properties)
+    # m.fs.primary_pump.costing = UnitModelCostingBlock(
+    #     flowsheet_costing_block=m.fs.costing,
+    # )
+
     build_ro(m,m.fs.RO, number_of_stages=1)
     add_connections(m)
     add_constraints(m)
@@ -257,16 +266,16 @@ def build_ro(m, blk, number_of_stages=3, ultra_pute_water=False) -> None:
 
 def build_ro_stage(m, blk, booster_pump=False):
     # Define IO
-    blk.feed = StateJunction(property_package=blk.properties)
-    blk.permeate = StateJunction(property_package=blk.properties)
-    blk.retentate = StateJunction(property_package=blk.properties)
+    blk.feed = StateJunction(property_package=m.fs.properties)
+    blk.permeate = StateJunction(property_package=m.fs.properties)
+    blk.retentate = StateJunction(property_package=m.fs.properties)
     blk.has_booster_pump = booster_pump
 
     if booster_pump:
-        blk.booster_pump = Pump(property_package=blk.properties)
+        blk.booster_pump = Pump(property_package=m.fs.properties)
 
     blk.module = ReverseOsmosis1D(
-        property_package=blk.properties,
+        property_package=m.fs.properties,
         has_pressure_change=True,
         pressure_change_type=PressureChangeType.calculated,
         mass_transfer_coefficient=MassTransferCoefficient.calculated,
@@ -310,7 +319,7 @@ def init_system(m, verbose=True, solver=None):
     optarg = solver.options
 
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     m.fs.feed.initialize(optarg=optarg)
     propagate_state(m.fs.feed_to_primary_pump)
@@ -491,22 +500,22 @@ def calc_scale(value):
 
 def set_ro_scaling_and_params(m):
     # additional parameters, variables or expressions ---------------------------------------------------------------------------
-    m.fs.ro_min_pressure = Param(initialize=1e5, units=pyunits.Pa, mutable=True)
-    m.fs.ro_max_pressure = Param(initialize=85e5, units=pyunits.Pa, mutable=True)
+    # m.fs.ro_min_pressure = Param(initialize=1e5, units=pyunits.Pa, mutable=True)
+    # m.fs.ro_max_pressure = Param(initialize=85e5, units=pyunits.Pa, mutable=True)
 
-    # explicitly set the costing parameters used
-    m.fs.costing.utilization_factor.fix(0.9)
-    m.fs.costing.factor_total_investment.fix(2)
-    m.fs.costing.factor_maintenance_labor_chemical.fix(0.03)
-    m.fs.costing.factor_capital_annualization.fix(0.1)
-    m.fs.costing.electricity_cost.set_value(0.07)
+    # # explicitly set the costing parameters used
+    # m.fs.costing.utilization_factor.fix(0.9)
+    # m.fs.costing.factor_total_investment.fix(2)
+    # m.fs.costing.factor_maintenance_labor_chemical.fix(0.03)
+    # m.fs.costing.factor_capital_annualization.fix(0.1)
+    # m.fs.costing.electricity_cost.set_value(0.07)
 
-    m.fs.costing.cost_process()
+    # m.fs.costing.cost_process()
 
-    product_flow_vol_total = m.fs.product.properties[0].flow_vol
-    m.fs.costing.add_annual_water_production(product_flow_vol_total)
-    m.fs.costing.add_specific_energy_consumption(product_flow_vol_total)
-    m.fs.costing.add_LCOW(product_flow_vol_total)
+    # product_flow_vol_total = m.fs.product.properties[0].flow_vol
+    # m.fs.costing.add_annual_water_production(product_flow_vol_total)
+    # m.fs.costing.add_specific_energy_consumption(product_flow_vol_total)
+    # m.fs.costing.add_LCOW(product_flow_vol_total)
     m.fs.cross_flow_velocity = Var(
         initialize=0.25,
         bounds=(0, 1),
@@ -532,11 +541,11 @@ def set_ro_scaling_and_params(m):
     )
     
     m.fs.RO.power_demand = Expression(
-        expr= m.fs.primary_pump.control_volume.work[0]
+        expr= pyunits.convert(m.fs.primary_pump.control_volume.work[0], to_units=pyunits.kW)
     )
 
     # objective
-    m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
+    # m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
     # m.fs.lcow_objective.deactivate()
     # m.fs.total_area_objective = Objective(expr=m.fs.ro.total_area)
     # m.fs.total_area_objective.deactivate()
@@ -677,11 +686,11 @@ def display_system_metrics(m, blk):
         # stage.display()
     print('\n')
     print(f'{"System Recovery":<20s}{100*m.fs.water_recovery.value:<10.1f}{"%":<20s}')
-    print(f'{"System SEC":<20s}{value(m.fs.costing.specific_energy_consumption):<10.3f}{str(pyunits.get_units(m.fs.costing.specific_energy_consumption)):<20s}')
-    print(f'{"System LCOW":<20s}{value(m.fs.costing.LCOW):<10.3f}')
+    # print(f'{"System SEC":<20s}{value(m.fs.costing.specific_energy_consumption):<10.3f}{str(pyunits.get_units(m.fs.costing.specific_energy_consumption)):<20s}')
+    # print(f'{"System LCOW":<20s}{value(m.fs.costing.LCOW):<10.3f}')
 
     print(f'{"Product Flow Rate":<20s}{value(pyunits.convert(m.fs.product.properties[0.0].flow_vol_phase["Liq"], to_units=pyunits.m ** 3 / pyunits.day)):<10.3f}{"m3/day":<20s}')
-    print(f'{"RO Power Demand":<20s}{value(pyunits.convert(m.fs.RO.power_demand, to_units=pyunits.kW)):<10.3f}{"kW":<20s}')
+    print(f'{"RO Power Demand":<20s}{value(m.fs.RO.power_demand):<10.3f}{"kW":<20s}')
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -689,17 +698,8 @@ if __name__ == "__main__":
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = NaClParameterBlock()
     m.fs.costing = WaterTAPCosting()
-    m.fs.feed = Feed(property_package=m.fs.properties)
-    m.fs.product = Product(property_package=m.fs.properties)
-    m.fs.disposal = Product(property_package=m.fs.properties)
-    
-    m.fs.primary_pump = Pump(property_package=m.fs.properties)
-    m.fs.primary_pump.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
-    )
-
     m.fs.RO = FlowsheetBlock(dynamic=False)
-    m = build_system()
+    m = build_system(m)
     init_system(m)
     solve(m)
     display_flow_table(m, m.fs.RO)
