@@ -383,7 +383,7 @@ def test_parameter_block2(m2):
 
 
 @pytest.mark.component
-def test_properties(m2):
+def test_properties2(m2):
     m = m2
     m.fs.stream = m.fs.properties.build_state_block([0], defined_state=True)
     stream = m.fs.stream[0]
@@ -622,7 +622,7 @@ def test_parameter_block3(m3):
 
 
 @pytest.mark.component
-def test_properties(m3):
+def test_properties3(m3):
     m = m3
     m.fs.stream = m.fs.properties.build_state_block([0], defined_state=True)
     stream = m.fs.stream[0]

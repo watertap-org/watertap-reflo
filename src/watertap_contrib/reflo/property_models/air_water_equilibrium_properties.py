@@ -88,16 +88,28 @@ __author__ = "Kurban Sitterley"
 
 
 class MolarVolumeCalculation(Enum):
+    """
+    Approach to determine component molar volume. TynCalus is default.
+    """
+
     none = auto()
     TynCalus = auto()
 
 
 class LiqDiffusivityCalculation(Enum):
+    """
+    Approach to determine component liquid diffusivity. HaydukLaudie is default.
+    """
+
     none = auto()
     HaydukLaudie = auto()
 
 
 class VapDiffusivityCalculation(Enum):
+    """
+    Approach to determine component vapor diffusivity. WilkeLee is default.
+    """
+
     none = auto()
     WilkeLee = auto()
 
@@ -119,7 +131,7 @@ class AirWaterEqData(PhysicalParameterBlock):
         ConfigValue(
             default={},
             domain=dict,
-            description="Required argument. Dict of component names (keys)and molecular weight data (values)",
+            description="Required argument. Dict of component names (keys) and molecular weight data (values)",
         ),
     )
     CONFIG.declare(
@@ -145,7 +157,8 @@ class AirWaterEqData(PhysicalParameterBlock):
         ConfigValue(
             default={},
             domain=dict,
-            description="Dict of solute species names and critical molar volume of aqueous species. Used for Tyn-Calus method for calculating molar bolume",
+            description="Dict of solute species names and critical molar volume of aqueous species."
+            "Used for Tyn-Calus method for calculating molar volume",
         ),
     )
 
@@ -232,7 +245,7 @@ class AirWaterEqData(PhysicalParameterBlock):
        .. csv-table::
            :header: "Configuration Options", "Description"
 
-           "``LiqDiffusivityCalculation.none``", "Users provide data via the diffusivity_data configuration"
+           "``LiqDiffusivityCalculation.none``", "Users provide liquid diffusivity data via the diffusivity_data configuration"
            "``LiqDiffusivityCalculation.HaydukLaudie``", "Allow the nonelectrolyte (neutral) species to get diffusivity from the Hayduk-Laudie equation"
        """,
         ),
@@ -252,7 +265,7 @@ class AirWaterEqData(PhysicalParameterBlock):
        .. csv-table::
            :header: "Configuration Options", "Description"
 
-           "``VapDiffusivityCalculation.none``", "Users provide data via the diffusivity_data configuration"
+           "``VapDiffusivityCalculation.none``", "Users provide vapor diffusivity data via the diffusivity_data configuration"
            "``VapDiffusivityCalculation.WilkeLee``", "Allow the nonelectrolyte (neutral) species to get diffusivity from the Wilke-Lee equation"
        """,
         ),
