@@ -86,6 +86,26 @@ _log = idaeslog.getLogger(__name__)
 
 __author__ = "Kurban Sitterley"
 
+'''
+REFERENCES: 
+
+Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
+Chapter 7, 14. MWH's Water Treatment: Principles and Design (3rd ed.). doi:10.1002/9781118131473
+
+Aniceto, J. P. S., Zêzere, B., & Silva, C. M. (2021).
+Predictive Models for the Binary Diffusion Coefficient at Infinite Dilution in Polar and Nonpolar Fluids. 
+Materials (Basel), 14(3). doi.org/10.3390/ma14030542
+
+Wilke, C. R., & Lee, C. Y. (2002).
+Estimation of Diffusion Coefficients for Gases and Vapors.
+Industrial & Engineering Chemistry, 47(6), 1253-1257. doi:10.1021/ie50546a056
+
+Huang, J. (2018).
+A Simple Accurate Formula for Calculating Saturation Vapor Pressure of Water and Ice.
+Journal of Applied Meteorology and Climatology, 57(6), 1265-1272. doi:10.1175/jamc-d-17-0334.1
+
+'''
+
 
 class MolarVolumeCalculation(Enum):
     """
