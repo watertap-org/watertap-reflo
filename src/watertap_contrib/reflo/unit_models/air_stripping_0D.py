@@ -43,7 +43,7 @@ from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.constants import Constants
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.misc import StrEnum, extract_data
-from idaes.core.util.exceptions import InitializationError, ConfigurationError
+from idaes.core.util.exceptions import InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
@@ -599,6 +599,40 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 == b.height_transfer_unit[j] * b.number_transfer_unit[j]
             )
 
+        @self.Constraint(doc="Pumping power required.")
+        def eq_pump_power(b):
+            return (
+                b.pump_power
+                == pyunits.convert(
+                    prop_in.flow_mass_phase["Liq"]
+                    * b.tower_height
+                    * Constants.acceleration_gravity,
+                    to_units=pyunits.kilowatt,
+                )
+                / b.pump_efficiency
+            )
+
+        @self.Constraint(doc="Blower power required.")
+        def eq_blower_power(b):
+            pressure_ambient = 101325 * pyunits.Pa
+            return b.blower_power == pyunits.convert(
+                (
+                    prop_in.flow_mass_phase["Vap"]
+                    * Constants.gas_constant
+                    * prop_in.temperature["Vap"]
+                )
+                / (
+                    prop_in.mw_comp["Air"]
+                    * b.power_blower_denom_coeff
+                    * b.blower_efficiency
+                )
+                * (
+                    (prop_out.pressure / pressure_ambient) ** b.power_blower_exponent
+                    - 1
+                ),
+                to_units=pyunits.kilowatt,
+            )
+
     def build_oto(self):
         """
 
@@ -1075,6 +1109,12 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.pressure_drop_gradient) is None:
             iscale.set_scaling_factor(self.pressure_drop_gradient, 0.1)
+
+        if iscale.get_scaling_factor(self.blower_power) is None:
+            iscale.set_scaling_factor(self.blower_power, 0.1)
+
+        if iscale.get_scaling_factor(self.pump_power) is None:
+            iscale.set_scaling_factor(self.pump_power, 0.1)
 
         iscale.constraint_scaling_transform(
             self.eq_deltaP, iscale.get_scaling_factor(prop_in.pressure)

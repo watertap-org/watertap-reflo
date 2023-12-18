@@ -11,13 +11,6 @@ from idaes.core.util.constants import Constants
 
 def build_air_stripping_cost_param_block(blk):
 
-    blk.pressure_ambient = pyo.Param(
-        initialize=101325,
-        units=pyo.units.Pa,
-        mutable=True,
-        doc="Ambient pressure",
-    )
-
     blk.capital_cost_tower_A_param = pyo.Var(
         initialize=45.2,
         units=pyo.units.USD_1991 / pyo.units.feet,
@@ -241,7 +234,6 @@ def cost_air_stripping(blk):
     ax = blk.unit_model
     packing_material = ax.config.packing_material
     prop_in = ax.process_flow.properties_in[0]
-    prop_out = ax.process_flow.properties_out[0]
     ax_params = blk.costing_package.air_stripping
     tower_height_ft = pyo.units.convert(ax.tower_height, to_units=pyo.units.feet)
     tower_diam_in = pyo.units.convert(ax.tower_diam, to_units=pyo.units.inch)
@@ -460,7 +452,7 @@ def cost_air_stripping(blk):
         expr=blk.pump_cost
         == pyo.units.convert(
             ax_params.capital_cost_pump_base_param
-            * (blk.pump_power / ax_params.capital_cost_pump_denom_param)
+            * (ax.pump_power / ax_params.capital_cost_pump_denom_param)
             ** ax_params.capital_cost_pump_exponent,
             to_units=base_currency,
         )
@@ -484,38 +476,5 @@ def cost_air_stripping(blk):
         expr=blk.capital_cost == capital_cost_expr
     )
 
-    blk.pump_power_constraint = pyo.Constraint(
-        expr=blk.pump_power
-        == pyo.units.convert(
-            prop_in.flow_mass_phase["Liq"]
-            * ax.tower_height
-            * Constants.acceleration_gravity,
-            to_units=pyo.units.kilowatt,
-        )
-        / ax_params.pump_efficiency
-    )
-
-    blk.blower_power_constraint = pyo.Constraint(
-        expr=blk.blower_power
-        == pyo.units.convert(
-            (
-                prop_in.flow_mass_phase["Vap"]
-                * Constants.gas_constant
-                * prop_in.temperature["Vap"]
-            )
-            / (
-                prop_in.mw_comp["Air"]
-                * ax_params.power_blower_denom_coeff
-                * ax_params.blower_efficiency
-            )
-            * (
-                (prop_out.pressure / ax_params.pressure_ambient)
-                ** ax_params.power_blower_exponent
-                - 1
-            ),
-            to_units=pyo.units.kilowatt,
-        )
-    )
-
-    blk.electricity_flow = pyo.Expression(expr=(blk.blower_power + blk.pump_power))
+    blk.electricity_flow = pyo.Expression(expr=(ax.blower_power + ax.pump_power))
     blk.costing_package.cost_flow(blk.electricity_flow, "electricity")
