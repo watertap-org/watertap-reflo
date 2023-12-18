@@ -5,8 +5,18 @@ from watertap_contrib.reflo.costing.util import (
 )
 from idaes.core.util.constants import Constants
 
-# Costing equations from:
-# TODO: add references for costing
+# REFERENCES:
+# Dzombak, D. A., Roy, S. B., & Fang, H.-J. (1993).
+# Air-Stripper Design and Costing Computer Program
+# Journal AWWA, 85(10), 63-72. doi.org/10.1002/j.1551-8833.1993.tb06080.x
+#
+# Dzombak, D., Sherif, M., Shah, N., Vaidyanathan, V., Fang, H. J., & Roy, S. (2021).
+# ASDC for Windows: Air Stripper Design and Costing.
+# https://kilthub.cmu.edu/articles/software/ASDC_for_Windows_Air_Stripper_Design_and_Costing/14474007
+#
+# Towler, G., & Sinnott, R. (2013). Chapter 7 - Capital Cost Estimating.
+# Chemical Engineering Design (Second Edition) (pp. 307-354).
+# Butterworth-Heinemann. https://doi.org/https://doi.org/10.1016/B978-0-08-096659-5.00007-9
 
 
 def build_air_stripping_cost_param_block(blk):
