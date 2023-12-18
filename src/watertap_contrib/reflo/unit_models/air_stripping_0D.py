@@ -52,6 +52,23 @@ from watertap.core import ControlVolume0DBlock, InitializationMixin
 __author__ = "Kurban Sitterley"
 
 
+"""
+REFERENCES:
+
+Onda, K., Takeuchi, H., & Okumoto, Y. (1968). 
+Mass Transfer Coefficients between Gas and Liquid Phases in Packed Columns. 
+Journal of Chemical Engineering of Japan, 1(1), 56-62. doi:10.1252/jcej.1.56
+
+Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
+Chap. 7, 14 in MWH's Water Treatment: Principles and Design (3rd ed.). doi:10.1002/9781118131473
+
+Edzvald, J. (2011). Chapter 6: Gas-Liquid Processes: Principles and Applications. 
+In Water Quality & Treatment: A Handbook on Drinking Water (6 ed.): American Water Works Association.
+ISBN 9780071630115
+
+"""
+
+
 _log = idaeslog.getLogger(__name__)
 
 
