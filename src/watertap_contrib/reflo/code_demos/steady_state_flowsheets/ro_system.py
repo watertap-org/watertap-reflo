@@ -29,7 +29,7 @@ from idaes.core.util.scaling import (
 )
 import idaes.logger as idaeslogger
 from idaes.core.util.exceptions import InitializationError
-from watertap.core.util.model_diagnostics.infeasible import *
+# from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.unit_models.reverse_osmosis_1D import (
     ReverseOsmosis1D,
     ConcentrationPolarizationType,
@@ -91,7 +91,7 @@ def _initialize(m, blk, optarg):
         # blk.display()
         blk.report()
         # print_infeasible_bounds(m)
-        print_close_to_bounds(m)
+
         # print_infeasible_constraints(m)
         assert False
         
@@ -100,23 +100,12 @@ def _initialize(m, blk, optarg):
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
 
-def build_system():
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = NaClParameterBlock()
-    m.fs.costing = WaterTAPCosting()
-    m.fs.feed = Feed(property_package=m.fs.properties)
-    m.fs.product = Product(property_package=m.fs.properties)
-    m.fs.disposal = Product(property_package=m.fs.properties)
-    
-    m.fs.primary_pump = Pump(property_package=m.fs.properties)
-    m.fs.primary_pump.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
-    )
-
-    m.fs.RO = FlowsheetBlock(dynamic=False)
-    
+def build_system():    
     build_ro(m,m.fs.RO, number_of_stages=1)
+    add_connections(m)
+    add_constraints(m)
+    set_ro_scaling_and_params(m)
+    set_operating_conditions(m)
 
     return m
 
@@ -203,10 +192,10 @@ def add_constraints(m):
 
 def build_ro(m, blk, number_of_stages=3, ultra_pute_water=False) -> None:
     print(f'\n{"=======> BUILDING RO SYSTEM <=======":^60}\n')
-
-    blk.feed = StateJunction(property_package=m.fs.properties)
-    blk.product = StateJunction(property_package=m.fs.properties)
-    blk.disposal = StateJunction(property_package=m.fs.properties)
+    blk.properties = NaClParameterBlock()
+    blk.feed = StateJunction(property_package=blk.properties)
+    blk.product = StateJunction(property_package=blk.properties)
+    blk.disposal = StateJunction(property_package=blk.properties)
     blk.numberOfStages = Param(initialize=number_of_stages)
     blk.Stages = RangeSet(blk.numberOfStages)
     blk.booster_pumps = False
@@ -216,7 +205,7 @@ def build_ro(m, blk, number_of_stages=3, ultra_pute_water=False) -> None:
     blk.NonFinalStages = RangeSet(number_of_stages - 1)
 
     blk.primary_mixer = Mixer(
-        property_package=m.fs.properties,
+        property_package=blk.properties,
         has_holdup=False,
         num_inlets = number_of_stages,
     )
@@ -268,16 +257,16 @@ def build_ro(m, blk, number_of_stages=3, ultra_pute_water=False) -> None:
 
 def build_ro_stage(m, blk, booster_pump=False):
     # Define IO
-    blk.feed = StateJunction(property_package=m.fs.properties)
-    blk.permeate = StateJunction(property_package=m.fs.properties)
-    blk.retentate = StateJunction(property_package=m.fs.properties)
+    blk.feed = StateJunction(property_package=blk.properties)
+    blk.permeate = StateJunction(property_package=blk.properties)
+    blk.retentate = StateJunction(property_package=blk.properties)
     blk.has_booster_pump = booster_pump
 
     if booster_pump:
-        blk.booster_pump = Pump(property_package=m.fs.properties)
+        blk.booster_pump = Pump(property_package=blk.properties)
 
     blk.module = ReverseOsmosis1D(
-        property_package=m.fs.properties,
+        property_package=blk.properties,
         has_pressure_change=True,
         pressure_change_type=PressureChangeType.calculated,
         mass_transfer_coefficient=MassTransferCoefficient.calculated,
@@ -537,6 +526,14 @@ def set_ro_scaling_and_params(m):
     m.fs.RO.total_area = Expression(
         expr=sum([stage.module.area for idx, stage in m.fs.RO.stage.items()])
     )
+    
+    m.fs.RO.power_demand = Expression(
+        expr= m.fs.primary_pump.control_volume.work[0]
+    )
+    
+    m.fs.RO.power_demand = Expression(
+        expr= m.fs.primary_pump.control_volume.work[0]
+    )
 
     # objective
     m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
@@ -620,7 +617,7 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         # debug(model, solver=solver, automate_rescale=False, resolve=False)
         # debug(model, solver=solver, automate_rescale=False, resolve=False)
         # check_jac(model)
-        print_close_to_bounds(model)
+        # print_close_to_bounds(model)
         raise RuntimeError(msg)
     else:
     #     print(msg)
@@ -684,15 +681,25 @@ def display_system_metrics(m, blk):
     print(f'{"System LCOW":<20s}{value(m.fs.costing.LCOW):<10.3f}')
 
     print(f'{"Product Flow Rate":<20s}{value(pyunits.convert(m.fs.product.properties[0.0].flow_vol_phase["Liq"], to_units=pyunits.m ** 3 / pyunits.day)):<10.3f}{"m3/day":<20s}')
-    print(f'{"RO Power Demand":<20s}{value(pyunits.convert(m.fs.primary_pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW":<20s}')
+    print(f'{"RO Power Demand":<20s}{value(pyunits.convert(m.fs.RO.power_demand, to_units=pyunits.kW)):<10.3f}{"kW":<20s}')
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = NaClParameterBlock()
+    m.fs.costing = WaterTAPCosting()
+    m.fs.feed = Feed(property_package=m.fs.properties)
+    m.fs.product = Product(property_package=m.fs.properties)
+    m.fs.disposal = Product(property_package=m.fs.properties)
+    
+    m.fs.primary_pump = Pump(property_package=m.fs.properties)
+    m.fs.primary_pump.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+    )
+
+    m.fs.RO = FlowsheetBlock(dynamic=False)
     m = build_system()
-    add_connections(m)
-    add_constraints(m)
-    set_ro_scaling_and_params(m)
-    set_operating_conditions(m)
     init_system(m)
     solve(m)
     display_flow_table(m, m.fs.RO)

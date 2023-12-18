@@ -1,10 +1,14 @@
 from pyomo.environ import ConcreteModel, Var, value, Objective, units as pyunits
-from idaes.core import FlowsheetBlock
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 import pandas as pd
 from steady_state_flowsheets.battery import BatteryStorage
 from steady_state_flowsheets.simple_RO_unit import ROUnit
+from steady_state_flowsheets.ro_system import *
 import datetime
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
+from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
+from watertap.unit_models.pressure_changer import Pump
+from watertap.costing import WaterTAPCosting
 
 def define_system_vars(m):
     if "USD_2021" not in pyunits._pint_registry:
@@ -400,3 +404,26 @@ def print_results(mp):
 def print_system_results(m):
     for v in m.fs.component_data_objects(ctype=Var, active=True, descend_into=True):
         print(f'{str(v):<40s}', f'{value(v):<10,.1f}', pyunits.get_units(v))
+
+
+if __name__ == "__main__":
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = NaClParameterBlock()
+    m.fs.costing = WaterTAPCosting()
+
+    m.fs.battery = BatteryStorage()
+
+    m.fs.primary_pump = Pump(property_package=m.fs.properties)
+    m.fs.primary_pump.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+    )
+
+    m.fs.RO = FlowsheetBlock(dynamic=False)
+    m.fs.RO = build_ro(m,m.fs.RO, number_of_stages=1)
+    
+    define_system_vars(m)
+    add_steady_state_constraints(m)
+    # m.fs.pv_size.fix(pv_oversize*ro_elec_req)
+    # m.fs.pv_gen.fix(pv_gen)
+    # m.fs.electricity_price.fix(electricity_price)
