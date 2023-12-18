@@ -1149,12 +1149,14 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             iscale.constraint_scaling_transform(c, sf)
 
     def _get_stream_table_contents(self, time_point=0):
-        pass
 
-    #     return create_stream_table_dataframe(
-    #         {},
-    #         time_point=time_point,
-    #     )
+        return create_stream_table_dataframe(
+            {
+                "Feed Inlet": self.inlet,
+                "Liquid Outlet": self.outlet,
+            },
+            time_point=time_point,
+        )
 
     def _get_performance_contents(self, time_point=0):
         var_dict = {}
