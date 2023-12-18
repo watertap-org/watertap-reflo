@@ -308,6 +308,20 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Blower power equation exponent",
         )
 
+        self.blower_power = Var(
+            initialize=50,
+            bounds=(0, None),
+            units=pyunits.kilowatt,
+            doc="Air blower power requirement",
+        )
+
+        self.pump_power = Var(
+            initialize=50,
+            bounds=(0, None),
+            units=pyunits.kilowatt,
+            doc="Water pump power requirement",
+        )
+
         self.packing_surface_area_total = Var(
             initialize=100,
             bounds=(0, None),

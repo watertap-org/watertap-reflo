@@ -340,25 +340,11 @@ def cost_air_stripping(blk):
         doc="Water pump cost",
     )
 
-    blk.pump_power = pyo.Var(
-        initialize=50,
-        bounds=(0, None),
-        units=pyo.units.kilowatt,
-        doc="Water pump power requirement",
-    )
-
     blk.blower_cost = pyo.Var(
         initialize=1e5,
         bounds=(0, None),
         units=base_currency,
         doc="Air blower cost",
-    )
-
-    blk.blower_power = pyo.Var(
-        initialize=50,
-        bounds=(0, None),
-        units=pyo.units.kilowatt,
-        doc="Air blower power requirement",
     )
 
     blk.tower_cost_constraint = pyo.Constraint(
