@@ -149,8 +149,8 @@ class TestAirStripping0D:
         assert hasattr(ax, "build_oto")
 
         # test statistics
-        assert number_variables(m) == 84
-        assert number_total_constraints(m) == 62
+        assert number_variables(m) == 86
+        assert number_total_constraints(m) == 64
         assert number_unused_variables(m) == 1
 
         ax_params = [
@@ -161,6 +161,10 @@ class TestAirStripping0D:
             "tower_pipe_diameter",
             "target_reduction_frac",
             "overall_mass_transfer_coeff_sf",
+            "blower_efficiency",
+            "pump_efficiency",
+            "power_blower_denom_coeff",
+            "power_blower_exponent",
             "oto_a0_param1",
             "oto_a0_param2",
             "oto_a0_param3",
@@ -291,6 +295,8 @@ class TestAirStripping0D:
         ax = m.fs.ax
 
         ax_results = {
+            "blower_power": 2.24684,
+            "pump_power": 19.403,
             "packing_surface_area_total": 242.0,
             "packing_surface_area_wetted": 147.561,
             "packing_diam_nominal": 0.0889,
@@ -373,9 +379,7 @@ class TestAirStripping0D:
             "packing_cost": 302462.959,
             "mist_eliminator_cost": 3899.822,
             "pump_cost": 42038.547,
-            "pump_power": 19.324,
             "blower_cost": 61305.385,
-            "blower_power": 2.237906,
             "electricity_flow": 21.562,
         }
 
@@ -509,8 +513,8 @@ class TestAirStripping0D:
         assert hasattr(ax, "build_oto")
 
         # test statistics
-        assert number_variables(m) == 84
-        assert number_total_constraints(m) == 62
+        assert number_variables(m) == 86
+        assert number_total_constraints(m) == 64
         assert number_unused_variables(m) == 1
 
         ax_params = [
@@ -521,6 +525,10 @@ class TestAirStripping0D:
             "tower_pipe_diameter",
             "target_reduction_frac",
             "overall_mass_transfer_coeff_sf",
+            "blower_efficiency",
+            "pump_efficiency",
+            "power_blower_denom_coeff",
+            "power_blower_exponent",
             "oto_a0_param1",
             "oto_a0_param2",
             "oto_a0_param3",
@@ -554,6 +562,8 @@ class TestAirStripping0D:
             assert isinstance(getattr(ax, pname), Param)
 
         ax_vars = [
+            "blower_power",
+            "pump_power",
             "packing_surface_area_total",
             "packing_surface_area_wetted",
             "packing_diam_nominal",
@@ -651,6 +661,8 @@ class TestAirStripping0D:
         ax = m.fs.ax
 
         ax_results = {
+            "blower_power": 11.475,
+            "pump_power": 16.365,
             "packing_surface_area_total": 125.0,
             "packing_surface_area_wetted": 56.766,
             "packing_diam_nominal": 0.0889,
@@ -733,9 +745,7 @@ class TestAirStripping0D:
             "packing_cost": 1302243.352,
             "mist_eliminator_cost": 10036.566,
             "pump_cost": 38366.194,
-            "pump_power": 16.365,
             "blower_cost": 220739.214,
-            "blower_power": 11.475,
             "electricity_flow": 27.84,
         }
 
