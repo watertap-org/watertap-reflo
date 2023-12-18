@@ -18,34 +18,6 @@ def build_air_stripping_cost_param_block(blk):
         doc="Ambient pressure",
     )
 
-    blk.blower_efficiency = pyo.Var(
-        initialize=0.4,
-        units=pyo.units.dimensionless,
-        bounds=(0, 1),
-        doc="Blower efficiency",
-    )
-
-    blk.pump_efficiency = pyo.Var(
-        initialize=0.85,
-        units=pyo.units.dimensionless,
-        bounds=(0, 1),
-        doc="Pump efficiency",
-    )
-
-    blk.power_blower_denom_coeff = pyo.Var(
-        initialize=0.283,
-        units=pyo.units.dimensionless,
-        bounds=(None, None),
-        doc="Blower power equation denominator coefficient",
-    )
-
-    blk.power_blower_exponent = pyo.Var(
-        initialize=0.283,
-        units=pyo.units.dimensionless,
-        bounds=(0, None),
-        doc="Blower power equation exponent",
-    )
-
     blk.capital_cost_tower_A_param = pyo.Var(
         initialize=45.2,
         units=pyo.units.USD_1991 / pyo.units.feet,

@@ -280,6 +280,34 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Safety factor for overall mass transfer coeff",
         )
 
+        self.blower_efficiency = Param(
+            initialize=0.4,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Blower efficiency",
+        )
+
+        self.pump_efficiency = Param(
+            initialize=0.85,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Pump efficiency",
+        )
+
+        self.power_blower_denom_coeff = Param(
+            initialize=0.283,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Blower power equation denominator coefficient",
+        )
+
+        self.power_blower_exponent = Param(
+            initialize=0.283,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Blower power equation exponent",
+        )
+
         self.packing_surface_area_total = Var(
             initialize=100,
             bounds=(0, None),
