@@ -5,7 +5,7 @@ from idaes.models.unit_models import Mixer
 
 from watertap.costing.watertap_costing_package import (
     WaterTAPCostingData,
-    _DefinedFlowsDict,
+    # _DefinedFlowsDict,
 )
 from watertap.unit_models import (
     ReverseOsmosis0D,
@@ -26,17 +26,17 @@ from idaes.core.base.costing_base import (
     FlowsheetCostingBlockData,
     register_idaes_currency_units,
 )
-from watertap.costing.units.crystallizer import cost_crystallizer
-from watertap.costing.units.electrodialysis import cost_electrodialysis
-from watertap.costing.units.energy_recovery_device import cost_energy_recovery_device
-from watertap.costing.units.gac import cost_gac
-from watertap.costing.units.ion_exchange import cost_ion_exchange
-from watertap.costing.units.nanofiltration import cost_nanofiltration
-from watertap.costing.units.mixer import cost_mixer
-from watertap.costing.units.pressure_exchanger import cost_pressure_exchanger
-from watertap.costing.units.pump import cost_pump
-from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
-from watertap.costing.units.uv_aop import cost_uv_aop
+# from watertap.costing.units.crystallizer import cost_crystallizer
+# from watertap.costing.units.electrodialysis import cost_electrodialysis
+# from watertap.costing.units.energy_recovery_device import cost_energy_recovery_device
+# from watertap.costing.units.gac import cost_gac
+# from watertap.costing.units.ion_exchange import cost_ion_exchange
+# from watertap.costing.units.nanofiltration import cost_nanofiltration
+# from watertap.costing.units.mixer import cost_mixer
+# from watertap.costing.units.pressure_exchanger import cost_pressure_exchanger
+# from watertap.costing.units.pump import cost_pump
+# from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
+# from watertap.costing.units.uv_aop import cost_uv_aop
 
 from watertap_contrib.reflo.solar_models.zero_order import Photovoltaic
 from watertap_contrib.reflo.costing.solar.photovoltaic import cost_pv
@@ -63,28 +63,28 @@ from watertap_contrib.reflo.core import PySAMWaterTAP
 @declare_process_block_class("REFLOCosting")
 class REFLOCostingData(WaterTAPCostingData):
 
-    unit_mapping = {
-        LTMEDSurrogate: cost_lt_med_surrogate,
-        MEDTVCSurrogate: cost_med_tvc_surrogate,
-        VAGMDSurrogate: cost_vagmd_surrogate,
-        Photovoltaic: cost_pv,
-        TroughSurrogate: cost_trough_surrogate,
-        Mixer: cost_mixer,
-        Pump: cost_pump,
-        EnergyRecoveryDevice: cost_energy_recovery_device,
-        PressureExchanger: cost_pressure_exchanger,
-        ReverseOsmosis0D: cost_reverse_osmosis,
-        ReverseOsmosis1D: cost_reverse_osmosis,
-        NanoFiltration0D: cost_nanofiltration,
-        NanofiltrationZO: cost_nanofiltration,
-        Crystallization: cost_crystallizer,
-        Ultraviolet0D: cost_uv_aop,
-        Electrodialysis0D: cost_electrodialysis,
-        Electrodialysis1D: cost_electrodialysis,
-        IonExchange0D: cost_ion_exchange,
-        GAC: cost_gac,
-        ChemicalSofteningZO: cost_chem_softening,
-    }
+    # unit_mapping = {
+    #     LTMEDSurrogate: cost_lt_med_surrogate,
+    #     MEDTVCSurrogate: cost_med_tvc_surrogate,
+    #     VAGMDSurrogate: cost_vagmd_surrogate,
+    #     Photovoltaic: cost_pv,
+    #     TroughSurrogate: cost_trough_surrogate,
+    #     Mixer: cost_mixer,
+    #     Pump: cost_pump,
+    #     EnergyRecoveryDevice: cost_energy_recovery_device,
+    #     PressureExchanger: cost_pressure_exchanger,
+    #     ReverseOsmosis0D: cost_reverse_osmosis,
+    #     ReverseOsmosis1D: cost_reverse_osmosis,
+    #     NanoFiltration0D: cost_nanofiltration,
+    #     NanofiltrationZO: cost_nanofiltration,
+    #     Crystallization: cost_crystallizer,
+    #     Ultraviolet0D: cost_uv_aop,
+    #     Electrodialysis0D: cost_electrodialysis,
+    #     Electrodialysis1D: cost_electrodialysis,
+    #     IonExchange0D: cost_ion_exchange,
+    #     GAC: cost_gac,
+    #     ChemicalSofteningZO: cost_chem_softening,
+    # }
 
     def build_global_params(self):
         super().build_global_params()
