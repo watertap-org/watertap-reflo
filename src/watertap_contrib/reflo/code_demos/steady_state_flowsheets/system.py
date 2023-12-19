@@ -1,9 +1,10 @@
 from pyomo.environ import ConcreteModel, Var, value, Objective, units as pyunits
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 import pandas as pd
-from steady_state_flowsheets.battery import BatteryStorage
-from steady_state_flowsheets.simple_RO_unit import ROUnit
-from steady_state_flowsheets.ro_system import *
+from watertap_contrib.reflo.code_demos.steady_state_flowsheets.battery import BatteryStorage
+from watertap_contrib.reflo.code_demos.steady_state_flowsheets.simple_RO_unit import ROUnit
+from watertap_contrib.reflo.code_demos.steady_state_flowsheets.ro_system import *
+from watertap_contrib.reflo.code_demos.util.visualize import *
 import datetime
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
@@ -209,28 +210,30 @@ def add_battery(m):
 def steady_state_flowsheet(m = None,
                                pv_gen = 1000,
                                electricity_price = 0.1,
-                               ro_capacity = 6000,
-                               ro_elec_req = 1000,
                                pv_oversize = 1,
                                fixed_battery_size = None):
     
     if m is None:
         m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-
-    m.fs.battery = BatteryStorage()
-
     m.fs.properties = NaClParameterBlock()
     m.fs.RO = FlowsheetBlock(dynamic=False)
     build_system(m)
+    # init_system(m)
+    m.fs.battery = BatteryStorage()
     define_system_vars(m)
     add_steady_state_constraints(m)
-    m.fs.pv_size.fix(pv_oversize*ro_elec_req)
+    m.fs.pv_size.fix(pv_oversize*m.fs.RO.power_demand)
     m.fs.pv_gen.fix(pv_gen)
     m.fs.electricity_price.fix(electricity_price)
     # m.fs.elec_price.fix(electricity_price)
 
     return m
+
+def initialize_system(m):
+    m.fs.battery.initialize()
+    init_system(m)
+    return
 
 def get_elec_tier(Hour = 1):
     electric_tiers = {'Tier 1':0.19825,'Tier 2':0.06124,'Tier 3':0.24445,'Tier 4':0.06126}
@@ -271,8 +274,6 @@ def optimize_pv(m):
 
 def optimize_multiperiod_pv_battery_model(
         n_time_points= 24,
-        ro_capacity = 6000, # m3/day
-        ro_elec_req = 1000, # kW
         pv_oversize = 1,
         surrogate = None):
     
@@ -282,6 +283,7 @@ def optimize_multiperiod_pv_battery_model(
         process_model_func= steady_state_flowsheet,
         linking_variable_func= get_pv_ro_variable_pairs,
         unfix_dof_func= optimize_battery,
+        initialization_func=initialize_system,
     )
 
     '''The `MultiPeriodModel` class helps transfer existing steady-state
@@ -294,8 +296,6 @@ def optimize_multiperiod_pv_battery_model(
     flowsheet_options={ t: { 
                             "pv_gen": eval_surrogate(surrogate, design_size = 1000, Day = 1, Hour = t%24),
                             "electricity_price": get_elec_tier(Hour = t%24),
-                            "ro_capacity": ro_capacity, 
-                            "ro_elec_req": ro_elec_req,
                             "pv_oversize": pv_oversize} 
                             for t in range(n_time_points)
     }
@@ -409,23 +409,45 @@ def print_system_results(m):
 
 
 if __name__ == "__main__":
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = NaClParameterBlock()
-    m.fs.costing = WaterTAPCosting()
+    # m = steady_state_flowsheet()
+    solver = get_solver()
+    # initialize_system(m)
+    # results = solver.solve(m)
 
-    m.fs.battery = BatteryStorage()
+    # print(f'{"RO Power Demand":<20s}{value(m.fs.RO.power_demand):<10,.1f}', pyunits.get_units(m.fs.RO.power_demand))
+    # # print(f'{"PV Design Size":<20s}{value(m.fs.pv_size):<10,.1f}', pyunits.get_units(m.fs.RO.pv_size))
+    # print(f'{"PV to RO":<20s}{value(m.fs.pv_to_ro ):<10,.1f}', pyunits.get_units(m.fs.pv_to_ro))
+    # print(f'{"Battery to RO":<20s}{value(m.fs.battery.elec_out[0] ):<10,.1f}', pyunits.get_units(m.fs.battery.elec_out[0]))
+    # print(f'{"Grid to RO":<20s}{value(m.fs.grid_to_ro ):<10,.1f}', pyunits.get_units(m.fs.grid_to_ro))
+    # print(f'{"Sum Energy to RO":<20s}{value(m.fs.pv_to_ro + m.fs.battery.elec_out[0] + m.fs.grid_to_ro):<10,.1f}{"kW"}')
+    # # m = ConcreteModel()
+    # m.fs = FlowsheetBlock(dynamic=False)
+    # m.fs.properties = NaClParameterBlock()
+    # m.fs.costing = WaterTAPCosting()
 
-    m.fs.primary_pump = Pump(property_package=m.fs.properties)
-    m.fs.primary_pump.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
-    )
+    # m.fs.battery = BatteryStorage()
 
-    m.fs.RO = FlowsheetBlock(dynamic=False)
-    m.fs.RO = build_ro(m,m.fs.RO, number_of_stages=1)
+    # m.fs.primary_pump = Pump(property_package=m.fs.properties)
+    # m.fs.primary_pump.costing = UnitModelCostingBlock(
+    #     flowsheet_costing_block=m.fs.costing,
+    # )
+
+    # m.fs.RO = FlowsheetBlock(dynamic=False)
+    # m.fs.RO = build_ro(m,m.fs.RO, number_of_stages=1)
     
-    define_system_vars(m)
-    add_steady_state_constraints(m)
+    # define_system_vars(m)
+    # add_steady_state_constraints(m)
     # m.fs.pv_size.fix(pv_oversize*ro_elec_req)
     # m.fs.pv_gen.fix(pv_gen)
     # m.fs.electricity_price.fix(electricity_price)
+    from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
+    PV_surrogate = PysmoSurrogate.load_from_file('/Users/zbinger/watertap-seto/src/watertap_contrib/reflo/code_demos/assets/demo_surrogate.json')
+    mp_optimized = optimize_multiperiod_pv_battery_model(surrogate=PV_surrogate)
+    results = solver.solve(mp_optimized)
+    print_results(mp_optimized)
+    create_plot(mp_optimized)
+    plt.show()
+
+    # mp_week = create_multiperiod_pv_battery_model(n_time_points=24*7, surrogate=PV_surrogate)
+    # results = solver.solve(mp_week)
+    # print_results(mp_week)
