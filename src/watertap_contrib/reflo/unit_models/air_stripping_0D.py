@@ -492,14 +492,18 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Expression(self.phase_target_set, doc="Schmidt Number")
         def N_Sc(b, p, j):
-            return prop_in.visc_d_phase[p] / (
-                prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j]
+            return pyunits.convert(
+                prop_in.visc_d_phase[p]
+                / (prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j]),
+                to_units=pyunits.dimensionless,
             )
 
         @self.Expression(doc="Reynolds number")
         def N_Re(b):
-            return b.mass_loading_rate["Liq"] / (
-                b.packing_surface_area_total * prop_in.visc_d_phase["Liq"]
+            return pyunits.convert(
+                b.mass_loading_rate["Liq"]
+                / (b.packing_surface_area_total * prop_in.visc_d_phase["Liq"]),
+                to_units=pyunits.dimensionless,
             )
 
         @self.Expression(doc="Froude number")
@@ -1159,10 +1163,54 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         )
 
     def _get_performance_contents(self, time_point=0):
-        var_dict = {}
+        target = self.config.target
+        var_dict = dict()
 
-        return {"vars": var_dict}
+        var_dict["Wetted surface area of packing"] = self.packing_surface_area_wetted
+        var_dict["Nominal diameter of packing"] = self.packing_diam_nominal
+        var_dict["Packing factor"] = self.packing_factor
+        var_dict[f"Stripping factor [{target}]"] = self.stripping_factor[target]
+        var_dict["Air-to-water flow ratio, minimum"] = self.air_water_ratio_min
+        var_dict["Packing height"] = self.packing_height
+        var_dict["Mass loading rate, liquid"] = self.mass_loading_rate["Liq"]
+        var_dict["Mass loading rate, vapor"] = self.mass_loading_rate["Vap"]
+        var_dict[f"Height transfer unit [{target}]"] = self.height_transfer_unit[target]
+        var_dict[f"Number transfer units [{target}]"] = self.number_transfer_unit[
+            target
+        ]
+        var_dict[
+            f"Overall mass transfer coeff (KL_a) [{target}]"
+        ] = self.overall_mass_transfer_coeff[target]
+        var_dict["Pressure drop gradient"] = self.pressure_drop_gradient
+        var_dict["OTO Model - M parameter"] = self.oto_M
+        var_dict["OTO Model - E parameter"] = self.oto_E
+        var_dict["OTO Model - F parameter"] = self.oto_F
+        var_dict[
+            f"OTO Model - liquid mass transfer coeff [{target}]"
+        ] = self.oto_mass_transfer_coeff["Liq", target]
+        var_dict[
+            f"OTO Model - vapor mass transfer coeff [{target}]"
+        ] = self.oto_mass_transfer_coeff["Vap", target]
+        var_dict[
+            f"CV mass transfer term [{target}]"
+        ] = self.process_flow.mass_transfer_term[time_point, "Liq", target]
+        var_dict[f"CV delta P"] = self.process_flow.deltaP[time_point]
+        var_dict[f"Blower power required"] = self.blower_power
+        var_dict[f"Pump power required"] = self.pump_power
 
-    @property
-    def default_costing_method(self):
-        pass
+        expr_dict = dict()
+
+        expr_dict["Air-to-water flow ratio, minimum"] = self.air_water_ratio_op
+        expr_dict["Pressure drop through tower"] = self.pressure_drop_tower
+        expr_dict["Tower height"] = self.tower_height
+        expr_dict["Tower diameter"] = self.tower_diam
+        expr_dict["Tower volume"] = self.tower_volume
+        expr_dict["Tower area"] = self.tower_area
+        expr_dict["Packing volume"] = self.packing_volume
+        expr_dict[f"Schmidt number, liquid [{target}]"] = self.N_Sc["Liq", target]
+        expr_dict[f"Schmidt number, gas [{target}]"] = self.N_Sc["Vap", target]
+        expr_dict[f"Reynolds number"] = self.N_Re
+        expr_dict[f"Froude number"] = self.N_Fr
+        expr_dict[f"Weber number"] = self.N_We
+
+        return {"vars": var_dict, "exprs": expr_dict}
