@@ -3,7 +3,7 @@
 Air-Water Equilibrium (AWE) Property Package
 ========================================================
 
-This property packages implements property relationships for an aqueous liquid phase in equilibrium with a vapor phase.
+This property package implements property relationships for an aqueous liquid phase in equilibrium with a vapor phase.
 
 The AWE property package:
     * contains a liquid and a vapor phase;
