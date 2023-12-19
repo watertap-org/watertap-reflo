@@ -220,7 +220,9 @@ def steady_state_flowsheet(m = None,
 
     m.fs.battery = BatteryStorage()
 
-    m.fs.RO = ROUnit()
+    m.fs.properties = NaClParameterBlock()
+    m.fs.RO = FlowsheetBlock(dynamic=False)
+    build_system(m)
     define_system_vars(m)
     add_steady_state_constraints(m)
     m.fs.pv_size.fix(pv_oversize*ro_elec_req)
