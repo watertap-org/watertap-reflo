@@ -926,7 +926,8 @@ def cost_chem_softening(blk):
         return pyunits.convert(
             b.unit_model.CaO_dosing
             + pyunits.convert(
-                b.unit_model.excess_CaO * b.unit_model.properties_in[0].flow_vol_phase["Liq"],
+                b.unit_model.excess_CaO
+                * b.unit_model.properties_in[0].flow_vol_phase["Liq"],
                 to_units=pyunits.kg / pyunits.day,
             ),
             to_units=pyunits.kg / pyunits.year,
@@ -935,7 +936,8 @@ def cost_chem_softening(blk):
     @blk.Expression(doc="Costing block MgCl2 dosing")
     def mgcl2_dosing(b):
         return pyunits.convert(
-            b.unit_model.MgCl2_dosing * b.unit_model.properties_in[0].flow_vol_phase["Liq"],
+            b.unit_model.MgCl2_dosing
+            * b.unit_model.properties_in[0].flow_vol_phase["Liq"],
             to_units=pyunits.kg / pyunits.year,
         )
 

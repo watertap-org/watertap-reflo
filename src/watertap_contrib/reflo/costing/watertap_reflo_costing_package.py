@@ -26,6 +26,7 @@ from idaes.core.base.costing_base import (
     FlowsheetCostingBlockData,
     register_idaes_currency_units,
 )
+
 # from watertap.costing.units.crystallizer import cost_crystallizer
 # from watertap.costing.units.electrodialysis import cost_electrodialysis
 # from watertap.costing.units.energy_recovery_device import cost_energy_recovery_device
