@@ -16,7 +16,7 @@ The AWE property package:
 Configuration
 --------------
 
-The AWE property package has several configuration options depending on the users preferences.
+The AWE property package has several configuration options depending on the user's preferences.
 These are set via a Python ``dict`` when building the flowsheet.
 Details of the implications of different configuration options are described in a later section.
 
