@@ -48,16 +48,31 @@ Details of the implications of different configuration options are described in 
 
 Sets
 ----
+
+The AWE property package contains two phases (``Liq`` and ``Vap``), two solvents (``H2O`` and ``Air``)
+and as many solutes as the user provides via ``solute_list`` in the configuration.
+
+Many properties in AWE are not calculated for every phase or component provided. Thus, several different indexing sets are created.
+
+
 .. csv-table::
-   :header: "Description", "Symbol", "Indices"
+   :header: "Description", "Symbol", "Name", "Indices"
 
-   "Components", ":math:`j`", "component_list=['H2O', solute_list :sup:`1`]"
-   "Phases", ":math:`p`", "['Liq']"
+   "All components and all solvents", ":math:`j`", "``component_list``", "``['H2O', 'Air', solute_list]``"
+   "Phases", ":math:`p`", "``phase_list``", "``['Liq', 'Vap']``"
+   "Solvents", ":math:`j`", "``solvent_set``", "``['H2O', 'Air']``"
+   "Components in liquid phase", ":math:`j`", "``liq_comps``", "``['H2O', solute_list]``"
+   "Components in vapor phase", ":math:`j`", "``vap_comps``", "``['Air', solute_list]``"
+   "Solutes in liquid phase", ":math:`p, j`", "``liq_solute_set``", "``('Liq', [solute_list])``"
+   "Solutes in vapor phase", ":math:`p, j`", "``vap_solute_set``", "``('Vap', [solute_list])``"
+   "Solutes in both phases", ":math:`p, j`", "``phase_solute_set``", "``(['Liq', 'Vap'], [solute_list])``"
+   "Components in both phases", ":math:`p, j`", "``phase_component_set``", "``(['Liq', 'Vap'], ['H2O', 'Air', solute_list])``"
 
 
-.. note::
+
+.. .. note::
    
-   :sup:`1`  solute_list must be provided by the user via the necessary configuration option, ``solute_list``.
+..    :sup:`1`  solute_list must be provided by the user via the necessary configuration option, ``solute_list``.
 
 
 
