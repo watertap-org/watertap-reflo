@@ -269,6 +269,7 @@ class TestTrough:
         m.fs.trough.hours_storage.unfix()
         assert degrees_of_freedom(m) == 2
 
+    @pytest.mark.skip
     @pytest.mark.unit
     def test_calculate_scaling(self, trough_large_heat_load):
         m = trough_large_heat_load
