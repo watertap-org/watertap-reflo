@@ -679,11 +679,12 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 doc="Magnesium Chloride requirments dosing",
             )
 
-        # value(prop_in.conc_mass_phase_comp["Liq", "SiO2"]>0.05) and value
-
-        # @self.Constraint(doc="Recovery")
-        # def eq_recovery(b):
-        #     return prop_in.flow_vol_phase["Liq"] == prop_out.flow_vol_phase["Liq"] + prop_waste.flow_vol_phase["Liq"]
+        @self.Constraint(doc="Recovery")
+        def eq_recovery(b):
+            return (
+                prop_in.flow_vol_phase["Liq"]
+                == prop_out.flow_vol_phase["Liq"] + prop_waste.flow_vol_phase["Liq"]
+            )
 
         @self.Constraint(doc="Waste flow")
         def eq_waste_flow(b):
@@ -937,7 +938,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         iscale.set_scaling_factor(self.CO2_second_basin, 1e-2)
         iscale.set_scaling_factor(self.Na2CO3_dosing, 1e-5)
         iscale.set_scaling_factor(self.CO2_CaCO3, 1)
-        iscale.set_scaling_factor(self.sludge_prod, 1e-6)
+        iscale.set_scaling_factor(self.sludge_prod, 1)
 
         comps = self.config.property_package.solute_set
         non_hardness_comps = [
@@ -946,112 +947,26 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             if j not in ["Ca_2+", "Mg_2+"]
         ]
 
-        if self.config.softening_procedure_type is SofteningProcedureType.excess_lime:
-
-            sf = iscale.get_scaling_factor(
-                self.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-            )
-            iscale.constraint_scaling_transform(self.eq_excess_CaO, sf)
-
         if (
             self.config.softening_procedure_type
             is SofteningProcedureType.single_stage_lime_soda
         ):
-            sf = (
-                iscale.get_scaling_factor(self.properties_in[0].flow_vol_phase["Liq"])
-                * 3600
-                * 24
-            )
-            iscale.constraint_scaling_transform(self.Na2CO3_dosing, sf)
+            iscale.constraint_scaling_transform(self.Na2CO3_dosing, 1e-3)
 
         elif (
             self.config.softening_procedure_type
             is SofteningProcedureType.excess_lime_soda
         ):
+            iscale.constraint_scaling_transform(self.eq_Na2CO3_dosing, 1e-4)
+            iscale.constraint_scaling_transform(self.eq_CO2_second_basin, 1e-2)
 
-            sf = iscale.get_scaling_factor(
-                self.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-            )
-            iscale.constraint_scaling_transform(self.eq_excess_CaO, sf)
+        iscale.constraint_scaling_transform(self.eq_CaO_dosing, 1e-3)
 
-            sf = (
-                iscale.get_scaling_factor(self.properties_in[0].flow_vol_phase["Liq"])
-                * 3600
-                * 24
-            )
-            iscale.constraint_scaling_transform(self.eq_Na2CO3_dosing, sf)
-
-            sf = (
-                iscale.get_scaling_factor(self.properties_in[0].flow_vol_phase["Liq"])
-                * 3600
-                * 24
-            )
-            iscale.constraint_scaling_transform(self.eq_CO2_second_basin, sf)
-
-        # Scaling constraints
-        sf = (
-            iscale.get_scaling_factor(self.properties_in[0].flow_vol_phase["Liq"])
-            * 3600
-            * 24
-        )
-        iscale.constraint_scaling_transform(self.eq_CaO_dosing, sf)
-
-        sf = (
-            iscale.get_scaling_factor(self.properties_in[0].flow_vol_phase["Liq"])
-            * 3600
-            * 24
-        )
-        iscale.constraint_scaling_transform(self.eq_CO2_first_basin, sf)
-
-        if self.config.silica_removal and ["SiO2"] in comps:
-            iscale.set_scaling_factor(self.MgCl2_dosing, 1)
-
-        # sf = iscale.get_scaling_factor(self.properties_in[0].flow_vol_phase["Liq"])
-        # iscale.constraint_scaling_transform(self.eq_recovery, sf)
-
-        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_waste_flow, sf)
-
-        for c in non_hardness_comps:
-            sf = iscale.get_scaling_factor(
-                self.properties_waste[0].flow_mass_phase_comp["Liq", c]
-            )
-            iscale.constraint_scaling_transform(self.eq_mass_balance[c], sf)
-
-        for c in non_hardness_comps:
-            sf = iscale.get_scaling_factor(
-                self.properties_waste[0].flow_mass_phase_comp["Liq", c]
-            )
-            iscale.constraint_scaling_transform(self.eq_component_removal[c], sf)
-
-        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_volume_mixer, sf)
-
-        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_volume_floc, sf)
-
-        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_volume_sed, sf)
-
-        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_volume_recarb, sf)
+        iscale.constraint_scaling_transform(self.eq_CO2_first_basin, 1e-3)
 
         iscale.constraint_scaling_transform(self.eq_effluent_ca, 10)
 
         iscale.constraint_scaling_transform(self.eq_effluent_mg, 10)
-
-        sf = iscale.get_scaling_factor(
-            self.properties_in[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-        )
-        iscale.constraint_scaling_transform(self.eq_mass_balance_ca, sf)
-
-        sf = iscale.get_scaling_factor(
-            self.properties_in[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-        )
-        iscale.constraint_scaling_transform(self.eq_mass_balance_mg, sf)
-
-        sf = iscale.get_scaling_factor(self.properties_out[0].flow_vol_phase["Liq"])
-        iscale.constraint_scaling_transform(self.eq_sludge_prod, sf)
 
     def _get_stream_table_contents(self, time_point=0):
         return create_stream_table_dataframe(
