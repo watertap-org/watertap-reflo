@@ -42,7 +42,7 @@ def build_lime_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.add_defined_flow("lime", blk.cost / blk.purity)
+    costing.register_flow_type("lime", blk.cost / blk.purity)
 
 
 def build_soda_ash_cost_param_block(blk):
@@ -61,7 +61,7 @@ def build_soda_ash_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.add_defined_flow("soda ash", blk.cost / blk.purity)
+    costing.register_flow_type("soda ash", blk.cost / blk.purity)
 
 
 def build_mgcl2_cost_param_block(blk):
@@ -80,7 +80,7 @@ def build_mgcl2_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.add_defined_flow("mgcl2", blk.cost / blk.purity)
+    costing.register_flow_type("mgcl2", blk.cost / blk.purity)
 
 
 def build_co2_cost_param_block(blk):
@@ -99,7 +99,7 @@ def build_co2_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.add_defined_flow("co2", blk.cost / blk.purity)
+    costing.register_flow_type("co2", blk.cost / blk.purity)
 
 
 def build_chem_softening_cost_param_block(blk):
@@ -878,6 +878,7 @@ def cost_chem_softening(blk):
     )
 
     # Sum of all capital costs
+    blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = Constraint(
         expr=blk.capital_cost
         == blk.mix_tank_capital_cost
@@ -906,14 +907,14 @@ def cost_chem_softening(blk):
         expr=blk.mixer_power
         == (blk.unit_model.vel_gradient_mix**2)
         * blk.unit_model.volume_mixer
-        * blk.unit_model.properties_in[0].params.visc_d
+        * blk.unit_model.properties_in[0].params.visc_d_phase["Liq"]
     )
 
     blk.floc_power_constraint = Constraint(
         expr=blk.floc_power
         == (blk.unit_model.vel_gradient_floc**2)
         * blk.unit_model.volume_floc
-        * blk.unit_model.properties_in[0].params.visc_d
+        * blk.unit_model.properties_in[0].params.visc_d_phase["Liq"]
     )
 
     blk.electricity_flow_constraint = Constraint(
@@ -952,5 +953,5 @@ def cost_chem_softening(blk):
 
     blk.costing_package.cost_flow(blk.cao_dosing, "lime")
     blk.costing_package.cost_flow(blk.unit_model.Na2CO3_dosing, "soda ash")
-    blk.costing_package.cost_flow(blk.mgcl2_dosing, "mgcl2")
+    # blk.costing_package.cost_flow(blk.mgcl2_dosing, "mgcl2")
     blk.costing_package.cost_flow(blk.co2_dosing, "co2")

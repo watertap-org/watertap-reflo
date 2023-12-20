@@ -177,7 +177,7 @@ def cost_lt_med_surrogate(blk):
             )
         )
     )
-
+    blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost == blk.membrane_system_cost + blk.evaporator_system_cost
     )

@@ -254,6 +254,7 @@ def cost_vagmd_surrogate(blk):
         ** vagmd_params.other_cost_index
     )
 
+    blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost == blk.module_cost + blk.other_capital_cost
     )
