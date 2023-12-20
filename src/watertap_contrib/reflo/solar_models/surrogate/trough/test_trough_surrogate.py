@@ -55,7 +55,6 @@ def get_data(heat_load_range):
 
 class TestTrough:
     @pytest.fixture(scope="class")
-    @pytest.mark.skip(reason="temporarily skipping")
     def trough_large_heat_load(self):
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
@@ -63,7 +62,6 @@ class TestTrough:
         return m
 
     @pytest.fixture(scope="class")
-    @pytest.mark.skip(reason="temporarily skipping")
     def trough_small_heat_load(self):
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
@@ -71,7 +69,6 @@ class TestTrough:
         return m
 
     @pytest.mark.unit
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_build(self, trough_large_heat_load):
         m = trough_large_heat_load
 
@@ -109,14 +106,12 @@ class TestTrough:
         assert number_total_constraints(m.fs.trough) == 4
 
     @pytest.mark.unit
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_surrogate_variable_bounds(self, trough_large_heat_load):
         m = trough_large_heat_load
         assert m.fs.trough.heat_load.bounds == tuple([100, 500])
         assert m.fs.trough.hours_storage.bounds == tuple([0, 26])
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_create_rbf_surrogate_large(self, trough_large_heat_load):
         m = trough_large_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
@@ -166,7 +161,6 @@ class TestTrough:
         )
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_validation_large(self, trough_large_heat_load):
         m = trough_large_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
@@ -192,7 +186,6 @@ class TestTrough:
         )
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_create_rbf_surrogate_small(self, trough_small_heat_load):
         m = trough_small_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
@@ -242,7 +235,6 @@ class TestTrough:
         )
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_validation_small(self, trough_small_heat_load):
         m = trough_small_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
@@ -268,7 +260,6 @@ class TestTrough:
         )
 
     @pytest.mark.unit
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_dof(self, trough_large_heat_load):
         m = trough_large_heat_load
         m.fs.trough.heat_load.fix(500)
@@ -279,27 +270,23 @@ class TestTrough:
         assert degrees_of_freedom(m) == 2
 
     @pytest.mark.unit
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_calculate_scaling(self, trough_large_heat_load):
         m = trough_large_heat_load
         calculate_scaling_factors(m)
         assert len(list(unscaled_variables_generator(m))) == 0
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_initialization(self, trough_large_heat_load):
         initialization_tester(
             trough_large_heat_load, unit=trough_large_heat_load.fs.trough, dof=2
         )
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_solve(self, trough_large_heat_load):
         results = solver.solve(trough_large_heat_load)
         assert_optimal_termination(results)
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
     def test_costing(self, trough_large_heat_load):
         m = trough_large_heat_load
         m.fs.trough.heat_load.fix(200)
