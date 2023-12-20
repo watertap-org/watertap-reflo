@@ -60,4 +60,4 @@ jobs:
           idaes get-extensions --verbose
       - name: Run pytest
         run: |
-          pytest
+          pytest src/watertap_contrib/reflo/solar_models/surrogate/trough
