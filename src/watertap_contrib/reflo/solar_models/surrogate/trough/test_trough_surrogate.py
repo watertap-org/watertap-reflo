@@ -276,14 +276,13 @@ class TestTrough:
         calculate_scaling_factors(m)
         assert len(list(unscaled_variables_generator(m))) == 0
 
-    @pytest.mark.skip  # still fails
     @pytest.mark.component
     def test_initialization(self, trough_large_heat_load):
         initialization_tester(
             trough_large_heat_load, unit=trough_large_heat_load.fs.trough, dof=2
         )
 
-    @pytest.mark.skip
+    @pytest.mark.skip  # stopped failing
     @pytest.mark.component
     def test_solve(self, trough_large_heat_load):
         results = solver.solve(trough_large_heat_load)
