@@ -4,8 +4,6 @@ from pyomo.environ import ConcreteModel, Var, Param, Expression, value, units as
 
 from idaes.core import FlowsheetBlock
 
-# from watertap.costing.watertap_costing_package import _DefinedFlowsDict
-
 from watertap_contrib.reflo.costing import REFLOCosting
 
 
@@ -74,43 +72,3 @@ def test_lazy_flow_costing():
         match="Component baz_cost already exists on fs.costing but is not 42\*USD_2020/m\*\*2.",
     ):
         m.fs.costing.register_flow_type("baz", 42 * pyunits.USD_2020 / pyunits.m**2)
-
-
-# @pytest.mark.component
-# def test_defined_flows_dict():
-
-#     d = _DefinedFlowsDict()
-
-#     # test __setitem__; set unused keys
-#     with pytest.raises(
-#         KeyError,
-#         match="Please use the `WaterTAPCosting.add_defined_flow` method to add defined flows.",
-#     ):
-#         d["a"] = 1
-
-#     d._setitem("a", 1)
-#     d._setitem("b", 2)
-
-#     # test __delitem__; raise error on delete
-#     with pytest.raises(
-#         KeyError,
-#         match="defined flows cannot be removed",
-#     ):
-#         del d["a"]
-
-#     # test __setitem__; raise error if overwrite
-#     with pytest.raises(
-#         KeyError,
-#         match="a has already been defined as a flow",
-#     ):
-#         d._setitem("a", 2)
-
-#     # test __getitem__
-#     assert d["a"] == 1
-#     assert d["b"] == 2
-
-#     # test __len__
-#     assert len(d) == 2
-
-#     # test __iter__
-#     assert [*d] == ["a", "b"]
