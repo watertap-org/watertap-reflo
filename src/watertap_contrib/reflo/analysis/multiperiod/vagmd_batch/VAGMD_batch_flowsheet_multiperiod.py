@@ -412,6 +412,18 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
 
         active_blks = mp.get_active_process_blocks()
 
+        # Initialize and unfix dof for each period
+        solver = get_solver()
+        for blk in active_blks:
+            fix_dof_and_initialize(
+                m=blk,
+                feed_flow_rate=feed_flow_rate,
+                feed_salinity=feed_salinity,
+                feed_temp=feed_temp,
+            )
+            result = solver.solve(blk)
+            unfix_dof(m=blk, feed_flow_rate=feed_flow_rate)
+
         # Set-up for the first time period
         active_blks[0].fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(
             feed_salinity
