@@ -102,7 +102,7 @@ def build_co2_cost_param_block(blk):
     costing.register_flow_type("co2", blk.cost / blk.purity)
 
 
-def build_chem_softening_cost_param_block(blk):
+def build_chemical_softening_cost_param_block(blk):
     """
     Parameters and variables to be used in the costing model
     References :
@@ -458,10 +458,10 @@ def build_chem_softening_cost_param_block(blk):
     parameter_block_name="co2",
 )
 @register_costing_parameter_block(
-    build_rule=build_chem_softening_cost_param_block,
+    build_rule=build_chemical_softening_cost_param_block,
     parameter_block_name="chemical_softening",
 )
-def cost_chem_softening(blk):
+def cost_chemical_softening(blk):
 
     """
     Capital and operating costs for chemical softening
@@ -595,6 +595,8 @@ def cost_chem_softening(blk):
 
     # Capital cost component constraints
 
+    capital_cost_expr = 0
+
     # Mixing tank
     blk.mix_tank_capital_cost_constraint = Constraint(
         expr=blk.mix_tank_capital_cost
@@ -610,6 +612,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.mix_tank_capital_cost
+
     # Flocculation tank
     blk.floc_tank_capital_cost_constraint = Constraint(
         expr=blk.floc_tank_capital_cost
@@ -619,6 +623,8 @@ def cost_chem_softening(blk):
             + chem_soft.floc_tank_capital_constant
         )
     )
+
+    capital_cost_expr += blk.floc_tank_capital_cost
 
     # Sedimentation basin
     blk.sed_basin_capital_cost_constraint = Constraint(
@@ -637,6 +643,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.sed_basin_capital_cost
+
     # Recarbonation basin
     blk.recarb_basin_capital_cost_constraint = Constraint(
         expr=blk.recarb_basin_capital_cost
@@ -652,6 +660,8 @@ def cost_chem_softening(blk):
             + chem_soft.recarb_basin_capital_constant
         )
     )
+
+    capital_cost_expr += blk.recarb_basin_capital_cost
 
     # Recarbonation source cost
     blk.recarb_basin_source_capital_cost_constraint = Constraint(
@@ -683,6 +693,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.recarb_basin_source_capital_cost
+
     # Lime feed system cost
     blk.lime_feed_system_capital_cost_constraint = Constraint(
         expr=blk.lime_feed_system_capital_cost
@@ -696,6 +708,8 @@ def cost_chem_softening(blk):
             + chem_soft.lime_feed_system_capital_constant
         )
     )
+
+    capital_cost_expr += blk.lime_feed_system_capital_cost
 
     # Admin cost
     blk.admin_capital_cost_constraint = Constraint(
@@ -712,7 +726,11 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.admin_capital_cost
+
     # Operational cost component constraints
+
+    op_cost_expr = 0
 
     # Mixing tank
     blk.mix_tank_op_cost_constraint = Constraint(
@@ -733,6 +751,8 @@ def cost_chem_softening(blk):
         )
         + chem_soft.mix_tank_op_constant
     )
+
+    op_cost_expr += blk.mix_tank_op_cost
 
     # Flocculation tank
     blk.floc_tank_op_cost_constraint = Constraint(
@@ -768,6 +788,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.floc_tank_op_cost
+
     # Sedimentation basin
     blk.sed_basin_op_cost_constraint = Constraint(
         expr=blk.sed_basin_op_cost
@@ -794,6 +816,8 @@ def cost_chem_softening(blk):
             + chem_soft.sed_basin_op_constant
         )
     )
+
+    op_cost_expr += blk.sed_basin_op_cost
 
     # Recarbonation basin
     blk.recarb_basin_op_cost_constraint = Constraint(
@@ -835,6 +859,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.recarb_basin_op_cost
+
     # Lime feed
     blk.lime_feed_op_cost_constraint = Constraint(
         expr=blk.lime_feed_op_cost
@@ -849,6 +875,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.lime_feed_op_cost
+
     # Lime sludge management
     blk.lime_sludge_mngt_op_cost_constraint = Constraint(
         expr=blk.lime_sludge_mngt_op_cost
@@ -859,6 +887,8 @@ def cost_chem_softening(blk):
             * chem_soft.sludge_disposal_cost
         )
     )
+
+    op_cost_expr += blk.lime_sludge_mngt_op_cost
 
     # Admin cost
     blk.admin_op_cost_constraint = Constraint(
@@ -877,30 +907,16 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.admin_op_cost
+
     # Sum of all capital costs
     blk.costing_package.add_cost_factor(blk, None)
-    blk.capital_cost_constraint = Constraint(
-        expr=blk.capital_cost
-        == blk.mix_tank_capital_cost
-        + blk.floc_tank_capital_cost
-        + blk.sed_basin_capital_cost
-        + blk.recarb_basin_capital_cost
-        + blk.recarb_basin_source_capital_cost
-        + blk.lime_feed_system_capital_cost
-        + blk.admin_capital_cost
-    )
+    blk.capital_cost_constraint = Constraint(expr=blk.capital_cost == capital_cost_expr)
 
     # Sum of all operational costs
 
     blk.fixed_operating_cost_constraint = Constraint(
-        expr=blk.fixed_operating_cost
-        == blk.mix_tank_op_cost
-        + blk.floc_tank_op_cost
-        + blk.sed_basin_op_cost
-        + blk.recarb_basin_op_cost
-        + blk.lime_feed_op_cost
-        + blk.lime_sludge_mngt_op_cost
-        + blk.admin_op_cost
+        expr=blk.fixed_operating_cost == op_cost_expr
     )
 
     blk.mixer_power_constraint = Constraint(

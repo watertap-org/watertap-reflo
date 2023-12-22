@@ -46,6 +46,8 @@ from idaes.core.util.exceptions import InitializationError
 
 import idaes.logger as idaeslog
 
+from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
+
 _log = idaeslog.getLogger(__name__)
 
 __author__ = "Matthew Boyd, Kurban Sitterley"
@@ -415,3 +417,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
         ax2.set_title(r"Residual plot", fontsize=axis_fontsize)
 
         plt.show()
+
+    @property
+    def default_costing_method(self):
+        return cost_trough_surrogate

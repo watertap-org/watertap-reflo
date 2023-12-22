@@ -41,6 +41,8 @@ import idaes.logger as idaeslog
 from idaes.core.util.exceptions import InitializationError
 from idaes.core.util.model_statistics import degrees_of_freedom
 
+from watertap_contrib.reflo.costing.units.vagmd_surrogate import cost_vagmd_surrogate
+
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
 
@@ -1261,3 +1263,7 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
             TEO = sum(VarsAS26[j] * TEOAS26[j] for j in range(len(VarsAS26)))
 
         return [PFlux, TCO, TEO, S_c]
+
+    @property
+    def default_costing_method(self):
+        return cost_vagmd_surrogate

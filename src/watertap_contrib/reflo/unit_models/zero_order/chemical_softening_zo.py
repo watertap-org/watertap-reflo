@@ -38,6 +38,10 @@ import idaes.logger as idaeslog
 
 from watertap.core import InitializationMixin
 
+from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
+    cost_chemical_softening,
+)
+
 __author__ = "Mukta Hardikar, Abdiel Lugo"
 
 _log = idaeslog.getLogger(__name__)
@@ -995,3 +999,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         var_dict["Sludge produced"] = self.sludge_prod.value
 
         return {"vars": var_dict, "exprs": expr_dict}
+
+    @property
+    def default_costing_method(self):
+        return cost_chemical_softening

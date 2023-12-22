@@ -95,6 +95,7 @@ def cost_trough_surrogate(blk):
         * (1 + trough_params.contingency_frac_direct_cost)
     )
 
+    blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
         == blk.direct_cost

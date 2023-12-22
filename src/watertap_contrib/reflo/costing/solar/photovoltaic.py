@@ -157,6 +157,7 @@ def cost_pv(blk):
         expr=blk.sales_tax == blk.direct_cost * global_params.sales_tax_frac
     )
 
+    blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost == blk.direct_cost + blk.indirect_cost + blk.sales_tax
     )

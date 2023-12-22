@@ -36,6 +36,9 @@ from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
 
+from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
+    cost_med_tvc_surrogate,
+)
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
@@ -1529,3 +1532,7 @@ class MEDTVCData(UnitModelBlockData):
             + self.feed_conc_ppm**2
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][20]
         )
+
+    @property
+    def default_costing_method(self):
+        return cost_med_tvc_surrogate

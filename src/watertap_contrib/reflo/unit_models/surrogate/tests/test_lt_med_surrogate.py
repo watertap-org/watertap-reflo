@@ -26,7 +26,6 @@ from idaes.core.util.model_statistics import (
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
-    unscaled_constraints_generator,
     badly_scaled_var_generator,
 )
 import idaes.logger as idaeslog

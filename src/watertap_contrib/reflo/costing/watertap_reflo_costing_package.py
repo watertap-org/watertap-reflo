@@ -6,43 +6,10 @@ from idaes.models.unit_models import Mixer
 from watertap.costing.watertap_costing_package import (
     WaterTAPCostingData,
 )
-from watertap.unit_models import (
-    ReverseOsmosis0D,
-    ReverseOsmosis1D,
-    NanoFiltration0D,
-    NanofiltrationZO,
-    PressureExchanger,
-    Crystallization,
-    Ultraviolet0D,
-    Pump,
-    EnergyRecoveryDevice,
-    Electrodialysis0D,
-    Electrodialysis1D,
-    IonExchange0D,
-    GAC,
-)
+
 from idaes.core.base.costing_base import (
     FlowsheetCostingBlockData,
     register_idaes_currency_units,
-)
-
-from watertap_contrib.reflo.solar_models.zero_order import Photovoltaic
-from watertap_contrib.reflo.costing.solar.photovoltaic import cost_pv
-from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
-from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
-from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
-from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
-from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
-from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
-from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
-    cost_med_tvc_surrogate,
-)
-from watertap_contrib.reflo.costing.units.vagmd_surrogate import cost_vagmd_surrogate
-from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
-    ChemicalSofteningZO,
-)
-from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
-    cost_chem_softening,
 )
 
 from watertap_contrib.reflo.core import PySAMWaterTAP
@@ -50,23 +17,8 @@ from watertap_contrib.reflo.core import PySAMWaterTAP
 
 @declare_process_block_class("REFLOCosting")
 class REFLOCostingData(WaterTAPCostingData):
-
-    unit_mapping = {
-        LTMEDSurrogate: cost_lt_med_surrogate,
-        MEDTVCSurrogate: cost_med_tvc_surrogate,
-        VAGMDSurrogate: cost_vagmd_surrogate,
-        Photovoltaic: cost_pv,
-        TroughSurrogate: cost_trough_surrogate,
-        ChemicalSofteningZO: cost_chem_softening,
-    }
-
     def build_global_params(self):
         super().build_global_params()
-
-        if "USD_2021" not in pyo.units._pint_registry:
-            pyo.units.load_definitions_from_strings(
-                ["USD_2021 = 500/708.0 * USD_CE500"]
-            )
 
         self.base_currency = pyo.units.USD_2021
         self.plant_lifetime = pyo.Var(
@@ -357,7 +309,9 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
             self.add_component("LCOE", LCOE_expr)
 
         if e_model == "surrogate":
-            raise NotImplementedError("We don't have surrogate models yet!")
+            raise NotImplementedError(
+                "add_LCOE for surrogate models not available yet."
+            )
 
     def add_specific_electric_energy_consumption(self, flow_rate):
         """

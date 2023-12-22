@@ -16,6 +16,7 @@ from idaes.core import declare_process_block_class
 from pyomo.environ import Param, units as pyunits
 
 from watertap_contrib.reflo.core import SolarEnergyBaseData
+from watertap_contrib.reflo.costing.solar.photovoltaic import cost_pv
 
 __author__ = "Kurban Sitterley"
 
@@ -39,3 +40,7 @@ class PhotovoltaicData(SolarEnergyBaseData):
             mutable=True,
             doc="Oversize factor for PV system",
         )
+
+    @property
+    def default_costing_method(self):
+        return cost_pv
