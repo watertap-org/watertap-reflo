@@ -30,22 +30,24 @@ def test_lazy_flow_costing():
         initialize=42, doc="foo", units=pyunits.USD_2020 / pyunits.m
     )
 
-    m.fs.costing.add_defined_flow("foo", m.fs.costing.foo_cost)
+    m.fs.costing.register_flow_type("foo", m.fs.costing.foo_cost)
 
     # make sure the component was not replaced
-    # by add_defined_flow
+    # by register_flow_type
     assert foo_cost is m.fs.costing.foo_cost
 
-    assert "foo" in m.fs.costing.defined_flows
-    # not registered until used
-    assert "foo" not in m.fs.costing.flow_types
+    assert "foo" in m.fs.costing.flow_types
 
-    m.fs.foo = Var(units=pyunits.m)
+    # not used until aggregated
+    assert "foo" not in m.fs.costing.used_flows
+
+    m.fs.foo = Var(units=pyunits.m / pyunits.year)
 
     m.fs.costing.cost_flow(m.fs.foo, "foo")
+    m.fs.costing.aggregate_costs()
 
-    # now should be registered
-    assert "foo" in m.fs.costing.flow_types
+    # now should be used
+    assert "foo" in m.fs.costing.used_flows
 
     m.fs.costing.bar_base_cost = Var(
         initialize=0.42, doc="bar", units=pyunits.USD_2020 / pyunits.g
@@ -54,7 +56,7 @@ def test_lazy_flow_costing():
         initialize=0.50, doc="bar purity", units=pyunits.dimensionless
     )
 
-    m.fs.costing.add_defined_flow(
+    m.fs.costing.register_flow_type(
         "bar", m.fs.costing.bar_base_cost * m.fs.costing.bar_purity
     )
 
@@ -69,9 +71,8 @@ def test_lazy_flow_costing():
 
     with pytest.raises(
         RuntimeError,
-        match="Attribute baz_cost already exists on the costing block, but is not ",
-    ):
-        m.fs.costing.add_defined_flow("baz", 42 * pyunits.USD_2020 / pyunits.m**2)
+        match="Component baz_cost already exists on fs.costing but is not 42\*USD_2020/m\*\*2."):
+        m.fs.costing.register_flow_type("baz", 42 * pyunits.USD_2020 / pyunits.m**2)
 
 
 # @pytest.mark.component
