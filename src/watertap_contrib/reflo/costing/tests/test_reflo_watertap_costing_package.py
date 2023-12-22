@@ -21,7 +21,7 @@ def test_lazy_flow_costing():
     with pytest.raises(
         ValueError,
         match="foo is not a recognized flow type. Please check "
-        "your spelling and that the flow type has been available to"
+        "your spelling and that the flow type has been registered with"
         " the FlowsheetCostingBlock.",
     ):
         m.fs.costing.cost_flow(m.fs.electricity, "foo")
