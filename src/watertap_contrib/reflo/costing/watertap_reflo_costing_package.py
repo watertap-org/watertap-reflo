@@ -5,7 +5,6 @@ from idaes.models.unit_models import Mixer
 
 from watertap.costing.watertap_costing_package import (
     WaterTAPCostingData,
-    # _DefinedFlowsDict,
 )
 from watertap.unit_models import (
     ReverseOsmosis0D,
