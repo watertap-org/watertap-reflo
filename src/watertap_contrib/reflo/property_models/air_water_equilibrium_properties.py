@@ -38,7 +38,6 @@ from pyomo.environ import (
 from pyomo.environ import units as pyunits
 from pyomo.common.config import ConfigValue, In
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
-from watertap.core.util.model_diagnostics.infeasible import *
 
 # Import IDAES cores
 from idaes.core import (

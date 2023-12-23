@@ -20,20 +20,23 @@ from pyomo.environ import (
     value,
     assert_optimal_termination,
 )
+
 from pyomo.network import Port
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.reflo.unit_models.air_stripping_0D import (
     AirStripping0D,
     PackingMaterial,
 )
-from watertap_contrib.reflo.property_models import AirWaterEq
 
+from watertap.core import ControlVolume0DBlock
+from watertap_contrib.reflo.property_models import AirWaterEq
 from watertap_contrib.reflo.costing import REFLOCosting
+
 from idaes.core import (
     MaterialBalanceType,
     EnergyBalanceType,
     MomentumBalanceType,
 )
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
@@ -48,8 +51,6 @@ from idaes.core.util.scaling import (
     set_scaling_factor,
 )
 import idaes.logger as idaeslog
-
-from watertap.core import ControlVolume0DBlock
 
 # Get default solver for testing
 solver = get_solver()

@@ -15,7 +15,6 @@ from watertap.costing.util import register_costing_parameter_block
 from watertap_contrib.reflo.costing.util import (
     make_capital_cost_var,
 )
-from idaes.core.util.constants import Constants
 
 # REFERENCES:
 # Dzombak, D. A., Roy, S. B., & Fang, H.-J. (1993).

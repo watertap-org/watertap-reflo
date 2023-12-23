@@ -20,8 +20,8 @@ from pyomo.environ import (
     assert_optimal_termination,
 )
 from pyomo.util.check_units import assert_units_consistent
-from idaes.core import FlowsheetBlock
 
+from idaes.core import FlowsheetBlock
 from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.scaling import calculate_scaling_factors
 
