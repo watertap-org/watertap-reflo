@@ -297,8 +297,8 @@ class TestTroughLarge:
                 else:
                     assert pytest.approx(r, rel=1e-1) == value(cv)
 
+
 class TestTroughSmall:
-    
     @pytest.fixture(scope="class")
     def trough_small_heat_load(self):
         m = ConcreteModel()
@@ -412,4 +412,3 @@ class TestTroughSmall:
     def test_solve_small(self, trough_small_heat_load):
         results = solver.solve(trough_small_heat_load)
         assert_optimal_termination(results)
-
