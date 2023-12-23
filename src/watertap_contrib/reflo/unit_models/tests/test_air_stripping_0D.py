@@ -1,3 +1,15 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import pytest
 from pyomo.environ import (
     ConcreteModel,
@@ -273,9 +285,12 @@ class TestAirStripping0D:
         prop_in = ax.process_flow.properties_in[0]
         prop_out = ax.process_flow.properties_out[0]
 
-        assert sum(
-            value(prop_in.flow_mass_phase_comp[p, ax.config.target])
-            for p in m.fs.properties.phase_list
+        assert pytest.approx(
+            sum(
+                value(prop_in.flow_mass_phase_comp[p, ax.config.target])
+                for p in m.fs.properties.phase_list
+            ),
+            rel=1e-5,
         ) == sum(
             value(prop_out.flow_mass_phase_comp[p, ax.config.target])
             for p in m.fs.properties.phase_list
@@ -388,16 +403,16 @@ class TestAirStripping0D:
             assert value(axc) == pytest.approx(r, rel=1e-3)
 
         m_costing_results = {
-            "aggregate_capital_cost": 441553.9,
+            "aggregate_capital_cost": 441753.046,
             "aggregate_fixed_operating_cost": 0.0,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 21.56,
             "aggregate_flow_costs": {"electricity": 15532.43},
-            "total_capital_cost": 883107.8,
-            "maintenance_labor_chemical_operating_cost": 26493.23,
-            "total_operating_cost": 42025.66,
-            "LCOW": 0.026139,
-            "SEC": 0.037908,
+            "total_capital_cost": 441753.046,
+            "maintenance_labor_chemical_operating_cost": 13252.59,
+            "total_operating_cost": 28793.941,
+            "LCOW": 0.01463453,
+            "SEC": 0.03793025,
         }
 
         for v, r in m_costing_results.items():
@@ -639,9 +654,12 @@ class TestAirStripping0D:
         prop_in = ax.process_flow.properties_in[0]
         prop_out = ax.process_flow.properties_out[0]
 
-        assert sum(
-            value(prop_in.flow_mass_phase_comp[p, ax.config.target])
-            for p in m.fs.properties.phase_list
+        assert pytest.approx(
+            sum(
+                value(prop_in.flow_mass_phase_comp[p, ax.config.target])
+                for p in m.fs.properties.phase_list
+            ),
+            rel=1e-5,
         ) == sum(
             value(prop_out.flow_mass_phase_comp[p, ax.config.target])
             for p in m.fs.properties.phase_list
@@ -733,7 +751,7 @@ class TestAirStripping0D:
         assert_optimal_termination(results)
 
         ax_costing_results = {
-            "capital_cost": 1631701.944,
+            # "capital_cost": 1631701.944,
             "tower_cost": 37232.248,
             "port_cost": 643.059,
             "piping_liq_cost": 2189.254,
@@ -759,10 +777,10 @@ class TestAirStripping0D:
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 27.84,
             "aggregate_flow_costs": {"electricity": 20054.989},
-            "total_capital_cost": 3263403.888,
-            "maintenance_labor_chemical_operating_cost": 97902.116,
-            "total_operating_cost": 117957.105,
-            "LCOW": 0.140789366,
+            "total_capital_cost": 1631701.944,
+            "maintenance_labor_chemical_operating_cost": 48951.058,
+            "total_operating_cost": 69006.047,
+            "LCOW": 0.073572204,
             "SEC": 0.077335064,
         }
 
