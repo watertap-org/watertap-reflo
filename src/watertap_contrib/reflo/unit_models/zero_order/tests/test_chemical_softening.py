@@ -5,15 +5,7 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-from idaes.core import (
-    declare_process_block_class,
-    MaterialFlowBasis,
-    PhysicalParameterBlock,
-    StateBlockData,
-    StateBlock,
-    MaterialBalanceType,
-    EnergyBalanceType,
-)
+from idaes.core import MaterialFlowBasis
 
 from watertap.property_models.multicomp_aq_sol_prop_pack import (
     MCASParameterBlock,
@@ -23,11 +15,6 @@ from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
     ChemicalSofteningZO,
 )
-
-from watertap_contrib.reflo.property_models.basic_water_properties import (
-    BasicWaterParameterBlock,
-)
-
 from watertap_contrib.reflo.costing import TreatmentCosting
 
 from idaes.core.util.testing import initialization_tester
@@ -41,7 +28,6 @@ from idaes.core.util.model_statistics import (
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
-    unscaled_constraints_generator,
     badly_scaled_var_generator,
 )
 import idaes.logger as idaeslog
