@@ -1,3 +1,15 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import logging
 import pandas as pd
 import numpy as np
@@ -7,17 +19,12 @@ from pyomo.environ import (
     Var,
     Constraint,
     value,
-    ConcreteModel,
-    TransformationFactory,
     units as pyunits,
 )
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
-from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
+from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # IDAES imports
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
-from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.util.config import is_physical_parameter_block
 from idaes.core import (
     declare_process_block_class,
     UnitModelBlockData,
@@ -25,8 +32,6 @@ from idaes.core import (
 )
 from idaes.core.util.exceptions import (
     ConfigurationError,
-    UserModelError,
-    InitializationError,
 )
 import idaes.core.util.scaling as iscale
 from idaes.core import UnitModelCostingBlock
