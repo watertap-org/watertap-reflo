@@ -48,6 +48,7 @@ import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
 from watertap.core import ControlVolume0DBlock, InitializationMixin
+from watertap_contrib.reflo.costing.units.air_stripping import cost_air_stripping
 
 __author__ = "Kurban Sitterley"
 
@@ -1214,3 +1215,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         expr_dict[f"Weber number"] = self.N_We
 
         return {"vars": var_dict, "exprs": expr_dict}
+
+    @property
+    def default_costing_method(self):
+        return cost_air_stripping

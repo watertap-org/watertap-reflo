@@ -38,7 +38,6 @@ from pyomo.environ import (
 from pyomo.environ import units as pyunits
 from pyomo.common.config import ConfigValue, In
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
-from watertap.core.util.model_diagnostics.infeasible import *
 
 # Import IDAES cores
 from idaes.core import (
@@ -50,7 +49,7 @@ from idaes.core import (
     MaterialBalanceType,
     EnergyBalanceType,
 )
-from idaes.core.base.components import Solute, Solvent, Component
+from idaes.core.base.components import Solute, Solvent
 from idaes.core.base.phases import (
     LiquidPhase,
     VaporPhase,
@@ -62,7 +61,6 @@ from idaes.core.util.initialization import (
     revert_state_vars,
     solve_indexed_blocks,
 )
-from idaes.core.util.misc import extract_data
 from idaes.core.solvers import get_solver
 from idaes.core.util.misc import add_object_reference
 from idaes.core.util.model_statistics import (
@@ -1830,7 +1828,15 @@ class AirWaterEqStateBlockData(StateBlockData):
                     iscale.set_scaling_factor(self.critical_molar_volume_comp[j], sf)
             if self.is_property_constructed("molar_volume_comp"):
                 if iscale.get_scaling_factor(self.molar_volume_comp[j]) is None:
-                    sf = iscale.get_scaling_factor(self.critical_molar_volume_comp[j])
+                    if (
+                        self.params.config.molar_volume_calculation
+                        is MolarVolumeCalculation.TynCalus
+                    ):
+                        sf = iscale.get_scaling_factor(
+                            self.critical_molar_volume_comp[j]
+                        )
+                    else:
+                        sf = value(self.params.config.molar_volume_data[j]) ** -1
                     iscale.set_scaling_factor(self.molar_volume_comp[j], sf)
             if self.is_property_constructed("henry_constant_comp"):
                 if iscale.get_scaling_factor(self.henry_constant_comp[j]) is None:
@@ -1862,15 +1868,3 @@ class AirWaterEqStateBlockData(StateBlockData):
                     )
 
         transform_property_constraints(self)
-        # if hasattr(self, "eq_diffus_phase_comp"):
-        #     for (p, j), c in self.eq_diffus_phase_comp.items():
-        #         sf = iscale.get_scaling_factor(self.diffus_phase_comp[p, j])
-        #         iscale.constraint_scaling_transform(c, sf)
-
-        # if hasattr(self, "eq_collision_function_ee_comp"):
-        #     for ind, v in self.eq_collision_function_ee_comp.items():
-        #         iscale.constraint_scaling_transform(v, 1e-10)
-
-        # if hasattr(self, "eq_energy_molecular_attraction_phase_comp"):
-        #     for ind, v in self.eq_energy_molecular_attraction_phase_comp.items():
-        #         iscale.constraint_scaling_transform(v, 1e-12)

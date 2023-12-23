@@ -1,31 +1,23 @@
-###############################################################################
-# WaterTAP Copyright (c) 2021, The Regents of the University of California,
-# through Lawrence Berkeley National Laboratory, Oak Ridge National
-# Laboratory, National Renewable Energy Laboratory, and National Energy
-# Technology Laboratory (subject to receipt of any required approvals from
-# the U.S. Dept. of Energy). All rights reserved.
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
-#
-###############################################################################
+#################################################################################
+
 from copy import deepcopy
 
 # Import Pyomo libraries
 from pyomo.environ import (
     Var,
-    Param,
-    Suffix,
     units as pyunits,
-    check_optimal_termination,
-    exp,
-    log,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
-
-# Import WaterTAP cores
-from watertap.core import InitializationMixin
 
 # Import base model from WaterTAP REFLO
 from watertap_contrib.reflo.unit_models.surrogate.vagmd_surrogate_base import (
@@ -35,16 +27,11 @@ from watertap_contrib.reflo.unit_models.surrogate.vagmd_surrogate_base import (
 # Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
-    UnitModelBlockData,
     useDefault,
 )
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
-from idaes.core.solvers import get_solver
-from idaes.core.util.misc import StrEnum
 import idaes.logger as idaeslog
-from idaes.core.util.exceptions import InitializationError
-from idaes.core.util.model_statistics import degrees_of_freedom
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
