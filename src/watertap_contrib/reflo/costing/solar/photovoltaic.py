@@ -1,3 +1,15 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import pyomo.environ as pyo
 from watertap.costing.util import register_costing_parameter_block
 from watertap_contrib.reflo.costing.util import (
@@ -157,6 +169,7 @@ def cost_pv(blk):
         expr=blk.sales_tax == blk.direct_cost * global_params.sales_tax_frac
     )
 
+    blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost == blk.direct_cost + blk.indirect_cost + blk.sales_tax
     )
