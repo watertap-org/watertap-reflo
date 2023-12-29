@@ -1,15 +1,14 @@
-###############################################################################
-# WaterTAP Copyright (c) 2021, The Regents of the University of California,
-# through Lawrence Berkeley National Laboratory, Oak Ridge National
-# Laboratory, National Renewable Energy Laboratory, and National Energy
-# Technology Laboratory (subject to receipt of any required approvals from
-# the U.S. Dept. of Energy). All rights reserved.
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
-#
-###############################################################################
+#################################################################################
 
 from copy import deepcopy
 
@@ -35,8 +34,9 @@ from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.core.util.scaling as iscale
 from idaes.core.util.tables import create_stream_table_dataframe
-
 import idaes.logger as idaeslog
+
+from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 
 
 _log = idaeslog.getLogger(__name__)
@@ -1387,3 +1387,7 @@ class LTMEDData(UnitModelBlockData):
                 * self.specific_area_coeffs[num_effect][68]
                 + self.feed_conc_ppm**4 * self.specific_area_coeffs[num_effect][69]
             )
+
+    @property
+    def default_costing_method(self):
+        return cost_lt_med_surrogate
