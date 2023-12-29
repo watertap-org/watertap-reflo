@@ -94,7 +94,7 @@ Parameters
 
  "Component molecular weight", ":math:`m_N`", "``mw_comp``", "``[j]``", "``component_set``", ":math:`\text{kg mol}^{-1}`"
  "Molar volume of solute", ":math:`V`", "``molar_volume_comp``", "``[j]``", "``solute_set``", ":math:`\text{m}^3 \text{ mol}^{-1}`"
- "Critical molar volume of solute", ":math:`V`", "``critical_molar_volume_comp``", "``[j]``", "``solute_set``", ":math:`\text{m}^3 \text{ mol}^{-1}`"
+ "Critical molar volume of solute", ":math:`V_c`", "``critical_molar_volume_comp``", "``[j]``", "``solute_set``", ":math:`\text{m}^3 \text{ mol}^{-1}`"
  "Dynamic viscosity", ":math:`\mu`", "``visc_d_phase``", "``[p]``", "``phase_list``", ":math:`\text{Pa s}`"
  "Component dimensionless Henry's constant", ":math:`h_j`", "``henry_constant_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
  "Standard enthalpy change of solution", ":math:`\Delta H_j^{\theta}`", "``enth_change_dissolution_comp``", "``[j]``", "``solute_set``", ":math:`\text{J}\text{ } \text{mol}^{-1}`"
@@ -106,6 +106,7 @@ Parameters
 ..  "Hayduk Laudie viscosity coefficient", ":math:`\chi_{2}`", "hl_visc_coeff", "None", "None", ":math:`\text{dimensionless}`"
 ..  "Hayduk Laudie molar volume coefficient", ":math:`\chi_{3}`", "hl_molar_volume_coeff", "None", "None", ":math:`\text{dimensionless}`"
 ..  "Bulk diffusivity of solute", ":math:`D`", "diffus_phase_comp", "``[p, j]``", "", ":math:`\text{m}^2 \text{ s}^{-1}`"
+
 Properties
 ----------
 .. csv-table::
@@ -142,19 +143,63 @@ Relationships
 .. csv-table::
    :header: "Description", "Equation"
 
-   "Component charge-equivalent molar flowrate", ":math:`\tilde{N}=N\left|z\right|`"
-   "Component charge-equivalent molar concentration", ":math:`\tilde{n}=n\left|z\right|`"
    "Component mass fraction", ":math:`x_j=\frac{M_j}{\sum_j{M_j}}`"
-   "Mass density of aqueous phase", ":math:`\rho=1000 \text{ kg m}^{-3}` or :math:`\rho=\rho_w + \textbf{f} \left(\sum_{j\in solute}{x_j}, T\right)`"
-   "Mass density of solvent water", ":math:`\rho_w=\textbf{f}\left(T\right)`"
+   "Component molar fraction", ":math:`y_j=\frac{N_j}{\sum_j{N_j}}`"
+   "Mass density of each phase", ":math:`\rho\text{ specified as user input}`"
    "Phase volumetric flowrate", ":math:`Q=\frac{\sum_j{N_j m_{Nj}}}{\rho}`"
    "Total volumetric flowrate", ":math:`Q_{tot}=\sum_p{Q_p}`"
-   "Component molar fraction", ":math:`y_j=\frac{N_j}{\sum_j{N_j}}`"
-   "Component molality", ":math:`b=\frac{N}{N_{H_2O} m_{N\text{H_2O}}}`"
-   "Component mass diffusivity", ":math:`D\text{ specified in data argument}` or :math:`D \text{ }[\text{m}^2 \text{ s}^{-1}]=\frac{\chi_{1}}{(\mu \text{ }[\text{cP}])^{\chi_{2}}(V \text{ }[\text{cm}^3 \text{ mol}^{-1}])^{\chi_{3}}}`"
+   "Component mass liquid phase diffusivity :sup:`1`", ":math:`D_{liq}\text{ specified as user input or calculated via Hayduk-Laudie correlation}`"
+   "Component mass vapor phase diffusivity :sup:`2`", ":math:`D_{vap}\text{ specified as user input or calculated via Wilke-Lee correlation}`"
+   "Component Henry's constant :sup:`3`", ":math:`h_j\text{ specified as user input or calculated via van't Hoff correlation}`"
+   "Component molar volume :sup:`4`", ":math:`V\text{ specified as user input or calculated via Tyn-Calus correlation}`"
 
-note::
+.. note::
 
+   :sup:`1`  Liquid phase diffusivity can either be (1) specified when the user provides data via the ``diffusivity_data`` configuration option or (2) calculated by the correlation defined in Hayduk, W., & Laudie, H. (1974). For the latter, the ``liq_diffus_calculation`` configuration option must be set to ``LiqDiffusivityCalculation.HaydukLaudie``.
+
+   :sup:`2`  Vapor phase diffusivity can either be (1) specified when the user provides data via the ``diffusivity_data`` configuration option or (2) calculated by the correlation defined in Wilke & Lee (1955). For the latter, the ``vap_diffus_calculation`` configuration option must be set to ``VapDiffusivityCalculation.WilkeLee``.
+
+   :sup:`3`  Henry's constant can either be (1) specified when the user provides data via the ``henry_constant_data`` configuration option or (2) corrected for the vapor phase temperature via the van't Hoff equation if the user sets the ``temp_adjust_henry`` configuration option to ``True``. **In the latter case, the user provided data is assumed to be for T = 298 K** and is added as a parameter called ``henry_constant_std_comp``. In either case, user data is required.
+
+   :sup:`4`  Molar volume can either be (1) specified when the user provides data via the ``molar_volume_comp`` configuration option or (2) calculated by the Tyn-Calus correlation defined in Aniceto, J. P. S., Zêzere, B., & Silva, C. M. (2021). For the latter, the ``molar_volume_calculation`` configuration option must be set to ``MolarVolumeCalculation.TynCalus`` and the component critical molar volume must be specified via the ``critical_molar_volume_data`` configuration option.
+
+van't Hoff Correlation
+++++++++++++++++++++++
+
+The following is used to temperature correct Henry's constant:
+
+.. math::
+    h_j = h_{j,std} \text{ exp}\Bigg({\frac{\Delta H_j^{\theta}}{R}} \bigg( \frac{1}{T} - \frac{1}{T_{std}} \bigg) \Bigg)
+
+
+Tyn-Calus Correlation
++++++++++++++++++++++
+
+The following is used to calculate molar volume:
+
+
+
+Hayduk-Laudie Correlation
++++++++++++++++++++++++++
+
+The following is used to calculate component liquid phase diffusion if user sets ``liq_diffus_calculation`` to ``LiqDiffusivityCalculation.HaydukLaudie``:
+
+.. math::
+    D_{liq, j} =\frac{HL_A}{\mu_{liq}^{HL_B}(V_{crit,j})^{HL_C}}
+
+Where :math:`HL_A = 13.26 \times 10^{-9}`, :math:`HL_B = 1.14`, and :math:`HL_C = 0.589`.
+This correlation returns :math:`D_{liq}` in units of :math:`\text{m}^2/\text{s}`; liquid viscosity has units of :math:`\text{cP}` and critical molar volume has untis of :math:`\text{cm}^3/\text{mol}`.
+
+Wilke-Lee Correlation
++++++++++++++++++++++
+
+The following is used to calculate component vapor phase diffusion if user sets ``vap_diffus_calculation`` to ``VapDiffusivityCalculation.WilkeLee``:
+
+.. math::
+    D_{vap,j} = \frac{WL_A - WL_B \sqrt{1/m_{N,j}+1/m_{N,air}} \big(T \big)^{1.5} \sqrt{1/m_{N,j}+1/m_{N,air}}}{P_{atm} r_{j,air} \big( f(kT/\varepsilon_{air, j}) \big) }
+    
+
+Where :math:`WL_A = 1.084` and :math:`WL_B = 0.249`
 
 Physical/chemical constants
 ---------------------------
@@ -201,21 +246,21 @@ Classes
 Reference
 ---------
 
-Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
-Chapter 7, 14. MWH's Water Treatment: Principles and Design (3rd ed.). doi:10.1002/9781118131473
+| Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
+| Chapter 7, 14. MWH's Water Treatment: Principles and Design (3rd ed.). doi:10.1002/9781118131473
 
-Aniceto, J. P. S., Zêzere, B., & Silva, C. M. (2021).
-Predictive Models for the Binary Diffusion Coefficient at Infinite Dilution in Polar and Nonpolar Fluids. 
-Materials (Basel), 14(3). doi.org/10.3390/ma14030542
+| Aniceto, J. P. S., Zêzere, B., & Silva, C. M. (2021).
+| Predictive Models for the Binary Diffusion Coefficient at Infinite Dilution in Polar and Nonpolar Fluids. 
+| Materials (Basel), 14(3). doi.org/10.3390/ma14030542
 
-Wilke, C. R., & Lee, C. Y. (2002).
-Estimation of Diffusion Coefficients for Gases and Vapors.
-Industrial & Engineering Chemistry, 47(6), 1253-1257. doi:10.1021/ie50546a056
+| Wilke, C. R., & Lee, C. Y. (1955).
+| Estimation of Diffusion Coefficients for Gases and Vapors.
+| Industrial & Engineering Chemistry, 47(6), 1253-1257. doi:10.1021/ie50546a056
 
-Huang, J. (2018).
-A Simple Accurate Formula for Calculating Saturation Vapor Pressure of Water and Ice.
-Journal of Applied Meteorology and Climatology, 57(6), 1265-1272. doi:10.1175/jamc-d-17-0334.1
+| Huang, J. (2018).
+| A Simple Accurate Formula for Calculating Saturation Vapor Pressure of Water and Ice.
+| Journal of Applied Meteorology and Climatology, 57(6), 1265-1272. doi:10.1175/jamc-d-17-0334.1
 
-Hayduk, W., & Laudie, H. (1974).
-Prediction of diffusion coefficients for nonelectrolytes in dilute aqueous solutions. 
-AIChE Journal, 20(3), 611-615. https://doi.org/10.1002/aic.690200329
+| Hayduk, W., & Laudie, H. (1974).
+| Prediction of diffusion coefficients for nonelectrolytes in dilute aqueous solutions. 
+| AIChE Journal, 20(3), 611-615. https://doi.org/10.1002/aic.690200329
