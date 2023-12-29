@@ -63,10 +63,10 @@ Many properties in AWE are not calculated for every phase or component provided.
    "Solvents", ":math:`j`", "``solvent_set``", "``['H2O', 'Air']``"
    "Components in liquid phase", ":math:`j`", "``liq_comps``", "``['H2O', solute_list]``"
    "Components in vapor phase", ":math:`j`", "``vap_comps``", "``['Air', solute_list]``"
-   "Solutes in liquid phase", ":math:`p, j`", "``liq_solute_set``", "``('Liq', [solute_list])``"
-   "Solutes in vapor phase", ":math:`p, j`", "``vap_solute_set``", "``('Vap', [solute_list])``"
-   "Solutes in both phases", ":math:`p, j`", "``phase_solute_set``", "``(['Liq', 'Vap'], [solute_list])``"
-   "Components in both phases", ":math:`p, j`", "``phase_component_set``", "``(['Liq', 'Vap'], ['H2O', 'Air', solute_list])``"
+   "Solutes in liquid phase", ":math:`j`", "``liq_solute_set``", "``('Liq', [solute_list])``"
+   "Solutes in vapor phase", ":math:`j`", "``vap_solute_set``", "``('Vap', [solute_list])``"
+   "Solutes in both phases", ":math:`j`", "``phase_solute_set``", "``(['Liq', 'Vap'], [solute_list])``"
+   "Components in both phases", ":math:`j`", "``phase_component_set``", "``(['Liq', 'Vap'], ['H2O', 'Air', solute_list])``"
 
 
 
@@ -81,41 +81,59 @@ State variables
 .. csv-table::
    :header: "Description", "Symbol", "Variable", "Index", "Units"
 
-   "Component mass flowrate", ":math:`M`", "flow_mass_phase_comp", "[p, j]", ":math:`\text{kg/s}`"
-   "Temperature", ":math:`T`", "temperature", "None", ":math:`\text{K}`"
-   "Pressure", ":math:`P`", "pressure", "None", ":math:`\text{Pa}`"
+   "Component mass flowrate", ":math:`M`", "``flow_mass_phase_comp``", "``[p, j]``", ":math:`\text{kg}\text{ } \text{s}^{-1}`"
+   "Temperature", ":math:`T`", "``temperature``", "None", ":math:`\text{K}`"
+   "Pressure", ":math:`P`", "``pressure``", "None", ":math:`\text{Pa}`"
    
 
 
 Parameters
 ----------
 .. csv-table::
- :header: "Description", "Symbol", "Parameter", "Index", "Units"
+ :header: "Description", "Symbol", "Parameter", "Index", "Indexing Set", "Units"
 
- "Component molecular weight", ":math:`m_N`", "mw_comp", "[j]", ":math:`\text{kg mol}^{-1}`"
- "Molar volume of solute", ":math:`V`", "molar_volume_phase_comp", "[p, j]", ":math:`\text{m}^3 \text{ mol}^{-1}`"
- "Dynamic viscosity", ":math:`\mu`", "visc_d_phase", "[p]", ":math:`\text{Pa s}`"
- "Bulk diffusivity of solute", ":math:`D`", "diffus_phase_comp", "[p, j]", ":math:`\text{m}^2 \text{ s}^{-1}`"
- "Hayduk Laudie correlation constant", ":math:`\chi_{1}`", "hl_diffus_cont", "None", ":math:`\text{dimensionless}`"
- "Hayduk Laudie viscosity coefficient", ":math:`\chi_{2}`", "hl_visc_coeff", "None", ":math:`\text{dimensionless}`"
- "Hayduk Laudie molar volume coefficient", ":math:`\chi_{3}`", "hl_molar_volume_coeff", "None", ":math:`\text{dimensionless}`"
+ "Component molecular weight", ":math:`m_N`", "``mw_comp``", "``[j]``", "``component_set``", ":math:`\text{kg mol}^{-1}`"
+ "Molar volume of solute", ":math:`V`", "``molar_volume_comp``", "``[j]``", "``solute_set``", ":math:`\text{m}^3 \text{ mol}^{-1}`"
+ "Critical molar volume of solute", ":math:`V`", "``critical_molar_volume_comp``", "``[j]``", "``solute_set``", ":math:`\text{m}^3 \text{ mol}^{-1}`"
+ "Dynamic viscosity", ":math:`\mu`", "``visc_d_phase``", "``[p]``", "``phase_list``", ":math:`\text{Pa s}`"
+ "Component dimensionless Henry's constant", ":math:`h_j`", "``henry_constant_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
+ "Standard enthalpy change of solution", ":math:`\Delta H_j^{\theta}`", "``enth_change_dissolution_comp``", "``[j]``", "``solute_set``", ":math:`\text{J}\text{ } \text{mol}^{-1}`"
+ "Boiling point temperature", ":math:`T_{b,j}`", "``temperature_boiling_comp``", "``[j]``", "``solute_set``", ":math:`\text{K}`"
 
+
+
+..  "Hayduk Laudie correlation constant", ":math:`\chi_{1}`", "hl_diffus_cont", "None", "None", ":math:`\text{dimensionless}`"
+..  "Hayduk Laudie viscosity coefficient", ":math:`\chi_{2}`", "hl_visc_coeff", "None", "None", ":math:`\text{dimensionless}`"
+..  "Hayduk Laudie molar volume coefficient", ":math:`\chi_{3}`", "hl_molar_volume_coeff", "None", "None", ":math:`\text{dimensionless}`"
+..  "Bulk diffusivity of solute", ":math:`D`", "diffus_phase_comp", "``[p, j]``", "", ":math:`\text{m}^2 \text{ s}^{-1}`"
 Properties
 ----------
 .. csv-table::
-   :header: "Description", "Symbol", "Variable", "Index", "Units"
+   :header: "Description", "Symbol", "Variable", "Index", "Indexing Set", "Units"
 
-   "Component charge-equivalent molar flowrate", ":math:`\tilde{N}`", "flow_equiv_phase_comp", "[p, j]", ":math:`\text{mol s}^{-1}`"
-   "Component charge-equivalent molar concentration", ":math:`\tilde{n}`", "conc_equiv_phase_comp", "[p, j]", ":math:`\text{mol m}^{-3}`"
-   "Component mass fraction", ":math:`x`", "mass_frac_phase_comp", "[p, j]", ":math:`\text{dimensionless}`"
-   "Mass density of aqueous phase", ":math:`\rho`", "dens_mass_phase", "[p]", ":math:`\text{kg m}^{-3}`"
-   "Mass density of solvent water", ":math:`\rho_w`", "dens_mass_solvent", "[p]", ":math:`\text{kg m}^{-3}`"
-   "Phase volumetric flowrate", ":math:`Q`", "flow_vol_phase", "[p]", ":math:`\text{m}^3\text{ } \text{s}^{-1}`"
-   "Total volumetric flowrate", ":math:`Q_{tot}`", "flow_vol", "None", ":math:`\text{m}^3\text{ } \text{s}^{-1}`"
-   "Component molar concentration", ":math:`n`", "conc_mol_phase_comp", "[p, j]", ":math:`\text{mol m}^{-3}`"
-   "Component mass concentration", ":math:`m`", "conc_mass_phase_comp", "[p, j]", ":math:`\text{kg m}^{-3}`"
-   "Component molar fraction", ":math:`y`", "mole_frac_phase_comp", "[p, j]", ":math:`\text{dimensionless}`"
-   "Mass diffusivity of solute", ":math:`D`", "diffus_phase_comp", "[p, j]", ":math:`\text{m}^2 \text{ s}^{-1}`"
+   "Mass density of aqueous phase", ":math:`\rho`", "``dens_mass_phase``", "``[p]``", "``phase_list``", ":math:`\text{kg m}^{-3}`"
+   "Component molar flowrate", ":math:`N`", "``flow_mole_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{mol/s}`"
+   "Component mass fraction", ":math:`x`", "``mass_frac_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{dimensionless}`"
+   "Component mass concentration", ":math:`m`", "``conc_mass_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{kg m}^{-3}`"
+   "Component molar fraction", ":math:`y`", "``mole_frac_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{dimensionless}`"
+   "Component molar concentration", ":math:`n`", "``conc_mole_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{mol m}^{-3}`"
+   "Phase volumetric flowrate", ":math:`Q_p`", "``flow_vol_phase``", "``[p]``", "``phase_list``",  ":math:`\text{m}^3\text{ } \text{s}^{-1}`"
+   "Phase gravimetric (mass) flowrate", ":math:`M_p`", "``flow_mass_phase``", "``[p]``", "``phase_list``",  ":math:`\text{kg}\text{ } \text{s}^{-1}`"
+   "Total volumetric flowrate", ":math:`Q_{tot}`", "``flow_vol``", "None", "``None``", ":math:`\text{m}^3\text{ } \text{s}^{-1}`"
+   "Mass diffusivity of solute", ":math:`D`", "``diffus_phase_comp``", "``[p, j]``", "``phase_solute_set``", ":math:`\text{m}^2 \text{ s}^{-1}`"
+   "Component energy of molecular attraction", ":math:`\varepsilon_j`", "``energy_molecular_attraction_phase_comp``", "``[p, j]``", "``vap_solute_set``", ":math:`\text{erg}`"
+   "Air-component energy of molecular attraction", ":math:`\varepsilon_{air, j}`", "``energy_molecular_attraction``", "``['Air', j]``", "``['Air'] * solute_set``", ":math:`\text{erg}`"
+   "Component collision molecular separation", ":math:`r`", "``collision_molecular_separation_comp``", "``[j]``", "``vap_comps``", ":math:`\text{nm}`"
+   "Air-component collision molecular separation", ":math:`r_{air, j}`", "``collision_molecular_separation``", "``[j]``", "``vap_comps``", ":math:`\text{nm}`"
+   "Component collision function", ":math:`f(kT/\varepsilon_{air, j})`", "``collision_function_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
+   "Component zeta for collision function", ":math:`\xi`", "``collision_function_zeta_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
+   "Component ee for zeta of collision function", ":math:`ee`", "``collision_function_ee_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
+   "Molar volume of solute", ":math:`V`", "``molar_volume_comp``", "``[j]``", "``solute_set``", ":math:`\text{m}^3 \text{ mol}^{-1}`"
+   "Component dimensionless Henry's constant", ":math:`h_j`", "``henry_constant_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
+   "Component saturation vapor pressure", ":math:`P_{sat}`", "``saturation_vap_pressure``", "``[j]``", "``['H2O']``", ":math:`\text{Pa}`"
+   "Component vapor pressure", ":math:`P_{vap}`", "``vap_pressure``", "``[j]``", "``['H2O']``", ":math:`\text{Pa}`"
+   "Relative humidity", ":math:`rh`", "``relative_humidity``", "``[j]``", "``['H2O']``", ":math:`\text{dimensionless}`"
+
 
 
 
