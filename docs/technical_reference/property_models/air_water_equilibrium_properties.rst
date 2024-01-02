@@ -1,7 +1,7 @@
 .. _air_water_eq_prop_ref:
 
 Air-Water Equilibrium (AWE) Property Package
-========================================================
+============================================
 
 This property package implements property relationships for an aqueous liquid phase in equilibrium with a vapor phase.
 
@@ -14,7 +14,7 @@ The AWE property package:
 
 
 Configuration
---------------
+-------------
 
 The AWE property package has several configuration options depending on the user's preferences.
 These are set via a Python ``dict`` when building the flowsheet.
@@ -43,9 +43,6 @@ Details of the implications of different configuration options are described in 
 
     :sup:`1`  default values are for 20C
 
-
-
-
 Sets
 ----
 
@@ -69,22 +66,14 @@ Many properties in AWE are not calculated for every phase or component provided.
    "Components in both phases", ":math:`j`", "``phase_component_set``", "``(['Liq', 'Vap'], ['H2O', 'Air', solute_list])``"
 
 
-
-.. .. note::
-   
-..    :sup:`1`  solute_list must be provided by the user via the necessary configuration option, ``solute_list``.
-
-
-
 State variables
 ---------------
 .. csv-table::
    :header: "Description", "Symbol", "Variable", "Index", "Units"
 
    "Component mass flowrate", ":math:`M`", "``flow_mass_phase_comp``", "``[p, j]``", ":math:`\text{kg}\text{ } \text{s}^{-1}`"
-   "Temperature", ":math:`T`", "``temperature``", "None", ":math:`\text{K}`"
+   "Temperature", ":math:`T`", "``temperature``", "``[p]``", ":math:`\text{K}`"
    "Pressure", ":math:`P`", "``pressure``", "None", ":math:`\text{Pa}`"
-   
 
 
 Parameters
@@ -100,12 +89,6 @@ Parameters
  "Standard enthalpy change of solution", ":math:`\Delta H_j^{\theta}`", "``enth_change_dissolution_comp``", "``[j]``", "``solute_set``", ":math:`\text{J}\text{ } \text{mol}^{-1}`"
  "Boiling point temperature", ":math:`T_{b,j}`", "``temperature_boiling_comp``", "``[j]``", "``solute_set``", ":math:`\text{K}`"
 
-
-
-..  "Hayduk Laudie correlation constant", ":math:`\chi_{1}`", "hl_diffus_cont", "None", "None", ":math:`\text{dimensionless}`"
-..  "Hayduk Laudie viscosity coefficient", ":math:`\chi_{2}`", "hl_visc_coeff", "None", "None", ":math:`\text{dimensionless}`"
-..  "Hayduk Laudie molar volume coefficient", ":math:`\chi_{3}`", "hl_molar_volume_coeff", "None", "None", ":math:`\text{dimensionless}`"
-..  "Bulk diffusivity of solute", ":math:`D`", "diffus_phase_comp", "``[p, j]``", "", ":math:`\text{m}^2 \text{ s}^{-1}`"
 
 Properties
 ----------
@@ -138,7 +121,7 @@ Properties
 Relationships
 -------------
 .. csv-table::
-   :header: "Description", "Equation"
+   :header: "Description", "Equation/Relationship"
 
    "Component mass fraction", ":math:`x_j=\frac{M_j}{\sum_j{M_j}}`"
    "Component mass concentration", ":math:`m_j=\rho_p x_j`"
@@ -251,6 +234,9 @@ Finally, the energy of molecular attraction between component :math:`j` and air 
 
 .. math::
     \varepsilon_{j,air} = \sqrt{\varepsilon_j \varepsilon_{air}}
+
+
+The following contains all the constants and parameters needed for the calculations germane to the Wilke-Lee correlation.
 
 .. csv-table::
     :header: "Parameter", "Value", "Units"
