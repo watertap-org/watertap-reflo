@@ -38,7 +38,7 @@ from watertap.costing.units.pump import cost_pump
 from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
 from watertap.costing.units.uv_aop import cost_uv_aop
 
-from watertap_contrib.reflo.solar_models.zero_order import Photovoltaic
+from watertap_contrib.reflo.solar_models.zero_order import Photovoltaic, FlatPlatePhysical
 from watertap_contrib.reflo.costing.solar.photovoltaic import cost_pv
 from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
@@ -55,6 +55,10 @@ from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import 
 )
 from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
     cost_chem_softening,
+)
+
+from watertap_contrib.reflo.costing.solar.flat_plate_surrogate import(
+    cost_flat_plate_physical
 )
 
 from watertap_contrib.reflo.core import PySAMWaterTAP
@@ -84,6 +88,7 @@ class REFLOCostingData(WaterTAPCostingData):
         IonExchange0D: cost_ion_exchange,
         GAC: cost_gac,
         ChemicalSofteningZO: cost_chem_softening,
+        FlatPlatePhysical: cost_flat_plate_physical,
     }
 
     def build_global_params(self):
