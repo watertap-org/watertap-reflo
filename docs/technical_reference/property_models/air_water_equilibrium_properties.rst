@@ -207,7 +207,7 @@ The following is used to calculate component vapor phase diffusion if user sets 
     
 
 The Wilke-Lee correlation includes the collision function :math:`f(kT/\varepsilon_{air, j})` in the denominator.
-There are several intermediary calculations necessary to get the value for the collision function. 
+There are several intermediary calculations necessary to get the value for the collision function, summarized in the following equations. 
 Necessary parameters are provided in a table at the end of this section.
 
 
@@ -288,7 +288,7 @@ The saturation vapor pressure for water in the vapor stream is calculated with t
 .. math::
     P_{sat} = \frac{\text{exp}\big( a - \frac{b}{T+d_1} \big)}{(T+d_2)^c}
 
-With :math:`a = 34.494`, :math:`b = 4924.99`, :math:`c = 1.57`, :math:`d_1 = 237.1`, :math:`d_2 = 105`, and :math:`T` is the temperature of the vapor stream in C.
+With :math:`a = 34.494`, :math:`b = 4924.99`, :math:`c = 1.57`, :math:`d_1 = 237.1`, :math:`d_2 = 105`, and :math:`T` is the temperature of the vapor stream in Celsius.
 
 Physical/Chemical Constants
 ---------------------------
@@ -304,13 +304,33 @@ Scaling
 -------
 A comprehensive scaling factor calculation method is coded in this property package.
 
+Default scaling factors are as follows.
+
+.. csv-table::
+    :header: "State variable", "Phase", "Default scaling factor"
+    
+    "``pressure``", "None", ":math:`10^{-5}`"
+    "``temperature``", "``Liq``", ":math:`10^{-2}`"
+    "``temperature``", "``Vap``", ":math:`10^{-2}`"
+    "``dens_mass_phase``", "``Liq``", ":math:`10^{3}`"
+    "``dens_mass_phase``", "``Vap``", ":math:`1`"
+    "``visc_d_phase``", "``Liq``", ":math:`10^{3}`"
+    "``visc_d_phase``", "``Vap``", ":math:`10^{5}`"
+    "``diffus_phase_comp``", "``Liq``", ":math:`10^{10}`"
+    "``diffus_phase_comp``", "``Vap``", ":math:`10^{6}`"
+
+Note the only state variable for which there is no default scaling factor is ``flow_mass_phase_comp``, so that must be assigned by the user.
+Provided the state variables are scaled, calling ``calculate_scaling_factors`` on the model will assign scaling factors 
+to all instantiated variables in the property model:
+
 .. code-block::
 
-   m.fs.properties.set_default_scaling('flow_mol_phase_comp', 1e2, index=('Liq','{component name}')) 
-   # m is the model name, and fs is the instanced flowsheet block of m. 
+   m.fs.properties.set_default_scaling('flow_mass_phase_comp', 1e2, index=('Liq','{component name}')) 
+   # m is the model name, and fs is the instantiated flowsheet block of m. 
    calculate_scaling_factors(m)
 
-Proper scaling of variables is, in many cases, crucial to solver's performance in finding an optimal solution of a problem. While designing scaling can have a mathematical sophistication, a general rule is to scale all variables as close to 1 as possible, e.g., in the range of 1e-2 to 1e2. 
+Proper scaling of variables is, in many cases, crucial to solver's performance in finding an optimal solution of a problem. 
+While designing scaling can have a mathematical sophistication, a general rule is to scale all variables as close to 1 as possible (in the range of 1e-2 to 1e2). 
 
 Classes
 -------
