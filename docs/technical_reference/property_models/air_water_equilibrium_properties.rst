@@ -320,23 +320,23 @@ While designing scaling can have a mathematical sophistication, a general rule i
 
 Classes
 -------
-.. .. currentmodule:: watertap.property_models.multicomp_aq_sol_prop_pack
+.. currentmodule:: watertap_contrib.reflo.property_models.air_water_equilibrium_properties
 
-.. .. autoclass:: MCASParameterBlock
-..     :members:
-..     :noindex:
+.. autoclass:: AirWaterEq
+    :members:
+    :noindex:
 
-.. .. autoclass:: MCASParameterData
-..     :members:
-..     :noindex:
+.. autoclass:: AirWaterEqData
+    :members:
+    :noindex:
 
-.. .. autoclass:: _MCASStateBlock
-..     :members:
-..     :noindex:
+.. autoclass:: _AirWaterEqStateBlock
+    :members:
+    :noindex:
 
-.. .. autoclass:: MCASStateBlockData
-..     :members:
-..     :noindex:
+.. autoclass:: AirWaterEqStateBlockData
+    :members:
+    :noindex:
    
 Reference
 ---------

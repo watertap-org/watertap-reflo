@@ -12,7 +12,6 @@
 """
 Air-water equilibrium property package
 """
-from copy import deepcopy
 
 # Import Python libraries
 import idaes.logger as idaeslog
