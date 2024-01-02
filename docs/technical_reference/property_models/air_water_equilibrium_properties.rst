@@ -112,7 +112,7 @@ Properties
 .. csv-table::
    :header: "Description", "Symbol", "Variable", "Index", "Indexing Set", "Units"
 
-   "Mass density of aqueous phase", ":math:`\rho`", "``dens_mass_phase``", "``[p]``", "``phase_list``", ":math:`\text{kg m}^{-3}`"
+   "Mass density of each phase", ":math:`\rho`", "``dens_mass_phase``", "``[p]``", "``phase_list``", ":math:`\text{kg m}^{-3}`"
    "Component molar flowrate", ":math:`N`", "``flow_mole_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{mol }\text{s}^{-1}`"
    "Component mass fraction", ":math:`x`", "``mass_frac_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{dimensionless}`"
    "Component mass concentration", ":math:`m`", "``conc_mass_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{kg m}^{-3}`"
@@ -124,19 +124,16 @@ Properties
    "Mass diffusivity of solute", ":math:`D`", "``diffus_phase_comp``", "``[p, j]``", "``phase_solute_set``", ":math:`\text{m}^2 \text{ s}^{-1}`"
    "Component energy of molecular attraction", ":math:`\varepsilon_j`", "``energy_molecular_attraction_phase_comp``", "``[p, j]``", "``vap_solute_set``", ":math:`\text{erg}`"
    "Air-component energy of molecular attraction", ":math:`\varepsilon_{air, j}`", "``energy_molecular_attraction``", "``['Air', j]``", "``['Air'] * solute_set``", ":math:`\text{erg}`"
-   "Component collision molecular separation", ":math:`r`", "``collision_molecular_separation_comp``", "``[j]``", "``vap_comps``", ":math:`\text{nm}`"
+   "Component collision molecular separation", ":math:`r_j`", "``collision_molecular_separation_comp``", "``[j]``", "``vap_comps``", ":math:`\text{nm}`"
    "Air-component collision molecular separation", ":math:`r_{air, j}`", "``collision_molecular_separation``", "``[j]``", "``vap_comps``", ":math:`\text{nm}`"
    "Component collision function", ":math:`f(kT/\varepsilon_{air, j})`", "``collision_function_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
    "Component zeta for collision function", ":math:`\xi`", "``collision_function_zeta_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
    "Component ee for zeta of collision function", ":math:`E`", "``collision_function_ee_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
    "Molar volume of solute", ":math:`V`", "``molar_volume_comp``", "``[j]``", "``solute_set``", ":math:`\text{m}^3 \text{ mol}^{-1}`"
    "Component dimensionless Henry's constant", ":math:`h_j`", "``henry_constant_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
-   "Component saturation vapor pressure", ":math:`P_{sat}`", "``saturation_vap_pressure``", "``[j]``", "``['H2O']``", ":math:`\text{Pa}`"
-   "Component vapor pressure", ":math:`P_{vap}`", "``vap_pressure``", "``[j]``", "``['H2O']``", ":math:`\text{Pa}`"
+   "Saturation vapor pressure of water", ":math:`P_{sat}`", "``saturation_vap_pressure``", "``[j]``", "``['H2O']``", ":math:`\text{Pa}`"
+   "Vapor pressure of water", ":math:`P_{vap}`", "``vap_pressure``", "``[j]``", "``['H2O']``", ":math:`\text{Pa}`"
    "Relative humidity", ":math:`rh`", "``relative_humidity``", "``[j]``", "``['H2O']``", ":math:`\text{dimensionless}`"
-
-
-
 
 Relationships
 -------------
@@ -144,14 +141,20 @@ Relationships
    :header: "Description", "Equation"
 
    "Component mass fraction", ":math:`x_j=\frac{M_j}{\sum_j{M_j}}`"
+   "Component mass concentration", ":math:`m_j=\rho_p x_j`"
    "Component molar fraction", ":math:`y_j=\frac{N_j}{\sum_j{N_j}}`"
+   "Component molar concentration", ":math:`n_j=\frac{m_j}{m_{N,j}}`"
    "Mass density of each phase", ":math:`\rho\text{ specified as user input}`"
-   "Phase volumetric flowrate", ":math:`Q=\frac{\sum_j{N_j m_{Nj}}}{\rho}`"
+   "Phase volumetric flowrate", ":math:`Q_p=\frac{\sum_j{N_j m_{Nj}}}{\rho}`"
+   "Phase gravimetric flowrate", ":math:`M_p=Q_p \rho_p`"
    "Total volumetric flowrate", ":math:`Q_{tot}=\sum_p{Q_p}`"
    "Component mass liquid phase diffusivity :sup:`1`", ":math:`D_{liq}\text{ specified as user input or calculated via Hayduk-Laudie correlation}`"
    "Component mass vapor phase diffusivity :sup:`2`", ":math:`D_{vap}\text{ specified as user input or calculated via Wilke-Lee correlation}`"
    "Component Henry's constant :sup:`3`", ":math:`h_j\text{ specified as user input or calculated via van't Hoff correlation}`"
    "Component molar volume :sup:`4`", ":math:`V\text{ specified as user input or calculated via Tyn-Calus correlation}`"
+   "Vapor pressure of water", ":math:`\text{Calculated with Antoine Equation}`"
+   "Saturation vapor pressure of water", ":math:`\text{Calculated with Huang Correlation}`"
+   "Relative humidity", ":math:`rh = \frac{P_{vap}}{P_{sat}}`"
 
 .. note::
 
@@ -266,6 +269,26 @@ Finally, the energy of molecular attraction between component :math:`j` and air 
     ":math:`\gamma`", ":math:`\text{1.18}`", ":math:`\text{nm mol}^{1/3} \text{ L}^{-1/3}`"
 
 :math:`\text{ }^*` Boltzmann's constant must be in :math:`\text{g cm}^{2} \text{ s}^{-2} \text{ K}^{-1}` for these correlations.
+
+Antoine Equation
+++++++++++++++++
+
+Vapor pressure of water is calculated according to Antoine equation:
+
+.. math::
+    \text{log}_{10} \big( P_{vap} \big) = A - \frac{B}{C+T}
+
+Where :math:`A = 8.07131`, :math:`B = 1730.63`, :math:`C = 233.426` and :math:`T` is the temperature of the liquid stream.
+
+Huang Correlation
++++++++++++++++++
+
+The saturation vapor pressure for water in the vapor stream is calculated with the Huang correlation:
+
+.. math::
+    P_{sat} = \frac{\text{exp}\big( a - \frac{b}{T+d_1} \big)}{(T+d_2)^c}
+
+With :math:`a = 34.494`, :math:`b = 4924.99`, :math:`c = 1.57`, :math:`d_1 = 237.1`, :math:`d_2 = 105`, and :math:`T` is the temperature of the vapor stream in C.
 
 Physical/Chemical Constants
 ---------------------------
