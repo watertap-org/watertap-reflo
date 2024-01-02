@@ -113,7 +113,7 @@ Properties
    :header: "Description", "Symbol", "Variable", "Index", "Indexing Set", "Units"
 
    "Mass density of aqueous phase", ":math:`\rho`", "``dens_mass_phase``", "``[p]``", "``phase_list``", ":math:`\text{kg m}^{-3}`"
-   "Component molar flowrate", ":math:`N`", "``flow_mole_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{mol/s}`"
+   "Component molar flowrate", ":math:`N`", "``flow_mole_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{mol }\text{s}^{-1}`"
    "Component mass fraction", ":math:`x`", "``mass_frac_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{dimensionless}`"
    "Component mass concentration", ":math:`m`", "``conc_mass_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{kg m}^{-3}`"
    "Component molar fraction", ":math:`y`", "``mole_frac_phase_comp``", "``[p, j]``", "``phase_component_set``", ":math:`\text{dimensionless}`"
@@ -128,7 +128,7 @@ Properties
    "Air-component collision molecular separation", ":math:`r_{air, j}`", "``collision_molecular_separation``", "``[j]``", "``vap_comps``", ":math:`\text{nm}`"
    "Component collision function", ":math:`f(kT/\varepsilon_{air, j})`", "``collision_function_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
    "Component zeta for collision function", ":math:`\xi`", "``collision_function_zeta_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
-   "Component ee for zeta of collision function", ":math:`ee`", "``collision_function_ee_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
+   "Component ee for zeta of collision function", ":math:`E`", "``collision_function_ee_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
    "Molar volume of solute", ":math:`V`", "``molar_volume_comp``", "``[j]``", "``solute_set``", ":math:`\text{m}^3 \text{ mol}^{-1}`"
    "Component dimensionless Henry's constant", ":math:`h_j`", "``henry_constant_comp``", "``[j]``", "``solute_set``", ":math:`\text{dimensionless}`"
    "Component saturation vapor pressure", ":math:`P_{sat}`", "``saturation_vap_pressure``", "``[j]``", "``['H2O']``", ":math:`\text{Pa}`"
@@ -159,7 +159,7 @@ Relationships
 
    :sup:`2`  Vapor phase diffusivity can either be (1) specified when the user provides data via the ``diffusivity_data`` configuration option or (2) calculated by the correlation defined in Wilke & Lee (1955). For the latter, the ``vap_diffus_calculation`` configuration option must be set to ``VapDiffusivityCalculation.WilkeLee``.
 
-   :sup:`3`  Henry's constant can either be (1) specified when the user provides data via the ``henry_constant_data`` configuration option or (2) corrected for the vapor phase temperature via the van't Hoff equation if the user sets the ``temp_adjust_henry`` configuration option to ``True``. **In the latter case, the user provided data is assumed to be for T = 298 K** and is added as a parameter called ``henry_constant_std_comp``. In either case, user data is required.
+   :sup:`3`  Henry's constant can either be (1) specified when the user provides data via the ``henry_constant_data`` configuration option or (2) corrected for the vapor phase temperature via the van't Hoff equation if the user sets the ``temp_adjust_henry`` configuration option to ``True``. **In the latter case, the user provided data is assumed to be for T = 298 K** (i.e., :math:`h_{j,std}`) and is added as a parameter called ``henry_constant_std_comp``. In either case, user data is required.
 
    :sup:`4`  Molar volume can either be (1) specified when the user provides data via the ``molar_volume_comp`` configuration option or (2) calculated by the Tyn-Calus correlation defined in Aniceto, J. P. S., Zêzere, B., & Silva, C. M. (2021). For the latter, the ``molar_volume_calculation`` configuration option must be set to ``MolarVolumeCalculation.TynCalus`` and the component critical molar volume must be specified via the ``critical_molar_volume_data`` configuration option.
 
@@ -177,18 +177,22 @@ Tyn-Calus Correlation
 
 The following is used to calculate molar volume:
 
+.. math::
+    V = \tau_A V_c^{\tau_B}
 
+Where :math:`\tau_A = 0.285` and :math:`\tau_B = 1.048`.
 
 Hayduk-Laudie Correlation
 +++++++++++++++++++++++++
 
-The following is used to calculate component liquid phase diffusion if user sets ``liq_diffus_calculation`` to ``LiqDiffusivityCalculation.HaydukLaudie``:
+The following is used to calculate component liquid phase diffusion if user sets ``liq_diffus_calculation`` to ``LiqDiffusivityCalculation.HaydukLaudie``.
+The Hayduk-Laudie correlation returns liquid diffusivity :math:`\big( D_{liq,j} \big)` in units of :math:`\text{m}^2/\text{s}`; liquid viscosity
+:math:`\big( \mu_{liq} \big)` has units of :math:`\text{cP}` and molar volume :math:`\big( V_j \big)` has untis of :math:`\text{cm}^3/\text{mol}`:
 
 .. math::
-    D_{liq, j} =\frac{HL_A}{\mu_{liq}^{HL_B}(V_{crit,j})^{HL_C}}
+    D_{liq,j} =\frac{\varphi_A}{\mu_{liq}^{\varphi_B}(V_j)^{\varphi_C}}
 
-Where :math:`HL_A = 13.26 \times 10^{-9}`, :math:`HL_B = 1.14`, and :math:`HL_C = 0.589`.
-This correlation returns :math:`D_{liq}` in units of :math:`\text{m}^2/\text{s}`; liquid viscosity has units of :math:`\text{cP}` and critical molar volume has untis of :math:`\text{cm}^3/\text{mol}`.
+Where :math:`\varphi_A = 13.26 \times 10^{-9}`, :math:`\varphi_B = 1.14`, and :math:`\varphi_C = 0.589`.
 
 Wilke-Lee Correlation
 +++++++++++++++++++++
@@ -196,20 +200,82 @@ Wilke-Lee Correlation
 The following is used to calculate component vapor phase diffusion if user sets ``vap_diffus_calculation`` to ``VapDiffusivityCalculation.WilkeLee``:
 
 .. math::
-    D_{vap,j} = \frac{WL_A - WL_B \sqrt{1/m_{N,j}+1/m_{N,air}} \big(T \big)^{1.5} \sqrt{1/m_{N,j}+1/m_{N,air}}}{P_{atm} r_{j,air} \big( f(kT/\varepsilon_{air, j}) \big) }
+    D_{vap,j} = \frac{\omega_A - \omega_B \sqrt{1/m_{N,j}+1/m_{N,air}} \big(T \big)^{1.5} \sqrt{1/m_{N,j}+1/m_{N,air}}}{P_{atm} r_{j,air} \big( f(kT/\varepsilon_{air, j}) \big) }
     
 
-Where :math:`WL_A = 1.084` and :math:`WL_B = 0.249`
+The Wilke-Lee correlation includes the collision function :math:`f(kT/\varepsilon_{air, j})` in the denominator.
+There are several intermediary calculations necessary to get the value for the collision function. 
+Necessary parameters are provided in a table at the end of this section.
 
-Physical/chemical constants
+
+The collision function is calculated according to:
+
+.. math::
+    f \Bigg( \frac{kT}{\varepsilon_{air, j}} \Bigg) = 10^{\xi}
+
+Where the exponent :math:`\xi` is calculated with:
+
+.. math::
+    \xi = x_0 + x_1 E + x_2 E^2 + x_3 E^3 + x_4 E^4 + x_5 E^5 + x_6 E^6
+
+
+The :math:`E` parameter is the base-10 logarithm of the expression :math:`\frac{kT}{\varepsilon_{air, j}}` used in the collision function:
+
+.. math::
+    E = \text{log}_{10} \bigg( \frac{kT}{\varepsilon_{air, j}} \bigg)
+
+The molecular separation at collision for component :math:`j` and air :math:`r_{j,air}` is the average of the molecular separation of each component:
+
+.. math::
+    r_{j,air} = \frac{r_j + r_{air}}{2}
+
+And :math:`r_j` is calculated with:
+
+.. math::
+    r_j = \gamma V^{1/3}
+
+The energy of molecular attraction for each component :math:`\varepsilon_j` is calculated with the boiling point :math:`T_{b,j}`:
+
+.. math::
+    \frac{\varepsilon_j}{k} = \sigma \text{ } T_{b,j}
+
+For air, the energy of molecular attraction :math:`\varepsilon_{air}` is:
+
+.. math::
+    \frac{\varepsilon_{air}}{k} = \chi_{air}
+
+Finally, the energy of molecular attraction between component :math:`j` and air :math:`\varepsilon_{j,air}` is:
+
+.. math::
+    \varepsilon_{j,air} = \sqrt{\varepsilon_j \varepsilon_{air}}
+
+.. csv-table::
+    :header: "Parameter", "Value", "Units"
+
+    ":math:`k^*`", ":math:`\text{1.381} \times 10^{-16}`", ":math:`\text{g cm}^{2} \text{ s}^{-2} \text{ K}^{-1}`"
+    ":math:`\omega_A`", ":math:`\text{1.084}`", ":math:`\text{cm}^{2} \text{ K}^{-1.5}`"
+    ":math:`\omega_B`", ":math:`\text{0.249}`", ":math:`\text{cm}^{2} \text{ K}^{-1.5}`"
+    ":math:`x_0`", ":math:`\text{-0.14329}`", ":math:`\text{dimensionless}`"
+    ":math:`x_1`", ":math:`\text{-0.48343}`", ":math:`\text{dimensionless}`"
+    ":math:`x_2`", ":math:`\text{0.1939}`", ":math:`\text{dimensionless}`"
+    ":math:`x_3`", ":math:`\text{0.1361}`", ":math:`\text{dimensionless}`"
+    ":math:`x_4`", ":math:`\text{-0.20578}`", ":math:`\text{dimensionless}`"
+    ":math:`x_5`", ":math:`\text{0.083899}`", ":math:`\text{dimensionless}`"
+    ":math:`x_6`", ":math:`\text{-0.011491}`", ":math:`\text{dimensionless}`"
+    ":math:`r_{air}`", ":math:`\text{0.3711}`", ":math:`\text{nm}`"
+    ":math:`\gamma`", ":math:`\text{1.18}`", ":math:`\text{nm mol}^{1/3} \text{ L}^{-1/3}`"
+
+:math:`\text{ }^*` Boltzmann's constant must be in :math:`\text{g cm}^{2} \text{ s}^{-2} \text{ K}^{-1}` for these correlations.
+
+Physical/Chemical Constants
 ---------------------------
 .. csv-table::
    :header: "Description", "Symbol", "Value", "Unit"
    
-   "Idea gas constant", ":math:`R`", "8.3145", ":math:`\text{J mol}^{-1} \text{K}^{-1}`"
-   "Faraday constant", ":math:`F`", "96485.33", ":math:`\text{C mol}^{-1}`"
-   "Avogadro constant", ":math:`N_A`", "6.022e23", ":math:`\text{dimensionless}`"
-   "Boltzmann constant", ":math:`k`", "1.381e-23", ":math:`\text{J K}^{-1}`"
+   "Ideal gas constant", ":math:`R`", ":math:`\text{8.3145}`", ":math:`\text{J mol}^{-1} \text{K}^{-1}`"
+   "Faraday constant", ":math:`F`", ":math:`96,485.33`", ":math:`\text{C mol}^{-1}`"
+   "Avogadro constant", ":math:`N_A`", ":math:`\text{6.022} \times 10^{23}`", ":math:`\text{dimensionless}`"
+   "Boltzmann constant", ":math:`k`", ":math:`\text{1.381} \times 10^{-16}`", ":math:`\text{g cm}^{2} \text{s}^{-2} \text{K}^{-1}`"
 
 Scaling
 -------
