@@ -31,6 +31,10 @@ import idaes.logger as idaeslog
 
 from watertap_contrib.reflo.core import SolarEnergyBaseData
 
+from watertap_contrib.reflo.costing.solar.flat_plate_surrogate import (
+    cost_flat_plate_surrogate,
+)
+
 __author__ = "Matthew Boyd"
 # Updated by Mukta Hardikar
 
@@ -149,13 +153,13 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         )
 
         self.number_collectors = Param(
-            initialize=1,
+            initialize = 1,
             units=pyunits.dimensionless,
             doc="Number of collectors in array",
         )
 
         self.collector_area_total = Var(
-            initialize=1, 
+            initialize = 1, 
             units=pyunits.m**2, 
             doc="Total collector area"
         )
@@ -167,15 +171,15 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         )
 
         self.FR = Param(
-            initialize=1,
-            units=pyunits.dimensionless,
-            doc="Collector heat removal factor",
+            initialize = 1,
+            units = pyunits.dimensionless,
+            doc = "Collector heat removal factor",
         )
 
         self.ta = Param(
-            initialize=1,
-            units=pyunits.dimensionless,
-            doc="Effective transmittance-absorption product",
+            initialize = 1,
+            units = pyunits.dimensionless,
+            doc = "Effective transmittance-absorption product",
         )
 
         self.UL = Param(
@@ -216,7 +220,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
 
         self.T_amb = Param(initialize=30+273.15, units=pyunits.K, doc="ambient temperature")
 
-        self.G_total = Param(
+        self.G_total = Var(
             initialize=900,
             units=pyunits.W / pyunits.m**2,
             #doc="irradiance transmitted through glazing",
@@ -226,6 +230,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         self.G_max = Param(
             initialize = 900,
             units=pyunits.W / pyunits.m**2,
+            mutable = True,
             doc = "Maximum irradiance at the location"
         )
 
@@ -406,3 +411,6 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             "FPC initialization status {}.".format(idaeslog.condition(res))
         )
 
+    @property
+    def default_costing_method(self):
+        return cost_flat_plate_surrogate
