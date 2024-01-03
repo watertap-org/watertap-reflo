@@ -442,7 +442,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             initialize=30,
             bounds=(0, None),
             units=pyunits.s**-1,
-            doc="Overall mass transfer coeff (K_L*a)",
+            doc="Overall mass transfer coefficient (K_L*a)",
         )
 
         @self.Expression(doc="Operational air-to-water ratio")
@@ -671,7 +671,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_E = E = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO E parameter",
+            doc="OTO model: E parameter",
         )
 
         @self.Constraint(doc="OTO model E calculation")
@@ -688,7 +688,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_F = F = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO F parameter",
+            doc="OTO model: F parameter",
         )
 
         @self.Constraint(doc="OTO model F calculation")
@@ -699,28 +699,28 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_a0_param1 = a01 = Param(
             initialize=-6.6599,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term, first parameter",
+            doc="OTO model: Pressure drop a0 term, first parameter",
         )
         self.oto_a0_param2 = a02 = Param(
             initialize=4.3077,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term, second parameter",
+            doc="OTO model: Pressure drop a0 term, second parameter",
         )
         self.oto_a0_param3 = a03 = Param(
             initialize=-1.3503,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term, third parameter",
+            doc="OTO model: Pressure drop a0 term, third parameter",
         )
         self.oto_a0_param4 = a04 = Param(
             initialize=0.15931,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term, fourth parameter",
+            doc="OTO model: Pressure drop a0 term, fourth parameter",
         )
 
         self.oto_a0 = a0 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term",
+            doc="OTO model: Pressure drop a0 term",
         )
 
         @self.Constraint(doc="OTO a0 equation")
@@ -731,27 +731,27 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_a1_param1 = a11 = Param(
             initialize=3.0945,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term, first parameter",
+            doc="OTO model: Pressure drop a1 term, first parameter",
         )
         self.oto_a1_param2 = a12 = Param(
             initialize=-4.3512,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term, second parameter",
+            doc="OTO model: Pressure drop a1 term, second parameter",
         )
         self.oto_a1_param3 = a13 = Param(
             initialize=1.6240,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term, third parameter",
+            doc="OTO model: Pressure drop a1 term, third parameter",
         )
         self.oto_a1_param4 = a14 = Param(
             initialize=-0.20855,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term, fourth parameter",
+            doc="OTO model: Pressure drop a1 term, fourth parameter",
         )
         self.oto_a1 = a1 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term",
+            doc="OTO model: Pressure drop a1 term",
         )
 
         @self.Constraint(doc="OTO a1 equation")
@@ -762,28 +762,28 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_a2_param1 = a21 = Param(
             initialize=1.7611,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term, first parameter",
+            doc="OTO model: Pressure drop a2 term, first parameter",
         )
         self.oto_a2_param2 = a22 = Param(
             initialize=-2.3394,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term, second parameter",
+            doc="OTO model: Pressure drop a2 term, second parameter",
         )
         self.oto_a2_param3 = a23 = Param(
             initialize=0.89914,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term, third parameter",
+            doc="OTO model: Pressure drop a2 term, third parameter",
         )
         self.oto_a2_param4 = a24 = Param(
             initialize=-0.115971,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term, fourth parameter",
+            doc="OTO model: Pressure drop a2 term, fourth parameter",
         )
 
         self.oto_a2 = a2 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term",
+            doc="OTO model: Pressure drop a2 term",
         )
 
         @self.Constraint(doc="OTO a2 equation")
@@ -793,7 +793,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_M = M = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO M parameter",
+            doc="OTO model: M parameter",
         )
 
         @self.Constraint(doc="OTO M Parameter")
@@ -896,7 +896,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             initialize=1,
             bounds=(0, None),
             units=pyunits.m / pyunits.s,
-            doc="OTO model - phase mass transfer coefficient in tower",
+            doc="OTO model: phase mass transfer coefficient in tower",
         )
 
         @self.Expression()
