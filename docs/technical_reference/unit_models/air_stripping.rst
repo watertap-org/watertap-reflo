@@ -112,6 +112,47 @@ Variables
     "OTO model: phase mass transfer coefficient in tower", "``oto_mass_transfer_coeff``", "``phase_target_set``", ":math:`k_{liq}, k_{vap}`", ":math:`\text{m s}^{-1}`"
     .. "", "````", "", ":math:`\text{}`", ":math:`\text{}`"
 
+Parameters
+++++++++++
+
+All parameters related to OTO model are *not* mutable.
+
+.. csv-table::
+    :header: "Description", "Default Value", "Parameter Name", "Index", "Symbol", "Units"
+
+    "Safety factor for tower height", ":math:`\text{1.2}`", "``tower_height_safety_factor``", "None", ":math:`f_z`", ":math:`\text{dimensionless}`"
+    "Diameter of tower access ports", ":math:`\text{6}`", "``tower_port_diameter``", "None", ":math:`d_{port}`", ":math:`\text{inch}`"
+    "Diaeter of tower inlet and outlet piping", ":math:`\text{6}`", "``tower_pipe_diameter``", "None", ":math:`d_{pipe}`", ":math:`\text{inch}`"
+    "Fractional reduction of taret component", ":math:`\text{0.9}`", "``target_reduction_frac``", "``[target]``", ":math:`X`", ":math:`\text{dimensionless}`"
+    "Safety factor for overall mass transfer coefficient", ":math:`\text{0.7}`", "``overall_mass_transfer_coeff_sf``", "None", ":math:`f_{KLa}`", ":math:`\text{dimensionless}`"
+    "Blower efficiency", ":math:`\text{0.4}`", "``blower_efficiency``", "None", ":math:`\eta_{blow}`", ":math:`\text{dimensionless}`"
+    "Pump efficiency", ":math:`\text{0.85}`", "``pump_efficiency``", "None", ":math:`\eta_{pump}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a0 term, first parameter", ":math:`\text{-6.6599}`", "``oto_a0_param1``", "None", ":math:`\alpha_{0,1}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a0 term, second parameter", ":math:`\text{4.3077}`", "``oto_a0_param2``", "None", ":math:`\alpha_{0,2}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a0 term, third parameter", ":math:`\text{-1.3503}`", "``oto_a0_param3``", "None", ":math:`\alpha_{0,3}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a0 term, fourth parameter", ":math:`\text{0.15931}`", "``oto_a0_param4``", "None", ":math:`\alpha_{0,4}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a1 term, first parameter", ":math:`\text{3.0945}`", "``oto_a1_param1``", "None", ":math:`\alpha_{1,1}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a1 term, second parameter", ":math:`\text{-4.3512}`", "``oto_a1_param2``", "None", ":math:`\alpha_{1,2}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a1 term, third parameter", ":math:`\text{1.6240}`", "``oto_a1_param3``", "None", ":math:`\alpha_{1,3}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a1 term, fourth parameter", ":math:`\text{-0.20855}`", "``oto_a1_param4``", "None", ":math:`\alpha_{1,4}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a2 term, first parameter", ":math:`\text{1.7611}`", "``oto_a2_param1``", "None", ":math:`\alpha_{2,1}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a2 term, second parameter", ":math:`\text{-2.3394}`", "``oto_a2_param2``", "None", ":math:`\alpha_{2,2}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a2 term, third parameter", ":math:`\text{0.89914}`", "``oto_a2_param3``", "None", ":math:`\alpha_{2,3}`", ":math:`\text{dimensionless}`"
+    "OTO model: Pressure drop a2 term, fourth parameter", ":math:`\text{-0.115971}`", "``oto_a2_param4``", "None", ":math:`\alpha_{2,4}`", ":math:`\text{dimensionless}`"
+    "OTO wetted surface area of packing correlation parameter", ":math:`\text{-1.45}`", "``oto_aw_param``", "None", ":math:`\omega_0`", ":math:`\text{dimensionless}`"
+    "OTO wetted surface area of packing correlation - exponent 1", ":math:`\text{0.75}`", "``oto_aw_exp1``", "None", ":math:`\omega_1`", ":math:`\text{dimensionless}`"
+    "OTO wetted surface area of packing correlation - exponent 2", ":math:`\text{0.1}`", "``oto_aw_exp2``", "None", ":math:`\omega_2`", ":math:`\text{dimensionless}`"
+    "OTO wetted surface area of packing correlation - exponent 3", ":math:`\text{-0.05}`", "``oto_aw_exp3``", "None", ":math:`\omega_3`", ":math:`\text{dimensionless}`"
+    "OTO wetted surface area of packing correlation - exponent 4", ":math:`\text{0.2}`", "``oto_aw_exp4``", "None", ":math:`\omega_4`", ":math:`\text{dimensionless}`"
+    "OTO liquid mass transfer correlation parameter", ":math:`\text{0.0051}`", "``oto_liq_mass_xfr_param``", "None", ":math:`\varepsilon_0`", ":math:`\text{m s}^{-1}`"
+    "OTO liquid mass transfer correlation Re exponent", ":math:`\frac{2}{3}`", "``oto_liq_mass_xfr_exp1``", "None", ":math:`\varepsilon_1`", ":math:`\text{dimensionless}`"
+    "OTO liquid mass transfer correlation Sc exponent", ":math:`\text{-0.5}`", "``oto_liq_mass_xfr_exp2``", "None", ":math:`\varepsilon_2`", ":math:`\text{dimensionless}`"
+    "OTO liquid mass transfer correlation Ef exponent", ":math:`\text{0.4}`", "``oto_liq_mass_xfr_exp3``", "None", ":math:`\varepsilon_3`", ":math:`\text{dimensionless}`"
+    "OTO liquid mass transfer correlation Sh exponent", ":math:`-\frac{1}{3}`", "``oto_liq_mass_xfr_exp4``", "None", ":math:`\varepsilon_4`", ":math:`\text{dimensionless}`"
+    "OTO gas mass transfer correlation parameter", ":math:`\text{5.23}`", "``oto_gas_mass_xfr_param``", "None", ":math:`\kappa_0`", ":math:`\text{dimensionless}`"
+    "OTO gas mass transfer correlation Re exponent", ":math:`\text{0.7}`", "``oto_gas_mass_xfr_exp1``", "None", ":math:`\kappa_1`", ":math:`\text{dimensionless}`"
+    "OTO gas mass transfer correlation Sc exponent", ":math:`\frac{1}{3}`", "``oto_gas_mass_xfr_exp2``", "None", ":math:`\kappa_2`", ":math:`\text{dimensionless}`"
+    "OTO gas mass transfer correlation Er exponent", ":math:`\text{-2}`", "``oto_gas_mass_xfr_exp3``", "None", ":math:`\kappa_3`", ":math:`\text{dimensionless}`"
 
 
 Equations
