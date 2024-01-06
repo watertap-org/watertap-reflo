@@ -7,7 +7,7 @@ from watertap_contrib.reflo.costing.util import (
 )
 
 
-def build_flat_plate_surrogate_cost_param_block(blk):
+def build_flat_plate_cost_param_block(blk):
 
     costing = blk.parent_block()
 
@@ -62,13 +62,13 @@ def build_flat_plate_surrogate_cost_param_block(blk):
 
 
 @register_costing_parameter_block(
-    build_rule=build_flat_plate_surrogate_cost_param_block,
-    parameter_block_name="flat_plate_surrogate",
+    build_rule=build_flat_plate_cost_param_block,
+    parameter_block_name="flat_plate",
 )
-def cost_flat_plate_surrogate(blk):
+def cost_flat_plate(blk):
 
     global_params = blk.costing_package
-    flat_plate_params = blk.costing_package.flat_plate_surrogate
+    flat_plate_params = blk.costing_package.flat_plate
     flat_plate = blk.unit_model
     make_capital_cost_var(blk)
     make_variable_operating_cost_var(blk)

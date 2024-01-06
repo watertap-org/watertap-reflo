@@ -28,11 +28,12 @@ from idaes.core import (
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
+import idaes.core.util.scaling as iscale
 
 from watertap_contrib.reflo.core import SolarEnergyBaseData
 
-from watertap_contrib.reflo.costing.solar.flat_plate_surrogate import (
-    cost_flat_plate_surrogate,
+from watertap_contrib.reflo.costing.solar.flat_plate import (
+    cost_flat_plate,
 )
 
 __author__ = "Matthew Boyd"
@@ -264,19 +265,12 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                             units=pyunits.W, 
                             doc="Useful net heat gain")
 
-        # self.electricity = Var(initialize=1, 
-        #                       units=pyunits.W, 
-        #                       doc="Pump electricity consumption")
         
         self.heat_load = Var(
                             initialize=1, 
                             units=pyunits.MW, 
                             doc="Rated plant heat capacity in MW")
         
-        # self.heat = Var(self.flowsheet().config.time,
-        #                     initialize=1, 
-        #                     units=pyunits.W, 
-        #                     doc="Useful net heat gain")
         
         self.heat_annual = Var(
                             initialize=1, 
@@ -319,7 +313,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                         )
                     )
                 )
-                / b.FR*b.UL
+                / (b.FR*b.UL)
             )
 
         @self.Constraint(self.flowsheet().config.time,
@@ -411,6 +405,22 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             "FPC initialization status {}.".format(idaeslog.condition(res))
         )
 
+    
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+
+        iscale.set_scaling_factor(self.collector_area, 1)
+        iscale.set_scaling_factor(self.collector_area_total, 1)
+        iscale.set_scaling_factor(self.G_total, 1e-2)
+        iscale.set_scaling_factor(self.Fprime_UL, 1)
+        iscale.set_scaling_factor(self.r, 1)
+        iscale.set_scaling_factor(self.Q_useful, 1e-3)
+        iscale.set_scaling_factor(self.heat_load, 1e-3)
+        iscale.set_scaling_factor(self.heat_annual, 1e-6)
+        iscale.set_scaling_factor(self.heat, 1e-3)
+        iscale.set_scaling_factor(self.electricity, 1e-1)
+
+      
     @property
     def default_costing_method(self):
-        return cost_flat_plate_surrogate
+        return cost_flat_plate
