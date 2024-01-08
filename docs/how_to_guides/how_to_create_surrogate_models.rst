@@ -13,12 +13,137 @@ Surrogate modeling toolboxes
 
 Example 1: Surrogate model for PV energy generation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-PySAM
+.. testcode::
 
-Radial Basis Function
+  import os
+  import sys
+  import time
+  import pandas as pd
+  from pyomo.environ import Var, Constraint, units as pyunits, value, Param
+  from idaes.core.solvers import get_solver
+  from idaes.core.surrogate.sampling.data_utils import split_training_validation
+  from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
+  from idaes.core.surrogate.surrogate_block import SurrogateBlock
 
-.. csv-table::
-   :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
+Body
 
-      "Design Size", "feed_props.conc_mass_phase_comp['Liq', 'TDS']", ":math:`X_{f}`", "35 - 292", ":math:`\text{g/}\text{L}`"
-      "Electricity", "feed_props.conc_mass_phase_comp['Liq', 'TDS']", ":math:`X_{f}`", "35 - 292", ":math:`\text{g/}\text{L}`"
+.. testcode::
+
+  @declare_process_block_class("PVSurrogate")
+  class PVSurrogateData(SolarEnergyBaseData):
+    """
+    Surrogate model for PV.
+    """
+
+    CONFIG = SolarEnergyBaseData.CONFIG()
+
+    def build(self):
+        super().build()
+
+        self._tech_type = "PV"
+
+        self.design_size = Var(
+            initialize=1000,
+            bounds=[1, 200000],
+            units=pyunits.kW,
+            doc="PV design size in kW",
+        )
+
+        self.annual_energy = Var(
+            initialize=1,
+            units=pyunits.kWh,
+            doc="annual energy produced by the plant in kWh",
+        )
+        
+        self.land_req = Var(
+            initialize=7e7,
+            units=pyunits.acre,
+            doc="annual energy produced by the plant in kWh",
+        )
+
+        self.surrogate_inputs = [self.design_size]
+        self.surrogate_outputs = [self.annual_energy, self.land_req]
+
+        self.input_labels = ["design_size"]
+        self.output_labels = ["annual_energy", "land_req"]
+
+        self.electricity_constraint = Constraint(
+            expr=self.annual_energy
+            == -1 * self.electricity
+            * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
+        )
+
+Create Training Data
+
+.. testcode::
+
+  def get_training_validation(self):
+    self.dataset_filename = os.path.join(
+        os.path.dirname(__file__), "data/dataset.pkl"
+    )
+    print('Loading Training Data...\n')
+    time_start = time.process_time()
+    pkl_data = pd.read_pickle(self.dataset_filename)
+    data = pkl_data.sample(n=int(len(pkl_data))) #FIX default this to 100% of data
+    self.data_training, self.data_validation = split_training_validation(
+        data, self.training_fraction, seed=len(data)
+    )
+    time_stop = time.process_time()
+    print("Data Loading Time:", time_stop - time_start, "\n")
+
+Create Surrogate
+
+.. testcode::
+
+  def create_surrogate(self):
+    self.training_fraction = 0.8 # Fraction of the sampled data to split for training and validation
+
+    self.get_training_validation()
+    time_start = time.process_time()
+
+    # Create PySMO trainer object
+    trainer = PysmoRBFTrainer(
+        input_labels=self.input_labels,
+        output_labels=self.output_labels,
+        training_dataframe=self.data_training,
+    )
+
+  # Set PySMO options
+  trainer.config.basis_function = "gaussian"  # default = gaussian
+  trainer.config.solution_method = "algebraic"  # default = algebraic
+  trainer.config.regularization = True  # default = True
+
+  # Train surrogate
+  rbf_train = trainer.train_surrogate()
+
+  # Create callable surrogate object
+  xmin, xmax = [self.design_size.bounds[0]], [self.design_size.bounds[1]]
+  input_bounds = {
+      self.input_labels[i]: (xmin[i], xmax[i]) for i in range(len(self.input_labels))
+  }
+  rbf_surr = PysmoSurrogate(rbf_train, self.input_labels, self.output_labels, input_bounds)
+
+  # Save model to JSON
+  if self.surrogate_file is not None:
+      print(f'Writing surrogate model to {self.surrogate_file}')
+      model = rbf_surr.save_to_file(self.surrogate_file, overwrite=True)
+
+Body
+
+.. testcode:: 
+
+  def load_surrogate(self):
+    print('Loading surrogate file...')
+    self.surrogate_file = os.path.join(
+        os.path.dirname(__file__), "pv_surrogate.json"
+    )
+
+    if os.path.exists(self.surrogate_file):
+
+        self.surrogate_blk = SurrogateBlock(concrete=True)
+        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
+        self.surrogate_blk.build_model(
+            self.surrogate,
+            input_vars=self.surrogate_inputs,
+            output_vars=self.surrogate_outputs,
+        )
