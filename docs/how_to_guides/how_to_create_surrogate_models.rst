@@ -5,14 +5,22 @@ Surrogate modeling toolboxes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * `PySMO <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/pysmo/index.html>`_
   
-  Stuff and Text
+  PySMO offers sevel surrogate modeling techniques, including:
+
+  * `Polynomial Functions <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/pysmo/pysmo_polyregression.html>`_
+  * `Kriging Functions <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/pysmo/pysmo_kriging.html>`_
+  * `Radial Basis Functions (RBF) <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/pysmo/pysmo_radialbasisfunctions.html>`_
+
 * `ALAMO <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/alamopy.html>`_
   
-  Stuff and Text
+  Currently REFLO models utilize the PySMO toolbox due to its ease of use. Radial basis functions have been found to be reliable for REFLO models. The following example will demonstrate the creation of Radial Basis Function surrogate models.
 
 
 Example 1: Surrogate model for PV energy generation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Import required libraries
+
 .. testcode::
 
   import os
@@ -25,7 +33,13 @@ Example 1: Surrogate model for PV energy generation
   from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
   from idaes.core.surrogate.surrogate_block import SurrogateBlock
 
-Body
+Define the surrogate model class and required parameters. The model class should contain the following:
+
+* build method that defines the surrogate inputs, outputs, and their respective bounds
+* get_training_validation method that loads the training and validation data
+* create_surrogate method that creates the surrogate model, provides the training options, and saves the resulting model
+* load_surrogate method that loads the surrogate model
+
 
 .. testcode::
 
@@ -128,7 +142,7 @@ Create Surrogate
       print(f'Writing surrogate model to {self.surrogate_file}')
       model = rbf_surr.save_to_file(self.surrogate_file, overwrite=True)
 
-Body
+Load the Surrogate
 
 .. testcode:: 
 
@@ -147,3 +161,8 @@ Body
             input_vars=self.surrogate_inputs,
             output_vars=self.surrogate_outputs,
         )
+
+Use the surrogate
+
+.. testcode:: 
+  
