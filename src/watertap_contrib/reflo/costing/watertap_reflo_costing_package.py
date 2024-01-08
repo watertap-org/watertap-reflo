@@ -1,3 +1,15 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import pyomo.environ as pyo
 
 from idaes.core import declare_process_block_class
@@ -5,56 +17,11 @@ from idaes.models.unit_models import Mixer
 
 from watertap.costing.watertap_costing_package import (
     WaterTAPCostingData,
-    _DefinedFlowsDict,
 )
-from watertap.unit_models import (
-    ReverseOsmosis0D,
-    ReverseOsmosis1D,
-    NanoFiltration0D,
-    NanofiltrationZO,
-    PressureExchanger,
-    Crystallization,
-    Ultraviolet0D,
-    Pump,
-    EnergyRecoveryDevice,
-    Electrodialysis0D,
-    Electrodialysis1D,
-    IonExchange0D,
-    GAC,
-)
+
 from idaes.core.base.costing_base import (
     FlowsheetCostingBlockData,
     register_idaes_currency_units,
-)
-from watertap.costing.units.crystallizer import cost_crystallizer
-from watertap.costing.units.electrodialysis import cost_electrodialysis
-from watertap.costing.units.energy_recovery_device import cost_energy_recovery_device
-from watertap.costing.units.gac import cost_gac
-from watertap.costing.units.ion_exchange import cost_ion_exchange
-from watertap.costing.units.nanofiltration import cost_nanofiltration
-from watertap.costing.units.mixer import cost_mixer
-from watertap.costing.units.pressure_exchanger import cost_pressure_exchanger
-from watertap.costing.units.pump import cost_pump
-from watertap.costing.units.reverse_osmosis import cost_reverse_osmosis
-from watertap.costing.units.uv_aop import cost_uv_aop
-
-from watertap_contrib.reflo.solar_models.zero_order import Photovoltaic
-from watertap_contrib.reflo.costing.solar.photovoltaic import cost_pv
-from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
-from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
-from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
-from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
-from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
-from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
-from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
-    cost_med_tvc_surrogate,
-)
-from watertap_contrib.reflo.costing.units.vagmd_surrogate import cost_vagmd_surrogate
-from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
-    ChemicalSofteningZO,
-)
-from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
-    cost_chem_softening,
 )
 
 from watertap_contrib.reflo.core import PySAMWaterTAP
@@ -62,37 +29,8 @@ from watertap_contrib.reflo.core import PySAMWaterTAP
 
 @declare_process_block_class("REFLOCosting")
 class REFLOCostingData(WaterTAPCostingData):
-
-    unit_mapping = {
-        LTMEDSurrogate: cost_lt_med_surrogate,
-        MEDTVCSurrogate: cost_med_tvc_surrogate,
-        VAGMDSurrogate: cost_vagmd_surrogate,
-        Photovoltaic: cost_pv,
-        TroughSurrogate: cost_trough_surrogate,
-        Mixer: cost_mixer,
-        Pump: cost_pump,
-        EnergyRecoveryDevice: cost_energy_recovery_device,
-        PressureExchanger: cost_pressure_exchanger,
-        ReverseOsmosis0D: cost_reverse_osmosis,
-        ReverseOsmosis1D: cost_reverse_osmosis,
-        NanoFiltration0D: cost_nanofiltration,
-        NanofiltrationZO: cost_nanofiltration,
-        Crystallization: cost_crystallizer,
-        Ultraviolet0D: cost_uv_aop,
-        Electrodialysis0D: cost_electrodialysis,
-        Electrodialysis1D: cost_electrodialysis,
-        IonExchange0D: cost_ion_exchange,
-        GAC: cost_gac,
-        ChemicalSofteningZO: cost_chem_softening,
-    }
-
     def build_global_params(self):
         super().build_global_params()
-
-        if "USD_2021" not in pyo.units._pint_registry:
-            pyo.units.load_definitions_from_strings(
-                ["USD_2021 = 500/708.0 * USD_CE500"]
-            )
 
         self.base_currency = pyo.units.USD_2021
         self.plant_lifetime = pyo.Var(
@@ -112,7 +50,7 @@ class REFLOCostingData(WaterTAPCostingData):
             doc="Heat cost",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
-        self.add_defined_flow("heat", self.heat_cost)
+        self.register_flow_type("heat", self.heat_cost)
 
         self.plant_lifetime.fix()
         self.utilization_factor.fix(1)
@@ -185,16 +123,10 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
     def build_global_params(self):
         # Register currency and conversion rates based on CE Index
         register_idaes_currency_units()
-        if "USD_2021" not in pyo.units._pint_registry:
-            pyo.units.load_definitions_from_strings(
-                ["USD_2021 = 500/708.0 * USD_CE500"]
-            )
 
         self.base_currency = pyo.units.USD_2021
 
         self.base_period = pyo.units.year
-
-        self.defined_flows = _DefinedFlowsDict()
 
         self.utilization_factor = pyo.Var(
             initialize=1,
@@ -231,7 +163,7 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
             units=self.base_currency / pyo.units.kWh,
         )
 
-        self.add_defined_flow("electricity", self.electricity_cost)
+        self.register_flow_type("electricity", self.electricity_cost)
 
         self.electrical_carbon_intensity = pyo.Param(
             mutable=True,
@@ -389,7 +321,9 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
             self.add_component("LCOE", LCOE_expr)
 
         if e_model == "surrogate":
-            raise NotImplementedError("We don't have surrogate models yet!")
+            raise NotImplementedError(
+                "add_LCOE for surrogate models not available yet."
+            )
 
     def add_specific_electric_energy_consumption(self, flow_rate):
         """
