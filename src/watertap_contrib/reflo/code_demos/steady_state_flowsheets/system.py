@@ -2,9 +2,12 @@ from pyomo.environ import ConcreteModel, Var, value, Objective, units as pyunits
 from idaes.core import FlowsheetBlock
 import pandas as pd
 from watertap_contrib.reflo.unit_models.zero_order.battery import BatteryStorage
-from watertap_contrib.reflo.code_demos.steady_state_flowsheets.simple_RO_unit import ROUnit
+from watertap_contrib.reflo.code_demos.steady_state_flowsheets.simple_RO_unit import (
+    ROUnit,
+)
 import datetime
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
+
 
 def define_system_vars(m):
 
