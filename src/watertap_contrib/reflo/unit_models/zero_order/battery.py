@@ -1,16 +1,15 @@
 #################################################################################
-# DISPATCHES was produced under the DOE Design Integration and Synthesis Platform
-# to Advance Tightly Coupled Hybrid Energy Systems program (DISPATCHES), and is
-# copyright (c) 2020-2023 by the software owners: The Regents of the University
-# of California, through Lawrence Berkeley National Laboratory, National
-# Technology & Engineering Solutions of Sandia, LLC, Alliance for Sustainable
-# Energy, LLC, Battelle Energy Alliance, LLC, University of Notre Dame du Lac, et
-# al. All rights reserved.
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
-# information, respectively. Both files are also available online at the URL:
-# "https://github.com/gmlc-dispatches/dispatches".
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
 #################################################################################
+
 import sys
 from pandas import DataFrame
 from collections import OrderedDict

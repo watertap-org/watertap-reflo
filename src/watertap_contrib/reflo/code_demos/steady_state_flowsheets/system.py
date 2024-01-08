@@ -1,15 +1,12 @@
 from pyomo.environ import ConcreteModel, Var, value, Objective, units as pyunits
 from idaes.core import FlowsheetBlock
 import pandas as pd
-from steady_state_flowsheets.battery import BatteryStorage
-from steady_state_flowsheets.simple_RO_unit import ROUnit
+from watertap_contrib.reflo.unit_models.zero_order.battery import BatteryStorage
+from watertap_contrib.reflo.code_demos.steady_state_flowsheets.simple_RO_unit import ROUnit
 import datetime
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
-
 def define_system_vars(m):
-    if "USD_2021" not in pyunits._pint_registry:
-        pyunits.load_definitions_from_strings(["USD_2021 = 500/708.0 * USD_CE500"])
 
     m.fs.pv_to_ro = Var(
         initialize=100, bounds=(0, None), units=pyunits.kW, doc="PV to RO electricity"
@@ -20,13 +17,6 @@ def define_system_vars(m):
     m.fs.curtailment = Var(
         initialize=0, bounds=(0, None), units=pyunits.kW, doc="PV curtailment"
     )
-
-    # m.fs.elec_price = Var(
-    #         initialize = 0.1,
-    #         bounds = (0,None),
-    #         units = pyunits.USD_2021,
-    #         doc = 'Electric Cost'
-    #     )
 
     m.fs.elec_generation = Var(
         initialize=1000, bounds=(0, None), units=pyunits.kW, doc="PV Power Gen"
