@@ -1,16 +1,25 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 # Pyomo imports
 from pyomo.environ import (
     ConcreteModel,
     Var,
     units as pyunits,
 )
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 # IDAES imports
-from idaes.core.util.model_statistics import degrees_of_freedom
 import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock
-from idaes.core.solvers.get_solver import get_solver
 import idaes.logger as idaeslog
 from idaes.core.util.scaling import (
     calculate_scaling_factors,

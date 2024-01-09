@@ -1,15 +1,14 @@
-###############################################################################
-# WaterTAP Copyright (c) 2021, The Regents of the University of California,
-# through Lawrence Berkeley National Laboratory, Oak Ridge National
-# Laboratory, National Renewable Energy Laboratory, and National Energy
-# Technology Laboratory (subject to receipt of any required approvals from
-# the U.S. Dept. of Energy). All rights reserved.
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
-#
-###############################################################################
+#################################################################################
 
 from copy import deepcopy
 
@@ -36,6 +35,9 @@ from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
 
+from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
+    cost_med_tvc_surrogate,
+)
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
@@ -1529,3 +1531,7 @@ class MEDTVCData(UnitModelBlockData):
             + self.feed_conc_ppm**2
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][20]
         )
+
+    @property
+    def default_costing_method(self):
+        return cost_med_tvc_surrogate

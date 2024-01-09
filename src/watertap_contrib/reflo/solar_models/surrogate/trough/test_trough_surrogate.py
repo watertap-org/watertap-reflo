@@ -1,3 +1,15 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import pytest
 import os
 
@@ -53,26 +65,17 @@ def get_data(heat_load_range):
     return {"training": df.head(-10), "validation": df.tail(10)}
 
 
-class TestTrough:
+class TestTroughLarge:
     @pytest.fixture(scope="class")
-    @pytest.mark.skip(reason="temporarily skipping")
     def trough_large_heat_load(self):
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.trough = TroughSurrogate(heat_load_range=[100, 500])
         return m
 
-    @pytest.fixture(scope="class")
-    @pytest.mark.skip(reason="temporarily skipping")
-    def trough_small_heat_load(self):
-        m = ConcreteModel()
-        m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.trough = TroughSurrogate(heat_load_range=[10, 100])
-        return m
-
     @pytest.mark.unit
-    @pytest.mark.skip(reason="temporarily skipping")
-    def test_build(self, trough_large_heat_load):
+    @pytest.mark.skip
+    def test_build_large(self, trough_large_heat_load):
         m = trough_large_heat_load
 
         assert len(m.fs.trough.config) == 4
@@ -109,14 +112,14 @@ class TestTrough:
         assert number_total_constraints(m.fs.trough) == 4
 
     @pytest.mark.unit
-    @pytest.mark.skip(reason="temporarily skipping")
-    def test_surrogate_variable_bounds(self, trough_large_heat_load):
+    @pytest.mark.skip
+    def test_surrogate_variable_bounds_large(self, trough_large_heat_load):
         m = trough_large_heat_load
         assert m.fs.trough.heat_load.bounds == tuple([100, 500])
         assert m.fs.trough.hours_storage.bounds == tuple([0, 26])
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
+    @pytest.mark.skip
     def test_create_rbf_surrogate_large(self, trough_large_heat_load):
         m = trough_large_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
@@ -166,7 +169,7 @@ class TestTrough:
         )
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
+    @pytest.mark.skip
     def test_validation_large(self, trough_large_heat_load):
         m = trough_large_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
@@ -191,8 +194,120 @@ class TestTrough:
             expected_electricity_annual, 0.1
         )
 
+    @pytest.mark.unit
+    @pytest.mark.skip
+    def test_dof_large(self, trough_large_heat_load):
+        m = trough_large_heat_load
+        m.fs.trough.heat_load.fix(500)
+        m.fs.trough.hours_storage.fix(12)
+        assert degrees_of_freedom(m) == 0
+        m.fs.trough.heat_load.unfix()
+        m.fs.trough.hours_storage.unfix()
+        assert degrees_of_freedom(m) == 2
+
+    @pytest.mark.unit
+    @pytest.mark.skip
+    def test_calculate_scaling(self, trough_large_heat_load):
+        m = trough_large_heat_load
+        calculate_scaling_factors(m)
+        assert len(list(unscaled_variables_generator(m))) == 0
+
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
+    @pytest.mark.skip
+    def test_initialization(self, trough_large_heat_load):
+        m = trough_large_heat_load
+        m.fs.trough.heat_load.fix(200)
+        m.fs.trough.hours_storage.fix(4)
+        m.fs.trough.initialize()
+
+    @pytest.mark.component
+    @pytest.mark.skip
+    def test_solve_large(self, trough_large_heat_load):
+        results = solver.solve(trough_large_heat_load)
+        assert_optimal_termination(results)
+
+    @pytest.mark.component
+    @pytest.mark.skip
+    def test_solution_large(self, trough_large_heat_load):
+        m = trough_large_heat_load
+
+        trough_results = {
+            "electricity": 727.242,
+            "heat": 93885.264,
+            "heat_load": 200.0,
+            "hours_storage": 4.0,
+            "heat_annual_scaled": 0.31056777,
+            "electricity_annual_scaled": 0.048634913,
+            "heat_annual": 822998231.988,
+            "electricity_annual": 6375009.402,
+        }
+
+        for v, r in trough_results.items():
+            tv = getattr(m.fs.trough, v)
+            assert pytest.approx(r, rel=1e-1) == value(tv)
+
+    @pytest.mark.component
+    @pytest.mark.skip
+    def test_costing_large(self, trough_large_heat_load):
+        m = trough_large_heat_load
+        m.fs.trough.initialize_build()
+        m.fs.costing = EnergyCosting()
+
+        m.fs.trough.costing = UnitModelCostingBlock(
+            flowsheet_costing_block=m.fs.costing
+        )
+        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
+        m.fs.costing.factor_total_investment.fix(1)
+        m.fs.costing.cost_process()
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        sys_costing_dict = {
+            "aggregate_capital_cost": 93537260.0,
+            "aggregate_fixed_operating_cost": 1600000.0,
+            "aggregate_variable_operating_cost": 823535.991,
+            "aggregate_flow_heat": -93946.61,
+            "aggregate_flow_electricity": 693.926,
+            "aggregate_flow_costs": {"heat": -9667774.533, "electricity": 499869.622},
+            "total_capital_cost": 93537260.0,
+            "maintenance_labor_chemical_operating_cost": 0.0,
+            "total_operating_cost": -6744368.918,
+            "aggregate_direct_capital_cost": 93537260.0,
+        }
+
+        trough_costing_dict = {
+            "capital_cost": 93537260.0,
+            "variable_operating_cost": 823535.991,
+            "fixed_operating_cost": 1600000.0,
+            "direct_cost": 93304000.0,
+            "direct_capital_cost": 93537260.0,
+        }
+
+        for (blk, results_dict) in [
+            (m.fs.costing, sys_costing_dict),
+            (m.fs.trough.costing, trough_costing_dict),
+        ]:
+
+            for v, r in results_dict.items():
+                cv = getattr(blk, v)
+                if cv.is_indexed():
+                    for i, s in r.items():
+                        assert pytest.approx(s, rel=1e-1) == value(cv[i])
+                else:
+                    assert pytest.approx(r, rel=1e-1) == value(cv)
+
+
+class TestTroughSmall:
+    @pytest.fixture(scope="class")
+    def trough_small_heat_load(self):
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.trough = TroughSurrogate(heat_load_range=[10, 100])
+        return m
+
+    @pytest.mark.component
+    @pytest.mark.skip
     def test_create_rbf_surrogate_small(self, trough_small_heat_load):
         m = trough_small_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
@@ -242,7 +357,7 @@ class TestTrough:
         )
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
+    @pytest.mark.skip
     def test_validation_small(self, trough_small_heat_load):
         m = trough_small_heat_load
         data = get_data(m.fs.trough.heat_load.bounds)
@@ -268,9 +383,9 @@ class TestTrough:
         )
 
     @pytest.mark.unit
-    @pytest.mark.skip(reason="temporarily skipping")
-    def test_dof(self, trough_large_heat_load):
-        m = trough_large_heat_load
+    @pytest.mark.skip
+    def test_dof_small(self, trough_small_heat_load):
+        m = trough_small_heat_load
         m.fs.trough.heat_load.fix(500)
         m.fs.trough.hours_storage.fix(12)
         assert degrees_of_freedom(m) == 0
@@ -279,53 +394,21 @@ class TestTrough:
         assert degrees_of_freedom(m) == 2
 
     @pytest.mark.unit
-    @pytest.mark.skip(reason="temporarily skipping")
-    def test_calculate_scaling(self, trough_large_heat_load):
-        m = trough_large_heat_load
+    @pytest.mark.skip
+    def test_calculate_scaling_small(self, trough_small_heat_load):
+        m = trough_small_heat_load
         calculate_scaling_factors(m)
         assert len(list(unscaled_variables_generator(m))) == 0
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
-    def test_initialization(self, trough_large_heat_load):
+    @pytest.mark.skip
+    def test_initialization_small(self, trough_small_heat_load):
         initialization_tester(
-            trough_large_heat_load, unit=trough_large_heat_load.fs.trough, dof=2
+            trough_small_heat_load, unit=trough_small_heat_load.fs.trough, dof=2
         )
 
     @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
-    def test_solve(self, trough_large_heat_load):
-        results = solver.solve(trough_large_heat_load)
+    @pytest.mark.skip
+    def test_solve_small(self, trough_small_heat_load):
+        results = solver.solve(trough_small_heat_load)
         assert_optimal_termination(results)
-
-    @pytest.mark.component
-    @pytest.mark.skip(reason="temporarily skipping")
-    def test_costing(self, trough_large_heat_load):
-        m = trough_large_heat_load
-        m.fs.trough.heat_load.fix(200)
-        m.fs.trough.hours_storage.fix(4)
-        m.fs.trough.initialize_build()
-        m.fs.costing = EnergyCosting()
-        m.fs.trough.costing = UnitModelCostingBlock(
-            flowsheet_costing_block=m.fs.costing
-        )
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_total_investment.fix(1)
-        m.fs.costing.cost_process()
-
-        results = solver.solve(m)
-        assert_optimal_termination(results)
-
-        assert pytest.approx(823079441.0, rel=1e-2) == value(m.fs.trough.heat_annual)
-        assert pytest.approx(93537260.0, rel=1e-2) == value(
-            m.fs.trough.costing.capital_cost
-        )
-        assert pytest.approx(823079.0, rel=1e-2) == value(
-            m.fs.trough.costing.variable_operating_cost
-        )
-        assert pytest.approx(1600000.0, rel=1e-2) == value(
-            m.fs.trough.costing.fixed_operating_cost
-        )
-        assert pytest.approx(93304000.0, rel=1e-2) == value(
-            m.fs.trough.costing.direct_cost
-        )
