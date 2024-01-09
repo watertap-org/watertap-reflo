@@ -1,4 +1,4 @@
-Photovoltaic
+Photovoltaic (PV) Surrogate Model
 ====================================================
 
 This Photovoltaic (PV) unit model
@@ -11,18 +11,12 @@ This Photovoltaic (PV) unit model
 
 Degrees of Freedom
 ------------------
-The PV model has _ degrees of freedom that should be fixed for the unit to be fully specified.
+The PV model has 1 degree of freedom that should be fixed for the unit to be fully specified.
 
-Typically, the following variables are fixed, including the state variables at the inlet. 
-The valid range of each variable is listed based on the tested range of the surrogate equations.
-
-
-  
 Model Structure
 ---------------
 
-This PV Surrogate model is created using data from the SAM tool. The data is trained using PySMO RBF functions.
-
+This PV Surrogate model is created using data from the SAM tool and is trained using PySMO RBF functions.
 
 Variables
 ---------
@@ -35,7 +29,6 @@ with which the surrogate model was developed:
    "Design Size", "design_size", ":math:`S_{design}`", "X-X", ":math:`\text{kW}`"
    "Land Required", "land_req", ":math:`A_{land}`", "X-X", ":math:`\text{acres}`"
    "Annual Energy", "annual_energy", ":math:`E_{annual}`", "X-X", ":math:`\text{kWh/yr}`"
-
 
 References
 ----------
