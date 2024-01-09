@@ -2,7 +2,9 @@ Unit Models
 ===========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   energy_models/index
-   treatment_models/index
+   lt_med_surrogate
+   med_tvc_surrogate
+   vagmd_surrogate_base
+   pv_surrogate

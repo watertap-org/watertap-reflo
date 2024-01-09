@@ -1,4 +1,4 @@
-Photovoltaic (PV) Surrogate Model
+Photovoltaic
 ====================================================
 
 This Photovoltaic (PV) unit model
@@ -11,7 +11,12 @@ This Photovoltaic (PV) unit model
 
 Degrees of Freedom
 ------------------
-The PV model has 1 degree of freedom (:math:`S_{design}`) that should be fixed for the unit to be fully specified.
+The PV model has _ degrees of freedom that should be fixed for the unit to be fully specified.
+
+Typically, the following variables are fixed, including the state variables at the inlet. 
+The valid range of each variable is listed based on the tested range of the surrogate equations.
+
+
   
 Model Structure
 ---------------
