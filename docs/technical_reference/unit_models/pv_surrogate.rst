@@ -4,7 +4,7 @@ Photovoltaic
 This Photovoltaic (PV) unit model
    * supports steady-state only
    * is a surrogate model
-   * is created using data for the System Advisor Model (SAM) '<https://sam.nrel.gov>'
+   * is created using data from the `System Advisor Model (SAM) <https://sam.nrel.gov>`_
 
 .. TODO: Add index/reference to home page
 
