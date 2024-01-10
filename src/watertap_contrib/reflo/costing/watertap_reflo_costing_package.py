@@ -13,17 +13,14 @@
 import pyomo.environ as pyo
 
 from idaes.core import declare_process_block_class
-from idaes.models.unit_models import Mixer
-
-from watertap.costing.watertap_costing_package import (
-    WaterTAPCostingData,
-)
-
 from idaes.core.base.costing_base import (
     FlowsheetCostingBlockData,
     register_idaes_currency_units,
 )
 
+from watertap.costing.watertap_costing_package import (
+    WaterTAPCostingData,
+)
 from watertap_contrib.reflo.core import PySAMWaterTAP
 
 
