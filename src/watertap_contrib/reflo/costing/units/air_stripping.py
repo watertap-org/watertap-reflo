@@ -451,7 +451,7 @@ def cost_air_stripping(blk):
     blk.packing_cost_constraint = pyo.Constraint(
         expr=blk.packing_cost
         == pyo.units.convert(
-            ax_params.capital_cost_packing * ax.tower_volume, to_units=base_currency
+            ax_params.capital_cost_packing * ax.packing_volume, to_units=base_currency
         )
     )
 

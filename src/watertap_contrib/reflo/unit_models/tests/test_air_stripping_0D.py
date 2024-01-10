@@ -383,7 +383,7 @@ class TestAirStripping0D:
         assert_optimal_termination(results)
 
         ax_costing_results = {
-            "capital_cost": 441553.904,
+            "capital_cost": 391313.521,
             "tower_cost": 20201.182,
             "port_cost": 643.059,
             "piping_liq_cost": 2189.254,
@@ -392,7 +392,7 @@ class TestAirStripping0D:
             "tray_cost": 3584.056,
             "plate_cost": 1745.286,
             "tower_internals_cost": 5329.343,
-            "packing_cost": 302462.959,
+            "packing_cost": 252197.627,
             "mist_eliminator_cost": 3899.822,
             "pump_cost": 42038.547,
             "blower_cost": 61305.385,
@@ -404,15 +404,15 @@ class TestAirStripping0D:
             assert value(axc) == pytest.approx(r, rel=1e-3)
 
         m_costing_results = {
-            "aggregate_capital_cost": 441753.046,
+            "aggregate_capital_cost": 391313.521,
             "aggregate_fixed_operating_cost": 0.0,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 21.56,
             "aggregate_flow_costs": {"electricity": 15532.43},
-            "total_capital_cost": 441753.046,
-            "maintenance_labor_chemical_operating_cost": 13252.59,
-            "total_operating_cost": 28793.941,
-            "LCOW": 0.01463453,
+            "total_capital_cost": 391313.521,
+            "maintenance_labor_chemical_operating_cost": 11739.41,
+            "total_operating_cost": 27280.755,
+            "LCOW": 0.013319447,
             "SEC": 0.03793025,
         }
 
@@ -752,7 +752,7 @@ class TestAirStripping0D:
         assert_optimal_termination(results)
 
         ax_costing_results = {
-            # "capital_cost": 1631701.944,
+            "capital_cost": 1414661.385,
             "tower_cost": 37232.248,
             "port_cost": 643.059,
             "piping_liq_cost": 2189.254,
@@ -761,7 +761,7 @@ class TestAirStripping0D:
             "tray_cost": 10295.84,
             "plate_cost": 5255.23,
             "tower_internals_cost": 15551.071,
-            "packing_cost": 1302243.352,
+            "packing_cost": 1085202.793,
             "mist_eliminator_cost": 10036.566,
             "pump_cost": 38366.194,
             "blower_cost": 220739.214,
@@ -773,15 +773,15 @@ class TestAirStripping0D:
             assert value(axc) == pytest.approx(r, rel=1e-3)
 
         m_costing_results = {
-            "aggregate_capital_cost": 1631701.944,
+            "aggregate_capital_cost": 1414661.385,
             "aggregate_fixed_operating_cost": 0.0,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 27.84,
             "aggregate_flow_costs": {"electricity": 20054.989},
-            "total_capital_cost": 1631701.944,
-            "maintenance_labor_chemical_operating_cost": 48951.058,
-            "total_operating_cost": 69006.047,
-            "LCOW": 0.073572204,
+            "total_capital_cost": 1414661.385,
+            "maintenance_labor_chemical_operating_cost": 42439.841,
+            "total_operating_cost": 62494.830,
+            "LCOW": 0.06463132,
             "SEC": 0.077335064,
         }
 
