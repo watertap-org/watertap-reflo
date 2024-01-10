@@ -19,17 +19,17 @@ State variables
 .. csv-table::
    :header: "Description", "Symbol", "Variable", "Index", "Units"
 
-   "Volumetric flow rate", ":math:`Q`", "``flow_vol``", "None", ":math:`\text{m}^3\text{/s}`"
-   "Component mass concentration", ":math:`C_j`", "``conc_mass_comp``", "``[j]``", ":math:`\text{kg/}\text{m}^3`"
+   "Volumetric flow rate", ":math:`Q`", "``flow_vol``", "None", ":math:`\text{m}^{3} \text{ s}^{-1}`"
+   "Component mass concentration", ":math:`C_j`", "``conc_mass_comp``", "``[j]``", ":math:`\text{kg m}^{-3}`"
 
 Properties
 ----------
 .. csv-table::
    :header: "Description", "Symbol", "Variable", "Index", "Units"
 
-   "Component mass flowrate", ":math:`M_j`", "``flow_mass_comp``", "``[j]``", ":math:`\text{kg/s}`"
-   "Mass density of pure water", ":math:`\rho`", "``dens_mass``", "None", ":math:`\text{kg/}\text{m}^3`"
-   "Dynamic viscosity of solution", ":math:`\mu_d`", "``visc_d``", "None", ":math:`\text{kg/}\text{m s}`"
+   "Component mass flowrate", ":math:`M_j`", "``flow_mass_comp``", "``[j]``", ":math:`\text{kg s}^{-1}`"
+   "Mass density of pure water", ":math:`\rho`", "``dens_mass``", "None", ":math:`\text{kg m}^{-3}`"
+   "Dynamic viscosity of solution", ":math:`\mu_d`", "``visc_d``", "None", ":math:`\text{kg m}^{-1}\text{ s}^{-1}`"
    "Temperature", ":math:`T`", "``temperature``", "None", ":math:`\text{K}`"
    "Pressure", ":math:`P`", "``pressure``", "None", ":math:`\text{Pa}`"
 
@@ -64,10 +64,10 @@ it will be calculated automatically by calling ``calculate_scaling_factors`` on 
 
 The default scaling factors are as follows:
 
-   * 1e-2 for temperature
-   * 1e-5 for pressure
-   * 1e-3 for mass density
-   * 1e3 for mass concentration
+   * :math:`\text{1e-2}` for temperature
+   * :math:`\text{1e-5}` for pressure
+   * :math:`\text{1e-3}` for mass density
+   * :math:`\text{1e3}` for mass concentration
 
    
 Classes
