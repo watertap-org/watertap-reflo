@@ -4,16 +4,16 @@ Air Stripping
 Air stripping uses towers packed with irregular shaped inert packing material
 to transfer volatile constituents from the liquid to the vapor phase.
 This air stripping model:
-   * supports steady-state only
-   * supports a single liquid phase only
-   * has a single user-specified target compound
-   * assumes isothermal and isobaric conditions
+* supports steady-state only
+* supports a single liquid phase only
+* has a single user-specified target compound
+* assumes isothermal and isobaric conditions
 
-.. figure:: ../../_static/unit_models/air_stripping_schematic.png
+.. figure:: ../../../_static/unit_models/air_stripping_schematic.png
     :width: 600
     :align: center
 
-    Figure 1. Air-stripping schematic.
+Figure 1. Air-stripping schematic.
 
 This model uses the air-water equilibrium property package to determine the mass transfer properties
 of a given liquid and air stream. Given specifics about the tower packing, air and water flow rates, and the compond of interest,
