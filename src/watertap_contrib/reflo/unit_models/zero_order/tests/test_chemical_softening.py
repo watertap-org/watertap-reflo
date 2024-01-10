@@ -63,7 +63,6 @@ class TestChemSoft1:
             silica_removal=True,
             softening_procedure_type="excess_lime_soda",
         )
-        print(m.fs.soft.properties_in[0].is_property_constructed("flow_mol_phase_comp"))
 
         ca_in = 1.43 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
         mg_in = 0.1814 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
