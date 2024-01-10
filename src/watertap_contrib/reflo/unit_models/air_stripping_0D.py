@@ -263,11 +263,11 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Factor to calculate pressure drop through tower",
         )
 
-        self.tower_height_safety_factor = Param(
+        self.tower_height_factor = Param(
             initialize=1.2,
             mutable=True,
             units=pyunits.dimensionless,
-            doc="Safety factor for tower height",
+            doc="Factor to calculate tower height",
         )
 
         self.tower_port_diameter = Param(
@@ -463,7 +463,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Expression(doc="Height of tower")
         def tower_height(b):
-            return b.packing_height * b.tower_height_safety_factor
+            return b.packing_height * b.tower_height_factor
 
         @self.Expression(doc="Volume of tower")
         def tower_volume(b):

@@ -169,7 +169,7 @@ class TestAirStripping0D:
         ax_params = [
             "air_water_ratio_param",
             "pressure_drop_tower_param",
-            "tower_height_safety_factor",
+            "tower_height_factor",
             "tower_port_diameter",
             "tower_pipe_diameter",
             "target_reduction_frac",
@@ -536,7 +536,7 @@ class TestAirStripping0D:
         ax_params = [
             "air_water_ratio_param",
             "pressure_drop_tower_param",
-            "tower_height_safety_factor",
+            "tower_height_factor",
             "tower_port_diameter",
             "tower_pipe_diameter",
             "target_reduction_frac",
