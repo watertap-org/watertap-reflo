@@ -2,7 +2,7 @@ Unit Models
 ===========
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    energy_models/index
    treatment_models/index
