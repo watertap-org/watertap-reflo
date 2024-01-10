@@ -10,7 +10,7 @@ This air stripping model:
    * assumes isothermal and isobaric conditions
 
 .. figure:: ../../_static/unit_models/air_stripping_schematic.png
-    :width: 400
+    :width: 600
     :align: center
 
     Figure 1. Air-stripping schematic.
