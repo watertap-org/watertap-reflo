@@ -449,7 +449,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         def air_water_ratio_op(b):
             return prop_in.flow_vol_phase["Vap"] / prop_in.flow_vol_phase["Liq"]
 
-        @self.Expression()
+        @self.Expression(doc="Packing efficiency number")
         def packing_efficiency_number(b):
             return b.packing_surface_area_total * b.packing_diam_nominal
 
@@ -469,7 +469,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         def tower_volume(b):
             return b.tower_area * b.tower_height
 
-        @self.Expression(doc="Volume of tower")
+        @self.Expression(doc="Volume of packing")
         def packing_volume(b):
             return b.tower_area * b.packing_height
 
@@ -524,7 +524,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.build_oto()
 
         @self.Constraint(phase_set)
-        def eq_mass_loading_rate(b, p):
+        def eq_mass_loading_rate(b, p, doc="Mass loading rate equation per phase"):
             if p == "Vap":
                 dens_vap = prop_in.dens_mass_phase[p]
                 dens_liq = prop_in.dens_mass_phase["Liq"]
@@ -555,8 +555,9 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(self.target_set, doc="Minimum air-to-water ratio")
         def eq_air_water_ratio_min(b, j):
             c0 = prop_in.conc_mass_phase_comp["Liq", j]
+            ce = c0 * b.target_remaining_frac[j]
             return b.air_water_ratio_min * (c0 * prop_in.henry_constant_comp[j]) == (
-                c0 - c0 * b.target_remaining_frac[j]
+                c0 - ce
             )
 
         @self.Constraint(self.target_set, doc="Overall mass transfer coeff")
@@ -577,7 +578,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(self.target_set)
         def eq_liq_to_vap(b, j):
-
             return (
                 prop_out.flow_mass_phase_comp["Vap", j]
                 == -b.process_flow.mass_transfer_term[0, "Liq", j]
@@ -862,12 +862,12 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_liq_mass_xfr_exp3 = kl_exp3 = Param(
             initialize=0.4,
             units=pyunits.dimensionless,
-            doc="OTO liquid mass transfer correlation Er exponent",
+            doc="OTO liquid mass transfer correlation packing efficiency exponent",
         )
         self.oto_liq_mass_xfr_exp4 = kl_exp4 = Param(
             initialize=-(1 / 3),
             units=pyunits.dimensionless,
-            doc="OTO liquid mass transfer correlation Sh exponent",
+            doc="OTO liquid mass transfer correlation fourth exponent",
         )
 
         self.oto_gas_mass_xfr_param = kg_param = Param(
@@ -888,7 +888,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_gas_mass_xfr_exp3 = kg_exp3 = Param(
             initialize=-2,
             units=pyunits.dimensionless,
-            doc="OTO gas mass transfer correlation Er exponent",
+            doc="OTO gas mass transfer correlation packing efficiency exponent",
         )
 
         self.oto_mass_transfer_coeff = Var(
