@@ -42,7 +42,7 @@ def build_lime_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.add_defined_flow("lime", blk.cost / blk.purity)
+    costing.register_flow_type("lime", blk.cost / blk.purity)
 
 
 def build_soda_ash_cost_param_block(blk):
@@ -61,7 +61,7 @@ def build_soda_ash_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.add_defined_flow("soda ash", blk.cost / blk.purity)
+    costing.register_flow_type("soda ash", blk.cost / blk.purity)
 
 
 def build_mgcl2_cost_param_block(blk):
@@ -80,7 +80,7 @@ def build_mgcl2_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.add_defined_flow("mgcl2", blk.cost / blk.purity)
+    costing.register_flow_type("mgcl2", blk.cost / blk.purity)
 
 
 def build_co2_cost_param_block(blk):
@@ -99,10 +99,10 @@ def build_co2_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.add_defined_flow("co2", blk.cost / blk.purity)
+    costing.register_flow_type("co2", blk.cost / blk.purity)
 
 
-def build_chem_softening_cost_param_block(blk):
+def build_chemical_softening_cost_param_block(blk):
     """
     Parameters and variables to be used in the costing model
     References :
@@ -458,10 +458,10 @@ def build_chem_softening_cost_param_block(blk):
     parameter_block_name="co2",
 )
 @register_costing_parameter_block(
-    build_rule=build_chem_softening_cost_param_block,
+    build_rule=build_chemical_softening_cost_param_block,
     parameter_block_name="chemical_softening",
 )
-def cost_chem_softening(blk):
+def cost_chemical_softening(blk):
 
     """
     Capital and operating costs for chemical softening
@@ -595,6 +595,8 @@ def cost_chem_softening(blk):
 
     # Capital cost component constraints
 
+    capital_cost_expr = 0
+
     # Mixing tank
     blk.mix_tank_capital_cost_constraint = Constraint(
         expr=blk.mix_tank_capital_cost
@@ -610,6 +612,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.mix_tank_capital_cost
+
     # Flocculation tank
     blk.floc_tank_capital_cost_constraint = Constraint(
         expr=blk.floc_tank_capital_cost
@@ -619,6 +623,8 @@ def cost_chem_softening(blk):
             + chem_soft.floc_tank_capital_constant
         )
     )
+
+    capital_cost_expr += blk.floc_tank_capital_cost
 
     # Sedimentation basin
     blk.sed_basin_capital_cost_constraint = Constraint(
@@ -637,6 +643,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.sed_basin_capital_cost
+
     # Recarbonation basin
     blk.recarb_basin_capital_cost_constraint = Constraint(
         expr=blk.recarb_basin_capital_cost
@@ -652,6 +660,8 @@ def cost_chem_softening(blk):
             + chem_soft.recarb_basin_capital_constant
         )
     )
+
+    capital_cost_expr += blk.recarb_basin_capital_cost
 
     # Recarbonation source cost
     blk.recarb_basin_source_capital_cost_constraint = Constraint(
@@ -683,6 +693,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.recarb_basin_source_capital_cost
+
     # Lime feed system cost
     blk.lime_feed_system_capital_cost_constraint = Constraint(
         expr=blk.lime_feed_system_capital_cost
@@ -697,6 +709,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.lime_feed_system_capital_cost
+
     # Admin cost
     blk.admin_capital_cost_constraint = Constraint(
         expr=blk.admin_capital_cost
@@ -704,7 +718,7 @@ def cost_chem_softening(blk):
         * (
             (
                 pyunits.convert(
-                    blk.unit_model.properties_in[0].flow_vol,
+                    blk.unit_model.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.megagallon / pyunits.day,
                 )
             )
@@ -712,7 +726,11 @@ def cost_chem_softening(blk):
         )
     )
 
+    capital_cost_expr += blk.admin_capital_cost
+
     # Operational cost component constraints
+
+    op_cost_expr = 0
 
     # Mixing tank
     blk.mix_tank_op_cost_constraint = Constraint(
@@ -733,6 +751,8 @@ def cost_chem_softening(blk):
         )
         + chem_soft.mix_tank_op_constant
     )
+
+    op_cost_expr += blk.mix_tank_op_cost
 
     # Flocculation tank
     blk.floc_tank_op_cost_constraint = Constraint(
@@ -768,6 +788,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.floc_tank_op_cost
+
     # Sedimentation basin
     blk.sed_basin_op_cost_constraint = Constraint(
         expr=blk.sed_basin_op_cost
@@ -794,6 +816,8 @@ def cost_chem_softening(blk):
             + chem_soft.sed_basin_op_constant
         )
     )
+
+    op_cost_expr += blk.sed_basin_op_cost
 
     # Recarbonation basin
     blk.recarb_basin_op_cost_constraint = Constraint(
@@ -835,6 +859,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.recarb_basin_op_cost
+
     # Lime feed
     blk.lime_feed_op_cost_constraint = Constraint(
         expr=blk.lime_feed_op_cost
@@ -849,6 +875,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.lime_feed_op_cost
+
     # Lime sludge management
     blk.lime_sludge_mngt_op_cost_constraint = Constraint(
         expr=blk.lime_sludge_mngt_op_cost
@@ -860,6 +888,8 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.lime_sludge_mngt_op_cost
+
     # Admin cost
     blk.admin_op_cost_constraint = Constraint(
         expr=blk.admin_op_cost
@@ -868,7 +898,7 @@ def cost_chem_softening(blk):
             * (
                 (
                     pyunits.convert(
-                        blk.unit_model.properties_in[0].flow_vol,
+                        blk.unit_model.properties_in[0].flow_vol_phase["Liq"],
                         to_units=pyunits.megagallon / pyunits.day,
                     )
                 )
@@ -877,43 +907,30 @@ def cost_chem_softening(blk):
         )
     )
 
+    op_cost_expr += blk.admin_op_cost
+
     # Sum of all capital costs
-    blk.capital_cost_constraint = Constraint(
-        expr=blk.capital_cost
-        == blk.mix_tank_capital_cost
-        + blk.floc_tank_capital_cost
-        + blk.sed_basin_capital_cost
-        + blk.recarb_basin_capital_cost
-        + blk.recarb_basin_source_capital_cost
-        + blk.lime_feed_system_capital_cost
-        + blk.admin_capital_cost
-    )
+    blk.costing_package.add_cost_factor(blk, None)
+    blk.capital_cost_constraint = Constraint(expr=blk.capital_cost == capital_cost_expr)
 
     # Sum of all operational costs
 
     blk.fixed_operating_cost_constraint = Constraint(
-        expr=blk.fixed_operating_cost
-        == blk.mix_tank_op_cost
-        + blk.floc_tank_op_cost
-        + blk.sed_basin_op_cost
-        + blk.recarb_basin_op_cost
-        + blk.lime_feed_op_cost
-        + blk.lime_sludge_mngt_op_cost
-        + blk.admin_op_cost
+        expr=blk.fixed_operating_cost == op_cost_expr
     )
 
     blk.mixer_power_constraint = Constraint(
         expr=blk.mixer_power
         == (blk.unit_model.vel_gradient_mix**2)
         * blk.unit_model.volume_mixer
-        * blk.unit_model.properties_in[0].params.visc_d
+        * blk.unit_model.properties_in[0].params.visc_d_phase["Liq"]
     )
 
     blk.floc_power_constraint = Constraint(
         expr=blk.floc_power
         == (blk.unit_model.vel_gradient_floc**2)
         * blk.unit_model.volume_floc
-        * blk.unit_model.properties_in[0].params.visc_d
+        * blk.unit_model.properties_in[0].params.visc_d_phase["Liq"]
     )
 
     blk.electricity_flow_constraint = Constraint(
@@ -926,7 +943,8 @@ def cost_chem_softening(blk):
         return pyunits.convert(
             b.unit_model.CaO_dosing
             + pyunits.convert(
-                b.unit_model.excess_CaO * b.unit_model.properties_in[0].flow_vol,
+                b.unit_model.excess_CaO
+                * b.unit_model.properties_in[0].flow_vol_phase["Liq"],
                 to_units=pyunits.kg / pyunits.day,
             ),
             to_units=pyunits.kg / pyunits.year,
@@ -935,7 +953,8 @@ def cost_chem_softening(blk):
     @blk.Expression(doc="Costing block MgCl2 dosing")
     def mgcl2_dosing(b):
         return pyunits.convert(
-            b.unit_model.MgCl2_dosing * b.unit_model.properties_in[0].flow_vol,
+            b.unit_model.MgCl2_dosing
+            * b.unit_model.properties_in[0].flow_vol_phase["Liq"],
             to_units=pyunits.kg / pyunits.year,
         )
 
@@ -950,5 +969,5 @@ def cost_chem_softening(blk):
 
     blk.costing_package.cost_flow(blk.cao_dosing, "lime")
     blk.costing_package.cost_flow(blk.unit_model.Na2CO3_dosing, "soda ash")
-    blk.costing_package.cost_flow(blk.mgcl2_dosing, "mgcl2")
+    # blk.costing_package.cost_flow(blk.mgcl2_dosing, "mgcl2")
     blk.costing_package.cost_flow(blk.co2_dosing, "co2")

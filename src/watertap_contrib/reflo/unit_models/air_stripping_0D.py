@@ -43,13 +43,31 @@ from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.constants import Constants
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.misc import StrEnum, extract_data
-from idaes.core.util.exceptions import InitializationError, ConfigurationError
+from idaes.core.util.exceptions import InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
 from watertap.core import ControlVolume0DBlock, InitializationMixin
+from watertap_contrib.reflo.costing.units.air_stripping import cost_air_stripping
 
 __author__ = "Kurban Sitterley"
+
+
+"""
+REFERENCES:
+
+Onda, K., Takeuchi, H., & Okumoto, Y. (1968). 
+Mass Transfer Coefficients between Gas and Liquid Phases in Packed Columns. 
+Journal of Chemical Engineering of Japan, 1(1), 56-62. doi:10.1252/jcej.1.56
+
+Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
+Chap. 7, 14 in MWH's Water Treatment: Principles and Design (3rd ed.). doi:10.1002/9781118131473
+
+Edzvald, J. (2011). Chapter 6: Gas-Liquid Processes: Principles and Applications. 
+In Water Quality & Treatment: A Handbook on Drinking Water (6 ed.): American Water Works Association.
+ISBN 9780071630115
+
+"""
 
 
 _log = idaeslog.getLogger(__name__)
@@ -245,11 +263,11 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Factor to calculate pressure drop through tower",
         )
 
-        self.tower_height_safety_factor = Param(
+        self.tower_height_factor = Param(
             initialize=1.2,
             mutable=True,
             units=pyunits.dimensionless,
-            doc="Safety factor for tower height",
+            doc="Factor to calculate tower height",
         )
 
         self.tower_port_diameter = Param(
@@ -278,6 +296,48 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             mutable=True,
             units=pyunits.dimensionless,
             doc="Safety factor for overall mass transfer coeff",
+        )
+
+        self.blower_efficiency = Param(
+            initialize=0.4,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Blower efficiency",
+        )
+
+        self.pump_efficiency = Param(
+            initialize=0.85,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Pump efficiency",
+        )
+
+        self.power_blower_denom_coeff = Param(
+            initialize=0.283,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Blower power equation denominator coefficient",
+        )
+
+        self.power_blower_exponent = Param(
+            initialize=0.283,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Blower power equation exponent",
+        )
+
+        self.blower_power = Var(
+            initialize=50,
+            bounds=(0, None),
+            units=pyunits.kilowatt,
+            doc="Air blower power requirement",
+        )
+
+        self.pump_power = Var(
+            initialize=50,
+            bounds=(0, None),
+            units=pyunits.kilowatt,
+            doc="Water pump power requirement",
         )
 
         self.packing_surface_area_total = Var(
@@ -370,27 +430,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="Number of transfer units",
         )
 
-        self.N_Re = Var(
-            initialize=10,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Reynolds number",
-        )
-
-        self.N_Fr = Var(
-            initialize=0.1,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Froude number",
-        )
-
-        self.N_We = Var(
-            initialize=1000,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Weber number",
-        )
-
         self.pressure_drop_gradient = Var(
             initialize=100,
             bounds=(20, 1200),
@@ -403,14 +442,14 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             initialize=30,
             bounds=(0, None),
             units=pyunits.s**-1,
-            doc="Overall mass transfer coeff (K_L*a)",
+            doc="Overall mass transfer coefficient (K_L*a)",
         )
 
         @self.Expression(doc="Operational air-to-water ratio")
         def air_water_ratio_op(b):
             return prop_in.flow_vol_phase["Vap"] / prop_in.flow_vol_phase["Liq"]
 
-        @self.Expression()
+        @self.Expression(doc="Packing efficiency number")
         def packing_efficiency_number(b):
             return b.packing_surface_area_total * b.packing_diam_nominal
 
@@ -424,13 +463,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Expression(doc="Height of tower")
         def tower_height(b):
-            return b.packing_height * b.tower_height_safety_factor
+            return b.packing_height * b.tower_height_factor
 
         @self.Expression(doc="Volume of tower")
         def tower_volume(b):
             return b.tower_area * b.tower_height
 
-        @self.Expression(doc="Volume of tower")
+        @self.Expression(doc="Volume of packing")
         def packing_volume(b):
             return b.tower_area * b.packing_height
 
@@ -452,35 +491,40 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.Pa,
             )
 
-        self.build_oto()
-
-        @self.Constraint(doc="Reynolds number")
-        def eq_Re(b):
-            return b.N_Re == b.mass_loading_rate["Liq"] / (
-                b.packing_surface_area_total * prop_in.visc_d_phase["Liq"]
+        @self.Expression(self.phase_target_set, doc="Schmidt Number")
+        def N_Sc(b, p, j):
+            return pyunits.convert(
+                prop_in.visc_d_phase[p]
+                / (prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j]),
+                to_units=pyunits.dimensionless,
             )
 
-        @self.Constraint(doc="Froude number")
-        def eq_Fr(b):
-            return (
-                b.N_Fr
-                * prop_in.dens_mass_phase["Liq"] ** 2
-                * Constants.acceleration_gravity
-                == b.mass_loading_rate["Liq"] ** 2 * b.packing_surface_area_total
+        @self.Expression(doc="Reynolds number")
+        def N_Re(b):
+            return pyunits.convert(
+                b.mass_loading_rate["Liq"]
+                / (b.packing_surface_area_total * prop_in.visc_d_phase["Liq"]),
+                to_units=pyunits.dimensionless,
             )
 
-        @self.Constraint(doc="Weber number")
-        def eq_We(b):
-            return (
-                b.N_We
-                * prop_in.dens_mass_phase["Liq"]
+        @self.Expression(doc="Froude number")
+        def N_Fr(b):
+            return (b.mass_loading_rate["Liq"] ** 2 * b.packing_surface_area_total) / (
+                prop_in.dens_mass_phase["Liq"] ** 2 * Constants.acceleration_gravity
+            )
+
+        @self.Expression(doc="Weber number")
+        def N_We(b):
+            return b.mass_loading_rate["Liq"] ** 2 / (
+                prop_in.dens_mass_phase["Liq"]
                 * b.packing_surface_area_total
                 * b.surf_tension_water
-                == b.mass_loading_rate["Liq"] ** 2
             )
 
+        self.build_oto()
+
         @self.Constraint(phase_set)
-        def eq_mass_loading_rate(b, p):
+        def eq_mass_loading_rate(b, p, doc="Mass loading rate equation per phase"):
             if p == "Vap":
                 dens_vap = prop_in.dens_mass_phase[p]
                 dens_liq = prop_in.dens_mass_phase["Liq"]
@@ -511,8 +555,9 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(self.target_set, doc="Minimum air-to-water ratio")
         def eq_air_water_ratio_min(b, j):
             c0 = prop_in.conc_mass_phase_comp["Liq", j]
+            ce = c0 * b.target_remaining_frac[j]
             return b.air_water_ratio_min * (c0 * prop_in.henry_constant_comp[j]) == (
-                c0 - c0 * b.target_remaining_frac[j]
+                c0 - ce
             )
 
         @self.Constraint(self.target_set, doc="Overall mass transfer coeff")
@@ -533,7 +578,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(self.target_set)
         def eq_liq_to_vap(b, j):
-
             return (
                 prop_out.flow_mass_phase_comp["Vap", j]
                 == -b.process_flow.mass_transfer_term[0, "Liq", j]
@@ -577,6 +621,40 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                 == b.height_transfer_unit[j] * b.number_transfer_unit[j]
             )
 
+        @self.Constraint(doc="Pumping power required.")
+        def eq_pump_power(b):
+            return (
+                b.pump_power
+                == pyunits.convert(
+                    prop_in.flow_mass_phase["Liq"]
+                    * b.tower_height
+                    * Constants.acceleration_gravity,
+                    to_units=pyunits.kilowatt,
+                )
+                / b.pump_efficiency
+            )
+
+        @self.Constraint(doc="Blower power required.")
+        def eq_blower_power(b):
+            pressure_ambient = 101325 * pyunits.Pa
+            return b.blower_power == pyunits.convert(
+                (
+                    prop_in.flow_mass_phase["Vap"]
+                    * Constants.gas_constant
+                    * prop_in.temperature["Vap"]
+                )
+                / (
+                    prop_in.mw_comp["Air"]
+                    * b.power_blower_denom_coeff
+                    * b.blower_efficiency
+                )
+                * (
+                    (prop_out.pressure / pressure_ambient) ** b.power_blower_exponent
+                    - 1
+                ),
+                to_units=pyunits.kilowatt,
+            )
+
     def build_oto(self):
         """
 
@@ -593,7 +671,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_E = E = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO E parameter",
+            doc="OTO model: E parameter",
         )
 
         @self.Constraint(doc="OTO model E calculation")
@@ -610,7 +688,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_F = F = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO F parameter",
+            doc="OTO model: F parameter",
         )
 
         @self.Constraint(doc="OTO model F calculation")
@@ -621,28 +699,28 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_a0_param1 = a01 = Param(
             initialize=-6.6599,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term, first parameter",
+            doc="OTO model: Pressure drop a0 term, first parameter",
         )
         self.oto_a0_param2 = a02 = Param(
             initialize=4.3077,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term, second parameter",
+            doc="OTO model: Pressure drop a0 term, second parameter",
         )
         self.oto_a0_param3 = a03 = Param(
             initialize=-1.3503,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term, third parameter",
+            doc="OTO model: Pressure drop a0 term, third parameter",
         )
         self.oto_a0_param4 = a04 = Param(
             initialize=0.15931,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term, fourth parameter",
+            doc="OTO model: Pressure drop a0 term, fourth parameter",
         )
 
         self.oto_a0 = a0 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a0 term",
+            doc="OTO model: Pressure drop a0 term",
         )
 
         @self.Constraint(doc="OTO a0 equation")
@@ -653,27 +731,27 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_a1_param1 = a11 = Param(
             initialize=3.0945,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term, first parameter",
+            doc="OTO model: Pressure drop a1 term, first parameter",
         )
         self.oto_a1_param2 = a12 = Param(
             initialize=-4.3512,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term, second parameter",
+            doc="OTO model: Pressure drop a1 term, second parameter",
         )
         self.oto_a1_param3 = a13 = Param(
             initialize=1.6240,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term, third parameter",
+            doc="OTO model: Pressure drop a1 term, third parameter",
         )
         self.oto_a1_param4 = a14 = Param(
             initialize=-0.20855,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term, fourth parameter",
+            doc="OTO model: Pressure drop a1 term, fourth parameter",
         )
         self.oto_a1 = a1 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a1 term",
+            doc="OTO model: Pressure drop a1 term",
         )
 
         @self.Constraint(doc="OTO a1 equation")
@@ -684,28 +762,28 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_a2_param1 = a21 = Param(
             initialize=1.7611,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term, first parameter",
+            doc="OTO model: Pressure drop a2 term, first parameter",
         )
         self.oto_a2_param2 = a22 = Param(
             initialize=-2.3394,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term, second parameter",
+            doc="OTO model: Pressure drop a2 term, second parameter",
         )
         self.oto_a2_param3 = a23 = Param(
             initialize=0.89914,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term, third parameter",
+            doc="OTO model: Pressure drop a2 term, third parameter",
         )
         self.oto_a2_param4 = a24 = Param(
             initialize=-0.115971,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term, fourth parameter",
+            doc="OTO model: Pressure drop a2 term, fourth parameter",
         )
 
         self.oto_a2 = a2 = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO correlation: Pressure drop a2 term",
+            doc="OTO model: Pressure drop a2 term",
         )
 
         @self.Constraint(doc="OTO a2 equation")
@@ -715,7 +793,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_M = M = Var(
             initialize=1,
             units=pyunits.dimensionless,
-            doc="OTO M parameter",
+            doc="OTO model: M parameter",
         )
 
         @self.Constraint(doc="OTO M Parameter")
@@ -756,15 +834,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             sigma_w = b.surf_tension_water
             Lm = b.mass_loading_rate["Liq"]
             visc_liq = prop_in.visc_d_phase["Liq"]
-            dens_liq = prop_in.dens_mass_phase["Liq"]
-            g = Constants.acceleration_gravity
 
             exp_term = (
                 aw_param
                 * (sigma_c / sigma_w) ** aw_exp1
                 * (Lm / (a_t * visc_liq)) ** aw_exp2
-                * ((Lm**2 * a_t) / (dens_liq**2 * g)) ** aw_exp3
-                * (Lm**2 / (dens_liq * a_t * sigma_w)) ** aw_exp4
+                * (b.N_Fr) ** aw_exp3
+                * (b.N_We) ** aw_exp4
             )
             return a_w / a_t == 1 - exp(exp_term)
 
@@ -774,7 +850,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="OTO liquid mass transfer correlation parameter",
         )
         self.oto_liq_mass_xfr_exp1 = kl_exp1 = Param(
-            initialize=0.667,
+            initialize=(2 / 3),
             units=pyunits.dimensionless,
             doc="OTO liquid mass transfer correlation Re exponent",
         )
@@ -786,12 +862,12 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.oto_liq_mass_xfr_exp3 = kl_exp3 = Param(
             initialize=0.4,
             units=pyunits.dimensionless,
-            doc="OTO liquid mass transfer correlation Er exponent",
+            doc="OTO liquid mass transfer correlation packing efficiency exponent",
         )
         self.oto_liq_mass_xfr_exp4 = kl_exp4 = Param(
-            initialize=-0.3334,
+            initialize=-(1 / 3),
             units=pyunits.dimensionless,
-            doc="OTO liquid mass transfer correlation Sh exponent",
+            doc="OTO liquid mass transfer correlation fourth exponent",
         )
 
         self.oto_gas_mass_xfr_param = kg_param = Param(
@@ -805,14 +881,14 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             doc="OTO gas mass transfer correlation Re exponent",
         )
         self.oto_gas_mass_xfr_exp2 = kg_exp2 = Param(
-            initialize=0.3334,
+            initialize=(1 / 3),
             units=pyunits.dimensionless,
             doc="OTO gas mass transfer correlation Sc exponent",
         )
         self.oto_gas_mass_xfr_exp3 = kg_exp3 = Param(
             initialize=-2,
             units=pyunits.dimensionless,
-            doc="OTO gas mass transfer correlation Er exponent",
+            doc="OTO gas mass transfer correlation packing efficiency exponent",
         )
 
         self.oto_mass_transfer_coeff = Var(
@@ -820,14 +896,8 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             initialize=1,
             bounds=(0, None),
             units=pyunits.m / pyunits.s,
-            doc="OTO model - phase mass transfer coefficient in tower",
+            doc="OTO model: phase mass transfer coefficient in tower",
         )
-
-        @self.Expression(self.phase_target_set)
-        def oto_kfg_term(b, p, j):
-            return prop_in.visc_d_phase[p] / (
-                prop_in.dens_mass_phase[p] * prop_in.diffus_phase_comp[p, j]
-            )
 
         @self.Expression()
         def oto_kl_term(b):
@@ -847,7 +917,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                     b.oto_mass_transfer_coeff[p, j]
                     == kl_param
                     * term1**kl_exp1
-                    * b.oto_kfg_term[p, j] ** kl_exp2
+                    * b.N_Sc[p, j] ** kl_exp2
                     * b.packing_efficiency_number**kl_exp3
                     * b.oto_kl_term**kl_exp4
                 )
@@ -857,7 +927,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
                     == kg_param
                     * (b.packing_surface_area_total * prop_in.diffus_phase_comp[p, j])
                     * b.N_Re**kg_exp1
-                    * b.oto_kfg_term[p, j] ** kg_exp2
+                    * b.N_Sc[p, j] ** kg_exp2
                     * b.packing_efficiency_number**kg_exp3
                 )
 
@@ -1038,15 +1108,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.number_transfer_unit) is None:
             iscale.set_scaling_factor(self.number_transfer_unit, 0.1)
 
-        if iscale.get_scaling_factor(self.N_Re) is None:
-            iscale.set_scaling_factor(self.N_Re, 1)
-
-        if iscale.get_scaling_factor(self.N_Fr) is None:
-            iscale.set_scaling_factor(self.N_Fr, 10)
-
-        if iscale.get_scaling_factor(self.N_We) is None:
-            iscale.set_scaling_factor(self.N_We, 10)
-
         if iscale.get_scaling_factor(self.overall_mass_transfer_coeff) is None:
             iscale.set_scaling_factor(self.overall_mass_transfer_coeff, 1e2)
 
@@ -1071,15 +1132,18 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.pressure_drop_gradient) is None:
             iscale.set_scaling_factor(self.pressure_drop_gradient, 0.1)
 
+        if iscale.get_scaling_factor(self.blower_power) is None:
+            iscale.set_scaling_factor(self.blower_power, 0.1)
+
+        if iscale.get_scaling_factor(self.pump_power) is None:
+            iscale.set_scaling_factor(self.pump_power, 0.1)
+
         iscale.constraint_scaling_transform(
             self.eq_deltaP, iscale.get_scaling_factor(prop_in.pressure)
         )
 
         for (p, j), c in self.eq_oto_mass_transfer_coeff.items():
             iscale.constraint_scaling_transform(c, 1e6)
-
-        sf_Fr = iscale.get_scaling_factor(prop_in.dens_mass_phase["Liq"]) ** 2
-        iscale.constraint_scaling_transform(self.eq_Fr, sf_Fr)
 
         for j, c in self.eq_liq_to_vap.items():
             sf = iscale.get_scaling_factor(pf.mass_transfer_term[0, "Liq", j])
@@ -1090,18 +1154,68 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             iscale.constraint_scaling_transform(c, sf)
 
     def _get_stream_table_contents(self, time_point=0):
-        pass
 
-    #     return create_stream_table_dataframe(
-    #         {},
-    #         time_point=time_point,
-    #     )
+        return create_stream_table_dataframe(
+            {
+                "Feed Inlet": self.inlet,
+                "Liquid Outlet": self.outlet,
+            },
+            time_point=time_point,
+        )
 
     def _get_performance_contents(self, time_point=0):
-        var_dict = {}
+        target = self.config.target
+        var_dict = dict()
 
-        return {"vars": var_dict}
+        var_dict["Wetted surface area of packing"] = self.packing_surface_area_wetted
+        var_dict["Nominal diameter of packing"] = self.packing_diam_nominal
+        var_dict["Packing factor"] = self.packing_factor
+        var_dict[f"Stripping factor [{target}]"] = self.stripping_factor[target]
+        var_dict["Air-to-water flow ratio, minimum"] = self.air_water_ratio_min
+        var_dict["Packing height"] = self.packing_height
+        var_dict["Mass loading rate, liquid"] = self.mass_loading_rate["Liq"]
+        var_dict["Mass loading rate, vapor"] = self.mass_loading_rate["Vap"]
+        var_dict[f"Height transfer unit [{target}]"] = self.height_transfer_unit[target]
+        var_dict[f"Number transfer units [{target}]"] = self.number_transfer_unit[
+            target
+        ]
+        var_dict[
+            f"Overall mass transfer coeff (KL_a) [{target}]"
+        ] = self.overall_mass_transfer_coeff[target]
+        var_dict["Pressure drop gradient"] = self.pressure_drop_gradient
+        var_dict["OTO Model - M parameter"] = self.oto_M
+        var_dict["OTO Model - E parameter"] = self.oto_E
+        var_dict["OTO Model - F parameter"] = self.oto_F
+        var_dict[
+            f"OTO Model - liquid mass transfer coeff [{target}]"
+        ] = self.oto_mass_transfer_coeff["Liq", target]
+        var_dict[
+            f"OTO Model - vapor mass transfer coeff [{target}]"
+        ] = self.oto_mass_transfer_coeff["Vap", target]
+        var_dict[
+            f"CV mass transfer term [{target}]"
+        ] = self.process_flow.mass_transfer_term[time_point, "Liq", target]
+        var_dict[f"CV delta P"] = self.process_flow.deltaP[time_point]
+        var_dict[f"Blower power required"] = self.blower_power
+        var_dict[f"Pump power required"] = self.pump_power
+
+        expr_dict = dict()
+
+        expr_dict["Air-to-water flow ratio, minimum"] = self.air_water_ratio_op
+        expr_dict["Pressure drop through tower"] = self.pressure_drop_tower
+        expr_dict["Tower height"] = self.tower_height
+        expr_dict["Tower diameter"] = self.tower_diam
+        expr_dict["Tower volume"] = self.tower_volume
+        expr_dict["Tower area"] = self.tower_area
+        expr_dict["Packing volume"] = self.packing_volume
+        expr_dict[f"Schmidt number, liquid [{target}]"] = self.N_Sc["Liq", target]
+        expr_dict[f"Schmidt number, gas [{target}]"] = self.N_Sc["Vap", target]
+        expr_dict[f"Reynolds number"] = self.N_Re
+        expr_dict[f"Froude number"] = self.N_Fr
+        expr_dict[f"Weber number"] = self.N_We
+
+        return {"vars": var_dict, "exprs": expr_dict}
 
     @property
     def default_costing_method(self):
-        pass
+        return cost_air_stripping

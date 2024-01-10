@@ -1,50 +1,36 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import pyomo.environ as pyo
 from watertap.costing.util import register_costing_parameter_block
 from watertap_contrib.reflo.costing.util import (
     make_capital_cost_var,
 )
-from idaes.core.util.constants import Constants
 
-# Costing equations from:
-# TODO: add references for costing
+# REFERENCES:
+# Dzombak, D. A., Roy, S. B., & Fang, H.-J. (1993).
+# Air-Stripper Design and Costing Computer Program
+# Journal AWWA, 85(10), 63-72. doi.org/10.1002/j.1551-8833.1993.tb06080.x
+#
+# Dzombak, D., Sherif, M., Shah, N., Vaidyanathan, V., Fang, H. J., & Roy, S. (2021).
+# ASDC for Windows: Air Stripper Design and Costing.
+# https://kilthub.cmu.edu/articles/software/ASDC_for_Windows_Air_Stripper_Design_and_Costing/14474007
+#
+# Towler, G., & Sinnott, R. (2013). Chapter 7 - Capital Cost Estimating.
+# Chemical Engineering Design (Second Edition) (pp. 307-354).
+# Butterworth-Heinemann. https://doi.org/https://doi.org/10.1016/B978-0-08-096659-5.00007-9
 
 
 def build_air_stripping_cost_param_block(blk):
-
-    blk.pressure_ambient = pyo.Param(
-        initialize=101325,
-        units=pyo.units.Pa,
-        mutable=True,
-        doc="Ambient pressure",
-    )
-
-    blk.blower_efficiency = pyo.Var(
-        initialize=0.4,
-        units=pyo.units.dimensionless,
-        bounds=(0, 1),
-        doc="Blower efficiency",
-    )
-
-    blk.pump_efficiency = pyo.Var(
-        initialize=0.85,
-        units=pyo.units.dimensionless,
-        bounds=(0, 1),
-        doc="Pump efficiency",
-    )
-
-    blk.power_blower_denom_coeff = pyo.Var(
-        initialize=0.283,
-        units=pyo.units.dimensionless,
-        bounds=(None, None),
-        doc="Blower power equation denominator coefficient",
-    )
-
-    blk.power_blower_exponent = pyo.Var(
-        initialize=0.283,
-        units=pyo.units.dimensionless,
-        bounds=(0, None),
-        doc="Blower power equation exponent",
-    )
 
     blk.capital_cost_tower_A_param = pyo.Var(
         initialize=45.2,
@@ -165,25 +151,25 @@ def build_air_stripping_cost_param_block(blk):
         doc="Tray capital cost C parameter",
     )
 
-    blk.capital_cost_plate_A_param = pyo.Var(
+    blk.capital_cost_distr_A_param = pyo.Var(
         initialize=20.6,
         units=pyo.units.USD_1991,
         bounds=(0, None),
-        doc="Plate capital cost A parameter",
+        doc="Distributor capital cost A parameter",
     )
 
-    blk.capital_cost_plate_B_param = pyo.Var(
+    blk.capital_cost_distr_B_param = pyo.Var(
         initialize=1.1,
         units=pyo.units.USD_1991 / pyo.units.inch,
         bounds=(0, None),
-        doc="Plate capital cost B parameter",
+        doc="Distributor capital cost B parameter",
     )
 
-    blk.capital_cost_plate_C_param = pyo.Var(
+    blk.capital_cost_distr_C_param = pyo.Var(
         initialize=9.7e-2,
         units=pyo.units.USD_1991 / pyo.units.inch**2,
         bounds=(0, None),
-        doc="Plate capital cost C parameter",
+        doc="Distributor capital cost C parameter",
     )
 
     blk.capital_cost_mist_elim_A_param = pyo.Var(
@@ -269,7 +255,6 @@ def cost_air_stripping(blk):
     ax = blk.unit_model
     packing_material = ax.config.packing_material
     prop_in = ax.process_flow.properties_in[0]
-    prop_out = ax.process_flow.properties_out[0]
     ax_params = blk.costing_package.air_stripping
     tower_height_ft = pyo.units.convert(ax.tower_height, to_units=pyo.units.feet)
     tower_diam_in = pyo.units.convert(ax.tower_diam, to_units=pyo.units.inch)
@@ -326,7 +311,7 @@ def cost_air_stripping(blk):
         doc="Tray ring cost",
     )
 
-    blk.tray_cost = pyo.Var(
+    blk.distributor_cost = pyo.Var(
         initialize=1e5,
         bounds=(0, None),
         units=base_currency,
@@ -368,25 +353,11 @@ def cost_air_stripping(blk):
         doc="Water pump cost",
     )
 
-    blk.pump_power = pyo.Var(
-        initialize=50,
-        bounds=(0, None),
-        units=pyo.units.kilowatt,
-        doc="Water pump power requirement",
-    )
-
     blk.blower_cost = pyo.Var(
         initialize=1e5,
         bounds=(0, None),
         units=base_currency,
         doc="Air blower cost",
-    )
-
-    blk.blower_power = pyo.Var(
-        initialize=50,
-        bounds=(0, None),
-        units=pyo.units.kilowatt,
-        doc="Air blower power requirement",
     )
 
     blk.tower_cost_constraint = pyo.Constraint(
@@ -452,7 +423,7 @@ def cost_air_stripping(blk):
     capital_cost_expr += blk.tray_ring_cost
 
     blk.tray_cost_constraint = pyo.Constraint(
-        expr=blk.tray_cost
+        expr=blk.distributor_cost
         == pyo.units.convert(
             ax_params.capital_cost_tray_A_param
             + ax_params.capital_cost_tray_B_param * tower_diam_in
@@ -464,15 +435,15 @@ def cost_air_stripping(blk):
     blk.plate_cost_constraint = pyo.Constraint(
         expr=blk.plate_cost
         == pyo.units.convert(
-            ax_params.capital_cost_plate_A_param
-            + ax_params.capital_cost_plate_B_param * tower_diam_in
-            + ax_params.capital_cost_plate_C_param * tower_diam_in**2,
+            ax_params.capital_cost_distr_A_param
+            + ax_params.capital_cost_distr_B_param * tower_diam_in
+            + ax_params.capital_cost_distr_C_param * tower_diam_in**2,
             to_units=base_currency,
         )
     )
 
     blk.tower_internals_cost_constraint = pyo.Constraint(
-        expr=blk.tower_internals_cost == blk.tray_cost + blk.plate_cost
+        expr=blk.tower_internals_cost == blk.distributor_cost + blk.plate_cost
     )
 
     capital_cost_expr += blk.tower_internals_cost
@@ -480,7 +451,7 @@ def cost_air_stripping(blk):
     blk.packing_cost_constraint = pyo.Constraint(
         expr=blk.packing_cost
         == pyo.units.convert(
-            ax_params.capital_cost_packing * ax.tower_volume, to_units=base_currency
+            ax_params.capital_cost_packing * ax.packing_volume, to_units=base_currency
         )
     )
 
@@ -502,7 +473,7 @@ def cost_air_stripping(blk):
         expr=blk.pump_cost
         == pyo.units.convert(
             ax_params.capital_cost_pump_base_param
-            * (blk.pump_power / ax_params.capital_cost_pump_denom_param)
+            * (ax.pump_power / ax_params.capital_cost_pump_denom_param)
             ** ax_params.capital_cost_pump_exponent,
             to_units=base_currency,
         )
@@ -522,42 +493,10 @@ def cost_air_stripping(blk):
 
     capital_cost_expr += blk.blower_cost
 
+    blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost == capital_cost_expr
     )
 
-    blk.pump_power_constraint = pyo.Constraint(
-        expr=blk.pump_power
-        == pyo.units.convert(
-            prop_in.flow_mass_phase["Liq"]
-            * ax.tower_height
-            * Constants.acceleration_gravity,
-            to_units=pyo.units.kilowatt,
-        )
-        / ax_params.pump_efficiency
-    )
-
-    blk.blower_power_constraint = pyo.Constraint(
-        expr=blk.blower_power
-        == pyo.units.convert(
-            (
-                prop_in.flow_mass_phase["Vap"]
-                * Constants.gas_constant
-                * prop_in.temperature["Vap"]
-            )
-            / (
-                prop_in.mw_comp["Air"]
-                * ax_params.power_blower_denom_coeff
-                * ax_params.blower_efficiency
-            )
-            * (
-                (prop_out.pressure / ax_params.pressure_ambient)
-                ** ax_params.power_blower_exponent
-                - 1
-            ),
-            to_units=pyo.units.kilowatt,
-        )
-    )
-
-    blk.electricity_flow = pyo.Expression(expr=(blk.blower_power + blk.pump_power))
+    blk.electricity_flow = pyo.Expression(expr=(ax.blower_power + ax.pump_power))
     blk.costing_package.cost_flow(blk.electricity_flow, "electricity")

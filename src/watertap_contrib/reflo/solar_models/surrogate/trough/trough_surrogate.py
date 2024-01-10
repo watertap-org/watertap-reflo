@@ -1,15 +1,14 @@
-###############################################################################
-# WaterTAP Copyright (c) 2021, The Regents of the University of California,
-# through Lawrence Berkeley National Laboratory, Oak Ridge National
-# Laboratory, National Renewable Energy Laboratory, and National Energy
-# Technology Laboratory (subject to receipt of any required approvals from
-# the U.S. Dept. of Energy). All rights reserved.
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
-#
-###############################################################################
+#################################################################################
 
 import os
 import sys
@@ -45,6 +44,8 @@ from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.exceptions import InitializationError
 
 import idaes.logger as idaeslog
+
+from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
 
 _log = idaeslog.getLogger(__name__)
 
@@ -415,3 +416,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
         ax2.set_title(r"Residual plot", fontsize=axis_fontsize)
 
         plt.show()
+
+    @property
+    def default_costing_method(self):
+        return cost_trough_surrogate

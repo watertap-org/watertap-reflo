@@ -12,7 +12,6 @@
 """
 Air-water equilibrium property package
 """
-from copy import deepcopy
 
 # Import Python libraries
 import idaes.logger as idaeslog
@@ -38,7 +37,6 @@ from pyomo.environ import (
 from pyomo.environ import units as pyunits
 from pyomo.common.config import ConfigValue, In
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
-from watertap.core.util.model_diagnostics.infeasible import *
 
 # Import IDAES cores
 from idaes.core import (
@@ -50,7 +48,7 @@ from idaes.core import (
     MaterialBalanceType,
     EnergyBalanceType,
 )
-from idaes.core.base.components import Solute, Solvent, Component
+from idaes.core.base.components import Solute, Solvent
 from idaes.core.base.phases import (
     LiquidPhase,
     VaporPhase,
@@ -62,7 +60,6 @@ from idaes.core.util.initialization import (
     revert_state_vars,
     solve_indexed_blocks,
 )
-from idaes.core.util.misc import extract_data
 from idaes.core.solvers import get_solver
 from idaes.core.util.misc import add_object_reference
 from idaes.core.util.model_statistics import (
@@ -86,18 +83,50 @@ _log = idaeslog.getLogger(__name__)
 
 __author__ = "Kurban Sitterley"
 
+"""
+REFERENCES: 
+
+Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
+Chapter 7, 14. MWH's Water Treatment: Principles and Design (3rd ed.). doi:10.1002/9781118131473
+
+Aniceto, J. P. S., Zêzere, B., & Silva, C. M. (2021).
+Predictive Models for the Binary Diffusion Coefficient at Infinite Dilution in Polar and Nonpolar Fluids. 
+Materials (Basel), 14(3). doi.org/10.3390/ma14030542
+
+Wilke, C. R., & Lee, C. Y. (2002).
+Estimation of Diffusion Coefficients for Gases and Vapors.
+Industrial & Engineering Chemistry, 47(6), 1253-1257. doi:10.1021/ie50546a056
+
+Huang, J. (2018).
+A Simple Accurate Formula for Calculating Saturation Vapor Pressure of Water and Ice.
+Journal of Applied Meteorology and Climatology, 57(6), 1265-1272. doi:10.1175/jamc-d-17-0334.1
+
+"""
+
 
 class MolarVolumeCalculation(Enum):
+    """
+    Approach to determine component molar volume. TynCalus is default.
+    """
+
     none = auto()
     TynCalus = auto()
 
 
 class LiqDiffusivityCalculation(Enum):
+    """
+    Approach to determine component liquid diffusivity. HaydukLaudie is default.
+    """
+
     none = auto()
     HaydukLaudie = auto()
 
 
 class VapDiffusivityCalculation(Enum):
+    """
+    Approach to determine component vapor diffusivity. WilkeLee is default.
+    """
+
     none = auto()
     WilkeLee = auto()
 
@@ -119,7 +148,7 @@ class AirWaterEqData(PhysicalParameterBlock):
         ConfigValue(
             default={},
             domain=dict,
-            description="Required argument. Dict of component names (keys)and molecular weight data (values)",
+            description="Required argument. Dict of component names (keys) and molecular weight data (values)",
         ),
     )
     CONFIG.declare(
@@ -145,7 +174,8 @@ class AirWaterEqData(PhysicalParameterBlock):
         ConfigValue(
             default={},
             domain=dict,
-            description="Dict of solute species names and critical molar volume of aqueous species. Used for Tyn-Calus method for calculating molar bolume",
+            description="Dict of solute species names and critical molar volume of aqueous species."
+            "Used for Tyn-Calus method for calculating molar volume",
         ),
     )
 
@@ -232,7 +262,7 @@ class AirWaterEqData(PhysicalParameterBlock):
        .. csv-table::
            :header: "Configuration Options", "Description"
 
-           "``LiqDiffusivityCalculation.none``", "Users provide data via the diffusivity_data configuration"
+           "``LiqDiffusivityCalculation.none``", "Users provide liquid diffusivity data via the diffusivity_data configuration"
            "``LiqDiffusivityCalculation.HaydukLaudie``", "Allow the nonelectrolyte (neutral) species to get diffusivity from the Hayduk-Laudie equation"
        """,
         ),
@@ -252,7 +282,7 @@ class AirWaterEqData(PhysicalParameterBlock):
        .. csv-table::
            :header: "Configuration Options", "Description"
 
-           "``VapDiffusivityCalculation.none``", "Users provide data via the diffusivity_data configuration"
+           "``VapDiffusivityCalculation.none``", "Users provide vapor diffusivity data via the diffusivity_data configuration"
            "``VapDiffusivityCalculation.WilkeLee``", "Allow the nonelectrolyte (neutral) species to get diffusivity from the Wilke-Lee equation"
        """,
         ),
@@ -1797,7 +1827,15 @@ class AirWaterEqStateBlockData(StateBlockData):
                     iscale.set_scaling_factor(self.critical_molar_volume_comp[j], sf)
             if self.is_property_constructed("molar_volume_comp"):
                 if iscale.get_scaling_factor(self.molar_volume_comp[j]) is None:
-                    sf = iscale.get_scaling_factor(self.critical_molar_volume_comp[j])
+                    if (
+                        self.params.config.molar_volume_calculation
+                        is MolarVolumeCalculation.TynCalus
+                    ):
+                        sf = iscale.get_scaling_factor(
+                            self.critical_molar_volume_comp[j]
+                        )
+                    else:
+                        sf = value(self.params.config.molar_volume_data[j]) ** -1
                     iscale.set_scaling_factor(self.molar_volume_comp[j], sf)
             if self.is_property_constructed("henry_constant_comp"):
                 if iscale.get_scaling_factor(self.henry_constant_comp[j]) is None:
@@ -1829,15 +1867,3 @@ class AirWaterEqStateBlockData(StateBlockData):
                     )
 
         transform_property_constraints(self)
-        # if hasattr(self, "eq_diffus_phase_comp"):
-        #     for (p, j), c in self.eq_diffus_phase_comp.items():
-        #         sf = iscale.get_scaling_factor(self.diffus_phase_comp[p, j])
-        #         iscale.constraint_scaling_transform(c, sf)
-
-        # if hasattr(self, "eq_collision_function_ee_comp"):
-        #     for ind, v in self.eq_collision_function_ee_comp.items():
-        #         iscale.constraint_scaling_transform(v, 1e-10)
-
-        # if hasattr(self, "eq_energy_molecular_attraction_phase_comp"):
-        #     for ind, v in self.eq_energy_molecular_attraction_phase_comp.items():
-        #         iscale.constraint_scaling_transform(v, 1e-12)
