@@ -16,14 +16,16 @@ from collections import OrderedDict
 import textwrap
 
 # Import Pyomo libraries
-from pyomo.environ import Var, Param, NonNegativeReals, units as pyunits, value
+from pyomo.environ import ConcreteModel, Var, Param, NonNegativeReals, units as pyunits, value
 from pyomo.network import Port
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # Import IDAES cores
+from idaes.core import FlowsheetBlock
 from idaes.core import declare_process_block_class, UnitModelBlockData
 from idaes.core.solvers import get_solver
 from idaes.core.util.tables import stream_table_dataframe_to_string
+import idaes.core.util.scaling as iscale
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -161,7 +163,7 @@ class BatteryStorageData(UnitModelBlockData):
         self.energy_throughput = Var(
             self.flowsheet().config.time,
             within=NonNegativeReals,
-            initialize=0.0,
+            initialize=1.0,
             doc="Cumulative energy throughput",
             units=pyunits.kWh,
         )
@@ -202,6 +204,11 @@ class BatteryStorageData(UnitModelBlockData):
         @self.Constraint(self.flowsheet().config.time)
         def power_bound_out(b, t):
             return b.elec_out[t] <= b.nameplate_power
+        
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+        iscale.set_scaling_factor(self.state_of_charge, 1)
+        iscale.set_scaling_factor(self.energy_throughput, 1)
 
     def initialize_build(self, outlvl=idaeslog.NOTSET, solver=None, optarg=None):
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="properties")
