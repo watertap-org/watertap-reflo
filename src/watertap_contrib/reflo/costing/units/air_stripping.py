@@ -151,25 +151,25 @@ def build_air_stripping_cost_param_block(blk):
         doc="Tray capital cost C parameter",
     )
 
-    blk.capital_cost_plate_A_param = pyo.Var(
+    blk.capital_cost_distr_A_param = pyo.Var(
         initialize=20.6,
         units=pyo.units.USD_1991,
         bounds=(0, None),
-        doc="Plate capital cost A parameter",
+        doc="Distributor capital cost A parameter",
     )
 
-    blk.capital_cost_plate_B_param = pyo.Var(
+    blk.capital_cost_distr_B_param = pyo.Var(
         initialize=1.1,
         units=pyo.units.USD_1991 / pyo.units.inch,
         bounds=(0, None),
-        doc="Plate capital cost B parameter",
+        doc="Distributor capital cost B parameter",
     )
 
-    blk.capital_cost_plate_C_param = pyo.Var(
+    blk.capital_cost_distr_C_param = pyo.Var(
         initialize=9.7e-2,
         units=pyo.units.USD_1991 / pyo.units.inch**2,
         bounds=(0, None),
-        doc="Plate capital cost C parameter",
+        doc="Distributor capital cost C parameter",
     )
 
     blk.capital_cost_mist_elim_A_param = pyo.Var(
@@ -311,7 +311,7 @@ def cost_air_stripping(blk):
         doc="Tray ring cost",
     )
 
-    blk.tray_cost = pyo.Var(
+    blk.distributor_cost = pyo.Var(
         initialize=1e5,
         bounds=(0, None),
         units=base_currency,
@@ -423,7 +423,7 @@ def cost_air_stripping(blk):
     capital_cost_expr += blk.tray_ring_cost
 
     blk.tray_cost_constraint = pyo.Constraint(
-        expr=blk.tray_cost
+        expr=blk.distributor_cost
         == pyo.units.convert(
             ax_params.capital_cost_tray_A_param
             + ax_params.capital_cost_tray_B_param * tower_diam_in
@@ -435,15 +435,15 @@ def cost_air_stripping(blk):
     blk.plate_cost_constraint = pyo.Constraint(
         expr=blk.plate_cost
         == pyo.units.convert(
-            ax_params.capital_cost_plate_A_param
-            + ax_params.capital_cost_plate_B_param * tower_diam_in
-            + ax_params.capital_cost_plate_C_param * tower_diam_in**2,
+            ax_params.capital_cost_distr_A_param
+            + ax_params.capital_cost_distr_B_param * tower_diam_in
+            + ax_params.capital_cost_distr_C_param * tower_diam_in**2,
             to_units=base_currency,
         )
     )
 
     blk.tower_internals_cost_constraint = pyo.Constraint(
-        expr=blk.tower_internals_cost == blk.tray_cost + blk.plate_cost
+        expr=blk.tower_internals_cost == blk.distributor_cost + blk.plate_cost
     )
 
     capital_cost_expr += blk.tower_internals_cost
