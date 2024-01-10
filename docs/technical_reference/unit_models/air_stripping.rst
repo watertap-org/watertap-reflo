@@ -7,7 +7,7 @@ This air stripping model:
    * supports steady-state only
    * supports a single liquid phase only
    * has a single user-specified target compound
-   * assumes isothermal and iosbaric conditions
+   * assumes isothermal and isobaric conditions
 
 .. figure:: ../../_static/unit_models/air_stripping_schematic.png
     :width: 400
