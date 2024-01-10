@@ -16,7 +16,14 @@ from collections import OrderedDict
 import textwrap
 
 # Import Pyomo libraries
-from pyomo.environ import ConcreteModel, Var, Param, NonNegativeReals, units as pyunits, value
+from pyomo.environ import (
+    ConcreteModel,
+    Var,
+    Param,
+    NonNegativeReals,
+    units as pyunits,
+    value,
+)
 from pyomo.network import Port
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
@@ -204,7 +211,7 @@ class BatteryStorageData(UnitModelBlockData):
         @self.Constraint(self.flowsheet().config.time)
         def power_bound_out(b, t):
             return b.elec_out[t] <= b.nameplate_power
-        
+
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
         iscale.set_scaling_factor(self.state_of_charge, 1)

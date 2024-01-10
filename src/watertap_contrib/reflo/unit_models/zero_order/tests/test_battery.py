@@ -53,14 +53,13 @@ class TestBattery:
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.battery = BatteryStorage()
 
-    
         m.fs.battery.nameplate_power.fix(100)
         m.fs.battery.nameplate_energy.fix(1000)
         m.fs.battery.elec_in.fix(100)
         m.fs.battery.elec_out.fix(0)
         m.fs.battery.initial_state_of_charge.fix(0)
         m.fs.battery.initial_energy_throughput.fix(0)
-    
+
         return m
 
     @pytest.mark.unit
@@ -132,5 +131,5 @@ class TestBattery:
     @pytest.mark.component
     def test_solution(self, battery_frame):
         m = battery_frame
-        
+
         assert pytest.approx(value(m.fs.battery.state_of_charge[0]), rel=1e-3) == 95
