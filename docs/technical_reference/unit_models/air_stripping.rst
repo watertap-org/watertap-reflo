@@ -94,22 +94,22 @@ Variables
 .. csv-table::
     :header: "Description", "Variable Name", "Index", "Symbol", "Units"
 
-    "Air blower power requirement", "``blower_power``", "None", ":math:`p_{blow}`", ":math:`\text{kW}`"
-    "Water pump power requirement", "``pump_power``", "None", ":math:`p_{pump}`", ":math:`\text{kW}`"
+    "Pressure drop per length of packed bed", "``pressure_drop_gradient``", "None", ":math:`\cfrac{\Delta P_{pack}}{Z_{pack}}`", ":math:`\text{Pa m}^{-1}`"
+    "Overall mass transfer coefficient", "``overall_mass_transfer_coeff``", "``[target]``", ":math:`K_La`", ":math:`\text{m s}^{-1}`"
+    "Packing height", "``packing_height``", "None", ":math:`Z_{pack}`", ":math:`\text{m}`"
+    "Stripping factor", "``stripping_factor``", "``[target]``", ":math:`S`", ":math:`\text{dimensionless}`"
     "Total specific surface area of packing", "``packing_surface_area_total``", "None", ":math:`a_t`", ":math:`\text{m}^{-1}`"
     "Wetted specific surface area of packing", "``packing_surface_area_wetted``", "None", ":math:`a_w`", ":math:`\text{m}^{-1}`"
     "Nominal diameter of packing material", "``packing_diam_nominal``", "None", ":math:`d_p`", ":math:`\text{m}`"
     "Packing factor", "``packing_factor``", "None", ":math:`f`", ":math:`\text{dimensionless}`"
     "Surface tension of packing", "``packing_surf_tension``", "None", ":math:`\sigma_p`", ":math:`\text{kg s}^{-2}`"
     "Surface tension of water", "``surf_tension_water``", "None", ":math:`\sigma_w`", ":math:`\text{kg s}^{-2}`"
-    "Stripping factor", "``stripping_factor``", "``[target]``", ":math:`S`", ":math:`\text{dimensionless}`"
     "Minimum air-to-water ratio", "``air_water_ratio_min``", "None", ":math:`\bigg( \cfrac{Q_{air}}{Q_{water}} \bigg)_{min}`", ":math:`\text{dimensionless}`"
-    "Packing height", "``packing_height``", "None", ":math:`Z_{pack}`", ":math:`\text{m}`"
     "Vapor and liquid mass loading rate in tower", "``mass_loading_rate``", "``[p]``", ":math:`G_m, L_m`", ":math:`\text{kg } \text{s m}^{-2}`"
     "Height of one transfer unit", "``height_transfer_unit``", "``[target]``", ":math:`\text{HTU}`", ":math:`\text{m}`"
     "Number of transfer units", "``number_transfer_unit``", "``[target]``", ":math:`\text{NTU}`", ":math:`\text{dimensionless}`"
-    "Pressure drop per length of packed bed", "``pressure_drop_gradient``", "None", ":math:`\cfrac{\Delta P_{pack}}{Z_{pack}}`", ":math:`\text{Pa m}^{-1}`"
-    "Overall mass transfer coefficient", "``overall_mass_transfer_coeff``", "``[target]``", ":math:`K_La`", ":math:`\text{m s}^{-1}`"
+    "Air blower power requirement", "``blower_power``", "None", ":math:`p_{blow}`", ":math:`\text{kW}`"
+    "Water pump power requirement", "``pump_power``", "None", ":math:`p_{pump}`", ":math:`\text{kW}`"
     "OTO model: E parameter", "``oto_E``", "None", ":math:`E_{oto}`", ":math:`\text{dimensionless}`"
     "OTO model: F parameter", "``oto_F``", "None", ":math:`F_{oto}`", ":math:`\text{dimensionless}`"
     "OTO model: Pressure drop a0 term", "``oto_a0``", "None", ":math:`A_0`", ":math:`\text{dimensionless}`"
@@ -117,7 +117,6 @@ Variables
     "OTO model: Pressure drop a2 term", "``oto_a2``", "None", ":math:`A_2`", ":math:`\text{dimensionless}`"
     "OTO model: M parameter", "``oto_M``", "None", ":math:`M_{oto}`", ":math:`\text{dimensionless}`"
     "OTO model: phase mass transfer coefficient in tower", "``oto_mass_transfer_coeff``", "``phase_target_set``", ":math:`k_l, k_g`", ":math:`\text{m s}^{-1}`"
-    .. "", "````", "", ":math:`\text{}`", ":math:`\text{}`"
 
 Parameters
 ++++++++++
@@ -127,12 +126,12 @@ All parameters related to OTO model are *not* mutable.
 .. csv-table::
     :header: "Description", "Default Value", "Parameter Name", "Index", "Symbol", "Units"
 
-    "Safety factor for tower height", ":math:`\text{1.2}`", "``tower_height_safety_factor``", "None", ":math:`f_z`", ":math:`\text{dimensionless}`"
+    "Fractional reduction of target component", ":math:`\text{0.9}`", "``target_reduction_frac``", "``[target]``", ":math:`X`", ":math:`\text{dimensionless}`"
+    "Factor to calculate tower height", ":math:`\text{1.2}`", "``tower_height_factor``", "None", ":math:`f_z`", ":math:`\text{dimensionless}`"
     "Safety factor for overall mass transfer coefficient", ":math:`\text{0.7}`", "``overall_mass_transfer_coeff_sf``", "None", ":math:`f_{KLa}`", ":math:`\text{dimensionless}`"
     "Pressure drop parameter for mister, support, ducting, inlet/outlet", ":math:`275`", "``pressure_drop_tower_param``", "None", ":math:`f_{pt}`", ":math:`\text{N s}^2 \text{ m}^{-4}`"
     "Diameter of tower access ports", ":math:`\text{6}`", "``tower_port_diameter``", "None", ":math:`d_{port}`", ":math:`\text{inch}`"
-    "Diaeter of tower inlet and outlet piping", ":math:`\text{6}`", "``tower_pipe_diameter``", "None", ":math:`d_{pipe}`", ":math:`\text{inch}`"
-    "Fractional reduction of taret component", ":math:`\text{0.9}`", "``target_reduction_frac``", "``[target]``", ":math:`X`", ":math:`\text{dimensionless}`"
+    "Diameter of tower inlet and outlet piping", ":math:`\text{6}`", "``tower_pipe_diameter``", "None", ":math:`d_{pipe}`", ":math:`\text{inch}`"
     "Blower efficiency", ":math:`\text{0.4}`", "``blower_efficiency``", "None", ":math:`\eta_{blow}`", ":math:`\text{dimensionless}`"
     "Pump efficiency", ":math:`\text{0.85}`", "``pump_efficiency``", "None", ":math:`\eta_{pump}`", ":math:`\text{dimensionless}`"
     "OTO model: Pressure drop a0 term, first parameter", ":math:`\text{-6.6599}`", "``oto_a0_param1``", "None", ":math:`\alpha_{0,0}`", ":math:`\text{dimensionless}`"
