@@ -64,10 +64,10 @@ it will be calculated automatically by calling ``calculate_scaling_factors`` on 
 
 The default scaling factors are as follows:
 
-   * :math:`\text{1e-2}` for temperature
-   * :math:`\text{1e-5}` for pressure
-   * :math:`\text{1e-3}` for mass density
-   * :math:`\text{1e3}` for mass concentration
+   * :math:`\text{10}^{-2}` for temperature
+   * :math:`\text{10}^{-5}` for pressure
+   * :math:`\text{10}^{3}` for mass density
+   * :math:`\text{10}^{3}` for mass concentration
 
    
 Classes
