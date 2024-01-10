@@ -73,6 +73,14 @@ in the unit model configuration. Removal of the target compound is determined by
 Sets
 ----
 
+In addition to the Sets from the air-water equilibrium property package, the model contains three additional Sets for the target component in different phases:
+
+.. csv-table::
+    :header: "Description", "Set Name", "Symbol", "Indices"
+
+    "Target compound with no phase", "``target_set``", "``[j]``", "Target compound from model configuration"
+    "Target compound in liquid phase", "``liq_target_set``", "``[p, j]``", "Liquid phase and target compound from model configuration"
+    "Target compound in liquid and vapor phase", "``phase_target_set``", "``[p, j]``", "Liquid and vapor phase and target compound from model configuration"
 
 Model Components
 ----------------
