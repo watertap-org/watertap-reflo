@@ -44,9 +44,14 @@ from idaes.core import (
 
 from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
+import idaes.core.util.scaling as iscale
 
 from idaes.core.util.config import is_physical_parameter_block
 from watertap.core import InitializationMixin
+
+from watertap_contrib.reflo.costing.solar.thermal_energy_storage import (
+    cost_tes,
+)
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Mukta Hardikar"
@@ -209,30 +214,55 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         #    return model.specific_heat_cp
         #       == 1443 + 0.172 * model.temperature
 
+        # TODO: Add multiple tanks?
+
         self.salt_csp = Param(
             initialize=1443,
             units=pyunits.J / pyunits.kg / pyunits.K,
             doc="Specific heat capacity of the salt in the TES",
         )
 
-        self.tes_diameter = Var(
-            initialize=10, 
-            units=pyunits.m, 
-            doc="Diameter of the thermal storage tank"
-        )
+        # self.tes_diameter = Var(
+        #     initialize=10, 
+        #     units=pyunits.m, 
+        #     doc="Diameter of the thermal storage tank"
+        # )
 
-        self.tes_H_D_ratio = Param(
-            initialize = 2,
-            doc='Height to diameter ratio of tank'
-        )
+        # self.tes_height_diameter_ratio = Param(
+        #     initialize = 2,
+        #     doc='Height to diameter ratio of tank'
+        # )
+
         # self.tes_height = Var(
         #     initialize=10, 
         #     units=pyunits.m, 
         #     doc="Height of the thermal storage tank"
         # )
 
+        self.hours_storage = Var(
+            initialize = 8,
+            bounds = (0,24),
+            units  = pyunits.h,
+            doc = 'Hours of storage'
+        )
+
+        self.heat_load = Var(
+            initialize = 120,
+            bounds = (0,None),
+            units = pyunits.MW,
+            doc = 'Design thermal output rate'
+        )
+
+        self.thermal_energy_capacity = Var(
+            initialize = 1000,
+            bounds =(0,None),
+            units = pyunits.MW*pyunits.h,
+            doc = 'Thermal energy storage capacity for hours of storage at design thermal output rate'
+        )
+
         self.tes_volume = Var(
             initialize=100,
+            bounds =(0,None),
             units=pyunits.m**3,
             doc="Volume of the thermal storage tank",
         )
@@ -267,7 +297,7 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         )
 
         self.dt = Var(
-            initialize=1, 
+            initialize= 3600, 
             units=pyunits.s, 
             doc="Time step for multiperiod"
         )
@@ -296,12 +326,37 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             units=pyunits.kg / pyunits.m**3,
             doc="Packing density of salt",
         )
+      
+        self.pump_power = Param(
+            initialize=1, 
+            units=pyunits.W, 
+            mutable = True,
+            doc="Pump power"
+        )
+
+        self.pump_eff = Param(
+            initialize=1, 
+            units=pyunits.dimensionless, 
+            mutable = True,
+            doc="Pump efficiency"
+        )
+
+        self.electricity = Var(
+            initialize=1, 
+            units=pyunits.W, 
+            doc="Total electricity"
+        )
+
+        self.T_design = Param(initialize=80+273.15, units=pyunits.K, doc="ambient temperature")
+
+        self.T_amb = Param(initialize=25+273.15, units=pyunits.K, doc="ambient temperature")
 
         # constraints
-        # tank volume- Update to have a ratio between height and diameter so that volume is optimized
-        @self.Constraint(doc="Calculate optimal tank size")
-        def eq_tes_volume(b):
-            return b.tes_volume == b.tes_diameter*b.tes_H_D_ratio * 3.14 * b.tes_diameter**2 / 4
+        # @self.Constraint(doc="Calculate optimal tank size")
+        # def eq_tes_dimensions(b):
+        #     return (b.tes_volume == 
+        #             b.tes_diameter * b.tes_height_diameter_ratio * 
+        #             3.14 * b.tes_diameter**2 / 4 )
 
         @self.Constraint(doc="Calculate mass of solar salt")
         def eq_salt_mass(b):
@@ -330,7 +385,21 @@ class ThermalEnergyStorageData(UnitModelBlockData):
                 b.salt_csp * b.salt_mass
             ) * (b.heat_in[t]*b.dt - b.heat_out[t]*b.dt)
 
+
+        @self.Constraint()
+        def eq_thermal_capacity(b):
+            return b.thermal_energy_capacity == b.hours_storage * b.heat_load
         
+
+        @self.Constraint()
+        def eq_tes_volume(b):
+            return b.tes_volume == b.thermal_energy_capacity / ( b.salt_csp * b.salt_packing_density * (b.T_design-b.T_amb))
+
+
+        @self.Constraint(doc="Pump power")
+        def eq_P_pump(b):
+            return b.electricity == (b.pump_power / b.pump_eff)
+
     def initialize_build(
             self, 
             state_args=None,
@@ -397,6 +466,24 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             "TES initialization status {}.".format(idaeslog.condition(res))
         )
 
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+
+        # iscale.set_scaling_factor(self.tes_diameter, 1)
+        iscale.set_scaling_factor(self.tes_volume, 1e-1)
+        iscale.set_scaling_factor(self.heat_in, 1e-3)
+        iscale.set_scaling_factor(self.heat_out, 1e-3)
+        iscale.set_scaling_factor(self.tes_initial_temp, 1e-2)
+        iscale.set_scaling_factor(self.tes_temp, 1e-2)
+        iscale.set_scaling_factor(self.dt, 1e-3)
+        iscale.set_scaling_factor(self.salt_mass, 1e-2)
+        iscale.set_scaling_factor(self.electricity, 1e-1)
+        iscale.set_scaling_factor(self.hours_storage, 1e-1)
+        iscale.set_scaling_factor(self.heat_load, 1e-3)
+        iscale.set_scaling_factor(self.thermal_energy_capacity, 1e-5)
 
 
+    @property
+    def default_costing_method(self):
+        return cost_tes
 

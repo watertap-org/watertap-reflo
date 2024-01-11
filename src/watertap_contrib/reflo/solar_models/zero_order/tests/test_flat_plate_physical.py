@@ -148,11 +148,11 @@ class TestFlatPlatePhysical:
             flowsheet_costing_block = m.fs.costing
         )
 
-        # m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        # m.fs.costing.factor_total_investment.fix(1)
+        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
+        m.fs.costing.factor_total_investment.fix(1)
         
-        # m.fs.costing.cost_process()
-        # m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)
 
-        # results = solver.solve(m)
-        # assert_optimal_termination(results)
+        results = solver.solve(m)
+        assert_optimal_termination(results)

@@ -211,11 +211,13 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         self.pump_power = Param(
             initialize=1, 
             units=pyunits.W, 
+            mutable = True,
             doc="Pump power")
 
         self.pump_eff = Param(
             initialize=1, 
             units=pyunits.dimensionless, 
+            mutable = True,
             doc="Pump efficiency"
         )
 
