@@ -3,6 +3,7 @@ import os
 
 import pandas as pd
 from pyomo.environ import (
+    SolverFactory,
     ConcreteModel,
     Var,
     value,
@@ -11,8 +12,8 @@ from pyomo.environ import (
 )
 from pyomo.network import Port
 
-from watertap_contrib.seto.solar_models.surrogate.flat_plate import FlatPlateSurrogate
-from watertap_contrib.seto.costing import EnergyCosting
+from watertap_contrib.reflo.solar_models.surrogate.flat_plate import FlatPlateSurrogate
+from watertap_contrib.reflo.costing import EnergyCosting
 
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
@@ -33,7 +34,7 @@ from idaes.core.util.scaling import (
 
 # Get default solver for testing
 solver = get_solver()
-
+solver = SolverFactory("ipopt")
 dataset_filename = os.path.join(os.path.dirname(__file__), "data/flat_plate_data.pkl")
 surrogate_filename = os.path.join(
     os.path.dirname(__file__), "flat_plate_surrogate.json"

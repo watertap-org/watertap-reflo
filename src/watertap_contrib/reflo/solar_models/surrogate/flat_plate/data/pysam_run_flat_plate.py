@@ -8,7 +8,7 @@ import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.Swh as swh
-from watertap_contrib.seto.solar_models.surrogate.flat_plate.data.pyssc import (
+from watertap_contrib.reflo.solar_models.surrogate.flat_plate.data.pyssc import (
     PySSC,
 )
 
