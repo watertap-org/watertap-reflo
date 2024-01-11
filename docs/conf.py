@@ -80,8 +80,9 @@ html_logo = "_static/WaterTAP_REFLO.png"
 html_favicon = "_static/watertap_reflo_logo.ico"
 
 html_theme_options = {
-    'style_nav_header_background': '#22577A',
+    "style_nav_header_background": "#22577A",
 }
+
 
 def run_apidoc(*args):
     # NOTE the env var must be set before importing apidoc, or the options
