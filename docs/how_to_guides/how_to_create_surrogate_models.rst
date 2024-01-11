@@ -35,10 +35,10 @@ Import required libraries
 
 Define the surrogate model class and required parameters. The model class should contain the following:
 
-* build method that defines the surrogate inputs, outputs, and their respective bounds
-* get_training_validation method that loads the training and validation data
-* create_surrogate method that creates the surrogate model, provides the training options, and saves the resulting model
-* load_surrogate method that loads the surrogate model
+* ``build`` method that defines the surrogate inputs, outputs, and their respective bounds
+* ``get_training_validation`` method that loads the training and validation data
+* ``create_surrogate`` method that creates the surrogate model, provides the training options, and saves the resulting model
+* ``load_surrogate`` method that loads the surrogate model
 
 
 .. testcode::
@@ -122,25 +122,25 @@ Create Surrogate
         training_dataframe=self.data_training,
     )
 
-  # Set PySMO options
-  trainer.config.basis_function = "gaussian"  # default = gaussian
-  trainer.config.solution_method = "algebraic"  # default = algebraic
-  trainer.config.regularization = True  # default = True
+    # Set PySMO options
+    trainer.config.basis_function = "gaussian"  # default = gaussian
+    trainer.config.solution_method = "algebraic"  # default = algebraic
+    trainer.config.regularization = True  # default = True
 
-  # Train surrogate
-  rbf_train = trainer.train_surrogate()
+    # Train surrogate
+    rbf_train = trainer.train_surrogate()
 
-  # Create callable surrogate object
-  xmin, xmax = [self.design_size.bounds[0]], [self.design_size.bounds[1]]
-  input_bounds = {
-      self.input_labels[i]: (xmin[i], xmax[i]) for i in range(len(self.input_labels))
-  }
-  rbf_surr = PysmoSurrogate(rbf_train, self.input_labels, self.output_labels, input_bounds)
+    # Create callable surrogate object
+    xmin, xmax = [self.design_size.bounds[0]], [self.design_size.bounds[1]]
+    input_bounds = {
+        self.input_labels[i]: (xmin[i], xmax[i]) for i in range(len(self.input_labels))
+    }
+    rbf_surr = PysmoSurrogate(rbf_train, self.input_labels, self.output_labels, input_bounds)
 
-  # Save model to JSON
-  if self.surrogate_file is not None:
-      print(f'Writing surrogate model to {self.surrogate_file}')
-      model = rbf_surr.save_to_file(self.surrogate_file, overwrite=True)
+    # Save model to JSON
+    if self.surrogate_file is not None:
+        print(f'Writing surrogate model to {self.surrogate_file}')
+        model = rbf_surr.save_to_file(self.surrogate_file, overwrite=True)
 
 Load the Surrogate
 
@@ -165,4 +165,15 @@ Load the Surrogate
 Use the surrogate
 
 .. testcode:: 
-  
+
+  m = ConcreteModel()
+  m.fs = FlowsheetBlock(dynamic=False)
+  m.fs.pv = PVSurrogate()
+  m.fs.pv.create_surrogate(save=True)
+
+  m.fs.pv.load_surrogate()
+
+  results = m.fs.pv.surrogate.evaluate_surrogate(
+      m.fs.pv.data_validation[m.fs.pv.input_labels]
+  )
+  print(results)

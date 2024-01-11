@@ -71,7 +71,7 @@ html_css_files = ["custom.css"]
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 #
-html_logo = "_static/watertap_reflo_logo.png"
+html_logo = "_static/WaterTAP_REFLO.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
@@ -79,6 +79,9 @@ html_logo = "_static/watertap_reflo_logo.png"
 #
 html_favicon = "_static/watertap_reflo_logo.ico"
 
+html_theme_options = {
+    'style_nav_header_background': '#22577A',
+}
 
 def run_apidoc(*args):
     # NOTE the env var must be set before importing apidoc, or the options

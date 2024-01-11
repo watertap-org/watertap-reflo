@@ -2,9 +2,9 @@ Photovoltaic (PV) Surrogate Model
 ====================================================
 
 This Photovoltaic (PV) unit model
-   * supports steady-state only
-   * is a surrogate model
-   * is created using data from the `System Advisor Model (SAM) <https://sam.nrel.gov>`_
+   * Supports steady-state only
+   * Is a surrogate model created using the `PySMO <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/pysmo/index.html>`_ package
+   * Trained using data generated from `PySAM <https://nrel-pysam.readthedocs.io/en/main/>`_ which is is a Python package for the National Renewable Energy Laboratory's `System Advisor Model (SAM) <https://sam.nrel.gov>`_
 
 .. TODO: Add index/reference to home page
 
