@@ -12,7 +12,7 @@ def build_tes_cost_param_block(blk):
     costing = blk.parent_block()
 
     blk.thermal_energy_storage_cost = pyo.Var(
-        initialize=11,
+        initialize= 10.79,
         units=costing.base_currency / pyo.units.kW,
         bounds=(0, None),
         doc="Cost per kW storage",
@@ -26,7 +26,7 @@ def build_tes_cost_param_block(blk):
     )
 
     blk.fixed_operating_by_capacity = pyo.Var(
-        initialize=16,
+        initialize=66,
         units=costing.base_currency / (pyo.units.kW * costing.base_period),
         bounds=(0, None),
         doc="Fixed operating cost of thermal energy storage per kW capacity",
