@@ -10,7 +10,7 @@ from pyomo.environ import (
 from pyomo.network import Port
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 
-from watertap_contrib.reflo.solar_models.zero_order.flat_plate_physical.flat_plate_physical import (
+from watertap_contrib.reflo.solar_models.zero_order.flat_plate_physical import (
     FlatPlatePhysical,
 )
 from idaes.core.solvers import get_solver
