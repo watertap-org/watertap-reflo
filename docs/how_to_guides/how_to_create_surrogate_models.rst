@@ -66,13 +66,13 @@ Define the surrogate model class and required parameters. The model class should
         self.annual_energy = Var(
             initialize=1,
             units=pyunits.kWh,
-            doc="annual energy produced by the plant in kWh",
+            doc="Annual energy produced by the plant in kWh",
         )
         
         self.land_req = Var(
             initialize=7e7,
             units=pyunits.acre,
-            doc="annual energy produced by the plant in kWh",
+            doc="Land area required by the plant in acres",
         )
 
         self.surrogate_inputs = [self.design_size]
