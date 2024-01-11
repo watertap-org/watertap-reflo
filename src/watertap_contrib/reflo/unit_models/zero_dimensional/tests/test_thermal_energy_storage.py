@@ -5,12 +5,14 @@ from pyomo.environ import (
     SolverFactory,
     value,
     assert_optimal_termination,
-    units as pyunits
+    units as pyunits,
 )
 from pyomo.network import Port
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 
-from watertap_contrib.reflo.unit_models.zero_dimensional.thermal_energy_storage import ThermalEnergyStorage
+from watertap_contrib.reflo.unit_models.zero_dimensional.thermal_energy_storage import (
+    ThermalEnergyStorage,
+)
 from idaes.core.solvers import get_solver
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.reflo.costing import TreatmentCosting
@@ -40,43 +42,42 @@ from idaes.core import (
 # Get default solver for testing
 solver = get_solver()
 
+
 class TestThermalEnergyStorage:
-    @pytest.fixture(scope='class')
+    @pytest.fixture(scope="class")
     def tes(self):
 
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.properties =  WaterParameterBlock()
-        m.fs.tes = ThermalEnergyStorage(
-                property_package = m.fs.properties
-                )
-        
+        m.fs.properties = WaterParameterBlock()
+        m.fs.tes = ThermalEnergyStorage(property_package=m.fs.properties)
+
         # Define model inputs
-                
-        m.fs.tes.tes_hx_inlet.temperature.fix(75+273.15)
-        m.fs.tes.tes_hx_inlet.flow_mass_phase_comp[0,'Liq','H2O'].fix(0.1)
-        m.fs.tes.tes_hx_inlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
+
+        m.fs.tes.tes_hx_inlet.temperature.fix(75 + 273.15)
+        m.fs.tes.tes_hx_inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(0.1)
+        m.fs.tes.tes_hx_inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
         m.fs.tes.tes_hx_inlet.pressure.fix(101325)
 
-        m.fs.tes.tes_process_inlet.temperature.fix(55+273.15)
-        m.fs.tes.tes_process_inlet.flow_mass_phase_comp[0,'Liq','H2O'].fix(0.05)
-        m.fs.tes.tes_process_inlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
+        m.fs.tes.tes_process_inlet.temperature.fix(55 + 273.15)
+        m.fs.tes.tes_process_inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(0.05)
+        m.fs.tes.tes_process_inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
         m.fs.tes.tes_process_inlet.pressure.fix(101325)
 
-        m.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
+        m.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
         m.fs.tes.tes_hx_outlet.pressure.fix(101325)
         # m.fs.tes.initialize()
 
-        TES_outlet_initial = (30+273.15)*pyunits.K
+        TES_outlet_initial = (30 + 273.15) * pyunits.K
 
         # Fix outlet vapor flow to be 0
-        m.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
-        m.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0,'Liq','H2O'].fix(0.1)
+        m.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
+        m.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(0.1)
         m.fs.tes.tes_hx_outlet.pressure.fix()
         m.fs.tes.tes_hx_outlet.temperature.fix(TES_outlet_initial)
 
-        m.fs.tes.tes_process_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
-        m.fs.tes.tes_process_outlet.flow_mass_phase_comp[0,'Liq','H2O'].fix(0.05)
+        m.fs.tes.tes_process_outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
+        m.fs.tes.tes_process_outlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(0.05)
         m.fs.tes.tes_process_outlet.pressure.fix()
         m.fs.tes.tes_process_outlet.temperature.fix(TES_outlet_initial)
         m.fs.tes.initialize()
@@ -85,12 +86,12 @@ class TestThermalEnergyStorage:
         m.fs.tes.tes_initial_temp.fix(TES_outlet_initial)
 
         m.fs.tes.hours_storage.fix(6)
-        m.fs.tes.heat_load.fix(120*6)
+        m.fs.tes.heat_load.fix(120 * 6)
 
-        return m 
-    
+        return m
+
     @pytest.mark.unit
-    def test_config(self,tes):
+    def test_config(self, tes):
         m = tes
 
         assert len(m.fs.tes.config) == 7
@@ -98,21 +99,27 @@ class TestThermalEnergyStorage:
         assert not m.fs.tes.config.has_holdup
         assert m.fs.tes.config.property_package is m.fs.properties
         assert m.fs.tes.config.energy_balance_type is EnergyBalanceType.useDefault
-        assert m.fs.tes.config.momentum_balance_type is MomentumBalanceType.pressureTotal
-         
-    
+        assert (
+            m.fs.tes.config.momentum_balance_type is MomentumBalanceType.pressureTotal
+        )
+
     @pytest.mark.unit
     def test_build(self, tes):
         m = tes
 
         # Test ports
-        port_list = ['tes_hx_inlet', 'tes_hx_outlet','tes_process_inlet','tes_process_outlet']
+        port_list = [
+            "tes_hx_inlet",
+            "tes_hx_outlet",
+            "tes_process_inlet",
+            "tes_process_outlet",
+        ]
         for port_str in port_list:
             port = getattr(m.fs.tes, port_str)
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        # Test statistics     
+        # Test statistics
         assert number_variables(m.fs.tes) == 47
         assert number_unused_variables(m.fs.tes) == 0
         assert number_total_constraints(m.fs.tes) == 27
@@ -126,33 +133,30 @@ class TestThermalEnergyStorage:
     def test_calculate_scaling(self, tes):
         m = tes
         calculate_scaling_factors(m)
-         # check that all variables have scaling factors
+        # check that all variables have scaling factors
         unscaled_var_list = list(unscaled_variables_generator(m))
-        assert len(unscaled_var_list) == 0 
+        assert len(unscaled_var_list) == 0
 
     @pytest.mark.component
     def test_tes_model(self, tes):
- 
+
         m = tes
         m.fs.tes.initialize()
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-
     @pytest.mark.component
-    def test_costing(self,tes):
+    def test_costing(self, tes):
         m = tes
 
         m.fs.test_flow = 50 * pyunits.Mgallons / pyunits.day
 
         m.fs.costing = TreatmentCosting()
-        m.fs.tes.costing = UnitModelCostingBlock(
-            flowsheet_costing_block = m.fs.costing
-        )
+        m.fs.tes.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         m.fs.costing.factor_maintenance_labor_chemical.fix(0)
         m.fs.costing.factor_total_investment.fix(1)
-        
+
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)
 

@@ -6,15 +6,16 @@ from watertap_contrib.reflo.costing.util import (
     make_variable_operating_cost_var,
 )
 
+
 def build_tes_cost_param_block(blk):
 
     costing = blk.parent_block()
 
     blk.thermal_energy_storage_cost = pyo.Var(
-        initialize = 11,
-        units = costing.base_currency/pyo.units.kW,
-        bounds = (0, None),
-        doc = 'Cost per kW storage'
+        initialize=11,
+        units=costing.base_currency / pyo.units.kW,
+        bounds=(0, None),
+        doc="Cost per kW storage",
     )
 
     blk.contingency_frac_direct_cost = pyo.Var(
@@ -30,11 +31,11 @@ def build_tes_cost_param_block(blk):
         bounds=(0, None),
         doc="Fixed operating cost of thermal energy storage per kW capacity",
     )
-    
+
 
 @register_costing_parameter_block(
     build_rule=build_tes_cost_param_block,
-    parameter_block_name='tes',
+    parameter_block_name="tes",
 )
 def cost_tes(blk):
 
@@ -44,7 +45,6 @@ def cost_tes(blk):
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
-    
     blk.direct_capital_cost = pyo.Var(
         initialize=1e4,
         units=blk.config.flowsheet_costing_block.base_currency,
@@ -67,10 +67,9 @@ def cost_tes(blk):
     )
 
     blk.direct_cost_constraint = pyo.Constraint(
-        expr = blk.direct_capital_cost 
-        == (tes_params.thermal_energy_storage_cost*tes.thermal_energy_capacity
-            )
-            * (1 + tes_params.contingency_frac_direct_cost)
+        expr=blk.direct_capital_cost
+        == (tes_params.thermal_energy_storage_cost * tes.thermal_energy_capacity)
+        * (1 + tes_params.contingency_frac_direct_cost)
     )
 
     blk.sales_tax_constraint = pyo.Constraint(
@@ -78,7 +77,8 @@ def cost_tes(blk):
     )
 
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost == blk.direct_capital_cost + blk.indirect_capital_cost + blk.sales_tax
+        expr=blk.capital_cost
+        == blk.direct_capital_cost + blk.indirect_capital_cost + blk.sales_tax
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(

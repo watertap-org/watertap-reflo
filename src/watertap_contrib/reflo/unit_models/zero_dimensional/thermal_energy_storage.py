@@ -56,6 +56,7 @@ from watertap_contrib.reflo.costing.solar.thermal_energy_storage import (
 _log = idaeslog.getLogger(__name__)
 __author__ = "Mukta Hardikar"
 
+
 @declare_process_block_class("ThermalEnergyStorage")
 class ThermalEnergyStorageData(UnitModelBlockData):
     """
@@ -112,9 +113,7 @@ class ThermalEnergyStorageData(UnitModelBlockData):
     )
 
     CONFIG.declare(
-        "storage material", 
-        ConfigValue(default="salt", 
-                    doc="Thermal storage material")
+        "storage material", ConfigValue(default="salt", doc="Thermal storage material")
     )
 
     CONFIG.declare(
@@ -160,7 +159,7 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
-        tmp_dict["defined_state"] = True  
+        tmp_dict["defined_state"] = True
         self.hx_inlet_block = self.config.property_package.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of exit stream from the heat source",
@@ -182,7 +181,7 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
-        tmp_dict["defined_state"] = True 
+        tmp_dict["defined_state"] = True
         self.process_inlet_block = self.config.property_package.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of exit stream from the heat source",
@@ -201,10 +200,10 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         )
 
         # Add Ports
-        self.add_inlet_port(name='tes_hx_inlet',block = self.hx_inlet_block)
-        self.add_outlet_port(name='tes_hx_outlet',block = self.hx_outlet_block)
-        self.add_inlet_port(name='tes_process_inlet',block = self.process_inlet_block)
-        self.add_outlet_port(name='tes_process_outlet',block = self.process_outlet_block)
+        self.add_inlet_port(name="tes_hx_inlet", block=self.hx_inlet_block)
+        self.add_outlet_port(name="tes_hx_outlet", block=self.hx_outlet_block)
+        self.add_inlet_port(name="tes_process_inlet", block=self.process_inlet_block)
+        self.add_outlet_port(name="tes_process_outlet", block=self.process_outlet_block)
 
         # From https://github.com/gmlc-dispatches/dispatches/blob/main/dispatches/properties/solarsalt_properties.py
         # **** Requires Temperature in K
@@ -223,8 +222,8 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         )
 
         # self.tes_diameter = Var(
-        #     initialize=10, 
-        #     units=pyunits.m, 
+        #     initialize=10,
+        #     units=pyunits.m,
         #     doc="Diameter of the thermal storage tank"
         # )
 
@@ -234,35 +233,32 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         # )
 
         # self.tes_height = Var(
-        #     initialize=10, 
-        #     units=pyunits.m, 
+        #     initialize=10,
+        #     units=pyunits.m,
         #     doc="Height of the thermal storage tank"
         # )
 
         self.hours_storage = Var(
-            initialize = 8,
-            bounds = (0,24),
-            units  = pyunits.h,
-            doc = 'Hours of storage'
+            initialize=8, bounds=(0, 24), units=pyunits.h, doc="Hours of storage"
         )
 
         self.heat_load = Var(
-            initialize = 120,
-            bounds = (0,None),
-            units = pyunits.MW,
-            doc = 'Design thermal output rate'
+            initialize=120,
+            bounds=(0, None),
+            units=pyunits.MW,
+            doc="Design thermal output rate",
         )
 
         self.thermal_energy_capacity = Var(
-            initialize = 1000,
-            bounds =(0,None),
-            units = pyunits.MW*pyunits.h,
-            doc = 'Thermal energy storage capacity for hours of storage at design thermal output rate'
+            initialize=1000,
+            bounds=(0, None),
+            units=pyunits.MW * pyunits.h,
+            doc="Thermal energy storage capacity for hours of storage at design thermal output rate",
         )
 
         self.tes_volume = Var(
             initialize=100,
-            bounds =(0,None),
+            bounds=(0, None),
             units=pyunits.m**3,
             doc="Volume of the thermal storage tank",
         )
@@ -282,25 +278,21 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         )
 
         self.tes_initial_temp = Var(
-            initialize=30+273.15,
+            initialize=30 + 273.15,
             units=pyunits.K,
-            bounds=(25+273.15, 150+273.15),
+            bounds=(25 + 273.15, 150 + 273.15),
             doc="Temperature of the thermal storage tank initially from the previous time step",
         )
 
         self.tes_temp = Var(
             self.flowsheet().config.time,
-            initialize=30+273.15,
+            initialize=30 + 273.15,
             units=pyunits.K,
-            bounds=(25+273.15, 150+273.15),
+            bounds=(25 + 273.15, 150 + 273.15),
             doc="Temperature of the thermal storage tank to track convective heat losses",
         )
 
-        self.dt = Var(
-            initialize= 3600, 
-            units=pyunits.s, 
-            doc="Time step for multiperiod"
-        )
+        self.dt = Var(initialize=3600, units=pyunits.s, doc="Time step for multiperiod")
 
         ## TODO Convective heat loss as a function of tank temperature
         # Can be updated to be a function of temperature
@@ -326,36 +318,33 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             units=pyunits.kg / pyunits.m**3,
             doc="Packing density of salt",
         )
-      
+
         self.pump_power = Param(
-            initialize=1, 
-            units=pyunits.W, 
-            mutable = True,
-            doc="Pump power"
+            initialize=1, units=pyunits.W, mutable=True, doc="Pump power"
         )
 
         self.pump_eff = Param(
-            initialize=1, 
-            units=pyunits.dimensionless, 
-            mutable = True,
-            doc="Pump efficiency"
+            initialize=1,
+            units=pyunits.dimensionless,
+            mutable=True,
+            doc="Pump efficiency",
         )
 
-        self.electricity = Var(
-            initialize=1, 
-            units=pyunits.W, 
-            doc="Total electricity"
+        self.electricity = Var(initialize=1, units=pyunits.W, doc="Total electricity")
+
+        self.T_design = Param(
+            initialize=80 + 273.15, units=pyunits.K, doc="ambient temperature"
         )
 
-        self.T_design = Param(initialize=80+273.15, units=pyunits.K, doc="ambient temperature")
-
-        self.T_amb = Param(initialize=25+273.15, units=pyunits.K, doc="ambient temperature")
+        self.T_amb = Param(
+            initialize=25 + 273.15, units=pyunits.K, doc="ambient temperature"
+        )
 
         # constraints
         # @self.Constraint(doc="Calculate optimal tank size")
         # def eq_tes_dimensions(b):
-        #     return (b.tes_volume == 
-        #             b.tes_diameter * b.tes_height_diameter_ratio * 
+        #     return (b.tes_volume ==
+        #             b.tes_diameter * b.tes_height_diameter_ratio *
         #             3.14 * b.tes_diameter**2 / 4 )
 
         @self.Constraint(doc="Calculate mass of solar salt")
@@ -364,18 +353,18 @@ class ThermalEnergyStorageData(UnitModelBlockData):
 
         # Constraint to calculate the total heat entering
         @self.Constraint(self.flowsheet().config.time)
-        def eq_heat_in(b,t):
+        def eq_heat_in(b, t):
             return b.heat_in[t] == (
-                b.hx_inlet_block[t].enth_flow_phase['Liq']
-                + b.process_inlet_block[t].enth_flow_phase['Liq']
+                b.hx_inlet_block[t].enth_flow_phase["Liq"]
+                + b.process_inlet_block[t].enth_flow_phase["Liq"]
             )
-                
+
         # Constraint to calculate the total heat entering
         @self.Constraint(self.flowsheet().config.time)
-        def eq_heat_out(b,t):
+        def eq_heat_out(b, t):
             return b.heat_out[t] == (
-                b.hx_outlet_block[t].enth_flow_phase['Liq']
-                + b.process_outlet_block[t].enth_flow_phase['Liq']
+                b.hx_outlet_block[t].enth_flow_phase["Liq"]
+                + b.process_outlet_block[t].enth_flow_phase["Liq"]
             )
 
         # the temperature of the tank after each time step
@@ -383,29 +372,24 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         def eq_tes_temp(b, t):
             return b.tes_temp[t] == b.tes_initial_temp + 1 / (
                 b.salt_csp * b.salt_mass
-            ) * (b.heat_in[t]*b.dt - b.heat_out[t]*b.dt)
-
+            ) * (b.heat_in[t] * b.dt - b.heat_out[t] * b.dt)
 
         @self.Constraint()
         def eq_thermal_capacity(b):
             return b.thermal_energy_capacity == b.hours_storage * b.heat_load
-        
 
         @self.Constraint()
         def eq_tes_volume(b):
-            return b.tes_volume == b.thermal_energy_capacity / ( b.salt_csp * b.salt_packing_density * (b.T_design-b.T_amb))
-
+            return b.tes_volume == b.thermal_energy_capacity / (
+                b.salt_csp * b.salt_packing_density * (b.T_design - b.T_amb)
+            )
 
         @self.Constraint(doc="Pump power")
         def eq_P_pump(b):
             return b.electricity == (b.pump_power / b.pump_eff)
 
     def initialize_build(
-            self, 
-            state_args=None,
-            outlvl=idaeslog.NOTSET, 
-            solver=None, 
-            optarg=None
+        self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
     ):
 
         # Set solver options
@@ -413,8 +397,8 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="properties")
 
         # Create solver
-        opt = get_solver(solver=solver, options=optarg)    
-                
+        opt = get_solver(solver=solver, options=optarg)
+
         self.hx_inlet_block.initialize(
             outlvl=outlvl,
             optarg=optarg,
@@ -462,9 +446,7 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         # solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
-        init_log.info(
-            "TES initialization status {}.".format(idaeslog.condition(res))
-        )
+        init_log.info("TES initialization status {}.".format(idaeslog.condition(res)))
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
@@ -482,8 +464,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         iscale.set_scaling_factor(self.heat_load, 1e-3)
         iscale.set_scaling_factor(self.thermal_energy_capacity, 1e-5)
 
-
     @property
     def default_costing_method(self):
         return cost_tes
-

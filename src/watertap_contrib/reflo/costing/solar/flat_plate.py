@@ -110,7 +110,8 @@ def cost_flat_plate(blk):
     )
 
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost == blk.direct_capital_cost + blk.indirect_capital_cost + blk.sales_tax
+        expr=blk.capital_cost
+        == blk.direct_capital_cost + blk.indirect_capital_cost + blk.sales_tax
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
@@ -121,8 +122,9 @@ def cost_flat_plate(blk):
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
-        == (flat_plate_params.variable_operating_by_generation * 
-            pyo.units.convert(flat_plate.heat_annual, to_units=pyo.units.MWh)
+        == (
+            flat_plate_params.variable_operating_by_generation
+            * pyo.units.convert(flat_plate.heat_annual, to_units=pyo.units.MWh)
         )
     )
 
@@ -135,5 +137,3 @@ def cost_flat_plate(blk):
         flat_plate.heat,
         "heat",
     )
-
-
