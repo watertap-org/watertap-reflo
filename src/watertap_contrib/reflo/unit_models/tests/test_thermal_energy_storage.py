@@ -10,7 +10,7 @@ from pyomo.environ import (
 from pyomo.network import Port
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 
-from watertap_contrib.reflo.unit_models.zero_dimensional.thermal_energy_storage import (
+from watertap_contrib.reflo.unit_models.thermal_energy_storage import (
     ThermalEnergyStorage,
 )
 from idaes.core.solvers import get_solver
