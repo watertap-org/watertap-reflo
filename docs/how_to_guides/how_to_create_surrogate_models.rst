@@ -98,7 +98,7 @@ Create Training Data
     print('Loading Training Data...\n')
     time_start = time.process_time()
     pkl_data = pd.read_pickle(self.dataset_filename)
-    data = pkl_data.sample(n=int(len(pkl_data))) #FIX default this to 100% of data
+    data = pkl_data.sample(n=int(len(pkl_data)))
     self.data_training, self.data_validation = split_training_validation(
         data, self.training_fraction, seed=len(data)
     )
