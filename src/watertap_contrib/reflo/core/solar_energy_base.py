@@ -29,8 +29,8 @@ from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 import idaes.logger as idaeslog
 
-from pyomo.common.config import ConfigBlock, ConfigValue, In
-from pyomo.environ import Var, Suffix, NonNegativeReals, units as pyunits
+from pyomo.common.config import ConfigBlock, ConfigValue, In, ListOf
+from pyomo.environ import Param, Var, Suffix, NonNegativeReals, units as pyunits
 
 __author__ = "Kurban Sitterley"
 
@@ -48,7 +48,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             domain=In([False]),
             default=False,
             description="Dynamic model flag - must be False",
-            doc="""Solar energy models are steady-state only""",
+            doc="""Solar energy surrogate models are steady-state only""",
         ),
     )
     CONFIG.declare(
@@ -69,6 +69,78 @@ class SolarEnergyBaseData(UnitModelBlockData):
             doc="""User provided surrogate model .json file. Must be in same directory as unit model file.""",
         ),
     )
+    CONFIG.declare(
+        "dataset_filename",
+        ConfigValue(
+            default=None,
+            domain=str,
+            description="Path to data file",
+            doc="""""",
+        ),
+    )
+    CONFIG.declare(
+        "dataset_bounds",
+        ConfigValue(
+            default=dict(),
+            domain=dict,
+            description="Dict of bounds to use for training dataset",
+            doc="""""",
+        ),
+    )
+    CONFIG.declare(
+        "input_variables",
+        ConfigValue(
+            default=None,
+            domain=dict,
+            description="Dict of names, bounds, and units for surrogate input variables",
+            doc="""""",
+        ),
+    )
+    CONFIG.declare(
+        "output_variables",
+        ConfigValue(
+            default=None,
+            domain=dict,
+            description="Dict of names, bounds, and units for surrogate output variables",
+            doc="""""",
+        ),
+    )
+    CONFIG.declare(
+        "scale_training_data",
+        ConfigValue(
+            default=True,
+            domain=bool,
+            description="Flag to scale surrogate model training data",
+            doc="""""",
+        ),
+    )
+    CONFIG.declare(
+        "number_samples",
+        ConfigValue(
+            default=100,
+            domain=int,
+            description="Number of samples from dataset to build surrogate",
+            doc="""""",
+        ),
+    )
+    CONFIG.declare(
+        "training_fraction",
+        ConfigValue(
+            default=0.8,
+            domain=float,
+            description="Fraction of dataset to use as training data for surrogate",
+            doc="""""",
+        ),
+    )
+    # CONFIG.declare(
+    #     "output_variables",
+    #     ConfigValue(
+    #         default=list,
+    #         domain=ListOf(str),
+    #         description="List of strings for surrogate output variables",
+    #         doc="""""",
+    #     ),
+    # )
 
     def build(self):
         super().build()
@@ -90,6 +162,28 @@ class SolarEnergyBaseData(UnitModelBlockData):
             bounds=(None, None),
             doc="Heat balance of solar process",
         )
+
+        self.input_labels = self.config.input_variables["labels"]
+        self.input_bounds = self.config.input_variables["bounds"]
+        self.input_units = self.config.input_variables["units"]
+
+        self.output_labels = self.config.output_variables["labels"]
+        try:
+            self.output_bounds = self.config.output_variables["bounds"]
+        except KeyError:
+            self.output_bounds = dict()
+            for ol in self.output_labels:
+                self.output_bounds[ol] = (0, None)
+        self.output_units = self.config.output_variables["units"]
+
+        if self.config.dataset_bounds == dict():
+            self.dataset_bounds = self.input_bounds
+        else:
+            self.datset_bounds = self.config.dataset_bounds
+        
+        # self.dataset_bounds = dict()
+        # for 
+
 
     def initialize_build(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
@@ -119,7 +213,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
         if callable(self._scaling):
             self._scaling(self)
 
-    def _load_surrogate(self):
+    def load_surrogate(self):
 
         stream = StringIO()
         oldstdout = sys.stdout
@@ -134,31 +228,31 @@ class SolarEnergyBaseData(UnitModelBlockData):
         )
         sys.stdout = oldstdout
 
-    def _create_rbf_surrogate(
+    def create_rbf_surrogate(
         self,
-        input_bounds,
-        data_training=None,
-        n_samples=100,
-        training_fraction=0.8,
-        dataset_filename=None,
-        output_filename=None,
-        input_labels=None,
-        output_labels=None,
-        build_model=False,
+        # input_bounds,
+        # data_training=None,
+        # n_samples=100,
+        # training_fraction=0.8,
+        # dataset_filename=None,
+        # output_filename=None,
+        # input_labels=None,
+        # output_variables=None,
+        # build_model=False,
     ):
-        if not hasattr(self, "input_labels"):
-            self.input_labels = input_labels
-        if not hasattr(self, "output_labels"):
-            self.output_labels = output_labels
+        # if not hasattr(self, "input_labels"):
+        #     self.config.dataset_bounds.keys() = input_labels
+        # if not hasattr(self, "output_variables"):
+        #     self.config.output_variables = output_variables
 
-        if data_training is None:
-            self._get_surrogate_data(
-                dataset_filename=dataset_filename,
-                n_samples=n_samples,
-                training_fraction=training_fraction,
-            )
-        else:
-            self.data_training = data_training
+        # if data_training is None:
+        #     self._get_surrogate_data(
+        #         dataset_filename=dataset_filename,
+        #         n_samples=n_samples,
+        #         training_fraction=training_fraction,
+        #     )
+        # else:
+        #     self.data_training = data_training
 
         # Capture long output
         stream = StringIO()
@@ -178,7 +272,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self.trainer.config.regularization = True  # default = True
 
         # Train surrogate
-        self.rbf_train = self.trainer.train_surrogate()
+        self.trained_rbf = self.trainer.train_surrogate()
 
         # Remove autogenerated 'solution.pickle' file
         try:
@@ -188,59 +282,137 @@ class SolarEnergyBaseData(UnitModelBlockData):
         except Exception as e:
             raise e
 
-        self.rbf_surr = PysmoSurrogate(
-            self.rbf_train, self.input_labels, self.output_labels, input_bounds
+        self.surrogate = PysmoSurrogate(
+            self.trained_rbf, self.input_labels, self.output_labels, self.input_bounds,
         )
 
         # Save model to JSON
-        if output_filename is not None:
-            self.surrogate_file = output_filename
-            _ = self.rbf_surr.save_to_file(output_filename, overwrite=True)
+        # file_append = list()
+        self.surrogate_file = self.config.dataset_filename.replace(".pkl", "")
+        for k, v in self.input_bounds.items():
+            self.surrogate_file += f"_{k}_{v[0]}_{v[1]}"
+        
+        # if output_filename is not None:
+        #     self.surrogate_file = output_filename
+        model = self.surrogate.save_to_file(self.surrogate_file, overwrite=True)
 
-        if build_model:
-            self.surrogate_inputs = []
-            for input_var_name in self.input_labels:
-                bounds = input_bounds[input_var_name]
-                print(input_var_name, bounds, np.mean(bounds))
-                v_in = Var(
-                    initialize=np.mean(bounds),
-                    bounds=bounds,
-                    doc=f"{input_var_name.replace('_', ' ').title()}",
-                )
-                self.surrogate_inputs.append(v_in)
-                self.add_component(input_var_name, v_in)
+        # if build_model:
+        #     self.surrogate_inputs = []
+        #     for input_var_name in self.config.dataset_bounds.keys():
+        #         bounds = self.input_bounds[input_var_name]
+        #         print(input_var_name, bounds, np.mean(bounds))
+        #         v_in = Var(
+        #             initialize=np.mean(bounds),
+        #             bounds=bounds,
+        #             doc=f"{input_var_name.replace('_', ' ').title()}",
+        #         )
+        #         self.surrogate_inputs.append(v_in)
+        #         self.add_component(input_var_name, v_in)
 
-            self.surrogate_outputs = []
-            for output_var_name in self.output_labels:
-                bounds = (0, None)
-                v_out = Var(
-                    initialize=1e4,
-                    bounds=bounds,
-                    doc=f"{input_var_name.replace('_', ' ').title()}",
-                )
-                self.surrogate_outputs.append(v_out)
-                self.add_component(output_var_name, v_out)
+        #     self.surrogate_outputs = []
+        #     for output_var_name in self.config.output_variables:
+        #         bounds = (0, None)
+        #         v_out = Var(
+        #             initialize=1e4,
+        #             bounds=bounds,
+        #             doc=f"{input_var_name.replace('_', ' ').title()}",
+        #         )
+        #         self.surrogate_outputs.append(v_out)
+        #         self.add_component(output_var_name, v_out)
 
-            self._load_surrogate()
+        #     self.load_surrogate()
 
         # Revert back to standard output
         sys.stdout = oldstdout
+        self.surrogate_blk = SurrogateBlock(concrete=True)
+        self.surrogate_blk.build_model(
+            self.surrogate,
+            input_vars=self.surrogate_inputs,
+            output_vars=self.surrogate_outputs,
+        )
 
-    def _get_surrogate_data(
+    def get_surrogate_data(
         self,
         return_data=False,
-        n_samples=100,
-        training_fraction=0.8,
-        dataset_filename=None,
+        # n_samples=100,
+        # training_fraction=0.8,
+        # dataset_filename=None,
     ):
+        # dataset_filename = self.config.dataset_filename
 
-        self.pickle_df = pd.read_pickle(dataset_filename)
-        self.data = self.pickle_df.sample(n=n_samples)
+        self.pickle_df = pd.read_pickle(self.config.dataset_filename)
+        if self.dataset_bounds is not None:
+            for col, bounds in self.dataset_bounds.items():
+                lo = bounds[0]
+                hi = bounds[1]
+                self.pickle_df = self.pickle_df[(self.pickle_df[col] >= lo) & (self.pickle_df[col] <= hi)].copy()
+        self.data = self.pickle_df.sample(n=self.config.number_samples)
         self.data_training, self.data_validation = split_training_validation(
-            self.data, training_fraction, seed=len(self.data)
+            self.data, self.config.training_fraction, seed=len(self.data)
         )
+
+        if self.config.scale_training_data:
+            self.scale_training_data()
+
         if return_data:
             return self.data_training, self.data_validation
+    
+    def scale_training_data(self):
+
+        if not hasattr(self, "data_scaling_factors"):
+            self.data_scaling_factors = dict()
+            for label in self.output_labels:
+                # assumes your output labels are "output_name_scaled"
+                # creates scaling Params
+                doc = f'Scaling factor of {label.replace("scaled", "").replace("_", " ")} by {self._tech_type.replace("_", " ")} scaled for surrogate model'
+                print(doc)
+                setattr(self, label.replace("_scaled", "_scaling"), Param(mutable=True, initialize=1e-9, domain=NonNegativeReals, doc=doc))
+                self.data_scaling_factors[label] = getattr(self, label.replace("_scaled", "_scaling"))
+
+        for label in self.output_labels:
+            if not hasattr(self, label):
+                raise ValueError(f"{self.name} does not have a Var named {label}")
+            label_unscaled = label.split("_scaled")[0]
+            label_max = self.data_training[label_unscaled].max()
+            self.data_training.loc[:, label] = self.data_training[label_unscaled] / label_max
+            self.data_scaling_factors[label].set_value(1 / label_max)
+    
+    # def _get_input_bounds(self):
+    #     self.input_bounds = dict()
+    #     for label in self.config.dataset_bounds.keys():
+    #         sv = getattr(self, label)
+    #         self.input_bounds[label] = (sv.lb, sv.ub)
+    
+    def add_surrogate_variables(self):
+
+        self.surrogate_inputs = []
+        for input_var_name, bounds in self.input_bounds.items():
+            # bounds = self.config.dataset_bounds[input_var_name]
+            units = self.input_units[input_var_name]
+            
+            # print(input_var_name, bounds, np.mean(bounds))
+            v_in = Var(
+                initialize=np.mean(bounds),
+                bounds=bounds,
+                units=getattr(pyunits, units),
+                doc=f"{self._tech_type.replace('_', ' ').title()} surrogate input variable: {input_var_name.replace('_', ' ').title()}",
+            )
+            self.surrogate_inputs.append(v_in)
+            self.add_component(input_var_name, v_in)
+
+        self.surrogate_outputs = []
+        for output_var_name, bounds in self.output_bounds.items():
+            # TODO: Allow user to set bounds for output variables?
+            units = self.output_units[output_var_name]
+            v_out = Var(
+                initialize=1e4,
+                bounds=bounds,
+                units=getattr(pyunits, units),
+                doc=f"{self._tech_type.replace('_', ' ').title()} surrogate output variable: {output_var_name.replace('_', ' ').title()}",
+            )
+            self.surrogate_outputs.append(v_out)
+            self.add_component(output_var_name, v_out)
+
 
     def _plot_training_validation(
         self,
@@ -253,7 +425,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         surrogate = self.surrogate
 
-        for output_label in self.output_labels:
+        for output_label in self.config.output_variables:
             # Output fit metrics and create parity and residual plots
             print(
                 "\n{label}: \n\tR-squared: {r2} \n\tRMSE: {rmse}".format(
