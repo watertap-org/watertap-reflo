@@ -12,13 +12,10 @@
 
 import os
 import sys
-import re
 
 import pandas as pd
-import numpy as np
 
 from io import StringIO
-import matplotlib.pyplot as plt
 
 from pyomo.environ import (
     Var,
@@ -26,7 +23,6 @@ from pyomo.environ import (
     value,
     Expression,
     Constraint,
-    Suffix,
     NonNegativeReals,
     units as pyunits,
     check_optimal_termination,
@@ -72,7 +68,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
     def build(self):
         super().build()
 
-        self.scaling_factor = Suffix(direction=Suffix.EXPORT)
         self._tech_type = "trough"
 
         self.heat_load = Var(
@@ -330,92 +325,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         if return_data:
             return self.data_training, self.data_validation
-
-    def _plot_training_validation(
-        self,
-        data_training=None,
-        data_validation=None,
-        surrogate=None,
-        surrogate_filename="trough_surrogate.json",
-    ):
-        if data_training is None and data_validation is None:
-            data_training = self.data_training
-            data_validation = self.data_validation
-
-        if surrogate is None and surrogate_filename is not None:
-            surr_file = os.path.join(os.path.dirname(__file__), surrogate_filename)
-            surrogate = PysmoSurrogate.load_from_file(surr_file)
-        elif surrogate is None and surrogate_filename is None:
-            raise Exception
-        else:
-            surrogate = self.surrogate
-
-        for output_label in self.output_labels:
-            # Output fit metrics and create parity and residual plots
-            print(
-                "\n{label}: \n\tR-squared: {r2} \n\tRMSE: {rmse}".format(
-                    label=output_label.replace("_", " ").title(),
-                    r2=surrogate._trained._data[output_label].model.R2,
-                    rmse=surrogate._trained._data[output_label].model.rmse,
-                )
-            )
-            training_output = surrogate.evaluate_surrogate(
-                data_training[self.input_labels]
-            )
-            label = re.sub(
-                "[^a-zA-Z0-9 \n\.]", " ", output_label.title()
-            )  # keep alphanumeric chars and make title case
-            self._parity_residual_plots(
-                true_values=np.array(data_training[output_label]),
-                modeled_values=np.array(training_output[output_label]),
-                label=label + " - Training",
-            )
-
-            # Validate model using validation data
-            validation_output = surrogate.evaluate_surrogate(
-                data_validation[self.input_labels]
-            )
-            self._parity_residual_plots(
-                true_values=np.array(data_validation[output_label]),
-                modeled_values=np.array(validation_output[output_label]),
-                label=label + " - Validation",
-            )
-
-    def _parity_residual_plots(
-        self,
-        true_values,
-        modeled_values,
-        label=None,
-        figx=9,
-        figy=5,
-        axis_fontsize=12,
-        title_fontsize=15,
-    ):
-        fig1 = plt.figure(figsize=(figx, figy), tight_layout=True)
-        if label is not None:
-            fig1.suptitle(label, fontsize=title_fontsize)
-        ax = fig1.add_subplot(121)
-        ax.plot(true_values, true_values, "-")
-        ax.plot(true_values, modeled_values, "o")
-        ax.set_xlabel(r"True data", fontsize=axis_fontsize)
-        ax.set_ylabel(r"Surrogate values", fontsize=axis_fontsize)
-        ax.set_title(r"Parity plot", fontsize=axis_fontsize)
-
-        ax2 = fig1.add_subplot(122)
-        ax2.plot(
-            true_values,
-            true_values - modeled_values,
-            "s",
-            mfc="w",
-            mec="m",
-            ms=6,
-        )
-        ax2.axhline(y=0, xmin=0, xmax=1)
-        ax2.set_xlabel(r"True data", fontsize=axis_fontsize)
-        ax2.set_ylabel(r"Residuals", fontsize=axis_fontsize)
-        ax2.set_title(r"Residual plot", fontsize=axis_fontsize)
-
-        plt.show()
 
     @property
     def default_costing_method(self):
