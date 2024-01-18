@@ -93,7 +93,8 @@ def cost_tes(blk):
 
     blk.indirect_cost_constraint = pyo.Constraint(
         expr=blk.indirect_capital_cost
-        == blk.direct_capital_cost * tes_params.indirect_frac_direct_cost)
+        == blk.direct_capital_cost * tes_params.indirect_frac_direct_cost
+    )
 
     blk.sales_tax_constraint = pyo.Constraint(
         expr=blk.sales_tax == blk.direct_capital_cost * global_params.sales_tax_frac
