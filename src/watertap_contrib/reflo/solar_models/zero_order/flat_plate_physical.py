@@ -224,10 +224,17 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         )
 
         self.G_max = Param(
-            initialize=900,
+            initialize=1000,
             units=pyunits.W / pyunits.m**2,
             mutable=True,
             doc="Maximum irradiance at the location",
+        )
+
+        self.delta_T = Param(
+            initialize=30,
+            units=pyunits.K,
+            mutable=True,
+            doc="Average temperature difference to estimate heat loss",
         )
 
         # ==========VARIABLES==========
@@ -263,7 +270,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         )
 
         self.heat_load = Var(
-            initialize=1, units=pyunits.MW, doc="Rated plant heat capacity in MW"
+            initialize=1, units=pyunits.kW, doc="Rated plant heat capacity in MW"
         )
 
         self.heat_annual = Var(
@@ -357,9 +364,13 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             )
 
         # Need to check this
-        @self.Constraint(doc="Heat load of sysem")
+        @self.Constraint(doc="Heat load of system")
         def eq_heat_load(b):
-            return b.heat_load == b.collector_area_total * b.FR * b.ta * b.G_max * b.ta
+            return b.heat_load == pyunits.convert(
+                b.collector_area_total
+                * (b.FR * b.ta * b.G_max - b.FR * b.UL * b.delta_T),
+                to_units=pyunits.kW,
+            )
 
     def initialize_build(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None

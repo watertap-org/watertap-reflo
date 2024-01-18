@@ -37,6 +37,13 @@ def build_flat_plate_cost_param_block(blk):
         doc="Cost per volume for thermal storage",
     )
 
+    blk.land_cost_per_acre = pyo.Var(
+        initialize=4000,
+        units=costing.base_currency / pyo.units.acre,
+        bounds=(0, None),
+        doc="Land cost per acre required",
+    )
+
     blk.contingency_frac_direct_cost = pyo.Var(
         initialize=0,
         units=pyo.units.dimensionless,
@@ -100,6 +107,13 @@ def cost_flat_plate(blk):
         doc="Sales tax for flat plate system",
     )
 
+    blk.land_area = pyo.Var(
+        initialize=0,
+        units=pyo.units.acre,
+        bounds=(0, None),
+        doc="Land area required for flat plate system",
+    )
+
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_capital_cost
         == (
@@ -115,6 +129,7 @@ def cost_flat_plate(blk):
     blk.indirect_cost_constraint = pyo.Constraint(
         expr=blk.indirect_capital_cost
         == blk.direct_capital_cost * flat_plate_params.indirect_frac_direct_cost
+        + blk.land_area * flat_plate_params.land_cost_per_acre
     )
 
     blk.sales_tax_constraint = pyo.Constraint(

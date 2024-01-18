@@ -37,6 +37,13 @@ def build_tes_cost_param_block(blk):
         doc="Fraction of direct costs for contingency",
     )
 
+    blk.indirect_frac_direct_cost = pyo.Var(
+        initialize=0.13,
+        units=pyo.units.dimensionless,
+        bounds=(0, 1),
+        doc="Fraction of direct costs, including contingency, for indirect costs",
+    )
+
     blk.fixed_operating_by_capacity = pyo.Var(
         initialize=66,
         units=costing.base_currency / (pyo.units.kW * costing.base_period),
@@ -82,6 +89,11 @@ def cost_tes(blk):
         expr=blk.direct_capital_cost
         == (tes_params.thermal_energy_storage_cost * tes.thermal_energy_capacity)
         * (1 + tes_params.contingency_frac_direct_cost)
+    )
+
+    blk.indirect_cost_constraint = pyo.Constraint(
+        expr=blk.indirect_capital_cost
+        == blk.direct_capital_cost * tes_params.indirect_frac_direct_cost
     )
 
     blk.sales_tax_constraint = pyo.Constraint(
