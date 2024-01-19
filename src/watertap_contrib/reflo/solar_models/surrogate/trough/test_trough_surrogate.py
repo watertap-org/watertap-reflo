@@ -12,22 +12,24 @@
 
 import pytest
 import os
-
+import numpy as np
 import pandas as pd
 from pyomo.environ import (
     ConcreteModel,
     Var,
+    Param,
+    Expression,
+    Constraint,
     value,
     assert_optimal_termination,
+    units as pyunits,
 )
 from pyomo.network import Port
 
 from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
-from watertap_contrib.reflo.solar_models.surrogate.trough.trough_surrogate import (
-    TroughSurrogateData,
-)
+from watertap_contrib.reflo.core import SolarEnergyBaseData
 from watertap_contrib.reflo.costing import EnergyCosting
-import idaes.logger as idaeslog
+
 from idaes.core.util.testing import initialization_tester
 from idaes.core.solvers import get_solver
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
@@ -48,367 +50,278 @@ from idaes.core.util.scaling import (
 solver = get_solver()
 
 dataset_filename = os.path.join(os.path.dirname(__file__), "data/trough_data.pkl")
-large_surrogate_filename = os.path.join(
-    os.path.dirname(__file__), "trough_surrogate_100_500.json"
+
+test_surrogate_filename = os.path.join(os.path.dirname(__file__), "test_surrogate.json")
+input_bounds = dict(heat_load=[100, 500], hours_storage=[0, 26])
+input_units = dict(heat_load="MW", hours_storage="hour")
+input_variables = {
+    "labels": ["heat_load", "hours_storage"],
+    "bounds": input_bounds,
+    "units": input_units,
+}
+output_bounds = dict(heat_annual_scaled=[100, 500], electricity_annual_scaled=[0, 26])
+output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+output_variables = {
+    "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+    "units": output_units,
+}
+
+trough_dict = dict(
+    dataset_filename=dataset_filename,
+    input_variables=input_variables,
+    output_variables=output_variables,
+    scale_training_data=True,
 )
-small_surrogate_filename = os.path.join(
-    os.path.dirname(__file__), "trough_surrogate_10_100.json"
-)
-
-
-def get_data(heat_load_range):
-    df = pd.read_pickle(dataset_filename)
-    df = df[
-        (df["heat_load"] >= heat_load_range[0])
-        & (df["heat_load"] <= heat_load_range[1])
-    ]
-    return {"training": df.head(-10), "validation": df.tail(10)}
-
 
 class TestTroughLarge:
     @pytest.fixture(scope="class")
-    def trough_large_heat_load(self):
+    def trough_frame(self):
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.trough = TroughSurrogate(heat_load_range=[100, 500])
+        m.fs.trough = TroughSurrogate(**trough_dict)
         return m
 
     @pytest.mark.unit
-    @pytest.mark.skip
-    def test_build_large(self, trough_large_heat_load):
-        m = trough_large_heat_load
+    def test_config_dict(self, trough_frame):
+        m = trough_frame
+        trough = m.fs.trough
 
-        assert len(m.fs.trough.config) == 4
-        assert not m.fs.trough.config.dynamic
-        assert not m.fs.trough.config.has_holdup
-        assert m.fs.trough._tech_type == "trough"
-        assert isinstance(m.fs.trough.surrogate_blk, SurrogateBlock)
+        for k, v in trough_dict.items():
+            if k == "input_variables":
+                for j in v.keys():
+                    assert hasattr(trough, f"input_{j}")
+                    assert trough.input_bounds == trough.dataset_bounds
+                for i in v["labels"]:
+                    var = getattr(m.fs.trough, i)
+                    assert isinstance(var, Var)
+                    assert var.bounds == tuple(v["bounds"][i])
+                    assert var.lb == v["bounds"][i][0]
+                    assert var.ub == v["bounds"][i][1]
+                    var_units = str(getattr(pyunits, v["units"][i]))
+                    assert str(var.get_units()) == var_units
+
+            if k == "output_variables":
+                for j in v.keys():
+                    assert hasattr(trough, f"output_{j}")
+                for i in v["labels"]:
+                    var = getattr(trough, i)
+                    assert var.bounds == (0, None)
+                    assert isinstance(var, Var)
+                    var_units = str(getattr(pyunits, v["units"][i]))
+                    assert str(var.get_units()) == var_units
+
+            if k == "scale_training_data":
+                assert v
+                assert hasattr(trough, "data_training_unscaled")
+                assert hasattr(trough, "data_scaling_factors")
+                assert isinstance(trough.data_scaling_factors, dict)
+                for j, u in trough.data_scaling_factors.items():
+                    assert j in trough.data_training.columns
+                    assert hasattr(trough, j)
+                    assert hasattr(trough, j.replace("_scaled", "_scaling"))
+                    sp = getattr(trough, j.replace("_scaled", "_scaling"))
+                    assert u is sp
+                    assert isinstance(u, Param)
+                    col_max = trough.data_training_unscaled[
+                        j.replace("_scaled", "")
+                    ].max()
+                    assert pytest.approx(value(u), rel=1e-4) == 1 / col_max
+                    col_val_unscaled = trough.data_training_unscaled[
+                        j.replace("_scaled", "")
+                    ].iloc[1]
+                    col_val_scaled = trough.data_training[j].iloc[1]
+                    assert (
+                        pytest.approx(col_val_unscaled * value(u), rel=1e-4)
+                        == col_val_scaled
+                    )
+
+    @pytest.mark.unit
+    def test_build(self, trough_frame):
+        m = trough_frame
+        trough = m.fs.trough
+        assert isinstance(trough, SolarEnergyBaseData)
+        assert len(trough.config) == 10
+        assert not trough.config.dynamic
+        assert not trough.config.has_holdup
+        assert trough.config.scale_training_data
+        assert trough._tech_type == "trough"
+        assert isinstance(trough.surrogate_blk, SurrogateBlock)
 
         surr_input_str = ["heat_load", "hours_storage"]
         surr_output_str = ["heat_annual_scaled", "electricity_annual_scaled"]
 
-        assert m.fs.trough.input_labels == surr_input_str
-        assert m.fs.trough.surrogate.input_labels() == surr_input_str
-        assert m.fs.trough.output_labels == surr_output_str
-        assert m.fs.trough.surrogate.output_labels() == surr_output_str
-        assert m.fs.trough.surrogate_file.lower() == large_surrogate_filename.lower()
-        assert m.fs.trough.dataset_filename.lower() == dataset_filename.lower()
-        assert m.fs.trough.surrogate.n_inputs() == 2
-        assert m.fs.trough.surrogate.n_outputs() == 2
+        assert trough.input_labels == surr_input_str
+        assert trough.surrogate.input_labels() == surr_input_str
+        assert trough.output_labels == surr_output_str
+        assert trough.surrogate.output_labels() == surr_output_str
+        assert trough.surrogate.n_inputs() == 2
+        assert trough.surrogate.n_outputs() == 2
 
         for s in surr_input_str + surr_output_str:
-            v = getattr(m.fs.trough, s)
+            v = getattr(trough, s)
             assert isinstance(v, Var)
-        assert m.fs.trough.n_samples == 100
-        assert m.fs.trough.training_fraction == 0.8
+        assert trough.config.number_samples == 100
+        assert trough.config.training_fraction == 0.8
 
         no_ports = list()
-        for c in m.fs.trough.component_objects():
-            if isinstance(c, Port):
-                no_ports.append(c)
+        for c in trough.component_objects(Port, descend_into=False):
+            no_ports.append(c)
         assert len(no_ports) == 0
-        assert number_variables(m.fs.trough) == 6
-        assert number_unused_variables(m.fs.trough) == 0
-        assert number_total_constraints(m.fs.trough) == 4
+        assert number_variables(trough) == 6
+        assert number_unused_variables(trough) == 0
+        assert number_total_constraints(trough) == 4
+
+        assert isinstance(trough.heat_annual, Expression)
+        assert isinstance(trough.electricity_annual, Expression)
+        assert isinstance(trough.heat_constraint, Constraint)
+        assert isinstance(trough.electricity_constraint, Constraint)
+
 
     @pytest.mark.unit
-    @pytest.mark.skip
-    def test_surrogate_variable_bounds_large(self, trough_large_heat_load):
-        m = trough_large_heat_load
-        assert m.fs.trough.heat_load.bounds == tuple([100, 500])
-        assert m.fs.trough.hours_storage.bounds == tuple([0, 26])
-
-    @pytest.mark.component
-    @pytest.mark.skip
-    def test_create_rbf_surrogate_large(self, trough_large_heat_load):
-        m = trough_large_heat_load
-        data = get_data(m.fs.trough.heat_load.bounds)
-        test_surrogate_filename = os.path.join(
-            os.path.dirname(__file__), "test_surrogate.json"
-        )
-        m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
-
-        assert (
-            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.99
-        )
-        assert (
-            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
-            < 0.005
-        )
-        assert (
-            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
-            > 0.99
-        )
-        assert (
-            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
-                "RMSE"
-            ]
-            < 0.005
-        )
-
+    def test_surrogate_metrics(self, trough_frame):
+        m = trough_frame
+        trough = m.fs.trough
+        for output_label in trough.output_labels:
+            assert trough.trained_rbf.get_result(output_label).metrics["R2"] > 0.99
+            assert trough.trained_rbf.get_result(output_label).metrics["RMSE"] < 0.005
         assert os.path.getsize(test_surrogate_filename) > 0
-        os.remove(test_surrogate_filename)
-        assert isinstance(m.fs.trough.surrogate, PysmoSurrogate)
-        test_output = m.fs.trough.surrogate.evaluate_surrogate(data["validation"])
-
-        expected_heat_annual_test = data["validation"]["heat_annual"]
-        expected_electricity_annual_test = data["validation"]["electricity_annual"]
-        predicted_heat_annual = test_output["heat_annual_scaled"] / value(
-            m.fs.trough.heat_annual_scaling
-        )
-        predicted_electricity_annual = test_output["electricity_annual_scaled"] / value(
-            m.fs.trough.electricity_annual_scaling
-        )
-
-        tol = 1e-1
-        assert list(predicted_heat_annual) == pytest.approx(
-            expected_heat_annual_test.tolist(), tol
-        )
-        assert list(predicted_electricity_annual) == pytest.approx(
-            expected_electricity_annual_test.tolist(), tol
-        )
-
-    @pytest.mark.component
-    @pytest.mark.skip
-    def test_validation_large(self, trough_large_heat_load):
-        m = trough_large_heat_load
-        data = get_data(m.fs.trough.heat_load.bounds)
-        heat_annual_list = []
-        electricity_annual_list = []
-
-        expected_heat_annual = data["validation"]["heat_annual"]
-        expected_electricity_annual = data["validation"]["electricity_annual"]
-
-        for row in data["validation"].itertuples():
-            m.fs.trough.heat_load.fix(row.heat_load)
-            m.fs.trough.hours_storage.fix(row.hours_storage)
-            m.fs.trough.initialize_build()
-            results = solver.solve(m, tee=True)
-            assert_optimal_termination(results)
-            heat_annual_list.append(value(m.fs.trough.heat_annual))
-            electricity_annual_list.append(value(m.fs.trough.electricity_annual))
-
-        # ensure surrogate model gives same results when inside a flowsheet
-        assert heat_annual_list == pytest.approx(expected_heat_annual, 5e-2)
-        assert electricity_annual_list == pytest.approx(
-            expected_electricity_annual, 0.1
-        )
 
     @pytest.mark.unit
-    @pytest.mark.skip
-    def test_dof_large(self, trough_large_heat_load):
-        m = trough_large_heat_load
-        m.fs.trough.heat_load.fix(500)
+    def test_dof_large(self, trough_frame):
+        m = trough_frame
+        assert degrees_of_freedom(m) == 2
+        m.fs.trough.heat_load.fix(250)
         m.fs.trough.hours_storage.fix(12)
         assert degrees_of_freedom(m) == 0
-        m.fs.trough.heat_load.unfix()
-        m.fs.trough.hours_storage.unfix()
-        assert degrees_of_freedom(m) == 2
 
     @pytest.mark.unit
-    @pytest.mark.skip
-    def test_calculate_scaling(self, trough_large_heat_load):
-        m = trough_large_heat_load
+    def test_calculate_scaling(self, trough_frame):
+        m = trough_frame
         calculate_scaling_factors(m)
         assert len(list(unscaled_variables_generator(m))) == 0
 
     @pytest.mark.component
-    @pytest.mark.skip
-    def test_initialization(self, trough_large_heat_load):
-        m = trough_large_heat_load
-        m.fs.trough.heat_load.fix(200)
-        m.fs.trough.hours_storage.fix(4)
+    def test_initialization(self, trough_frame):
+        m = trough_frame
         m.fs.trough.initialize()
 
     @pytest.mark.component
-    @pytest.mark.skip
-    def test_solve_large(self, trough_large_heat_load):
-        results = solver.solve(trough_large_heat_load)
+    def test_solve(self, trough_frame):
+        results = solver.solve(trough_frame)
         assert_optimal_termination(results)
 
     @pytest.mark.component
     @pytest.mark.skip
-    def test_solution_large(self, trough_large_heat_load):
-        m = trough_large_heat_load
+    def test_solution(self, trough_frame):
+        m = trough_frame
 
         trough_results = {
-            "electricity": 727.242,
-            "heat": 93885.264,
-            "heat_load": 200.0,
-            "hours_storage": 4.0,
-            "heat_annual_scaled": 0.31056777,
-            "electricity_annual_scaled": 0.048634913,
-            "heat_annual": 822998231.988,
-            "electricity_annual": 6375009.402,
+            "electricity": 1781.038,
+            "heat": 149141.681,
+            "heat_load": 250.0,
+            "hours_storage": 12.0,
+            "heat_annual_scaled": 0.493202,
+            "electricity_annual_scaled": 0.119025,
+            "heat_annual": 1307375976.576,
+            "electricity_annual": 15612580.501,
         }
 
         for v, r in trough_results.items():
             tv = getattr(m.fs.trough, v)
             assert pytest.approx(r, rel=1e-1) == value(tv)
 
+    @pytest.mark.unit
+    @pytest.mark.skip
+    def test_solvability(self, trough_frame):
+        m = trough_frame
+        trough = m.fs.trough
+        num_samples = 20
+        heat_load_range = np.linspace(
+            trough.pickle_df.heat_load.min(),
+            trough.pickle_df.heat_load.max(),
+            num_samples,
+        )
+        hours_storage_range = np.linspace(
+            trough.pickle_df.hours_storage.min(),
+            trough.pickle_df.hours_storage.max(),
+            num_samples,
+        )
+        test_input = pd.DataFrame.from_dict(
+            {"heat_load": heat_load_range, "hours_storage": hours_storage_range}
+        )
+
+        test_output = trough.surrogate.evaluate_surrogate(test_input)
+        for (hl, hs), row in zip(
+            zip(heat_load_range, hours_storage_range), test_output.itertuples()
+        ):
+            trough.heat_load.fix(hl)
+            trough.hours_storage.fix(hs)
+            trough.initialize()
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            assert (
+                pytest.approx(value(trough.heat_annual_scaled), rel=1e-3)
+                == row.heat_annual_scaled
+            )
+            assert (
+                pytest.approx(value(trough.electricity_annual_scaled), rel=1e-3)
+                == row.electricity_annual_scaled
+            )
+
     @pytest.mark.component
     @pytest.mark.skip
-    def test_costing_large(self, trough_large_heat_load):
-        m = trough_large_heat_load
-        m.fs.trough.initialize_build()
-        m.fs.costing = EnergyCosting()
+    def test_costing(self, trough_frame):
 
+        m = trough_frame
+        trough = m.fs.trough
+        trough.heat_load.fix(250)
+        trough.hours_storage.fix(12)
+        assert degrees_of_freedom(m) == 0
+        calculate_scaling_factors(m)
+        m.fs.trough.initialize()
+        m.fs.costing = EnergyCosting()
         m.fs.trough.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
         )
         m.fs.costing.factor_maintenance_labor_chemical.fix(0)
         m.fs.costing.factor_total_investment.fix(1)
         m.fs.costing.cost_process()
+        m.fs.costing.initialize()
 
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        sys_costing_dict = {
-            "aggregate_capital_cost": 93537260.0,
-            "aggregate_fixed_operating_cost": 1600000.0,
-            "aggregate_variable_operating_cost": 823535.991,
-            "aggregate_flow_heat": -93946.61,
-            "aggregate_flow_electricity": 693.926,
-            "aggregate_flow_costs": {"heat": -9667774.533, "electricity": 499869.622},
-            "total_capital_cost": 93537260.0,
-            "maintenance_labor_chemical_operating_cost": 0.0,
-            "total_operating_cost": -6744368.918,
-            "aggregate_direct_capital_cost": 93537260.0,
-        }
-
         trough_costing_dict = {
-            "capital_cost": 93537260.0,
-            "variable_operating_cost": 823535.991,
-            "fixed_operating_cost": 1600000.0,
-            "direct_cost": 93304000.0,
-            "direct_capital_cost": 93537260.0,
+            "capital_cost": 249933275.0,
+            "variable_operating_cost": 1308211.583,
+            "fixed_operating_cost": 2000000.0,
+            "direct_cost": 249310000.0,
+            "cost_factor": 1.0,
+            "direct_capital_cost": 249933275.0,
         }
 
-        for (blk, results_dict) in [
-            (m.fs.costing, sys_costing_dict),
-            (m.fs.trough.costing, trough_costing_dict),
-        ]:
+        for v, r in trough_costing_dict.items():
+            cv = getattr(m.fs.trough.costing, v)
+            assert pytest.approx(r, rel=1e-1) == value(cv)
 
-            for v, r in results_dict.items():
-                cv = getattr(blk, v)
-                if cv.is_indexed():
-                    for i, s in r.items():
-                        assert pytest.approx(s, rel=1e-1) == value(cv[i])
-                else:
-                    assert pytest.approx(r, rel=1e-1) == value(cv)
+        sys_costing_dict = {
+            "aggregate_capital_cost": 249933275.0,
+            "aggregate_fixed_operating_cost": 2000000.0,
+            "aggregate_variable_operating_cost": 1308211.583,
+            "aggregate_flow_heat": -149237.004,
+            "aggregate_flow_electricity": 1798.782,
+            "aggregate_flow_costs": {"heat": -15357549.351, "electricity": 1295752.434},
+            "total_capital_cost": 249933275.0,
+            "maintenance_labor_chemical_operating_cost": 0.0,
+            "total_operating_cost": -10753585.333,
+            "capital_recovery_factor": 0.1,
+            "aggregate_direct_capital_cost": 249933275.0,
+        }
 
-
-class TestTroughSmall:
-    @pytest.fixture(scope="class")
-    def trough_small_heat_load(self):
-        m = ConcreteModel()
-        m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.trough = TroughSurrogate(heat_load_range=[10, 100])
-        return m
-
-    @pytest.mark.component
-    @pytest.mark.skip
-    def test_create_rbf_surrogate_small(self, trough_small_heat_load):
-        m = trough_small_heat_load
-        data = get_data(m.fs.trough.heat_load.bounds)
-        test_surrogate_filename = os.path.join(
-            os.path.dirname(__file__), "test_surrogate.json"
-        )
-        m.fs.trough._create_rbf_surrogate(output_filename=test_surrogate_filename)
-
-        assert (
-            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["R2"] > 0.99
-        )
-        assert (
-            m.fs.trough.rbf_train.get_result("heat_annual_scaled").metrics["RMSE"]
-            < 0.005
-        )
-        assert (
-            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics["R2"]
-            > 0.99
-        )
-        assert (
-            m.fs.trough.rbf_train.get_result("electricity_annual_scaled").metrics[
-                "RMSE"
-            ]
-            < 0.005
-        )
-
-        assert os.path.getsize(test_surrogate_filename) > 1e4
-        os.remove(test_surrogate_filename)
-        assert isinstance(m.fs.trough.surrogate, PysmoSurrogate)
-        test_output = m.fs.trough.surrogate.evaluate_surrogate(data["validation"])
-
-        expected_heat_annual_test = data["validation"]["heat_annual"]
-        expected_electricity_annual_test = data["validation"]["electricity_annual"]
-        predicted_heat_annual = test_output["heat_annual_scaled"] / value(
-            m.fs.trough.heat_annual_scaling
-        )
-        predicted_electricity_annual = test_output["electricity_annual_scaled"] / value(
-            m.fs.trough.electricity_annual_scaling
-        )
-
-        tol = 3e-2
-        assert list(predicted_heat_annual) == pytest.approx(
-            expected_heat_annual_test.tolist(), tol
-        )
-        assert list(predicted_electricity_annual) == pytest.approx(
-            expected_electricity_annual_test.tolist(), tol
-        )
-
-    @pytest.mark.component
-    @pytest.mark.skip
-    def test_validation_small(self, trough_small_heat_load):
-        m = trough_small_heat_load
-        data = get_data(m.fs.trough.heat_load.bounds)
-        heat_annual_list = []
-        electricity_annual_list = []
-
-        expected_heat_annual = data["validation"]["heat_annual"]
-        expected_electricity_annual = data["validation"]["electricity_annual"]
-
-        for row in data["validation"].itertuples():
-            m.fs.trough.heat_load.fix(row.heat_load)
-            m.fs.trough.hours_storage.fix(row.hours_storage)
-            m.fs.trough.initialize_build()
-            results = solver.solve(m, tee=True)
-            assert_optimal_termination(results)
-            heat_annual_list.append(value(m.fs.trough.heat_annual))
-            electricity_annual_list.append(value(m.fs.trough.electricity_annual))
-
-        # ensure surrogate model gives same results when inside a flowsheet
-        assert heat_annual_list == pytest.approx(expected_heat_annual.tolist(), 1.05e-2)
-        assert electricity_annual_list == pytest.approx(
-            expected_electricity_annual.tolist(), 1.05e-2
-        )
-
-    @pytest.mark.unit
-    @pytest.mark.skip
-    def test_dof_small(self, trough_small_heat_load):
-        m = trough_small_heat_load
-        m.fs.trough.heat_load.fix(500)
-        m.fs.trough.hours_storage.fix(12)
-        assert degrees_of_freedom(m) == 0
-        m.fs.trough.heat_load.unfix()
-        m.fs.trough.hours_storage.unfix()
-        assert degrees_of_freedom(m) == 2
-
-    @pytest.mark.unit
-    @pytest.mark.skip
-    def test_calculate_scaling_small(self, trough_small_heat_load):
-        m = trough_small_heat_load
-        calculate_scaling_factors(m)
-        assert len(list(unscaled_variables_generator(m))) == 0
-
-    @pytest.mark.component
-    @pytest.mark.skip
-    def test_initialization_small(self, trough_small_heat_load):
-        initialization_tester(
-            trough_small_heat_load, unit=trough_small_heat_load.fs.trough, dof=2
-        )
-
-    @pytest.mark.component
-    @pytest.mark.skip
-    def test_solve_small(self, trough_small_heat_load):
-        results = solver.solve(trough_small_heat_load)
-        assert_optimal_termination(results)
+        for v, r in sys_costing_dict.items():
+            cv = getattr(m.fs.costing, v)
+            if cv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(s, rel=1e-2) == value(cv[i])
+            else:
+                assert pytest.approx(r, rel=1e-1) == value(cv)
