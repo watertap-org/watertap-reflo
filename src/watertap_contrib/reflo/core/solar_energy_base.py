@@ -15,6 +15,7 @@ This module contains a base class for all solar energy unit models.
 import os
 import sys
 import re
+from copy import deepcopy
 import numpy as np
 import pandas as pd
 from io import StringIO
@@ -29,7 +30,7 @@ from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 import idaes.logger as idaeslog
 
-from pyomo.common.config import ConfigBlock, ConfigValue, In, ListOf
+from pyomo.common.config import ConfigBlock, ConfigValue, In
 from pyomo.environ import Param, Var, Suffix, NonNegativeReals, units as pyunits
 
 __author__ = "Kurban Sitterley"
@@ -217,7 +218,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
         )
 
         # Set PySMO options
-        # TODO: make this CONFOIG for this base?
+        # TODO: make this CONFIG for base?
         self.trainer.config.basis_function = "gaussian"  # default = gaussian
         self.trainer.config.solution_method = "algebraic"  # default = algebraic
         self.trainer.config.regularization = True  # default = True
@@ -281,13 +282,14 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
     def scale_training_data(self):
 
+        self.data_training_unscaled = deepcopy(self.data_training)
+
         if not hasattr(self, "data_scaling_factors"):
             self.data_scaling_factors = dict()
             for label in self.output_labels:
                 # assumes your output labels are "output_name_scaled"
                 # creates scaling Params
                 doc = f'Scaling factor of {label.replace("scaled", "").replace("_", " ")} by {self._tech_type.replace("_", " ")} scaled for surrogate model'
-                print(doc)
                 setattr(
                     self,
                     label.replace("_scaled", "_scaling"),
@@ -303,7 +305,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             if not hasattr(self, label):
                 raise ValueError(f"{self.name} does not have a Var named {label}")
             label_unscaled = label.split("_scaled")[0]
-            label_max = self.data_training[label_unscaled].max()
+            label_max = self.data_training_unscaled[label_unscaled].max()
             self.data_training.loc[:, label] = (
                 self.data_training[label_unscaled] / label_max
             )
