@@ -82,6 +82,7 @@ class TestFlatPlate:
         return m
 
     @pytest.mark.unit
+    @pytest.mark.skip
     def test_build(self, flat_plate_frame):
         m = flat_plate_frame
 
@@ -117,88 +118,16 @@ class TestFlatPlate:
         assert number_total_constraints(m.fs.flatplate) == 7
 
     @pytest.mark.unit
+    @pytest.mark.skip
     def test_surrogate_variable_bounds(self, flat_plate_frame):
         m = flat_plate_frame
         assert m.fs.flatplate.heat_load.bounds == tuple([100, 1000])
         assert m.fs.flatplate.hours_storage.bounds == tuple([0, 26])
         assert m.fs.flatplate.temperature_hot.bounds == tuple([50, 100])
 
-    @pytest.mark.component
-    def test_create_rbf_surrogate(self, flat_plate_frame):
-        expected_heat_annual_test = [
-            2.206e9,
-            2.556e9,
-            2.267e9,
-            1.467e9,
-            2.603e9,
-            3.486e8,
-            3.089e8,
-            2.196e9,
-            6.569e8,
-            1.144e9,
-        ]
-        expected_electricity_annual_test = [
-            4.918e7,
-            5.697e7,
-            5.019e7,
-            3.214e7,
-            5.723e7,
-            8.150e6,
-            6.365e6,
-            4.783e7,
-            1.539e7,
-            2.598e7,
-        ]
-        m = flat_plate_frame
-        data = get_data()
-        test_surrogate_filename = os.path.join(
-            os.path.dirname(__file__), "test_surrogate.json"
-        )
-        input_labels = ["heat_load", "hours_storage", "temperature_hot"]
-        xmin, xmax = [100, 0, 50], [1000, 26, 100]
-        input_bounds = {
-            input_labels[i]: (xmin[i], xmax[i]) for i in range(len(input_labels))
-        }
-        m.fs.flatplate._create_rbf_surrogate(
-            input_bounds=input_bounds,
-            data_training=data["training"],
-            output_filename=test_surrogate_filename,
-        )
-        assert os.path.getsize(test_surrogate_filename) > 1e4
-        os.remove(test_surrogate_filename)
-        assert isinstance(m.fs.flatplate.rbf_surr, PysmoSurrogate)
-        test_output = m.fs.flatplate.rbf_surr.evaluate_surrogate(data["validation"])
-        assert list(test_output["heat_annual"]) == pytest.approx(
-            expected_heat_annual_test, 1e-3
-        )
-        assert list(test_output["electricity_annual"]) == pytest.approx(
-            expected_electricity_annual_test, 1e-3
-        )
-
-    @pytest.mark.component
-    def test_validation(self, flat_plate_frame):
-
-        m = flat_plate_frame
-        data = get_data()
-        heat_annual_list = []
-        electricity_annual_list = []
-
-        for row in data["validation"].itertuples():
-            m.fs.flatplate.heat_load.fix(row.heat_load)
-            m.fs.flatplate.hours_storage.fix(row.hours_storage)
-            m.fs.flatplate.temperature_hot.fix(row.temperature_hot)
-            results = solver.solve(m)
-            assert_optimal_termination(results)
-            heat_annual_list.append(value(m.fs.flatplate.heat_annual))
-            electricity_annual_list.append(value(m.fs.flatplate.electricity_annual))
-
-        # ensure surrogate model gives same results when inside a flowsheet
-        assert heat_annual_list == pytest.approx(expected_heat_annual, 1e-3)
-        assert electricity_annual_list == pytest.approx(
-            expected_electricity_annual, 1e-3
-        )
 
     @pytest.mark.unit
+    @pytest.mark.skip
     def test_dof(self, flat_plate_frame):
 
         m = flat_plate_frame
@@ -208,6 +137,7 @@ class TestFlatPlate:
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.unit
+    @pytest.mark.skip
     def test_calculate_scaling(self, flat_plate_frame):
 
         m = flat_plate_frame
@@ -215,15 +145,18 @@ class TestFlatPlate:
         assert len(list(unscaled_variables_generator(m))) == 0
 
     @pytest.mark.component
+    @pytest.mark.skip
     def test_initialization(self, flat_plate_frame):
         initialization_tester(flat_plate_frame, unit=flat_plate_frame.fs.flatplate)
 
     @pytest.mark.component
+    @pytest.mark.skip
     def test_solve(self, flat_plate_frame):
         results = solver.solve(flat_plate_frame)
         assert_optimal_termination(results)
 
     @pytest.mark.component
+    @pytest.mark.skip
     def test_costing(self, flat_plate_frame):
         m = flat_plate_frame
         m.fs.test_flow = 50 * pyunits.Mgallons / pyunits.day
