@@ -73,6 +73,7 @@ trough_dict = dict(
     scale_training_data=True,
 )
 
+
 class TestTroughLarge:
     @pytest.fixture(scope="class")
     def trough_frame(self):
@@ -175,7 +176,6 @@ class TestTroughLarge:
         assert isinstance(trough.electricity_annual, Expression)
         assert isinstance(trough.heat_constraint, Constraint)
         assert isinstance(trough.electricity_constraint, Constraint)
-
 
     @pytest.mark.unit
     def test_surrogate_metrics(self, trough_frame):

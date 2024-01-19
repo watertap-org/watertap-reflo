@@ -19,7 +19,6 @@ from pyomo.environ import (
     units as pyunits,
     check_optimal_termination,
 )
-from pyomo.common.config import ConfigValue, ListOf
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
@@ -42,17 +41,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
     """
     Surrogate model for trough.
     """
-
-    CONFIG = SolarEnergyBaseData.CONFIG()
-    CONFIG.declare(
-        "heat_load_range",
-        ConfigValue(
-            domain=ListOf(float),
-            default=[10, 100],
-            description="Range of the Heat Load input",
-            doc="""Heat load range [min, max]. Options are: [10, 100] or [100, 500]""",
-        ),
-    )
 
     def build(self):
         super().build()
@@ -116,7 +104,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.electricity, sf)
 
     def initialize_build(
-        blk,
+        self,
         outlvl=idaeslog.NOTSET,
         solver=None,
         optarg=None,
@@ -132,33 +120,33 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         Returns: None
         """
-        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="unit")
-        solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
+        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
+        solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
 
         # Initialize surrogate
         data = pd.DataFrame(
             {
-                "heat_load": [value(blk.heat_load)],
-                "hours_storage": [value(blk.hours_storage)],
+                "heat_load": [value(self.heat_load)],
+                "hours_storage": [value(self.hours_storage)],
             }
         )
-        test_output = blk.surrogate.evaluate_surrogate(data)
-        blk.heat_annual_scaled.set_value(test_output.heat_annual_scaled.values[0])
-        blk.electricity_annual_scaled.set_value(
-            test_output.electricity_annual_scaled.values[0]
+        init_output = self.surrogate.evaluate_surrogate(data)
+        self.heat_annual_scaled.set_value(init_output.heat_annual_scaled.values[0])
+        self.electricity_annual_scaled.set_value(
+            init_output.electricity_annual_scaled.values[0]
         )
-        blk.heat.set_value(value(blk.heat_annual) / 8766)
-        blk.electricity.set_value(value(blk.electricity_annual) / 8766)
+        self.heat.set_value(value(self.heat_annual) / 8766)
+        self.electricity.set_value(value(self.electricity_annual) / 8766)
 
         # Solve unit
         opt = get_solver(solver, optarg)
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
-            res = opt.solve(blk, tee=slc.tee)
+            res = opt.solve(self, tee=slc.tee)
 
         init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
 
         if not check_optimal_termination(res):
-            raise InitializationError(f"Unit model {blk.name} failed to initialize")
+            raise InitializationError(f"Unit model {self.name} failed to initialize")
 
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
