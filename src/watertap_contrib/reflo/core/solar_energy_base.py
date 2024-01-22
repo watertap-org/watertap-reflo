@@ -317,7 +317,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             units = self.input_units[input_var_name]
             v_in = Var(
                 initialize=np.mean(bounds),
-
                 bounds=bounds,
                 units=getattr(pyunits, units),
                 doc=f"{self._tech_type.replace('_', ' ').title()} surrogate input variable: {input_var_name.replace('_', ' ').title()}",

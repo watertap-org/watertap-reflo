@@ -127,7 +127,8 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         )
 
         self.collector_area_total = Expression(
-            expr=pyunits.convert(self.heat_load, to_units=pyunits.kilowatt)/(self.FR_ta - self.FR_UL * self.factor_delta_T)
+            expr=pyunits.convert(self.heat_load, to_units=pyunits.kilowatt)
+            / (self.FR_ta - self.FR_UL * self.factor_delta_T)
         )
 
         self.number_collectors = Expression(
@@ -190,7 +191,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         Returns: None
         """
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
-        
+
         if solver is None:
             opt = get_solver(optarg)
 

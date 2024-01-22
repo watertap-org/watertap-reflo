@@ -119,7 +119,9 @@ def cost_flat_plate(blk):
         * (1 + flat_plate_params.contingency_frac_direct_cost)
     )
 
-    blk.land_area = pyo.Expression(expr=pyo.units.convert(flat_plate.collector_area_total, to_units=pyo.units.acre))
+    blk.land_area = pyo.Expression(
+        expr=pyo.units.convert(flat_plate.collector_area_total, to_units=pyo.units.acre)
+    )
 
     blk.indirect_cost_constraint = pyo.Constraint(
         expr=blk.indirect_capital_cost

@@ -43,7 +43,9 @@ surrogate_filename = os.path.join(
     os.path.dirname(__file__), "flat_plate_surrogate.json"
 )
 
-input_bounds = dict(heat_load=[100, 200], hours_storage=[0, 26], temperature_hot=[50, 100])
+input_bounds = dict(
+    heat_load=[100, 200], hours_storage=[0, 26], temperature_hot=[50, 100]
+)
 input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
 input_variables = {
     "labels": ["heat_load", "hours_storage", "temperature_hot"],
@@ -62,6 +64,7 @@ fpc_dict = dict(
     output_variables=output_variables,
     scale_training_data=True,
 )
+
 
 def get_data():
     df = pd.read_pickle(dataset_filename)
@@ -120,9 +123,7 @@ class TestFlatPlate:
                     sp = getattr(fpc, j.replace("_scaled", "_scaling"))
                     assert u is sp
                     assert isinstance(u, Param)
-                    col_max = fpc.data_training_unscaled[
-                        j.replace("_scaled", "")
-                    ].max()
+                    col_max = fpc.data_training_unscaled[j.replace("_scaled", "")].max()
                     assert pytest.approx(value(u), rel=1e-4) == 1 / col_max
                     col_val_unscaled = fpc.data_training_unscaled[
                         j.replace("_scaled", "")
@@ -174,7 +175,7 @@ class TestFlatPlate:
         assert isinstance(fpc.electricity_annual, Expression)
         assert isinstance(fpc.heat_constraint, Constraint)
         assert isinstance(fpc.electricity_constraint, Constraint)
-    
+
     @pytest.mark.unit
     @pytest.mark.skip
     def test_surrogate_metrics(self, flat_plate_frame):
