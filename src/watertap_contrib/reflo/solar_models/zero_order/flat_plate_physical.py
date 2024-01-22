@@ -11,18 +11,15 @@
 #################################################################################
 
 from copy import deepcopy
-from pyomo.environ import Var, Param, Suffix, cos, sin, log, exp, units as pyunits
+from pyomo.environ import Var, Param, Expression, log, exp, units as pyunits
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 from idaes.core import declare_process_block_class
 
 # Import IDAES cores
 from idaes.core import (
-    ControlVolume0DBlock,
     declare_process_block_class,
-    MaterialBalanceType,
     EnergyBalanceType,
     MomentumBalanceType,
-    UnitModelBlockData,
     useDefault,
 )
 from idaes.core.util.config import is_physical_parameter_block
@@ -36,8 +33,7 @@ from watertap_contrib.reflo.costing.solar.flat_plate import (
     cost_flat_plate,
 )
 
-__author__ = "Matthew Boyd"
-# Updated by Mukta Hardikar
+__author__ = "Mukta Hardikar, Matthew Boyd"
 
 
 @declare_process_block_class("FlatPlatePhysical")
@@ -115,6 +111,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
     def build(self):
         super().build()
 
+        self._tech_type = "flat_plate"
         # Add inlet state block
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
@@ -141,22 +138,12 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         self.add_inlet_port(name="inlet", block=self.inlet_block)
         self.add_outlet_port(name="outlet", block=self.outlet_block)
 
-        self.scaling_factor = Suffix(direction=Suffix.EXPORT)
-        self._tech_type = "flat_plate"
-
         # ==========PARAMETERS==========
-        self.collector_area = Var(
-            initialize=1, units=pyunits.m**2, doc="Area of a single collector"
-        )
 
         self.number_collectors = Param(
             initialize=1,
             units=pyunits.dimensionless,
             doc="Number of collectors in array",
-        )
-
-        self.collector_area_total = Var(
-            initialize=1, units=pyunits.m**2, doc="Total collector area"
         )
 
         self.storage_volume = Param(
@@ -165,21 +152,29 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             doc="Fixed storage volume to use in cost unit model",
         )
 
-        self.FR = Param(
-            initialize=1,
+        self.FR_ta = Param(
+            initialize=0.689,  # optical gain "a" in Hottel-Whillier-Bliss equation [hcoll = a - b*dT]; defaults from SAM
             units=pyunits.dimensionless,
-            doc="Collector heat removal factor",
+            mutable=True,
+            doc="Product of collector heat removal factor (FR), cover transmittance (t), and shortwave absorptivity of absorber (a)",
         )
 
-        self.ta = Param(
+        self.FR_UL = Param(
+            initialize=3.85,  # Thermal loss coeff "b" in Hottel-Whillier-Bliss equation [hcoll = a - b*dT]; defaults from SAM
+            units=pyunits.kilowatt / (pyunits.m**2 * pyunits.K),
+            mutable=True,
+            doc="Product of collector heat removal factor (FR) and overall heat loss coeff. of collector (UL)",
+        )
+
+        self.trans_absorb_prod = Param(
             initialize=1,
             units=pyunits.dimensionless,
             doc="Effective transmittance-absorption product",
         )
 
-        self.UL = Param(
+        self.heat_loss_coeff = Param(
             initialize=1,
-            units=pyunits.W / (pyunits.m**2 * pyunits.K),
+            units=pyunits.watt / (pyunits.m**2 * pyunits.K),
             doc="Overall collector heat loss coefficient",
         )
 
@@ -212,42 +207,39 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             doc="Pump efficiency",
         )
 
-        self.T_amb = Param(
-            initialize=30 + 273.15, units=pyunits.K, doc="ambient temperature"
-        )
-
-        self.G_total = Var(
-            initialize=900,
-            units=pyunits.W / pyunits.m**2,
-            # doc="irradiance transmitted through glazing",
-            doc="Total irradiance",
-        )
-
-        self.G_max = Param(
+        self.max_irradiance = Param(
             initialize=1000,
             units=pyunits.W / pyunits.m**2,
             mutable=True,
             doc="Maximum irradiance at the location",
         )
 
-        self.delta_T = Param(
-            initialize=30,
+        self.factor_delta_T = Param(
+            initialize=0.03,  # this is a guess as to what the 30 represents in the equation for total collector area in SAM documentation
             units=pyunits.K,
             mutable=True,
-            doc="Average temperature difference to estimate heat loss",
+            doc="Influent minus ambient temperature",
+        )
+
+        self.temperature_ambient = Param(
+            initialize=30 + 273.15, units=pyunits.K, doc="Ambient temperature"
         )
 
         # ==========VARIABLES==========
 
-        # self.mdot = Var(
-        #     initialize = 1,
-        #     units=pyunits.kg / pyunits.s,
-        #     doc="mass flow rate of medium through FPC",
-        # )
+        self.collector_area_total = Var(
+            initialize=1, units=pyunits.m**2, doc="Total collector area"
+        )
 
-        # self.T_in = Var(self.flowsheet().config.time,initialize = 80+273.15, units=pyunits.K, doc="inlet temperature")
+        self.collector_area = Var(
+            initialize=1, units=pyunits.m**2, doc="Area of a single collector"
+        )
 
-        # self.T_out = Var(self.flowsheet().config.time,initialize = 85+273.15,units=pyunits.K, doc="outlet temperature" )
+        self.total_irradiance = Var(
+            initialize=900,
+            units=pyunits.W / pyunits.m**2,
+            doc="Total irradiance",
+        )
 
         self.Fprime_UL = Var(
             initialize=1,
@@ -256,13 +248,13 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             # Corrected collector heat loss coefficient, D&B Eq. 6.20.4",
         )
 
-        self.r = Var(
+        self.ratio_FRta = Var(
             initialize=1,
             units=pyunits.dimensionless,
             doc="Ratio of FRta_use to FRta_test, D&B Eq. 6.20.3",
         )
 
-        self.Q_useful = Var(
+        self.net_heat_gain = Var(
             self.flowsheet().config.time,
             initialize=1,
             units=pyunits.W,
@@ -277,6 +269,8 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             initialize=1, units=pyunits.MWh, doc="Annual heat generated by flat plate"
         )
 
+        self.heat_loss_coeff = Expression(expr=self.FR_UL / self.FR_ta)
+
         # ==========CONSTRAINTS==========
 
         @self.Constraint(doc="Total collector area")
@@ -284,22 +278,28 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             return b.collector_area_total == b.collector_area * b.number_collectors
 
         @self.Constraint(
-            doc="corrected collector heat loss coefficient, D&B Eq. 6.20.4, calculated at test conditions"
+            doc="Corrected collector heat loss coefficient, D&B Eq. 6.20.4, calculated at test conditions"
         )
         def eq_Fprime_UL(b):
             return b.Fprime_UL == (
                 -b.mdot_test
                 * b.cp_test
                 / b.collector_area
-                * log(1 - b.FR * b.UL * b.collector_area / (b.mdot_test * b.cp_test))
+                * log(
+                    1
+                    - b.FR_ta
+                    * b.heat_loss_coeff
+                    * b.collector_area
+                    / (b.mdot_test * b.cp_test)
+                )
             )
 
         @self.Constraint(
             self.flowsheet().config.time,
-            doc="ratio of FRta_use to FRta_test, D&B Eq. 6.20.3",
+            doc="Ratio of FRta_use to FRta_test, D&B Eq. 6.20.3",
         )
-        def eq_r(b, t):
-            return b.r == (
+        def eq_ratio_FRta(b, t):
+            return b.ratio_FRta == (
                 (
                     b.inlet_block[t].flow_mass_phase_comp["Liq", "H2O"]
                     * b.number_collectors
@@ -319,21 +319,26 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                         )
                     )
                 )
-                / (b.FR * b.UL)
+                / (b.FR_ta * b.heat_loss_coeff)
             )
 
         @self.Constraint(
             self.flowsheet().config.time,
-            doc="useful net heat gain, not accounting for pipe heat losses or a heat exchanger, D&B Eq. 6.8.1",
+            doc="Useful net heat gain, not accounting for pipe heat losses or a heat exchanger, D&B Eq. 6.8.1",
         )
-        def eq_Q_useful(b, t):
-            return b.Q_useful[t] == (
+        def eq_net_heat_gain(b, t):
+            return b.net_heat_gain[t] == (
                 b.collector_area
                 * b.number_collectors
-                * b.r
+                * b.ratio_FRta
                 * (
-                    b.FR * b.ta * b.G_total * b.ta
-                    - b.FR * b.UL * (b.inlet_block[t].temperature - b.T_amb)
+                    b.FR_ta
+                    * b.trans_absorb_prod
+                    * b.total_irradiance
+                    * b.trans_absorb_prod
+                    - b.FR_ta
+                    * b.heat_loss_coeff
+                    * (b.inlet_block[t].temperature - b.temperature_ambient)
                 )
             )
 
@@ -344,7 +349,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         def eq_outlet_temp(b, t):
             return b.outlet_block[t].temperature == (
                 b.inlet_block[t].temperature
-                + b.Q_useful[t]
+                + b.net_heat_gain[t]
                 / b.inlet_block[t].flow_mass_phase_comp["Liq", "H2O"]
                 / b.inlet_block[t].cp_mass_phase["Liq"]
             )
@@ -355,7 +360,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
 
         @self.Constraint(self.flowsheet().config.time, doc="Useful heat generated")
         def eq_heat(b, t):
-            return b.heat == b.Q_useful[t]
+            return b.heat == b.net_heat_gain[t]
 
         @self.Constraint(doc="Heat generated annually")
         def eq_heat_annual(b):
@@ -366,13 +371,16 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         # Need to check this
         @self.Constraint(doc="Heat load of system")
         def eq_heat_load(b):
+            first_term = pyunits.convert(
+                b.FR_ta * b.trans_absorb_prod * b.max_irradiance,
+                to_units=pyunits.kW / pyunits.m**2,
+            )
             return b.heat_load == pyunits.convert(
-                b.collector_area_total
-                * (b.FR * b.ta * b.G_max - b.FR * b.UL * b.delta_T),
+                b.collector_area_total * (first_term - b.FR_UL * b.factor_delta_T),
                 to_units=pyunits.kW,
             )
 
-    def initialize_build(
+    def initialize(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
     ):
 
@@ -416,21 +424,51 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         # solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
+
         init_log.info("FPC initialization status {}.".format(idaeslog.condition(res)))
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
-        iscale.set_scaling_factor(self.collector_area, 1)
-        iscale.set_scaling_factor(self.collector_area_total, 1)
-        iscale.set_scaling_factor(self.G_total, 1e-2)
-        iscale.set_scaling_factor(self.Fprime_UL, 1)
-        iscale.set_scaling_factor(self.r, 1)
-        iscale.set_scaling_factor(self.Q_useful, 1e-3)
-        iscale.set_scaling_factor(self.heat_load, 1e-3)
-        iscale.set_scaling_factor(self.heat_annual, 1e-6)
-        iscale.set_scaling_factor(self.heat, 1e-3)
-        iscale.set_scaling_factor(self.electricity, 1e-1)
+        if iscale.get_scaling_factor(self.collector_area) is None:
+            sf = iscale.get_scaling_factor(self.collector_area, default=1)
+            iscale.set_scaling_factor(self.collector_area, sf)
+
+        if iscale.get_scaling_factor(self.collector_area_total) is None:
+            sf = iscale.get_scaling_factor(self.collector_area_total, default=1)
+            iscale.set_scaling_factor(self.collector_area_total, sf)
+
+        if iscale.get_scaling_factor(self.total_irradiance) is None:
+            sf = iscale.get_scaling_factor(self.total_irradiance, default=1e-2)
+            iscale.set_scaling_factor(self.total_irradiance, sf)
+
+        if iscale.get_scaling_factor(self.Fprime_UL) is None:
+            sf = iscale.get_scaling_factor(self.Fprime_UL, default=1)
+            iscale.set_scaling_factor(self.Fprime_UL, sf)
+
+        if iscale.get_scaling_factor(self.ratio_FRta) is None:
+            sf = iscale.get_scaling_factor(self.ratio_FRta, default=1)
+            iscale.set_scaling_factor(self.ratio_FRta, sf)
+
+        if iscale.get_scaling_factor(self.net_heat_gain) is None:
+            sf = iscale.get_scaling_factor(self.net_heat_gain, default=1e-3)
+            iscale.set_scaling_factor(self.net_heat_gain, sf)
+
+        if iscale.get_scaling_factor(self.heat_load) is None:
+            sf = iscale.get_scaling_factor(self.heat_load, default=1e-3)
+            iscale.set_scaling_factor(self.heat_load, sf)
+
+        if iscale.get_scaling_factor(self.heat_annual) is None:
+            sf = iscale.get_scaling_factor(self.heat_annual, default=1e-6)
+            iscale.set_scaling_factor(self.heat_annual, sf)
+
+        if iscale.get_scaling_factor(self.heat) is None:
+            sf = iscale.get_scaling_factor(self.heat, default=1e-3)
+            iscale.set_scaling_factor(self.heat, sf)
+
+        if iscale.get_scaling_factor(self.electricity) is None:
+            sf = iscale.get_scaling_factor(self.electricity, default=0.1)
+            iscale.set_scaling_factor(self.electricity, sf)
 
     @property
     def default_costing_method(self):
