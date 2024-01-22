@@ -80,7 +80,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.hours_storage, sf)
 
         if iscale.get_scaling_factor(self.heat_load) is None:
-            sf = iscale.get_scaling_factor(self.heat_load, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.heat_load, default=1e-3, warning=True)
             iscale.set_scaling_factor(self.heat_load, sf)
 
         if iscale.get_scaling_factor(self.heat_annual_scaled) is None:
@@ -90,7 +90,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.heat_annual_scaled, sf)
 
         if iscale.get_scaling_factor(self.heat) is None:
-            sf = iscale.get_scaling_factor(self.heat, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.heat, default=1e-4, warning=True)
             iscale.set_scaling_factor(self.heat, sf)
 
         if iscale.get_scaling_factor(self.electricity_annual_scaled) is None:
