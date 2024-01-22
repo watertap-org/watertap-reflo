@@ -10,16 +10,11 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-import os
 import pandas as pd
-import sys
-from io import StringIO
 from pyomo.environ import (
-    Var,
     Param,
     Constraint,
     Expression,
-    SolverFactory, 
     value,
     check_optimal_termination,
     units as pyunits,
@@ -153,54 +148,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             )
         )
 
-
-        # self.collector_area_total = Var(
-        #     initialize=1e5,
-        #     units=pyunits.m**2,
-        #     bounds=(0, None),
-        #     doc="Total collector area needed",
-        # )
-
-        # self.number_collectors = Var(
-        #     initialize=1000,
-        #     units=pyunits.dimensionless,
-        #     bounds=(1, None),
-        #     doc="Number of collectors needed",
-        # )
-
-        # self.storage_volume = Var(
-        #     initialize=100,
-        #     units=pyunits.m**3,
-        #     bounds=(0, None),
-        #     doc="Storage volume for flat plate system",
-        # )
-
-        # self.collector_area_total_constraint = Constraint(
-        #     expr=self.collector_area_total
-        #     * (self.FR_ta - self.FR_UL * self.factor_delta_T)
-        #     == pyunits.convert(self.heat_load, to_units=pyunits.kilowatt)
-        # )
-
-        # self.number_collectors_constraint = Constraint(
-        #     expr=self.number_collectors
-        #     == self.collector_area_total / self.collector_area_per
-        # )
-
-        # self.storage_volume_constraint = Constraint(
-        #     expr=self.storage_volume
-        #     == pyunits.convert(
-        #         (
-        #             (self.hours_storage * self.heat_load)
-        #             / (
-        #                 self.specific_heat_water
-        #                 * self.temperature_cold
-        #                 * self.dens_water
-        #             )
-        #         ),
-        #         to_units=pyunits.m**3,
-        #     )
-        # )
-
     def calculate_scaling_factors(self):
 
         if iscale.get_scaling_factor(self.hours_storage) is None:
@@ -217,41 +164,13 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             )
             iscale.set_scaling_factor(self.temperature_hot, sf)
 
-        # if iscale.get_scaling_factor(self.heat_annual) is None:
-        #     sf = iscale.get_scaling_factor(self.heat_annual, default=1e-4, warning=True)
-        #     iscale.set_scaling_factor(self.heat_annual, sf)
-
         if iscale.get_scaling_factor(self.heat) is None:
             sf = iscale.get_scaling_factor(self.heat, default=1, warning=True)
             iscale.set_scaling_factor(self.heat, sf)
 
-        # if iscale.get_scaling_factor(self.electricity_annual) is None:
-        #     sf = iscale.get_scaling_factor(
-        #         self.electricity_annual, default=1e-3, warning=True
-        #     )
-            # iscale.set_scaling_factor(self.electricity_annual, sf)
-
         if iscale.get_scaling_factor(self.electricity) is None:
             sf = iscale.get_scaling_factor(self.electricity, default=1, warning=True)
             iscale.set_scaling_factor(self.electricity, sf)
-
-        # if iscale.get_scaling_factor(self.number_collectors) is None:
-        #     sf = iscale.get_scaling_factor(
-        #         self.number_collectors, default=1e-4, warning=True
-        #     )
-        #     iscale.set_scaling_factor(self.number_collectors, sf)
-
-        # if iscale.get_scaling_factor(self.collector_area_total) is None:
-        #     sf = iscale.get_scaling_factor(
-        #         self.collector_area_total, default=1e-6, warning=True
-        #     )
-        #     iscale.set_scaling_factor(self.collector_area_total, sf)
-
-        # if iscale.get_scaling_factor(self.storage_volume) is None:
-        #     sf = iscale.get_scaling_factor(
-        #         self.storage_volume, default=1e-4, warning=True
-        #     )
-        #     iscale.set_scaling_factor(self.storage_volume, sf)
 
     def initialize(
         self,
@@ -271,7 +190,9 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         Returns: None
         """
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
-        solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
+        
+        if solver is None:
+            opt = get_solver(optarg)
 
         self.init_data = pd.DataFrame(
             {
@@ -288,13 +209,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         self.heat.set_value(value(self.heat_annual) / 8766)
         self.electricity.set_value(value(self.electricity_annual) / 8766)
         # Create solver
-        opt = get_solver(solver, optarg)
-        # opt = SolverFactory("ipopt")
-
-        # Solve unit
-        # with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
-        #     print("\n\n\nhere\n\n\n")
-        #     res = opt.solve(self, tee=slc.tee)
         res = opt.solve(self)
 
         init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
@@ -303,7 +217,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
 
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
-        # sys.stdout = oldstdout
 
     @property
     def default_costing_method(self):
