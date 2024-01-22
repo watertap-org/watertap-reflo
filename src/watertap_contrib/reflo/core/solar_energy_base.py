@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 
+import idaes.logger as idaeslog
 from idaes.core import UnitModelBlockData, declare_process_block_class
 from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.model_statistics import degrees_of_freedom
@@ -27,12 +28,17 @@ from idaes.core.util.exceptions import InitializationError
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
-import idaes.logger as idaeslog
+from idaes.core.util.misc import StrEnum
 
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 from pyomo.environ import Param, Var, Suffix, NonNegativeReals, units as pyunits
 
 __author__ = "Kurban Sitterley"
+
+
+class SolarModelType(StrEnum):
+    surrogate = "surrogate"
+    physical = "physical"
 
 
 @declare_process_block_class("SolarEnergyBase")
@@ -58,6 +64,15 @@ class SolarEnergyBaseData(UnitModelBlockData):
             domain=In([False]),
             description="Holdup construction flag - must be False",
             doc="""Solar energy models do not include holdup""",
+        ),
+    )
+    CONFIG.declare(
+        "solar_model_type",
+        ConfigValue(
+            default=SolarModelType.surrogate,
+            domain=In(SolarModelType),
+            description="Solar model type construction flag",
+            doc="""Indicates what type of solar model will be constructed""",
         ),
     )
     CONFIG.declare(
@@ -154,23 +169,24 @@ class SolarEnergyBaseData(UnitModelBlockData):
             doc="Heat balance of solar process",
         )
 
-        self.input_labels = self.config.input_variables["labels"]
-        self.input_bounds = self.config.input_variables["bounds"]
-        self.input_units = self.config.input_variables["units"]
+        if self.config.solar_model_type == SolarModelType.surrogate:
+            self.input_labels = self.config.input_variables["labels"]
+            self.input_bounds = self.config.input_variables["bounds"]
+            self.input_units = self.config.input_variables["units"]
 
-        self.output_labels = self.config.output_variables["labels"]
-        try:
-            self.output_bounds = self.config.output_variables["bounds"]
-        except KeyError:
-            self.output_bounds = dict()
-            for ol in self.output_labels:
-                self.output_bounds[ol] = (0, None)
-        self.output_units = self.config.output_variables["units"]
+            self.output_labels = self.config.output_variables["labels"]
+            try:
+                self.output_bounds = self.config.output_variables["bounds"]
+            except KeyError:
+                self.output_bounds = dict()
+                for ol in self.output_labels:
+                    self.output_bounds[ol] = (0, None)
+            self.output_units = self.config.output_variables["units"]
 
-        if self.config.dataset_bounds == dict():
-            self.dataset_bounds = self.input_bounds
-        else:
-            self.datset_bounds = self.config.dataset_bounds
+            if self.config.dataset_bounds == dict():
+                self.dataset_bounds = self.input_bounds
+            else:
+                self.datset_bounds = self.config.dataset_bounds
 
     def initialize(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
