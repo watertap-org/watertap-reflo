@@ -46,7 +46,6 @@ from idaes.core.util.scaling import (
     unscaled_variables_generator,
 )
 
-
 # Get default solver for testing
 solver = get_solver()
 solver = SolverFactory("ipopt")
@@ -76,12 +75,6 @@ fpc_dict = dict(
     output_variables=output_variables,
     scale_training_data=True,
 )
-
-
-def get_data():
-    df = pd.read_pickle(dataset_filename)
-    df = df.sample(n=90, random_state=1)  # random_state ensures reproducibility
-    return {"training": df[:80], "validation": df[80:90]}
 
 
 class TestFlatPlate:
