@@ -65,13 +65,6 @@ def build_flat_plate_cost_param_block(blk):
         doc="Fixed operating cost of flat plate plant per kW capacity",
     )
 
-    blk.variable_operating_by_generation = pyo.Var(
-        initialize=0,
-        units=costing.base_currency / (pyo.units.MWh * costing.base_period),
-        bounds=(0, None),
-        doc="Variable operating cost of flat plate plant per MWh generated",
-    )
-
 
 @register_costing_parameter_block(
     build_rule=build_flat_plate_cost_param_block,
@@ -83,7 +76,6 @@ def cost_flat_plate(blk):
     flat_plate_params = blk.costing_package.flat_plate
     flat_plate = blk.unit_model
     make_capital_cost_var(blk)
-    make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
     blk.direct_capital_cost = pyo.Var(
@@ -142,14 +134,6 @@ def cost_flat_plate(blk):
         expr=blk.fixed_operating_cost
         == flat_plate_params.fixed_operating_by_capacity
         * pyo.units.convert(flat_plate.heat_load, to_units=pyo.units.kW)
-    )
-
-    blk.variable_operating_cost_constraint = pyo.Constraint(
-        expr=blk.variable_operating_cost
-        == (
-            flat_plate_params.variable_operating_by_generation
-            * pyo.units.convert(flat_plate.heat_annual, to_units=pyo.units.MWh)
-        )
     )
 
     blk.costing_package.cost_flow(
