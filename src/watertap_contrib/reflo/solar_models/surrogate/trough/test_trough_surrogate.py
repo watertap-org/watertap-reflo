@@ -187,7 +187,7 @@ class TestTroughLarge:
         assert os.path.getsize(test_surrogate_filename) > 0
 
     @pytest.mark.unit
-    def test_dof_large(self, trough_frame):
+    def test_dof(self, trough_frame):
         m = trough_frame
         assert degrees_of_freedom(m) == 2
         m.fs.trough.heat_load.fix(250)

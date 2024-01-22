@@ -6,6 +6,9 @@ from pyomo.environ import (
     SolverFactory,
     ConcreteModel,
     Var,
+    Param,
+    Expression,
+    Constraint,
     value,
     assert_optimal_termination,
     units as pyunits,
@@ -39,31 +42,26 @@ dataset_filename = os.path.join(os.path.dirname(__file__), "data/flat_plate_data
 surrogate_filename = os.path.join(
     os.path.dirname(__file__), "flat_plate_surrogate.json"
 )
-expected_heat_annual = [
-    2.201e9,
-    2.530e9,
-    2.266e9,
-    1.472e9,
-    2.611e9,
-    3.567e8,
-    3.049e8,
-    2.200e9,
-    6.599e8,
-    1.144e9,
-]
-expected_electricity_annual = [
-    4.889e7,
-    5.804e7,
-    4.969e7,
-    3.245e7,
-    5.682e7,
-    7.944e6,
-    6.800e6,
-    4.760e7,
-    1.530e7,
-    2.569e7,
-]
 
+input_bounds = dict(heat_load=[100, 200], hours_storage=[0, 26], temperature_hot=[50, 100])
+input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+input_variables = {
+    "labels": ["heat_load", "hours_storage", "temperature_hot"],
+    "bounds": input_bounds,
+    "units": input_units,
+}
+
+output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+output_variables = {
+    "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+    "units": output_units,
+}
+fpc_dict = dict(
+    dataset_filename=dataset_filename,
+    input_variables=input_variables,
+    output_variables=output_variables,
+    scale_training_data=True,
+)
 
 def get_data():
     df = pd.read_pickle(dataset_filename)
@@ -77,69 +75,129 @@ class TestFlatPlate:
 
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
-        m.fs.flatplate = FlatPlateSurrogate()
+        m.fs.fpc = FlatPlateSurrogate(**fpc_dict)
 
         return m
+
+    @pytest.mark.unit
+    def test_config_dict(self, flat_plate_frame):
+        m = flat_plate_frame
+        fpc = m.fs.fpc
+
+        for k, v in fpc_dict.items():
+            if k == "input_variables":
+                for j in v.keys():
+                    assert hasattr(fpc, f"input_{j}")
+                    assert fpc.input_bounds == fpc.dataset_bounds
+                for i in v["labels"]:
+                    var = getattr(m.fs.fpc, i)
+                    assert isinstance(var, Var)
+                    assert var.bounds == tuple(v["bounds"][i])
+                    assert var.lb == v["bounds"][i][0]
+                    assert var.ub == v["bounds"][i][1]
+                    var_units = str(getattr(pyunits, v["units"][i]))
+                    assert str(var.get_units()) == var_units
+
+            if k == "output_variables":
+                for j in v.keys():
+                    assert hasattr(fpc, f"output_{j}")
+                for i in v["labels"]:
+                    var = getattr(fpc, i)
+                    assert var.bounds == (0, None)
+                    assert isinstance(var, Var)
+                    var_units = str(getattr(pyunits, v["units"][i]))
+                    assert str(var.get_units()) == var_units
+
+            if k == "scale_training_data":
+                assert v
+                assert hasattr(fpc, "data_training_unscaled")
+                assert hasattr(fpc, "data_scaling_factors")
+                assert isinstance(fpc.data_scaling_factors, dict)
+                for j, u in fpc.data_scaling_factors.items():
+                    assert j in fpc.data_training.columns
+                    assert hasattr(fpc, j)
+                    assert hasattr(fpc, j.replace("_scaled", "_scaling"))
+                    sp = getattr(fpc, j.replace("_scaled", "_scaling"))
+                    assert u is sp
+                    assert isinstance(u, Param)
+                    col_max = fpc.data_training_unscaled[
+                        j.replace("_scaled", "")
+                    ].max()
+                    assert pytest.approx(value(u), rel=1e-4) == 1 / col_max
+                    col_val_unscaled = fpc.data_training_unscaled[
+                        j.replace("_scaled", "")
+                    ].iloc[1]
+                    col_val_scaled = fpc.data_training[j].iloc[1]
+                    assert (
+                        pytest.approx(col_val_unscaled * value(u), rel=1e-4)
+                        == col_val_scaled
+                    )
 
     @pytest.mark.unit
     @pytest.mark.skip
     def test_build(self, flat_plate_frame):
         m = flat_plate_frame
+        fpc = m.fs.fpc
 
-        assert len(m.fs.flatplate.config) == 3
-        assert not m.fs.flatplate.config.dynamic
-        assert not m.fs.flatplate.config.has_holdup
-        assert m.fs.flatplate._tech_type == "flat_plate"
-        assert isinstance(m.fs.flatplate.surrogate_blk, SurrogateBlock)
+        assert len(m.fs.fpc.config) == 3
+        assert not m.fs.fpc.config.dynamic
+        assert not m.fs.fpc.config.has_holdup
+        assert m.fs.fpc._tech_type == "flat_plate"
+        assert isinstance(m.fs.fpc.surrogate_blk, SurrogateBlock)
 
         surr_input_str = ["heat_load", "hours_storage", "temperature_hot"]
         surr_output_str = ["heat_annual", "electricity_annual"]
 
-        assert m.fs.flatplate.input_labels == surr_input_str
-        assert m.fs.flatplate.surrogate.input_labels() == surr_input_str
-        assert m.fs.flatplate.output_labels == surr_output_str
-        assert m.fs.flatplate.surrogate.output_labels() == surr_output_str
-        assert m.fs.flatplate.surrogate_file.lower() == surrogate_filename.lower()
-        assert m.fs.flatplate.dataset_filename.lower() == dataset_filename.lower()
-        assert m.fs.flatplate.surrogate.n_inputs() == 3
-        assert m.fs.flatplate.surrogate.n_outputs() == 2
+        assert m.fs.fpc.input_labels == surr_input_str
+        assert m.fs.fpc.surrogate.input_labels() == surr_input_str
+        assert m.fs.fpc.output_labels == surr_output_str
+        assert m.fs.fpc.surrogate.output_labels() == surr_output_str
+        assert m.fs.fpc.surrogate_file.lower() == surrogate_filename.lower()
+        assert m.fs.fpc.dataset_filename.lower() == dataset_filename.lower()
+        assert m.fs.fpc.surrogate.n_inputs() == 3
+        assert m.fs.fpc.surrogate.n_outputs() == 2
 
         for s in surr_input_str + surr_output_str:
-            v = getattr(m.fs.flatplate, s)
+            v = getattr(m.fs.fpc, s)
             assert isinstance(v, Var)
 
         no_ports = list()
-        for c in m.fs.flatplate.component_objects():
+        for c in m.fs.fpc.component_objects():
             if isinstance(c, Port):
                 no_ports.append(c)
         assert len(no_ports) == 0
-        assert number_variables(m.fs.flatplate) == 10
-        assert number_unused_variables(m.fs.flatplate) == 0
-        assert number_total_constraints(m.fs.flatplate) == 7
+        assert number_variables(m.fs.fpc) == 10
+        assert number_unused_variables(m.fs.fpc) == 0
+        assert number_total_constraints(m.fs.fpc) == 7
 
+        assert isinstance(fpc.heat_annual, Expression)
+        assert isinstance(fpc.electricity_annual, Expression)
+        assert isinstance(fpc.heat_constraint, Constraint)
+        assert isinstance(fpc.electricity_constraint, Constraint)
+    
     @pytest.mark.unit
     @pytest.mark.skip
-    def test_surrogate_variable_bounds(self, flat_plate_frame):
+    def test_surrogate_metrics(self, flat_plate_frame):
+        # TODO: placeholder for future test
         m = flat_plate_frame
-        assert m.fs.flatplate.heat_load.bounds == tuple([100, 1000])
-        assert m.fs.flatplate.hours_storage.bounds == tuple([0, 26])
-        assert m.fs.flatplate.temperature_hot.bounds == tuple([50, 100])
-
+        fpc = m.fs.fpc
+        for output_label in fpc.output_labels:
+            assert fpc.trained_rbf.get_result(output_label).metrics["R2"] > 0.99
+            assert fpc.trained_rbf.get_result(output_label).metrics["RMSE"] < 0.005
 
     @pytest.mark.unit
-    @pytest.mark.skip
     def test_dof(self, flat_plate_frame):
 
         m = flat_plate_frame
-        m.fs.flatplate.heat_load.fix(500)
-        m.fs.flatplate.hours_storage.fix(12)
-        m.fs.flatplate.temperature_hot.fix(70)
+        assert degrees_of_freedom(m) == 3
+        m.fs.fpc.heat_load.fix(150)
+        m.fs.fpc.hours_storage.fix(2)
+        m.fs.fpc.temperature_hot.fix(51)
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.unit
     @pytest.mark.skip
     def test_calculate_scaling(self, flat_plate_frame):
-
         m = flat_plate_frame
         calculate_scaling_factors(m)
         assert len(list(unscaled_variables_generator(m))) == 0
@@ -147,30 +205,23 @@ class TestFlatPlate:
     @pytest.mark.component
     @pytest.mark.skip
     def test_initialization(self, flat_plate_frame):
-        initialization_tester(flat_plate_frame, unit=flat_plate_frame.fs.flatplate)
+        # TODO: placeholder for future test
+        pass
+
+    @pytest.mark.unit
+    @pytest.mark.skip
+    def test_solvability(self, trough_frame):
+        # TODO: placeholder for future test
+        pass
 
     @pytest.mark.component
     @pytest.mark.skip
     def test_solve(self, flat_plate_frame):
-        results = solver.solve(flat_plate_frame)
-        assert_optimal_termination(results)
+        # TODO: placeholder for future test
+        pass
 
     @pytest.mark.component
     @pytest.mark.skip
     def test_costing(self, flat_plate_frame):
-        m = flat_plate_frame
-        m.fs.test_flow = 50 * pyunits.Mgallons / pyunits.day
-
-        m.fs.costing = EnergyCosting()
-        m.fs.flatplate.costing = UnitModelCostingBlock(
-            flowsheet_costing_block=m.fs.costing
-        )
-
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_total_investment.fix(1)
-
-        m.fs.costing.cost_process()
-        m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)
-
-        results = solver.solve(m)
-        assert_optimal_termination(results)
+        # TODO: placeholder for future test
+        pass
