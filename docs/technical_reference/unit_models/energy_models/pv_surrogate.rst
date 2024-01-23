@@ -16,7 +16,7 @@ The PV model has 1 degree of freedom that should be fixed for the unit to be ful
 Model Structure
 ---------------
 
-This PV Surrogate model is created using data from the SAM tool and is trained using PySMO RBF functions.
+This PV Surrogate model is created using data from PySAM tool and is trained using PySMO RBF functions.
 
 Variables
 ---------
@@ -24,11 +24,11 @@ The system configuration variables should be fixed at the default values,
 with which the surrogate model was developed:
 
 .. csv-table::
-   :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
+   :header: "Variables", "Variable Name", "Symbol", "Valid Range", "Unit"
 
-   "Design Size", "design_size", ":math:`S_{design}`", "X-X", ":math:`\text{kW}`"
-   "Land Required", "land_req", ":math:`A_{land}`", "X-X", ":math:`\text{acres}`"
-   "Annual Energy", "annual_energy", ":math:`E_{annual}`", "X-X", ":math:`\text{kWh/yr}`"
+   "Design Size", "design_size", ":math:`S_{design}`", "1-200,000", ":math:`\text{kW}`"
+   "Land Required", "land_req", ":math:`A_{land}`", "", ":math:`\text{acres}`"
+   "Annual Energy", "annual_energy", ":math:`E_{annual}`", "", ":math:`\text{kWh/yr}`"
 
 References
 ----------
