@@ -51,7 +51,9 @@ solver = get_solver()
 
 dataset_filename = os.path.join(os.path.dirname(__file__), "data/trough_data.pkl")
 
-test_surrogate_filename = os.path.join(os.path.dirname(__file__), "trough_surrogate_test.json")
+test_surrogate_filename = os.path.join(
+    os.path.dirname(__file__), "trough_surrogate_test.json"
+)
 input_bounds = dict(heat_load=[100, 500], hours_storage=[0, 26])
 input_units = dict(heat_load="MW", hours_storage="hour")
 input_variables = {
