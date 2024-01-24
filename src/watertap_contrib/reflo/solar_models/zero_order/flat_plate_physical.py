@@ -146,12 +146,6 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             doc="Number of collectors in array",
         )
 
-        self.storage_volume = Param(
-            initialize=0,
-            units=pyunits.dimensionless,
-            doc="Fixed storage volume to use in cost unit model",
-        )
-
         self.FR_ta = Param(
             initialize=0.689,  # optical gain "a" in Hottel-Whillier-Bliss equation [hcoll = a - b*dT]; defaults from SAM
             units=pyunits.dimensionless,

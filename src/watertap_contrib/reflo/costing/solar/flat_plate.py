@@ -99,17 +99,33 @@ def cost_flat_plate(blk):
         doc="Sales tax for flat plate system",
     )
 
-    blk.direct_cost_constraint = pyo.Constraint(
-        expr=blk.direct_capital_cost
-        == (
-            (
-                flat_plate.collector_area_total
-                * flat_plate_params.cost_per_area_collector
+    if flat_plate.config.solar_model_type == "surrogate":
+        blk.direct_cost_constraint = pyo.Constraint(
+            expr=blk.direct_capital_cost
+            == (
+                (
+                    flat_plate.collector_area_total
+                    * flat_plate_params.cost_per_area_collector
+                )
+                + (
+                    flat_plate.storage_volume
+                    * flat_plate_params.cost_per_volume_storage
+                )
             )
-            + (flat_plate.storage_volume * flat_plate_params.cost_per_volume_storage)
+            * (1 + flat_plate_params.contingency_frac_direct_cost)
         )
-        * (1 + flat_plate_params.contingency_frac_direct_cost)
-    )
+
+    else:
+        blk.direct_cost_constraint = pyo.Constraint(
+            expr=blk.direct_capital_cost
+            == (
+                (
+                    flat_plate.collector_area_total
+                    * flat_plate_params.cost_per_area_collector
+                )
+            )
+            * (1 + flat_plate_params.contingency_frac_direct_cost)
+        )
 
     blk.land_area = pyo.Expression(
         expr=pyo.units.convert(flat_plate.collector_area_total, to_units=pyo.units.acre)
