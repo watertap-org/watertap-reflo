@@ -165,7 +165,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self.heat = Var(
             initialize=1e3,
             units=pyunits.kW,
-            bounds=(None, None),
+            domain=NonNegativeReals,
             doc="Heat balance of solar process",
         )
 
