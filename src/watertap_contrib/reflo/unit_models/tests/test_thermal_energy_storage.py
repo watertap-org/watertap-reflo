@@ -78,7 +78,6 @@ class TestThermalEnergyStorage:
 
         m.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
         m.fs.tes.tes_hx_outlet.pressure.fix(101325)
-        # m.fs.tes.initialize()
 
         TES_outlet_initial = (30 + 273.15) * pyunits.K
 
