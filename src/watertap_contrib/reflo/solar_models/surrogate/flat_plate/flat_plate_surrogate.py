@@ -59,14 +59,14 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
 
         self.temperature_cold = Param(
             initialize=293,  # defaults from SAM
-            units=pyunits.K,
+            units=pyunits.degK,
             mutable=True,
             doc="Cold temperature",
         )
 
         self.factor_delta_T = Param(
-            initialize=0.03,  # this is a guess as to what the 30 represents in the equation for total collector area in SAM documentation
-            units=pyunits.K,
+            initialize=0.03,
+            units=pyunits.degK,
             mutable=True,
             doc="Influent minus ambient temperature",
         )
@@ -87,7 +87,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
 
         self.FR_UL = Param(
             initialize=3.85,  # Thermal loss coeff "b" in Hottel-Whillier-Bliss equation [hcoll = a - b*dT]; defaults from SAM
-            units=pyunits.kilowatt / (pyunits.m**2 * pyunits.K),
+            units=pyunits.kilowatt / (pyunits.m**2 * pyunits.degK),
             mutable=True,
             doc="Product of collector heat removal factor (FR) and overall heat loss coeff. of collector (UL)",
         )
@@ -130,7 +130,10 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
                     (self.hours_storage * self.heat_load)
                     / (
                         self.specific_heat_water
-                        * self.temperature_cold
+                        * (
+                            (self.temperature_hot + 273.15 * pyunits.degK)
+                            - self.temperature_cold
+                        )
                         * self.dens_water
                     )
                 ),
