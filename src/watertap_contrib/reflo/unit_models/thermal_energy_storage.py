@@ -21,21 +21,13 @@ from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 from pyomo.environ import (
     Var,
-    Constraint,
-    check_optimal_termination,
     Param,
-    value,
-    log,
     units as pyunits,
-    Expression,
-    NonNegativeReals,
 )
 
 # Import IDAES cores
 from idaes.core import (
-    ControlVolume0DBlock,
     declare_process_block_class,
-    MaterialBalanceType,
     EnergyBalanceType,
     MomentumBalanceType,
     UnitModelBlockData,
@@ -221,23 +213,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             doc="Specific heat capacity of the salt in the TES",
         )
 
-        # self.tes_diameter = Var(
-        #     initialize=10,
-        #     units=pyunits.m,
-        #     doc="Diameter of the thermal storage tank"
-        # )
-
-        # self.tes_height_diameter_ratio = Param(
-        #     initialize = 2,
-        #     doc='Height to diameter ratio of tank'
-        # )
-
-        # self.tes_height = Var(
-        #     initialize=10,
-        #     units=pyunits.m,
-        #     doc="Height of the thermal storage tank"
-        # )
-
         self.hours_storage = Var(
             initialize=8, bounds=(0, 24), units=pyunits.h, doc="Hours of storage"
         )
@@ -296,16 +271,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
 
         ## TODO Convective heat loss as a function of tank temperature
         # Can be updated to be a function of temperature
-        # self.h_conv = Param(
-        #     initialize = 1,
-        #     units = pyunits.J/pyunits.m**2/pyunits.K
-        # )
-
-        # Excess heat that needs to be dissipated because of limit on tes temp
-        # self.heat_dissipation = Var(
-        #     self.flowsheet().config.time,
-        #     initialize = 10,
-        # )
 
         self.salt_mass = Var(
             initialize=100,
@@ -339,13 +304,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         self.T_amb = Param(
             initialize=25 + 273.15, units=pyunits.K, doc="ambient temperature"
         )
-
-        # constraints
-        # @self.Constraint(doc="Calculate optimal tank size")
-        # def eq_tes_dimensions(b):
-        #     return (b.tes_volume ==
-        #             b.tes_diameter * b.tes_height_diameter_ratio *
-        #             3.14 * b.tes_diameter**2 / 4 )
 
         @self.Constraint(doc="Calculate mass of solar salt")
         def eq_salt_mass(b):
@@ -451,18 +409,45 @@ class ThermalEnergyStorageData(UnitModelBlockData):
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
-        # iscale.set_scaling_factor(self.tes_diameter, 1)
-        iscale.set_scaling_factor(self.tes_volume, 1e-1)
-        iscale.set_scaling_factor(self.heat_in, 1e-3)
-        iscale.set_scaling_factor(self.heat_out, 1e-3)
-        iscale.set_scaling_factor(self.tes_initial_temp, 1e-2)
-        iscale.set_scaling_factor(self.tes_temp, 1e-2)
-        iscale.set_scaling_factor(self.dt, 1e-3)
-        iscale.set_scaling_factor(self.salt_mass, 1e-2)
-        iscale.set_scaling_factor(self.electricity, 1e-1)
-        iscale.set_scaling_factor(self.hours_storage, 1e-1)
-        iscale.set_scaling_factor(self.heat_load, 1e-3)
-        iscale.set_scaling_factor(self.thermal_energy_capacity, 1e-5)
+        if iscale.get_scaling_factor(self.tes_volume) is None:
+            sf = iscale.get_scaling_factor(self.tes_volume, default=1e-1)
+            iscale.set_scaling_factor(self.tes_volume, sf)
+
+        if iscale.get_scaling_factor(self.heat_in) is None:
+            sf = iscale.get_scaling_factor(self.heat_in, default=1e-3)
+            iscale.set_scaling_factor(self.heat_in, sf)
+
+        if iscale.get_scaling_factor(self.heat_out) is None:
+            sf = iscale.get_scaling_factor(self.heat_out, default=1e-3)
+            iscale.set_scaling_factor(self.heat_out, sf)
+
+        if iscale.get_scaling_factor(self.tes_initial_temp) is None:
+            sf = iscale.get_scaling_factor(self.tes_initial_temp, default=1e-2)
+            iscale.set_scaling_factor(self.tes_initial_temp, sf)
+
+        if iscale.get_scaling_factor(self.tes_temp) is None:
+            sf = iscale.get_scaling_factor(self.tes_temp, default=1e-2)
+            iscale.set_scaling_factor(self.tes_temp, sf)
+
+        if iscale.get_scaling_factor(self.dt) is None:
+            sf = iscale.get_scaling_factor(self.dt, default=1e-3)
+            iscale.set_scaling_factor(self.dt, sf)
+
+        if iscale.get_scaling_factor(self.salt_mass) is None:
+            sf = iscale.get_scaling_factor(self.salt_mass, default=1e-2)
+            iscale.set_scaling_factor(self.salt_mass, sf)
+
+        if iscale.get_scaling_factor(self.electricity) is None:
+            sf = iscale.get_scaling_factor(self.electricity, default=1e-1)
+            iscale.set_scaling_factor(self.electricity, sf)
+
+        if iscale.get_scaling_factor(self.heat_load) is None:
+            sf = iscale.get_scaling_factor(self.heat_load, default=1e-3)
+            iscale.set_scaling_factor(self.heat_load, sf)
+
+        if iscale.get_scaling_factor(self.thermal_energy_capacity) is None:
+            sf = iscale.get_scaling_factor(self.thermal_energy_capacity, default=1e-5)
+            iscale.set_scaling_factor(self.thermal_energy_capacity, sf)
 
     @property
     def default_costing_method(self):
