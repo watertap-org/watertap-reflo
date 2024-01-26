@@ -38,17 +38,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
     Surrogate model for flat plate.
     """
 
-    CONFIG = SolarEnergyBaseData.CONFIG()
-    CONFIG.declare(
-        "heat_load_range",
-        ConfigValue(
-            domain=ListOf(float),
-            default=[10, 100],
-            description="Range of the Heat Load input",
-            doc="""Heat load range [min, max]. Options are: [10, 100] or [100, 500]""",
-        ),
-    )
-
     def build(self):
         super().build()
 
