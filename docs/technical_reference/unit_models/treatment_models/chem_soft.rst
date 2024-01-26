@@ -2,7 +2,7 @@ Chemical Softening
 ====================================================
 
 This chemical softening unit model calculates the chemical dose required for target removal of hardness causing components. 
-The model also calculates the size the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model
+The model also calculates the size of the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model:
    * supports steady-state only
    * predicts the outlet concentration of :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`
    * is verified against literature data
@@ -10,9 +10,9 @@ The model also calculates the size the mixer, flocculator, sedimentation basin a
 Configuration Inputs
 --------------------
 
-The model requires 2 configuration inputs
-   * Softening procedure: ``single_stage_lime``, ``excess_lime``, ``single_stage_lime_soda``, ``excess_lime_soda``
-   * Silica removal: ``True``, ``False``
+The model requires 2 configuration inputs:
+   * Softening procedure: ``single_stage_lime`` or ``excess_lime`` or ``single_stage_lime_soda`` or ``excess_lime_soda``
+   * Silica removal: ``True`` or ``False``
 
 Degrees of Freedom/Variables
 ------------------
@@ -26,9 +26,9 @@ Typically, the following 7 variables define the input feed.
    :header: "Variables", "Variable Name", "Symbol", "Unit"
 
    "Feed volume flow rate", "``properties_in[0].flow_vol_phase['Liq']``", ":math:`Q_{feed}`", ":math:`\text{m}^3 / \text{s}`"
-   "Feed composition", "``properties_in[0].flow_mass_phase_comp['Liq','Ca_2+']``", ":math:`m_{Ca^{2+}}`", ":math:`\text{g/}\text{L}`"
-   "Feed composition", "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
-   "Feed composition", "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``",":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
+   "Feed composition Ca2+", "``properties_in[0].flow_mass_phase_comp['Liq','Ca_2+']``", ":math:`m_{Ca^{2+}}`", ":math:`\text{g/}\text{L}`"
+   "Feed composition Mg2+", "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
+   "Feed composition Alkalinity2-", "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``",":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
    "Feed temperature", "``feed_props.temperature``", ":math:`T`", ":math:`^o\text{C}`"
    "Ca2+ effluent target in CaCO3 equivalents", "``ca_eff_target``", "", ":math:`\text{g/}\text{L}`"
    "Mg2+ effluent target in CaCO3 equivalents", "``mg_eff_target``", "", ":math:`\text{g/}\text{L}`"
@@ -167,7 +167,7 @@ The following equations are independent of the softening procedure selected but 
 .. csv-table::
    :header: "Description", "Variable Name", "Symbol", "Equation"
 
-   "MgCl2 dose (if silica removal is selected)", "``mgcl2_dosing``", ":math:`MgCl_{2}`", ":math:`Ratio_{MgCl_{2}/SiO_{2}} * SiO_{2}`` "
+   "MgCl2 dose (if silica removal is selected)", "``mgcl2_dosing``", ":math:`MgCl_{2}`", ":math:`Ratio_{MgCl_{2}/SiO_{2}} * SiO_{2}` "
    "Sludge produced", "``sludge_prod``", ":math:`m_{sludge}`",  ":math:`Q_{feed} * (\text{Ca-SF}_{CaCO_{3}-hardness} * Ca_{CaCO_{3}-hardness} + \text{Mg-SF}_{CaCO_{3}-hardness} * Mg_{CaCO_{3}-hardness} + Ca_{non-CaCO_{3}-hardness} + \text{Mg-SF}_{non-CaCO_{3}-hardness} * Mg_{non-CaCO_{3}-hardness} + \text{Excess CaO} + TSS + MgCl_{2})`"
    "Volume of mixer", "``volume_mixer``", ":math:`V_{mixer}`", ":math:`Q_{feed} * RT_{mixer} * n_{mixer}`"
    "Volume of flocculator", "``volume_floc``", ":math:`V_{floc}`", ":math:`Q_{feed} * RT_{floc} * n_{floc}`"

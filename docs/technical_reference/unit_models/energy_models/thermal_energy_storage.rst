@@ -1,8 +1,7 @@
 Thermal Energy Storage (TES)
 ====================================================
 
-This is a thermal energy storage (TES) model assumes the tank is at a uniform temperature (similar to a continuous stirred tank).
-This TES model supports supports steady-state only.
+This is thermal energy storage (TES) model assumes the tank is at a uniform temperature (similar to a continuous stirred tank) and supports steady-state only.
 
 Model Structure
 ---------------
@@ -36,7 +35,7 @@ Typically the following variables define the input and output heat exchanger and
 .. csv-table::
    :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
 
-   "Temperature", "``temperature``", ":math:`T_{f}`", "298 - 398", ":math:`\text{K}`"
+   "Temperature", "``temperature``", ":math:`T_{f}`", "298.15 - 363.15", ":math:`\text{K}`"
    "Pressure", "``pressure``", ":math:`P`", "", ":math:`Pa`"
    "Mass flow rate of vapor phase", "``flow_mass_phase_comp[0,'Vap','H2O']``", ":math:`m_{v}`", "", ":math:`kg/s`"
    "Mass flow rate of liquid phase", "``flow_mass_phase_comp[0,'Liq','H2O']``", ":math:`m_{l}`", "", ":math:`kg/s`"
@@ -46,10 +45,10 @@ The following variables should also be fixed. An initial temperature is assigned
 .. csv-table::
    :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
 
-   "Initial temperature", "``tes_initial_temp``", ":math:`T_{0}`", "298.15 - 373.15", ":math:`\text{K}`"
-   "Time step", "``dt``", ":math:`d_{t}`", "", ":math:`h`"
+   "Initial temperature", "``tes_initial_temp``", ":math:`T_{0}`", "298.15 - 363.15", ":math:`\text{K}`"
+   "Time step", "``dt``", ":math:`dt`", "", ":math:`h`"
    "Hours of storage", "``hours_storage``", ":math:`h_{storage}`", "0-24", ":math:`h`"
-   "Heat load", "``heat_load``", ":math:`Q_{load}`", "", ":math:`MW`"
+   "Heat load", "``heat_load``", ":math:`heat_{load}`", "", ":math:`MW`"
    
 
 Parameters
@@ -64,8 +63,8 @@ The following parameters are used as default values and are mutable.
    "Salt heat capacity", "``salt_csp``", ":math:`C_{sp,salt}`", "1443", ":math:`J/kg/K`"
    "Pump power", "``pump_power``", ":math:`P_{pump}`", "1", ":math:`W`"
    "Pump efficiency", "``pump_eff``", ":math:`\eta_{pump}`", "1", ":math:`\text{dimensionless}`"
-   "Design temperature", "``T_design``", ":math:`T_{design}`", "374.15", ":math:`\text{K}`"
-   "Ambient temperature", "``T_amb``", ":math:`T_{amb}`", "298.15", ":math:`\text{K}`"
+   "Design temperature", "``temperature_design``", ":math:`T_{design}`", "363.15", ":math:`\text{K}`"
+   "Ambient temperature", "``temperature_ambient``", ":math:`T_{amb}`", "298.15", ":math:`\text{K}`"
 
 
 Equations
@@ -74,7 +73,7 @@ Equations
    :header: "Description", "Equation"
 
    "TES volume", ":math:`V_{TES} = \text{Thermal Energy Capacity} / (C_{sp,salt}*\rho_{packing,salt}*(T_{design}-T_{amb}))`"
-   "Thermal energy capacity", ":math:`\text{Thermal Energy Capacity} = h_{storage} * Q_{load}`"
+   "Thermal energy capacity", ":math:`\text{Thermal Energy Capacity} = h_{storage} * heat_{load}`"
    "Electricity", ":math:`electricity = P_{pump}/\eta_{pump}`"
    "Salt mass", ":math:`m_{salt} = V_{TES} * \rho_{packing,salt}`"
 
@@ -82,7 +81,7 @@ Costing
 ---------
 
 The TES capital cost includes direct costs, indirect costs and sales tax. The direct costs include
-cost storage and a contigency factor. The indirect costs are a fraction of the direct cost. 
+cost storage and a contingency factor. The indirect costs are a fraction of the direct cost. 
 A fixed operating cost is calculated as a linear function of heat load of TES.
 
 .. csv-table::
