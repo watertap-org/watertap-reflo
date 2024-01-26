@@ -183,13 +183,13 @@ class TestFlatPlatePhysical:
         sys_costing_results = {
             "aggregate_capital_cost": 3760.69,
             "aggregate_fixed_operating_cost": 54.68,
-            "aggregate_flow_heat": 1616.2651,
+            "aggregate_flow_heat": -1616.2651,
             "aggregate_flow_electricity": 52.9411,
-            "aggregate_flow_costs": {"heat": 166325.17, "electricity": 38136.16},
+            "aggregate_flow_costs": {"heat": 0, "electricity": 38136.16},
             "total_capital_cost": 3760.69,
-            "total_operating_cost": 204516.03,
+            "total_operating_cost": 38190.85,
             "aggregate_direct_capital_cost": 3576.0,
-            "LCOW": 14.8191,
+            "LCOW": 2.78940,
         }
 
         m = flat_plate_frame
@@ -197,6 +197,7 @@ class TestFlatPlatePhysical:
         m.fs.test_flow = 0.01 * pyunits.Mgallons / pyunits.day
 
         m.fs.costing = EnergyCosting()
+        m.fs.costing.heat_cost.set_value(0)
         m.fs.flatplate.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
         )
