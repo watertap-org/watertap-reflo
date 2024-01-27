@@ -5,7 +5,7 @@ Surrogate modeling toolboxes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * `PySMO <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/pysmo/index.html>`_
   
-  PySMO offers sevel surrogate modeling techniques, including:
+  PySMO offers several surrogate modeling techniques, including:
 
   * `Polynomial Functions <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/pysmo/pysmo_polyregression.html>`_
   * `Kriging Functions <https://idaes-pse.readthedocs.io/en/1.5.1/surrogate/pysmo/pysmo_kriging.html>`_
