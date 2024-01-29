@@ -236,15 +236,15 @@ def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True)
 if __name__ == "__main__":
     model_name = "PhysicalTroughIPHLCOHCalculator"
     config_files = [
-        join(dirname(__file__), "untitled_trough_physical_process_heat.json"),
-        join(dirname(__file__), "untitled_iph_to_lcoefcr.json"),
-        join(dirname(__file__), "untitled_lcoefcr.json"),
+        join(dirname(__file__), "trough_physical_process_heat-reflo.json"),
+        join(dirname(__file__), "iph_to_lcoefcr-reflo.json"),
+        join(dirname(__file__), "lcoefcr-reflo.json"),
     ]
     weather_file = join(
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "dataset.pkl"
+        dirname(__file__), "test_trough_data.pkl"
     )  # output dataset for surrogate training
 
     # modules = setup_model(model_name, weather_file, config_files=config_files)
