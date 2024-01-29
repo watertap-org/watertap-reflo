@@ -49,7 +49,7 @@ from idaes.core.util.scaling import (
 # Get default solver for testing
 solver = get_solver()
 
-dataset_filename = os.path.join(os.path.dirname(__file__), "data/trough_data.pkl")
+dataset_filename = os.path.join(os.path.dirname(__file__), "data/test_trough_data.pkl")
 
 test_surrogate_filename = os.path.join(
     os.path.dirname(__file__), "trough_surrogate_test.json"
