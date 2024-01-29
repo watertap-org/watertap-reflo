@@ -49,7 +49,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             units=pyunits.kJ / (pyunits.kg * pyunits.K),
             doc="Specific heat of water",
         )
-        
+
         self.dens_water = Param(
             initialize=1000,  # defaults from SAM
             units=pyunits.kg / pyunits.m**3,
