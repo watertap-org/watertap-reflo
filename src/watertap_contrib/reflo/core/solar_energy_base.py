@@ -14,7 +14,6 @@ This module contains a base class for all solar energy unit models.
 """
 import os
 import sys
-import re
 from copy import deepcopy
 import numpy as np
 import pandas as pd
@@ -278,9 +277,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
         for k, v in self.input_bounds.items():
             self.surrogate_file += f"_{k}_{v[0]}_{v[1]}"
 
-        _ = self.surrogate.save_to_file(
-            self.surrogate_file + ".json", overwrite=True
-        )
+        _ = self.surrogate.save_to_file(self.surrogate_file + ".json", overwrite=True)
 
         sys.stdout = oldstdout
 
@@ -337,6 +334,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
                     self, label.replace("_scaled", "_scaling")
                 )
 
+        # TODO: automatically add Expressions to scale surrogate output
         for label in self.output_labels:
             if not hasattr(self, label):
                 raise ValueError(f"{self.name} does not have a Var named {label}")
