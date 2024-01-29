@@ -165,18 +165,18 @@ def plot_training_validation(
 
 def plot_3d(surrogate):
     """Plot 'official' saved surrogate model to show any local minima"""
-    N_DIVISIONS = 15
-    INPUT_DEFAULTS = {
+    n_divisions = 15
+    input_defaults = {
         "heat_load": 500,
         "hours_storage": 10,
         "temperature_hot": 70,
     }
-    OUTPUT_LABELS = ["heat_annual", "electricity_annual"]
+    output_labels = ["heat_annual", "electricity_annual"]
 
     def eval_and_plot(x_label, y_label, z_label):
         # Eval:
-        x = np.linspace(*surrogate._input_bounds[x_label], N_DIVISIONS, endpoint=True)
-        y = np.linspace(*surrogate._input_bounds[y_label], N_DIVISIONS, endpoint=True)
+        x = np.linspace(*surrogate._input_bounds[x_label], n_divisions, endpoint=True)
+        y = np.linspace(*surrogate._input_bounds[y_label], n_divisions, endpoint=True)
         xx, yy = np.meshgrid(x, y)  # create combinations of x and y
 
         df = pd.DataFrame(
@@ -188,11 +188,11 @@ def plot_3d(surrogate):
 
         plot_label = ""
         other_labels = [
-            label for label in INPUT_DEFAULTS.keys() if label not in [x_label, y_label]
+            label for label in input_defaults.keys() if label not in [x_label, y_label]
         ]
         for label in other_labels:
-            df[label] = [INPUT_DEFAULTS[label]] * len(df)  # repeat default value
-            plot_label += f"{label} = {INPUT_DEFAULTS[label]}, "
+            df[label] = [input_defaults[label]] * len(df)  # repeat default value
+            plot_label += f"{label} = {input_defaults[label]}, "
 
         output = surrogate.evaluate_surrogate(df)
         df = df.join(output)
@@ -209,15 +209,15 @@ def plot_3d(surrogate):
         ax.set_title(f"{plot_label}")
         plt.show()
 
-    for x_label, y_label in itertools.combinations(INPUT_DEFAULTS.keys(), 2):
-        for z_label in OUTPUT_LABELS:
+    for x_label, y_label in itertools.combinations(input_defaults.keys(), 2):
+        for z_label in output_labels:
             eval_and_plot(x_label, y_label, z_label)
 
 
 #########################################################################################################
 if __name__ == "__main__":
-    CREATE_PLOTS = True
-    dataset_filename = join(dirname(__file__), "../data/flat_plate_data.pkl")
+    create_plots = True
+    dataset_filename = join(dirname(__file__), "../data/test_flat_plate_data.pkl")
     surrogate_filename = join(dirname(__file__), "../flat_plate_surrogate.json")
     n_samples = 100  # number of points to use from overall dataset
     training_fraction = 0.8
@@ -234,7 +234,7 @@ if __name__ == "__main__":
         data_training, input_labels, output_labels, surrogate_filename
     )
 
-    if CREATE_PLOTS:
+    if create_plots:
         plot_3d(surrogate)
 
     # Load surrogate model from file
