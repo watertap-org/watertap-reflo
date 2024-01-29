@@ -505,10 +505,10 @@ class PySSC:
 if __name__ == "__main__":
     import json, copy
 
-    TECH_NAME = "swh"
-    FINANCIAL_NAME = "none"  # "commercial"
-    PARAM_FILE = os.path.join(os.path.dirname(__file__), "untitled_swh.json")
-    WEATHER_FILE = os.path.join(
+    tech_name = "swh"
+    financial_name = "none"  # "commercial"
+    param_file = os.path.join(os.path.dirname(__file__), "swh-reflo.json")
+    weather_file = os.path.join(
         os.path.dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
 
@@ -520,11 +520,11 @@ if __name__ == "__main__":
             data["adjust:constant"] = data.pop("constant")  # rename key
         return data
 
-    tech_data = read_module_datafile(PARAM_FILE)
+    tech_data = read_module_datafile(param_file)
     params = copy.deepcopy(tech_data)
-    params["tech_model"] = TECH_NAME
-    params["financial_model"] = FINANCIAL_NAME
-    params["solar_resource_file"] = WEATHER_FILE
+    params["tech_model"] = tech_name
+    params["financial_model"] = financial_name
+    params["solar_resource_file"] = weather_file
     ssc = PySSC(params)
     # results = ssc_sim_from_dict(ssc, params)
     ssc.execute()
