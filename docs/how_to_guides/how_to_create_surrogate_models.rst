@@ -1,5 +1,7 @@
-How to create a surrogate model
--------------------------------
+How to create a surrogate model class
+-------------------------------------
+
+The primary approach to create surrogate models for power systems is to strucutre them in the form of a class that can be used in the IDAES framework. This approach allows for the surrogate model to be used in the same way as other unit models where the surrogate can be assigned as a flowsheet attributute. The following example will demonstrate the creation of a surrogate model class for PV energy generation.
 
 Surrogate modeling toolboxes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -161,6 +163,36 @@ Load the Surrogate
             input_vars=self.surrogate_inputs,
             output_vars=self.surrogate_outputs,
         )
+
+Evaluate the surrogate: ``evaluate_surrogate`` is a built-in function of the ``PysmoSurrogate`` class. There is no need to define this function in the ``PVSurrogateData`` class, but it can be called upon to evaluate the surrogate for a given set of inputs. For reference the source code for this function is provided below.
+
+.. testcode:: 
+  
+    def evaluate_surrogate(self, inputs: pd.DataFrame) -> pd.DataFrame:
+        """Evaluate the surrogate model at a set of user-provided values.
+
+        Args:
+            inputs: The dataframe of input values to be used in the evaluation.
+                The dataframe needs to contain a column corresponding to each of the input labels.
+                Additional columns are fine, but are not used.
+
+        Returns:
+            output: A dataframe of the the output values evaluated at the provided inputs.
+                The index of the output dataframe should match the index of the provided inputs.
+        """
+        inputdata = inputs[self._input_labels].to_numpy()
+        outputs = np.zeros(shape=(inputs.shape[0], len(self._output_labels)))
+
+        for i in range(inputdata.shape[0]):
+            row_data = inputdata[i, :].reshape(1, len(self._input_labels))
+            for j, output_label in enumerate(self._output_labels):
+                result = self._trained.get_result(output_label)
+                outputs[i, j] = result.model.predict_output(row_data)
+
+        return pd.DataFrame(
+            data=outputs, index=inputs.index, columns=self._output_labels
+        )
+
 
 Use the surrogate
 
