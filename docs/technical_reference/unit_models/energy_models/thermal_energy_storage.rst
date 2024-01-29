@@ -1,5 +1,5 @@
 Thermal Energy Storage (TES)
-====================================================
+============================
 
 This is thermal energy storage (TES) model assumes the tank is at a uniform temperature (similar to a continuous stirred tank) and supports steady-state only.
 
@@ -26,7 +26,7 @@ Sets
    "Components", ":math:`j`", "['H2O']"
 
 Degrees of Freedom/Variables
-------------------
+----------------------------
 
 The TES model has 4 degrees of freedom that should be fixed for the unit to be fully specified
 in addition to the state variables at the inlet and outlet.
