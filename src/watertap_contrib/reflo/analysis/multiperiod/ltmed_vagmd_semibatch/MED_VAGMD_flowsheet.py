@@ -153,10 +153,10 @@ def build_med_md_flowsheet(
 
 
 def property_initial_value(mfs):
-    '''
+    """
     Touch the properties that need to be calculated
-    '''
-    mfs.S1.overflow_state[0].conc_mass_phase_comp 
+    """
+    mfs.S1.overflow_state[0].conc_mass_phase_comp
     mfs.S1.overflow_state[0].flow_vol_phase
     mfs.S1.separator_to_mixer_state[0].conc_mass_phase_comp
     mfs.S1.separator_to_mixer_state[0].flow_vol_phase
@@ -219,9 +219,7 @@ def add_processing_phase_constraint(
     def eq_S2_remained_volume(b):
         return b.S2.remained_liquid_state[0].flow_vol_phase[
             "Liq"
-        ] * b.dt == pyunits.convert(
-            batch_volume * pyunits.L, to_units=pyunits.m**3
-        )
+        ] * b.dt == pyunits.convert(batch_volume * pyunits.L, to_units=pyunits.m**3)
 
     @mfs.Constraint(doc="Split mixed flow to MD feed")
     def eq_S2_to_vagmd(b):
@@ -237,20 +235,27 @@ def add_processing_phase_constraint(
             to_units=pyunits.m**3,
         )
 
-    @mfs.Expression(doc="Calculate specific thermal energy consumption in VAGMD (kWh/m3)")
+    @mfs.Expression(
+        doc="Calculate specific thermal energy consumption in VAGMD (kWh/m3)"
+    )
     def vagmd_specific_energy_consumption_thermal(b):
         return mfs.vagmd.thermal_power / pyunits.convert(
-            mfs.vagmd.permeate_flux * mfs.vagmd.module_area, to_units=pyunits.m**3 / pyunits.h
+            mfs.vagmd.permeate_flux * mfs.vagmd.module_area,
+            to_units=pyunits.m**3 / pyunits.h,
         )
 
-    @mfs.Expression(doc="Calculate specific electric energy consumption in VAGMD (kWh/m3)")
+    @mfs.Expression(
+        doc="Calculate specific electric energy consumption in VAGMD (kWh/m3)"
+    )
     def vagmd_specific_energy_consumption_electric(b):
         return (
             mfs.vagmd.feed_pump_power_elec + mfs.vagmd.cooling_pump_power_elec
         ) / pyunits.convert(
-            mfs.vagmd.permeate_flux * mfs.vagmd.module_area, to_units=pyunits.m**3 / pyunits.h
+            mfs.vagmd.permeate_flux * mfs.vagmd.module_area,
+            to_units=pyunits.m**3 / pyunits.h,
         )
-        
+
+
 def add_med(fs, inputs):
     """Method to add MED components to an exisitng flowsheet
     Args:
@@ -429,4 +434,3 @@ def fix_dof_and_initialize(
     m.fs.volume_in_tank_previous.fix(0)
 
     return
-

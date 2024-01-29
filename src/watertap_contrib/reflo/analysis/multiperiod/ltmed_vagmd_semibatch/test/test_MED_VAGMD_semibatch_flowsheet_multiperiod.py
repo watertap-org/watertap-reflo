@@ -57,7 +57,6 @@ class TestVAGMDbatch:
         }
         m.fs.semibatch = MEDVAGMDsemibatch(model_input=model_input)
 
-
         return m
 
     @pytest.mark.unit
@@ -115,7 +114,6 @@ class TestVAGMDbatch:
     #     assert overall_performance["Average specifc thermal energy consumption (kWh/m3)"] == pytest.approx(
     #         78.932, rel=1e-3
     #     )
-
 
     @pytest.mark.component
     def test_solution(self, MED_VAGMD_semibatch_frame):
