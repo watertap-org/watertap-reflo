@@ -13,6 +13,11 @@
 
 """
 Thermal Energy Storage Tank
+
+Molten salt Properties:
+From https://github.com/gmlc-dispatches/dispatches/blob/main/dispatches/properties/solarsalt_properties.py
+Ref: (2015) Chang et al, Energy Procedia 69, 779 - 789
+
 """
 
 # Import Pyomo libraries
@@ -197,14 +202,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         self.add_inlet_port(name="tes_process_inlet", block=self.process_inlet_block)
         self.add_outlet_port(name="tes_process_outlet", block=self.process_outlet_block)
 
-        # From https://github.com/gmlc-dispatches/dispatches/blob/main/dispatches/properties/solarsalt_properties.py
-        # **** Requires Temperature in K
-        # Ref: (2015) Chang et al, Energy Procedia 69, 779 - 789
-        # Specific Heat Capacity as a function of Temperature, J/kg/K
-        # def specific_heat_cp(model):
-        #    return model.specific_heat_cp
-        #       == 1443 + 0.172 * model.temperature
-
         # TODO: Add multiple tanks?
 
         self.salt_csp = Param(
@@ -252,14 +249,14 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             doc="Thermal energy exiting the thermal storage tank",
         )
 
-        self.tes_initial_temp = Var(
+        self.tes_initial_temperature = Var(
             initialize=30 + 273.15,
             units=pyunits.K,
             bounds=(25 + 273.15, 150 + 273.15),
             doc="Temperature of the thermal storage tank initially from the previous time step",
         )
 
-        self.tes_temp = Var(
+        self.tes_temperature = Var(
             self.flowsheet().config.time,
             initialize=30 + 273.15,
             units=pyunits.K,
@@ -297,11 +294,11 @@ class ThermalEnergyStorageData(UnitModelBlockData):
 
         self.electricity = Var(initialize=1, units=pyunits.W, doc="Total electricity")
 
-        self.T_design = Param(
+        self.temperature_design = Param(
             initialize=80 + 273.15, units=pyunits.K, doc="ambient temperature"
         )
 
-        self.T_amb = Param(
+        self.temperature_ambient = Param(
             initialize=25 + 273.15, units=pyunits.K, doc="ambient temperature"
         )
 
@@ -328,7 +325,7 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         # the temperature of the tank after each time step
         @self.Constraint(self.flowsheet().config.time)
         def eq_tes_temp(b, t):
-            return b.tes_temp[t] == b.tes_initial_temp + 1 / (
+            return b.tes_temperature[t] == b.tes_initial_temperature + 1 / (
                 b.salt_csp * b.salt_mass
             ) * (b.heat_in[t] * b.dt - b.heat_out[t] * b.dt)
 
@@ -339,7 +336,9 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         @self.Constraint()
         def eq_tes_volume(b):
             return b.tes_volume == b.thermal_energy_capacity / (
-                b.salt_csp * b.salt_packing_density * (b.T_design - b.T_amb)
+                b.salt_csp
+                * b.salt_packing_density
+                * (b.temperature_design - b.temperature_ambient)
             )
 
         @self.Constraint(doc="Pump power")
@@ -421,13 +420,13 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             sf = iscale.get_scaling_factor(self.heat_out, default=1e-3)
             iscale.set_scaling_factor(self.heat_out, sf)
 
-        if iscale.get_scaling_factor(self.tes_initial_temp) is None:
-            sf = iscale.get_scaling_factor(self.tes_initial_temp, default=1e-2)
-            iscale.set_scaling_factor(self.tes_initial_temp, sf)
+        if iscale.get_scaling_factor(self.tes_initial_temperature) is None:
+            sf = iscale.get_scaling_factor(self.tes_initial_temperature, default=1e-2)
+            iscale.set_scaling_factor(self.tes_initial_temperature, sf)
 
-        if iscale.get_scaling_factor(self.tes_temp) is None:
-            sf = iscale.get_scaling_factor(self.tes_temp, default=1e-2)
-            iscale.set_scaling_factor(self.tes_temp, sf)
+        if iscale.get_scaling_factor(self.tes_temperature) is None:
+            sf = iscale.get_scaling_factor(self.tes_temperature, default=1e-2)
+            iscale.set_scaling_factor(self.tes_temperature, sf)
 
         if iscale.get_scaling_factor(self.dt) is None:
             sf = iscale.get_scaling_factor(self.dt, default=1e-3)
