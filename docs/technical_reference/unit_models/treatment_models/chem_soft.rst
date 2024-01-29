@@ -1,8 +1,8 @@
 Chemical Softening
 ====================================================
 
-This chemical softening unit model calculates the chemical dose required for target removal of hardness causing components. 
-The model also calculates the size of the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model:
+This chemical softening model includes the units mixer, flocculator, sedimentation basin and recarbonation basin. The model calculates the chemical dose required for target removal of hardness causing components 
+and calculates the size of the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model:
    * supports steady-state only
    * predicts the outlet concentration of :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`
    * is verified against literature data
@@ -14,8 +14,37 @@ The model requires 2 configuration inputs:
    * Softening procedure: ``single_stage_lime`` or ``excess_lime`` or ``single_stage_lime_soda`` or ``excess_lime_soda``
    * Silica removal: ``True`` or ``False``
 
+
+Solution Composition
+---------------------
+
+This chemical softening model requires an input solute list from the user. Components that must be included
+are shown in the code below. Additional components can be included by the user such as TDS. The `MCAS <https://watertap.readthedocs.io/en/stable/technical_reference/property_models/mc_aq_sol.html>`_ property package is used in this chemical softening model.
+
+.. code-block::
+   
+   component_list = ["Ca_2+","Mg_2+","Alkalinity_2-"]
+
+A default removal efficiency is assumed for components (other than :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`) and shown below in the code block.
+Users can provide an input dictionary of removal efficiencies for each of the components by modifying the sample dictionary below and passing it to the input variable ``removal_efficiency``.
+
+.. code-block::
+
+   removal_eff_dict = dict(
+            zip([
+                x for x in component_list if x not in ["Ca_2+","Mg_2+"]
+                ]
+                ,
+                [   
+                    0.7 if j != "TDS" else 1e-3
+                    for j in component_list 
+                ],
+            )
+        )
+
+
 Degrees of Freedom/Variables
-------------------
+----------------------------
 
 The chemical softening model has 18 degrees of freedom that should be fixed for the unit to be fully specified. 
 Additionally, depending on the chemical softening process selected, chemical dosing may or may not be required to be fixed.
@@ -25,7 +54,7 @@ Typically, the following 7 variables define the input feed.
 .. csv-table::
    :header: "Variables", "Variable Name", "Symbol", "Unit"
 
-   "Feed volume flow rate", "``properties_in[0].flow_vol_phase['Liq']``", ":math:`Q_{feed}`", ":math:`\text{m}^3 / \text{s}`"
+   "Feed volume flow rate", "``properties_in[0].flow_mass_phase_comp['Liq','H2O']``", ":math:`Q_{feed}`", ":math:`\text{m}^3 / \text{s}`"
    "Feed composition Ca2+", "``properties_in[0].flow_mass_phase_comp['Liq','Ca_2+']``", ":math:`m_{Ca^{2+}}`", ":math:`\text{g/}\text{L}`"
    "Feed composition Mg2+", "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
    "Feed composition Alkalinity2-", "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``",":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
@@ -61,33 +90,6 @@ The softening procedure where the doses are calculated in are listed in the tabl
    "CO2 dose in second basin","excess_lime_soda", "``CO2_second_basin``", ":math:`CO_{2,second-basin}`", ":math:`\text{g/}\text{L}`" 
    "MgCl2","Silica removal", "``MgCl2_dosing``", ":math:`MgCl_{2}`", ":math:`\text{g/}\text{L}`" 
 
-
-Solution Composition
----------------
-
-This chemical softening model requires an input solute list from the user. Components that must be included
-are shown in the code below. Additional elements may added.
-
-.. code-block::
-   
-   component_list = ["Ca_2+","Mg_2+","Alkalinity_2-"]
-
-A default removal efficiency is assumed for components (other than :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`).
-Users can provide an input dictionary of removal efficiencies for each of the components.
-
-.. code-block::
-
-   removal_eff_dict = dict(
-            zip([
-                x for x in component_list if x not in ["Ca_2+","Mg_2+"]
-                ]
-                ,
-                [   
-                    0.7 if j != "TDS" else 1e-3
-                    for j in component_list 
-                ],
-            )
-        )
 
 
 Model Structure
@@ -177,8 +179,8 @@ The following equations are independent of the softening procedure selected but 
 Costing
 ---------
 
-The following table lists out the coefficients used in the equations to calculate the capital and operating costs
-for the mixer, flocculator, sedimentation basin and recarbonation basin. The coefficients are assigned as mutable Parameters.
+The following table lists out the coefficients used in the cost equations to calculate the capital and operating costs
+for the mixer, flocculator, sedimentation basin and recarbonation basin [7,8]. The coefficients are assigned as mutable Parameters.
 
 .. csv-table::
    :header: "Unit", "Variable Name", "``_constant``", "``_coeff/_coeff_1``", "``_coeff_2``", "``_coeff_3``", "``_exp/_exp_1``", "``_exp_2``"
@@ -252,4 +254,8 @@ References
 [5]  R.O. Mines Environmental Engineering: Principles and Practice, 1st Ed, John Wiley & Sons
 
 [6]  Lee, C. C., & Lin, S. D. (2007). Handbook of environmental engineering calculations. New York: McGraw Hill.
+
+[7]  Sharma, J.R. (2010). Development Of a Preliminary Cost Estimation Method for Water Treatment Plants
+
+[8]  McGivney, W. T. & Kawamura, S. (2008) Cost Estimating Manual for Water Treatment Facilities. John Wiley & Sons, Inc., Hoboken, NJ, USA.
 
