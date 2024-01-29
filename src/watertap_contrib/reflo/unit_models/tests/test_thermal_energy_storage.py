@@ -94,7 +94,7 @@ class TestThermalEnergyStorage:
         m.fs.tes.initialize()
 
         m.fs.tes.dt.fix()
-        m.fs.tes.tes_initial_temp.fix(TES_outlet_initial)
+        m.fs.tes.tes_initial_temperature.fix(TES_outlet_initial)
 
         m.fs.tes.hours_storage.fix(6)
         m.fs.tes.heat_load.fix(120 * 6)
