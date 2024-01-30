@@ -1,3 +1,15 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import json
 from os.path import join, dirname
 from math import floor, ceil, isnan
@@ -400,49 +412,48 @@ def debug_t_hot(tech_model):
         "heat_annual",
         units=["C", "kWht"],
     )
-    x = 1
 
 
 #########################################################################################################
 if __name__ == "__main__":
-    DEBUG = False
-    PLOT_SAVED_DATASET = True  # plot previously run, saved data?
-    RUN_PARAMETRICS = False
-    USE_MULTIPROCESSING = True
+    debug = False
+    plot_saved_dataset = True  # plot previously run, saved data?
+    run_parametrics = False
+    use_multiprocessing = True
 
-    # HEAT_LOADS = np.arange(5, 115, 10)          # [MWt]
-    HEAT_LOADS = np.arange(100, 1100, 25)  # [MWt]
-    HOURS_STORAGES = np.arange(0, 27, 1)  # [hr]
-    TEMPERATURE_HOTS = np.arange(50, 102, 2)  # [C]
-    TEMPERATURES = {
+    # heat_loads = np.arange(5, 115, 10)          # [MWt]
+    heat_loads = np.arange(100, 1100, 25)  # [MWt]
+    hours_storages = np.arange(0, 27, 1)  # [hr]
+    temperature_hots = np.arange(50, 102, 2)  # [C]
+    temperatures = {
         "T_cold": 20,
         "T_hot": 70,  # this will be overwritten by temperature_hot value
         "T_amb": 18,
     }
-    MODEL_NAME = "SolarWaterHeatingCommercial"
-    PARAM_FILE = join(dirname(__file__), "untitled_swh.json")
-    WEATHER_FILE = join(
+    model_name = "SolarWaterHeatingCommercial"
+    param_file = join(dirname(__file__), "swh-reflo.json")
+    weather_file = join(
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
-    DATASET_FILENAME = join(
-        dirname(__file__), "flat_plate_data.pkl"
+    dataset_filename = join(
+        dirname(__file__), "flat_plate_data_test.pkl"
     )  # output dataset for surrogate training
 
-    config_data = read_module_datafile(PARAM_FILE)
+    config_data = read_module_datafile(param_file)
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
     tech_model = setup_model(
-        temperatures=TEMPERATURES,
-        weather_file=WEATHER_FILE,
+        temperatures=temperatures,
+        weather_file=weather_file,
         config_data=config_data,
     )
 
-    if DEBUG:
+    if debug:
         debug_t_hot(tech_model)
 
-    if PLOT_SAVED_DATASET:
+    if plot_saved_dataset:
         # Load and plot saved df (x, y z)
-        df = pd.read_pickle(DATASET_FILENAME)
+        df = pd.read_pickle(dataset_filename)
         plot_2d(
             df.query("hours_storage == 12 & heat_load == 500"),
             "temperature_hot",
@@ -459,9 +470,9 @@ if __name__ == "__main__":
 
     # Run parametrics
     data = []
-    if RUN_PARAMETRICS:
-        if USE_MULTIPROCESSING:
-            arguments = list(product(HEAT_LOADS, HOURS_STORAGES, TEMPERATURE_HOTS))
+    if run_parametrics:
+        if use_multiprocessing:
+            arguments = list(product(heat_loads, hours_storages, temperature_hots))
             df = pd.DataFrame(
                 arguments, columns=["heat_load", "hours_storage", "temperature_hot"]
             )
@@ -469,7 +480,7 @@ if __name__ == "__main__":
             time_start = time.process_time()
             with multiprocessing.Pool(processes=6) as pool:
                 args = [
-                    (TEMPERATURES, WEATHER_FILE, config_data, *args)
+                    (temperatures, weather_file, config_data, *args)
                     for args in arguments
                 ]
                 results = pool.starmap(setup_and_run, args)
@@ -492,9 +503,9 @@ if __name__ == "__main__":
         else:
             comb = [
                 (hl, hs, th)
-                for hl in HEAT_LOADS
-                for hs in HOURS_STORAGES
-                for th in TEMPERATURE_HOTS
+                for hl in heat_loads
+                for hs in hours_storages
+                for th in temperature_hots
             ]
             for heat_load, hours_storage, temperature_hot in comb:
                 result = run_model(
@@ -511,5 +522,5 @@ if __name__ == "__main__":
                 )
             df = pd.DataFrame(data, columns=["heat_annual", "electricity_annual"])
 
-        df.to_pickle(DATASET_FILENAME)
+        df.to_pickle(dataset_filename)
         plot_contours(df)

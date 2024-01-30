@@ -48,7 +48,9 @@ from idaes.core.util.scaling import (
 # Get default solver for testing
 solver = get_solver()
 solver = SolverFactory("ipopt")
-dataset_filename = os.path.join(os.path.dirname(__file__), "data/flat_plate_data.pkl")
+dataset_filename = os.path.join(
+    os.path.dirname(__file__), "data/test_flat_plate_data.pkl"
+)
 surrogate_filename = os.path.join(
     os.path.dirname(__file__), "flat_plate_surrogate.json"
 )

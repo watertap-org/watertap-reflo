@@ -14,7 +14,6 @@ This module contains a base class for all solar energy unit models.
 """
 import os
 import sys
-import re
 from copy import deepcopy
 import numpy as np
 import pandas as pd
@@ -72,7 +71,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=SolarModelType.surrogate,
             domain=In(SolarModelType),
             description="Solar model type construction flag",
-            doc="""Indicates what type of solar model will be constructed""",
+            doc="""Indicates what type of solar model will be constructed. Options are 'surrogate' or 'physical'.""",
         ),
     )
     CONFIG.declare(
@@ -81,7 +80,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=None,
             domain=str,
             description="Path to surrogate model file",
-            doc="""User provided surrogate model .json file. Must be in same directory as unit model file.""",
+            doc="""User provided surrogate model .json file.""",
         ),
     )
     CONFIG.declare(
@@ -90,7 +89,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=None,
             domain=str,
             description="Path to data file",
-            doc="""""",
+            doc="""Path to data file. Must be a .pkl""",
         ),
     )
     CONFIG.declare(
@@ -99,7 +98,10 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=dict(),
             domain=dict,
             description="Dict of bounds to use for training dataset",
-            doc="""""",
+            doc="""Optional. Dict with key: value pairs of 'input_var_label': [lb, ub]. 
+            If not provided, the bounds from input_variables config dict are used (i.e., input_variables['bounds']).
+            Would be used e.g. if variable bounds in dataset are wider than desired to use for surrogate.
+            """,
         ),
     )
     CONFIG.declare(
@@ -108,7 +110,15 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=None,
             domain=dict,
             description="Dict of names, bounds, and units for surrogate input variables",
-            doc="""""",
+            doc="""Dict to use to create variable names (labels), bounds, and units for surrogate input variables.
+            Each of 'labels', 'bounds', 'units' are required keys for surrogate creation.
+            e.g., 
+            input_variables = {
+                            'labels': ['input_x', 'input_y'],
+                            'bounds': {'input_x': [0, 1], 'input_y': [2, 3]}, 
+                            'units': {'input_x': 'kW', 'input_y': 'liter'}
+                              }
+            """,
         ),
     )
     CONFIG.declare(
@@ -117,7 +127,15 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=None,
             domain=dict,
             description="Dict of names, bounds, and units for surrogate output variables",
-            doc="""""",
+            doc="""Dict to use to create variable names (labels) and units for surrogate output variables,
+            Each of 'labels', and 'units' are required keys for surrogate creation and 'bounds' is an optional
+            key. If no bounds are given, the output variables' bounds are (0, None).
+            e.g., 
+            output_variables = {
+                            'labels': ['output_x', 'output_y'],
+                            'units': {'output_x': 'kW', 'output_y': 'liter'}
+                               }
+            """,
         ),
     )
     CONFIG.declare(
@@ -126,7 +144,8 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=True,
             domain=bool,
             description="Flag to scale surrogate model training data",
-            doc="""""",
+            doc="""Flag to scale surrogate model training data. If True, input data to surrogate 
+            is scaled to the largest value in the dataset.""",
         ),
     )
     CONFIG.declare(
@@ -135,7 +154,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=100,
             domain=int,
             description="Number of samples from dataset to build surrogate",
-            doc="""""",
+            doc="""Number of samples to use from dataset to build surrogate model.""",
         ),
     )
     CONFIG.declare(
@@ -144,7 +163,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=0.8,
             domain=float,
             description="Fraction of dataset to use as training data for surrogate",
-            doc="""""",
+            doc=""""Fraction of dataset to use as training data for surrogate""",
         ),
     )
 
@@ -258,9 +277,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
         for k, v in self.input_bounds.items():
             self.surrogate_file += f"_{k}_{v[0]}_{v[1]}"
 
-        model = self.surrogate.save_to_file(
-            self.surrogate_file + ".json", overwrite=True
-        )
+        _ = self.surrogate.save_to_file(self.surrogate_file + ".json", overwrite=True)
 
         sys.stdout = oldstdout
 
@@ -299,6 +316,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         self.data_training_unscaled = deepcopy(self.data_training)
 
+        # TODO: allow users to provide scaling factors via CONFIG
         if not hasattr(self, "data_scaling_factors"):
             self.data_scaling_factors = dict()
             for label in self.output_labels:
@@ -316,6 +334,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
                     self, label.replace("_scaled", "_scaling")
                 )
 
+        # TODO: automatically add Expressions to scale surrogate output
         for label in self.output_labels:
             if not hasattr(self, label):
                 raise ValueError(f"{self.name} does not have a Var named {label}")

@@ -19,7 +19,6 @@ from pyomo.environ import (
     check_optimal_termination,
     units as pyunits,
 )
-from pyomo.common.config import ConfigValue, ListOf
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
 from idaes.core.solvers.get_solver import get_solver
@@ -50,6 +49,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             units=pyunits.kJ / (pyunits.kg * pyunits.K),
             doc="Specific heat of water",
         )
+
         self.dens_water = Param(
             initialize=1000,  # defaults from SAM
             units=pyunits.kg / pyunits.m**3,
