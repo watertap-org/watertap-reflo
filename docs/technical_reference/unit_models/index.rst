@@ -8,4 +8,5 @@ Unit Models
    lt_med_surrogate
    med_tvc_surrogate
    vagmd_surrogate_base
+   med_md_semibatch
 

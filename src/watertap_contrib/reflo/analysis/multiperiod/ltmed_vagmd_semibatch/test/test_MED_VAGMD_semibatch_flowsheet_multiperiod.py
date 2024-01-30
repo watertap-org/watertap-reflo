@@ -1,39 +1,31 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import pytest
 from pyomo.environ import (
     ConcreteModel,
-    value,
     assert_optimal_termination,
     units as pyunits,
 )
-import re
-from pyomo.network import Port
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 
 from watertap_contrib.reflo.analysis.multiperiod.ltmed_vagmd_semibatch.MED_VAGMD_semibatch_class import (
     MEDVAGMDsemibatch,
 )
 
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap_contrib.reflo.costing import REFLOCosting
-
-from idaes.core.util.testing import initialization_tester
+from idaes.core import FlowsheetBlock
 from idaes.core.solvers import get_solver
-from idaes.core.util.exceptions import (
-    ConfigurationError,
-    UserModelError,
-    InitializationError,
-)
+
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
-    number_variables,
-    number_total_constraints,
-    number_unused_variables,
-)
-from idaes.core.util.scaling import (
-    calculate_scaling_factors,
-    unscaled_variables_generator,
-    unscaled_constraints_generator,
-    badly_scaled_var_generator,
 )
 
 solver = get_solver()
@@ -52,6 +44,12 @@ class TestVAGMDbatch:
             "med_capacity": 1.5,
             "med_recovry_ratio": 0.5,
             "md_feed_flow_rate": 600,
+            "md_evap_inlet_temp": 80,
+            "md_cond_inlet_temp": 25,
+            "md_module_type": "AS26C7.2L",
+            "md_cooling_system_type": "closed",
+            "md_cooling_inlet_temp": 25,
+            "md_high_brine_salinity": False,
             "dt": 60,
             "batch_volume": 50,
         }
@@ -64,76 +62,85 @@ class TestVAGMDbatch:
         m = MED_VAGMD_semibatch_frame
         assert degrees_of_freedom(m) == 0
 
-    # @pytest.mark.component
-    # def test_solve(self, MED_VAGMD_semibatch_frame):
-    #     m = MED_VAGMD_semibatch_frame
-    #     results = solver.solve(m)
-    #     assert_optimal_termination(results)
+    @pytest.mark.component
+    def test_solve(self, MED_VAGMD_semibatch_frame):
+        m = MED_VAGMD_semibatch_frame
+        semibatch = m.fs.semibatch
+        semibatch.calculate_scaling_factors()
 
-    # @pytest.mark.component
-    # def test_solution(self, MED_VAGMD_semibatch_frame):
-    #     m = MED_VAGMD_semibatch_frame
-    #     semibatch = m.fs.semibatch
-    #     overall_performance, data_table = semibatch.get_model_performance()
-
-    #     # print(data_table)
-    #     # for i in overall_performance:
-    #     #     print(i, overall_performance[i])
-
-    #     blk = semibatch.mp.get_active_process_blocks()[-1].fs
-
-    #     # print('after',value(blk.med.costing.capacity))
-    #     # print(value(blk.med.costing.membrane_system_cost))
-    #     # print(value(blk.med.costing.evaporator_system_cost))
-    #     # print(value(blk.med.costing.med_specific_cost))
-    #     # print(value(blk.med.costing.capital_cost))
-    #     # print(value(semibatch.costing.LCOW))
-
-    #     assert False
-    #     assert overall_performance["Overall recovery ratio"] == pytest.approx(
-    #         0.724, abs=1e-3
-    #     )
-    #     assert overall_performance["Time interval of the refilling phase (min)"] == pytest.approx(
-    #         1.889, rel=1e-3
-    #     )
-    #     assert overall_performance["Total operation time of one batch (min)"] == pytest.approx(
-    #         91.889, rel=1e-3
-    #     )
-    #     assert overall_performance["Total water production during refilling phase (m3)"] == pytest.approx(
-    #         0.00109, rel=1e-3
-    #     )
-    #     assert overall_performance["Total water production during one batch (m3)"] == pytest.approx(
-    #         0.13944, rel=1e-3
-    #     )
-    #     assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
-    #         2.185, rel=1e-3
-    #     )
-    #     assert overall_performance["Average thermal power requirement during one batch (kW)"] == pytest.approx(
-    #         7.187, rel=1e-3
-    #     )
-    #     assert overall_performance["Average specifc thermal energy consumption (kWh/m3)"] == pytest.approx(
-    #         78.932, rel=1e-3
-    #     )
+        results = solver.solve(m)
+        assert_optimal_termination(results)
 
     @pytest.mark.component
     def test_solution(self, MED_VAGMD_semibatch_frame):
         m = MED_VAGMD_semibatch_frame
+        semibatch = m.fs.semibatch
+        overall_performance, data_table = semibatch.get_model_performance()
+
+        assert overall_performance["Overall recovery ratio"] == pytest.approx(
+            0.724, abs=1e-3
+        )
+        assert overall_performance[
+            "Time interval of the refilling phase (min)"
+        ] == pytest.approx(1.889, rel=1e-3)
+        assert overall_performance[
+            "Total operation time of one batch (min)"
+        ] == pytest.approx(91.889, rel=1e-3)
+        assert overall_performance[
+            "Total water production during refilling phase (m3)"
+        ] == pytest.approx(0.00306, rel=1e-3)
+        assert overall_performance[
+            "Total water production during one batch (m3)"
+        ] == pytest.approx(0.14141, rel=1e-3)
+        assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
+            2.216, rel=1e-3
+        )
+        assert overall_performance[
+            "Average thermal power requirement during one batch (kW)"
+        ] == pytest.approx(7.187, rel=1e-3)
+        assert overall_performance[
+            "Average specifc thermal energy consumption during one batch (kWh/m3)"
+        ] == pytest.approx(77.833, rel=1e-3)
+
+    @pytest.mark.component
+    def test_costing(self, MED_VAGMD_semibatch_frame):
+        m = MED_VAGMD_semibatch_frame
 
         semibatch = m.fs.semibatch
-        semibatch.system_capacity.fix(1000)
+        # Specify target system capacity
+        semibatch.target_system_capacity.fix(1000)
         semibatch.add_costing_packages()
 
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        blk = semibatch.mp.get_active_process_blocks()[-1].fs
-        print(blk.med.costing.membrane_system_cost.value)
-        print(blk.med.costing.evaporator_system_cost.value)
-        print(blk.med.costing.med_specific_cost.value)
-        # print(value(blk.med.costing.capital_cost))
-        # print(value(semibatch.costing.LCOW))
-        overall_performance, data_table = semibatch.get_model_performance()
-        for key, value in overall_performance.items():
-            print(key, value)
-        print(data_table)
-        assert False
+        cost_performance = semibatch.get_costing_performance()
+
+        assert cost_performance["Scaled MED system capacity (m3/day)"] == pytest.approx(
+            676.874, rel=1e-3
+        )
+        assert cost_performance[
+            "Scaled VAGMD system capacity (m3/day)"
+        ] == pytest.approx(323.126, rel=1e-3)
+        assert cost_performance["Number of VAGMD modules required"] == pytest.approx(
+            451.249, rel=1e-3
+        )
+        assert cost_performance["CAPEX of MED ($)"] == pytest.approx(
+            1061586.976, rel=1e-3
+        )
+        assert cost_performance["CAPEX of VAGMD ($)"] == pytest.approx(
+            1716154.842, rel=1e-3
+        )
+        assert cost_performance["Fixed OPEX of MED ($)"] == pytest.approx(
+            26608.707, rel=1e-3
+        )
+        assert cost_performance["Fixed OPEX of VAGMD ($)"] == pytest.approx(
+            68657.789, rel=1e-3
+        )
+        assert cost_performance["Annual heat cost ($)"] == pytest.approx(
+            150540.917, rel=1e-3
+        )
+        assert cost_performance["Annual electricity cost ($)"] == pytest.approx(
+            4064.964, rel=1e-3
+        )
+        assert cost_performance["Overall LCOW ($/m3)"] == pytest.approx(1.673, rel=1e-3)

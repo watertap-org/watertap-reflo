@@ -1,3 +1,15 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import logging
 import pandas as pd
 import numpy as np
@@ -7,18 +19,13 @@ from pyomo.environ import (
     Var,
     Constraint,
     value,
-    ConcreteModel,
     assert_optimal_termination,
-    TransformationFactory,
     units as pyunits,
 )
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
-from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
+from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # IDAES imports
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
-from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.util.config import is_physical_parameter_block
 from idaes.core import (
     declare_process_block_class,
     UnitModelBlockData,
@@ -27,26 +34,14 @@ from idaes.core import (
 from idaes.core.util.scaling import (
     set_scaling_factor,
     get_scaling_factor,
-    calculate_scaling_factors,
-    constraint_scaling_transform,
 )
-from idaes.core.util.exceptions import (
-    ConfigurationError,
-    UserModelError,
-    InitializationError,
-)
-import idaes.core.util.scaling as iscale
+
 from idaes.core import UnitModelCostingBlock
 import idaes.logger as idaeslog
 from idaes.core.solvers.get_solver import get_solver
 
 # WaterTAP imports
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap_contrib.reflo.costing import TreatmentCosting
-from watertap_contrib.reflo.costing.units.lt_med_surrogate import (
-    cost_lt_med_surrogate,
-    build_lt_med_surrogate_cost_param_block,
-)
 
 # Flowsheet function imports
 from watertap_contrib.reflo.analysis.multiperiod.ltmed_vagmd_semibatch.MED_VAGMD_flowsheet import (
@@ -56,7 +51,6 @@ from watertap_contrib.reflo.analysis.multiperiod.ltmed_vagmd_semibatch.MED_VAGMD
 
 __author__ = "Zhuoran Zhang"
 
-_log = idaeslog.getLogger(__name__)
 solver = get_solver()
 
 
@@ -156,23 +150,27 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         "model_input",
         ConfigValue(
             default=useDefault,
-            description="VAGMD model input variables",
-            doc="""VAGMD model inputs as a dictionary, which includes:
+            description="System input variables",
+            doc="""Model inputs as a dictionary, which includes:
+            n_time_points: Number of periods in the processing phase
+            med_feed_salinity: MED feed salinity, g/L
+            med_feed_temp:   MED feed temperature, deg C
+            med_steam_temp:  MED steam temperature, deg C
+            med_capacity:    MED capacity assoicated with a single MD module, m3/day
+            med_recovry_ratio: MED recovery ratio
+            md_feed_flow_rate: MD feed flow rate to a single module, 400 - 1100 L/h
+            md_cond_inlet_temp: MD evaporator inlet temperature, 60 - 80 deg C
+            md_evap_inlet_temp: MD condenser inlet temperature, 20 - 30 deg C
+            md_module_type:     Aquastill MD module type, "AS7C1.5L" or "AS26C7.2L",
+                                "AS7C1.5L" yields maximum permeate produtivity,
+                                "AS26C7.2L" yields maximum thermal efficiency.
+            md_cooling_system_type: MD cooling system type, "open" or "closed"
+            md_cooling_inlet_temp: Cooling water temperature, 20-30 deg C
+                                only required when cooling system type is "open"
+            md_high_brine_salinity: Indicate/predict if the final brine from MD is higher than 175.3 g/L
+            batch_volume:    Batch volume associated to a single MD module, L
             dt:              Time interval of simulation, None or Positive values
-            system_capacity: System capacity, m3/day
-            feed_flow_rate:  Feed flow rate, 400 - 1100 L/h
-            evap_inlet_temp: Evaporator inlet temperature, 60 - 80 deg C
-            cond_inlet_temp: Condenser inlet temperature, 20 - 30 deg C
-            feed_temp:       Feed water temperature, 20 - 30 deg C
-            feed_salinily:   Feed water salinity, 35 - 292 g/L
-            initial_batch_volume: Batch volume of the feed water, >= 50 L
-            recovery_ratio:  Target recovery ratio of the batch operation
-            module_type:     Aquastill MD module type, "AS7C1.5L" or "AS26C7.2L",
-                            "AS7C1.5L" yields maximum permeate produtivity,
-                            "AS26C7.2L" yields maximum thermal efficiency.
-            cooling_system_type:  Cooling system type, "open" or "closed"
-            cooling_inlet_temp:   Cooling water temperature, 20-30 deg C
-                                only required when cooling system type is "open""",
+            """,
         ),
     )
 
@@ -187,6 +185,12 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             med_capacity=self.config.model_input["med_capacity"],
             med_recovry_ratio=self.config.model_input["med_recovry_ratio"],
             md_feed_flow_rate=self.config.model_input["md_feed_flow_rate"],
+            md_cond_inlet_temp=self.config.model_input["md_cond_inlet_temp"],
+            md_evap_inlet_temp=self.config.model_input["md_evap_inlet_temp"],
+            md_module_type=self.config.model_input["md_module_type"],
+            md_cooling_system_type=self.config.model_input["md_cooling_system_type"],
+            md_cooling_inlet_temp=self.config.model_input["md_cooling_inlet_temp"],
+            md_high_brine_salinity=self.config.model_input["md_high_brine_salinity"],
             dt=self.config.model_input["dt"],
             batch_volume=self.config.model_input["batch_volume"],
         )
@@ -217,11 +221,11 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         # Setup the refilling phase stats
         self.add_refilling_phase()
 
-        self.system_capacity = Var(
+        self.target_system_capacity = Var(
             initialize=2000,
             bounds=(0, None),
             units=pyunits.m**3 / pyunits.day,
-            doc="System capacity",
+            doc="Target system capacity",
         )
 
         self.batch_water_production = Var(
@@ -231,18 +235,65 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             doc="Water production during one batch",
         )
 
-        self.vagmd_thermal_power_requirement = Var(
-            initialize=2e5,
-            bounds=(0, None),
-            units=pyunits.kW,
-            doc="Thermal power requirement (kW-th)",
+        ## Create expressions for water production during one batch (processing phase, refilling phase)
+        # MED
+        self.water_prod_med_process = sum(
+            pyunits.convert(
+                active_blks[i].fs.med.distillate_props[0].flow_vol_phase["Liq"]
+                * active_blks[i].fs.dt,
+                to_units=pyunits.m**3,
+            )
+            for i in range(self.config.model_input["n_time_points"])
         )
 
-        self.vagmd_elec_power_requirement = Var(
-            initialize=300,
-            bounds=(0, None),
-            units=pyunits.kW,
-            doc="Electric power requirement (kW-e)",
+        self.water_prod_med_refill = pyunits.convert(
+            active_blks[0].fs.med.distillate_props[0].flow_vol_phase["Liq"]
+            * self.dt_refilling_phase,
+            to_units=pyunits.m**3,
+        )
+
+        self.water_prod_med_batch = (
+            self.water_prod_med_process + self.water_prod_med_refill
+        )
+
+        # VAGMD
+        self.water_prod_vagmd_process = sum(
+            pyunits.convert(
+                active_blks[i].fs.vagmd.permeate_flux
+                * active_blks[i].fs.vagmd.module_area
+                * active_blks[i].fs.dt,
+                to_units=pyunits.m**3,
+            )
+            for i in range(self.config.model_input["n_time_points"])
+        )
+
+        self.water_prod_vagmd_refill = pyunits.convert(
+            active_blks[0].fs.vagmd.permeate_flux
+            * active_blks[0].fs.vagmd.module_area
+            * self.dt_refilling_phase,
+            to_units=pyunits.m**3,
+        )
+
+        self.water_prod_vagmd_batch = (
+            self.water_prod_vagmd_process + self.water_prod_vagmd_refill
+        )
+
+        # Total water production during one batch
+        self.total_water_prod_batch = (
+            self.water_prod_vagmd_batch + self.water_prod_med_batch
+        )
+
+        ## Water production capacity of the specified system
+        self.module_capacity = pyunits.convert(
+            self.total_water_prod_batch
+            / (
+                self.dt_refilling_phase
+                + sum(
+                    active_blks[i].fs.dt
+                    for i in range(self.config.model_input["n_time_points"])
+                )
+            ),
+            to_units=pyunits.m**3 / pyunits.day,
         )
 
     def create_multiperiod_ltmed_vagmd_model(
@@ -254,14 +305,18 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         med_capacity=1,
         med_recovry_ratio=0.5,
         md_feed_flow_rate=600,
+        md_cond_inlet_temp=25,
+        md_evap_inlet_temp=80,
+        md_module_type="AS26C7.2L",
+        md_cooling_system_type="closed",
+        md_cooling_inlet_temp=25,
+        md_high_brine_salinity=False,
         dt=None,
         batch_volume=50,
     ):
         """
         This function creates a multi-period pv battery flowsheet object. This object contains
         a pyomo model with a block for each time instance.
-        Args:
-            n_time_points: Number of time blocks to create
         Returns:
             Object containing multi-period vagmd batch flowsheet model
         """
@@ -281,6 +336,12 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             "med_capacity": med_capacity,
             "med_recovry_ratio": med_recovry_ratio,
             "md_feed_flow_rate": md_feed_flow_rate,
+            "md_cond_inlet_temp": md_cond_inlet_temp,
+            "md_evap_inlet_temp": md_evap_inlet_temp,
+            "md_module_type": md_module_type,
+            "md_cooling_system_type": md_cooling_system_type,
+            "md_cooling_inlet_temp": md_cooling_inlet_temp,
+            "md_high_brine_salinity": md_high_brine_salinity,
             "dt": dt,
             "batch_volume": batch_volume,
             "phase": "processing",
@@ -303,32 +364,11 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         This function adds the refilling phase of the batch operation
         and initializes it
         """
-        self.dt_discharging_phase = Var(
-            initialize=60,
-            bounds=(0, None),
-            units=pyunits.s,
-            doc="Time interval of discharging the tank",
-        )
-
         self.dt_refilling_phase = Var(
             initialize=120,
             bounds=(None, None),
             units=pyunits.s,
             doc="Time interval of the refilling phase",
-        )
-
-        self.vagmd_thermal_power_reflling_phase = Var(
-            initialize=2e5,
-            bounds=(0, None),
-            units=pyunits.kW,
-            doc="Thermal power requirement (kW-th) for VAGMD during refilling phase",
-        )
-
-        self.med_thermal_power_reflling_phase = Var(
-            initialize=2e5,
-            bounds=(0, None),
-            units=pyunits.kW,
-            doc="Thermal power requirement (kW-th) for MED during refilling phase",
         )
 
         # Get the last period for refilling phase calculations
@@ -404,46 +444,106 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         This function scales the med-md semibatch module to a specific target capacity,
         and adds costing packages accordingly
         """
-
-        self.num_modules_vagmd = Var(
-            initialize=100,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Number of MD module required",
-        )
-
         self.costing = TreatmentCosting()
         self.costing.base_currency = pyunits.USD_2020
 
         # The costing model is built upon the last time step
         blk = self.mp.get_active_process_blocks()[-1].fs
-        # blk.vagmd.costing = UnitModelCostingBlock(flowsheet_costing_block=self.costing)
 
+        # Create cost block for MED
         blk.med.costing = UnitModelCostingBlock(flowsheet_costing_block=self.costing)
 
-        self.costing.cost_process()
-
+        # Update capacity in MED cost functions
         med_costing = blk.med.costing
+        lt_med_params = med_costing.costing_package.lt_med_surrogate
+
         med_costing.capacity = pyunits.convert(
-            blk.med.distillate_props[0].flow_vol_phase["Liq"]
-            * self.system_capacity
-            / (2.185 * pyunits.m**3 / pyunits.day),
+            self.water_prod_med_batch
+            / self.total_water_prod_batch
+            * self.target_system_capacity,
             to_units=pyunits.m**3 / pyunits.day,
         )
 
-        lt_med_params = med_costing.costing_package.lt_med_surrogate
+        med_costing.med_specific_cost_constraint.deactivate()
+        med_costing.med_specific_cost_constraint = Constraint(
+            expr=med_costing.med_specific_cost
+            == (
+                lt_med_params.med_sys_A_coeff
+                * med_costing.capacity**lt_med_params.med_sys_B_coeff
+            )
+        )
 
-        #     med_costing.med_specific_cost_constraint.deactivate()
-        #     med_costing.med_specific_cost_constraint = Constraint(
-        #     expr=blk.med_specific_cost
-        #     == (
-        #         lt_med_params.med_sys_A_coeff
-        #         * med_costing.capacity**lt_med_params.med_sys_B_coeff
-        #     )
-        # )
+        med_costing.membrane_system_cost_constraint.deactivate()
+        med_costing.membrane_system_cost_constraint = Constraint(
+            expr=med_costing.membrane_system_cost
+            == med_costing.capacity
+            * (
+                med_costing.med_specific_cost
+                * (1 - lt_med_params.cost_fraction_evaporator)
+            )
+        )
 
-        self.costing.add_annual_water_production(self.system_capacity)
-        self.costing.add_LCOW(self.system_capacity)
+        # Costing package of VAGMD surrogate unit model is applied here,
+        # while the technical model used here is VAGMD base model, so the
+        # following missing items need to be created:
+
+        # Update capacity in VAGMD cost functions
+        blk.vagmd.system_capacity = pyunits.convert(
+            self.water_prod_vagmd_batch
+            / self.total_water_prod_batch
+            * self.target_system_capacity,
+            to_units=pyunits.m**3 / pyunits.day,
+        )
+
+        # Number of vagmd module required = VAGMD system capacity / VAGMD module capacity
+        blk.vagmd.num_modules = blk.vagmd.system_capacity / (
+            self.module_capacity
+            * self.water_prod_vagmd_batch
+            / self.total_water_prod_batch
+        )
+
+        # Create energy flow items
+        blk.vagmd.thermal_power_requirement = (
+            blk.vagmd.thermal_power
+            / pyunits.convert(
+                blk.vagmd.permeate_flux * blk.vagmd.module_area,
+                to_units=pyunits.m**3 / pyunits.h,
+            )
+            * pyunits.convert(
+                blk.vagmd.system_capacity, to_units=pyunits.m**3 / pyunits.h
+            )
+        )
+
+        blk.vagmd.elec_power_requirement = (
+            (blk.vagmd.feed_pump_power_elec + blk.vagmd.cooling_pump_power_elec)
+            / pyunits.convert(
+                blk.vagmd.permeate_flux * blk.vagmd.module_area,
+                to_units=pyunits.m**3 / pyunits.h,
+            )
+            * pyunits.convert(
+                blk.vagmd.system_capacity, to_units=pyunits.m**3 / pyunits.h
+            )
+        )
+
+        # Create cost block for VAGMD
+        blk.vagmd.costing = UnitModelCostingBlock(flowsheet_costing_block=self.costing)
+
+        # Add LCOW component
+        self.costing.cost_process()
+        self.costing.add_annual_water_production(self.target_system_capacity)
+        self.costing.add_LCOW(self.target_system_capacity)
+
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+
+        if get_scaling_factor(self.target_system_capacity) is None:
+            set_scaling_factor(self.target_system_capacity, 1e-2)
+
+        if get_scaling_factor(self.batch_water_production) is None:
+            set_scaling_factor(self.batch_water_production, 1e0)
+
+        if get_scaling_factor(self.dt_refilling_phase) is None:
+            set_scaling_factor(self.dt_refilling_phase, 1e-2)
 
     def get_model_performance(self):
         """
@@ -532,7 +632,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
 
         water_prod_med = [
             value(
-                blks[i].fs.med.distillate_props[0].flow_vol_phase["Liq"] * blks[t].fs.dt
+                blks[i].fs.med.distillate_props[0].flow_vol_phase["Liq"] * blks[i].fs.dt
             )  # m3
             for i in range(n_time_points)
         ]
@@ -541,7 +641,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             value(
                 blks[i].fs.vagmd.permeate_flux
                 * blks[i].fs.vagmd.module_area
-                * blks[t].fs.dt
+                * blks[i].fs.dt
                 / 1000
                 / 3600
             )  # m3
@@ -603,17 +703,13 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         # Aggregated system performance
         time_refilling_phase = self.dt_refilling_phase.value / 60  # min
         operation_time_batch = self.dt_refilling_phase.value / 60 + t_minutes[-1]  # min
-        water_prod_refilling = value(
-            (
-                blks[0].fs.vagmd.permeate_flux * blks[0].fs.vagmd.module_area
-                + blks[0].fs.med.distillate_props[0].flow_vol_phase["Liq"]
-            )
-            * self.dt_refilling_phase
-            / 1000
-            / 3600
+        water_prod_refilling = (
+            self.water_prod_med_refill() + self.water_prod_vagmd_refill()
         )
         water_prod_batch = (
-            water_prod_refilling + sum(water_prod_med) + sum(water_prod_vagmd)
+            water_prod_refilling
+            + self.water_prod_med_process()
+            + self.water_prod_vagmd_process()
         )
         thermal_power_batch = (
             (sum(vagmd_thermal_power) + sum(med_thermal_power))
@@ -625,6 +721,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             )
             * time_refilling_phase
         ) / operation_time_batch
+
         STEC_batch = (
             thermal_power_batch * (operation_time_batch / 60) / water_prod_batch
         )
@@ -635,13 +732,36 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             "Time interval of the refilling phase (min)": time_refilling_phase,
             "Total operation time of one batch (min)": operation_time_batch,
             "Total water production during refilling phase (m3)": water_prod_refilling,
-            "Total water production during one batch (m3)": water_prod_batch,
-            "Production capacity (m3/day)": water_prod_batch
-            / (self.dt_refilling_phase.value / 60 + t_minutes[-1])
-            * 24
-            * 60,
+            "Total water production during one batch (m3)": self.total_water_prod_batch(),
+            "Production capacity (m3/day)": self.module_capacity(),
             "Average thermal power requirement during one batch (kW)": thermal_power_batch,
             "Average specifc thermal energy consumption during one batch (kWh/m3)": STEC_batch,
         }
 
         return overall_performance, data_table
+
+    def get_costing_performance(self):
+        """
+        This function returns the cost performance of a system with a target capacity
+        scaled upon the specified MED-MD module in the unit model
+        """
+        # The costing model is built upon the last time step
+        blk = self.mp.get_active_process_blocks()[-1].fs
+
+        cost_performance = {
+            "Target system capacity (m3/day)": self.target_system_capacity.value,
+            "Scaled MED system capacity (m3/day)": blk.med.costing.capacity(),
+            "Scaled VAGMD system capacity (m3/day)": blk.vagmd.system_capacity(),
+            "Number of VAGMD modules required": blk.vagmd.num_modules(),
+            "CAPEX of MED ($)": blk.med.costing.capital_cost.value,
+            "CAPEX of VAGMD ($)": blk.vagmd.costing.capital_cost.value,
+            "Fixed OPEX of MED ($)": blk.med.costing.fixed_operating_cost.value,
+            "Fixed OPEX of VAGMD ($)": blk.vagmd.costing.fixed_operating_cost.value,
+            "Annual heat cost ($)": self.costing.aggregate_flow_costs["heat"].value,
+            "Annual electricity cost ($)": self.costing.aggregate_flow_costs[
+                "electricity"
+            ].value,
+            "Overall LCOW ($/m3)": self.costing.LCOW(),
+        }
+
+        return cost_performance

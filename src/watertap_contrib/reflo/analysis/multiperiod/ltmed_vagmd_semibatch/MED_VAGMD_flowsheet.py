@@ -1,17 +1,18 @@
-import os
-import numpy as np
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
 
 from pyomo.environ import (
     ConcreteModel,
-    Objective,
-    Param,
-    Expression,
-    Constraint,
-    Block,
-    log10,
     TransformationFactory,
-    assert_optimal_termination,
-    value,
     units as pyunits,
 )
 from pyomo.network import Arc
@@ -19,56 +20,25 @@ from pyomo.util.calc_var_value import calculate_variable_from_constraint
 from idaes.core import FlowsheetBlock, MaterialBalanceType
 from idaes.core.solvers.get_solver import get_solver
 from idaes.models.unit_models import (
-    Product,
-    Feed,
     Mixer,
     Separator,
-    MomentumMixingType,
-    MixingType,
 )
 from idaes.core.util.model_statistics import *
 from idaes.core.util.scaling import (
     set_scaling_factor,
     get_scaling_factor,
     calculate_scaling_factors,
-    constraint_scaling_transform,
 )
-from idaes.core import UnitModelCostingBlock
-from idaes.core.util.initialization import propagate_state, fix_state_vars
 from idaes.core.solvers.get_solver import get_solver
 
-from idaes.core.util.model_diagnostics import DegeneracyHunter
-import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
-from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap.unit_models.pressure_changer import Pump, EnergyRecoveryDevice
-
-from watertap.unit_models.reverse_osmosis_0D import (
-    ReverseOsmosis0D,
-    ConcentrationPolarizationType,
-    MassTransferCoefficient,
-    PressureChangeType,
-)
-from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
-    calculate_operating_pressure,
-)
 from watertap_contrib.reflo.unit_models.surrogate import (
     VAGMDSurrogateBase,
-    VAGMDSurrogate,
     LTMEDSurrogate,
 )
 
-from watertap_contrib.reflo.costing import (
-    TreatmentCosting,
-    EnergyCosting,
-    REFLOSystemCosting,
-)
-
-from watertap_contrib.reflo.core import REFLODatabase, PySAMWaterTAP
-
-_log = idaeslog.getLogger(__name__)
 solver = get_solver()
 
 
@@ -82,6 +52,12 @@ def build_med_md_flowsheet(
     med_recovry_ratio=0.5,
     batch_volume=50,
     md_feed_flow_rate=600,
+    md_evap_inlet_temp=80,
+    md_cond_inlet_temp=25,
+    md_module_type="AS26C7.2L",
+    md_cooling_system_type="closed",
+    md_cooling_inlet_temp=25,
+    md_high_brine_salinity=False,
     dt=None,
 ):
     if m is None:
@@ -115,14 +91,14 @@ def build_med_md_flowsheet(
 
     vagmd_inputs = {
         "feed_flow_rate": md_feed_flow_rate,
-        "evap_inlet_temp": 80,
-        "cond_inlet_temp": 25,
+        "evap_inlet_temp": md_evap_inlet_temp,
+        "cond_inlet_temp": md_cond_inlet_temp,
         "feed_temp": 25,
         "feed_salinity": med_feed_salinity / med_recovry_ratio,
-        "recovery_ratio": 0.5,
-        "module_type": "AS26C7.2L",
-        "cooling_system_type": "closed",
-        "cooling_inlet_temp": 25,
+        "md_high_brine_salinity": md_high_brine_salinity,
+        "module_type": md_module_type,
+        "cooling_system_type": md_cooling_system_type,
+        "cooling_inlet_temp": md_cooling_inlet_temp,
     }
 
     add_vagmd(m.fs, vagmd_inputs)
@@ -267,8 +243,6 @@ def add_med(fs, inputs):
         property_package_vapor=fs.vapor_prop,
         number_effects=12,
     )
-    feed = fs.med.feed_props[0]
-    dist = fs.med.distillate_props[0]
     steam = fs.med.steam_props[0]
 
     # System specification
@@ -338,7 +312,7 @@ def add_vagmd(fs, inputs):
     cond_inlet_temp = inputs["cond_inlet_temp"]  # 20 - 30 deg C
     feed_temp = inputs["feed_temp"]  # 20 - 30 deg C
     feed_salinity = inputs["feed_salinity"]  # 35 - 292 g/L
-    recovery_ratio = inputs["recovery_ratio"]  # -
+    md_high_brine_salinity = inputs["md_high_brine_salinity"]  # -
     module_type = inputs["module_type"]
     cooling_system_type = inputs["cooling_system_type"]
     cooling_inlet_temp = inputs["cooling_inlet_temp"]
@@ -347,21 +321,17 @@ def add_vagmd(fs, inputs):
     # Identify if the final brine salinity is larger than 175.3 g/L for module "AS7C1.5L"
     # If yes, then operational parameters need to be fixed at a certain value,
     # and coolying circuit is closed to maintain condenser inlet temperature constant
-    final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # = 70 g/L
-    if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
+    if module_type == "AS7C1.5L" and md_high_brine_salinity:
         cooling_system_type = "closed"
         feed_flow_rate = 1100  # L/h
         evap_inlet_temp = 80  # deg C
         cond_inlet_temp = 25  # deg C
-        high_brine_salinity = True
-    else:
-        high_brine_salinity = False
 
     fs.vagmd = VAGMDSurrogateBase(
         property_package_seawater=fs.liquid_prop,
         property_package_water=fs.vapor_prop,
         module_type=module_type,
-        high_brine_salinity=high_brine_salinity,
+        high_brine_salinity=md_high_brine_salinity,
         cooling_system_type=cooling_system_type,
     )
 
