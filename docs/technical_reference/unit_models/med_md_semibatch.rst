@@ -138,5 +138,5 @@ Equations
    "Total water production during one batch", ":math:`m_{prod,total,batch} = m_{prod,med,process} + m_{prod,md,process} + m_{prod,med,refilling} + m_{prod,md,refilling}`"
    "Total operation time of one batch", ":math:`t_{batch,total} = t_{reflling} + N \times d_{t}`"
    "System capacity associated to one MD module", ":math:`Cap_{module} = \frac{m_{prod,total,batch}}{t_{batch,total}}`"
-   "Total thermal power required", ":math:`Th_{total} = \bigg(\frac{({\sum_{t=1}^{N}Th_{md,t}} + {\sum_{t=1}^{N}Th_{med,t}}) \times d_{t} + (Th_{md,t=0} + Th_{med,t=0}) \times d_{t}}{t_{batch,total}})`"
-   "Average STEC of a batch", ":math:`STEC = \bigg(\frac{Th_{total} \times t_{batch,total}}{m_{prod,total,batch}})`"
+   "Total thermal power required", ":math:`Th_{total} = \Bigg(\frac{({\sum_{t=1}^{N}Th_{md,t}} + {\sum_{t=1}^{N}Th_{med,t}}) \times d_{t} + (Th_{md,t=0} + Th_{med,t=0}) \times d_{t}}{t_{batch,total}} \Bigg)`"
+   "Average STEC of a batch", ":math:`STEC = \Bigg(\frac{Th_{total} \times t_{batch,total}}{m_{prod,total,batch}} \Bigg)`"
