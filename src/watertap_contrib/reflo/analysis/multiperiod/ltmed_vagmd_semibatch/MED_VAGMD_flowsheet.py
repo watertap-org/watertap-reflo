@@ -233,7 +233,7 @@ def add_processing_phase_constraint(
 
 
 def add_med(fs, inputs):
-    """Method to add MED components to an exisitng flowsheet
+    """Method to add an MED component to an exisitng flowsheet
     Args:
         fs: exisitng flowsheet
         inputs: a dictionary depicting the MED configurations
@@ -300,7 +300,7 @@ def add_med(fs, inputs):
 
 
 def add_vagmd(fs, inputs):
-    """Method to add MED components to an exisitng flowsheet
+    """Method to add a VAGMD component to an exisitng flowsheet
     Args:
         fs: exisitng flowsheet
         inputs: a dictionary depicting the MD configurations
