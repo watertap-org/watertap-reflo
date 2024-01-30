@@ -8,7 +8,7 @@ This unit model simulates the semibatch operation of a LTMED - VAGMD system unde
    * the system can be scaled to any capacity in the cost evaluation
 
 .. figure:: ../../_static/unit_models/med_md_semibatch_schematic.png
-    :width: 1200
+    :width: 800
     :align: center
 
     Figure 1. Diagram of a MED-MD semibatch system.
@@ -29,7 +29,7 @@ continues until the liquid volume in the mixer is back to the specifed batch vol
 simplied as a steady-state period when the system operates at the starting point of the process.
 
 .. figure:: ../../_static/unit_models/med_md_semibatch_process.png
-    :width: 1200
+    :width: 800
     :align: center
 
     Figure 2. Salinity and volume in the mixer during different phases.
@@ -53,7 +53,7 @@ The unit model takes in the model inputs as a dictionary in the model arguments.
    "MD cooling system type", "md_cooling_system_type", ":math:`-`", "open or closed", ":math:`-`"
    "MD cooling water inlet temperature", "md_cooling_inlet_temp", ":math:`T_{cooling,in}`", "20 - 30", ":math:`^o\text{C}`"
    "MD high brine salinity mode", "md_high_brine_salinity", ":math:`-`", "True or False", ":math:`-`"
-   "Batch volume associated to a single MD module", "batch_volume", ":math:`-`", "\>0", ":math:`-`"
+   "Batch volume associated to a single MD module", "batch_volume", ":math:`V_{batch}`", "\>0", ":math:`\text{L}`"
 
 :math:`dt`: If :math:`None` is provided to time interval, the model uses default equations to determine its value based on the specified feed flow rate to the VAGMD module.
 
@@ -119,7 +119,9 @@ Methods
 This unit model class includes the following methods for functionalities. 
 
 ``add_costing_packages``: Creates a costing block and setup the system based on the target capacity.
+
 ``get_model_performance``: Returns the overall performance of the batch operation in a dictionary, and the timewise system performance of the processing phase in a pandas dataframe.
+
 ``get_costing_performance``: Returns the cost performance of a system with a target capacity scaled upon the specified MED-MD module in the unit model.
 
 
@@ -135,6 +137,6 @@ Equations
    "Water production from MD during refilling phase", ":math:`m_{prod,md,refilling} =  Pflux_{t=0} A_{module} t_{reflling}`"
    "Total water production during one batch", ":math:`m_{prod,total,batch} = m_{prod,med,process} + m_{prod,md,process} + m_{prod,med,refilling} + m_{prod,md,refilling}`"
    "Total operation time of one batch", ":math:`t_{batch,total} = t_{reflling} + N \times d_{t}`"
-   "System capacity (associated to one MD module)", ":math:`Cap_{module} = \frac{m_{prod,total,batch}}{t_{batch,total}`"
-   "Total thermal power required", ":math:`Th_{total} = \frac{({\sum_{t=1}^{N}Th_{md,t}} + {\sum_{t=1}^{N}Th_{med,t}}) \times d_{t} + (Th_{md,t=0} + Th_{med,t=0}) \times d_{t}}{t_{batch,total}`"
-   "Average STEC of a batch", ":math:`STEC = \frac{Th_{total} \times t_{batch,total}}{m_{prod,total,batch}}`"
+   "System capacity associated to one MD module", ":math:`Cap_{module} = \frac{m_{prod,total,batch}}{t_{batch,total}}`"
+   "Total thermal power required", ":math:`Th_{total} = \bigg(\frac{({\sum_{t=1}^{N}Th_{md,t}} + {\sum_{t=1}^{N}Th_{med,t}}) \times d_{t} + (Th_{md,t=0} + Th_{med,t=0}) \times d_{t}}{t_{batch,total}})`"
+   "Average STEC of a batch", ":math:`STEC = \bigg(\frac{Th_{total} \times t_{batch,total}}{m_{prod,total,batch}})`"
