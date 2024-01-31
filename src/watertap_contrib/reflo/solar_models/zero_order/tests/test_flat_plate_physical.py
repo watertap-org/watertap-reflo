@@ -117,9 +117,9 @@ class TestFlatPlatePhysical:
             assert len(port.vars) == 3
 
         # Test statistics
-        assert number_variables(m.fs.flatplate) == 20
+        assert number_variables(m.fs.flatplate) == 18
         assert number_unused_variables(m.fs.flatplate) == 5
-        assert number_total_constraints(m.fs.flatplate) == 11
+        assert number_total_constraints(m.fs.flatplate) == 9
 
     @pytest.mark.unit
     def test_dof(self, flat_plate_frame):
