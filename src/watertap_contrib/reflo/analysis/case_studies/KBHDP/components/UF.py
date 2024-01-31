@@ -35,7 +35,8 @@ from idaes.core.util.model_statistics import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
-from watertap.unit_models.zero_order.decarbonator_zo import DecarbonatorZO
+from watertap.unit_models.zero_order.ultra_filtration_zo import UltraFiltrationZO
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -46,38 +47,38 @@ def propagate_state(arc):
     # print('\n')
 
 
-def build_degasifier(m, blk) -> None:
-    print(f'\n{"=======> BUILDING DEGASIFIER SYSTEM <=======":^60}\n')
+def build_UF(m, blk) -> None:
+    print(f'\n{"=======> BUILDING ULTRAFILTRATION SYSTEM <=======":^60}\n')
 
-    blk.feed = StateJunction(property_package=m.fs.properties)
-    blk.product = StateJunction(property_package=m.fs.properties)
-    blk.disposal = StateJunction(property_package=m.fs.properties)
+    blk.feed = StateJunction(property_package=m.fs.RO_properties)
+    blk.product = StateJunction(property_package=m.fs.RO_properties)
+    blk.disposal = StateJunction(property_package=m.fs.RO_properties)
 
-    # blk.unit = DecarbonatorZO(property_package=m.fs.properties, database=m.db)
+    # blk.unit = UltraFiltrationZO(property_package=m.fs.RO_properties)
 
     blk.feed_to_product = Arc(
         source=blk.feed.outlet,
         destination=blk.product.inlet,
     )
 
-    blk.feed.properties[0].conc_mass_phase_comp
-    blk.product.properties[0].conc_mass_phase_comp
-    blk.disposal.properties[0].conc_mass_phase_comp
 
-def init_degasifier(m, blk, verbose=True, solver=None):
+def init_UF(m, blk, verbose=True, solver=None):
     if solver is None:
         solver = get_solver()
 
     optarg = solver.options
 
-    print("\n\n-------------------- INITIALIZING DEGASIFIER --------------------\n\n")
+    print(
+        "\n\n-------------------- INITIALIZING ULTRAFILTRATION --------------------\n\n"
+    )
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"Degasifier Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
-    print('\n\n')
+    print(f"Degasifier Degrees of Freedom: {degrees_of_freedom(blk)}")
+    print("\n\n")
 
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_product)
     blk.product.initialize(optarg=optarg)
 
-def set_degas_op_conditions(m,blk):
+
+def set_UF_op_conditions(blk):
     blk.unit.recovery_frac_mass_H2O.fix(1)
