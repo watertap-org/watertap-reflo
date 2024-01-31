@@ -54,22 +54,23 @@ The model consists of the phase set included in the property package.
 Parameters
 ---------
 
-The following parameters are used and are not mutable.
+The following parameters are used and are mutable (except for the test conditions).
 
 .. csv-table::
    :header: "Description", "Parameter Name", "Symbol", "Value", "Units"
 
    "Number of collectors", "``number_collectors``", ":math:`{n}_{c}`", "1", ":math:`\text{dimensionless}`"
    "Product of cover transmittance (t), and shortwave absorptivity of absorber (a)", "``trans_absorb_prod``", ":math:`\tau\alpha`", "1", ":math:`\text{dimensionless}`"
-   "Product of collector heat removal factor (FR), cover transmittance (t), and shortwave absorptivity of absorber (a)", "``FR_ta``", ":math:`{F}_{R}\tau\alpha`", ":math:`\text{dimensionless}`"
-   "Product of collector heat removal factor (FR) and overall heat loss coeff. of collector (UL)", "``FR_UL``", ":math:`{F}_{R}{U}_{L}`", ":math:`\text{W}/\text{m}^2-\text{K}`"
-   "Mass flow rate of fluid during characterization test", "``mdot_test``", ":math:`\dot{m}_{test}`", ":math:`\text{kg} / \text{s}`"
-   "Specific heat capacity of fluid during characterization test", "``cp_test``", ":math:`{c}_{ptest}`", ":math:`\text{J}/\text{kg}-\text{K}`"
-   "Pump power", "``pump_power``", ":math:`{P}_{pump}`", ":math:`\text{W}`"
-   "Pump efficiency", "``pump_eff``", ":math:`\eta_{pump}`",":math:`\text{dimensionless}`"
-   "Ambient temperature", "``temperature_ambient``", ":math:`{T}_{amb}`", ":math:`\text{K}`"
-   "Maximum irradiance at the location", "``max_irradiance``", ":math:`{G}_{max}`", ":math:`\text{W} / \text{m}^2`"
-   "Influent minus ambient temperature", "``factor_delta_T``", ":math:`\Delta T`", ":math:`\text{K}`"
+   "Product of collector heat removal factor (FR), cover transmittance (t), and shortwave absorptivity of absorber (a)", "``FR_ta``", ":math:`{F}_{R}\tau\alpha`", "0.689", ":math:`\text{dimensionless}`"
+   "Product of collector heat removal factor (FR) and overall heat loss coeff. of collector (UL)", "``FR_UL``", ":math:`{F}_{R}{U}_{L}`", "3.85", ":math:`\text{W}/\text{m}^2-\text{K}`"
+   "Mass flow rate of fluid during characterization test (fixed)", "``mdot_test``", ":math:`\dot{m}_{test}`", "1", ":math:`\text{kg} / \text{s}`"
+   "Specific heat capacity of fluid during characterization test (fixed)", "``cp_test``", ":math:`{c}_{ptest}`", "4184", ":math:`\text{J}/\text{kg}-\text{K}`"
+   "Specific heat capacity of fluid being used for heat transfer in operation", "``cp_use``", ":math:`{c}_{use}`", "4184", ":math:`\text{J}/\text{kg}-\text{K}`"
+   "Pump power", "``pump_power``", ":math:`{P}_{pump}`", "1", ":math:`\text{W}`"
+   "Pump efficiency", "``pump_eff``", ":math:`\eta_{pump}`", "1", ":math:`\text{dimensionless}`"
+   "Ambient temperature", "``temperature_ambient``", ":math:`{T}_{amb}`", "303.15", ":math:`\text{K}`"
+   "Maximum irradiance at the location", "``max_irradiance``", ":math:`{G}_{max}`", "1000", ":math:`\text{W} / \text{m}^2`"
+   "Influent minus ambient temperature", "``factor_delta_T``", ":math:`\Delta T`", "0.03", ":math:`\text{K}`"
 
 Equations
 ---------
@@ -90,8 +91,7 @@ Costing
 
 The FPC capital cost includes direct costs, indirect costs and sales tax. The direct costs include
 cost of the collector and a contingency factor. The indirect costs are a fraction of the direct cost
-and include cost of land. A fixed operating cost is calculated as a linear function of heat load of
-flat plate collector.
+and include cost of land. The land area is assumed to be the total collector area. A fixed operating cost is calculated as a linear function of the FPC heat load.
 
 .. csv-table::
    :header: "Description", "Variable Name", "Equation"
