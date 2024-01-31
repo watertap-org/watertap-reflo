@@ -296,8 +296,6 @@ def add_med(fs, inputs):
     fs.vapor_prop.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "H2O"))
     fs.vapor_prop.set_default_scaling("flow_mass_phase_comp", 1e2, index=("Vap", "H2O"))
 
-    return
-
 
 def add_vagmd(fs, inputs):
     """Method to add a VAGMD component to an exisitng flowsheet
