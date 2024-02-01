@@ -145,7 +145,7 @@ Equations
 Class Documentation
 -------------------
 
-.. currentmodule:: watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class
+.. currentmodule:: src.watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class
 
 .. autoclass:: MEDVAGMDsemibatch
     :members:
