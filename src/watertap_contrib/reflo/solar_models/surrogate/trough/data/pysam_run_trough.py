@@ -1,3 +1,15 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import json
 from os.path import join, dirname
 from math import floor, ceil, isnan
@@ -224,15 +236,15 @@ def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True)
 if __name__ == "__main__":
     model_name = "PhysicalTroughIPHLCOHCalculator"
     config_files = [
-        join(dirname(__file__), "untitled_trough_physical_process_heat.json"),
-        join(dirname(__file__), "untitled_iph_to_lcoefcr.json"),
-        join(dirname(__file__), "untitled_lcoefcr.json"),
+        join(dirname(__file__), "trough_physical_process_heat-reflo.json"),
+        join(dirname(__file__), "iph_to_lcoefcr-reflo.json"),
+        join(dirname(__file__), "lcoefcr-reflo.json"),
     ]
     weather_file = join(
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "dataset.pkl"
+        dirname(__file__), "test_trough_data.pkl"
     )  # output dataset for surrogate training
 
     # modules = setup_model(model_name, weather_file, config_files=config_files)
