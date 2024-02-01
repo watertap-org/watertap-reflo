@@ -315,7 +315,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         batch_volume=50,
     ):
         """
-        This function creates a multi-period pv battery flowsheet object. This object contains
+        This function creates a multi-period flowsheet object. This object contains
         a pyomo model with a block for each time instance.
         Returns:
             Object containing multi-period vagmd batch flowsheet model
