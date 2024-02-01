@@ -140,3 +140,17 @@ Equations
    "System capacity associated to one MD module", ":math:`Cap_{module} = \frac{m_{prod,total,batch}}{t_{batch,total}}`"
    "Total thermal power required", ":math:`Th_{total} = \Bigg(\frac{({\sum_{t=1}^{N}Th_{md,t}} + {\sum_{t=1}^{N}Th_{med,t}}) \times d_{t} + (Th_{md,t=0} + Th_{med,t=0}) \times t_{refilling}}{t_{batch,total}} \Bigg)`"
    "Average STEC of a batch", ":math:`STEC = \frac{Th_{total} \times t_{batch,total}}{m_{prod,total,batch}}`"
+
+
+Class Documentation
+-------------------
+
+.. currentmodule:: watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class
+
+.. autoclass:: MEDVAGMDsemibatch
+    :members:
+    :noindex:
+
+.. autoclass:: MEDVAGMDsemibatchData
+    :members:
+    :noindex:

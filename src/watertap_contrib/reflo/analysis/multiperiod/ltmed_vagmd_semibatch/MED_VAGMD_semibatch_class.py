@@ -31,6 +31,9 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
+from idaes.core.util.exceptions import (
+    ConfigurationError,
+)
 from idaes.core.util.scaling import (
     set_scaling_factor,
     get_scaling_factor,
@@ -52,6 +55,7 @@ from watertap_contrib.reflo.analysis.multiperiod.ltmed_vagmd_semibatch.MED_VAGMD
 __author__ = "Zhuoran Zhang"
 
 solver = get_solver()
+_logger = idaeslog.getLogger(__name__)
 
 
 def get_variable_pairs(t1, t2):
@@ -157,7 +161,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             med_feed_temp:   MED feed temperature, deg C
             med_steam_temp:  MED steam temperature, deg C
             med_capacity:    MED capacity assoicated with a single MD module, m3/day
-            med_recovry_ratio: MED recovery ratio
+            med_recovery_ratio: MED recovery ratio
             md_feed_flow_rate: MD feed flow rate to a single module, 400 - 1100 L/h
             md_cond_inlet_temp: MD evaporator inlet temperature, 60 - 80 deg C
             md_evap_inlet_temp: MD condenser inlet temperature, 20 - 30 deg C
@@ -183,7 +187,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             med_feed_temp=self.config.model_input["med_feed_temp"],
             med_steam_temp=self.config.model_input["med_steam_temp"],
             med_capacity=self.config.model_input["med_capacity"],
-            med_recovry_ratio=self.config.model_input["med_recovry_ratio"],
+            med_recovery_ratio=self.config.model_input["med_recovery_ratio"],
             md_feed_flow_rate=self.config.model_input["md_feed_flow_rate"],
             md_cond_inlet_temp=self.config.model_input["md_cond_inlet_temp"],
             md_evap_inlet_temp=self.config.model_input["md_evap_inlet_temp"],
@@ -209,7 +213,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
 
         # Setup the stats of the first time period
         initial_md_feed_salinity = self.config.model_input["med_feed_salinity"] / (
-            1 - self.config.model_input["med_recovry_ratio"]
+            1 - self.config.model_input["med_recovery_ratio"]
         )
         self.add_initial_constraints(
             batch_volume=self.config.model_input["batch_volume"],
@@ -303,7 +307,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         med_feed_temp=25,
         med_steam_temp=80,
         med_capacity=1,
-        med_recovry_ratio=0.5,
+        med_recovery_ratio=0.5,
         md_feed_flow_rate=600,
         md_cond_inlet_temp=25,
         md_evap_inlet_temp=80,
@@ -320,6 +324,75 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         Returns:
             Object containing multi-period vagmd batch flowsheet model
         """
+
+        # Check if the input configurations are valid
+        if type(n_time_points) is not int or n_time_points < 1:
+            raise ConfigurationError(
+                f"The number of time steps '{n_time_points}' is not available."
+                f"Please input a positive integer."
+            )
+
+        if md_module_type not in ["AS7C1.5L", "AS26C7.2L"]:
+            raise ConfigurationError(
+                f"The MD module type '{md_module_type}' is not available."
+                f"Available options include 'AS7C1.5L' and 'AS26C7.2L'."
+            )
+
+        if md_cooling_system_type not in ["open", "closed"]:
+            raise ConfigurationError(
+                f"The cooling system type '{md_cooling_system_type}' is not available."
+                f"Available options include 'open' and 'closed'."
+            )
+
+        input_variables = [
+            "med_feed_salinity",
+            "med_feed_temp",
+            "med_steam_temp",
+            "med_recovery_ratio",
+            "md_feed_flow_rate",
+            "md_cond_inlet_temp",
+            "md_evap_inlet_temp",
+            "batch_volume",
+            "dt",
+        ]
+        input_values = [
+            med_feed_salinity,
+            med_feed_temp,
+            med_steam_temp,
+            med_recovery_ratio,
+            md_feed_flow_rate,
+            md_cond_inlet_temp,
+            md_evap_inlet_temp,
+            batch_volume,
+            dt,
+        ]
+        input_ranges = [
+            [30, 60],
+            [15, 35],
+            [60, 85],
+            [0.3, 0.5],
+            [400, 1100],
+            [20, 30],
+            [60, 80],
+            [50, float("inf")],
+            [0, float("inf")],
+        ]
+        for i in range(len(input_variables)):
+            if (
+                input_values[i] < input_ranges[i][0]
+                or input_values[i] > input_ranges[i][1]
+            ):
+                raise ConfigurationError(
+                    f"The input variable '{input_variables[i]}' is not valid."
+                    f"The valid range is {input_ranges[i][0]} - {input_ranges[i][1]}."
+                )
+
+        if md_module_type == "AS7C1.5L" and md_high_brine_salinity:
+            _logger.info(
+                f"For module AS7C1.5L, when the final brine salinity is larger than 175.3 g/L,"
+                f"the operational parameters will be fixed at nominal condition"
+            )
+
         mp = MultiPeriodModel(
             n_time_points=n_time_points,
             process_model_func=build_med_md_flowsheet,
@@ -334,7 +407,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             "med_feed_temp": med_feed_temp,
             "med_steam_temp": med_steam_temp,
             "med_capacity": med_capacity,
-            "med_recovry_ratio": med_recovry_ratio,
+            "med_recovery_ratio": med_recovery_ratio,
             "md_feed_flow_rate": md_feed_flow_rate,
             "md_cond_inlet_temp": md_cond_inlet_temp,
             "md_evap_inlet_temp": md_evap_inlet_temp,

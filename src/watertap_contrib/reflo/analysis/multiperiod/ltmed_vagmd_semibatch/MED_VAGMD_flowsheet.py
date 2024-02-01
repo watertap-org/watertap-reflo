@@ -49,7 +49,7 @@ def build_med_md_flowsheet(
     med_feed_temp=25,
     med_steam_temp=80,
     med_capacity=1,
-    med_recovry_ratio=0.5,
+    med_recovery_ratio=0.5,
     batch_volume=50,
     md_feed_flow_rate=600,
     md_evap_inlet_temp=80,
@@ -70,7 +70,7 @@ def build_med_md_flowsheet(
         "feed_temperature": med_feed_temp,
         "steam_temperature": med_steam_temp,
         "sys_capacity": med_capacity,
-        "recovery_ratio": med_recovry_ratio,
+        "recovery_ratio": med_recovery_ratio,
     }
     add_med(m.fs, med_inputs)  # add m.fs.med compnonent
 
@@ -94,7 +94,7 @@ def build_med_md_flowsheet(
         "evap_inlet_temp": md_evap_inlet_temp,
         "cond_inlet_temp": md_cond_inlet_temp,
         "feed_temp": 25,
-        "feed_salinity": med_feed_salinity / med_recovry_ratio,
+        "feed_salinity": med_feed_salinity / med_recovery_ratio,
         "md_high_brine_salinity": md_high_brine_salinity,
         "module_type": md_module_type,
         "cooling_system_type": md_cooling_system_type,

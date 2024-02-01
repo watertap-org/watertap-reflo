@@ -23,7 +23,9 @@ from watertap_contrib.reflo.analysis.multiperiod.ltmed_vagmd_semibatch.MED_VAGMD
 
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers import get_solver
-
+from idaes.core.util.exceptions import (
+    ConfigurationError,
+)
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
 )
@@ -42,7 +44,7 @@ class TestVAGMDbatch:
             "med_feed_temp": 25,
             "med_steam_temp": 80,
             "med_capacity": 1.5,
-            "med_recovry_ratio": 0.5,
+            "med_recovery_ratio": 0.5,
             "md_feed_flow_rate": 600,
             "md_evap_inlet_temp": 80,
             "md_cond_inlet_temp": 25,
@@ -56,6 +58,125 @@ class TestVAGMDbatch:
         m.fs.semibatch = MEDVAGMDsemibatch(model_input=model_input)
 
         return m
+
+    @pytest.mark.unit
+    def test_n_time_points(self):
+        new_n_time_points = 45.2
+        error_msg = (
+            f"The number of time steps '{new_n_time_points}' is not available."
+            f"Please input a positive integer."
+        )
+        with pytest.raises(ConfigurationError, match=error_msg):
+            model_input = {
+                "n_time_points": new_n_time_points,
+                "med_feed_salinity": 35,
+                "med_feed_temp": 25,
+                "med_steam_temp": 80,
+                "med_capacity": 1.5,
+                "med_recovery_ratio": 0.5,
+                "md_feed_flow_rate": 600,
+                "md_evap_inlet_temp": 80,
+                "md_cond_inlet_temp": 25,
+                "md_module_type": "AS26C7.2L",
+                "md_cooling_system_type": "closed",
+                "md_cooling_inlet_temp": 25,
+                "md_high_brine_salinity": False,
+                "dt": 60,
+                "batch_volume": 50,
+            }
+            m = ConcreteModel()
+            m.fs = FlowsheetBlock(dynamic=False)
+            m.fs.semibatch = MEDVAGMDsemibatch(model_input=model_input)
+
+    @pytest.mark.unit
+    def test_module_type_domain(self):
+
+        tested_module_type = "new_module_type"
+        error_msg = (
+            f"The MD module type '{tested_module_type}' is not available."
+            f"Available options include 'AS7C1.5L' and 'AS26C7.2L'."
+        )
+        with pytest.raises(ConfigurationError, match=error_msg):
+            model_input = {
+                "n_time_points": 5,
+                "med_feed_salinity": 35,
+                "med_feed_temp": 25,
+                "med_steam_temp": 80,
+                "med_capacity": 1.5,
+                "med_recovery_ratio": 0.5,
+                "md_feed_flow_rate": 600,
+                "md_evap_inlet_temp": 80,
+                "md_cond_inlet_temp": 25,
+                "md_module_type": tested_module_type,
+                "md_cooling_system_type": "closed",
+                "md_cooling_inlet_temp": 25,
+                "md_high_brine_salinity": False,
+                "dt": 60,
+                "batch_volume": 50,
+            }
+            m = ConcreteModel()
+            m.fs = FlowsheetBlock(dynamic=False)
+            m.fs.semibatch = MEDVAGMDsemibatch(model_input=model_input)
+
+    @pytest.mark.unit
+    def test_input_variables_domain(self):
+
+        tested_feed_flow_rate = 1200
+        error_msg = (
+            f"The input variable 'md_feed_flow_rate' is not valid."
+            f"The valid range is 400 - 1100."
+        )
+        with pytest.raises(ConfigurationError, match=error_msg):
+            model_input = {
+                "n_time_points": 5,
+                "med_feed_salinity": 35,
+                "med_feed_temp": 25,
+                "med_steam_temp": 80,
+                "med_capacity": 1.5,
+                "med_recovery_ratio": 0.5,
+                "md_feed_flow_rate": tested_feed_flow_rate,
+                "md_evap_inlet_temp": 80,
+                "md_cond_inlet_temp": 25,
+                "md_module_type": "AS26C7.2L",
+                "md_cooling_system_type": "closed",
+                "md_cooling_inlet_temp": 25,
+                "md_high_brine_salinity": False,
+                "dt": 60,
+                "batch_volume": 50,
+            }
+            m = ConcreteModel()
+            m.fs = FlowsheetBlock(dynamic=False)
+            m.fs.semibatch = MEDVAGMDsemibatch(model_input=model_input)
+
+    @pytest.mark.unit
+    def test_cooling_system_type_domain(self):
+
+        tested_cooling_system_type = "hybrid"
+        error_msg = (
+            f"The cooling system type '{tested_cooling_system_type}' is not available."
+            f"Available options include 'open' and 'closed'."
+        )
+        with pytest.raises(ConfigurationError, match=error_msg):
+            model_input = {
+                "n_time_points": 5,
+                "med_feed_salinity": 35,
+                "med_feed_temp": 25,
+                "med_steam_temp": 80,
+                "med_capacity": 1.5,
+                "med_recovery_ratio": 0.5,
+                "md_feed_flow_rate": 600,
+                "md_evap_inlet_temp": 80,
+                "md_cond_inlet_temp": 25,
+                "md_module_type": "AS26C7.2L",
+                "md_cooling_system_type": tested_cooling_system_type,
+                "md_cooling_inlet_temp": 25,
+                "md_high_brine_salinity": False,
+                "dt": 60,
+                "batch_volume": 50,
+            }
+            m = ConcreteModel()
+            m.fs = FlowsheetBlock(dynamic=False)
+            m.fs.semibatch = MEDVAGMDsemibatch(model_input=model_input)
 
     @pytest.mark.unit
     def test_dof(self, MED_VAGMD_semibatch_frame):
