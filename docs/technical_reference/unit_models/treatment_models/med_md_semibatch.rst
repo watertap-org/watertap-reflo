@@ -145,6 +145,18 @@ Equations
 Class Documentation
 -------------------
 
+.. automethod:: src.watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class.MEDVAGMDsemibatch.get_model_performance
+
+test 1
+
+.. automethod:: watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class.MEDVAGMDsemibatch.get_model_performance
+
+test 2
+
+.. automethod:: reflo.analysis.multiperiod.MED_VAGMD_semibatch_class.MEDVAGMDsemibatch.get_model_performance
+
+.. automodule:: src.watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class
+
 .. currentmodule:: src.watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class
 
 .. autoclass:: MEDVAGMDsemibatch
