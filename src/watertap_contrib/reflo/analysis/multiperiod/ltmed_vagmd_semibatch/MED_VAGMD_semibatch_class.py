@@ -147,7 +147,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
             domain=In([False]),
             description="Holdup construction flag - must be False",
             doc="""Indicates whether holdup terms should be constructed or not.
-    **default** - False.""",
+    **default** = False.""",
         ),
     )
     CONFIG.declare(
@@ -155,8 +155,9 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         ConfigValue(
             default=useDefault,
             description="System input variables",
-            doc="""Model inputs as a dictionary. See details in the model inputs table in documentation."""
-            ,
+            doc="""Model inputs as a dictionary, which includes:
+            See details in the model inputs table in documentation.
+            """,
         ),
     )
 
