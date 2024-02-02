@@ -7,7 +7,7 @@ This unit model simulates the semibatch operation of a LTMED - VAGMD system unde
    * the system performance is evaluated based on a single Aquastill MD module which all inputs are associated to
    * the system can be scaled to any capacity in the cost evaluation
 
-.. figure:: ../../_static/unit_models/med_md_semibatch_schematic.png
+.. figure:: ../../../_static/unit_models/med_md_semibatch_schematic.png
     :width: 800
     :align: center
 
@@ -28,7 +28,7 @@ MED brine stored during the processing phase is filled to the mixer for the next
 continues until the liquid volume in the mixer is back to the specifed batch volume. The refilling phase is
 simplied as a steady-state period when the system operates at the starting point of the process.
 
-.. figure:: ../../_static/unit_models/med_md_semibatch_process.png
+.. figure:: ../../../_static/unit_models/med_md_semibatch_process.png
     :width: 800
     :align: center
 
@@ -144,20 +144,7 @@ Equations
 
 Class Documentation
 -------------------
-
-.. automethod:: src.watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class.MEDVAGMDsemibatch.get_model_performance
-
-test 1
-
-.. automethod:: watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class.MEDVAGMDsemibatch.get_model_performance
-
-test 2
-
-.. automethod:: reflo.analysis.multiperiod.MED_VAGMD_semibatch_class.MEDVAGMDsemibatch.get_model_performance
-
-.. automodule:: src.watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class
-
-.. currentmodule:: src.watertap_contrib.reflo.analysis.multiperiod.MED_VAGMD_semibatch_class
+.. currentmodule:: src.watertap_contrib.reflo.analysis.multiperiod.ltmed_vagmd_semibatch.MED_VAGMD_semibatch_class
 
 .. autoclass:: MEDVAGMDsemibatch
     :members:
@@ -166,3 +153,4 @@ test 2
 .. autoclass:: MEDVAGMDsemibatchData
     :members:
     :noindex:
+

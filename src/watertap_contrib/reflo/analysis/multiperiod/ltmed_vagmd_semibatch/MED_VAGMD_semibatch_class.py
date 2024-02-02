@@ -155,26 +155,8 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         ConfigValue(
             default=useDefault,
             description="System input variables",
-            doc="""Model inputs as a dictionary, which includes:
-            n_time_points: Number of periods in the processing phase
-            med_feed_salinity: MED feed salinity, g/L
-            med_feed_temp:   MED feed temperature, deg C
-            med_steam_temp:  MED steam temperature, deg C
-            med_capacity:    MED capacity assoicated with a single MD module, m3/day
-            med_recovery_ratio: MED recovery ratio
-            md_feed_flow_rate: MD feed flow rate to a single module, 400 - 1100 L/h
-            md_cond_inlet_temp: MD evaporator inlet temperature, 60 - 80 deg C
-            md_evap_inlet_temp: MD condenser inlet temperature, 20 - 30 deg C
-            md_module_type:     Aquastill MD module type, "AS7C1.5L" or "AS26C7.2L",
-                                "AS7C1.5L" yields maximum permeate produtivity,
-                                "AS26C7.2L" yields maximum thermal efficiency.
-            md_cooling_system_type: MD cooling system type, "open" or "closed"
-            md_cooling_inlet_temp: Cooling water temperature, 20-30 deg C
-                                only required when cooling system type is "open"
-            md_high_brine_salinity: Indicate/predict if the final brine from MD is higher than 175.3 g/L
-            batch_volume:    Batch volume associated to a single MD module, L
-            dt:              Time interval of simulation, None or Positive values
-            """,
+            doc="""Model inputs as a dictionary. See details in the model inputs table in documentation."""
+            ,
         ),
     )
 
