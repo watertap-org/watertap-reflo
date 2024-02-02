@@ -205,6 +205,8 @@ class TestTroughLarge:
     @pytest.mark.component
     def test_initialization(self, trough_frame):
         m = trough_frame
+        m.fs.trough.heat_load.fix(250)
+        m.fs.trough.hours_storage.fix(12)
         m.fs.trough.initialize()
 
     @pytest.mark.component
@@ -213,27 +215,27 @@ class TestTroughLarge:
         assert_optimal_termination(results)
 
     @pytest.mark.component
-    @pytest.mark.skip
     def test_solution(self, trough_frame):
         m = trough_frame
-
         trough_results = {
-            "electricity": 1781.038,
-            "heat": 149141.681,
-            "heat_load": 250.0,
-            "hours_storage": 12.0,
-            "heat_annual_scaled": 0.493202,
-            "electricity_annual_scaled": 0.119025,
-            "heat_annual": 1307375976.576,
-            "electricity_annual": 15612580.501,
-        }
+            'heat_load': 250, 
+            'hours_storage': 12, 
+            'heat_annual': 1316250846.7021363, 
+            'electricity_annual': 15896041.853637693, 
+            'heat_annual_scaled': 0.49670227139084466, 
+            'electricity_annual_scaled': 0.12127082028823094
+            }
+        
+        m.fs.trough.heat_load.fix(trough_results['heat_load'])
+        m.fs.trough.hours_storage.fix(trough_results['hours_storage'])
+        results = solver.solve(trough_frame)
+        assert_optimal_termination(results)
 
         for v, r in trough_results.items():
             tv = getattr(m.fs.trough, v)
             assert pytest.approx(r, rel=1e-1) == value(tv)
 
     @pytest.mark.unit
-    @pytest.mark.skip
     def test_solvability(self, trough_frame):
         m = trough_frame
         trough = m.fs.trough
@@ -271,7 +273,6 @@ class TestTroughLarge:
             )
 
     @pytest.mark.component
-    @pytest.mark.skip
     def test_costing(self, trough_frame):
 
         m = trough_frame
