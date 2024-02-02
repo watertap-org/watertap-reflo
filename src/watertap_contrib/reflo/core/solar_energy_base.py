@@ -301,7 +301,9 @@ class SolarEnergyBaseData(UnitModelBlockData):
                 self.pickle_df = self.pickle_df[
                     (self.pickle_df[col] >= lo) & (self.pickle_df[col] <= hi)
                 ].copy()
-        self.data = self.pickle_df.sample(n=self.config.number_samples, random_state=len(self.pickle_df))
+        self.data = self.pickle_df.sample(
+            n=self.config.number_samples, random_state=len(self.pickle_df)
+        )
         self.data_training, self.data_validation = split_training_validation(
             self.data, self.config.training_fraction, seed=len(self.data)
         )
