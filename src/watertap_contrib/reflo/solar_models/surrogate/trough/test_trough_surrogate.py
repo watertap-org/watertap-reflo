@@ -218,16 +218,16 @@ class TestTroughLarge:
     def test_solution(self, trough_frame):
         m = trough_frame
         trough_results = {
-            'heat_load': 250, 
-            'hours_storage': 12, 
-            'heat_annual': 1316250846.7021363, 
-            'electricity_annual': 15896041.853637693, 
-            'heat_annual_scaled': 0.49670227139084466, 
-            'electricity_annual_scaled': 0.12127082028823094
-            }
-        
-        m.fs.trough.heat_load.fix(trough_results['heat_load'])
-        m.fs.trough.hours_storage.fix(trough_results['hours_storage'])
+            "heat_load": 250,
+            "hours_storage": 12,
+            "heat_annual": 1316250846.7021363,
+            "electricity_annual": 15896041.853637693,
+            "heat_annual_scaled": 0.49670227139084466,
+            "electricity_annual_scaled": 0.12127082028823094,
+        }
+
+        m.fs.trough.heat_load.fix(trough_results["heat_load"])
+        m.fs.trough.hours_storage.fix(trough_results["hours_storage"])
         results = solver.solve(trough_frame)
         assert_optimal_termination(results)
 
