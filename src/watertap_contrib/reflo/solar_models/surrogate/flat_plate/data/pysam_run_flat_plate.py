@@ -115,7 +115,6 @@ def setup_model(
     return tech_model
 
 
-
 def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_hot=None):
     """
     :param tech_model: PySAM technology model

@@ -15,6 +15,7 @@ from pathlib import Path
 import PySAM.Swh as swh
 from .pysam_run_flat_plate import *
 
+
 class TestFlatPlateData:
     @pytest.fixture(scope="class")
     def pvdata_frame(self):
@@ -24,7 +25,9 @@ class TestFlatPlateData:
             "T_amb": 18,
         }
         param_file = Path(__file__).parent / "swh-reflo.json"
-        weather_file = Path(__file__).parent / "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
+        weather_file = (
+            Path(__file__).parent / "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
+        )
         config_data = read_module_datafile(param_file)
         if "solar_resource_file" in config_data:
             del config_data["solar_resource_file"]
@@ -42,10 +45,10 @@ class TestFlatPlateData:
             tech_model, heat_load_mwt=1000, hours_storage=1, temperature_hot=70
         )
         assert result["heat_annual"] == pytest.approx(2163996973, rel=1e-2)
-        assert result['electricity_annual'] == pytest.approx(72998038, rel=1e-2)
+        assert result["electricity_annual"] == pytest.approx(72998038, rel=1e-2)
 
         result = run_model(
             tech_model, heat_load_mwt=100, hours_storage=26, temperature_hot=100
         )
         assert result["heat_annual"] == pytest.approx(232954184, rel=1e-2)
-        assert result['electricity_annual'] == pytest.approx(4944004, rel=1e-2)
+        assert result["electricity_annual"] == pytest.approx(4944004, rel=1e-2)
