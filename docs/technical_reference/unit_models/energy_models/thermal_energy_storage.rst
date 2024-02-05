@@ -7,7 +7,7 @@ and the storage fluid are the same and are water as default.
 Model Structure
 ---------------
 
-This TES model consists of 4 StateBlocks (as 4 Ports in parenthesis below). Two state blocks connect
+This TES model consists of 4 StateBlocks (as 4 Ports in parenthesis below). Two ports connect
 to the the external heat exchanger which adds heat to the TES and two ports connect to the process side
 and provide heat to the treatment process.
 

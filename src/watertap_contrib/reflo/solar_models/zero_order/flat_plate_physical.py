@@ -300,7 +300,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                 (
                     b.inlet_block[t].flow_mass_phase_comp["Liq", "H2O"]
                     * b.number_collectors
-                    * b.cp_use  # b.inlet_block[t].cp_mass_phase["Liq"]
+                    * b.cp_use
                     / (b.collector_area * b.number_collectors)
                     * (
                         1
@@ -311,7 +311,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                             / (
                                 b.inlet_block[t].flow_mass_phase_comp["Liq", "H2O"]
                                 * b.number_collectors
-                                * b.cp_use  # b.inlet_block[t].cp_mass_phase["Liq"]
+                                * b.cp_use
                             )
                         )
                     )
@@ -348,7 +348,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                 b.inlet_block[t].temperature
                 + b.net_heat_gain[t]
                 / b.inlet_block[t].flow_mass_phase_comp["Liq", "H2O"]
-                / b.cp_use  # b.inlet_block[t].cp_mass_phase["Liq"]
+                / b.cp_use
             )
 
         @self.Constraint(doc="Pump power")

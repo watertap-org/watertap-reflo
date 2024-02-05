@@ -212,7 +212,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         self.dt = Var(initialize=3600, units=pyunits.s, doc="Time step for multiperiod")
 
         ## TODO Convective heat loss as a function of tank temperature
-        # Can be updated to be a function of temperature
 
         self.heat_transfer_fluid_density = Param(
             initialize=1000,
@@ -248,12 +247,11 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             doc="Storage design temperature",
         )
 
-        # Should this be required process temperature?
         self.temperature_cold = Param(
             initialize=20 + 273.15,
             units=pyunits.K,
             mutable=True,
-            doc="ambient temperature",
+            doc="Ambient temperature",
         )
 
         # Constraint to calculate the total heat entering
