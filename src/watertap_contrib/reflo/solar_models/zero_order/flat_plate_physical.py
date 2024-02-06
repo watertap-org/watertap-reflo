@@ -143,6 +143,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         self.number_collectors = Param(
             initialize=1,
             units=pyunits.dimensionless,
+            mutable=True,
             doc="Number of collectors in array",
         )
 
@@ -163,12 +164,14 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         self.trans_absorb_prod = Param(
             initialize=1,
             units=pyunits.dimensionless,
+            mutable=True,
             doc="Effective transmittance-absorption product",
         )
 
         self.heat_loss_coeff = Param(
             initialize=1,
             units=pyunits.watt / (pyunits.m**2 * pyunits.K),
+            mutable=True,
             doc="Overall collector heat loss coefficient",
         )
 
@@ -184,11 +187,12 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             doc="Specific heat capacity of fluid during characterization test",
         )
 
-        # self.cp_use = Param(
-        #     initialize=4184,
-        #     units=pyunits.J / (pyunits.kg * pyunits.K),
-        #     doc="specific heat capacity of fluid during use",
-        # )
+        self.cp_use = Param(
+            initialize=4184,
+            units=pyunits.J / (pyunits.kg * pyunits.K),
+            mutable=True,
+            doc="specific heat capacity of fluid during use",
+        )
 
         self.pump_power = Param(
             initialize=1, units=pyunits.W, mutable=True, doc="Pump power"
@@ -239,7 +243,6 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             initialize=1,
             units=pyunits.W / (pyunits.m**2 * pyunits.K),
             doc="Product of collector efficiency factor and overall heat loss coefficient at test conditions, D&B Eq. 6.20.4",
-            # Corrected collector heat loss coefficient, D&B Eq. 6.20.4",
         )
 
         self.ratio_FRta = Var(
@@ -297,7 +300,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                 (
                     b.inlet_block[t].flow_mass_phase_comp["Liq", "H2O"]
                     * b.number_collectors
-                    * b.inlet_block[t].cp_mass_phase["Liq"]
+                    * b.cp_use
                     / (b.collector_area * b.number_collectors)
                     * (
                         1
@@ -308,7 +311,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                             / (
                                 b.inlet_block[t].flow_mass_phase_comp["Liq", "H2O"]
                                 * b.number_collectors
-                                * b.inlet_block[t].cp_mass_phase["Liq"]
+                                * b.cp_use
                             )
                         )
                     )
@@ -345,7 +348,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                 b.inlet_block[t].temperature
                 + b.net_heat_gain[t]
                 / b.inlet_block[t].flow_mass_phase_comp["Liq", "H2O"]
-                / b.inlet_block[t].cp_mass_phase["Liq"]
+                / b.cp_use
             )
 
         @self.Constraint(doc="Pump power")

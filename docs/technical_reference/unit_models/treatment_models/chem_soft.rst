@@ -26,7 +26,6 @@ are shown in the code below. Additional components can be included by the user s
    component_list = ["Ca_2+","Mg_2+","Alkalinity_2-"]
 
 A default removal efficiency is assumed for components (other than :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`) and shown below in the code block.
-Users can provide an input dictionary of removal efficiencies for each of the components by modifying the sample dictionary below and passing it to the input variable ``removal_efficiency``.
 
 .. code-block::
 
@@ -42,6 +41,12 @@ Users can provide an input dictionary of removal efficiencies for each of the co
             )
         )
 
+Users can update the removal efficiencies for specific components by first fixing the ``removal_efficiency`` variable and then using the specific component as a key to modify its removal efficiency as shown below.
+
+.. code-block::
+
+   removal_efficiency.fix()
+   removal_efficiency['Cl_-'].fix(0.8)
 
 Degrees of Freedom/Variables
 ----------------------------
