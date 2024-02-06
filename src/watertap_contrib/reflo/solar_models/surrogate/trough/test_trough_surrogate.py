@@ -14,7 +14,6 @@ import pytest
 import os
 import numpy as np
 import pandas as pd
-import random
 from pyomo.environ import (
     ConcreteModel,
     Var,
@@ -46,8 +45,6 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
 )
-
-random.seed(42)
 
 # Get default solver for testing
 solver = get_solver()
