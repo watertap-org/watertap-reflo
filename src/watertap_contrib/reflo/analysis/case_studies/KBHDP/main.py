@@ -32,6 +32,8 @@ from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
 from watertap.costing import WaterTAPCosting
 from watertap.unit_models.pressure_changer import Pump
+from watertap.core.util.model_diagnostics.infeasible import *
+from watertap.core.util.initialization import *
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.ro_system import (
@@ -89,8 +91,10 @@ def main():
     # Initialize system, ititialization routines for each unit in definition for init_system
     init_system(m)
 
+    print(m.fs.RO.stage[1].module.report())
+
     # # Solve system and display results
-    # solve(m)
+    solve(m)
     display_flow_table(m.fs.RO)
 
 
@@ -435,6 +439,8 @@ def init_system(m, verbose=True, solver=None):
     m.fs.product.initialize(optarg=optarg)
     m.fs.disposal.initialize(optarg=optarg)
 
+    assert_no_degrees_of_freedom(m)
+
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
     # ---solving---
@@ -452,8 +458,8 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         "The current configuration is infeasible. Please adjust the decision variables."
     )
     if raise_on_failure:
-        # debug(model, solver=solver, automate_rescale=False, resolve=False)
-        # debug(model, solver=solver, automate_rescale=False, resolve=False)
+        print_infeasible_bounds(model)
+        print_close_to_bounds(model)
         # check_jac(model)
         raise RuntimeError(msg)
     else:
@@ -466,3 +472,5 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     main()
+
+#NOTE system initializes, but fails to solve. Check DOF, so far DOF(m) = 4 which isn't right
