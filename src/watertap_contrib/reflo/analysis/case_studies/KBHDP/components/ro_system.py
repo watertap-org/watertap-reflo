@@ -95,12 +95,32 @@ def _initialize(m, blk, optarg):
 
         # blk.display()
         blk.report()
-        print_infeasible_bounds(m)
-        # print_close_to_bounds(m)
-        # print_infeasible_constraints(m)
+        print_infeasible_bounds(blk)
+        print_close_to_bounds(blk)
+        # print_infeasible_constraints(blk)
         assert False
 
         print("\n")
+
+def print_RO_op_pressure_est(blk):
+    solver = get_solver()
+    operating_pressure = calculate_operating_pressure(
+    feed_state_block=blk.feed.properties[0],
+    over_pressure=0.15,
+    water_recovery=0.8,
+    NaCl_passage=0.01,
+    solver=solver,
+    )
+
+    operating_pressure_psi = pyunits.convert(
+        operating_pressure * pyunits.Pa, to_units=pyunits.psi
+    )()
+    operating_pressure_bar = pyunits.convert(
+        operating_pressure * pyunits.Pa, to_units=pyunits.bar
+    )()
+    print(
+        f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
+    )
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
@@ -218,6 +238,10 @@ def build_ro_stage(m, blk, booster_pump=False):
         destination=blk.retentate.inlet,
     )
 
+    blk.feed.properties[0].conc_mass_phase_comp
+    blk.permeate.properties[0].conc_mass_phase_comp
+    blk.retentate.properties[0].conc_mass_phase_comp
+
 
 def init_system(m, verbose=True, solver=None):
     if solver is None:
@@ -231,15 +255,15 @@ def init_system(m, verbose=True, solver=None):
     display_dof_breakdown(m)
     m.fs.feed.initialize(optarg=optarg)
     propagate_state(m.fs.feed_to_primary_pump)
-    display_flow_table(m)
     m.fs.primary_pump.initialize(optarg=optarg)
     propagate_state(m.fs.primary_pump_to_ro)
-    display_flow_table(m)
     init_ro_system(m, m.fs.ro)
     propagate_state(m.fs.ro_to_product)
     propagate_state(m.fs.ro_to_disposal)
     m.fs.product.initialize(optarg=optarg)
     m.fs.disposal.initialize(optarg=optarg)
+
+    # display_flow_table(m)
 
 
 def init_ro_system(m, blk, verbose=True, solver=None):
@@ -256,6 +280,7 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n")
 
     blk.feed.initialize(optarg=optarg)
+    # display_inlet_conditions(blk)
     propagate_state(blk.ro_feed_to_first_stage)
     for stage in blk.stage.values():
         init_ro_stage(m, stage, solver=solver)
@@ -277,6 +302,7 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     for stage in blk.stage.values():
         print(f"RO Stage {stage} Degrees of Freedom: {degrees_of_freedom(stage)}")
     print("\n\n")
+    # display_flow_table(blk)
 
 
 def init_ro_stage(m, stage, solver=None):
@@ -294,7 +320,9 @@ def init_ro_stage(m, stage, solver=None):
         stage.feed.initialize(optarg=optarg)
         propagate_state(stage.stage_feed_to_module)
 
+    # display_inlet_conditions(stage)
     # stage.module.initialize(optarg=optarg)
+    print_RO_op_pressure_est(stage)
     _initialize(m, stage.module, optarg)
     propagate_state(stage.stage_module_to_retentate)
     propagate_state(stage.stage_module_to_permeate)
@@ -449,6 +477,7 @@ def set_ro_system_operating_conditions(
     print(
         "\n\n-------------------- SETTING RO OPERATING CONDITIONS --------------------\n\n"
     )
+    solver = get_solver() 
     mem_A = 2.75 / 3.6e11  # membrane water permeability coefficient [m/s-Pa]
     mem_B = 0.23 / 1000.0 / 3600.0  # membrane salt permeability coefficient [m/s]
     height = 1e-3  # channel height in membrane stage [m]
@@ -475,12 +504,12 @@ def set_ro_system_operating_conditions(
         stage.module.feed_side.channel_height.fix(height)
         stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
 
-        iscale.set_scaling_factor(stage.module.area, 3)
-        iscale.set_scaling_factor(stage.module.feed_side.area, 3)
-        iscale.set_scaling_factor(stage.module.width, 3)
+        iscale.set_scaling_factor(stage.module.area, 1)
+        iscale.set_scaling_factor(stage.module.feed_side.area, 1)
+        iscale.set_scaling_factor(stage.module.width, 1)
 
     iscale.calculate_scaling_factors(m)
-
+    
     # ---checking model---
     assert_units_consistent(m)
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
@@ -540,47 +569,59 @@ def display_dof_breakdown(blk, decend=False, report=False):
     for v in blk.component_data_objects(ctype=Block, active=True, descend_into=decend):
         print(f"{v.name:<40s}{degrees_of_freedom(v)}")
 
+def display_inlet_conditions(blk):
+    print("\n\n")
+    # print(blk.feed.display())
 
-def display_flow_table(m):
+    print(
+        f'{"NODE":<34s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
+    )
+    print(
+        f'{"Feed":<34s}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(blk.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    )
+
+    # assert False
+
+def display_flow_table(blk):
     print("\n\n")
     print(
         f'{"NODE":<34s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
     )
     print(
-        f'{"Feed":<34s}{m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.feed.pressure[0], to_units=pyunits.bar)):<30.1f}{m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value:<20.3e}{m.fs.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+        f'{"Feed":<34s}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(blk.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    )
+    # print(
+    #     f'{"Primary Pump Inlet":<34s}{m.fs.primary_pump.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.primary_pump.control_volume.properties_in[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.primary_pump.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.primary_pump.control_volume.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    # )
+    # print(
+    #     f'{"Primary Pump Outlet":<34s}{m.fs.primary_pump.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.primary_pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.primary_pump.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.primary_pump.control_volume.properties_out[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    # )
+    print(
+        f'{"Product":<34s}{blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(blk.product.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{blk.product.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
     )
     print(
-        f'{"Primary Pump Inlet":<34s}{m.fs.primary_pump.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.primary_pump.control_volume.properties_in[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.primary_pump.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.primary_pump.control_volume.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+        f'{"Disposal":<34s}{blk.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(blk.disposal.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{blk.disposal.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
     )
-    print(
-        f'{"Primary Pump Outlet":<34s}{m.fs.primary_pump.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.primary_pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.primary_pump.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.primary_pump.control_volume.properties_out[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
-    print(
-        f'{"Product":<34s}{m.fs.product.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.product.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.product.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
-    print(
-        f'{"Disposal":<34s}{m.fs.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.disposal.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.disposal.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
-    for idx, unit in enumerate([m.fs.ro]):
-        print(
-            f'{str(unit.name).split(".")[1] + " Feed":<34s}{unit.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.feed.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-        )
-        print(
-            f'{str(unit.name).split(".")[1] + " Product":<34s}{unit.product.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.product.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.product.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-        )
-        print(
-            f'{str(unit.name).split(".")[1] + " Disposal":<34s}{unit.disposal.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.disposal.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.disposal.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-        )
+    # for idx, unit in enumerate([blk]):
+    #     print(
+    #         f'{str(unit.name).split(".")[1] + " Feed":<34s}{unit.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.feed.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    #     )
+    #     print(
+    #         f'{str(unit.name).split(".")[1] + " Product":<34s}{unit.product.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.product.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.product.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    #     )
+    #     print(
+    #         f'{str(unit.name).split(".")[1] + " Disposal":<34s}{unit.disposal.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.disposal.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.disposal.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    #     )
 
-    for idx, stage in m.fs.ro.stage.items():
+    for idx, stage in blk.stage.items():
         print(
             f'{"RO Stage " + str(idx) + " Feed":<34s}{stage.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.module.feed_side.properties[0, 0].pressure, to_units=pyunits.bar)():<30.1f}{stage.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0,0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
-    for idx, stage in m.fs.ro.stage.items():
+    for idx, stage in blk.stage.items():
         print(
             f'{"RO Stage " + str(idx) + " Permeate":<34s}{stage.permeate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.permeate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.permeate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.mixed_permeate[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
-    for idx, stage in m.fs.ro.stage.items():
+    for idx, stage in blk.stage.items():
         print(
             f'{"RO Stage " + str(idx) + " Retentate":<34s}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.retentate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
@@ -632,13 +673,13 @@ if __name__ == "__main__":
     set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10)
 
     # print(total_constraints_set(m))
-    print(activated_constraints_set(m.fs))
+    # print(activated_constraints_set(m.fs))
 
     # print(m.fs.ro.stage[1].module.display())
     init_system(m)
     # display_dof_breakdown(m)
 
     solve(m)
-    display_flow_table(m)
-    print(m.fs.ro.stage[1].module.report())
-    print_close_to_bounds(m)
+    display_flow_table(m.fs.ro)
+    # print(m.fs.ro.stage[1].module.report())
+    # print_close_to_bounds(m)

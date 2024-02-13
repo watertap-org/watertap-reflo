@@ -65,14 +65,13 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.translator_1 
     Translator_MCAS_to_NACL,
 )
 
-
 def propagate_state(arc):
     _prop_state(arc)
-    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    arc.source.display()
-    print(arc.destination.name)
-    arc.destination.display()
-    print("\n")
+    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    # arc.source.display()
+    # print(arc.destination.name)
+    # arc.destination.display()
+    # print("\n")
 
 
 def main():
@@ -92,7 +91,7 @@ def main():
 
     # # Solve system and display results
     # solve(m)
-    # display_flow_table(m)
+    display_flow_table(m.fs.RO)
 
 
 def build_system():
@@ -119,7 +118,7 @@ def build_system():
     m.fs.softener = FlowsheetBlock(dynamic=False)
     m.fs.UF = FlowsheetBlock(dynamic=False)
     m.fs.RO = FlowsheetBlock(dynamic=False)
-    m.fs.ED = FlowsheetBlock(dynamic=False)
+    # m.fs.ED = FlowsheetBlock(dynamic=False)
 
     # Define the Translator Blocks
     m.fs.MCAS_to_NaCl_translator = Translator_MCAS_to_NACL(
@@ -149,7 +148,7 @@ def build_system():
         "flow_mass_phase_comp", 10**-scale_flow, index=("Liq", "H2O")
     )
     m.fs.RO_properties.set_default_scaling(
-        "flow_mass_phase_comp", 10**-1, index=("Liq", "NaCl")
+        "flow_mass_phase_comp", 10**-2, index=("Liq", "NaCl")
     )
 
     return m
@@ -364,7 +363,6 @@ def set_inlet_conditions(
     # scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
     # scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)
 
-    # # REVIEW: Make sure this is applied in the right place
     # m.fs.properties.set_default_scaling(
     #     "flow_mass_phase_comp", 10**-scale_flow, index=("Liq", "H2O")
     # )
@@ -375,6 +373,7 @@ def set_inlet_conditions(
     # assert_units_consistent(m)
     # m.fs.feed.properties[0].display()
     report_MCAS_stream_conc(m)
+
 
 def report_MCAS_stream_conc(m):
     solute_set = m.fs.MCAS_properties.solute_set
@@ -401,7 +400,7 @@ def set_operating_conditions(m):
     set_inlet_conditions(m, Qin=1, primary_pump_pressure=30e5)
     set_softener_op_conditions(m, m.fs.softener, ca_eff=0.3, mg_eff=0.2)
     set_ro_system_operating_conditions(
-        m, m.fs.RO, mem_area=10, booster_pump_pressure=30e5
+        m, m.fs.RO, mem_area=10, booster_pump_pressure=12e5
     )
     # set__ED_op_conditions
 
@@ -430,11 +429,11 @@ def init_system(m, verbose=True, solver=None):
     propagate_state(m.fs.UF_to_ro_feed)
     init_ro_system(m, m.fs.RO)
 
-    # propagate_state(m.fs.ro_to_product)
-    # propagate_state(m.fs.ro_to_disposal)
+    propagate_state(m.fs.ro_to_product)
+    propagate_state(m.fs.ro_to_disposal)
 
-    # m.fs.product.initialize(optarg=optarg)
-    # m.fs.disposal.initialize(optarg=optarg)
+    m.fs.product.initialize(optarg=optarg)
+    m.fs.disposal.initialize(optarg=optarg)
 
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
