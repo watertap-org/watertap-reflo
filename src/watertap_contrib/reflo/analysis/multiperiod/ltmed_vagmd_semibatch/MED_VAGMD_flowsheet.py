@@ -344,8 +344,6 @@ def add_vagmd(fs, inputs):
     else:  # "open"
         fs.vagmd.cooling_in_props[0].temperature.fix(cooling_inlet_temp + 273.15)
 
-    return
-
 
 def fix_dof_and_initialize(
     m,
