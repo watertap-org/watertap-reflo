@@ -55,10 +55,11 @@ jobs:
       - name: Install (noneditable)
         if: matrix.install-mode == 'noneditable'
         run: |
-          pip install .
+          pip install . && rm -rf *  # delete directory contents after installing to simulate installing from PyPI
       - name: Set up IDAES solvers
         run: |
           idaes get-extensions --verbose
       - name: Run pytest
         run: |
-          pytest
+         pip install pytest  # ensure pytest is installed (should do nothing if already present from requirements-dev.txt
+          pytest --pyargs watertap_contrib.reflo
