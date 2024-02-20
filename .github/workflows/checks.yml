@@ -57,7 +57,7 @@ jobs:
         if: matrix.install-mode == 'noneditable' && github.event.pull_request
         shell: bash
         run: |
-          echo "_pip_install_ref=${{ format('/refs/pull/{0}/merge', github.event.pull_request.number) }}" >> $GITHUB_ENV
+          echo "_pip_install_ref=${{ format('refs/pull/{0}/merge', github.event.pull_request.number) }}" >> $GITHUB_ENV
       - name: Set pip install ref for non-PR runs
         if: matrix.install-mode == 'noneditable' && !github.event.pull_request
         shell: bash
