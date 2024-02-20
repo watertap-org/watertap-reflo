@@ -20,8 +20,11 @@ setup(
         ]
     },
     package_data={
-        "watertap_contrib.reflo.data.technoeconomic": [
+        "watertap_contrib.reflo": [
             "*.yaml",
+            "*.json",
+            "*.pkl",
+            "*.csv",
         ],
     },
 )
