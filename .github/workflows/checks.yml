@@ -37,7 +37,7 @@ jobs:
           - win64
         install-mode:
           - editable
-          # - noneditable
+          - noneditable
         include:
           - os: linux
             os-version: ubuntu-latest
