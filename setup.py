@@ -19,4 +19,9 @@ setup(
             "sphinx_rtd_theme >=0.30",  # docs
         ]
     },
+    package_data={
+        "watertap_contrib.reflo.data.technoeconomic": [
+            "*.yaml",
+        ],
+    },
 )
