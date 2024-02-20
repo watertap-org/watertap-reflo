@@ -9,7 +9,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "watertap == 0.11",
-        "nrel-pysam == 3.0.2",
+        "nrel-pysam == 5.0.0",
     ],
     extras_require={
         "dev": [
