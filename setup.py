@@ -20,7 +20,7 @@ setup(
         ]
     },
     package_data={
-        "watertap_contrib.reflo": [
+        "": [
             "*.yaml",
             "*.json",
             "*.pkl",
