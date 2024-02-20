@@ -82,6 +82,8 @@ def test_lazy_flow_costing():
 
     with pytest.raises(
         RuntimeError,
-        match=re.escape("Component baz_cost already exists on fs.costing but is not 42*USD_2020/m**2."),
+        match=re.escape(
+            "Component baz_cost already exists on fs.costing but is not 42*USD_2020/m**2."
+        ),
     ):
         m.fs.costing.register_flow_type("baz", 42 * pyunits.USD_2020 / pyunits.m**2)
