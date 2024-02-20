@@ -68,7 +68,7 @@ jobs:
         env:
           _pip_install_url: ${{ format('{0}/{1}', github.server_url, github.repository) }}
         run: |
-          pip install "${_pip_install_url}@${_pip_install_ref}"
+          pip install "git+${_pip_install_url}@${_pip_install_ref}"
       - name: Set up IDAES solvers
         run: |
           idaes get-extensions --verbose
