@@ -53,22 +53,14 @@ jobs:
         if: matrix.install-mode == 'editable'
         run: |
           pip install -r requirements-dev.txt
-      - name: Set pip install ref for PR runs
+      - name: Install (noneditable, for PR runs)
         if: matrix.install-mode == 'noneditable' && github.event.pull_request
-        shell: bash
         run: |
-          echo "_pip_install_ref=${{ format('refs/pull/{0}/merge', github.event.pull_request.number) }}" >> $GITHUB_ENV
-      - name: Set pip install ref for non-PR runs
+          pip install "git+${{ format('{0}/{1}@refs/pull/{2}/merge', github.server_url, github.repository, github.event.pull_request.number) }}"
+      - name: Install (noneditable, for non-PR runs)
         if: matrix.install-mode == 'noneditable' && !github.event.pull_request
-        shell: bash
         run: |
-          echo "_pip_install_ref=${{ github.ref }}" >> $GITHUB_ENV
-      - name: Install (noneditable)
-        if: matrix.install-mode == 'noneditable'
-        env:
-          _pip_install_url: ${{ format('{0}/{1}', github.server_url, github.repository) }}
-        run: |
-          pip install "git+${_pip_install_url}@${_pip_install_ref}"
+          pip install "git+${{ format('{0}/{1}@{2}', github.server_url, github.repository, github.ref) }}"
       - name: Set up IDAES solvers
         run: |
           idaes get-extensions --verbose
