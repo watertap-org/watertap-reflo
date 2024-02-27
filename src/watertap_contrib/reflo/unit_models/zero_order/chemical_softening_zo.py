@@ -985,18 +985,18 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
     def _get_performance_contents(self, time_point=0):
         var_dict = {}
         expr_dict = {}
-        var_dict["Lime dose"] = self.CaO_dosing.value
-        var_dict["Soda dose"] = self.Na2CO3_dosing.value
-        var_dict["CO2 in first basin"] = self.CO2_first_basin.value
-        var_dict["CO2 in second basin"] = self.CO2_second_basin.value
+        var_dict["Lime dose"] = self.CaO_dosing
+        var_dict["Soda dose"] = self.Na2CO3_dosing
+        var_dict["CO2 in first basin"] = self.CO2_first_basin
+        var_dict["CO2 in second basin"] = self.CO2_second_basin
         if (
             self.config.silica_removal
             and ["SiO2"] in self.config.property_package.solute_set
         ):
-            var_dict["MgCl2 dose"] = self.MgCl2_dosing()
+            expr_dict["MgCl2 dose"] = self.MgCl2_dosing
         else:
-            var_dict["MgCl2 dose"] = self.MgCl2_dosing.value
-        var_dict["Sludge produced"] = self.sludge_prod.value
+            var_dict["MgCl2 dose"] = self.MgCl2_dosing
+        expr_dict["Sludge produced"] = self.sludge_prod
 
         return {"vars": var_dict, "exprs": expr_dict}
 
