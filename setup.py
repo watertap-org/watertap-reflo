@@ -19,4 +19,12 @@ setup(
             "sphinx_rtd_theme >=0.30",  # docs
         ]
     },
+    package_data={
+        "": [
+            "*.yaml",
+            "*.json",
+            "*.pkl",
+            "*.csv",
+        ],
+    },
 )
