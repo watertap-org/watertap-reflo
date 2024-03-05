@@ -298,7 +298,7 @@ def add_med(fs, inputs):
 
 
 def add_vagmd(fs, inputs):
-    """Method to add a VAGMD component to an exisitng flowsheet
+    """Method to add a VAGMD component to an existing flowsheet
     Args:
         fs: existing flowsheet
         inputs: a dictionary depicting the MD configurations
