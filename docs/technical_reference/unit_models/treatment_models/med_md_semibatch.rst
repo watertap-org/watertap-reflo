@@ -1,7 +1,7 @@
 Low Temperature Multi-effect Distillation - Semibatch, Vacuum Air-gap Membrane Distillation (LTMED - VAGMD) Flowsheet
 ===================================================================================================================
 
-This unit model simulates the semibatch operation of a LTMED - VAGMD system under IDAES multiperiod framework, and
+This flowsheet simulates the semibatch operation of an LTMED - VAGMD system using IDAES' multiperiod framework, and
    * each period in the processing phase contains a steady-state flowsheet as depicted in Fig. 1   
    * each flowsheet incorporates one LT-MED surrogate model and one VAGMD base model from WaterTAP-REFLO, one Mixer and two Separator models from IDAES
    * the system performance is evaluated based on a single Aquastill MD module which all inputs are associated with
