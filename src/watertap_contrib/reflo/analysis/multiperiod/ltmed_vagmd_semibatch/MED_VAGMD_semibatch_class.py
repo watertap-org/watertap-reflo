@@ -366,7 +366,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
                 or input_values[i] > input_ranges[i][1]
             ):
                 raise ConfigurationError(
-                    f"The input variable '{input_variables[i]}' is not valid."
+                    f"The input value for '{input_variables[i]}' is not valid."
                     f"The valid range is {input_ranges[i][0]} - {input_ranges[i][1]}."
                 )
 
