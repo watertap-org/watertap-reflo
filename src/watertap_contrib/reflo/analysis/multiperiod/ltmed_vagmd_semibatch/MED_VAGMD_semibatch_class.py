@@ -60,7 +60,7 @@ _logger = idaeslog.getLogger(__name__)
 
 def get_variable_pairs(t1, t2):
     """
-    This function returns paris of variables that need to be connected across two time periods
+    This function returns pairs of variables that need to be connected across two time periods
     Args:
         t1: current time block
         t2: next time block
