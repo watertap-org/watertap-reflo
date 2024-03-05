@@ -116,7 +116,7 @@ performance of a specified semibatch operation.
 Methods
 -------
 
-This unit model class includes the following methods for functionalities. 
+This model class includes the following methods for functionalities. 
 
 ``add_costing_packages``: Creates a costing block and setup the system based on the target capacity.
 
