@@ -2,14 +2,14 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name="watertap-reflo",
-    version="0.1.0.dev0",
+    version="0.1.0rc0",
     packages=find_namespace_packages(where="src"),
     package_dir={"": "src"},
     author="WaterTAP-REFLO contributors",
     python_requires=">=3.8",
     install_requires=[
         "watertap == 0.11",
-        "nrel-pysam == 3.0.2",
+        "nrel-pysam == 5.0.0",
     ],
     extras_require={
         "dev": [
@@ -18,5 +18,13 @@ setup(
             "Sphinx",  # docs
             "sphinx_rtd_theme >=0.30",  # docs
         ]
+    },
+    package_data={
+        "": [
+            "*.yaml",
+            "*.json",
+            "*.pkl",
+            "*.csv",
+        ],
     },
 )

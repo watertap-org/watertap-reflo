@@ -14,7 +14,7 @@ jobs:
   linting:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: psf/black@stable
         with:
           options: "--check --verbose"
@@ -31,33 +31,36 @@ jobs:
           - "3.8"
           - "3.9"
           - "3.10"
+          - "3.11"
         os:
           - linux
           - win64
         install-mode:
           - editable
-          # - noneditable
+          - noneditable
         include:
           - os: linux
             os-version: ubuntu-latest
           - os: win64
             os-version: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+        if: matrix.install-mode == 'editable'
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install (editable)
         if: matrix.install-mode == 'editable'
         run: |
           pip install -r requirements-dev.txt
-      # - name: Install (noneditable)
-      #   if: matrix.install-mode == 'noneditable'
-      #   run: |
-      #     pip install .
+      - name: Install (noneditable)
+        if: matrix.install-mode == 'noneditable'
+        run: |
+          pip install "git+${{ format('{0}/{1}@{2}', github.server_url, github.repository, github.ref) }}"
       - name: Set up IDAES solvers
         run: |
           idaes get-extensions --verbose
       - name: Run pytest
         run: |
-          pytest
+         pip install pytest  # ensure pytest is installed (should do nothing if already present from requirements-dev.txt
+          pytest --pyargs watertap_contrib.reflo
