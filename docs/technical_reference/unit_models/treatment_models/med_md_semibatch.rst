@@ -19,7 +19,7 @@ receives brine from both MED and VAGMD components and updates the properties of 
 period, which will be the feed to the VAGMD component. Separator S1 diverges the MED brine, so that the 
 liquid volume in the mixer remains the same between periods, while the excess brine will be stored in a tank
 during a single batch and discharged to the mixer in the next batch. Virtual separator S2 is not a physical 
-equipment in this configuration but just a node to carry the mixed flow properties to the next period.
+piece of equipment in this configuration but just a node to carry the mixed flow properties to the next instance of time.
 
 As shown in Fig. 2, during the processing phase, the liquid salinity in the mixer accumulates through periods 
 when the mixer volume remains unchanged at a user specifed batch volume. Upon reaching the user specifed point,
