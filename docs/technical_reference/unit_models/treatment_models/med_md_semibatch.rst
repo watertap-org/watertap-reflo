@@ -81,7 +81,7 @@ This table lists pairs of variables that need to be connected across two time pe
    "Flow pressure from S2", ":math:`P_{S2}`", "Pressure of liquid remained in M1", ":math:`P_{remained}`"
    "Liquid volume in tank", ":math:`V_{tank}`", "Tank volume from previous step", ":math:`V_{tank,pre}`"
 
-These variables will be unfixed in each period after connected to the previous step to maintain the degree of freedom.
+These variables will be unfixed in each period after connected to the previous step to maintain degrees of freedom.
 
 Model details
 -------------
