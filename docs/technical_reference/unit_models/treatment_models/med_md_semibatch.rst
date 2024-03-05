@@ -1,4 +1,4 @@
-Low Temperature Multi-effect Distillation - Vacuum Air-gapped Membrane Distillation (LTMED - VAGMD) Semibatch model
+Low Temperature Multi-effect Distillation - Semibatch, Vacuum Air-gap Membrane Distillation (LTMED - VAGMD) Flowsheet
 ===================================================================================================================
 
 This unit model simulates the semibatch operation of a LTMED - VAGMD system under IDAES multiperiod framework, and
