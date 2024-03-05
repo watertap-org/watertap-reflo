@@ -32,7 +32,7 @@ simplified as a steady-state period when the system operates at the starting poi
     :width: 800
     :align: center
 
-    Figure 2. Salinity and volume in the mixer during different phases.
+    Figure 2. Salinity and volume in the mixer during different modes of operation, i.e., processing and discharging/refilling.
 
 Model inputs
 ------------
