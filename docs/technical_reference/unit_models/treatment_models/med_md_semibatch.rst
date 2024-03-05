@@ -24,7 +24,7 @@ piece of equipment in this configuration but just a node to carry the mixed flow
 As shown in Fig. 2, during the processing phase, the liquid salinity in the mixer increases over time
 while the mixer volume remains unchanged at a user-specifed batch volume. Upon reaching the user-specifed point,
 it triggers the discharging and refilling phase, when the highly saline liquid is fully discharged and the 
-MED brine stored during the processing phase is filled to the mixer for the next batch. The refilling phase
+MED brine stored during the processing phase is used to fill the mixer for the next batch. The refilling phase
 continues until the liquid volume in the mixer is back to the specifed batch volume. The refilling phase is
 simplied as a steady-state period when the system operates at the starting point of the process.
 
