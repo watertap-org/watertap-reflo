@@ -66,7 +66,7 @@ This value should be selected so that there's enough MED brine can be fed to the
 
 Variables connected beteen periods
 ----------------------------------
-This table lists paris of variables that need to be connected across two time periods during processing phase
+This table lists pairs of variables that need to be connected across two time periods during processing phase
 
 .. csv-table::
    :header: "Variable from the previous period", "Symbol", "Variable in the next period", "Symbol"
