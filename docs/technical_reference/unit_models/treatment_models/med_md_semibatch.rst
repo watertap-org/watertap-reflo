@@ -64,7 +64,7 @@ This value should be selected so that there's enough MED brine can be fed to the
 
 :math:`md\_high\_brine\_salinity`: Specify/predict if the MD component will operate at high brine salinity mode (>175.3 g/L)
 
-Variables connected beteen periods
+Variables connected between periods
 ----------------------------------
 This table lists pairs of variables that need to be connected across two time periods during processing phase
 
