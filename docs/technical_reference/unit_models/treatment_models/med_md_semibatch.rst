@@ -46,7 +46,7 @@ The unit model takes in the model inputs as a dictionary in the model arguments.
    "Feed water temperature into LTMED", "med_feed_temp", ":math:`T_{f,med}`", "20 - 30", ":math:`^o\text{C}`"
    "Steam temperature into LTMED", "med_feed_temp", ":math:`T_{s,med}`", "60 - 80", ":math:`^o\text{C}`"
    "Feed water salinity into LTMED", "med_feed_salinity", ":math:`S_{f,med}`", "30 - 60", ":math:`\text{g/}\text{L}`"  
-   "MED capacity assoicated to a single MD module", "med_capacity", ":math:`Cap_{med}`", "\>0", ":math:`\text{m}^3/ \text{day}`"  
+   "MED capacity associated with a single MD module", "med_capacity", ":math:`Cap_{med}`", "\>0", ":math:`\text{m}^3/ \text{day}`"  
    "Feed flow rate of a single VAGMD module", "md_feed_flow_rate", ":math:`FFR_{md}`", "400 - 1100", ":math:`\text{L}/\text{h}`"
    "Condenser inlet temperature of VAGMD", "md_cond_inlet_temp", ":math:`TCI_{md}`", "20 - 30", ":math:`^o\text{C}`"
    "Evaporator inlet temperature of VAGMD", "md_evap_inlet_temp", ":math:`TEI_{md}`", "60 - 80", ":math:`^o\text{C}`"
