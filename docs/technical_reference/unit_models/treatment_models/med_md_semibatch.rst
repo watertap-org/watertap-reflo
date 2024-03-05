@@ -18,7 +18,7 @@ semibatch operation, to reach a higher water recovery rate and thermal efficienc
 receives brine from both MED and VAGMD components and updates the properties of the mixed liquid for the next 
 period, which will be the feed to the VAGMD component. Separator S1 diverges the MED brine, so that the 
 liquid volume in the mixer remains the same between periods, while the excess brine will be stored in a tank
-during a single batch and charged to the mixer in the next batch. Virtual separator S2 is not a physical 
+during a single batch and discharged to the mixer in the next batch. Virtual separator S2 is not a physical 
 equipment in this configuration but just a node to carry the mixed flow properties to the next period.
 
 As shown in Fig. 2, during the processing phase, the liquid salinity in the mixer accumulates through periods 
