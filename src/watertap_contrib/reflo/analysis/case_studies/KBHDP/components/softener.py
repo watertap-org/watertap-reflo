@@ -37,7 +37,7 @@ from idaes.core.util.model_statistics import *
 from watertap.core import Database
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
-
+from watertap.core.util.initialization import *
 from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
     ChemicalSofteningZO,
 )
@@ -133,50 +133,50 @@ def set_system_operating_conditions(m):
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
 
-def set_softener_operating_conditions(blk):
-    print(
-        "\n\n-------------------- SETTING SOFTENER OPERATING CONDITIONS --------------------\n\n"
-    )
-    Q_basis = 1 * pyunits.m**3 / pyunits.day
-    ca_in = 0.13 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
-    mg_in = 0.03 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
-    sio2_in = 0.031 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
-    alk_in = 0.08 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
-    rho = 1000 * pyunits.kg / pyunits.m**3
+# def set_softener_operating_conditions(blk):
+#     print(
+#         "\n\n-------------------- SETTING SOFTENER OPERATING CONDITIONS --------------------\n\n"
+#     )
+#     Q_basis = 1 * pyunits.m**3 / pyunits.day
+#     ca_in = 0.13 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+#     mg_in = 0.03 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+#     sio2_in = 0.031 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+#     alk_in = 0.08 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+#     rho = 1000 * pyunits.kg / pyunits.m**3
 
-    prop_in = blk.feed.properties[0.0]
+#     prop_in = blk.feed.properties[0.0]
 
-    flow_mass_phase_water = pyunits.convert(
-        Q_basis * rho, to_units=pyunits.kg / pyunits.s
-    )
-    flow_mass_phase_ca = pyunits.convert(
-        Q_basis * ca_in, to_units=pyunits.kg / pyunits.s
-    )
-    flow_mass_phase_mg = pyunits.convert(
-        Q_basis * mg_in, to_units=pyunits.kg / pyunits.s
-    )
-    flow_mass_phase_si = pyunits.convert(
-        Q_basis * sio2_in, to_units=pyunits.kg / pyunits.s
-    )
-    flow_mass_phase_alk = pyunits.convert(
-        Q_basis * alk_in, to_units=pyunits.kg / pyunits.s
-    )
+#     flow_mass_phase_water = pyunits.convert(
+#         Q_basis * rho, to_units=pyunits.kg / pyunits.s
+#     )
+#     flow_mass_phase_ca = pyunits.convert(
+#         Q_basis * ca_in, to_units=pyunits.kg / pyunits.s
+#     )
+#     flow_mass_phase_mg = pyunits.convert(
+#         Q_basis * mg_in, to_units=pyunits.kg / pyunits.s
+#     )
+#     flow_mass_phase_si = pyunits.convert(
+#         Q_basis * sio2_in, to_units=pyunits.kg / pyunits.s
+#     )
+#     flow_mass_phase_alk = pyunits.convert(
+#         Q_basis * alk_in, to_units=pyunits.kg / pyunits.s
+#     )
 
-    prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water)
-    # prop_in.conc_mass_phase_comp["Liq", "Ca_2+"].fix(ca_in)
-    # prop_in.conc_mass_phase_comp["Liq", "Mg_2+"].fix(mg_in)
-    # prop_in.conc_mass_phase_comp["Liq", "SiO2"].fix(sio2_in)
-    # prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"].fix(alk_in)
-    prop_in.flow_mass_phase_comp["Liq", "Ca_2+"].fix(flow_mass_phase_ca)
-    prop_in.flow_mass_phase_comp["Liq", "Mg_2+"].fix(flow_mass_phase_mg)
-    prop_in.flow_mass_phase_comp["Liq", "SiO2"].fix(flow_mass_phase_si)
-    prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"].fix(flow_mass_phase_alk)
+#     prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water)
+#     # prop_in.conc_mass_phase_comp["Liq", "Ca_2+"].fix(ca_in)
+#     # prop_in.conc_mass_phase_comp["Liq", "Mg_2+"].fix(mg_in)
+#     # prop_in.conc_mass_phase_comp["Liq", "SiO2"].fix(sio2_in)
+#     # prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"].fix(alk_in)
+#     prop_in.flow_mass_phase_comp["Liq", "Ca_2+"].fix(flow_mass_phase_ca)
+#     prop_in.flow_mass_phase_comp["Liq", "Mg_2+"].fix(flow_mass_phase_mg)
+#     prop_in.flow_mass_phase_comp["Liq", "SiO2"].fix(flow_mass_phase_si)
+#     prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"].fix(flow_mass_phase_alk)
 
-    prop_in.temperature.fix(298)
-    prop_in.pressure.fix(101325)
+#     prop_in.temperature.fix(298)
+#     prop_in.pressure.fix(101325)
 
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
+#     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+#     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
 
 def set_removal_eff(blk):
@@ -245,6 +245,7 @@ def init_system(blk, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
+    assert_no_degrees_of_freedom(m)
     print("\n\n")
 
     m.fs.feed.initialize(optarg=optarg)
@@ -299,7 +300,6 @@ def init_softener(m, blk, verbose=True, solver=None):
     print(blk.unit.report())
 
 
-
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -352,15 +352,19 @@ def set_softener_op_conditions(m, blk, ca_eff=3, mg_eff=0.2):
     blk.unit.retention_time_recarb.fix(20)
     blk.unit.frac_vol_recovery.fix()
     blk.unit.removal_efficiency.fix()
+
+    blk.unit.removal_efficiency.display()
     # blk.unit.removal_efficiency = ({
     #     "Cl_-": 0.5,
     # })  # Dict for components (non-hardness)
+    # blk.unit.display()
     blk.unit.CO2_CaCO3.fix(CO2_in)
     blk.unit.vel_gradient_mix.fix(300)
     blk.unit.vel_gradient_floc.fix(50)
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
+    # assert False
 
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
@@ -403,6 +407,7 @@ def display_unfixed_vars(blk, report=True):
         for v2 in unused_variables_set(v):
             print(f"\t{v2.name:<40s}")
 
+
 def report_MCAS_stream_conc(m):
     solute_set = m.fs.properties.solute_set
     print("\n\n-------------------- FEED CONCENTRATIONS --------------------\n\n")
@@ -417,8 +422,9 @@ if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
     set_system_operating_conditions(m)
-    set_removal_eff(m.fs.softener)
+    set_softener_op_conditions(m, m.fs.softener)
     set_scaling(m)
+    print(number_total_constraints(m))
     init_system(m)
     results = solve(m)
     assert_optimal_termination(results)

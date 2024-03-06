@@ -239,13 +239,11 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             zip(
                 non_hardness_comps,
                 [
-                    0.85 if j == "TSS" else 0.0 if j != "TDS" else (1 - 1e-3)
+                    0.85 if j == "TSS" else 0.7 if j != "TDS" else (1 - 1e-3)
                     for j in non_hardness_comps
                 ],
             )
         )
-
-        print(removal_eff_dict)
 
         self.removal_efficiency = Var(
             non_hardness_comps,
