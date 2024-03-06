@@ -20,17 +20,11 @@ import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.Swh as swh
-from watertap_contrib.reflo.solar_models.surrogate.flat_plate.data.pyssc import (
-    PySSC,
-)
 
 
 def read_module_datafile(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
-
-    if "constant" in data.keys():
-        data["adjust:constant"] = data.pop("constant")  # rename key
     return data
 
 
@@ -86,9 +80,10 @@ def setup_model(
     config_data=None,
 ):
 
-    config_data["tech_model"] = "swh"
-    config_data["financial_model"] = "none"
-    tech_model = PySSC(config_data)
+    tech_model = swh.new()
+
+    for k, v in config_data.items():
+        tech_model.value(k, v)
 
     if weather_file is not None:
         tech_model.value("solar_resource_file", weather_file)
@@ -98,9 +93,8 @@ def setup_model(
         raise Exception("Either weather_file or weather_data must be specified.")
 
     # Set constant temperatures
-    tech_model.value("use_custom_mains", 1)
     tech_model.value("custom_mains", 8760 * (temperatures["T_cold"],))
-    tech_model.value("use_custom_set", 0)  # ensure constant hot set temperature is used
+
     tech_model.value("T_set", temperatures["T_hot"])
     tech_model.value("T_room", temperatures["T_amb"])
 
@@ -108,10 +102,6 @@ def setup_model(
     tech_model.value(
         "mdot", tech_model.value("test_flow") * tech_model.value("ncoll")
     )  # [kg/s]
-
-    # Set pump and piping parameters
-    tech_model.value("pipe_diam", 0.019)  # [m] default is 0.019 m
-    tech_model.value("pump_eff", 0.85)  # [-] pump efficiency default is 0.85
 
     # Ensure system capacity parameter agreement
     system_capacity_actual = system_capacity_computed(tech_model)
@@ -436,7 +426,7 @@ if __name__ == "__main__":
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "flat_plate_data_test.pkl"
+        dirname(__file__), "test_flat_plate_data.pkl"
     )  # output dataset for surrogate training
 
     config_data = read_module_datafile(param_file)
