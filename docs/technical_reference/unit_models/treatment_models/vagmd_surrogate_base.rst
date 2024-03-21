@@ -1,3 +1,5 @@
+.. _VAGMD_base_homepage:
+
 Vacuum Air-gapped Membrane Distillation - base model (VAGMD-base)
 =================================================================
 

@@ -1,3 +1,5 @@
+.. _LT_MED_homepage:
+
 Low Temperature - Multi-effect Distillation (LT-MED)
 ====================================================
 
