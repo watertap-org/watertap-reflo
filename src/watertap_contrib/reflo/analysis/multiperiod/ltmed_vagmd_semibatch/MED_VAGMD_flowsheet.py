@@ -14,6 +14,7 @@ from pyomo.environ import (
     ConcreteModel,
     TransformationFactory,
     units as pyunits,
+    Var,
 )
 from pyomo.network import Arc
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
@@ -23,7 +24,6 @@ from idaes.models.unit_models import (
     Mixer,
     Separator,
 )
-from idaes.core.util.model_statistics import *
 from idaes.core.util.scaling import (
     set_scaling_factor,
     get_scaling_factor,
@@ -298,9 +298,9 @@ def add_med(fs, inputs):
 
 
 def add_vagmd(fs, inputs):
-    """Method to add a VAGMD component to an exisitng flowsheet
+    """Method to add a VAGMD component to an existing flowsheet
     Args:
-        fs: exisitng flowsheet
+        fs: existing flowsheet
         inputs: a dictionary depicting the MD configurations
     """
 
@@ -343,8 +343,6 @@ def add_vagmd(fs, inputs):
     # Open circuit, in which cooling is available at a constant water temperature and condenser inlet temperature varies.
     else:  # "open"
         fs.vagmd.cooling_in_props[0].temperature.fix(cooling_inlet_temp + 273.15)
-
-    return
 
 
 def fix_dof_and_initialize(

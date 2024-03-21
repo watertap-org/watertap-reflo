@@ -60,12 +60,10 @@ _logger = idaeslog.getLogger(__name__)
 
 def get_variable_pairs(t1, t2):
     """
-    This function returns paris of variables that need to be connected across two time periods
+    This function returns pairs of variables that need to be connected across two time periods
     Args:
         t1: current time block
         t2: next time block
-    Returns:
-        None
     """
     return [
         # Take MD feed properties from last step mixer
@@ -366,7 +364,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
                 or input_values[i] > input_ranges[i][1]
             ):
                 raise ConfigurationError(
-                    f"The input variable '{input_variables[i]}' is not valid."
+                    f"The input value for '{input_variables[i]}' is not valid."
                     f"The valid range is {input_ranges[i][0]} - {input_ranges[i][1]}."
                 )
 

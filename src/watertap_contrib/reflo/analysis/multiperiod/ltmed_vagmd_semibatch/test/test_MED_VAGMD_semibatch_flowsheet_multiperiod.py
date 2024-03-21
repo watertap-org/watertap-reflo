@@ -123,7 +123,7 @@ class TestVAGMDbatch:
 
         tested_feed_flow_rate = 1200
         error_msg = (
-            f"The input variable 'md_feed_flow_rate' is not valid."
+            f"The input value for 'md_feed_flow_rate' is not valid."
             f"The valid range is 400 - 1100."
         )
         with pytest.raises(ConfigurationError, match=error_msg):
