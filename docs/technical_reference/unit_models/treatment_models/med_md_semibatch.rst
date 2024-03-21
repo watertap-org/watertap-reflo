@@ -19,7 +19,7 @@ This flowsheet simulates the semibatch operation of an LTMED - VAGMD system usin
     :width: 800
     :align: center
 
-    Figure 1. Diagram of a MED-VAGMD semibatch system.
+    Figure 1. Diagram of a MED-VAGMD semibatch system - processing phase.
 
 This configuration takes feed water into the MED system first, and treats the MED brine with VAGMD in a 
 semibatch operation, to reach a higher water recovery rate and thermal efficiency. In each period, mixer M1
