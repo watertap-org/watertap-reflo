@@ -87,7 +87,7 @@ def propagate_state(arc):
 
 def _initialize(m, blk, optarg):
     try:
-        blk.initialize(outlvl=idaeslog.CRITICAL)
+        blk.initialize()
     except:
         print("----------------------------------\n")
         print(f"Initialization of {blk.name} failed.")
@@ -139,6 +139,11 @@ def build_ro(m, blk, number_of_stages=1) -> None:
     blk.LastStage = blk.Stages.last()
     blk.NonFinalStages = RangeSet(number_of_stages - 1)
 
+    blk.pump = Pump(property_package=m.fs.RO_properties)
+    # blk.pump.costing = UnitModelCostingBlock(
+    #     flowsheet_costing_block=m.fs.costing,
+    # )
+
     blk.primary_mixer = Mixer(
         property_package=m.fs.RO_properties,
         has_holdup=False,
@@ -153,9 +158,17 @@ def build_ro(m, blk, number_of_stages=1) -> None:
         else:
             build_ro_stage(m, stage)
 
-    # FIX This needs to be moved up the chain
-    blk.ro_feed_to_first_stage = Arc(
+    # blk.ro_feed_to_first_stage = Arc(
+    #     source=blk.feed.outlet,
+    #     destination=blk.stage[1].feed.inlet,
+    # )
+    blk.ro_feed_to_pump = Arc(
         source=blk.feed.outlet,
+        destination=blk.pump.inlet,
+    )
+    
+    blk.ro_pump_to_first_stage = Arc(
+        source=blk.pump.outlet,
         destination=blk.stage[1].feed.inlet,
     )
 
@@ -253,9 +266,10 @@ def init_system(m, verbose=True, solver=None):
     print(f"RO Degrees of Freedom: {degrees_of_freedom(m.fs.ro)}")
     display_dof_breakdown(m)
     m.fs.feed.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
-    propagate_state(m.fs.feed_to_primary_pump)
-    m.fs.primary_pump.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
-    propagate_state(m.fs.primary_pump_to_ro)
+    # propagate_state(m.fs.feed_to_primary_pump)
+    propagate_state(m.fs.feed_to_ro)
+    # m.fs.primary_pump.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+    # propagate_state(m.fs.primary_pump_to_ro)
     init_ro_system(m, m.fs.ro)
     propagate_state(m.fs.ro_to_product)
     propagate_state(m.fs.ro_to_disposal)
@@ -272,15 +286,19 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     optarg = solver.options
 
     print("\n\n-------------------- INITIALIZING RO SYSTEM --------------------\n\n")
+    
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
     for stage in blk.stage.values():
         print(f"RO Stage {stage} Degrees of Freedom: {degrees_of_freedom(stage)}")
     print("\n\n")
 
-    blk.feed.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
-    # display_inlet_conditions(blk)
-    propagate_state(blk.ro_feed_to_first_stage)
+    blk.feed.initialize(optarg=optarg)
+    display_inlet_conditions(blk)
+    # propagate_state(blk.ro_feed_to_first_stage)
+    propagate_state(blk.ro_feed_to_pump)
+    blk.pump.initialize(optarg=optarg)
+    propagate_state(blk.ro_pump_to_first_stage)
     for stage in blk.stage.values():
         init_ro_stage(m, stage, solver=solver)
         if stage.index() < blk.numberOfStages:
@@ -289,10 +307,10 @@ def init_ro_system(m, blk, verbose=True, solver=None):
         else:
             propagate_state(blk.last_stage_retentate_to_ro_retentate)
             propagate_state(blk.stage_permeate_to_mixer[stage.index()])
-    blk.disposal.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
-    blk.primary_mixer.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+    blk.disposal.initialize(optarg=optarg)
+    blk.primary_mixer.initialize(optarg=optarg)
     propagate_state(blk.primary_mixer_to_product)
-    blk.product.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+    blk.product.initialize(optarg=optarg)
     print(
         "\n\n-------------------- RO INITIALIZATION COMPLETE --------------------\n\n"
     )
@@ -301,7 +319,9 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     for stage in blk.stage.values():
         print(f"RO Stage {stage} Degrees of Freedom: {degrees_of_freedom(stage)}")
     print("\n\n")
-    # display_flow_table(blk)
+    display_flow_table(blk)
+    print(blk.report())
+    # assert False
 
 
 def init_ro_stage(m, stage, solver=None):
@@ -311,12 +331,12 @@ def init_ro_stage(m, stage, solver=None):
     optarg = solver.options
 
     if stage.has_booster_pump:
-        stage.feed.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+        stage.feed.initialize(optarg=optarg)
         propagate_state(stage.stage_feed_to_booster_pump)
-        stage.booster_pump.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+        stage.booster_pump.initialize(optarg=optarg)
         propagate_state(stage.stage_booster_pump_to_module)
     else:
-        stage.feed.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+        stage.feed.initialize(optarg=optarg)
         propagate_state(stage.stage_feed_to_module)
 
     # display_inlet_conditions(stage)
@@ -332,7 +352,7 @@ def init_ro_stage(m, stage, solver=None):
 
 
 def set_operating_conditions(
-    m, Qin=None, Qout=None, Cin=None, water_recovery=None, primary_pump_pressure=80e5
+    m, Qin=None, Qout=None, Cin=None, water_recovery=None
 ):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
@@ -391,10 +411,10 @@ def set_operating_conditions(
     m.fs.feed.pressure[0].fix(pressure_atm)
     m.fs.feed.temperature[0].fix(feed_temperature)
 
-    m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(
-        primary_pump_pressure
-    )
-    m.fs.primary_pump.efficiency_pump.fix(0.8)
+    # m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(
+    #     primary_pump_pressure
+    # )
+    # m.fs.primary_pump.efficiency_pump.fix(0.8)
     iscale.set_scaling_factor(m.fs.primary_pump.control_volume.work, 1e-3)
     iscale.set_scaling_factor(
         m.fs.primary_pump.control_volume.properties_out[0].pressure, 1e-5
@@ -471,7 +491,7 @@ def calc_scale(value):
 
 
 def set_ro_system_operating_conditions(
-    m, blk, mem_area=100, booster_pump_pressure=80e5
+    m, blk, mem_area=100, RO_pump_pressure=15e5
 ):
     print(
         "\n\n-------------------- SETTING RO OPERATING CONDITIONS --------------------\n\n"
@@ -487,6 +507,8 @@ def set_ro_system_operating_conditions(
     pump_efi = 0.8  # pump efficiency [-]
 
     # blk.stage[1].module.feed_side.velocity[0, 0].fix(0.35)
+    blk.pump.efficiency_pump.fix(pump_efi)
+    blk.pump.control_volume.properties_out[0].pressure.fix(RO_pump_pressure)
 
     for idx, stage in blk.stage.items():
         stage.module.A_comp.fix(mem_A)
@@ -495,10 +517,10 @@ def set_ro_system_operating_conditions(
         stage.module.length.fix(length)
         stage.module.mixed_permeate[0].pressure.fix(pressure_atm)
 
-        if stage.has_booster_pump:
-            stage.booster_pump.control_volume.properties_out[0].pressure.fix(
-                booster_pump_pressure
-            )
+        # if stage.has_booster_pump:
+        #     stage.booster_pump.control_volume.properties_out[0].pressure.fix(
+        #         booster_pump_pressure
+        #     )
 
         stage.module.feed_side.channel_height.fix(height)
         stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
@@ -624,6 +646,10 @@ def display_flow_table(blk):
         print(
             f'{"RO Stage " + str(idx) + " Retentate":<34s}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.retentate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
+    # print(blk.stage[1].module.display())
+    # print(
+    #     f'{"Module Inlet":<34s}{blk.stage[1].module.inlet.pressure}'
+    # )
 
 
 def build_system():
@@ -639,15 +665,19 @@ def build_system():
     display_dof_breakdown(m)
     build_ro(m, m.fs.ro, number_of_stages=1)
 
-    m.fs.feed_to_primary_pump = Arc(
+    # m.fs.feed_to_primary_pump = Arc(
+    #     source=m.fs.feed.outlet,
+    #     destination=m.fs.primary_pump.inlet,
+    # )
+    m.fs.feed_to_ro = Arc(
         source=m.fs.feed.outlet,
-        destination=m.fs.primary_pump.inlet,
-    )
-
-    m.fs.primary_pump_to_ro = Arc(
-        source=m.fs.primary_pump.outlet,
         destination=m.fs.ro.feed.inlet,
     )
+
+    # m.fs.primary_pump_to_ro = Arc(
+    #     source=m.fs.primary_pump.outlet,
+    #     destination=m.fs.ro.feed.inlet,
+    # )
 
     m.fs.ro_to_product = Arc(
         source=m.fs.ro.product.outlet,
@@ -668,7 +698,7 @@ if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
     display_ro_system_build(m)
-    set_operating_conditions(m, Qin=1, Cin=2.5, primary_pump_pressure=30e5)
+    set_operating_conditions(m, Qin=1, Cin=2.5)
     set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10)
 
     # print(total_constraints_set(m))

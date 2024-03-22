@@ -9,6 +9,7 @@ from pyomo.environ import (
     Constraint,
     Set,
     Expression,
+    TransformationFactory,
     Objective,
     NonNegativeReals,
     Block,
@@ -52,7 +53,7 @@ def build_UF(m, blk) -> None:
 
     blk.feed = StateJunction(property_package=m.fs.RO_properties)
     blk.product = StateJunction(property_package=m.fs.RO_properties)
-    blk.disposal = StateJunction(property_package=m.fs.RO_properties)
+    # blk.disposal = StateJunction(property_package=m.fs.RO_properties)
 
     # blk.unit = UltraFiltrationZO(property_package=m.fs.RO_properties)
 
@@ -82,3 +83,31 @@ def init_UF(m, blk, verbose=True, solver=None):
 
 def set_UF_op_conditions(blk):
     blk.unit.recovery_frac_mass_H2O.fix(1)
+
+def build_system():
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = NaClParameterBlock()
+
+    m.fs.feed = Feed(property_package=m.fs.properties)
+    m.fs.product = StateJunction(property_package=m.fs.properties)
+
+    m.fs.feed_to_softener = Arc(
+        source=m.fs.feed.outlet,
+        destination=m.fs.product.inlet,
+    )
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
+
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+
+    return m
+
+if __name__ == "__main__":
+    file_dir = os.path.dirname(os.path.abspath(__file__))
+    m = build_system()
+    # set_system_operating_conditions(m)
+    # set_softener_op_conditions(m, m.fs.softener)
+    # set_scaling(m)
+    # # m.fs.softener.unit.display()
+    # init_system(m)
