@@ -525,9 +525,9 @@ def set_ro_system_operating_conditions(
         stage.module.feed_side.channel_height.fix(height)
         stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
 
-        iscale.set_scaling_factor(stage.module.area, 1)
-        iscale.set_scaling_factor(stage.module.feed_side.area, 1)
-        iscale.set_scaling_factor(stage.module.width, 1)
+        iscale.set_scaling_factor(stage.module.area, 1e-2)
+        iscale.set_scaling_factor(stage.module.feed_side.area, 1e-2)
+        iscale.set_scaling_factor(stage.module.width, 1e-2)
 
     iscale.calculate_scaling_factors(m)
     

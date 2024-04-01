@@ -69,11 +69,11 @@ from components.translator_1 import (
 
 def propagate_state(arc):
     _prop_state(arc)
-    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    # arc.source.display()
-    # print(arc.destination.name)
-    # arc.destination.display()
-    # print("\n")
+    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    arc.source.display()
+    print(arc.destination.name)
+    arc.destination.display()
+    print("\n")
 
 
 def main():
@@ -525,9 +525,9 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
             msg = (
                 "The current configuration is infeasible. Please adjust the decision variables."
             )
-            print_infeasible_bounds(m.fs.RO)
-            print_close_to_bounds(m.fs.RO)
-            print(m.fs.RO.display())
+            # print_infeasible_bounds(m.fs.RO)
+            # print_close_to_bounds(m.fs.RO)
+            # print(m.fs.RO.display())
     assert False
     results = solver.solve(m, tee=tee)
 
