@@ -121,6 +121,7 @@ def set_system_operating_conditions(m):
     rho = 1000 * pyunits.kg / pyunits.m**3
 
     prop_in = soft.properties_in[0]
+    prop_out = soft.properties_out[0.0]
 
     flow_mass_phase_water = pyunits.convert(
         q_in * rho, to_units=pyunits.kg / pyunits.s
@@ -148,6 +149,8 @@ def set_system_operating_conditions(m):
 
     prop_in.temperature.fix(298)
     prop_in.pressure.fix(101356)
+    prop_out.temperature.fix(298)
+    prop_out.pressure.fix(101356)
 
     # m.fs.feed.properties[0].conc_mass_phase_comp
     m.fs.softener.properties_waste[0].conc_mass_phase_comp["Liq", "Mg_2+"]
@@ -188,6 +191,11 @@ def set_softener_op_conditions(m, blk, ca_eff=30, mg_eff=2):
     # soft.excess_CaO.fix(0)
     soft.CO2_second_basin.fix(0)
     soft.Na2CO3_dosing.fix(0)
+
+    prop_in = soft.properties_in[0.0]
+    prop_out = soft.properties_out[0.0]
+    prop_out.temperature.fix(298)
+    prop_out.pressure.fix(value(prop_in.pressure))
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")

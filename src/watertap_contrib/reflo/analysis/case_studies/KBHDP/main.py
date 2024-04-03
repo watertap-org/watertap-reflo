@@ -110,7 +110,7 @@ def main():
     solve(m)
     # # display_flow_table(m.fs.RO)
     # # m.fs.RO.report()
-    # # display_system_stream_table(m)
+    display_system_stream_table(m)
 
 
 def build_system():
@@ -312,7 +312,7 @@ def define_inlet_composition(m):
 
 
 def set_inlet_conditions(
-    m, Qin=None, Cin=None, water_recovery=None, supply_pressure=5e5, primary_pump_pressure=15e5
+    m, Qin=None, Cin=None, water_recovery=None, supply_pressure=1e5, primary_pump_pressure=15e5
 ):
     """Sets operating condition for the PV-RO system
 
@@ -457,7 +457,7 @@ def display_unfixed_vars(blk, report=True):
 
 def set_operating_conditions(m):
     # Set inlet conditions and operating conditions for each unit
-    set_inlet_conditions(m, Qin=1, supply_pressure=5e5)
+    set_inlet_conditions(m, Qin=1, supply_pressure=1e5)
     set_softener_op_conditions(m, m.fs.softener.unit, ca_eff=0.3, mg_eff=0.2)
     # # inlet_dict = {
     # #     "Ca_2+": 0.13 * pyunits.kg / pyunits.m**3,
