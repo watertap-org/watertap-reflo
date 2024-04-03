@@ -42,6 +42,7 @@ from idaes.core.util.scaling import (
     unscaled_variables_generator,
     badly_scaled_var_generator,
 )
+from pyomo.util.check_units import assert_units_consistent
 import idaes.logger as idaeslog
 
 # Get default solver for testing
@@ -607,3 +608,118 @@ class TestChemSoft2:
                     assert pytest.approx(value(softv[i]), rel=1e-3) == s
             else:
                 assert pytest.approx(value(softv), rel=1e-3) == r
+
+class TestChemSoft3:
+    @pytest.fixture(scope="class")
+    def chem_soft_frame(self):
+        # create model, flowsheet
+        component_list = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.properties = MCASParameterBlock(
+            solute_list=component_list, material_flow_basis=MaterialFlowBasis.mass
+        )
+
+        m.fs.soft = soft = ChemicalSofteningZO(
+            property_package=m.fs.properties,
+            silica_removal=False,
+            softening_procedure_type="excess_lime",
+        )
+
+        prop_in = soft.properties_in[0]
+
+        # System specifications
+        ca_in = 0.072 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+        mg_in = 0.0061 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+        alk_in = 0.195 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+        CO2_in = 0.072 * 1.612 * pyunits.kg / pyunits.m**3
+        q_in = 50000 * pyunits.m**3 / pyunits.day  # m3/d
+        rho = 1000 * pyunits.kg / pyunits.m**3
+
+        flow_mass_phase_water = pyunits.convert(
+            q_in * rho, to_units=pyunits.kg / pyunits.s
+        )
+        flow_mass_phase_ca = pyunits.convert(
+            q_in * ca_in, to_units=pyunits.kg / pyunits.s
+        )
+        flow_mass_phase_mg = pyunits.convert(
+            q_in * mg_in, to_units=pyunits.kg / pyunits.s
+        )
+
+        flow_mass_phase_alk = pyunits.convert(
+            q_in * alk_in, to_units=pyunits.kg / pyunits.s
+        )
+
+        soft.ca_eff_target.fix()
+        soft.mg_eff_target.fix()
+
+        soft.no_of_mixer.fix(1)
+        soft.no_of_floc.fix(2)
+        soft.retention_time_mixer.fix(0.4)
+        soft.retention_time_floc.fix(25)
+        soft.retention_time_sed.fix(130)
+        soft.retention_time_recarb.fix(20)
+        soft.frac_vol_recovery.fix()
+        soft.removal_efficiency.fix()
+        soft.CO2_CaCO3.fix(CO2_in)
+        soft.vel_gradient_mix.fix(300)
+        soft.vel_gradient_floc.fix(50)
+        soft.excess_CaO.fix(0)
+        soft.CO2_second_basin.fix(0)
+        soft.Na2CO3_dosing.fix(0)
+        soft.MgCl2_dosing.fix(0)
+
+        prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water())
+        prop_in.flow_mass_phase_comp["Liq", "Ca_2+"].fix(value(flow_mass_phase_ca))
+        prop_in.flow_mass_phase_comp["Liq", "Mg_2+"].fix(value(flow_mass_phase_mg))
+        prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"].fix(
+            value(flow_mass_phase_alk)
+        )
+        prop_in.temperature.fix()
+        prop_in.pressure.fix()
+
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp", 1 / flow_mass_phase_water(), index=("Liq", "H2O")
+        )
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp", 1 / flow_mass_phase_ca(), index=("Liq", "Ca_2+")
+        )
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp", 1 / flow_mass_phase_mg(), index=("Liq", "Mg_2+")
+        )
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp",
+            1 / flow_mass_phase_alk(),
+            index=("Liq", "Alkalinity_2-"),
+        )
+
+        return m
+
+    @pytest.mark.unit
+    def test_config(self, chem_soft_frame):
+        m = chem_soft_frame
+        # check Chemical softening config arguments
+
+        assert len(m.fs.soft.config) == 6
+
+        assert not m.fs.soft.config.dynamic
+        assert not m.fs.soft.config.has_holdup
+        assert m.fs.soft.config.property_package is m.fs.properties
+        assert_units_consistent(m)
+
+    @pytest.mark.unit
+    def test_build(self, chem_soft_frame):
+        # Check electrocoagulation model
+        m = chem_soft_frame
+
+        # Test ports
+        port_list = ["inlet", "outlet", "waste"]
+        for port_str in port_list:
+            port = getattr(m.fs.soft, port_str)
+            assert isinstance(port, Port)
+            assert len(port.vars) == 3
+
+        # test statistics
+        assert number_variables(m) == 90
+        assert number_total_constraints(m) == 50
+        assert number_unused_variables(m) == 24

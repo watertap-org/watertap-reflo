@@ -515,15 +515,18 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             def eq_CaO_dosing(b):
                 return (
                     b.CaO_dosing
-                    == (
+                    == pyunits.convert(
+                        (
                         b.CO2_CaCO3
                         + prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                         + b.Mg_CaCO3
                         + b.excess_CaO
-                    )
+                        )
                     * prop_in.flow_vol_phase["Liq"]
                     * b.CaO_mw
-                    / b.CaCO3_mw
+                    / b.CaCO3_mw, 
+                    to_units=pyunits.kg / pyunits.d
+                    )
                 )
 
             @self.Constraint(doc="CO2 for first basin")
