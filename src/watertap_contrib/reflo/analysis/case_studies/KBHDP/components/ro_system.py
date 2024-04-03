@@ -75,7 +75,6 @@ from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
 # from analysisWaterTAP.utils import flowsheet_utils as fsTools
 
-
 def propagate_state(arc):
     _prop_state(arc)
     # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
@@ -266,6 +265,7 @@ def init_system(m, verbose=True, solver=None):
     print(f"RO Degrees of Freedom: {degrees_of_freedom(m.fs.ro)}")
     display_dof_breakdown(m)
     m.fs.feed.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+    print(m.fs.feed.report())
     # propagate_state(m.fs.feed_to_primary_pump)
     propagate_state(m.fs.feed_to_ro)
     # m.fs.primary_pump.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
@@ -294,7 +294,6 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n")
 
     blk.feed.initialize(optarg=optarg)
-    display_inlet_conditions(blk)
     # propagate_state(blk.ro_feed_to_first_stage)
     propagate_state(blk.ro_feed_to_pump)
     blk.pump.initialize(optarg=optarg)
@@ -342,7 +341,12 @@ def init_ro_stage(m, stage, solver=None):
     # display_inlet_conditions(stage)
     # stage.module.initialize(optarg=optarg)
     print_RO_op_pressure_est(stage)
-    _initialize(m, stage.module, optarg)
+    display_inlet_conditions(stage)
+    print(stage.report())
+    print(stage.module.report())
+    # _initialize(m, stage.module, optarg)
+    stage.module.initialize(optarg=optarg)
+    assert False
     propagate_state(stage.stage_module_to_retentate)
     propagate_state(stage.stage_module_to_permeate)
     # print(stage.module.report())
@@ -532,7 +536,7 @@ def set_ro_system_operating_conditions(
     iscale.calculate_scaling_factors(m)
     
     # ---checking model---
-    assert_units_consistent(m)
+    # assert_units_consistent(m)
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
 

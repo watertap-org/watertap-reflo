@@ -65,7 +65,7 @@ def build_system():
     m.fs.softener = ChemicalSofteningZO(
         property_package=m.fs.properties,
         silica_removal=True,
-        softening_procedure_type="excess_lime_soda",
+        softening_procedure_type="excess_lime",
     )
 
     m.fs.feed_to_softener = Arc(
@@ -90,6 +90,7 @@ def build_system():
 
     return m
 
+
 def build_softener(m, blk, prop_package=None) -> None:
     print(f'\n{"=======> BUILDING SOFTENER SYSTEM <=======":^60}\n')
     if prop_package is None:
@@ -98,54 +99,59 @@ def build_softener(m, blk, prop_package=None) -> None:
     blk.unit = ChemicalSofteningZO(
         property_package=prop_package,
         silica_removal=True,
-        softening_procedure_type="excess_lime_soda",
+        softening_procedure_type="excess_lime",
     )
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
+    print(f"Softener Degrees of Freedom: {degrees_of_freedom(blk.unit)}")
 
 
 def set_system_operating_conditions(m):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
-
-    Q_basis = 1 * pyunits.L / pyunits.s  # m3/d
-    ca_in = 0.610 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+    soft = m.fs.softener
+    ca_in = 0.61 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
     mg_in = 0.161 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
-    sio2_in = 0.130 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+    sio2_in = 0.13 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
     alk_in = 0.0821 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
+    CO2_in = 0.10844915* pyunits.kg / pyunits.m**3
+    # q_in = 3785 * pyunits.m**3 / pyunits.day  # m3/d
+    q_in = 1 * pyunits.L / pyunits.s
     rho = 1000 * pyunits.kg / pyunits.m**3
 
-    prop_in = m.fs.feed.properties[0.0]
-    # prop_out = m.fs.disposal.properties[0.0]
+    prop_in = soft.properties_in[0]
 
     flow_mass_phase_water = pyunits.convert(
-        Q_basis * rho, to_units=pyunits.kg / pyunits.s
+        q_in * rho, to_units=pyunits.kg / pyunits.s
     )
     flow_mass_phase_ca = pyunits.convert(
-        Q_basis * ca_in, to_units=pyunits.kg / pyunits.s
+        q_in * ca_in, to_units=pyunits.kg / pyunits.s
     )
     flow_mass_phase_mg = pyunits.convert(
-        Q_basis * mg_in, to_units=pyunits.kg / pyunits.s
+        q_in * mg_in, to_units=pyunits.kg / pyunits.s
     )
     flow_mass_phase_si = pyunits.convert(
-        Q_basis * sio2_in, to_units=pyunits.kg / pyunits.s
+        q_in * sio2_in, to_units=pyunits.kg / pyunits.s
     )
     flow_mass_phase_alk = pyunits.convert(
-        Q_basis * alk_in, to_units=pyunits.kg / pyunits.s
+        q_in * alk_in, to_units=pyunits.kg / pyunits.s
     )
-
     prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water)
+
     prop_in.flow_mass_phase_comp["Liq", "Ca_2+"].fix(flow_mass_phase_ca)
     prop_in.flow_mass_phase_comp["Liq", "Mg_2+"].fix(flow_mass_phase_mg)
     prop_in.flow_mass_phase_comp["Liq", "SiO2"].fix(flow_mass_phase_si)
-    prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"].fix(flow_mass_phase_alk)
+    prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"].fix(
+        flow_mass_phase_alk
+    )
 
-    # prop_in.temperature.fix(298)
-    # prop_in.pressure.fix(101356)
+    prop_in.temperature.fix(298)
+    prop_in.pressure.fix(101356)
 
     # m.fs.feed.properties[0].conc_mass_phase_comp
+    m.fs.softener.properties_waste[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+    m.fs.softener.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
@@ -155,26 +161,33 @@ def set_softener_op_conditions(m, blk, ca_eff=30, mg_eff=2):
     print(
         "\n\n-------------------- SETTING SOFTENER REMOVAL EFFICIENCY --------------------\n\n"
     )
+    soft = blk
     CO2_in = 0.10844915 * pyunits.kg / pyunits.m**3
-    blk.ca_eff_target.fix(ca_eff)
-    blk.mg_eff_target.fix(mg_eff)
+    # blk.ca_eff_target.fix(ca_eff)
+    # blk.mg_eff_target.fix(mg_eff)
 
-    blk.no_of_mixer.fix(1)
-    blk.no_of_floc.fix(2)
-    blk.retention_time_mixer.fix(0.4)
-    blk.retention_time_floc.fix(25)
-    blk.retention_time_sed.fix(130)
-    blk.retention_time_recarb.fix(20)
-    blk.frac_vol_recovery.fix()
-    blk.removal_efficiency.fix()
-    blk.removal_efficiency.display()
-    # blk.unit.removal_efficiency = ({
-    #     "Cl_-": 0.5,
-    # })  # Dict for components (non-hardness)
-    # blk.unit.display()
-    blk.CO2_CaCO3.fix(CO2_in)
-    blk.vel_gradient_mix.fix(300)
-    blk.vel_gradient_floc.fix(50)
+    # #Ca to CaCO3 conv = 2.5
+    # ca_eff_target = ca_in()*10
+    # #Mg to CaCO3 conv = 4.12
+    # mg_eff_target = mg_in()*0.1
+
+    blk.ca_eff_target.fix(1.312938301706484)
+    blk.mg_eff_target.fix(4.2551166976399655)
+
+    soft.no_of_mixer.fix(1)
+    soft.no_of_floc.fix(2)
+    soft.retention_time_mixer.fix(0.4)
+    soft.retention_time_floc.fix(25)
+    soft.retention_time_sed.fix(130)
+    soft.retention_time_recarb.fix(20)
+    soft.frac_vol_recovery.fix()
+    soft.removal_efficiency.fix()
+    soft.CO2_CaCO3.fix(CO2_in)
+    soft.vel_gradient_mix.fix(300)
+    soft.vel_gradient_floc.fix(50)
+    # soft.excess_CaO.fix(0)
+    soft.CO2_second_basin.fix(0)
+    soft.Na2CO3_dosing.fix(0)
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
@@ -183,27 +196,28 @@ def set_softener_op_conditions(m, blk, ca_eff=30, mg_eff=2):
 
 def set_scaling(m):
     print("\n\n-------------------- SCALING WATER SOFTENER --------------------\n\n")
+    prop_in = m.fs.feed.properties[0.0]
     m.fs.properties.set_default_scaling(
-        "conc_mass_phase_comp",
-        1,
+        "flow_mass_phase_comp",
+        value(1 / value(prop_in.flow_mass_phase_comp["Liq", "H2O"])),
         index=("Liq", "H2O"),
     )
     m.fs.properties.set_default_scaling(
-        "conc_mass_phase_comp",
-        1,
+        "flow_mass_phase_comp",
+        value(1 / value(prop_in.flow_mass_phase_comp["Liq", "Ca_2+"])),
         index=("Liq", "Ca_2+"),
     )
     m.fs.properties.set_default_scaling(
-        "conc_mass_phase_comp",
-        1,
+        "flow_mass_phase_comp",
+        value(1 / value(prop_in.flow_mass_phase_comp["Liq", "Mg_2+"])),
         index=("Liq", "Mg_2+"),
     )
     m.fs.properties.set_default_scaling(
-        "conc_mass_phase_comp", 1, index=("Liq", "SiO2")
+        "flow_mass_phase_comp", value(1 / value(prop_in.flow_mass_phase_comp["Liq", "SiO2"])), index=("Liq", "SiO2")
     )
     m.fs.properties.set_default_scaling(
-        "conc_mass_phase_comp",
-        1,
+        "flow_mass_phase_comp",
+        value(1 / value(prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"])),
         index=("Liq", "Alkalinity_2-"),
     )
 
@@ -220,7 +234,7 @@ def init_system(blk, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
-    assert_no_degrees_of_freedom(m)
+    # assert_no_degrees_of_freedom(m)
     print("\n\n")
 
     m.fs.feed.initialize(optarg=optarg)
@@ -248,7 +262,7 @@ def init_softener(m, blk, verbose=True, solver=None):
     print(
         "\n\n-------------------- INITIALIZING WATER SOFTENER --------------------\n\n"
     )
-
+    # assert_units_consistent(m)
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
     blk.initialize(optarg=optarg)
@@ -325,7 +339,7 @@ if __name__ == "__main__":
     m = build_system()
     set_system_operating_conditions(m)
     set_softener_op_conditions(m, m.fs.softener)
-    set_scaling(m)
+    # set_scaling(m)
     # m.fs.softener.unit.display()
     init_system(m)
     # results = solve(m)
