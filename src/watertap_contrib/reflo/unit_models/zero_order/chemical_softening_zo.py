@@ -533,7 +533,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             def eq_CO2_first_basin(b):
                 return (
                     b.CO2_first_basin
-                    == (
+                    == pyunits.convert((
                         prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                         - (b.Ca_CaCO3 + b.Ca_CaCO3)
                         + b.excess_CaO
@@ -544,7 +544,9 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     )
                     * prop_in.flow_vol_phase["Liq"]
                     * b.CO2_mw
-                    / b.CaCO3_mw
+                    / b.CaCO3_mw,
+                    to_units=pyunits.kg / pyunits.d,
+                )
                 )
 
         elif (
@@ -689,15 +691,15 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(doc="Recovery")
         def eq_recovery(b):
             return (
-                prop_in.flow_vol_phase["Liq"]
-                == prop_out.flow_vol_phase["Liq"] + prop_waste.flow_vol_phase["Liq"]
+                b.properties_in[0].flow_mass_phase_comp["Liq","H2O"]
+                == b.properties_out[0].flow_mass_phase_comp["Liq","H2O"] + b.properties_waste[0].flow_mass_phase_comp["Liq","H2O"]
             )
 
         @self.Constraint(doc="Waste flow")
         def eq_waste_flow(b):
             return (
-                prop_out.flow_vol_phase["Liq"]
-                == prop_in.flow_vol_phase["Liq"] * b.frac_vol_recovery
+                b.properties_out[0].flow_mass_phase_comp["Liq","H2O"]
+                == b.properties_in[0].flow_mass_phase_comp["Liq","H2O"] * b.frac_vol_recovery
             )
 
         @self.Constraint(non_hardness_comps, doc="Mass balance")
@@ -710,54 +712,19 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(non_hardness_comps, doc="Component Removal")
         def eq_component_removal(b, j):
-            return prop_waste.flow_mass_phase_comp[
+            return b.properties_out[0].flow_mass_phase_comp[
                 "Liq", j
-            ] == prop_in.flow_mass_phase_comp["Liq", j] * (b.removal_efficiency[j])
-
-        @self.Constraint(doc="Volume of mixer")
-        def eq_volume_mixer(b):
-            return (
-                b.volume_mixer
-                == pyunits.convert(
-                    b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_mixer,
-                    to_units=pyunits.m**3,
-                )
-                * b.no_of_mixer
-            )
-
-        @self.Constraint(doc="Volume of flocculator")
-        def eq_volume_floc(b):
-            return (
-                b.volume_floc
-                == pyunits.convert(
-                    b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_floc,
-                    to_units=pyunits.m**3,
-                )
-                * b.no_of_floc
-            )
-
-        @self.Constraint(doc="Volume of sedimentation basin")
-        def eq_volume_sed(b):
-            return b.volume_sed == pyunits.convert(
-                b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_sed,
-                to_units=pyunits.m**3,
-            )
-
-        @self.Constraint(doc="Volume of recarbonation basin")
-        def eq_volume_recarb(b):
-            return b.volume_recarb == pyunits.convert(
-                b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_recarb,
-                to_units=pyunits.m**3,
-            )
+            ] == b.properties_in[0].flow_mass_phase_comp["Liq", j] * (1-b.removal_efficiency[j])
+        
 
         if ["Ca_2+"] in comps:
 
-            @self.Constraint(doc="Ca in effluent")
-            def eq_effluent_ca(b):
-                return (
-                    prop_out.conc_mass_phase_comp["Liq", "Ca_2+"]
-                    == b.ca_eff_target / b.Ca_CaCO3_conv
-                )
+            # @self.Constraint(doc="Ca in effluent")
+            # def eq_effluent_ca(b):
+            #     return (
+            #         prop_out.flow_mass_phase_comp["Liq", "Ca_2+"]
+            #         == b.ca_eff_target*prop_out.flow_mass_phase_comp["Liq","H2O"]/1000
+            #     )
 
             @self.Constraint(doc="Ca mass balance")
             def eq_mass_balance_ca(b):
@@ -765,20 +732,20 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     "Liq", "Ca_2+"
                 ] == prop_in.flow_mass_phase_comp[
                     "Liq", "Ca_2+"
-                ] - prop_out.flow_mass_phase_comp[
-                    "Liq", "Ca_2+"
-                ] + pyunits.convert(
+                ]  + pyunits.convert(
                     b.excess_CaO * prop_in.flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.s,
-                )
+                ) - (b.ca_eff_target*prop_out.flow_mass_phase_comp["Liq","H2O"]/1000)
 
         if ["Mg_2+"] in comps:
 
             @self.Constraint(doc="Mg in effluent")
             def eq_effluent_mg(b):
                 return (
-                    prop_out.conc_mass_phase_comp["Liq", "Mg_2+"]
-                    == b.mg_eff_target / b.Mg_CaCO3_conv
+                    prop_out.flow_mass_phase_comp["Liq", "Mg_2+"]
+                    == b.mg_eff_target * prop_out.flow_mass_phase_comp["Liq","H2O"]/1000 
+                    + b.MgCl2_dosing * prop_in.flow_mass_phase_comp["Liq","H2O"]/1000
+                    # pyunits.convert(b.MgCl2_dosing*prop_in.flow_mass_phase_comp["Liq","H2O"]/1000,to_units=pyunits.kg/pyunits.s)
                 )
 
             @self.Constraint(doc="Mg mass balance")
@@ -787,12 +754,13 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     "Liq", "Mg_2+"
                 ] == prop_in.flow_mass_phase_comp[
                     "Liq", "Mg_2+"
-                ] - prop_out.flow_mass_phase_comp[
-                    "Liq", "Mg_2+"
-                ] + pyunits.convert(
-                    b.MgCl2_dosing * prop_in.flow_vol_phase["Liq"],
-                    to_units=pyunits.kg / pyunits.s,
-                )
+                ] - b.mg_eff_target * prop_in.flow_mass_phase_comp["Liq","H2O"]/1000
+                # - prop_out.flow_mass_phase_comp[
+                #     "Liq", "Mg_2+"
+                # ] + pyunits.convert(
+                #     b.MgCl2_dosing * prop_in.flow_vol_phase["Liq"],
+                #     to_units=pyunits.kg / pyunits.s,
+                # )
 
         if ["TSS"] in comps:
 
@@ -830,6 +798,42 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     )
                     * prop_in.flow_vol_phase["Liq"]
                 )
+        
+        @self.Constraint(doc="Volume of mixer")
+        def eq_volume_mixer(b):
+            return (
+                b.volume_mixer
+                == pyunits.convert(
+                    b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_mixer,
+                    to_units=pyunits.m**3,
+                )
+                * b.no_of_mixer
+            )
+
+        @self.Constraint(doc="Volume of flocculator")
+        def eq_volume_floc(b):
+            return (
+                b.volume_floc
+                == pyunits.convert(
+                    b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_floc,
+                    to_units=pyunits.m**3,
+                )
+                * b.no_of_floc
+            )
+
+        @self.Constraint(doc="Volume of sedimentation basin")
+        def eq_volume_sed(b):
+            return b.volume_sed == pyunits.convert(
+                b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_sed,
+                to_units=pyunits.m**3,
+            )
+
+        @self.Constraint(doc="Volume of recarbonation basin")
+        def eq_volume_recarb(b):
+            return b.volume_recarb == pyunits.convert(
+                b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_recarb,
+                to_units=pyunits.m**3,
+            )
 
     def initialize_build(
         blk,
@@ -971,7 +975,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         iscale.constraint_scaling_transform(self.eq_CO2_first_basin, 1e-3)
 
-        iscale.constraint_scaling_transform(self.eq_effluent_ca, 10)
+        iscale.constraint_scaling_transform(self.eq_effluent_ca, 1)
 
         iscale.constraint_scaling_transform(self.eq_effluent_mg, 10)
 

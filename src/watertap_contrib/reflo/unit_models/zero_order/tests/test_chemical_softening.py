@@ -709,7 +709,7 @@ class TestChemSoft3:
 
     @pytest.mark.unit
     def test_build(self, chem_soft_frame):
-        # Check electrocoagulation model
+        
         m = chem_soft_frame
 
         # Test ports
