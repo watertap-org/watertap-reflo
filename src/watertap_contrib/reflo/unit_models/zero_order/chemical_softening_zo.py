@@ -515,13 +515,16 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             def eq_CaO_dosing(b):
                 return (
                     b.CaO_dosing
-                    == (
+                    == pyunits.convert(
+                        (
                         b.CO2_CaCO3
                         + prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                         + b.Mg_CaCO3
                         + b.excess_CaO
+                        )
+                    * prop_in.flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.d,
                     )
-                    * prop_in.flow_vol_phase["Liq"]
                     * b.CaO_mw
                     / b.CaCO3_mw
                 )
@@ -530,7 +533,8 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             def eq_CO2_first_basin(b):
                 return (
                     b.CO2_first_basin
-                    == (
+                    == pyunits.convert(
+                        (
                         prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                         - (b.Ca_CaCO3 + b.Ca_CaCO3)
                         + b.excess_CaO
@@ -538,8 +542,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                         * b.Ca_CaCO3_conv
                         + prop_out.conc_mass_phase_comp["Liq", "Mg_2+"]
                         * b.Mg_CaCO3_conv
+                        )
+                    * prop_in.flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.d,
                     )
-                    * prop_in.flow_vol_phase["Liq"]
                     * b.CO2_mw
                     / b.CaCO3_mw
                 )

@@ -19,7 +19,7 @@ from pyomo.environ import (
 )
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
 from idaes.core.solvers import get_solver
 from idaes.core.util.initialization import propagate_state as _prop_state
 import idaes.core.util.scaling as iscale
@@ -35,7 +35,8 @@ from idaes.core.util.model_statistics import *
 
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
-
+from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
+from watertap.core.zero_order_properties import WaterParameterBlock
 from watertap.unit_models.zero_order.ultra_filtration_zo import UltraFiltrationZO
 
 
@@ -48,19 +49,30 @@ def propagate_state(arc):
     # print('\n')
 
 
-def build_UF(m, blk) -> None:
+def build_UF(m, blk, prop_package) -> None:
     print(f'\n{"=======> BUILDING ULTRAFILTRATION SYSTEM <=======":^60}\n')
 
-    blk.feed = StateJunction(property_package=m.fs.RO_properties)
-    blk.product = StateJunction(property_package=m.fs.RO_properties)
-    # blk.disposal = StateJunction(property_package=m.fs.RO_properties)
+    blk.feed = StateJunction(property_package=prop_package)
+    blk.product = StateJunction(property_package=prop_package)
+    blk.disposal = StateJunction(property_package=prop_package)
+    blk.unit = UltraFiltrationZO(property_package=prop_package)
 
-    # blk.unit = UltraFiltrationZO(property_package=m.fs.RO_properties)
-
-    blk.feed_to_product = Arc(
+    blk.feed_to_unit = Arc(
         source=blk.feed.outlet,
+        destination=blk.unit.inlet,
+    )
+    
+    blk.unit_to_disposal = Arc(
+        source=blk.unit.byproduct,
+        destination=blk.disposal.inlet,
+    )
+    
+    blk.unit_to_product = Arc(
+        source=blk.unit.treated,
         destination=blk.product.inlet,
     )
+
+    
 
 
 def init_UF(m, blk, verbose=True, solver=None):
@@ -77,37 +89,55 @@ def init_UF(m, blk, verbose=True, solver=None):
     print("\n\n")
 
     blk.feed.initialize(optarg=optarg)
-    propagate_state(blk.feed_to_product)
+    propagate_state(blk.feed_to_unit)
+    blk.unit.initialize(optarg=optarg)
+    propagate_state(blk.unit_to_disposal)
+    propagate_state(blk.unit_to_product)
     blk.product.initialize(optarg=optarg)
+    blk.disposal.initialize(optarg=optarg)
 
 
 def set_UF_op_conditions(blk):
     blk.unit.recovery_frac_mass_H2O.fix(1)
+    blk.unit.removal_frac_mass_comp[0, "tds"].fix(1e-3)
+    blk.unit.removal_frac_mass_comp[0, "tss"].fix(0.9)
+    blk.unit.energy_electric_flow_vol_inlet.fix(1)
 
+def set_system_conditions(blk):
+    blk.feed.properties[0.0].flow_mass_comp["H2O"].fix(1)
+    blk.feed.properties[0.0].flow_mass_comp["tds"].fix(0.01)
+    blk.feed.properties[0.0].flow_mass_comp["tss"].fix(0.01)
+    
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = NaClParameterBlock()
-
-    m.fs.feed = Feed(property_package=m.fs.properties)
-    m.fs.product = StateJunction(property_package=m.fs.properties)
-
-    m.fs.feed_to_softener = Arc(
-        source=m.fs.feed.outlet,
-        destination=m.fs.product.inlet,
+    m.fs.RO_properties = NaClParameterBlock()
+    m.fs.MCAS_properties = MCASParameterBlock(
+        solute_list=["Alkalinity_2-", "Ca_2+", "Cl_-", "Mg_2+", "K_+", "SiO2", "Na_+","SO2_-4+"],
+        material_flow_basis=MaterialFlowBasis.mass,
     )
+    m.fs.params = WaterParameterBlock(
+            solute_list=["tds", "tss"]
+        )
+    
+    m.fs.UF = FlowsheetBlock(dynamic=False)
+    build_UF(m, m.fs.UF, m.fs.params)
 
     TransformationFactory("network.expand_arcs").apply_to(m)
-
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     return m
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
+    set_UF_op_conditions(m.fs.UF)
+    set_system_conditions(m.fs.UF)
+    init_UF(m, m.fs.UF)
+    print(m.fs.UF.display())
     # set_system_operating_conditions(m)
     # set_softener_op_conditions(m, m.fs.softener)
     # set_scaling(m)
     # # m.fs.softener.unit.display()
     # init_system(m)
+
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")

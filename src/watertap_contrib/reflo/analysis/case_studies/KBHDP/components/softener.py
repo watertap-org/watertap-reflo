@@ -117,7 +117,7 @@ def set_system_operating_conditions(m):
     alk_in = 0.0821 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
     CO2_in = 0.10844915* pyunits.kg / pyunits.m**3
     # q_in = 3785 * pyunits.m**3 / pyunits.day  # m3/d
-    q_in = 1 * pyunits.L / pyunits.s
+    q_in = 10 * pyunits.L / pyunits.s
     rho = 1000 * pyunits.kg / pyunits.m**3
 
     prop_in = soft.properties_in[0]
@@ -232,6 +232,11 @@ def set_scaling(m):
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
+def add_softener_costing(m, blk):
+    blk.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+    )
+
 
 def init_system(blk, solver=None):
     if solver is None:
@@ -288,7 +293,6 @@ def init_softener(m, blk, verbose=True, solver=None):
     # propagate_state(blk.unit_to_product)
 
     blk.report()
-
 
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
