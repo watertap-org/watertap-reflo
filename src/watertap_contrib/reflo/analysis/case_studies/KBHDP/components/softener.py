@@ -345,6 +345,30 @@ def report_MCAS_stream_conc(m):
     print(f'{"Overall TDS":<15s}: {sum(value(m.fs.feed.properties[0].conc_mass_phase_comp["Liq", i]) for i in solute_set):<10.3f}')
     print(f"{'Vol. Flow Rate':<15s}: {m.fs.feed.properties[0].flow_mass_phase_comp['Liq', 'H2O'].value:<10.3f}{pyunits.get_units(m.fs.feed.properties[0].flow_mass_phase_comp['Liq', 'H2O'])}")
 
+def report_softener(m):
+    print(f"\n\n-------------------- Softener Report --------------------\n")
+    print("Stream Table:")
+    print(f'{"Component":<20s}{"Flow In":<20s}{"Flow Product":<20s}{"Flow Waste":20s}{"Removal %":20s}')
+    for idx, val in m.fs.softener.unit.properties_in[0.0].flow_mass_phase_comp.items():
+        flow_in = val.value
+        flow_out = m.fs.softener.unit.properties_out[0.0].flow_mass_phase_comp[idx].value
+        flow_waste = m.fs.softener.unit.properties_waste[0.0].flow_mass_phase_comp[idx].value
+        removal = (flow_in - flow_out) / flow_in * 100
+        print(f"{idx[1]:20s}{flow_in:<20.3f}{flow_out:<20.3f}{flow_waste:<20.3f}{removal:<20.1f}")
+
+    print('\nDosing Details:')
+    print(f'{"CaO Dose":<20s}{m.fs.softener.unit.CaO_dosing.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.CaO_dosing)}')
+    print(f'{"MgCl Dose":<20s}{value(m.fs.softener.unit.MgCl2_dosing):<20.3f}{pyunits.get_units(m.fs.softener.unit.MgCl2_dosing)}')
+    print(f'{"Na2CO3 Dose":<20s}{m.fs.softener.unit.Na2CO3_dosing.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.Na2CO3_dosing)}')
+    print(f'{"Excess CaO":<20s}{m.fs.softener.unit.excess_CaO.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.excess_CaO)}')
+    print(f'{"CO2 CaCO3":<20s}{m.fs.softener.unit.CO2_CaCO3.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.CO2_CaCO3)}')
+    print(f'{"Sludge Produced":<20s}{m.fs.softener.unit.sludge_prod.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.sludge_prod)}')
+    
+    print('\nCosting Report:')
+    print(f'{"Capital Cost":<19s}{f"${m.fs.softener.unit.costing.capital_cost.value:<15,.0f}"}{pyunits.get_units(m.fs.softener.unit.costing.capital_cost)}')
+    print(f'{"Operating Cost":<19s}{f"${m.fs.softener.unit.costing.fixed_operating_cost.value:<15,.0f}"}{pyunits.get_units(m.fs.softener.unit.costing.fixed_operating_cost)}')
+    print(f'{"Electricity Flow":<20s}{m.fs.softener.unit.costing.electricity_flow.value:<15.2f}{pyunits.get_units(m.fs.softener.unit.costing.electricity_flow)}')
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))

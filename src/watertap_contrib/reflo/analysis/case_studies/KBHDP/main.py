@@ -55,12 +55,14 @@ from components.ro_system_simple import (
     set_ro_system_operating_conditions,
     init_ro_system,
     add_ro_costing,
+    report_RO,
 )
 from components.softener import (
     build_softener,
     init_softener,
     set_softener_op_conditions,
     add_softener_costing,
+    report_softener,
 )
 from components.UF import (
     build_UF,
@@ -110,7 +112,8 @@ def main():
     solve(m)
     display_system_stream_table(m)
     display_costing_breakdown(m)
-    
+    report_softener(m)
+    report_RO(m)
     
 
 def build_system():
@@ -640,29 +643,29 @@ def report_stream_ion_conc(m, stream):
 
 def display_system_stream_table(m):
     print("\n\n-------------------- SYSTEM STREAM TABLE --------------------\n\n")
+    print(
+        f'{"NODE":<20s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
+    )
+    print(
+        f'{"Feed":<20s}{m.fs.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}'
+    )
+    print(
+        f'{"Softener Inlet":<20s}{m.fs.softener.unit.properties_in[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.softener.unit.properties_in[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
+    )
+    print(
+        f'{"Softener Outlet":<20s}{m.fs.softener.unit.properties_out[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.softener.unit.properties_out[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
+    )
+    print(
+        f'{"RO Feed":<20s}{m.fs.RO.module.feed_side.properties[0.0,0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.feed_side.properties[0.0,0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.feed_side.properties[0.0,0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.feed_side.properties[0.0,0.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    )
+    print(
+        f'{"RO Product":<20s}{m.fs.RO.module.mixed_permeate[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.mixed_permeate[0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.mixed_permeate[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.mixed_permeate[0.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    )
+    print(
+        f'{"RO Disposal":<20s}{m.fs.RO.module.feed_side.properties[0.0,1.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.feed_side.properties[0.0,1.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.feed_side.properties[0.0,1.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    )
     print("\n\n")
-    print(
-        f'{"NODE":<34s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
-    )
-    print(
-        f'{"Feed":<34s}{m.fs.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}'
-    )
-    print(
-        f'{"Softener Inlet":<34s}{m.fs.softener.unit.properties_in[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.softener.unit.properties_in[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
-    )
-    print(
-        f'{"Softener Outlet":<34s}{m.fs.softener.unit.properties_out[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.softener.unit.properties_out[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
-    )
-    print(
-        f'{"RO Feed":<34s}{m.fs.RO.module.feed_side.properties[0.0,0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.feed_side.properties[0.0,0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.feed_side.properties[0.0,0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.feed_side.properties[0.0,0.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
-    print(
-        f'{"RO Product":<34s}{m.fs.RO.module.mixed_permeate[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.mixed_permeate[0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.mixed_permeate[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.mixed_permeate[0.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
-    print(
-        f'{"RO Disposal":<34s}{m.fs.RO.module.feed_side.properties[0.0,1.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.feed_side.properties[0.0,1.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.feed_side.properties[0.0,1.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
-    print("\n\n")
+
 
 def display_system_build(m):
     blocks = []
@@ -670,6 +673,7 @@ def display_system_build(m):
         ctype=Block, active=True, descend_into=False
     ):
         print(v)
+
 
 def display_costing_breakdown(m):
     header = f'{"PARAM":<25s}{"VALUE":<25s}{"UNITS":<25s}'
