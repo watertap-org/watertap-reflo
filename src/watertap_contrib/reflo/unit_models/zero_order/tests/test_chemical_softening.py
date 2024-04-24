@@ -100,8 +100,8 @@ class TestChemSoft1:
         prop_in.temperature.fix()
         prop_in.pressure.fix()
 
-        soft.ca_eff_target.fix(3)
-        soft.mg_eff_target.fix(0.2)
+        soft.ca_eff_target.fix(0.020 / 2.5)
+        soft.mg_eff_target.fix(0.010 / 4.12)
 
         soft.no_of_mixer.fix(1)
         soft.no_of_floc.fix(2)
@@ -151,6 +151,7 @@ class TestChemSoft1:
         assert not m.fs.soft.config.dynamic
         assert not m.fs.soft.config.has_holdup
         assert m.fs.soft.config.property_package is m.fs.properties
+        assert_units_consistent(m)
 
     @pytest.mark.unit
     def test_build(self, chem_soft_frame):
@@ -165,8 +166,8 @@ class TestChemSoft1:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 101
-        assert number_total_constraints(m) == 61
+        assert number_variables(m) == 94
+        assert number_total_constraints(m) == 54
         assert number_unused_variables(m) == 23
 
     @pytest.mark.unit
@@ -208,8 +209,8 @@ class TestChemSoft1:
         m = chem_soft_frame
 
         soft_results = {
-            "ca_eff_target": 3.0,
-            "mg_eff_target": 0.2,
+            "ca_eff_target": 0.008,
+            "mg_eff_target": 0.002427,
             "removal_efficiency": {"SiO2": 0.7, "Alkalinity_2-": 0.7},
             "retention_time_mixer": 0.4,
             "retention_time_floc": 25.0,
@@ -227,8 +228,8 @@ class TestChemSoft1:
             "frac_vol_recovery": 0.99,
             "CaO_dosing": 3112.844,
             "Na2CO3_dosing": 15652.679,
-            "CO2_first_basin": 652.793,
-            "CO2_second_basin": 631.26,
+            "CO2_first_basin": 335.7069632327798,
+            "CO2_second_basin": 50.06624071686062,
             "excess_CaO": 0.191157681,
             "CO2_CaCO3": 0.10844915,
             "sludge_prod": 0.235832903,
@@ -263,24 +264,24 @@ class TestChemSoft1:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 1072612.378,
-            "aggregate_fixed_operating_cost": 704966.719,
+            "aggregate_capital_cost": 995582.6042958912,
+            "aggregate_fixed_operating_cost": 695403.6896373838,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 0.424066958,
             "aggregate_flow_lime": 1401787.793,
-            "aggregate_flow_soda ash": 15652.678,
-            "aggregate_flow_co2": 469000.661,
+            "aggregate_flow_soda_ash": 15652.678,
+            "aggregate_flow_co2": 140903.66274258244,
             "aggregate_flow_costs": {
                 "electricity": 305.476,
                 "lime": 284655.559,
-                "soda ash": 4412996.0,
-                "co2": 211640.285,
+                "soda_ash": 4412996.0,
+                "co2": 63583.90040970207,
             },
-            "total_capital_cost": 1072612.378,
-            "maintenance_labor_chemical_operating_cost": 32178.371,
-            "total_operating_cost": 5646742.412,
-            "aggregate_direct_capital_cost": 1072612.378,
-            "LCOW": 4.153448,
+            "total_capital_cost": 995582.6042958911,
+            "maintenance_labor_chemical_operating_cost": 29867.478128876734,
+            "total_operating_cost": 5486812.104324022,
+            "aggregate_direct_capital_cost": 995582.6042958911,
+            "LCOW": 4.0324449631965855,
         }
         for v, r in sys_cost_results.items():
             softv = getattr(m.fs.costing, v)
@@ -291,8 +292,8 @@ class TestChemSoft1:
                 assert pytest.approx(value(softv), rel=1e-3) == r
 
         soft_cost_results = {
-            "capital_cost": 1072612.378,
-            "fixed_operating_cost": 704966.719,
+            "capital_cost": 995582.6042958911,
+            "fixed_operating_cost": 695403.6896373837,
             "mixer_power": 94.822,
             "floc_power": 329.244,
             "electricity_flow": 0.424066958,
@@ -300,20 +301,20 @@ class TestChemSoft1:
             "floc_tank_capital_cost": 240667.366,
             "sed_basin_capital_cost": 253632.68,
             "recarb_basin_capital_cost": 37274.263,
-            "recarb_basin_source_capital_cost": 243330.372,
+            "recarb_basin_source_capital_cost": 166300.5983789648,
             "lime_feed_system_capital_cost": 199005.459,
             "admin_capital_cost": 69270.535,
             "mix_tank_op_cost": 22694.68,
             "floc_tank_op_cost": 7510.352,
             "sed_basin_op_cost": 8141.784,
-            "recarb_basin_op_cost": 24809.35,
+            "recarb_basin_op_cost": 15246.320331195193,
             "lime_feed_op_cost": 266009.828,
             "lime_sludge_mngt_op_cost": 287131.377,
             "admin_op_cost": 88669.344,
             "cost_factor": 1.0,
-            "direct_capital_cost": 1072612.378,
+            "direct_capital_cost": 995582.6042958911,
             "cao_dosing": 1401787.793,
-            "co2_dosing": 469000.661,
+            "co2_dosing": 140903.66274258212,
         }
 
         for v, r in soft_cost_results.items():
@@ -366,8 +367,8 @@ class TestChemSoft2:
             q_in * alk_in, to_units=pyunits.kg / pyunits.s
         )
 
-        soft.ca_eff_target.fix()
-        soft.mg_eff_target.fix()
+        soft.ca_eff_target.fix(0.020 / 2.5)
+        soft.mg_eff_target.fix(0.010 / 4.12)
 
         soft.no_of_mixer.fix(1)
         soft.no_of_floc.fix(2)
@@ -421,6 +422,7 @@ class TestChemSoft2:
         assert not m.fs.soft.config.dynamic
         assert not m.fs.soft.config.has_holdup
         assert m.fs.soft.config.property_package is m.fs.properties
+        assert_units_consistent(m)
 
     @pytest.mark.unit
     def test_build(self, chem_soft_frame):
@@ -435,8 +437,8 @@ class TestChemSoft2:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 90
-        assert number_total_constraints(m) == 49
+        assert number_variables(m) == 84
+        assert number_total_constraints(m) == 43
         assert number_unused_variables(m) == 24
 
     @pytest.mark.unit
@@ -478,8 +480,8 @@ class TestChemSoft2:
         m = chem_soft_frame
 
         soft_results = {
-            "ca_eff_target": 0.02,
-            "mg_eff_target": 0.01,
+            "ca_eff_target": 0.008,
+            "mg_eff_target": 0.0024271844660194173,
             "removal_efficiency": {"Alkalinity_2-": 0.7},
             "retention_time_mixer": 0.4,
             "retention_time_floc": 25.0,
@@ -547,12 +549,12 @@ class TestChemSoft2:
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 5.591,
             "aggregate_flow_lime": 8290.679,
-            "aggregate_flow_soda ash": 0.0,
+            "aggregate_flow_soda_ash": 0.0,
             "aggregate_flow_co2": 770.12,
             "aggregate_flow_costs": {
                 "electricity": 4028.055,
                 "lime": 1683.555,
-                "soda ash": 0.0,
+                "soda_ash": 0.0,
                 "co2": 347.522,
             },
             "total_capital_cost": 2529666.844,
@@ -560,7 +562,7 @@ class TestChemSoft2:
             "total_operating_cost": 1168139.892,
             "capital_recovery_factor": 0.1,
             "lime_cost": 0.171,
-            "soda ash_cost": 0.65,
+            "soda_ash_cost": 0.65,
             "mgcl2_cost": 1.5,
             "co2_cost": 0.38,
             "aggregate_direct_capital_cost": 2529666.844,
@@ -608,6 +610,7 @@ class TestChemSoft2:
                     assert pytest.approx(value(softv[i]), rel=1e-3) == s
             else:
                 assert pytest.approx(value(softv), rel=1e-3) == r
+
 
 class TestChemSoft3:
     @pytest.fixture(scope="class")
@@ -709,7 +712,7 @@ class TestChemSoft3:
 
     @pytest.mark.unit
     def test_build(self, chem_soft_frame):
-        
+
         m = chem_soft_frame
 
         # Test ports
@@ -720,6 +723,6 @@ class TestChemSoft3:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 90
-        assert number_total_constraints(m) == 50
+        assert number_variables(m) == 84
+        assert number_total_constraints(m) == 44
         assert number_unused_variables(m) == 24
