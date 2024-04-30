@@ -12,3 +12,4 @@
 
 from .zero_order.chemical_softening_zo import ChemicalSofteningZO
 from .air_stripping_0D import AirStripping0D
+from .forward_osmosis_0D import ForwardOsmosis0D
