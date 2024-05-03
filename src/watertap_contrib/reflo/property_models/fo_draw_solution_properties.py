@@ -38,7 +38,12 @@ from idaes.core.util.model_statistics import (
 )
 import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
-from idaes.core.util.exceptions import InitializationError
+
+from idaes.core.util.exceptions import (
+    ConfigurationError,
+    InitializationError,
+    PropertyPackageError,
+)
 
 from pyomo.environ import (
     Param,
@@ -54,6 +59,7 @@ from pyomo.environ import (
 )
 from pyomo.common.config import ConfigValue
 
+from watertap.core.util.scaling import transform_property_constraints
 
 __author__ = "Zhuoran Zhang"
 
@@ -98,51 +104,51 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
         )
 
         self.dens_mass_param_A1 = Param(
-            initialize=1.1849,
+            initialize=1.1849e2,
             units=dens_units,
             doc="Mass density parameter A1",
         )
 
         self.dens_mass_param_A2 = Param(
-            initialize=1.1455e-2,
+            initialize=1.1455e2,
             units=dens_units,
             doc="Mass density parameter A2",
         )
 
         self.dens_mass_param_A3 = Param(
-            initialize=-1.63e-4,
+            initialize=-1.6343e2,
             units=dens_units,
             doc="Mass density parameter A3",
         )
 
         # osmotic coefficient parameters, equation derived from experimental data
         self.osm_coeff_param_0 = Param(
-            initialize=1.2370854e5,
+            initialize=-1.2370854e5,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 0",
         )
         self.osm_coeff_param_1 = Param(
-            initialize=1.2961975e5,
+            initialize=1.2961975e7,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 1",
         )
         self.osm_coeff_param_2 = Param(
-            initialize=1.386231e4,
+            initialize=-1.386231e8,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 2",
         )
         self.osm_coeff_param_3 = Param(
-            initialize=6.356857e2,
+            initialize=6.356857e8,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 3",
         )
         self.osm_coeff_param_4 = Param(
-            initialize=-1.10696e1,
+            initialize=-1.10696e9,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 4",
         )
         self.osm_coeff_param_5 = Param(
-            initialize=6.92e-2,
+            initialize=6.9232e8,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 5",
         )
@@ -155,12 +161,12 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
             doc="Specific heat of seawater parameter A0",
         )
         self.cp_phase_param_A1 = Param(
-            initialize=-3.49888e1,
+            initialize=-3.49888e3,
             units=cp_units,
             doc="Specific heat of seawater parameter A1",
         )
         self.cp_phase_param_A2 = Param(
-            initialize=1.33883e-1,
+            initialize=1.33883e3,
             units=cp_units,
             doc="Specific heat of seawater parameter A2",
         )
@@ -262,19 +268,6 @@ class _FODrawSolutionStateBlock(StateBlock):
         # Fix state variables
         flags = fix_state_vars(self, state_args)
 
-        # initialize vars calculated from state vars
-        # for k in self.keys():
-        #     for j in self[k].params.component_list:
-        #         if self[k].is_property_constructed("flow_mass_comp"):
-        #             if j == "H2O":
-        #                 self[k].flow_mass_comp[j].set_value(
-        #                     self[k].flow_vol * self[k].dens_mass
-        #                 )
-        #             else:
-        #                 self[k].flow_mass_comp[j].set_value(
-        #                     self[k].flow_vol * self[k].conc_mass_comp[j]
-        #                 )
-
         # Check when the state vars are fixed already result in dof 0
         for k in self.keys():
             dof = degrees_of_freedom(self[k])
@@ -329,12 +322,116 @@ class _FODrawSolutionStateBlock(StateBlock):
         """
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="properties")
 
-        if flags is None:
-            return
-
         # Unfix state variables
         revert_state_vars(self, flags)
         init_log.info("State Released.")
+
+    def calculate_state(
+        self,
+        var_args=None,
+        hold_state=False,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
+    ):
+        """
+        Solves state blocks given a set of variables and their values. These variables can
+        be state variables or properties. This method is typically used before
+        initialization to solve for state variables because non-state variables (i.e. properties)
+        cannot be fixed in initialization routines.
+        Keyword Arguments:
+            var_args : dictionary with variables and their values, they can be state variables or properties
+                       {(VAR_NAME, INDEX): VALUE}
+            hold_state : flag indicating whether all of the state variables should be fixed after calculate state.
+                         True - State variables will be fixed.
+                         False - State variables will remain unfixed, unless already fixed.
+            outlvl : idaes logger object that sets output level of solve call (default=idaeslog.NOTSET)
+            solver : solver name string if None is provided the default solver
+                     for IDAES will be used (default = None)
+            optarg : solver options dictionary object (default={})
+        Returns:
+            results object from state block solve
+        """
+        # Get logger
+        solve_log = idaeslog.getSolveLogger(self.name, level=outlvl, tag="properties")
+
+        # Initialize at current state values (not user provided)
+        self.initialize(solver=solver, optarg=optarg, outlvl=outlvl)
+
+        # Set solver and options
+        opt = get_solver(solver, optarg)
+
+        # Fix variables and check degrees of freedom
+        flags = (
+            {}
+        )  # dictionary noting which variables were fixed and their previous state
+        for k in self.keys():
+            sb = self[k]
+            for (v_name, ind), val in var_args.items():
+                var = getattr(sb, v_name)
+                if iscale.get_scaling_factor(var[ind]) is None:
+                    _log.warning(
+                        "While using the calculate_state method on {sb_name}, variable {v_name} "
+                        "was provided as an argument in var_args, but it does not have a scaling "
+                        "factor. This suggests that the calculate_scaling_factor method has not been "
+                        "used or the variable was created on demand after the scaling factors were "
+                        "calculated. It is recommended to touch all relevant variables (i.e. call "
+                        "them or set an initial value) before using the calculate_scaling_factor "
+                        "method.".format(v_name=v_name, sb_name=sb.name)
+                    )
+                if var[ind].is_fixed():
+                    flags[(k, v_name, ind)] = True
+                    if value(var[ind]) != val:
+                        raise ConfigurationError(
+                            "While using the calculate_state method on {sb_name}, {v_name} was "
+                            "fixed to a value {val}, but it was already fixed to value {val_2}. "
+                            "Unfix the variable before calling the calculate_state "
+                            "method or update var_args."
+                            "".format(
+                                sb_name=sb.name,
+                                v_name=var.name,
+                                val=val,
+                                val_2=value(var[ind]),
+                            )
+                        )
+                else:
+                    flags[(k, v_name, ind)] = False
+                    var[ind].fix(val)
+
+            if degrees_of_freedom(sb) != 0:
+                raise RuntimeError(
+                    "While using the calculate_state method on {sb_name}, the degrees "
+                    "of freedom were {dof}, but 0 is required. Check var_args and ensure "
+                    "the correct fixed variables are provided."
+                    "".format(sb_name=sb.name, dof=degrees_of_freedom(sb))
+                )
+
+        # Solve
+        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
+            results = solve_indexed_blocks(opt, [self], tee=slc.tee)
+            solve_log.info_high(
+                "Calculate state: {}.".format(idaeslog.condition(results))
+            )
+
+        if not check_optimal_termination(results):
+            _log.warning(
+                "While using the calculate_state method on {sb_name}, the solver failed "
+                "to converge to an optimal solution. This suggests that the user provided "
+                "infeasible inputs, or that the model is poorly scaled, poorly initialized, "
+                "or degenerate."
+            )
+
+        # unfix all variables fixed with var_args
+        for (k, v_name, ind), previously_fixed in flags.items():
+            if not previously_fixed:
+                var = getattr(self[k], v_name)
+                var[ind].unfix()
+
+        # fix state variables if hold_state
+        if hold_state:
+            fix_state_vars(self)
+
+        return results
 
 
 @declare_process_block_class(
@@ -383,7 +480,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
             self.params.phase_list,
             self.params.component_list,
             initialize=0.1,
-            bounds=(0.0, None),
+            bounds=(0.0, 1),
             units=pyunits.dimensionless,
             doc="Mass fraction",
         )
@@ -409,7 +506,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
         )
 
         def rule_dens_mass_phase(b, p):  # density, eqn derived from experimental data
-            s = b.mass_frac_phase_comp[p, "DrawSolution"] * 100
+            s = b.mass_frac_phase_comp[p, "DrawSolution"]
             dens_mass = (
                 b.params.dens_mass_param_A0
                 + b.params.dens_mass_param_A1 * s
@@ -476,7 +573,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
         def rule_pressure_osm_phase(
             b, p
         ):  # osmotic pressure, derived from experimental data
-            s = b.mass_frac_phase_comp[p, "DrawSolution"] * 100
+            s = b.mass_frac_phase_comp[p, "DrawSolution"]
             pressure_osm_phase = (
                 b.params.osm_coeff_param_0
                 + b.params.osm_coeff_param_1 * s
@@ -503,7 +600,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
         def rule_cp_mass_phase(
             b, p
         ):  # specific heat, equation derived from experimental data
-            s = b.mass_frac_phase_comp[p, "DrawSolution"] * 100
+            s = b.mass_frac_phase_comp[p, "DrawSolution"]
             cp_mass_phase = (
                 b.params.cp_phase_param_A0
                 + b.params.cp_phase_param_A1 * s
@@ -527,6 +624,9 @@ class FODrawSolutionStateBlockData(StateBlockData):
 
     def get_material_flow_basis(self):
         return MaterialFlowBasis.mass
+
+    def default_energy_balance_type(self):
+        return EnergyBalanceType.none
 
     def define_state_vars(self):
         """Define state vars."""
@@ -614,3 +714,5 @@ class FODrawSolutionStateBlockData(StateBlockData):
                                 self.mass_frac_phase_comp["Liq", j]
                             ),
                         )
+
+        transform_property_constraints(self)

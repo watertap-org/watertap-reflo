@@ -37,17 +37,11 @@ from watertap.property_models.tests.property_test_harness import PropertyAttribu
 
 import watertap_contrib.reflo.property_models.fo_draw_solution_properties as ds_props
 
+from watertap.property_models.tests.property_test_harness import (
+    PropertyTestHarness,
+)
 
 solver = get_solver()
-
-# class TestFODrawSolutionProperty_idaes(PropertyTestHarness_idaes):
-#     def configure(self):
-#         self.prop_pack = ds_props.FODrawSolutionParameterBlock
-#         self.param_args = {}
-#         self.prop_args = {}
-
-#         self.skip_initialization_raises_exception_test = True
-#         self.skip_state_block_mole_frac_phase_comp_test = True
 
 
 @pytest.fixture(scope="module")
@@ -58,6 +52,57 @@ def m():
     m.fs.properties = ds_props.FODrawSolutionParameterBlock()
 
     return m
+
+
+class TestSeawaterProperty(PropertyTestHarness):
+    def configure(self):
+        self.prop_pack = ds_props.FODrawSolutionParameterBlock
+        self.param_args = {}
+        self.scaling_args = {
+            ("flow_mass_phase_comp", ("Liq", "H2O")): 1,
+            ("flow_mass_phase_comp", ("Liq", "DrawSolution")): 1,
+        }
+        self.stateblock_statistics = {
+            "number_variables": 12,
+            "number_total_constraints": 8,
+            "number_unused_variables": 2,
+            "default_degrees_of_freedom": 2,
+        }  # 4 state vars, but pressure is not active
+        self.default_solution = {
+            ("mass_frac_phase_comp", ("Liq", "H2O")): 0.2,
+            ("mass_frac_phase_comp", ("Liq", "DrawSolution")): 0.8,
+            ("dens_mass_phase", "Liq"): 1084.87,
+            ("flow_vol_phase", "Liq"): 9.2170e-4,
+            ("conc_mass_phase_comp", ("Liq", "H2O")): 216.975,
+            ("conc_mass_phase_comp", ("Liq", "DrawSolution")): 867.899,
+            ("pressure_osm_phase", "Liq"): 2.0447e7,
+            ("cp_mass_phase", "Liq"): 2257.78,
+        }
+
+
+# @pytest.mark.component
+# class TestCalculateState(PropertyCalculateStateTest):
+#     def configure(self):
+#         self.prop_pack = ds_props.FODrawSolutionStateBlock
+#         self.param_args = {}
+
+#         self.solver = "ipopt"
+#         self.optarg = {"nlp_scaling_method": "user-scaling"}
+
+#         self.scaling_args = {
+#             ("flow_mass_phase_comp", ("Liq", "H2O")): 1e0,
+#             ("flow_mass_phase_comp", ("Liq", "DrawSolution")): 1e0,
+#         }
+#         self.var_args = {
+#             ("flow_vol_phase", "Liq"): 1,
+#             ("mass_frac_phase_comp", ("Liq", "DrawSolution")): 0.5,
+#             ("temperature", None): 273.15 + 25,
+#             ("pressure", None): 101325,
+#         }
+#         self.state_solution = {
+#             ("flow_mass_phase_comp", ("Liq", "H2O")): 19.66,
+#             ("flow_mass_phase_comp", ("Liq", "DrawSolution")): 1.035,
+#         }
 
 
 @pytest.mark.unit
@@ -118,16 +163,10 @@ def test_parameters(m):
     assert number_total_constraints(m) == 8
     assert number_unused_variables(m) == 2
 
-    m.fs.stream[0].flow_mass_phase_comp["Liq", "H2O"].fix(0.5)
-    m.fs.stream[0].flow_mass_phase_comp["Liq", "DrawSolution"].fix(0.5)
+    m.fs.stream[0].flow_mass_phase_comp["Liq", "H2O"].fix(0.6)
+    m.fs.stream[0].flow_mass_phase_comp["Liq", "DrawSolution"].fix(1.4)
     m.fs.stream[0].temperature.fix(25 + 273.15)
     m.fs.stream[0].pressure.fix(101325)
-    m.fs.stream[0].dens_mass_phase[...]
-    m.fs.stream[0].cp_mass_phase[...]
-    m.fs.stream[0].pressure_osm_phase[...]
-    m.fs.stream[0].flow_vol_phase[...]
-    m.fs.stream[0].conc_mass_phase_comp[...]
-    m.fs.stream[0].mass_frac_phase_comp[...]
 
     m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "H2O"))
     m.fs.properties.set_default_scaling(
@@ -146,26 +185,49 @@ def test_parameters(m):
     assert_optimal_termination(results)
 
     assert value(m.fs.stream[0].dens_mass_phase["Liq"]) == pytest.approx(
-        1067.9535, rel=1e-3
+        1083.462, rel=1e-3
     )
     assert value(m.fs.stream[0].cp_mass_phase["Liq"]) == pytest.approx(
-        2785.2975, rel=1e-3
+        2406.8407, rel=1e-3
     )
     assert value(m.fs.stream[0].pressure_osm_phase["Liq"]) == pytest.approx(
-        7.3161e7, rel=1e-3
+        9.64168e6, rel=1e-3
     )
     assert value(m.fs.stream[0].flow_vol_phase["Liq"]) == pytest.approx(
-        9.3637e-4, rel=1e-3
+        1.8459e-3, rel=1e-3
     )
     assert value(m.fs.stream[0].conc_mass_phase_comp["Liq", "H2O"]) == pytest.approx(
-        533.977, rel=1e-3
+        325.0386, rel=1e-3
     )
     assert value(
         m.fs.stream[0].conc_mass_phase_comp["Liq", "DrawSolution"]
-    ) == pytest.approx(533.977, rel=1e-3)
+    ) == pytest.approx(758.423, rel=1e-3)
     assert value(m.fs.stream[0].mass_frac_phase_comp["Liq", "H2O"]) == pytest.approx(
-        0.5, rel=1e-3
+        0.3, rel=1e-3
     )
     assert value(
         m.fs.stream[0].mass_frac_phase_comp["Liq", "DrawSolution"]
-    ) == pytest.approx(0.5, rel=1e-3)
+    ) == pytest.approx(0.7, rel=1e-3)
+
+
+@pytest.mark.component
+def test_calculate_state(m):
+    m.fs.stream2 = m.fs.properties.build_state_block([0], defined_state=True)
+
+    m.fs.stream2.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): 1,
+            ("mass_frac_phase_comp", ("Liq", "DrawSolution")): 0.5,
+            ("temperature", None): 25 + 273.15,
+            # feed flow is at atmospheric pressure
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    assert value(m.fs.stream2[0].flow_mass_phase_comp["Liq", "H2O"]) == pytest.approx(
+        533.95, rel=1e-3
+    )
+    assert value(
+        m.fs.stream2[0].flow_mass_phase_comp["Liq", "DrawSolution"]
+    ) == pytest.approx(533.95, rel=1e-3)
