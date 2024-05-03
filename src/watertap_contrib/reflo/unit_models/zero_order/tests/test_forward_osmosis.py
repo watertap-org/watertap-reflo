@@ -20,19 +20,14 @@ from pyomo.environ import (
 import re
 from pyomo.network import Port
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.reflo.unit_models.zero_order.forward_osmosis_zo import (
-    ForwardOsmosisZO,
-)
-from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
-    FODrawSolutionParameterBlock,
-)
+from watertap_contrib.reflo.unit_models.zero_order.forward_osmosis_zo import ForwardOsmosisZO
+from watertap_contrib.reflo.property_models.fo_draw_solution_properties import FODrawSolutionParameterBlock
 
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap_contrib.reflo.costing import REFLOCosting
 from idaes.core.util.testing import initialization_tester
 from idaes.core.util.exceptions import ConfigurationError
-from watertap.core.util.initialization import assert_no_degrees_of_freedom
-from pyomo.util.check_units import assert_units_consistent
+
 
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
@@ -72,12 +67,8 @@ class TestMEDTVC:
         )
 
         fo = m.fs.fo
-        feed = fo.feed_props[0]
-        brine = fo.brine_props[0]
         strong_draw = fo.strong_draw_props[0]
-        weak_draw = fo.weak_draw_props[0]
         product = fo.product_props[0]
-        reg_draw = fo.reg_draw_props[0]
 
         # System specifications
         recovery_ratio = 0.3  # Assumed FO recovery ratio
@@ -151,6 +142,22 @@ class TestMEDTVC:
         )
 
         return m
+    
+    @pytest.mark.unit
+    def test_build(self, FO_frame):
+        m = FO_frame
+
+        # test ports
+        port_lst = ["feed", "brine", "strong_draw", "weak_draw", "reg_draw", "product"]
+        for port_str in port_lst:
+            port = getattr(m.fs.fo, port_str)
+            assert isinstance(port, Port)
+            assert len(port.vars) == 3
+
+        # test statistics
+        assert number_variables(m) == 163
+        assert number_total_constraints(m) == 50
+        assert number_unused_variables(m) == 70  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, FO_frame):

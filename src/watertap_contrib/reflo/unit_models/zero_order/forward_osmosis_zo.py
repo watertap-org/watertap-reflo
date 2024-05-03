@@ -15,7 +15,6 @@ from copy import deepcopy
 # Import Pyomo libraries
 from pyomo.environ import (
     Var,
-    Param,
     Suffix,
     check_optimal_termination,
     units as pyunits,
@@ -32,10 +31,9 @@ from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
 from idaes.core.solvers import get_solver
-from idaes.core.util.exceptions import ConfigurationError, InitializationError
+from idaes.core.util.exceptions import InitializationError
 from idaes.core.util.tables import (
     create_stream_table_dataframe,
-    stream_table_dataframe_to_string,
 )
 import idaes.logger as idaeslog
 
@@ -118,8 +116,6 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         super().build()
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
-
-        units_meta = self.config.property_package_water.get_metadata().get_derived_units
 
         """
         Specify system configurations
