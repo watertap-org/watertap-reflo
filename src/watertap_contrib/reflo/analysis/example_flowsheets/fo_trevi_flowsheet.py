@@ -184,3 +184,5 @@ if __name__=="__main__":
     results = solver.solve(m)
     assert_optimal_termination(results)
 
+    print(m.fs.fo.strong_draw_props[0].flow_vol_phase["Liq"].value)
+
