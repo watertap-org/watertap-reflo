@@ -48,6 +48,7 @@ from idaes.core.util.exceptions import (
 from pyomo.environ import (
     Param,
     PositiveReals,
+    Expression,
     units as pyunits,
     Reals,
     NonNegativeReals,
@@ -177,6 +178,7 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
         self.set_default_scaling("pressure", 1e-6)
         self.set_default_scaling("dens_mass_phase", 1e-3, index="Liq")
         self.set_default_scaling("cp_mass_phase", 1e-3, index="Liq")
+        self.set_default_scaling("enth_mass_phase", 1e-5, index="Liq")
 
     @classmethod
     def define_metadata(cls, obj):
@@ -201,6 +203,8 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
                 "dens_mass_phase": {"method": "_dens_mass_phase"},
                 "pressure_osm_phase": {"method": "_pressure_osm_phase"},
                 "cp_mass_phase": {"method": "_cp_mass_phase"},
+                "enth_mass_phase": {"method": "_enth_mass_phase"},
+                "enth_flow": {"method": "_enth_flow"},
                 # "visc_d": {"method": "_visc_d"},
             }
         )
@@ -613,12 +617,44 @@ class FODrawSolutionStateBlockData(StateBlockData):
             self.params.phase_list, rule=rule_cp_mass_phase
         )
 
+    def _enth_mass_phase(self):
+        self.enth_mass_phase = Var(
+            self.params.phase_list,
+            initialize=1e6,
+            bounds=(1, 1e9),
+            units=pyunits.J * pyunits.kg**-1,
+            doc="Specific enthalpy",
+        )
+
+        def rule_enth_mass_phase(
+            b, p
+        ): 
+            return (b.enth_mass_phase[p] == b.cp_mass_phase[p] * (b.temperature - 273.15 * pyunits.K))
+            
+        self.eq_enth_mass_phase = Constraint(
+            self.params.phase_list, rule=rule_enth_mass_phase
+        )
+
+    def _enth_flow(self):
+        # enthalpy flow expression for get_enthalpy_flow_terms method
+
+        def rule_enth_flow(b):  # enthalpy flow [J/s]
+            return (
+                sum(b.flow_mass_phase_comp["Liq", j] for j in b.params.component_list)
+                * b.enth_mass_phase["Liq"]
+            )
+
+        self.enth_flow = Expression(rule=rule_enth_flow)
     # -----------------------------------------------------------------------------
     # General Methods
     def get_material_flow_terms(self, p, j):
         """Create material flow terms for control volume."""
         return self.flow_mass_phase_comp[p, j]
 
+    def get_enthalpy_flow_terms(self, p):
+        """Create enthalpy flow terms."""
+        return self.enth_flow
+    
     def default_material_balance_type(self):
         return MaterialBalanceType.componentTotal
 
@@ -714,5 +750,12 @@ class FODrawSolutionStateBlockData(StateBlockData):
                                 self.mass_frac_phase_comp["Liq", j]
                             ),
                         )
+
+        if self.is_property_constructed("enth_flow"):
+            iscale.set_scaling_factor(
+                self.enth_flow,
+                iscale.get_scaling_factor(self.flow_mass_phase_comp["Liq", "H2O"])
+                * iscale.get_scaling_factor(self.enth_mass_phase["Liq"]),
+            )
 
         transform_property_constraints(self)
