@@ -151,6 +151,7 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
 
     def build(self):
         super().build()
+        self._tech_type = "vagmd_surrogate"
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 

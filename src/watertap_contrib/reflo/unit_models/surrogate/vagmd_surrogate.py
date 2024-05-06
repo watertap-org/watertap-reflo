@@ -137,7 +137,7 @@ class VAGMDData(VAGMDBaseData):
             initialize=2000,
             bounds=(0, None),
             units=pyunits.m**3 / pyunits.day,
-            doc="Permeate flux",
+            doc="System capacity",
         )
 
         self.num_modules = Var(
