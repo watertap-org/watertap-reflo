@@ -63,13 +63,8 @@ class TestSeawaterProperty(PropertyTestHarness):
             ("flow_mass_phase_comp", ("Liq", "DrawSolution")): 1,
         }
         self.stateblock_statistics = {
-<<<<<<< Updated upstream
-            "number_variables": 13,
-            "number_total_constraints": 9,
-=======
             "number_variables": 14,
             "number_total_constraints": 10,
->>>>>>> Stashed changes
             "number_unused_variables": 1,
             "default_degrees_of_freedom": 3,
         }  # 4 state vars, but pressure is not active
@@ -80,15 +75,11 @@ class TestSeawaterProperty(PropertyTestHarness):
             ("flow_vol_phase", "Liq"): 9.2170e-4,
             ("conc_mass_phase_comp", ("Liq", "H2O")): 216.975,
             ("conc_mass_phase_comp", ("Liq", "DrawSolution")): 867.899,
-<<<<<<< Updated upstream
-            ("pressure_osm_phase", "Liq"): 2.0447e7,
-            ("cp_mass_phase", "Liq"): 2257.78,
-=======
             ("pressure_osm_phase", "Liq"): 1.5697e7,
             ("cp_mass_phase", "Liq"): 2257.78,
             # ("heat_separation_phase", "Liq"): 1e-5,
->>>>>>> Stashed changes
         }
+
 
 @pytest.mark.unit
 def test_parameter_block(m):
@@ -149,12 +140,9 @@ def test_parameters(m):
     m.fs.stream[0].temperature.fix(25 + 273.15)
     m.fs.stream[0].pressure.fix(101325)
 
-<<<<<<< Updated upstream
-=======
     # Active liquid separation
     m.fs.stream[0].liquid_separation = 1
 
->>>>>>> Stashed changes
     m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "H2O"))
     m.fs.properties.set_default_scaling(
         "flow_mass_phase_comp", 1, index=("Liq", "DrawSolution")
@@ -181,11 +169,7 @@ def test_parameters(m):
         6.0171e4, rel=1e-3
     )
     assert value(m.fs.stream[0].pressure_osm_phase["Liq"]) == pytest.approx(
-<<<<<<< Updated upstream
-        9.64168e6, rel=1e-3
-=======
         9.9468e6, rel=1e-3
->>>>>>> Stashed changes
     )
     assert value(m.fs.stream[0].flow_vol_phase["Liq"]) == pytest.approx(
         1.8459e-3, rel=1e-3
@@ -202,15 +186,12 @@ def test_parameters(m):
     assert value(
         m.fs.stream[0].mass_frac_phase_comp["Liq", "DrawSolution"]
     ) == pytest.approx(0.7, rel=1e-3)
-<<<<<<< Updated upstream
-=======
-    assert value(
-        m.fs.stream[0].enth_mass_phase["Liq"]
-    ) == pytest.approx(60171.0, rel=1e-3)
-    assert value(
-        m.fs.stream[0].heat_separation_phase["Liq"]
-    ) == pytest.approx(6750, rel=1e-3)
->>>>>>> Stashed changes
+    assert value(m.fs.stream[0].enth_mass_phase["Liq"]) == pytest.approx(
+        60171.0, rel=1e-3
+    )
+    assert value(m.fs.stream[0].heat_separation_phase["Liq"]) == pytest.approx(
+        6750, rel=1e-3
+    )
 
 
 @pytest.mark.component

@@ -37,9 +37,9 @@ from idaes.core.util.tables import (
 )
 import idaes.logger as idaeslog
 
-# from watertap_contrib.reflo.costing.units.forward_osmosis_zo import (
-#     cost_forward_osmosis,
-# )
+from watertap_contrib.reflo.costing.units.forward_osmosis_zo import (
+    cost_forward_osmosis,
+)
 
 _log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
@@ -124,9 +124,6 @@ class ForwardOsmosisZOData(UnitModelBlockData):
             initialize=0.3,
             bounds=(0, 1),
             units=pyunits.dimensionless,
-<<<<<<< Updated upstream
-            doc="Recovery ratio",
-=======
             doc="Recovery ratio of FO",
         )
 
@@ -135,7 +132,6 @@ class ForwardOsmosisZOData(UnitModelBlockData):
             bounds=(0, 1),
             units=pyunits.dimensionless,
             doc="Recovery ratio of nanofiltration",
->>>>>>> Stashed changes
         )
 
         self.regeneration_temp = Var(
@@ -281,27 +277,25 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         def eq_brine_vol_flow(b):
             return b.brine_props[0].flow_vol_phase["Liq"] == b.feed_props[
                 0
-            ].flow_vol_phase["Liq"] * (1 - b.recovery_ratio)
+            ].flow_vol_phase["Liq"] * (
+                1 - b.recovery_ratio / b.nanofiltration_recovery_ratio
+            )
 
         @self.Constraint(doc="Brine salinity")
         def eq_brine_salinity(b):
             return b.brine_props[0].conc_mass_phase_comp["Liq", "TDS"] == b.feed_props[
                 0
-            ].conc_mass_phase_comp["Liq", "TDS"] / (1 - b.recovery_ratio)
+            ].conc_mass_phase_comp["Liq", "TDS"] / (
+                1 - b.recovery_ratio / b.nanofiltration_recovery_ratio
+            )
 
         @self.Constraint(doc="Product water flow rate")
         def eq_product_water_mass_flow(b):
             return (
-<<<<<<< Updated upstream
-                b.product_props[0].flow_mass_phase_comp["Liq", "H2O"]
-                == b.feed_props[0].flow_mass_phase_comp["Liq", "H2O"]
-                - b.brine_props[0].flow_mass_phase_comp["Liq", "H2O"]
-=======
                 b.product_props[0].flow_vol_phase["Liq"]
                 == b.feed_props[0].flow_vol_phase["Liq"]
                 * b.recovery_ratio
                 / b.nanofiltration_recovery_ratio
->>>>>>> Stashed changes
             )
 
         @self.Constraint(doc="Draw solution mass remains same in the system")
@@ -348,11 +342,8 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         def eq_temp_dif_membrane1(b):
             return b.delta_temp_membrane == pyunits.convert(
                 b.heat_transfer_to_weak_draw
-<<<<<<< Updated upstream
-                * b.product_props[0].flow_vol_phase["Liq"]
-=======
-                * pyunits.m**3 / pyunits.s
->>>>>>> Stashed changes
+                * pyunits.m**3
+                / pyunits.s
                 / b.weak_draw_props[0].dens_mass_phase["Liq"]
                 / b.weak_draw_props[0].flow_vol_phase["Liq"]
                 / b.weak_draw_props[0].cp_mass_phase["Liq"],
@@ -365,11 +356,8 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         def eq_temp_dif_membrane2(b):
             return b.delta_temp_membrane == pyunits.convert(
                 b.heat_transfer_to_brine
-<<<<<<< Updated upstream
-                * b.product_props[0].flow_vol_phase["Liq"]
-=======
-                * pyunits.m**3 / pyunits.s
->>>>>>> Stashed changes
+                * pyunits.m**3
+                / pyunits.s
                 / b.brine_props[0].dens_mass_phase["Liq"]
                 / b.brine_props[0].flow_vol_phase["Liq"]
                 / b.brine_props[0].cp_mass_phase["Liq"],
@@ -482,16 +470,13 @@ class ForwardOsmosisZOData(UnitModelBlockData):
                 else:
                     state_args[k] = state_dict[k].value
 
-<<<<<<< Updated upstream
-=======
         # Initial guess of brine properties
->>>>>>> Stashed changes
         state_args_brine = deepcopy(state_args)
         for p, j in blk.brine_props.phase_component_set:
             if p == "Liq" and j == "H2O":
                 state_args_brine["flow_mass_phase_comp"][(p, j)] = (
                     state_args["flow_mass_phase_comp"][(p, j)]
-                    * (1 - blk.recovery_ratio)
+                    * (1 - blk.recovery_ratio / blk.nanofiltration_recovery_ratio)
                     * pyunits.kg
                     / pyunits.s
                 )
@@ -518,41 +503,28 @@ class ForwardOsmosisZOData(UnitModelBlockData):
                     ].value
             else:
                 state_args_draw_solution[k] = state_dict_draw_solution[k].value
-<<<<<<< Updated upstream
 
-        blk.strong_draw_props.initialize(
-            outlvl=outlvl,
-            optarg=optarg,
-            solver=solver,
-            state_args=state_args_draw_solution,
-        )
-=======
-        
         # Initial guess of weak draw properties
         state_args_weak_draw = deepcopy(state_args_draw_solution)
         for p, j in blk.weak_draw_props.phase_component_set:
             if p == "Liq" and j == "H2O":
                 state_args_weak_draw["flow_mass_phase_comp"][(p, j)] = (
                     state_args["flow_mass_phase_comp"][(p, j)]
-                    * blk.recovery_ratio * 1.5
+                    * blk.recovery_ratio
+                    / blk.nanofiltration_recovery_ratio
+                    * 1.5
                     * pyunits.kg
                     / pyunits.s
                 )
             elif p == "Liq" and j == "DrawSolution":
-                state_args_weak_draw["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_weak_draw["flow_mass_phase_comp"][(p, "H2O")]
-                )
->>>>>>> Stashed changes
+                state_args_weak_draw["flow_mass_phase_comp"][
+                    (p, j)
+                ] = state_args_weak_draw["flow_mass_phase_comp"][(p, "H2O")]
 
         blk.weak_draw_props.initialize(
             outlvl=outlvl,
             optarg=optarg,
             solver=solver,
-<<<<<<< Updated upstream
-            state_args=state_args_draw_solution,
-        )
-
-=======
             state_args=state_args_weak_draw,
         )
 
@@ -560,13 +532,13 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         state_args_strong_draw = deepcopy(state_args_draw_solution)
         for p, j in blk.strong_draw_props.phase_component_set:
             if p == "Liq" and j == "DrawSolution":
-                state_args_strong_draw["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_weak_draw["flow_mass_phase_comp"][(p, "H2O")]
-                )
+                state_args_strong_draw["flow_mass_phase_comp"][
+                    (p, j)
+                ] = state_args_weak_draw["flow_mass_phase_comp"][(p, "H2O")]
             elif p == "Liq" and j == "H2O":
                 state_args_strong_draw["flow_mass_phase_comp"][(p, j)] = (
                     state_args_strong_draw["flow_mass_phase_comp"][(p, "DrawSolution")]
-                    * 0.25 # typical draw : water in strong draw solution
+                    * 0.25  # typical draw : water in strong draw solution
                 )
 
         blk.strong_draw_props.initialize(
@@ -580,24 +552,15 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         state_args_reg_draw = deepcopy(state_args_draw_solution)
         for p, j in blk.reg_draw_props.phase_component_set:
             if p == "Liq":
-                state_args_reg_draw["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_strong_draw["flow_mass_phase_comp"][(p, j)]
-                )
+                state_args_reg_draw["flow_mass_phase_comp"][
+                    (p, j)
+                ] = state_args_strong_draw["flow_mass_phase_comp"][(p, j)]
+        state_args_strong_draw["temperature"] = 90 + 273.15
 
->>>>>>> Stashed changes
         blk.reg_draw_props.initialize(
             outlvl=outlvl,
             optarg=optarg,
             solver=solver,
-<<<<<<< Updated upstream
-            state_args=state_args_draw_solution,
-        )
-
-        state_args_prod = deepcopy(state_args)
-        for p, j in blk.product_props.phase_component_set:
-            if j == "DrawSolution":
-                state_args_prod["flow_mass_phase_comp"][(p, j)] = 0
-=======
             state_args=state_args_reg_draw,
         )
 
@@ -607,28 +570,23 @@ class ForwardOsmosisZOData(UnitModelBlockData):
             if p == "Liq" and j == "H2O":
                 state_args_product["flow_mass_phase_comp"][(p, j)] = (
                     state_args["flow_mass_phase_comp"][(p, j)]
-                    * (blk.recovery_ratio)
+                    * (blk.recovery_ratio / blk.nanofiltration_recovery_ratio)
                     * pyunits.kg
                     / pyunits.s
                 )
             elif p == "Liq" and j == "DrawSolution":
                 state_args_product["flow_mass_phase_comp"][(p, j)] = (
                     state_args_product["flow_mass_phase_comp"][(p, "H2O")]
-                    * 0.01 # Typical mass fraction of draw in product
+                    * 0.01  # Typical mass fraction of draw in product
                     * pyunits.kg
                     / pyunits.s
                 )
->>>>>>> Stashed changes
 
         blk.product_props.initialize(
             outlvl=outlvl,
             optarg=optarg,
             solver=solver,
-<<<<<<< Updated upstream
-            state_args=state_args_draw_solution,
-=======
             state_args=state_args_product,
->>>>>>> Stashed changes
         )
 
         # Check degree of freedom
@@ -662,13 +620,10 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         # Touch properties that need to be calculated
         self.reg_draw_props[0].flow_vol_phase["Liq"]
         self.reg_draw_props[0].mass_frac_phase_comp["Liq", "DrawSolution"]
-<<<<<<< Updated upstream
-=======
         self.reg_draw_props[0].cp_mass_phase["Liq"]
         self.product_props[0].flow_vol_phase["Liq"]
         self.product_props[0].mass_frac_phase_comp["Liq", "DrawSolution"]
         self.product_props[0].cp_mass_phase["Liq"]
->>>>>>> Stashed changes
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
@@ -790,6 +745,6 @@ class ForwardOsmosisZOData(UnitModelBlockData):
 
         return {"vars": var_dict}
 
-    # @property
-    # def default_costing_method(self):
-    #     return cost_forward_osmosis
+    @property
+    def default_costing_method(self):
+        return cost_forward_osmosis

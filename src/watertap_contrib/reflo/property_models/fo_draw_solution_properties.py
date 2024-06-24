@@ -47,11 +47,7 @@ from idaes.core.util.exceptions import (
 
 from pyomo.environ import (
     Param,
-<<<<<<< Updated upstream
-    PositiveReals,
-=======
     Binary,
->>>>>>> Stashed changes
     Expression,
     units as pyunits,
     Reals,
@@ -128,55 +124,25 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
 
         # osmotic coefficient parameters, equation derived from experimental data
         self.osm_coeff_param_0 = Param(
-<<<<<<< Updated upstream
-            initialize=-1.2370854e5,
-=======
             initialize=-2.31586e5,
->>>>>>> Stashed changes
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 0",
         )
         self.osm_coeff_param_1 = Param(
-<<<<<<< Updated upstream
-            initialize=1.2961975e7,
-=======
             initialize=9.16006e6,
->>>>>>> Stashed changes
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 1",
         )
         self.osm_coeff_param_2 = Param(
-<<<<<<< Updated upstream
-            initialize=-1.386231e8,
-=======
             initialize=-3.25759e7,
->>>>>>> Stashed changes
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 2",
         )
         self.osm_coeff_param_3 = Param(
-<<<<<<< Updated upstream
-            initialize=6.356857e8,
-            units=pyunits.Pa,
-            doc="Osmotic coefficient parameter 3",
-        )
-        self.osm_coeff_param_4 = Param(
-            initialize=-1.10696e9,
-            units=pyunits.Pa,
-            doc="Osmotic coefficient parameter 4",
-        )
-        self.osm_coeff_param_5 = Param(
-            initialize=6.9232e8,
-            units=pyunits.Pa,
-            doc="Osmotic coefficient parameter 5",
-        )
-
-=======
             initialize=5.75176e7,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 3",
         )
->>>>>>> Stashed changes
         # specific heat parameters, derived from experimental data
         cp_units = pyunits.J / (pyunits.kg * pyunits.K)
         self.cp_phase_param_A0 = Param(
@@ -194,15 +160,11 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
             units=cp_units,
             doc="Specific heat of seawater parameter A2",
         )
-<<<<<<< Updated upstream
-
-=======
         self.separation_heat = Param(
-            initialize = 105,
-            units = pyunits.MJ / pyunits.m**3,
-            doc = "Separation heat per m3 of the separated water",
+            initialize=105,
+            units=pyunits.MJ / pyunits.m**3,
+            doc="Separation heat per m3 of the separated water",
         )
->>>>>>> Stashed changes
         # ---------------------------------------------------------------------
         # Set default scaling factors
         self.set_default_scaling("temperature", 1e-2)
@@ -210,6 +172,7 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
         self.set_default_scaling("dens_mass_phase", 1e-3, index="Liq")
         self.set_default_scaling("cp_mass_phase", 1e-3, index="Liq")
         self.set_default_scaling("enth_mass_phase", 1e-5, index="Liq")
+        self.set_default_scaling("heat_separation_phase", 1e-5, index="Liq")
 
     @classmethod
     def define_metadata(cls, obj):
@@ -235,13 +198,8 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
                 "pressure_osm_phase": {"method": "_pressure_osm_phase"},
                 "cp_mass_phase": {"method": "_cp_mass_phase"},
                 "enth_mass_phase": {"method": "_enth_mass_phase"},
-<<<<<<< Updated upstream
+                "heat_separation_phase": {"method": "_heat_separation_phase"},
                 "enth_flow": {"method": "_enth_flow"},
-                # "visc_d": {"method": "_visc_d"},
-=======
-                "heat_separation_phase": {"method":"_heat_separation_phase"},
-                "enth_flow": {"method": "_enth_flow"},
->>>>>>> Stashed changes
             }
         )
 
@@ -605,11 +563,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
         self.pressure_osm_phase = Var(
             self.params.phase_list,
             initialize=1e6,
-<<<<<<< Updated upstream
-            bounds=(1, 1e8),
-=======
             bounds=(-1e6, 1e8),
->>>>>>> Stashed changes
             units=pyunits.Pa,
             doc="Osmotic pressure",
         )
@@ -623,13 +577,6 @@ class FODrawSolutionStateBlockData(StateBlockData):
                 + b.params.osm_coeff_param_1 * s
                 + b.params.osm_coeff_param_2 * s**2
                 + b.params.osm_coeff_param_3 * s**3
-<<<<<<< Updated upstream
-                + b.params.osm_coeff_param_4 * s**4
-                + b.params.osm_coeff_param_5 * s**5
-=======
-                # + b.params.osm_coeff_param_4 * s**4
-                # + b.params.osm_coeff_param_5 * s**5
->>>>>>> Stashed changes
             )
             return b.pressure_osm_phase[p] == pressure_osm_phase
 
@@ -662,64 +609,63 @@ class FODrawSolutionStateBlockData(StateBlockData):
             self.params.phase_list, rule=rule_cp_mass_phase
         )
 
-<<<<<<< Updated upstream
-=======
     def _heat_separation_phase(self):
         self.heat_separation_phase = Var(
             self.params.phase_list,
-            initialize = 1e6,
-            bounds = (0,1e10),
-            units = pyunits.J / pyunits.s,
-            doc="Heat of liquid separation"
+            initialize=1e6,
+            bounds=(0, 1e10),
+            units=pyunits.J / pyunits.s,
+            doc="Heat of liquid separation",
         )
         self.liquid_separation = Param(
-            initialize = 1e-6,
+            initialize=1e-6,
             mutable=True,
-            units = pyunits.dimensionless,
-            doc = 'Indication of whether liquid separation will happen',
+            units=pyunits.dimensionless,
+            doc="Indication of whether liquid separation will happen",
         )
-        def rule_heat_separation_phase(
-            b,p
-        ):
-            test = (b.liquid_separation 
-                    * b.params.separation_heat 
-                    * b.flow_mass_phase_comp[p, "H2O"] 
+        self.mass_frac_after_separation = Param(
+            initialize=0.8,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="The strong draw mass fraction after separation",
+        )
 
-                    * 1e-3 * pyunits.m**3/ pyunits.kg 
-
-                    # * b.mass_frac_phase_comp[p,"H2O"]
-                    # / (1-b.mass_frac_phase_comp[p,"H2O"])
-                    # * (1-0.8) / 0.8
+        def rule_heat_separation_phase(b, p):
+            heat = (
+                b.liquid_separation
+                * b.params.separation_heat
+                * b.flow_mass_phase_comp[p, "H2O"]
+                * 1e-3
+                * pyunits.m**3
+                / pyunits.kg  # Density of pure water
+                * b.mass_frac_phase_comp[p, "H2O"]
+                / (1 - b.mass_frac_phase_comp[p, "H2O"])
+                * (1 - b.mass_frac_after_separation)
+                / b.mass_frac_after_separation
             )
 
-            # Expr_if & Smooth_min
-
-
-            return b.heat_separation_phase[p] == pyunits.convert(test, to_units = pyunits.J / pyunits.s)
+            return b.heat_separation_phase[p] == pyunits.convert(
+                heat, to_units=pyunits.J / pyunits.s
+            )
 
         self.eq_heat_separation_phase = Constraint(
             self.params.phase_list, rule=rule_heat_separation_phase
         )
 
->>>>>>> Stashed changes
     def _enth_mass_phase(self):
         self.enth_mass_phase = Var(
             self.params.phase_list,
             initialize=1e6,
-<<<<<<< Updated upstream
-            bounds=(1, 1e9),
-=======
             bounds=(1, 1e10),
->>>>>>> Stashed changes
             units=pyunits.J * pyunits.kg**-1,
             doc="Specific enthalpy",
         )
 
-        def rule_enth_mass_phase(
-            b, p
-        ): 
-            return (b.enth_mass_phase[p] == b.cp_mass_phase[p] * (b.temperature - 273.15 * pyunits.K))
-            
+        def rule_enth_mass_phase(b, p):
+            return b.enth_mass_phase[p] == b.cp_mass_phase[p] * (
+                b.temperature - 273.15 * pyunits.K
+            )
+
         self.eq_enth_mass_phase = Constraint(
             self.params.phase_list, rule=rule_enth_mass_phase
         )
@@ -730,15 +676,12 @@ class FODrawSolutionStateBlockData(StateBlockData):
         def rule_enth_flow(b):  # enthalpy flow [J/s]
             return (
                 sum(b.flow_mass_phase_comp["Liq", j] for j in b.params.component_list)
-<<<<<<< Updated upstream
                 * b.enth_mass_phase["Liq"]
-=======
-                * b.enth_mass_phase["Liq"] 
                 + b.heat_separation_phase["Liq"]
->>>>>>> Stashed changes
             )
 
         self.enth_flow = Expression(rule=rule_enth_flow)
+
     # -----------------------------------------------------------------------------
     # General Methods
     def get_material_flow_terms(self, p, j):
@@ -748,7 +691,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
     def get_enthalpy_flow_terms(self, p):
         """Create enthalpy flow terms."""
         return self.enth_flow
-    
+
     def default_material_balance_type(self):
         return MaterialBalanceType.componentTotal
 
@@ -756,11 +699,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
         return MaterialFlowBasis.mass
 
     def default_energy_balance_type(self):
-<<<<<<< Updated upstream
-        return EnergyBalanceType.none
-=======
         return EnergyBalanceType.enthalpyTotal
->>>>>>> Stashed changes
 
     def define_state_vars(self):
         """Define state vars."""
@@ -849,14 +788,12 @@ class FODrawSolutionStateBlockData(StateBlockData):
                             ),
                         )
 
-<<<<<<< Updated upstream
-=======
-        if self.is_property_constructed("heat_separation_phase"):
-            iscale.set_scaling_factor(
-                self.heat_separation_phase,
-                1 / self.liquid_separation.value 
-                * iscale.get_scaling_factor(self.flow_mass_phase_comp["Liq", "H2O"]),
-            )
+        # if self.is_property_constructed("heat_separation_phase"):
+        #     iscale.set_scaling_factor(
+        #         self.heat_separation_phase,
+        #         1 / self.liquid_separation.value
+        #         * iscale.get_scaling_factor(self.heat_separation_phase["Liq"]),
+        #     )
 
         if self.is_property_constructed("enth_mass_phase"):
             iscale.set_scaling_factor(
@@ -865,7 +802,6 @@ class FODrawSolutionStateBlockData(StateBlockData):
                 * iscale.get_scaling_factor(self.temperature),
             )
 
->>>>>>> Stashed changes
         if self.is_property_constructed("enth_flow"):
             iscale.set_scaling_factor(
                 self.enth_flow,
