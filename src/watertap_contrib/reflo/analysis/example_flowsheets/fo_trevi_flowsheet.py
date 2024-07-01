@@ -61,7 +61,7 @@ from watertap_contrib.reflo.unit_models.zero_order.forward_osmosis_zo import (
     ForwardOsmosisZO,
 )
 from watertap.core.util.initialization import check_dof
-from watertap_contrib.reflo.costing import TreatmentCosting, REFLOCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 
 
 def build_fo_trevi_flowsheet(
@@ -235,7 +235,7 @@ def build_fo_trevi_flowsheet(
     # Calculate system capacity (m3/day)
     fo = mfs.fo
 
-    @fo.Expression(doc="Calculate system capacity (m3/day)")
+    @mfs.Expression(doc="Calculate system capacity (m3/day)")
     def system_capacity(b):
         return pyunits.convert(
             mfs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "H2O"]
@@ -244,10 +244,10 @@ def build_fo_trevi_flowsheet(
         )
 
     # Calculate specific thermal energy consumption of the system (k)
-    @fo.Expression(doc="Calculate specific thermal energy consumption (kWh/m3)")
+    @mfs.Expression(doc="Calculate specific thermal energy consumption (kWh/m3)")
     def specific_energy_consumption_thermal(b):
         return pyunits.convert(
-            (mfs.H1.heat_duty[0] + mfs.H2.heat_duty[0]) / fo.system_capacity,
+            (mfs.H1.heat_duty[0] + mfs.H2.heat_duty[0]) / mfs.system_capacity,
             to_units=pyunits.kWh / pyunits.m**3,
         )
 
@@ -504,79 +504,19 @@ def fix_dof_and_initialize(m, strong_draw_mass_frac=0.8, product_draw_mass_frac=
     m.fs.Cooler.initialize()
 
 
-if __name__ == "__main__":
-
-    """
-    Build flowsheet with specified model configs
-    """
-    # For feed water state variables, i.e. feed temperature, volume flow rate, concentration
-    # they can be unfixed after initialization, so as to connect with other unit models
-    m = build_fo_trevi_flowsheet(
-        recovery_ratio=0.3,  # Assumed FO recovery ratio
-        RO_recovery_ratio=0.9,  # RO recovery ratio
-        NF_recovery_ratio=0.8,  # Nanofiltration recovery ratio
-        dp_brine=0,  # Required pressure over brine osmotic pressure (Pa)
-        heat_mixing=105,  # Heat of mixing in the membrane (MJ/m3 product)
-        separation_temp=90,  # Separation temperature of the draw solution (C)
-        separator_temp_loss=1,  # Temperature loss in the separator (K)
-        feed_temperature=13,  # Feed water temperature (C)
-        feed_vol_flow=3.704,  # Feed water volumetric flow rate (m3/s)
-        feed_TDS_mass=0.035,  # TDS mass fraction of feed
-        strong_draw_temp=20,  # Strong draw solution inlet temperature (C)
-        strong_draw_mass=0.8,  # Strong draw solution mass fraction
-        product_draw_mass=0.01,  # Mass fraction of draw in the product water
-    )
-
-    fix_dof_and_initialize(
-        m, strong_draw_mass_frac=0.8, product_draw_mass_frac=0.01  # same input as above
-    )  # same input as above
-
-    # Specify the temperature of the weak draw solution and product water after going through HX1
-    m.fs.HX1.overall_heat_transfer_coefficient[0].unfix()
-    m.fs.HX2.overall_heat_transfer_coefficient[0].unfix()
-    m.fs.HX1.weak_draw_outlet.temperature.fix(80 + 273.15)
-    m.fs.HX1.product_water_outlet.temperature.fix(28 + 273.15)
-
-    # Solve
-    check_dof(m, fail_flag=True)
-    solver = get_solver()
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-
-    # Add cost package of Trevi FO system
-    m.fs.costing = TreatmentCosting()
-    m.fs.costing.base_currency = pyunits.USD_2020
-
-    # Create cost block for FO
-    m.fs.fo.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-
-    # Add LCOW component
-    m.fs.costing.cost_process()
-    m.fs.costing.add_annual_water_production(m.fs.fo.system_capacity)
-    m.fs.costing.add_LCOW(m.fs.fo.system_capacity)
-
-    # Solve
-    check_dof(m, fail_flag=True)
-    solver = get_solver()
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-
-    # Retrieve outputs
+def get_flowsheet_performance(m):
     overall_performance = {
-        "Production capacity (m3/day)": value(m.fs.fo.system_capacity),
+        "Production capacity (m3/day)": value(m.fs.system_capacity),
         "Specific thermal energy consumption (kWh/m3)": value(
-            m.fs.fo.specific_energy_consumption_thermal
+            m.fs.specific_energy_consumption_thermal
         ),
         "Thermal power requirement (kW)": value(
-            m.fs.fo.specific_energy_consumption_thermal
+            m.fs.specific_energy_consumption_thermal
         )
-        * value(m.fs.fo.system_capacity)
+        * value(m.fs.system_capacity)
         / 24,
         "LCOW ($/m3)": m.fs.costing.LCOW(),
     }
-
-    for i, v in overall_performance.items():
-        print(i, round(v, 2))
 
     operational_parameters = {
         # Heat exchanger HX1 temperatures
@@ -680,3 +620,5 @@ if __name__ == "__main__":
         "Heater 2 heat load": m.fs.H2.heat_duty[0].value,
         "Cooler heat load": m.fs.Cooler.heat_duty[0].value,
     }
+
+    return overall_performance, operational_parameters

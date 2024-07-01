@@ -104,20 +104,23 @@ def cost_forward_osmosis(blk):
     make_fixed_operating_cost_var(blk)
 
     fo = blk.unit_model
+    test_fs = fo.flowsheet()
+
     brine = fo.brine_props[0]
 
     blk.costing_package.add_cost_factor(blk, None)
     blk.annual_dist_production = pyo.units.convert(
-        fo.system_capacity, to_units=pyo.units.m**3 / pyo.units.year
+        test_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.year
     )
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
-        == fo_params.base_unit_cost * fo.system_capacity**fo_params.unit_cost_index
+        == fo_params.base_unit_cost
+        * test_fs.system_capacity**fo_params.unit_cost_index
     )
 
     blk.labor_cost = pyo.Expression(
         expr=fo_params.base_labor_cost
-        * fo.system_capacity**fo_params.labor_cost_index
+        * test_fs.system_capacity**fo_params.labor_cost_index
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
@@ -134,16 +137,16 @@ def cost_forward_osmosis(blk):
     )
 
     blk.thermal_energy_flow = pyo.Expression(
-        expr=fo.specific_energy_consumption_thermal
+        expr=test_fs.specific_energy_consumption_thermal
         * pyo.units.convert(
-            fo.system_capacity, to_units=pyo.units.m**3 / pyo.units.hr
+            test_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.hr
         )
     )
 
     blk.electricity_flow = pyo.Expression(
         expr=fo_params.specific_energy_consumption_electric
         * pyo.units.convert(
-            fo.system_capacity, to_units=pyo.units.m**3 / pyo.units.hr
+            test_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.hr
         )
     )
 
