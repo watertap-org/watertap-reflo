@@ -75,7 +75,7 @@ def build_forward_osmosis_cost_param_block(blk):
         initialize=0.05,
         units=costing.base_currency / pyo.units.m**3,
         bounds=(0, None),
-        doc="Cost of chemicals per m3 product",
+        doc="Cost of durable goods per m3 product",
     )
 
     blk.cost_disposal = pyo.Var(
