@@ -537,7 +537,7 @@ class TestChemSoft2:
             "electrical_carbon_intensity": 0.475,
             "TPEC": 4.121212,
             "TIC": 2.0,
-            "factor_total_investment": 1.0,
+            "total_investment_factor": 1.0,
             "maintenance_labor_chemical_factor": 0.03,
             "factor_capital_annualization": 0.1,
             "plant_lifetime": 20.0,

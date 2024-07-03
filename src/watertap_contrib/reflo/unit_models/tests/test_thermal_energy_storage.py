@@ -156,7 +156,7 @@ class TestThermalEnergyStorage:
         m.fs.tes.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         m.fs.costing.maintenance_labor_chemical_factor.fix(0)
-        m.fs.costing.factor_total_investment.fix(1)
+        m.fs.costing.total_investment_factor.fix(1)
 
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)

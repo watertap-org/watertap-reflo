@@ -365,7 +365,7 @@ def fix_pv_costing(m):
 
 
 def fix_treatment_global_params(m):
-    m.fs.treatment.costing.factor_total_investment.fix(1)
+    m.fs.treatment.costing.total_investment_factor.fix(1)
     m.fs.treatment.costing.maintenance_labor_chemical_factor.fix(0)
 
 

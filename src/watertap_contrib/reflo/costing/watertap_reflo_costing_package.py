@@ -76,7 +76,7 @@ class REFLOCostingData(WaterTAPCostingData):
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
-            == self.factor_total_investment * self.aggregate_capital_cost
+            == self.total_investment_factor * self.aggregate_capital_cost
         )
         self.maintenance_labor_chemical_operating_cost_constraint = pyo.Constraint(
             expr=self.maintenance_labor_chemical_operating_cost
@@ -135,7 +135,7 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
             initialize=20, units=self.base_period, doc="Plant lifetime"
         )
 
-        self.factor_total_investment = pyo.Var(
+        self.total_investment_factor = pyo.Var(
             initialize=1,
             doc="Total investment factor [investment cost/equipment cost]",
             units=pyo.units.dimensionless,
