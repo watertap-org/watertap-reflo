@@ -8,8 +8,8 @@ setup(
     author="WaterTAP-REFLO contributors",
     python_requires=">=3.8",
     install_requires=[
-        # "watertap == 1.0.0rc0",
-        "watertap @ https://github.com/watertap-org/watertap/archive/main.zip",
+        "watertap == 1.0.0rc0",
+        # "watertap @ https://github.com/watertap-org/watertap/archive/main.zip", # uncomment if we need to point to main mid release cycle
         "nrel-pysam == 5.1.0",
     ],
     extras_require={
