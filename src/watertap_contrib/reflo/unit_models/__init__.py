@@ -11,4 +11,5 @@
 #################################################################################
 
 from .zero_order.chemical_softening_zo import ChemicalSofteningZO
+from .zero_order.solar_still_zo import SolarStillZO
 from .air_stripping_0D import AirStripping0D
