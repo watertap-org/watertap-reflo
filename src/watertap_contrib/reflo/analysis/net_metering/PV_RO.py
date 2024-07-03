@@ -366,7 +366,7 @@ def fix_pv_costing(m):
 
 def fix_treatment_global_params(m):
     m.fs.treatment.costing.factor_total_investment.fix(1)
-    m.fs.treatment.costing.factor_maintenance_labor_chemical.fix(0)
+    m.fs.treatment.costing.maintenance_labor_chemical_factor.fix(0)
 
 
 def size_pv(m):
@@ -402,7 +402,7 @@ def fix_pysam_costing(m):
         cash_model.SystemCosts.om_production[0]
     )
     m.fs.energy.pv.costing.annual_generation.fix(annual_gen)
-    m.fs.energy.costing.factor_maintenance_labor_chemical.fix(0)
+    m.fs.energy.costing.maintenance_labor_chemical_factor.fix(0)
 
 
 def solve(m, solver=None, tee=False, check_termination=True):

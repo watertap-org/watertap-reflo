@@ -538,7 +538,7 @@ class TestChemSoft2:
             "TPEC": 4.121212,
             "TIC": 2.0,
             "factor_total_investment": 1.0,
-            "factor_maintenance_labor_chemical": 0.03,
+            "maintenance_labor_chemical_factor": 0.03,
             "factor_capital_annualization": 0.1,
             "plant_lifetime": 20.0,
             "aggregate_capital_cost": 2529666.844,

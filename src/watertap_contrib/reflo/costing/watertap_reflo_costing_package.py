@@ -80,7 +80,7 @@ class REFLOCostingData(WaterTAPCostingData):
         )
         self.maintenance_labor_chemical_operating_cost_constraint = pyo.Constraint(
             expr=self.maintenance_labor_chemical_operating_cost
-            == self.factor_maintenance_labor_chemical * self.total_capital_cost
+            == self.maintenance_labor_chemical_factor * self.total_capital_cost
         )
 
         self.total_operating_cost_constraint = pyo.Constraint(
@@ -140,7 +140,7 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
             doc="Total investment factor [investment cost/equipment cost]",
             units=pyo.units.dimensionless,
         )
-        self.factor_maintenance_labor_chemical = pyo.Var(
+        self.maintenance_labor_chemical_factor = pyo.Var(
             initialize=0.03,
             doc="Maintenance-labor-chemical factor [fraction of investment cost/year]",
             units=pyo.units.year**-1,

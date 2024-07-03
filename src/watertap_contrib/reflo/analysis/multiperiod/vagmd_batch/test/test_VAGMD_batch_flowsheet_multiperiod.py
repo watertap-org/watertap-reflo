@@ -251,7 +251,7 @@ class TestVAGMDbatch:
 
         # Fix some global costing params for better comparison to Pyomo model
         m.fs.costing.factor_total_investment.fix(1)
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
         m.fs.costing.factor_capital_annualization.fix(0.08764)
 
         m.fs.costing.cost_process()

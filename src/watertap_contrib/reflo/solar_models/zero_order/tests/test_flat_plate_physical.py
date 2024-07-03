@@ -202,7 +202,7 @@ class TestFlatPlatePhysical:
             flowsheet_costing_block=m.fs.costing
         )
 
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
         m.fs.costing.factor_total_investment.fix(1)
 
         m.fs.costing.cost_process()
