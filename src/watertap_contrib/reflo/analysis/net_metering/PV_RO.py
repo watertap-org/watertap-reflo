@@ -25,8 +25,8 @@ from pyomo.environ import (
     Constraint,
 )
 from pyomo.network import Arc
+
 from idaes.core import FlowsheetBlock
-from idaes.core.solvers.get_solver import get_solver
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.scaling import (
@@ -37,9 +37,9 @@ from idaes.core.util.scaling import (
 from idaes.core import UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
 
+from watertap.core.solvers import get_solver
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.unit_models.pressure_changer import Pump, EnergyRecoveryDevice
-
 from watertap.unit_models.reverse_osmosis_0D import (
     ReverseOsmosis0D,
     ConcentrationPolarizationType,
@@ -49,6 +49,7 @@ from watertap.unit_models.reverse_osmosis_0D import (
 from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
     calculate_operating_pressure,
 )
+
 from watertap_contrib.reflo.analysis.net_metering.util import (
     display_ro_pv_results,
     display_pv_results,

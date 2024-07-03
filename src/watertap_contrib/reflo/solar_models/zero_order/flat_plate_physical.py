@@ -23,12 +23,12 @@ from idaes.core import (
     useDefault,
 )
 from idaes.core.util.config import is_physical_parameter_block
-from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
 
-from watertap_contrib.reflo.core import SolarEnergyBaseData
+from watertap.core.solvers import get_solver
 
+from watertap_contrib.reflo.core import SolarEnergyBaseData
 from watertap_contrib.reflo.costing.solar.flat_plate import (
     cost_flat_plate,
 )

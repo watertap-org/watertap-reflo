@@ -30,9 +30,6 @@ from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.reflo.core import SolarEnergyBaseData
 from watertap_contrib.reflo.costing import EnergyCosting
 
-from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
-from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import (
@@ -46,6 +43,7 @@ from idaes.core.util.scaling import (
     unscaled_variables_generator,
 )
 
+from watertap.core.solvers import get_solver
 # Get default solver for testing
 solver = get_solver()
 

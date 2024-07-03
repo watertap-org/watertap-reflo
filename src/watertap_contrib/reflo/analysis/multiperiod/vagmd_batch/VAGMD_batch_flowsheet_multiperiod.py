@@ -36,11 +36,9 @@ from idaes.core.util.exceptions import (
 import idaes.core.util.scaling as iscale
 from idaes.core import UnitModelCostingBlock
 import idaes.logger as idaeslog
-from idaes.core.solvers.get_solver import get_solver
 
 # WaterTAP imports
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap_contrib.reflo.costing import REFLOCosting
+from watertap.core.solvers import get_solver
 
 # Flowsheet function imports
 from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import (

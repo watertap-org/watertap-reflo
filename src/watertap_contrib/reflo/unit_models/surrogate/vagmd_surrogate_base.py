@@ -34,12 +34,12 @@ from idaes.core import (
 )
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
-from idaes.core.solvers import get_solver
 from idaes.core.util.misc import StrEnum
 import idaes.logger as idaeslog
 from idaes.core.util.exceptions import InitializationError
 from idaes.core.util.model_statistics import degrees_of_freedom
 
+from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.costing.units.vagmd_surrogate import cost_vagmd_surrogate
 
 _log = idaeslog.getLogger(__name__)

@@ -19,20 +19,17 @@ import textwrap
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    ConcreteModel,
     Var,
     Param,
     NonNegativeReals,
-    units as pyunits,
     value,
+    units as pyunits,
 )
 from pyomo.network import Port
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # Import IDAES cores
-from idaes.core import FlowsheetBlock
 from idaes.core import declare_process_block_class, UnitModelBlockData
-from idaes.core.solvers import get_solver
 from idaes.core.util.tables import stream_table_dataframe_to_string
 import idaes.core.util.scaling as iscale
 from idaes.core.util.model_statistics import (
@@ -42,6 +39,8 @@ from idaes.core.util.model_statistics import (
     number_activated_blocks,
 )
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
 
 _log = idaeslog.getLogger(__name__)
 

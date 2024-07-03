@@ -17,16 +17,8 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-import re
-from pyomo.network import Port
+
 from idaes.core import FlowsheetBlock
-from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet_multiperiod import (
-    VAGMDbatchSurrogate,
-)
-
-from watertap_contrib.reflo.costing import REFLOCosting
-
-from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
@@ -34,6 +26,12 @@ from idaes.core.util.model_statistics import (
     degrees_of_freedom,
 )
 
+from watertap.core.solvers import get_solver
+
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet_multiperiod import (
+    VAGMDbatchSurrogate,
+)
+from watertap_contrib.reflo.costing import REFLOCosting
 
 solver = get_solver()
 

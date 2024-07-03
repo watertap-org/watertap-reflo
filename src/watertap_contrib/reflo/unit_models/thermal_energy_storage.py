@@ -33,12 +33,12 @@ from idaes.core import (
     useDefault,
 )
 
-from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
 
 from idaes.core.util.config import is_physical_parameter_block
 
+from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.costing.solar.thermal_energy_storage import (
     cost_tes,
 )
