@@ -20,7 +20,6 @@ from pyomo.environ import (
     value,
     assert_optimal_termination,
 )
-
 from pyomo.network import Port
 
 from idaes.core import (
