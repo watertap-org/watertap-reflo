@@ -15,7 +15,8 @@ import pyomo.environ as pyo
 from idaes.core import declare_process_block_class
 
 from watertap.costing.watertap_costing_package import (
-    WaterTAPCostingData, WaterTAPCostingBlockData
+    WaterTAPCostingData,
+    WaterTAPCostingBlockData,
 )
 from watertap_contrib.reflo.core import PySAMWaterTAP
 
@@ -66,14 +67,13 @@ class EnergyCostingData(REFLOCostingData):
 
 @declare_process_block_class("REFLOSystemCosting")
 class REFLOSystemCostingData(WaterTAPCostingBlockData):
-
     def build_global_params(self):
         super().build_global_params()
 
         self.base_currency = pyo.units.USD_2021
 
-        self.del_component(self.electricity_cost)     
-        
+        self.del_component(self.electricity_cost)
+
         self.electricity_cost = pyo.Param(
             mutable=True,
             initialize=0.0718,  # From EIA for 2021
