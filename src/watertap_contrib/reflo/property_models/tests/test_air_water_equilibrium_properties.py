@@ -22,6 +22,7 @@ from pyomo.environ import (
 from pyomo.util.check_units import assert_units_consistent
 
 from idaes.core import FlowsheetBlock
+from watertap.core.solvers import get_solver
 from idaes.core.util.scaling import calculate_scaling_factors
 
 from watertap.core.solvers import get_solver

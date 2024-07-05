@@ -34,6 +34,7 @@ from idaes.core import (
 )
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
+from watertap.core.solvers import get_solver
 from idaes.core.util.misc import StrEnum
 import idaes.logger as idaeslog
 from idaes.core.util.exceptions import InitializationError

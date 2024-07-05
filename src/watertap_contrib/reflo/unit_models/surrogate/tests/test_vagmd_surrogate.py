@@ -20,6 +20,7 @@ from pyomo.environ import (
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.testing import initialization_tester
+from watertap.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -138,9 +139,9 @@ class TestVAGMD_unit_model:
         m = VAGMD_frame
 
         # test statistics
-        assert number_variables(m) == 234
+        assert number_variables(m) == 246
         assert number_total_constraints(m) == 74
-        assert number_unused_variables(m) == 127
+        assert number_unused_variables(m) == 139
 
     @pytest.mark.unit
     def test_dof(self, VAGMD_frame):
@@ -203,9 +204,10 @@ class TestVAGMD_unit_model:
         vagmd.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         # Fix some global costing params for better comparison to Pyomo model
-        m.fs.costing.factor_total_investment.fix(1)
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_capital_annualization.fix(0.08764)
+        m.fs.costing.total_investment_factor.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.capital_recovery_factor.fix(0.08764)
+        m.fs.costing.wacc.unfix()
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(vagmd.system_capacity)

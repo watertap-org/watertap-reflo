@@ -18,6 +18,7 @@ from pyomo.environ import (
 )
 
 from idaes.core import FlowsheetBlock
+from watertap.core.solvers import get_solver
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
@@ -264,4 +265,6 @@ class TestVAGMDbatch:
         assert cost_performance["Annual electricity cost ($)"] == pytest.approx(
             4064.964, rel=1e-3
         )
-        assert cost_performance["Overall LCOW ($/m3)"] == pytest.approx(1.673, rel=1e-3)
+        assert cost_performance["Overall LCOW ($/m3)"] == pytest.approx(
+            1.76369, rel=1e-3
+        )

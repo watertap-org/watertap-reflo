@@ -315,7 +315,7 @@ class TestTroughLarge:
             "total_capital_cost": 249933275.0,
             "maintenance_labor_chemical_operating_cost": 0.0,
             "total_operating_cost": -10773196.871,
-            "capital_recovery_factor": 0.1,
+            "capital_recovery_factor": 0.11955949,
             "aggregate_direct_capital_cost": 249933275.0,
         }
 

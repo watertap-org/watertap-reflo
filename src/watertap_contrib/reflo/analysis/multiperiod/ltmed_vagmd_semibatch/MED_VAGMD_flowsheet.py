@@ -29,7 +29,9 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
 )
 
+
 import idaes.logger as idaeslog
+from watertap.core.solvers import get_solver
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap.core.solvers import get_solver

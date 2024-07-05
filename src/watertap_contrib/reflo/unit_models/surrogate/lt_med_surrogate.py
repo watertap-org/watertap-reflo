@@ -36,6 +36,8 @@ from idaes.core.util.tables import create_stream_table_dataframe
 import idaes.logger as idaeslog
 
 from watertap.core.solvers import get_solver
+
+
 from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 
 
