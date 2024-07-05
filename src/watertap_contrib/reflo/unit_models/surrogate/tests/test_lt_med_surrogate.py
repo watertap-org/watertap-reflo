@@ -61,8 +61,6 @@ class TestLTMED:
         )
 
         lt_med = m.fs.lt_med
-        feed = lt_med.feed_props[0]
-        dist = lt_med.distillate_props[0]
         steam = lt_med.steam_props[0]
 
         # System specification
@@ -161,9 +159,9 @@ class TestLTMED:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 193
+        assert number_variables(m) == 205
         assert number_total_constraints(m) == 51
-        assert number_unused_variables(m) == 90  # vars from property package parameters
+        assert number_unused_variables(m) == 102  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, LT_MED_frame):
@@ -280,6 +278,7 @@ class TestLTMED:
         m.fs.costing.total_investment_factor.fix(1)
         m.fs.costing.maintenance_labor_chemical_factor.fix(0)
         m.fs.costing.capital_recovery_factor.fix(0.08764)
+        m.fs.costing.wacc.unfix()
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(dist.flow_vol_phase["Liq"])
@@ -341,8 +340,6 @@ class TestLTMED:
         )
 
         lt_med = m.fs.lt_med
-        feed = lt_med.feed_props[0]
-        dist = lt_med.distillate_props[0]
         steam = lt_med.steam_props[0]
 
         # System specification
