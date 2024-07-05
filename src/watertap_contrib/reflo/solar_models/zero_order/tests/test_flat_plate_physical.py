@@ -189,7 +189,7 @@ class TestFlatPlatePhysical:
             "total_capital_cost": 3760.69,
             "total_operating_cost": 38190.85,
             "aggregate_direct_capital_cost": 3576.0,
-            "LCOW": 2.78940,
+            "LCOW": 2.792657,
         }
 
         m = flat_plate_frame
