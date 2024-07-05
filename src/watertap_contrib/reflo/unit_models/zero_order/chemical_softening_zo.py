@@ -200,37 +200,39 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         )
 
         self.CO2_mw = Param(
-            initialize=44, units=pyunits.g / pyunits.mol, doc="Molecular weight of soda"
+            initialize=44,
+            units=pyunits.g / pyunits.mol,
+            doc="Molecular weight of carbon dioxide",
         )
 
         self.MgCl2_SiO2_ratio = Param(initialize=9.2, doc="Ratio of MgCl2 to SiO2")
 
         self.Ca_hardness_CaCO3_sludge_factor = Param(
-            initialize=2, doc="Sludge produced per kg Ca in CaCO3 hardness"
+            initialize=2, doc="Sludge produced per kg of Ca in CaCO3 hardness"
         )
 
         self.Mg_hardness_CaCO3_sludge_factor = Param(
-            initialize=2.6, doc="Sludge produced per kg Mg in CaCO3 hardness"
+            initialize=2.6, doc="Sludge produced per kg of Mg in CaCO3 hardness"
         )
 
-        self.Mg_hardness_nonCaCO3_sludge_prod_factor = Param(
-            initialize=1.6, doc="Sludge produced per kg Mg in non-CaCO3 hardness"
+        self.Mg_hardness_nonCaCO3_sludge_factor = Param(
+            initialize=1.6, doc="Sludge produced per kg of Mg in non-CaCO3 hardness"
         )
 
         self.excess_CaO_coeff = Param(
-            initialize=0.15, doc="Multiplication factor to calculate excess CaO"
+            initialize=0.15, doc="Multiplication factor to calculate excess CaO dose"
         )
 
         self.ca_eff_target = Var(
             initialize=0.020,
             units=pyunits.kg / pyunits.m**3,
-            doc="Target Ca in CaCO3 equivalents in the effluent",
+            doc="Target Ca concentration in the effluent",
         )
 
         self.mg_eff_target = Var(
             initialize=0.010,
             units=pyunits.kg / pyunits.m**3,
-            doc="Target Mg in CaCO3 equivalents in the effluent",
+            doc="Target Mg concentration in the effluent",
         )
 
         # Creating default effluent composition of all solutes other than Ca and Mg
@@ -289,11 +291,11 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         )
 
         self.no_of_mixer = Var(
-            initialize=1, units=pyunits.dimensionless, doc="Volume of mixer"
+            initialize=1, units=pyunits.dimensionless, doc="Number of mixer"
         )
 
         self.no_of_floc = Var(
-            initialize=1, units=pyunits.dimensionless, doc="Volume of mixer"
+            initialize=1, units=pyunits.dimensionless, doc="Number of flocculators"
         )
 
         self.volume_mixer = Var(
@@ -335,7 +337,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         self.Mg_CaCO3_conv = Param(
             initialize=4.12,
             units=pyunits.dimensionless,
-            doc="Conversion factor for Ca to equivalent CaCO3",
+            doc="Conversion factor for Mg to equivalent CaCO3",
         )
 
         self.frac_vol_recovery = Var(
@@ -393,74 +395,63 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="Sludge production rate in kg/day",
         )
 
-        # Add Ca,Mg carbonate hardness --> Created as temporary variables so that basic property package can be used
-        if "Ca_2+" in comps:
+        # Add Ca,Mg carbonate hardness
 
-            @self.Expression(doc="Calcium in influent converted to equivalent CaCO3")
-            def Ca_CaCO3(b):
-                return pyunits.convert(
-                    prop_in.conc_mass_phase_comp["Liq", "Ca_2+"] * b.Ca_CaCO3_conv,
-                    to_units=pyunits.kg / pyunits.m**3,
-                )
-
-        else:
-            self.Ca_CaCO3 = Param(
-                initialize=0,
-                units=pyunits.kg / pyunits.m**3,
-                doc="Calcium in influent converted to kg/m3 as CaCO3",
+        @self.Expression(doc="Calcium in influent converted to equivalent CaCO3")
+        def Ca_CaCO3(b):
+            return pyunits.convert(
+                b.properties_in[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                * b.Ca_CaCO3_conv,
+                to_units=pyunits.kg / pyunits.m**3,
             )
 
-        if "Mg_2+" in comps:
-
-            @self.Expression(doc="Magnesium in influent converted to kg/m3 as CaCO3")
-            def Mg_CaCO3(b):
-                return pyunits.convert(
-                    prop_in.conc_mass_phase_comp["Liq", "Mg_2+"] * b.Mg_CaCO3_conv,
-                    to_units=pyunits.kg / pyunits.m**3,
-                )
-
-        else:
-            self.Mg_CaCO3 = Param(
-                initialize=0,
-                units=pyunits.kg / pyunits.m**3,
-                doc="Magnesium in influent converted to kg/m3 as CaCO3",
+        @self.Expression(doc="Magnesium in influent converted to kg/m3 as CaCO3")
+        def Mg_CaCO3(b):
+            return pyunits.convert(
+                b.properties_in[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+                * b.Mg_CaCO3_conv,
+                to_units=pyunits.kg / pyunits.m**3,
             )
 
-        if "Alkalinity_2-" in comps:
+        @self.Expression(doc="Calculate Calcium carbonate hardness")
+        def Ca_hardness_CaCO3(b):
+            return Expr_if(
+                b.Ca_CaCO3
+                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                b.Ca_CaCO3,
+            )
 
-            @self.Expression(doc="Calculate Calcium carbonate hardness")
-            def Ca_hardness_CaCO3(b):
-                return Expr_if(
-                    b.Ca_CaCO3 >= prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                    prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                    b.Ca_CaCO3,
-                )
+        @self.Expression(doc="Calculate Calcium non carbonate hardness")
+        def Ca_hardness_nonCaCO3(b):
+            return Expr_if(
+                b.Ca_CaCO3
+                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                b.Ca_CaCO3
+                - b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                1e-15 * pyunits.kg / pyunits.m**3,
+            )
 
-            @self.Expression(doc="Calculate Calcium non carbonate hardness")
-            def Ca_hardness_nonCaCO3(b):
-                return Expr_if(
-                    b.Ca_CaCO3 >= prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                    b.Ca_CaCO3 - prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                    1e-15 * pyunits.kg / pyunits.m**3,
-                )
+        @self.Expression(doc="Calculate Magnesium carbonate hardness")
+        def Mg_hardness_CaCO3(b):
+            return Expr_if(
+                b.Ca_CaCO3
+                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                1e-15 * pyunits.kg / pyunits.m**3,
+                b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+                - b.Ca_CaCO3,
+            )
 
-            @self.Expression(doc="Calculate Magnesium carbonate hardness")
-            def Mg_hardness_CaCO3(b):
-                return Expr_if(
-                    b.Ca_CaCO3 >= prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                    1e-15 * pyunits.kg / pyunits.m**3,
-                    prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"] - b.Ca_CaCO3,
-                )
-
-            @self.Expression(doc="Calculate Magnesium non carbonate hardness")
-            def Mg_hardness_nonCaCO3(b):
-                return Expr_if(
-                    b.Ca_CaCO3 >= prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                    b.Mg_CaCO3,
-                    b.Mg_CaCO3
-                    + b.Ca_CaCO3
-                    - prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                )
+        @self.Expression(doc="Calculate Magnesium non carbonate hardness")
+        def Mg_hardness_nonCaCO3(b):
+            return Expr_if(
+                b.Ca_CaCO3
+                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                b.Mg_CaCO3,
+                b.Mg_CaCO3
+                + b.Ca_CaCO3
+                - b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+            )
 
         # Calculating chemical dosing
 
@@ -475,7 +466,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     (b.CO2_CaCO3 + b.Ca_hardness_CaCO3)
                     * b.CaO_mw
                     / b.CaCO3_mw
-                    * prop_in.flow_vol_phase["Liq"],
+                    * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
 
@@ -485,12 +476,14 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     b.CO2_first_basin
                     == pyunits.convert(
                         (
-                            prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+                            b.properties_in[0].conc_mass_phase_comp[
+                                "Liq", "Alkalinity_2-"
+                            ]
                             - b.Ca_CaCO3
-                            + prop_out.conc_mass_phase_comp["Liq", "Ca_2+"]
+                            + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
                             * b.Ca_CaCO3_conv
                         )
-                        * prop_in.flow_vol_phase["Liq"],
+                        * b.properties_in[0].flow_vol_phase["Liq"],
                         to_units=pyunits.kg / pyunits.d,
                     )
                     * b.CO2_mw
@@ -505,7 +498,9 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     b.excess_CaO
                     == (
                         b.CO2_CaCO3
-                        + prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+                        + b.properties_in[0].conc_mass_phase_comp[
+                            "Liq", "Alkalinity_2-"
+                        ]
                         + b.Mg_CaCO3
                     )
                     * b.excess_CaO_coeff
@@ -513,35 +508,37 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
             @self.Constraint(doc="Lime dosing")
             def eq_CaO_dosing(b):
-                return (
-                    b.CaO_dosing
-                    == (
+                return b.CaO_dosing == pyunits.convert(
+                    (
                         b.CO2_CaCO3
-                        + prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+                        + b.properties_in[0].conc_mass_phase_comp[
+                            "Liq", "Alkalinity_2-"
+                        ]
                         + b.Mg_CaCO3
                         + b.excess_CaO
                     )
-                    * prop_in.flow_vol_phase["Liq"]
+                    * b.properties_in[0].flow_vol_phase["Liq"]
                     * b.CaO_mw
-                    / b.CaCO3_mw
+                    / b.CaCO3_mw,
+                    to_units=pyunits.kg / pyunits.d,
                 )
 
             @self.Constraint(doc="CO2 for first basin")
             def eq_CO2_first_basin(b):
-                return (
-                    b.CO2_first_basin
-                    == (
-                        prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-                        - (b.Ca_CaCO3 + b.Ca_CaCO3)
+                return b.CO2_first_basin == pyunits.convert(
+                    (
+                        b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+                        - (b.Ca_CaCO3 + b.Mg_CaCO3)
                         + b.excess_CaO
-                        + prop_out.conc_mass_phase_comp["Liq", "Ca_2+"]
+                        + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
                         * b.Ca_CaCO3_conv
-                        + prop_out.conc_mass_phase_comp["Liq", "Mg_2+"]
+                        + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
                         * b.Mg_CaCO3_conv
                     )
-                    * prop_in.flow_vol_phase["Liq"]
+                    * b.properties_in[0].flow_vol_phase["Liq"]
                     * b.CO2_mw
-                    / b.CaCO3_mw
+                    / b.CaCO3_mw,
+                    to_units=pyunits.kg / pyunits.d,
                 )
 
         elif (
@@ -555,7 +552,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     (b.CO2_CaCO3 + b.Ca_hardness_CaCO3)
                     * b.CaO_mw
                     / b.CaCO3_mw
-                    * prop_in.flow_vol_phase["Liq"],
+                    * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
 
@@ -565,7 +562,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     (b.Ca_hardness_nonCaCO3 + b.Mg_hardness_nonCaCO3)
                     * b.Na2CO3_mw
                     / b.CaCO3_mw
-                    * prop_in.flow_vol_phase["Liq"],
+                    * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
 
@@ -573,15 +570,15 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             def eq_CO2_first_basin(b):
                 return b.CO2_first_basin == pyunits.convert(
                     (
-                        prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+                        b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                         + (b.Ca_hardness_nonCaCO3 + b.Mg_hardness_nonCaCO3)
                         - b.Ca_CaCO3
-                        + prop_out.conc_mass_phase_comp["Liq", "Ca_2+"]
+                        + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
                         * b.Ca_CaCO3_conv
                     )
                     * b.CO2_mw
                     / b.CaCO3_mw
-                    * prop_in.flow_vol_phase["Liq"],
+                    * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
 
@@ -596,7 +593,9 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     b.excess_CaO
                     == (
                         b.CO2_CaCO3
-                        + prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+                        + b.properties_in[0].conc_mass_phase_comp[
+                            "Liq", "Alkalinity_2-"
+                        ]
                         + b.Mg_CaCO3
                     )
                     * b.excess_CaO_coeff
@@ -614,7 +613,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     )
                     * b.CaO_mw
                     / b.CaCO3_mw
-                    * prop_in.flow_vol_phase["Liq"],
+                    * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
 
@@ -624,7 +623,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     (b.Ca_hardness_nonCaCO3 + b.Mg_hardness_nonCaCO3)
                     * b.Na2CO3_mw
                     / b.CaCO3_mw
-                    * prop_in.flow_vol_phase["Liq"],
+                    * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
 
@@ -633,12 +632,12 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 return b.CO2_first_basin == pyunits.convert(
                     (
                         b.excess_CaO
-                        + prop_out.conc_mass_phase_comp["Liq", "Mg_2+"]
+                        + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
                         * b.Mg_CaCO3_conv
                     )
                     * b.CO2_mw
                     / b.CaCO3_mw
-                    * prop_in.flow_vol_phase["Liq"],
+                    * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
 
@@ -646,17 +645,17 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             def eq_CO2_second_basin(b):
                 return b.CO2_second_basin == pyunits.convert(
                     (
-                        prop_in.conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+                        b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                         + (b.Ca_hardness_nonCaCO3 + b.Mg_hardness_nonCaCO3)
-                        - (b.Ca_CaCO3 + b.Ca_CaCO3)
-                        + prop_out.conc_mass_phase_comp["Liq", "Ca_2+"]
+                        - (b.Ca_CaCO3 + b.Mg_CaCO3)
+                        + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
                         * b.Ca_CaCO3_conv
-                        + prop_out.conc_mass_phase_comp["Liq", "Mg_2+"]
+                        + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
                         * b.Mg_CaCO3_conv
                     )
                     * b.CO2_mw
                     / b.CaCO3_mw
-                    * prop_in.flow_vol_phase["Liq"],
+                    * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
 
@@ -667,11 +666,13 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 return Expr_if(
                     (
                         (
-                            prop_in.conc_mass_phase_comp["Liq", "SiO2"] * 2.35
-                            > prop_in.conc_mass_phase_comp["Liq", "Mg_2+"]
+                            b.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"]
+                            * 2.35
+                            > b.properties_in[0].conc_mass_phase_comp["Liq", "Mg_2+"]
                         )
                     ),
-                    b.MgCl2_SiO2_ratio * prop_in.conc_mass_phase_comp["Liq", "SiO2"],
+                    b.MgCl2_SiO2_ratio
+                    * b.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"],
                     1e-15 * pyunits.kg / pyunits.m**3,
                 )
 
@@ -683,33 +684,118 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 doc="Magnesium Chloride requirments dosing",
             )
 
-        @self.Constraint(doc="Recovery")
+        @self.Constraint(doc="Water recovery")
         def eq_recovery(b):
             return (
-                prop_in.flow_vol_phase["Liq"]
-                == prop_out.flow_vol_phase["Liq"] + prop_waste.flow_vol_phase["Liq"]
+                b.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
+                == b.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]
+                + b.properties_waste[0].flow_mass_phase_comp["Liq", "H2O"]
             )
 
         @self.Constraint(doc="Waste flow")
         def eq_waste_flow(b):
             return (
-                prop_out.flow_vol_phase["Liq"]
-                == prop_in.flow_vol_phase["Liq"] * b.frac_vol_recovery
+                b.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]
+                == b.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
+                * b.frac_vol_recovery
             )
 
         @self.Constraint(non_hardness_comps, doc="Mass balance")
         def eq_mass_balance(b, j):
             return (
-                prop_in.flow_mass_phase_comp["Liq", j]
-                == prop_out.flow_mass_phase_comp["Liq", j]
-                + prop_waste.flow_mass_phase_comp["Liq", j]
+                b.properties_in[0].flow_mass_phase_comp["Liq", j]
+                == b.properties_out[0].flow_mass_phase_comp["Liq", j]
+                + b.properties_waste[0].flow_mass_phase_comp["Liq", j]
             )
 
         @self.Constraint(non_hardness_comps, doc="Component Removal")
         def eq_component_removal(b, j):
-            return prop_waste.flow_mass_phase_comp[
+            return b.properties_out[0].flow_mass_phase_comp[
                 "Liq", j
-            ] == prop_in.flow_mass_phase_comp["Liq", j] * (b.removal_efficiency[j])
+            ] == b.properties_in[0].flow_mass_phase_comp["Liq", j] * (
+                1 - b.removal_efficiency[j]
+            )
+
+        @self.Constraint(doc="Ca in effluent")
+        def eq_effluent_ca(b):
+            return b.properties_out[0].flow_mass_phase_comp[
+                "Liq", "Ca_2+"
+            ] == pyunits.convert(
+                b.ca_eff_target * b.properties_out[0].flow_vol_phase["Liq"],
+                to_units=pyunits.kg / pyunits.s,
+            )
+
+        @self.Constraint(doc="Ca mass balance")
+        def eq_mass_balance_ca(b):
+            return b.properties_waste[0].flow_mass_phase_comp[
+                "Liq", "Ca_2+"
+            ] == b.properties_in[0].flow_mass_phase_comp[
+                "Liq", "Ca_2+"
+            ] + pyunits.convert(
+                b.excess_CaO * b.properties_in[0].flow_vol_phase["Liq"],
+                to_units=pyunits.kg / pyunits.s,
+            ) - pyunits.convert(
+                b.ca_eff_target * b.properties_out[0].flow_vol_phase["Liq"],
+                to_units=pyunits.kg / pyunits.s,
+            )
+
+        @self.Constraint(doc="Mg in effluent")
+        def eq_effluent_mg(b):
+            return b.properties_out[0].flow_mass_phase_comp[
+                "Liq", "Mg_2+"
+            ] == pyunits.convert(
+                (
+                    b.mg_eff_target * b.properties_out[0].flow_vol_phase["Liq"]
+                    + b.MgCl2_dosing * b.properties_out[0].flow_vol_phase["Liq"]
+                ),
+                to_units=pyunits.kg / pyunits.s,
+            )
+
+        @self.Constraint(doc="Mg mass balance")
+        def eq_mass_balance_mg(b):
+            return b.properties_waste[0].flow_mass_phase_comp[
+                "Liq", "Mg_2+"
+            ] == b.properties_in[0].flow_mass_phase_comp[
+                "Liq", "Mg_2+"
+            ] - pyunits.convert(
+                b.mg_eff_target * b.properties_out[0].flow_vol_phase["Liq"],
+                to_units=pyunits.kg / pyunits.s,
+            )
+
+        if ["TSS"] in comps:
+
+            @self.Constraint(doc="Sludge production")
+            def eq_sludge_prod(b):
+                return b.sludge_prod == pyunits.convert(
+                    (
+                        b.Ca_hardness_CaCO3_sludge_factor * b.Ca_hardness_CaCO3
+                        + b.Mg_hardness_CaCO3_sludge_factor * b.Mg_hardness_CaCO3
+                        + b.Ca_hardness_nonCaCO3
+                        + b.Mg_hardness_nonCaCO3_sludge_factor * b.Mg_hardness_nonCaCO3
+                        + b.excess_CaO
+                        + b.properties_in[0].conc_mass_phase_comp["Liq", "TSS"]
+                        + b.MgCl2_dosing
+                    )
+                    * b.properties_in[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                )
+
+        else:
+
+            @self.Constraint(doc="Sludge production")
+            def eq_sludge_prod(b):
+                return b.sludge_prod == pyunits.convert(
+                    (
+                        b.Ca_hardness_CaCO3_sludge_factor * b.Ca_hardness_CaCO3
+                        + b.Mg_hardness_CaCO3_sludge_factor * b.Mg_hardness_CaCO3
+                        + b.Ca_hardness_nonCaCO3
+                        + b.Mg_hardness_nonCaCO3_sludge_factor * b.Mg_hardness_nonCaCO3
+                        + b.excess_CaO
+                        + b.MgCl2_dosing
+                    )
+                    * b.properties_in[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                )
 
         @self.Constraint(doc="Volume of mixer")
         def eq_volume_mixer(b):
@@ -746,87 +832,6 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 b.properties_in[0].flow_vol_phase["Liq"] * b.retention_time_recarb,
                 to_units=pyunits.m**3,
             )
-
-        if ["Ca_2+"] in comps:
-
-            @self.Constraint(doc="Ca in effluent")
-            def eq_effluent_ca(b):
-                return (
-                    prop_out.conc_mass_phase_comp["Liq", "Ca_2+"]
-                    == b.ca_eff_target / b.Ca_CaCO3_conv
-                )
-
-            @self.Constraint(doc="Ca mass balance")
-            def eq_mass_balance_ca(b):
-                return prop_waste.flow_mass_phase_comp[
-                    "Liq", "Ca_2+"
-                ] == prop_in.flow_mass_phase_comp[
-                    "Liq", "Ca_2+"
-                ] - prop_out.flow_mass_phase_comp[
-                    "Liq", "Ca_2+"
-                ] + pyunits.convert(
-                    b.excess_CaO * prop_in.flow_vol_phase["Liq"],
-                    to_units=pyunits.kg / pyunits.s,
-                )
-
-        if ["Mg_2+"] in comps:
-
-            @self.Constraint(doc="Mg in effluent")
-            def eq_effluent_mg(b):
-                return (
-                    prop_out.conc_mass_phase_comp["Liq", "Mg_2+"]
-                    == b.mg_eff_target / b.Mg_CaCO3_conv
-                )
-
-            @self.Constraint(doc="Mg mass balance")
-            def eq_mass_balance_mg(b):
-                return prop_waste.flow_mass_phase_comp[
-                    "Liq", "Mg_2+"
-                ] == prop_in.flow_mass_phase_comp[
-                    "Liq", "Mg_2+"
-                ] - prop_out.flow_mass_phase_comp[
-                    "Liq", "Mg_2+"
-                ] + pyunits.convert(
-                    b.MgCl2_dosing * prop_in.flow_vol_phase["Liq"],
-                    to_units=pyunits.kg / pyunits.s,
-                )
-
-        if ["TSS"] in comps:
-
-            @self.Constraint(doc="Sludge production")
-            def eq_sludge_prod(b):
-                return (
-                    b.sludge_prod
-                    == (
-                        b.Ca_hardness_CaCO3_sludge_factor * b.Ca_hardness_CaCO3
-                        + b.Mg_hardness_CaCO3_sludge_factor * b.Mg_hardness_CaCO3
-                        + b.Ca_hardness_nonCaCO3
-                        + b.Mg_hardness_nonCaCO3_sludge_prod_factor
-                        * b.Mg_hardness_nonCaCO3
-                        + b.excess_CaO
-                        + prop_in.conc_mass_phase_comp["Liq", "TSS"]
-                        + b.MgCl2_dosing
-                    )
-                    * prop_in.flow_vol_phase["Liq"]
-                )
-
-        else:
-
-            @self.Constraint(doc="Sludge production")
-            def eq_sludge_prod(b):
-                return (
-                    b.sludge_prod
-                    == (
-                        b.Ca_hardness_CaCO3_sludge_factor * b.Ca_hardness_CaCO3
-                        + b.Mg_hardness_CaCO3_sludge_factor * b.Mg_hardness_CaCO3
-                        + b.Ca_hardness_nonCaCO3
-                        + b.Mg_hardness_nonCaCO3_sludge_prod_factor
-                        * b.Mg_hardness_nonCaCO3
-                        + b.excess_CaO
-                        + b.MgCl2_dosing
-                    )
-                    * prop_in.flow_vol_phase["Liq"]
-                )
 
     def initialize_build(
         blk,
@@ -968,7 +973,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         iscale.constraint_scaling_transform(self.eq_CO2_first_basin, 1e-3)
 
-        iscale.constraint_scaling_transform(self.eq_effluent_ca, 10)
+        iscale.constraint_scaling_transform(self.eq_effluent_ca, 1)
 
         iscale.constraint_scaling_transform(self.eq_effluent_mg, 10)
 
