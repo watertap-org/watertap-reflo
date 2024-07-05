@@ -66,15 +66,11 @@ class EnergyCostingData(REFLOCostingData):
 
 @declare_process_block_class("REFLOSystemCosting")
 class REFLOSystemCostingData(WaterTAPCostingBlockData):
-    def build(self):
-        super().build()
-
-        self._registered_LCOWs = {}
 
     def build_global_params(self):
 
         self.base_currency = pyo.units.USD_2021
-        
+
         # Fix the parameters
         self.fix_all_vars()
         self.plant_lifetime.fix(20)
@@ -177,8 +173,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc=f"Constraint for Levelized Cost of Water based on flow {flow_rate.name}",
         )
         self.add_component(name + "_constraint", LCOW_constraint)
-
-        self._registered_LCOWs[name] = (LCOW, LCOW_constraint)
 
     def add_LCOE(self, e_model="pysam"):
         """
