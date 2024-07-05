@@ -264,4 +264,6 @@ class TestVAGMDbatch:
         assert cost_performance["Annual electricity cost ($)"] == pytest.approx(
             4064.964, rel=1e-3
         )
-        assert cost_performance["Overall LCOW ($/m3)"] == pytest.approx(1.76369, rel=1e-3)
+        assert cost_performance["Overall LCOW ($/m3)"] == pytest.approx(
+            1.76369, rel=1e-3
+        )
