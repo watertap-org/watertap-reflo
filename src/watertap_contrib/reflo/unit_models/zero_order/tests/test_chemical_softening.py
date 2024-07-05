@@ -279,7 +279,7 @@ class TestChemSoft1:
             "maintenance_labor_chemical_operating_cost": 32178.371,
             "total_operating_cost": 5646742.412,
             "aggregate_direct_capital_cost": 1072612.378,
-            "LCOW": 4.153448,
+            "LCOW": 4.162705,
         }
         for v, r in sys_cost_results.items():
             softv = getattr(m.fs.costing, v)
@@ -536,21 +536,21 @@ class TestChemSoft2:
             "aggregate_fixed_operating_cost": 1086190.752,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 5.591,
-            "aggregate_flow_lime": 8290.679,
+            "aggregate_flow_lime": 3028170.6,
             "aggregate_flow_soda ash": 0.0,
-            "aggregate_flow_co2": 770.12,
+            "aggregate_flow_co2": 281286.38,
             "aggregate_flow_costs": {
                 "electricity": 4028.055,
-                "lime": 1683.555,
+                "lime": 614918.7,
                 "soda ash": 0.0,
-                "co2": 347.522,
+                "co2": 126932.7,
             },
             "total_capital_cost": 2529666.844,
             "maintenance_labor_chemical_operating_cost": 75890.005,
-            "total_operating_cost": 1168139.892,
-            "capital_recovery_factor": 0.1,
+            "total_operating_cost": 1907960.3,
+            "capital_recovery_factor": 0.11195,
             "aggregate_direct_capital_cost": 2529666.844,
-            "LCOW": 0.077794309,
+            "LCOW": 0.119949,
         }
         for v, r in sys_cost_results.items():
             softv = getattr(m.fs.costing, v)
