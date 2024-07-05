@@ -14,10 +14,10 @@ Air-water equilibrium property package
 """
 
 # Import Python libraries
+import itertools
 import idaes.logger as idaeslog
 
 from enum import Enum, auto
-import itertools
 
 # Import Pyomo libraries
 from pyomo.environ import (
@@ -33,8 +33,8 @@ from pyomo.environ import (
     log10,
     value,
     check_optimal_termination,
+    units as pyunits
 )
-from pyomo.environ import units as pyunits
 from pyomo.common.config import ConfigValue, In
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
@@ -60,7 +60,6 @@ from idaes.core.util.initialization import (
     revert_state_vars,
     solve_indexed_blocks,
 )
-from watertap.core.solvers import get_solver
 from idaes.core.util.misc import add_object_reference
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,

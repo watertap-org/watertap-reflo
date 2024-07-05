@@ -14,9 +14,9 @@ This module contains a base class for all solar energy unit models.
 """
 import os
 import sys
-from copy import deepcopy
 import numpy as np
 import pandas as pd
+from copy import deepcopy
 from io import StringIO
 
 from pyomo.common.config import ConfigBlock, ConfigValue, In

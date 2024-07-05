@@ -19,7 +19,6 @@ from pyomo.environ import (
 
 from idaes.core import FlowsheetBlock
 from idaes.core.util.testing import initialization_tester
-from watertap.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,

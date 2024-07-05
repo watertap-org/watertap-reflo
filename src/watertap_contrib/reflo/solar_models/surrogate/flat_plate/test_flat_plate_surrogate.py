@@ -26,10 +26,10 @@ from pyomo.environ import (
 )
 from pyomo.network import Port
 
+from idaes.core import FlowsheetBlock
 from idaes.core.util.testing import initialization_tester
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
-from idaes.core import FlowsheetBlock
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,

@@ -26,7 +26,7 @@ from pyomo.environ import (
 )
 from pyomo.network import Arc
 
-from idaes.core import FlowsheetBlock
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.scaling import (
@@ -34,7 +34,6 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     constraint_scaling_transform,
 )
-from idaes.core import UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
 
 from watertap.core.solvers import get_solver

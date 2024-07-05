@@ -20,7 +20,6 @@ from pyomo.environ import (
 from pyomo.network import Port
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.util.testing import initialization_tester
 from idaes.core.util.exceptions import ConfigurationError
 import idaes.logger as idaeslog
 from idaes.core.util.model_statistics import (

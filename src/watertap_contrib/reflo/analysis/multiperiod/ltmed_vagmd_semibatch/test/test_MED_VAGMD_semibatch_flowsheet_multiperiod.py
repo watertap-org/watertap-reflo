@@ -18,7 +18,6 @@ from pyomo.environ import (
 )
 
 from idaes.core import FlowsheetBlock
-from watertap.core.solvers import get_solver
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
@@ -27,6 +26,7 @@ from idaes.core.util.model_statistics import (
 )
 
 from watertap.core.solvers import get_solver
+
 from watertap_contrib.reflo.analysis.multiperiod.ltmed_vagmd_semibatch.MED_VAGMD_semibatch_class import (
     MEDVAGMDsemibatch,
 )
