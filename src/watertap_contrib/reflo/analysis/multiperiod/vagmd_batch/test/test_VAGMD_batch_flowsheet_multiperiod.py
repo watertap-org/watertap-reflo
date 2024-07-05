@@ -19,6 +19,13 @@ from pyomo.environ import (
 )
 
 from idaes.core import FlowsheetBlock
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_multiperiod_unit_model import (
+    VAGMDbatchSurrogate,
+)
+
+from watertap_contrib.reflo.costing import REFLOCosting
+
+from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
