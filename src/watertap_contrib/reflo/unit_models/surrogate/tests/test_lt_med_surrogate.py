@@ -27,7 +27,7 @@ from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.costing import REFLOCosting
 
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
+from watertap.core.solvers import get_solver
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
