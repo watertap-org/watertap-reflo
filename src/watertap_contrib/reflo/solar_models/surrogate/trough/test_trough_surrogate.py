@@ -30,9 +30,6 @@ from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.reflo.core import SolarEnergyBaseData
 from watertap_contrib.reflo.costing import EnergyCosting
 
-from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
-from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import (
@@ -45,6 +42,8 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
 )
+
+from watertap.core.solvers import get_solver
 
 # Get default solver for testing
 solver = get_solver()
@@ -286,8 +285,8 @@ class TestTroughLarge:
         m.fs.trough.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
         )
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_total_investment.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.total_investment_factor.fix(1)
         m.fs.costing.cost_process()
         m.fs.costing.initialize()
 
@@ -317,7 +316,7 @@ class TestTroughLarge:
             "total_capital_cost": 249933275.0,
             "maintenance_labor_chemical_operating_cost": 0.0,
             "total_operating_cost": -10773196.871,
-            "capital_recovery_factor": 0.1,
+            "capital_recovery_factor": 0.11955949,
             "aggregate_direct_capital_cost": 249933275.0,
         }
 

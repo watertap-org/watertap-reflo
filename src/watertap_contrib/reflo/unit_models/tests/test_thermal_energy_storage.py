@@ -14,31 +14,29 @@ import pytest
 
 from pyomo.environ import (
     ConcreteModel,
-    SolverFactory,
-    value,
     assert_optimal_termination,
     units as pyunits,
 )
 from pyomo.network import Port
-from watertap.property_models.water_prop_pack import WaterParameterBlock
 
-from watertap_contrib.reflo.unit_models.thermal_energy_storage import (
-    ThermalEnergyStorage,
-)
-from idaes.core.solvers import get_solver
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.reflo.costing import TreatmentCosting
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
     number_total_constraints,
     number_unused_variables,
 )
-
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
-    badly_scaled_var_generator,
+)
+
+from watertap.core.solvers import get_solver
+from watertap.property_models.water_prop_pack import WaterParameterBlock
+
+from watertap_contrib.reflo.costing import TreatmentCosting
+from watertap_contrib.reflo.unit_models.thermal_energy_storage import (
+    ThermalEnergyStorage,
 )
 
 # Get default solver for testing
@@ -155,8 +153,8 @@ class TestThermalEnergyStorage:
         m.fs.costing = TreatmentCosting()
         m.fs.tes.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_total_investment.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.total_investment_factor.fix(1)
 
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)

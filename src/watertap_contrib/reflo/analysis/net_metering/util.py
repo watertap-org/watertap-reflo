@@ -182,7 +182,7 @@ def display_pv_results(m, sep="."):
         f'{"PV Annual Gen":<35s}{f"{m.fs.energy.pv.costing.annual_generation():<25.1f}"}{"MWh/yr":<25s}'
     )
     print(
-        f'{"LCOE":<34s}{f"${((m.fs.energy.pv.costing.capital_cost()*m.fs.sys_costing.factor_capital_annualization())+(m.fs.energy.pv.costing.fixed_operating_cost()))/(1000*(m.fs.energy.pv.costing.annual_generation())):<25.4f}"}{"$/kWh":<25s}'
+        f'{"LCOE":<34s}{f"${((m.fs.energy.pv.costing.capital_cost()*m.fs.sys_costing.capital_recovery_factor())+(m.fs.energy.pv.costing.fixed_operating_cost()))/(1000*(m.fs.energy.pv.costing.annual_generation())):<25.4f}"}{"$/kWh":<25s}'
     )
     title = f'\n{"=======> m.fs.energy.costing or m.fs.sys_costing <=======":^60}\n'
     print(title)
@@ -198,13 +198,13 @@ def display_pv_results(m, sep="."):
         f'{"PV Annual Gen":<35s}{f"{m.fs.sys_costing.annual_energy_generated():<25,.0f}"}{"kWh/yr":<25s}'
     )
     print(
-        f'{"PV Factor Cap Annualization":<35s}{f"{m.fs.sys_costing.factor_capital_annualization():<25.4f}"}{"kWh/yr":<25s}'
+        f'{"PV Factor Cap Annualization":<35s}{f"{m.fs.sys_costing.capital_recovery_factor():<25.4f}"}{"kWh/yr":<25s}'
     )
     print(
         f'{"PV Util Factor":<35s}{f"{m.fs.sys_costing.utilization_factor():<25.4f}"}{"dimless":<25s}'
     )
     print(
-        f'{"LCOE":<34s}{f"${((m.fs.energy.costing.total_capital_cost()*m.fs.sys_costing.factor_capital_annualization())+(m.fs.energy.costing.total_operating_cost()))/(m.fs.sys_costing.annual_energy_generated()):<25.4f}"}{"$/kWh":<25s}'
+        f'{"LCOE":<34s}{f"${((m.fs.energy.costing.total_capital_cost()*m.fs.sys_costing.capital_recovery_factor())+(m.fs.energy.costing.total_operating_cost()))/(m.fs.sys_costing.annual_energy_generated()):<25.4f}"}{"$/kWh":<25s}'
     )
     print("\n")
     print(

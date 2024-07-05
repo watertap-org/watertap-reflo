@@ -29,12 +29,13 @@ from idaes.core import (
     useDefault,
 )
 from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.core.util.scaling as iscale
 from idaes.core.util.tables import create_stream_table_dataframe
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 
