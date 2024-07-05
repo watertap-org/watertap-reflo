@@ -26,7 +26,7 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
+from watertap.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -136,9 +136,9 @@ class TestVAGMD_unit_model:
         m = VAGMD_frame
 
         # test statistics
-        assert number_variables(m) == 231
+        assert number_variables(m) == 243
         assert number_total_constraints(m) == 72
-        assert number_unused_variables(m) == 127
+        assert number_unused_variables(m) == 139
 
     @pytest.mark.unit
     def test_dof(self, VAGMD_frame):

@@ -41,9 +41,9 @@ from idaes.core.util.scaling import (
 
 from idaes.core import UnitModelCostingBlock
 import idaes.logger as idaeslog
-from idaes.core.solvers.get_solver import get_solver
 
 # WaterTAP imports
+from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.costing import TreatmentCosting
 
 # Flowsheet function imports
