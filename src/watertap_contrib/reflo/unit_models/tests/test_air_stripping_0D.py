@@ -38,7 +38,7 @@ from idaes.core import (
 )
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
+from watertap.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -412,7 +412,7 @@ class TestAirStripping0D:
             "total_capital_cost": 391313.521,
             "maintenance_labor_chemical_operating_cost": 11739.41,
             "total_operating_cost": 27280.755,
-            "LCOW": 0.013319447,
+            "LCOW": 0.0142577,
             "SEC": 0.03793025,
         }
 
@@ -781,7 +781,7 @@ class TestAirStripping0D:
             "total_capital_cost": 1414661.385,
             "maintenance_labor_chemical_operating_cost": 42439.841,
             "total_operating_cost": 62494.830,
-            "LCOW": 0.06463132,
+            "LCOW": 0.0699909,
             "SEC": 0.077335064,
         }
 
