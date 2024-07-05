@@ -13,13 +13,9 @@
 import pyomo.environ as pyo
 
 from idaes.core import declare_process_block_class
-from idaes.core.base.costing_base import (
-    FlowsheetCostingBlockData,
-    register_idaes_currency_units,
-)
 
 from watertap.costing.watertap_costing_package import (
-    WaterTAPCostingData,
+    WaterTAPCostingData, WaterTAPCostingBlockData
 )
 from watertap_contrib.reflo.core import PySAMWaterTAP
 
@@ -30,9 +26,6 @@ class REFLOCostingData(WaterTAPCostingData):
         super().build_global_params()
 
         self.base_currency = pyo.units.USD_2021
-        self.plant_lifetime = pyo.Var(
-            initialize=20, units=self.base_period, doc="Plant lifetime"
-        )
 
         self.sales_tax_frac = pyo.Param(
             initialize=0.05,
@@ -49,47 +42,8 @@ class REFLOCostingData(WaterTAPCostingData):
         )
         self.register_flow_type("heat", self.heat_cost)
 
-        self.plant_lifetime.fix()
+        self.plant_lifetime.fix(20)
         self.utilization_factor.fix(1)
-
-    def build_process_costs(self):
-        # super().build_process_costs()
-
-        self.total_capital_cost = pyo.Var(
-            initialize=1e3,
-            domain=pyo.NonNegativeReals,
-            doc="Total capital cost",
-            units=self.base_currency,
-        )
-        self.maintenance_labor_chemical_operating_cost = pyo.Var(
-            initialize=1e3,
-            domain=pyo.NonNegativeReals,
-            doc="Maintenance-labor-chemical operating cost",
-            units=self.base_currency / self.base_period,
-        )
-        self.total_operating_cost = pyo.Var(
-            initialize=1e3,
-            domain=pyo.Reals,
-            doc="Total operating cost",
-            units=self.base_currency / self.base_period,
-        )
-
-        self.total_capital_cost_constraint = pyo.Constraint(
-            expr=self.total_capital_cost
-            == self.total_investment_factor * self.aggregate_capital_cost
-        )
-        self.maintenance_labor_chemical_operating_cost_constraint = pyo.Constraint(
-            expr=self.maintenance_labor_chemical_operating_cost
-            == self.maintenance_labor_chemical_factor * self.total_capital_cost
-        )
-
-        self.total_operating_cost_constraint = pyo.Constraint(
-            expr=self.total_operating_cost
-            == self.maintenance_labor_chemical_operating_cost
-            + self.aggregate_fixed_operating_cost
-            + self.aggregate_variable_operating_cost
-            + sum(self.aggregate_flow_costs.values()) * self.utilization_factor
-        )
 
 
 @declare_process_block_class("TreatmentCosting")
@@ -111,100 +65,21 @@ class EnergyCostingData(REFLOCostingData):
 
 
 @declare_process_block_class("REFLOSystemCosting")
-class REFLOSystemCostingData(FlowsheetCostingBlockData):
+class REFLOSystemCostingData(WaterTAPCostingBlockData):
     def build(self):
         super().build()
 
         self._registered_LCOWs = {}
 
     def build_global_params(self):
-        # Register currency and conversion rates based on CE Index
-        register_idaes_currency_units()
 
         self.base_currency = pyo.units.USD_2021
+        
+        # Fix the parameters
+        self.fix_all_vars()
+        self.plant_lifetime.fix(20)
+        self.utilization_factor.fix(1)
 
-        self.base_period = pyo.units.year
-
-        self.utilization_factor = pyo.Var(
-            initialize=1,
-            doc="Plant capacity utilization [fraction of uptime]",
-            units=pyo.units.dimensionless,
-        )
-
-        self.plant_lifetime = pyo.Var(
-            initialize=20, units=self.base_period, doc="Plant lifetime"
-        )
-
-        self.total_investment_factor = pyo.Var(
-            initialize=1,
-            doc="Total investment factor [investment cost/equipment cost]",
-            units=pyo.units.dimensionless,
-        )
-        self.maintenance_labor_chemical_factor = pyo.Var(
-            initialize=0.03,
-            doc="Maintenance-labor-chemical factor [fraction of investment cost/year]",
-            units=pyo.units.year**-1,
-        )
-
-        # self.wacc = pyo.Param(
-        #     initialize=0.05,
-        #     mutable=True,
-        #     units=pyo.units.dimensionless,
-        #     doc="Weighted Average Cost of Capital [WACC]",
-        # )
-
-        self.wacc = pyo.Var(
-            # consistent with a 30 year plant_lifetime
-            # and a capital_recovery_factor of 0.1
-            initialize=0.09307339771758532,
-            units=pyo.units.dimensionless,
-            doc="Weighted Average Cost of Capital (WACC)",
-        )
-
-        self.electricity_cost = pyo.Param(
-            mutable=True,
-            initialize=0.0718,  # From EIA for 2021
-            doc="Electricity cost",
-            units=self.base_currency / pyo.units.kWh,
-        )
-
-        self.register_flow_type("electricity", self.electricity_cost)
-
-        self.electrical_carbon_intensity = pyo.Param(
-            mutable=True,
-            initialize=0.475,
-            doc="Grid carbon intensity [kgCO2_eq/kWh]",
-            units=pyo.units.kg / pyo.units.kWh,
-        )
-
-
-        self.capital_recovery_factor = pyo.Var(
-            initialize=0.1,
-            units=pyo.units.year**-1,
-            doc="Capital annualization factor [fraction of investment cost/year]",
-        )
-
-        self.capital_recovery_factor_constraint = pyo.Constraint(
-            expr=self.capital_recovery_factor
-            == (
-                (self.wacc / pyo.units.year)
-                / (1 - 1 / ((1 + self.wacc) ** (self.plant_lifetime / pyo.units.year)))
-            )
-        )
-
-        # self.capital_recovery_factor = pyo.Expression(
-        #     expr=(
-        #         (
-        #             self.wacc
-        #             * (1 + self.wacc) ** (self.plant_lifetime / self.base_period)
-        #         )
-        #         / (((1 + self.wacc) ** (self.plant_lifetime / self.base_period)) - 1)
-        #         / self.base_period
-        #     )
-        # )
-        # fix the parameters
-        # self.fix_all_vars()
-        # self.wacc.unfix()
         # Build the integrated system costs
         self.build_integrated_costs()
 
