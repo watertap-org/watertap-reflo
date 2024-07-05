@@ -69,9 +69,6 @@ class TestMEDTVC:
         )
 
         med_tvc = m.fs.med_tvc
-        feed = med_tvc.feed_props[0]
-        cool = med_tvc.cooling_out_props[0]
-        dist = med_tvc.distillate_props[0]
         steam = med_tvc.heating_steam_props[0]
         motive = med_tvc.motive_steam_props[0]
 
@@ -325,7 +322,8 @@ class TestMEDTVC:
 
         m.fs.costing.total_investment_factor.fix(1)
         m.fs.costing.maintenance_labor_chemical_factor.fix(0)
-        # m.fs.costing.capital_recovery_factor.fix(0.08764)
+        m.fs.costing.wacc.unfix()
+        m.fs.costing.capital_recovery_factor.fix(0.08764)
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(dist.flow_vol_phase["Liq"])
