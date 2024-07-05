@@ -46,8 +46,9 @@ from idaes.core.util.exceptions import InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
-from watertap.core import ControlVolume0DBlock, InitializationMixin
 from watertap.core.solvers import get_solver
+from watertap.core import ControlVolume0DBlock, InitializationMixin
+
 from watertap_contrib.reflo.costing.units.air_stripping import cost_air_stripping
 
 __author__ = "Kurban Sitterley"

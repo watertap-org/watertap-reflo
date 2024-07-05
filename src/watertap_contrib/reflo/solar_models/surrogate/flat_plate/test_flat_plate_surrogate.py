@@ -26,14 +26,10 @@ from pyomo.environ import (
 )
 from pyomo.network import Port
 
-from watertap_contrib.reflo.solar_models.surrogate.flat_plate import FlatPlateSurrogate
-from watertap_contrib.reflo.costing import EnergyCosting
-
+from idaes.core import FlowsheetBlock
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -44,6 +40,9 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
 )
+
+from watertap.core.solvers import get_solver
+from watertap_contrib.reflo.solar_models.surrogate.flat_plate import FlatPlateSurrogate
 
 # Get default solver for testing
 solver = get_solver()

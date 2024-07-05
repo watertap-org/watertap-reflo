@@ -30,7 +30,7 @@ Import required libraries
   import time
   import pandas as pd
   from pyomo.environ import Var, Constraint, units as pyunits, value, Param
-  from idaes.core.solvers import get_solver
+  from watertap.core.solvers import get_solver
   from idaes.core.surrogate.sampling.data_utils import split_training_validation
   from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
   from idaes.core.surrogate.surrogate_block import SurrogateBlock
