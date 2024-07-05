@@ -25,10 +25,10 @@ from pyomo.environ import (
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # IDAES imports
-from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 from idaes.core import (
     declare_process_block_class,
     UnitModelBlockData,
+    UnitModelCostingBlock,
     useDefault,
 )
 from idaes.core.util.exceptions import (
@@ -38,15 +38,14 @@ from idaes.core.util.scaling import (
     set_scaling_factor,
     get_scaling_factor,
 )
-
-from idaes.core import UnitModelCostingBlock
+from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 import idaes.logger as idaeslog
 
 # WaterTAP imports
 from watertap.core.solvers import get_solver
-from watertap_contrib.reflo.costing import TreatmentCosting
 
 # Flowsheet function imports
+from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.analysis.multiperiod.ltmed_vagmd_semibatch.MED_VAGMD_flowsheet import (
     build_med_md_flowsheet,
     fix_dof_and_initialize,

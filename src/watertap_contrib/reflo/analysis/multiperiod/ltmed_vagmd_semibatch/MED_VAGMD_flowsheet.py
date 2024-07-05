@@ -18,6 +18,7 @@ from pyomo.environ import (
 )
 from pyomo.network import Arc
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
+
 from idaes.core import FlowsheetBlock, MaterialBalanceType
 from idaes.models.unit_models import (
     Mixer,
@@ -28,12 +29,12 @@ from idaes.core.util.scaling import (
     get_scaling_factor,
     calculate_scaling_factors,
 )
-
-
 import idaes.logger as idaeslog
+
 from watertap.core.solvers import get_solver
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
+
 from watertap_contrib.reflo.unit_models.surrogate import (
     VAGMDSurrogateBase,
     LTMEDSurrogate,

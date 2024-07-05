@@ -31,9 +31,10 @@ from idaes.core import (
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
-from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
     cost_med_tvc_surrogate,

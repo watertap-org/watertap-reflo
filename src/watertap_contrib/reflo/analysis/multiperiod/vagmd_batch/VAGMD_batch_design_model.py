@@ -10,9 +10,6 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-import pandas as pd
-import numpy as np
-
 """
 Calculate the number of periods to reach target recovery rate by solving the system first
 """
