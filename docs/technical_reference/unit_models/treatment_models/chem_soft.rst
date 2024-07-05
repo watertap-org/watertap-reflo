@@ -14,6 +14,12 @@ The model requires 2 configuration inputs:
    * Softening procedure: ``single_stage_lime`` or ``excess_lime`` or ``single_stage_lime_soda`` or ``excess_lime_soda``
    * Silica removal: ``True`` or ``False``
 
+The softening procedure should be selected based on the inlet feed composition as shown below:
+   1. if [:math:`\text{Mg}^{2+}`] in CaCO3 \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] > [:math:`\text{Ca}^{2+}`] in CaCO3 : ``single_stage_lime``
+   2. if [:math:`\text{Mg}^{2+}`] in CaCO3 \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \>= Total hardness : ``excess_lime``
+   3. if [:math:`\text{Mg}^{2+}`] in CaCO3 \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \<= Total hardness : ``single_stage_lime_soda``
+   4. if [:math:`\text{Mg}^{2+}`] in CaCO3 \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] >\<= Total hardness - ``excess_lime_soda``
+
 
 Solution Composition
 ---------------------
@@ -26,21 +32,6 @@ are shown in the code below. Additional components can be included by the user s
    component_list = ["Ca_2+","Mg_2+","Alkalinity_2-"]
 
 A default removal efficiency is assumed for components (other than :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`) and shown below in the code block.
-
-.. code-block::
-
-   removal_eff_dict = dict(
-            zip([
-                x for x in component_list if x not in ["Ca_2+","Mg_2+"]
-                ]
-                ,
-                [   
-                    0.7 if j != "TDS" else 1e-3
-                    for j in component_list 
-                ],
-            )
-        )
-
 Users can update the removal efficiencies for specific components by first fixing the ``removal_efficiency`` variable and then using the specific component as a key to modify its removal efficiency as shown below.
 
 .. code-block::
@@ -64,8 +55,8 @@ Typically, the following 7 variables define the input feed.
    "Feed composition Mg2+", "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
    "Feed composition Alkalinity2-", "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``",":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
    "Feed temperature", "``feed_props.temperature``", ":math:`T`", ":math:`^o\text{C}`"
-   "Ca2+ effluent target in CaCO3 equivalents", "``ca_eff_target``", "", ":math:`\text{g/}\text{L}`"
-   "Mg2+ effluent target in CaCO3 equivalents", "``mg_eff_target``", "", ":math:`\text{g/}\text{L}`"
+   "Ca2+ effluent target", "``ca_eff_target``", "", ":math:`\text{g/}\text{L}`"
+   "Mg2+ effluent target", "``mg_eff_target``", "", ":math:`\text{g/}\text{L}`"
    
 The following 11 variables define the system design.
 
@@ -131,7 +122,7 @@ The following parameters are used as default values and are not mutable.
    "Ratio of MgCl2 to SiO2", "``MgCl2_SiO2_ratio``", ":math:`Ratio_{MgCl_{2}/SiO_{2}}`"
    "Sludge produced per kg Ca in CaCO3 hardness", "``Ca_hardness_CaCO3_sludge_factor``", ":math:`\text{Ca-SF}_{CaCO_{3}-hardness}`"
    "Sludge produced per kg Mg in CaCO3 hardness", "``Mg_hardness_CaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{CaCO_{3}-hardness}`"
-   "Sludge produced per kg Mg in non-CaCO3 hardness", "``Mg_hardness_nonCaCO3_sludge_prod_factor``", ":math:`\text{Mg-SF}_{non-CaCO_{3}-hardness}`"
+   "Sludge produced per kg Mg in non-CaCO3 hardness", "``Mg_hardness_nonCaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{non-CaCO_{3}-hardness}`"
    "Multiplication factor to calculate excess CaO", "``excess_CaO_coeff``", ""
 
 
