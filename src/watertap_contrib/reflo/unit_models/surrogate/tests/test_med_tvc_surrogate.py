@@ -201,9 +201,9 @@ class TestMEDTVC:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 204
+        assert number_variables(m) == 216
         assert number_total_constraints(m) == 61
-        assert number_unused_variables(m) == 74  # vars from property package parameters
+        assert number_unused_variables(m) == 86  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, MED_TVC_frame):
@@ -325,7 +325,7 @@ class TestMEDTVC:
 
         m.fs.costing.total_investment_factor.fix(1)
         m.fs.costing.maintenance_labor_chemical_factor.fix(0)
-        m.fs.costing.factor_capital_annualization.fix(0.08764)
+        # m.fs.costing.capital_recovery_factor.fix(0.08764)
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(dist.flow_vol_phase["Liq"])

@@ -146,11 +146,19 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
             units=pyo.units.year**-1,
         )
 
-        self.wacc = pyo.Param(
-            initialize=0.05,
-            mutable=True,
+        # self.wacc = pyo.Param(
+        #     initialize=0.05,
+        #     mutable=True,
+        #     units=pyo.units.dimensionless,
+        #     doc="Weighted Average Cost of Capital [WACC]",
+        # )
+
+        self.wacc = pyo.Var(
+            # consistent with a 30 year plant_lifetime
+            # and a capital_recovery_factor of 0.1
+            initialize=0.09307339771758532,
             units=pyo.units.dimensionless,
-            doc="Weighted Average Cost of Capital [WACC]",
+            doc="Weighted Average Cost of Capital (WACC)",
         )
 
         self.electricity_cost = pyo.Param(
@@ -169,18 +177,34 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
             units=pyo.units.kg / pyo.units.kWh,
         )
 
-        self.factor_capital_annualization = pyo.Expression(
-            expr=(
-                (
-                    self.wacc
-                    * (1 + self.wacc) ** (self.plant_lifetime / self.base_period)
-                )
-                / (((1 + self.wacc) ** (self.plant_lifetime / self.base_period)) - 1)
-                / self.base_period
+
+        self.capital_recovery_factor = pyo.Var(
+            initialize=0.1,
+            units=pyo.units.year**-1,
+            doc="Capital annualization factor [fraction of investment cost/year]",
+        )
+
+        self.capital_recovery_factor_constraint = pyo.Constraint(
+            expr=self.capital_recovery_factor
+            == (
+                (self.wacc / pyo.units.year)
+                / (1 - 1 / ((1 + self.wacc) ** (self.plant_lifetime / pyo.units.year)))
             )
         )
+
+        # self.capital_recovery_factor = pyo.Expression(
+        #     expr=(
+        #         (
+        #             self.wacc
+        #             * (1 + self.wacc) ** (self.plant_lifetime / self.base_period)
+        #         )
+        #         / (((1 + self.wacc) ** (self.plant_lifetime / self.base_period)) - 1)
+        #         / self.base_period
+        #     )
+        # )
         # fix the parameters
-        self.fix_all_vars()
+        # self.fix_all_vars()
+        # self.wacc.unfix()
         # Build the integrated system costs
         self.build_integrated_costs()
 
@@ -266,7 +290,7 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
         LCOW_constraint = pyo.Constraint(
             expr=LCOW
             == (
-                self.total_capital_cost * self.factor_capital_annualization
+                self.total_capital_cost * self.capital_recovery_factor
                 + self.total_operating_cost
             )
             / (
@@ -306,7 +330,7 @@ class REFLOSystemCostingData(FlowsheetCostingBlockData):
             )
             LCOE_expr = pyo.Expression(
                 expr=(
-                    en_cost.total_capital_cost * self.factor_capital_annualization
+                    en_cost.total_capital_cost * self.capital_recovery_factor
                     + (
                         en_cost.aggregate_fixed_operating_cost
                         + en_cost.aggregate_variable_operating_cost

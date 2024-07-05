@@ -279,7 +279,7 @@ class TestLTMED:
         # (This is not necessary in general)
         m.fs.costing.total_investment_factor.fix(1)
         m.fs.costing.maintenance_labor_chemical_factor.fix(0)
-        m.fs.costing.factor_capital_annualization.fix(0.08764)
+        m.fs.costing.capital_recovery_factor.fix(0.08764)
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(dist.flow_vol_phase["Liq"])

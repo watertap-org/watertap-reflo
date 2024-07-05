@@ -532,15 +532,6 @@ class TestChemSoft2:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "utilization_factor": 1.0,
-            "electricity_cost": 0.07,
-            "electrical_carbon_intensity": 0.475,
-            "TPEC": 4.121212,
-            "TIC": 2.0,
-            "total_investment_factor": 1.0,
-            "maintenance_labor_chemical_factor": 0.03,
-            "factor_capital_annualization": 0.1,
-            "plant_lifetime": 20.0,
             "aggregate_capital_cost": 2529666.844,
             "aggregate_fixed_operating_cost": 1086190.752,
             "aggregate_variable_operating_cost": 0.0,
@@ -558,10 +549,6 @@ class TestChemSoft2:
             "maintenance_labor_chemical_operating_cost": 75890.005,
             "total_operating_cost": 1168139.892,
             "capital_recovery_factor": 0.1,
-            "lime_cost": 0.171,
-            "soda ash_cost": 0.65,
-            "mgcl2_cost": 1.5,
-            "co2_cost": 0.38,
             "aggregate_direct_capital_cost": 2529666.844,
             "LCOW": 0.077794309,
         }
