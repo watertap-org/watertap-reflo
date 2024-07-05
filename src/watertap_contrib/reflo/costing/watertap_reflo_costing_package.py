@@ -68,6 +68,7 @@ class EnergyCostingData(REFLOCostingData):
 class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
     def build_global_params(self):
+        super().build_global_params()
 
         self.base_currency = pyo.units.USD_2021
 
