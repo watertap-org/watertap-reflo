@@ -36,7 +36,7 @@ from idaes.core.util.exceptions import (
 import idaes.core.util.scaling as iscale
 from idaes.core import UnitModelCostingBlock
 import idaes.logger as idaeslog
-from idaes.core.solvers.get_solver import get_solver
+from watertap.core.solvers import get_solver
 
 # WaterTAP imports
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
