@@ -28,7 +28,7 @@ from idaes.core.util.model_statistics import (
 )
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
-    unscaled_variables_generator
+    unscaled_variables_generator,
 )
 
 from watertap.core.solvers import get_solver
@@ -38,6 +38,7 @@ from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.unit_models.thermal_energy_storage import (
     ThermalEnergyStorage,
 )
+
 # Get default solver for testing
 solver = get_solver()
 

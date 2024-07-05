@@ -42,6 +42,7 @@ from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
 from watertap_contrib.reflo.costing import REFLOCosting
+
 # -----------------------------------------------------------------------------
 # Get default solver for testing
 solver = get_solver()

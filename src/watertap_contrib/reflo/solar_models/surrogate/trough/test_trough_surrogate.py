@@ -44,6 +44,7 @@ from idaes.core.util.scaling import (
 )
 
 from watertap.core.solvers import get_solver
+
 # Get default solver for testing
 solver = get_solver()
 

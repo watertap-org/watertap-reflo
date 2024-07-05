@@ -33,7 +33,7 @@ from pyomo.environ import (
     log10,
     value,
     check_optimal_termination,
-    units as pyunits
+    units as pyunits,
 )
 from pyomo.common.config import ConfigValue, In
 from pyomo.util.calc_var_value import calculate_variable_from_constraint

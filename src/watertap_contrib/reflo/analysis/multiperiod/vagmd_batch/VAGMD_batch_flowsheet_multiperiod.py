@@ -27,7 +27,7 @@ from pyomo.common.config import ConfigBlock, ConfigValue, In
 from idaes.core import (
     declare_process_block_class,
     UnitModelBlockData,
-    UnitModelCostingBlock, 
+    UnitModelCostingBlock,
     useDefault,
 )
 from idaes.core.util.exceptions import (
