@@ -76,11 +76,11 @@ class REFLOCostingData(WaterTAPCostingData):
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
-            == self.factor_total_investment * self.aggregate_capital_cost
+            == self.total_investment_factor * self.aggregate_capital_cost
         )
         self.maintenance_labor_chemical_operating_cost_constraint = pyo.Constraint(
             expr=self.maintenance_labor_chemical_operating_cost
-            == self.factor_maintenance_labor_chemical * self.total_capital_cost
+            == self.maintenance_labor_chemical_factor * self.total_capital_cost
         )
 
         self.total_operating_cost_constraint = pyo.Constraint(
