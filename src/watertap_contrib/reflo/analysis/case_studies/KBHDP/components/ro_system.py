@@ -70,18 +70,13 @@ from watertap.costing import WaterTAPCosting
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
-# from analysisWaterTAP.flowsheets.lssro_oaro.lsrro_oaro_utils.utils import *
-# from analysisWaterTAP.flowsheets.lssro_oaro.lsrro_oaro_utils.debug import *
-
-# from analysisWaterTAP.utils import flowsheet_utils as fsTools
-
 def propagate_state(arc):
     _prop_state(arc)
-    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    # arc.source.display()
-    # print(arc.destination.name)
-    # arc.destination.display()
-    # print('\n')
+    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    arc.source.display()
+    print(arc.destination.name)
+    arc.destination.display()
+    print('\n')
 
 
 def _initialize(m, blk, optarg):
@@ -124,7 +119,7 @@ def print_RO_op_pressure_est(blk):
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
 
-def build_ro(m, blk, number_of_stages=1) -> None:
+def build_ro(m, blk, number_of_stages=1, prop_package=None) -> None:
     print(f'\n{"=======> BUILDING RO SYSTEM <=======":^60}\n')
 
     blk.feed = StateJunction(property_package=m.fs.RO_properties)
@@ -139,9 +134,9 @@ def build_ro(m, blk, number_of_stages=1) -> None:
     blk.NonFinalStages = RangeSet(number_of_stages - 1)
 
     blk.pump = Pump(property_package=m.fs.RO_properties)
-    # blk.pump.costing = UnitModelCostingBlock(
-    #     flowsheet_costing_block=m.fs.costing,
-    # )
+    blk.pump.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+    )
 
     blk.primary_mixer = Mixer(
         property_package=m.fs.RO_properties,
@@ -157,10 +152,6 @@ def build_ro(m, blk, number_of_stages=1) -> None:
         else:
             build_ro_stage(m, stage)
 
-    # blk.ro_feed_to_first_stage = Arc(
-    #     source=blk.feed.outlet,
-    #     destination=blk.stage[1].feed.inlet,
-    # )
     blk.ro_feed_to_pump = Arc(
         source=blk.feed.outlet,
         destination=blk.pump.inlet,
@@ -211,6 +202,9 @@ def build_ro_stage(m, blk, booster_pump=False):
 
     if booster_pump:
         blk.booster_pump = Pump(property_package=m.fs.RO_properties)
+        blk.booster_pump.costing = UnitModelCostingBlock(
+            flowsheet_costing_block=m.fs.costing,
+        )
 
     blk.module = ReverseOsmosis1D(
         property_package=m.fs.RO_properties,
@@ -222,6 +216,10 @@ def build_ro_stage(m, blk, booster_pump=False):
         transformation_method="dae.finite_difference",
         finite_elements=10,
         has_full_reporting=True,
+    )
+
+    blk.module.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
     )
 
     if booster_pump:
@@ -253,6 +251,8 @@ def build_ro_stage(m, blk, booster_pump=False):
     blk.permeate.properties[0].conc_mass_phase_comp
     blk.retentate.properties[0].conc_mass_phase_comp
 
+# def add_ro_costing(m, blk):
+    
 
 def init_system(m, verbose=True, solver=None):
     if solver is None:
@@ -264,19 +264,17 @@ def init_system(m, verbose=True, solver=None):
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"RO Degrees of Freedom: {degrees_of_freedom(m.fs.ro)}")
     display_dof_breakdown(m)
+
     m.fs.feed.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
     print(m.fs.feed.report())
-    # propagate_state(m.fs.feed_to_primary_pump)
     propagate_state(m.fs.feed_to_ro)
-    # m.fs.primary_pump.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
-    # propagate_state(m.fs.primary_pump_to_ro)
+
     init_ro_system(m, m.fs.ro)
     propagate_state(m.fs.ro_to_product)
     propagate_state(m.fs.ro_to_disposal)
+
     m.fs.product.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
     m.fs.disposal.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
-
-    # display_flow_table(m)
 
 
 def init_ro_system(m, blk, verbose=True, solver=None):
@@ -294,10 +292,11 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n")
 
     blk.feed.initialize(optarg=optarg)
-    # propagate_state(blk.ro_feed_to_first_stage)
     propagate_state(blk.ro_feed_to_pump)
+
     blk.pump.initialize(optarg=optarg)
     propagate_state(blk.ro_pump_to_first_stage)
+
     for stage in blk.stage.values():
         init_ro_stage(m, stage, solver=solver)
         if stage.index() < blk.numberOfStages:
@@ -306,6 +305,7 @@ def init_ro_system(m, blk, verbose=True, solver=None):
         else:
             propagate_state(blk.last_stage_retentate_to_ro_retentate)
             propagate_state(blk.stage_permeate_to_mixer[stage.index()])
+
     blk.disposal.initialize(optarg=optarg)
     blk.primary_mixer.initialize(optarg=optarg)
     propagate_state(blk.primary_mixer_to_product)
@@ -320,7 +320,6 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n")
     display_flow_table(blk)
     print(blk.report())
-    # assert False
 
 
 def init_ro_stage(m, stage, solver=None):
@@ -338,18 +337,13 @@ def init_ro_stage(m, stage, solver=None):
         stage.feed.initialize(optarg=optarg)
         propagate_state(stage.stage_feed_to_module)
 
-    # display_inlet_conditions(stage)
-    # stage.module.initialize(optarg=optarg)
     print_RO_op_pressure_est(stage)
     display_inlet_conditions(stage)
-    print(stage.report())
-    print(stage.module.report())
-    # _initialize(m, stage.module, optarg)
+
     stage.module.initialize(optarg=optarg)
-    assert False
+
     propagate_state(stage.stage_module_to_retentate)
     propagate_state(stage.stage_module_to_permeate)
-    # print(stage.module.report())
 
     stage.permeate.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
     stage.retentate.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
@@ -414,18 +408,6 @@ def set_operating_conditions(
     #     # initialize feed
     m.fs.feed.pressure[0].fix(pressure_atm)
     m.fs.feed.temperature[0].fix(feed_temperature)
-
-    # m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(
-    #     primary_pump_pressure
-    # )
-    # m.fs.primary_pump.efficiency_pump.fix(0.8)
-    iscale.set_scaling_factor(m.fs.primary_pump.control_volume.work, 1e-3)
-    iscale.set_scaling_factor(
-        m.fs.primary_pump.control_volume.properties_out[0].pressure, 1e-5
-    )
-    iscale.set_scaling_factor(
-        m.fs.primary_pump.control_volume.properties_in[0].pressure, 1e-5
-    )
 
     m.fs.eq_water_recovery = Constraint(
         expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
@@ -506,7 +488,7 @@ def set_ro_system_operating_conditions(
     height = 1e-3  # channel height in membrane stage [m]
     spacer_porosity = 0.95  # spacer porosity in membrane stage [-]
     area = mem_area  # membrane area [m^2]
-    length = 1  # effective membrane width [m]
+    length = 7  # effective membrane width [m]
     pressure_atm = 101325  # atmospheric pressure [Pa]
     pump_efi = 0.8  # pump efficiency [-]
 
@@ -580,9 +562,9 @@ def get_sub_blocks(block, decend=False, report=False):
 
 def display_ro_system_build(m):
     get_sub_blocks(m.fs)
-    # get_sub_blocks(m.fs.ro)
-    # for stage in m.fs.ro.stage.values():
-    #     get_sub_blocks(stage)
+    get_sub_blocks(m.fs.ro)
+    for stage in m.fs.ro.stage.values():
+        get_sub_blocks(stage)
     print("\n")
 
 
@@ -593,6 +575,7 @@ def display_dof_breakdown(blk, decend=False, report=False):
     print(f'{"BLOCK":<40s}{"DEGREES OF FREEDOM":<30s}')
     for v in blk.component_data_objects(ctype=Block, active=True, descend_into=decend):
         print(f"{v.name:<40s}{degrees_of_freedom(v)}")
+
 
 def display_inlet_conditions(blk):
     print("\n\n")
@@ -607,6 +590,7 @@ def display_inlet_conditions(blk):
 
     # assert False
 
+
 def display_flow_table(blk):
     print("\n\n")
     print(
@@ -615,28 +599,12 @@ def display_flow_table(blk):
     print(
         f'{"Feed":<34s}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(blk.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
     )
-    # print(
-    #     f'{"Primary Pump Inlet":<34s}{m.fs.primary_pump.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.primary_pump.control_volume.properties_in[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.primary_pump.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.primary_pump.control_volume.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    # )
-    # print(
-    #     f'{"Primary Pump Outlet":<34s}{m.fs.primary_pump.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.primary_pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.primary_pump.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.primary_pump.control_volume.properties_out[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    # )
     print(
         f'{"Product":<34s}{blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(blk.product.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{blk.product.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
     )
     print(
         f'{"Disposal":<34s}{blk.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(blk.disposal.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{blk.disposal.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
     )
-    # for idx, unit in enumerate([blk]):
-    #     print(
-    #         f'{str(unit.name).split(".")[1] + " Feed":<34s}{unit.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.feed.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    #     )
-    #     print(
-    #         f'{str(unit.name).split(".")[1] + " Product":<34s}{unit.product.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.product.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.product.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    #     )
-    #     print(
-    #         f'{str(unit.name).split(".")[1] + " Disposal":<34s}{unit.disposal.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(unit.disposal.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{unit.disposal.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{unit.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    #     )
 
     for idx, stage in blk.stage.items():
         print(
@@ -650,10 +618,7 @@ def display_flow_table(blk):
         print(
             f'{"RO Stage " + str(idx) + " Retentate":<34s}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.retentate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
-    # print(blk.stage[1].module.display())
-    # print(
-    #     f'{"Module Inlet":<34s}{blk.stage[1].module.inlet.pressure}'
-    # )
+
 
 
 def build_system():
@@ -661,27 +626,18 @@ def build_system():
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.costing = WaterTAPCosting()
+
     m.fs.feed = Feed(property_package=m.fs.RO_properties)
     m.fs.product = Product(property_package=m.fs.RO_properties)
     m.fs.disposal = Product(property_package=m.fs.RO_properties)
-    m.fs.primary_pump = Pump(property_package=m.fs.RO_properties)
+
     m.fs.ro = FlowsheetBlock(dynamic=False)
-    display_dof_breakdown(m)
     build_ro(m, m.fs.ro, number_of_stages=1)
 
-    # m.fs.feed_to_primary_pump = Arc(
-    #     source=m.fs.feed.outlet,
-    #     destination=m.fs.primary_pump.inlet,
-    # )
     m.fs.feed_to_ro = Arc(
         source=m.fs.feed.outlet,
         destination=m.fs.ro.feed.inlet,
     )
-
-    # m.fs.primary_pump_to_ro = Arc(
-    #     source=m.fs.primary_pump.outlet,
-    #     destination=m.fs.ro.feed.inlet,
-    # )
 
     m.fs.ro_to_product = Arc(
         source=m.fs.ro.product.outlet,
@@ -694,7 +650,7 @@ def build_system():
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
-    display_dof_breakdown(m)
+
     return m
 
 
@@ -704,15 +660,9 @@ if __name__ == "__main__":
     display_ro_system_build(m)
     set_operating_conditions(m, Qin=1, Cin=2.5)
     set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10)
-
-    # print(total_constraints_set(m))
-    # print(activated_constraints_set(m.fs))
-
-    # print(m.fs.ro.stage[1].module.display())
     init_system(m)
-    # display_dof_breakdown(m)
-
     solve(m)
+    
     display_flow_table(m.fs.ro)
     # print(m.fs.ro.stage[1].module.report())
-    # print_close_to_bounds(m)
+    # print(m.fs.costing.display())

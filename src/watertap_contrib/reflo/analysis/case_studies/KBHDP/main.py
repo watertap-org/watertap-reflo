@@ -41,22 +41,22 @@ from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 
-# from components.ro_system import (
-#     build_ro,
-#     display_ro_system_build,
-#     init_ro_system,
-#     init_ro_stage,
-#     calc_scale,
-#     set_ro_system_operating_conditions,
-#     display_flow_table,
-# )
-from components.ro_system_simple import (
-    build_RO,
-    set_ro_system_operating_conditions,
+from components.ro_system import (
+    build_ro,
+    display_ro_system_build,
     init_ro_system,
-    add_ro_costing,
-    report_RO,
+    init_ro_stage,
+    calc_scale,
+    set_ro_system_operating_conditions,
+    display_flow_table,
 )
+# from components.ro_system_simple import (
+#     build_RO,
+#     set_ro_system_operating_conditions,
+#     init_ro_system,
+#     add_ro_costing,
+#     report_RO,
+# )
 from components.softener import (
     build_softener,
     init_softener,
@@ -113,13 +113,16 @@ def main():
     display_system_stream_table(m)
     display_costing_breakdown(m)
     report_softener(m)
-    report_RO(m)
+    # report_RO(m)
     
 
 def build_system():
     m = ConcreteModel()
     m.db = Database()
     m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.costing = REFLOCosting()
+    m.fs.costing.base_currency = pyunits.USD_2020
+
     m.fs.MCAS_properties = MCASParameterBlock(
         solute_list=["Alkalinity_2-", "Ca_2+", "Cl_-", "Mg_2+", "K_+", "SiO2", "Na_+","SO2_-4+"],
         material_flow_basis=MaterialFlowBasis.mass,
@@ -133,11 +136,6 @@ def build_system():
     m.fs.feed = Feed(property_package=m.fs.MCAS_properties)
     m.fs.product = Product(property_package=m.fs.RO_properties)
     m.fs.disposal = Product(property_package=m.fs.RO_properties)
-
-    # m.fs.primary_pump = Pump(property_package=m.fs.MCAS_properties)
-    # m.fs.primary_pump.costing = UnitModelCostingBlock(
-    #     flowsheet_costing_block=m.fs.costing,
-    # )
 
     # Define the Unit Models
     m.fs.softener = FlowsheetBlock(dynamic=False)
@@ -174,7 +172,8 @@ def build_system():
     build_softener(m, m.fs.softener, prop_package=m.fs.MCAS_properties)
     build_UF(m, m.fs.UF, prop_package=m.fs.UF_properties)
     # build_ed(m, m.fs.ED)
-    build_RO(m, m.fs.RO, prop_package=m.fs.RO_properties)
+    # build_RO(m, m.fs.RO, prop_package=m.fs.RO_properties)
+    build_ro(m, m.fs.RO, prop_package=m.fs.RO_properties)
 
     # scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
     # scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)
@@ -232,20 +231,16 @@ def add_connections(m):
 
     m.fs.pump_to_ro = Arc(
         source=m.fs.pump.outlet,
-        destination=m.fs.RO.module.inlet,
+        destination=m.fs.RO.feed.inlet,
     )
-
-    # # m.fs.translator_to_RO = Arc(
-    # #     source=m.fs.MCAS_to_NaCl_translator.outlet,
-    # #     destination=m.fs.RO.module.inlet,
-    # # )
 
     m.fs.ro_to_product = Arc(
-        source=m.fs.RO.module.permeate,
+        source=m.fs.RO.product.outlet,
         destination=m.fs.product.inlet,
     )
+
     m.fs.ro_to_disposal = Arc(
-        source=m.fs.RO.module.retentate,
+        source=m.fs.RO.disposal.outlet,
         destination=m.fs.disposal.inlet,
     )
 
@@ -308,50 +303,42 @@ def add_constraints(m):
 
 
 def add_costing(m):
-    # m.fs.costing = REFLOCosting()
-    m.fs.costing = REFLOCosting()
-    m.fs.costing.base_currency = pyunits.USD_2020
-
     m.fs.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
     )
     
-    add_ro_costing(m, m.fs.RO)
+    # add_ro_costing(m, m.fs.RO)
     add_softener_costing(m, m.fs.softener)
-    # m.fs.pump.add_costing_module(m.fs.costing)
-
-    # # Fix some global costing params for better comparison to Pyomo model
-    # m.fs.costing.factor_total_investment.fix(1)
-    # m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-    # m.fs.costing.factor_capital_annualization.fix(0.08764)
 
     m.fs.costing.cost_process()
     m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
+
 def relax_constaints(m, blk):
     # Release constraints related to low concentration
-    blk.module.width.setub(10000)
-    for item in [blk.module.permeate_side, blk.module.feed_side.properties_interface]:
-        for idx, param in item.items():
-            if idx[1] > 0:
-                param.molality_phase_comp["Liq", "NaCl"].setlb(0)
-                param.pressure_osm_phase["Liq"].setlb(0)
-                param.conc_mass_phase_comp["Liq", "NaCl"].setlb(0)
+    for idx, stage in blk.stage.items():
+        stage.module.width.setub(10000)
+        # for item in [stage.module.permeate_side, stage.module.feed_side.properties_interface]:
+        #     for idx, param in item.items():
+        #         if idx[1] > 0:
+        #             param.molality_phase_comp["Liq", "NaCl"].setlb(0)
+        #             param.pressure_osm_phase["Liq"].setlb(0)
+        #             param.conc_mass_phase_comp["Liq", "NaCl"].setlb(0)
     
-    for idx, param in blk.module.feed_side.friction_factor_darcy.items():
-        # if idx[1] > 0:
-        param.setub(100)
+    # for idx, param in blk.module.feed_side.friction_factor_darcy.items():
+    #     # if idx[1] > 0:
+    #     param.setub(100)
 
-    # Release constraints related to low velocity and low flux
-    for idx1, item in enumerate([blk.module.feed_side.K, blk.module.feed_side.cp_modulus]):
-        for idx2, param in item.items():
-            if idx1 > 0:
-                if idx2[1] > 0:
-                    param.setub(4)
-            else:
-                if idx2[1] > 0:
-                    param.setlb(0)
+    # # Release constraints related to low velocity and low flux
+    # for idx1, item in enumerate([blk.module.feed_side.K, blk.module.feed_side.cp_modulus]):
+    #     for idx2, param in item.items():
+    #         if idx1 > 0:
+    #             if idx2[1] > 0:
+    #                 param.setub(4)
+    #         else:
+    #             if idx2[1] > 0:
+    #                 param.setlb(0)
 
 
 def define_inlet_composition(m):
@@ -513,7 +500,7 @@ def display_unfixed_vars(blk, report=True):
 
 def set_operating_conditions(m):
     # Set inlet conditions and operating conditions for each unit
-    set_inlet_conditions(m, Qin=1000, supply_pressure=1e5, primary_pump_pressure=40e5)
+    set_inlet_conditions(m, Qin=1000, supply_pressure=1e5, primary_pump_pressure=10e5)
     set_softener_op_conditions(m, m.fs.softener.unit, ca_eff=0.3, mg_eff=0.2)
     # # inlet_dict = {
     # #     "Ca_2+": 0.13 * pyunits.kg / pyunits.m**3,
@@ -533,7 +520,7 @@ def set_operating_conditions(m):
     
     set_UF_op_conditions(m.fs.UF)
     set_ro_system_operating_conditions(
-        m, m.fs.RO, mem_area=10000
+        m, m.fs.RO, mem_area=10000, RO_pump_pressure=20e5
     )
     # # set__ED_op_conditions
 
@@ -655,15 +642,16 @@ def display_system_stream_table(m):
     print(
         f'{"Softener Outlet":<20s}{m.fs.softener.unit.properties_out[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.softener.unit.properties_out[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
     )
-    print(
-        f'{"RO Feed":<20s}{m.fs.RO.module.feed_side.properties[0.0,0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.feed_side.properties[0.0,0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.feed_side.properties[0.0,0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.feed_side.properties[0.0,0.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
-    print(
-        f'{"RO Product":<20s}{m.fs.RO.module.mixed_permeate[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.mixed_permeate[0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.mixed_permeate[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.mixed_permeate[0.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
-    print(
-        f'{"RO Disposal":<20s}{m.fs.RO.module.feed_side.properties[0.0,1.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.feed_side.properties[0.0,1.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.feed_side.properties[0.0,1.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
-    )
+    # print(
+    #     f'{"RO Feed":<20s}{m.fs.RO.module.feed_side.properties[0.0,0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.feed_side.properties[0.0,0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.feed_side.properties[0.0,0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.feed_side.properties[0.0,0.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    # )
+    # print(
+    #     f'{"RO Product":<20s}{m.fs.RO.module.mixed_permeate[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.mixed_permeate[0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.mixed_permeate[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.mixed_permeate[0.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    # )
+    # print(
+    #     f'{"RO Disposal":<20s}{m.fs.RO.module.feed_side.properties[0.0,1.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.RO.module.feed_side.properties[0.0,1.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.RO.module.feed_side.properties[0.0,1.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.RO.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+    # )
+    display_flow_table(m.fs.RO)
     print("\n\n")
 
 
@@ -680,9 +668,10 @@ def display_costing_breakdown(m):
     print(header)
     print(f'{"Product Flow":<25s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}')
     print(f'{"LCOW":<24s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
-    print(f'{"RO":<24s}{f"${m.fs.RO.module.costing.direct_capital_cost():<25,.2f}"}{"$/m3":<25s}')
-    print(f'{"Softener":<24s}{f"${m.fs.RO.module.costing.direct_capital_cost():<25,.2f}"}{"$/m3":<25s}')
-    costing_data = generate_costing_report(m, export=True, filepath='/Users/zbinger/watertap-seto/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/reports/costing_report.csv')
+    # print(f'{"RO":<24s}{f"${m.fs.RO.module.costing.direct_capital_cost():<25,.2f}"}{"$/m3":<25s}')
+    # print(f'{"Softener":<24s}{f"${m.fs.RO.module.costing.direct_capital_cost():<25,.2f}"}{"$/m3":<25s}')
+    # costing_data = generate_costing_report(m, export=True, filepath='/Users/zbinger/watertap-seto/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/reports/costing_report.csv')
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
