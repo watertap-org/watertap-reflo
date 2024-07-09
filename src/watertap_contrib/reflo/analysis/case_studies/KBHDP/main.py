@@ -49,14 +49,9 @@ from components.ro_system import (
     calc_scale,
     set_ro_system_operating_conditions,
     display_flow_table,
+    report_RO,
 )
-# from components.ro_system_simple import (
-#     build_RO,
-#     set_ro_system_operating_conditions,
-#     init_ro_system,
-#     add_ro_costing,
-#     report_RO,
-# )
+
 from components.softener import (
     build_softener,
     init_softener,
@@ -68,6 +63,7 @@ from components.UF import (
     build_UF,
     init_UF,
     set_UF_op_conditions,
+    report_UF
 )
 
 from components.electrodialysis import (
@@ -113,7 +109,8 @@ def main():
     display_system_stream_table(m)
     display_costing_breakdown(m)
     report_softener(m)
-    # report_RO(m)
+    report_UF(m, m.fs.UF)
+    report_RO(m, m.fs.RO)
     
 
 def build_system():

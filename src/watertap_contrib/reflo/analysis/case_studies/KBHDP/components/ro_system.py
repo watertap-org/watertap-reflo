@@ -72,11 +72,11 @@ from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
 def propagate_state(arc):
     _prop_state(arc)
-    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    arc.source.display()
-    print(arc.destination.name)
-    arc.destination.display()
-    print('\n')
+    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    # arc.source.display()
+    # print(arc.destination.name)
+    # arc.destination.display()
+    # print('\n')
 
 
 def _initialize(m, blk, optarg):
@@ -619,7 +619,10 @@ def display_flow_table(blk):
             f'{"RO Stage " + str(idx) + " Retentate":<34s}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.retentate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
 
-
+def report_RO(m, blk):
+    print(f"\n\n-------------------- RO Report --------------------\n")
+    print(f'{"Recovery":<30s}{value(100*m.fs.water_recovery):<10.1f}{"%"}')
+    print(f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}')
 
 def build_system():
     m = ConcreteModel()
@@ -664,5 +667,6 @@ if __name__ == "__main__":
     solve(m)
     
     display_flow_table(m.fs.ro)
+    report_RO(m, m.fs.ro)
     # print(m.fs.ro.stage[1].module.report())
     # print(m.fs.costing.display())

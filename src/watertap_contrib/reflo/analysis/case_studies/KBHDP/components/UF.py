@@ -127,17 +127,41 @@ def build_system():
 
     return m
 
+def print_stream_table(blk):
+    print(f'{"FEED":<20s}')
+    print(f'{"    H2O":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["H2O"])}')
+    print(f'{"    TDS":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["tds"])}')
+    print(f'{"    TSS":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["tss"])}')
+    print(f'{"PRODUCT":<20s}')
+    print(f'{"    H2O":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["H2O"])}')
+    print(f'{"    TDS":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["tds"])}')
+    print(f'{"    TSS":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["tss"])}')
+    print(f'{"DISPOSAL":<20s}')
+    print(f'{"    H2O":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["H2O"])}')
+    print(f'{"    TDS":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["tds"])}')
+    print(f'{"    TSS":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["tss"])}')
+
+def report_UF(m, blk, stream_table=False):
+    print(f"\n\n-------------------- UF Report --------------------\n")
+    print('\n')
+    print(f'{"UF Performance:":<30s}')
+    print(f'{"    Recovery":<30s}{100*m.fs.UF.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}')
+    print(f'{"    TDS Removal":<30s}{100-100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}')
+    print(f'{"    TSS Removal":<30s}{100-100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}')
+    print(f'{"    Energy Consumption":<30s}{m.fs.UF.unit.electricity[0.0].value:<10.3f}{"kW"}')
+
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
     set_UF_op_conditions(m.fs.UF)
     set_system_conditions(m.fs.UF)
     init_UF(m, m.fs.UF)
-    print(m.fs.UF.display())
+    # print(m.fs.UF.display())
     # set_system_operating_conditions(m)
     # set_softener_op_conditions(m, m.fs.softener)
     # set_scaling(m)
     # # m.fs.softener.unit.display()
     # init_system(m)
+    report_UF(m, m.fs.UF)
 
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
