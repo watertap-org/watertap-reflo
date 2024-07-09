@@ -28,6 +28,7 @@ from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 from watertap.core.zero_order_properties import WaterParameterBlock
+from watertap.property_models.water_prop_pack import WaterParameterBlock as vapor_prop
 from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
 from watertap.costing import WaterTAPCosting
@@ -41,15 +42,10 @@ from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 
-from components.ro_system import (
-    build_ro,
-    display_ro_system_build,
-    init_ro_system,
-    init_ro_stage,
-    calc_scale,
-    set_ro_system_operating_conditions,
-    display_flow_table,
-    report_RO,
+from components.LTMED import (
+    build_LTMED,
+    init_LTMED,
+    set_LTMED_operating_conditions,
 )
 
 from components.UF import (
@@ -82,6 +78,10 @@ from components.translator_3 import (
     Translator_TDS_to_NACL,
 )
 
+from components.translator_4 import (
+    Translator_TDS_to_TDS,
+)
+
 def propagate_state(arc):
     _prop_state(arc)
     print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
@@ -98,13 +98,13 @@ def main():
     display_system_build(m)
     add_connections(m)
     add_constraints(m)
-    relax_constaints(m,m.fs.RO)
+    # relax_constaints(m,m.fs.RO)
     set_operating_conditions(m)
     init_system(m)
-    add_costing(m)
-    solve(m)
-    display_system_stream_table(m)
-    display_costing_breakdown(m)
+    # add_costing(m)
+    # solve(m)
+    # display_system_stream_table(m)
+    # display_costing_breakdown(m)
     # report_softener(m)
     # report_UF(m, m.fs.UF)
     # report_RO(m, m.fs.RO)
@@ -127,14 +127,17 @@ def build_system():
             solute_list=["tds", "tss"]
         )
     
+    m.fs.liquid_prop = SeawaterParameterBlock()
+    m.fs.vapor_prop = vapor_prop()
+    
     m.fs.feed = Feed(property_package=m.fs.MCAS_properties)
-    m.fs.product = Product(property_package=m.fs.RO_properties)
-    m.fs.disposal = Product(property_package=m.fs.RO_properties)
+    m.fs.product = Product(property_package=m.fs.liquid_prop)
+    m.fs.disposal = Product(property_package=m.fs.liquid_prop)
 
-    m.fs.pump = Pump(property_package=m.fs.RO_properties)
+    m.fs.pump = Pump(property_package=m.fs.liquid_prop)
     m.fs.EC = FlowsheetBlock(dynamic=False)
     m.fs.UF = FlowsheetBlock(dynamic=False)
-    m.fs.RO = FlowsheetBlock(dynamic=False)
+    m.fs.LTMED = FlowsheetBlock(dynamic=False)
 
     m.fs.MCAS_to_TDS_translator = Translator_MCAS_to_TDS(
         inlet_property_package=m.fs.MCAS_properties,
@@ -143,16 +146,17 @@ def build_system():
         outlet_state_defined=True,
     )
     
-    m.fs.TDS_to_NaCl_translator = Translator_TDS_to_NACL(
+    m.fs.TDS_to_TDS_translator = Translator_TDS_to_TDS(
         inlet_property_package=m.fs.UF_properties,
-        outlet_property_package=m.fs.RO_properties,
+        outlet_property_package=m.fs.liquid_prop,
         has_phase_equilibrium=False,
         outlet_state_defined=True,
     )
 
     build_ec(m, m.fs.EC, prop_package=m.fs.UF_properties)
     build_UF(m, m.fs.UF, prop_package=m.fs.UF_properties)
-    build_ro(m, m.fs.RO, prop_package=m.fs.RO_properties)
+    build_LTMED(m, m.fs.LTMED, m.fs.liquid_prop, m.fs.vapor_prop)
+    
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -184,28 +188,28 @@ def add_connections(m):
         destination=m.fs.UF.feed.inlet,
     )
     
-    m.fs.UF_to_translator3 = Arc(
+    m.fs.UF_to_translator4 = Arc(
         source=m.fs.UF.product.outlet,
-        destination=m.fs.TDS_to_NaCl_translator.inlet,
+        destination=m.fs.TDS_to_TDS_translator.inlet,
     )
     
-    m.fs.translator_to_pump = Arc(
-        source=m.fs.TDS_to_NaCl_translator.outlet,
+    m.fs.translator4_to_pump = Arc(
+        source=m.fs.TDS_to_TDS_translator.outlet,
         destination=m.fs.pump.inlet,
     )
 
-    m.fs.pump_to_ro = Arc(
+    m.fs.pump_to_LTMED = Arc(
         source=m.fs.pump.outlet,
-        destination=m.fs.RO.feed.inlet,
+        destination=m.fs.LTMED.feed.inlet,
     )
 
-    m.fs.ro_to_product = Arc(
-        source=m.fs.RO.product.outlet,
+    m.fs.LTMED_to_product = Arc(
+        source=m.fs.LTMED.product.outlet,
         destination=m.fs.product.inlet,
     )
 
-    m.fs.ro_to_disposal = Arc(
-        source=m.fs.RO.disposal.outlet,
+    m.fs.LTMED_to_disposal = Arc(
+        source=m.fs.LTMED.disposal.outlet,
         destination=m.fs.disposal.inlet,
     )
 
@@ -443,10 +447,7 @@ def set_operating_conditions(m):
     set_inlet_conditions(m, Qin=1000, supply_pressure=1e5, primary_pump_pressure=10e5)
     set_ec_operating_conditions(m, m.fs.EC)
     set_UF_op_conditions(m.fs.UF)
-    set_ro_system_operating_conditions(
-        m, m.fs.RO, mem_area=10000, RO_pump_pressure=20e5
-    )
-    # # set__ED_op_conditions
+    set_LTMED_operating_conditions(m, m.fs.LTMED)
 
 
 def init_system(m, verbose=True, solver=None):
@@ -465,23 +466,23 @@ def init_system(m, verbose=True, solver=None):
     propagate_state(m.fs.translator_to_EC)
 
     init_ec(m, m.fs.EC)
-    propagate_state(m.fs.EC_to_UF)
+    # propagate_state(m.fs.EC_to_UF)
 
-    init_UF(m, m.fs.UF)
-    propagate_state(m.fs.UF_to_translator3)
+    # init_UF(m, m.fs.UF)
+    # propagate_state(m.fs.UF_to_translator4)
 
-    m.fs.TDS_to_NaCl_translator.initialize(optarg=optarg)
-    propagate_state(m.fs.translator_to_pump)
+    # m.fs.TDS_to_TDS_translator.initialize(optarg=optarg)
+    # propagate_state(m.fs.translator4_to_pump)
 
-    m.fs.pump.initialize(optarg=optarg)
-    propagate_state(m.fs.pump_to_ro)
+    # m.fs.pump.initialize(optarg=optarg)
+    # propagate_state(m.fs.pump_to_LTMED)
     
-    init_ro_system(m, m.fs.RO)
-    propagate_state(m.fs.ro_to_product)
-    propagate_state(m.fs.ro_to_disposal)
+    # init_LTMED(m, m.fs.LTMED)
+    # propagate_state(m.fs.LTMED_to_product)
+    # propagate_state(m.fs.LTMED_to_disposal)
 
-    m.fs.product.initialize(optarg=optarg)
-    m.fs.disposal.initialize(optarg=optarg)
+    # m.fs.product.initialize(optarg=optarg)
+    # m.fs.disposal.initialize(optarg=optarg)
     # display_system_stream_table(m)
 
 

@@ -70,16 +70,16 @@ def build_LTMED(m, blk, liquid_prop, vapor_prop, number_effects=12):
     #BUG LTMED Surrogate has no inlet port, so can't connect to feed
     blk.feed_to_LTMED = Arc(
         source=blk.feed.outlet,
-        destination=blk.unit.inlet,
+        destination=blk.unit.feed,
     )
 
     blk.LTMED_to_product = Arc(
-        source=blk.unit.product,
+        source=blk.unit.distillate,
         destination=blk.product.inlet,
     )
 
     blk.LTMED_to_disposal = Arc(
-        source=blk.unit.disposal,
+        source=blk.unit.brine,
         destination=blk.disposal.inlet,
     )
 
@@ -88,7 +88,7 @@ def build_LTMED(m, blk, liquid_prop, vapor_prop, number_effects=12):
 
 def set_LTMED_operating_conditions(m, blk):
     steam_temperature = 80
-    recovery_ratio = 0.9
+    recovery_ratio = 0.5
 
     blk.unit.steam_props[0].temperature.fix(steam_temperature + 273.15)
     blk.unit.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
@@ -114,6 +114,12 @@ def init_LTMED(m, blk, solver=None):
     propagate_state(blk.LTMED_to_product)
     propagate_state(blk.LTMED_to_disposal)
 
+def set_system_operating_conditions(m):
+    m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].fix(1000)
+    m.fs.feed.flow_mass_phase_comp[0, "Liq", "TDS"].fix(2)
+    m.fs.feed.properties[0].pressure.fix(101325)
+    m.fs.feed.properties[0].temperature.fix(25 + 273.15)
+
 
 # The following functions are used for testing the component in isolation on thise file
 def build_system():
@@ -134,6 +140,56 @@ def build_system():
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
+    return m
+
+def init_system(m, solver=None):
+    '''Initialize system for individual unit process flowsheet'''
+    if solver is None:
+        solver = get_solver()
+
+    optarg = solver.options
+
+    print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print(f"LTMED Degrees of Freedom: {degrees_of_freedom(m.fs.LTMED.unit)}")
+    assert_no_degrees_of_freedom(m)
+    print("\n\n")
+
+    m.fs.feed.initialize(optarg=optarg)
+    propagate_state(m.fs.feed_to_unit)
+
+    init_LTMED(m, m.fs.LTMED)
+
+def solve(m, solver=None, tee=True, raise_on_failure=True):
+    # ---solving---
+    if solver is None:
+        solver = get_solver()
+
+    print("\n--------- SOLVING ---------\n")
+
+    results = solver.solve(m, tee=tee)
+
+    if check_optimal_termination(results):
+        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        return results
+    msg = (
+        "The current configuration is infeasible. Please adjust the decision variables."
+    )
+    if raise_on_failure:
+        print_infeasible_bounds(m)
+        print_close_to_bounds(m)
+
+        raise RuntimeError(msg)
+    else:
+        print(msg)
+        return results
+
 if __name__ == "__main__":
     
     m = build_system()
+    set_system_operating_conditions(m)
+    set_LTMED_operating_conditions(m, m.fs.LTMED)
+
+    init_system(m)
+    solver = get_solver()  
+    results = solve(m)
