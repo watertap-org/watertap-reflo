@@ -27,7 +27,6 @@ from idaes.core import (
     MomentumBalanceType,
 )
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -39,6 +38,7 @@ from idaes.core.util.scaling import (
     unscaled_variables_generator,
 )
 
+from watertap.core.solvers import get_solver
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.costing import EnergyCosting
 from watertap_contrib.reflo.core import SolarModelType
@@ -189,7 +189,7 @@ class TestFlatPlatePhysical:
             "total_capital_cost": 3760.69,
             "total_operating_cost": 38190.85,
             "aggregate_direct_capital_cost": 3576.0,
-            "LCOW": 2.78940,
+            "LCOW": 2.792657,
         }
 
         m = flat_plate_frame
@@ -202,8 +202,8 @@ class TestFlatPlatePhysical:
             flowsheet_costing_block=m.fs.costing
         )
 
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_total_investment.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.total_investment_factor.fix(1)
 
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(flow_rate=m.fs.test_flow)

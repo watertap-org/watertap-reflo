@@ -17,37 +17,31 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-import re
 from pyomo.network import Port
+
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
-
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.reflo.costing import REFLOCosting
-from idaes.core.util.testing import initialization_tester
 from idaes.core.util.exceptions import ConfigurationError
-from watertap.core.util.initialization import assert_no_degrees_of_freedom
-from pyomo.util.check_units import assert_units_consistent
-
-from idaes.core.solvers import get_solver
+import idaes.logger as idaeslog
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
     number_total_constraints,
     number_unused_variables,
-    unused_variables_set,
 )
 from idaes.core.util.testing import initialization_tester
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
-    constraint_scaling_transform,
     unscaled_variables_generator,
     unscaled_constraints_generator,
     badly_scaled_var_generator,
 )
 
-import idaes.logger as idaeslog
+from watertap.core.solvers import get_solver
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.property_models.water_prop_pack import WaterParameterBlock
+
+from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
+from watertap_contrib.reflo.costing import REFLOCosting
 
 # -----------------------------------------------------------------------------
 # Get default solver for testing
@@ -69,9 +63,6 @@ class TestMEDTVC:
         )
 
         med_tvc = m.fs.med_tvc
-        feed = med_tvc.feed_props[0]
-        cool = med_tvc.cooling_out_props[0]
-        dist = med_tvc.distillate_props[0]
         steam = med_tvc.heating_steam_props[0]
         motive = med_tvc.motive_steam_props[0]
 
@@ -201,9 +192,9 @@ class TestMEDTVC:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 204
+        assert number_variables(m) == 216
         assert number_total_constraints(m) == 61
-        assert number_unused_variables(m) == 74  # vars from property package parameters
+        assert number_unused_variables(m) == 86  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, MED_TVC_frame):
@@ -323,9 +314,10 @@ class TestMEDTVC:
         m.fs.costing = REFLOCosting()
         med_tvc.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
-        m.fs.costing.factor_total_investment.fix(1)
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_capital_annualization.fix(0.08764)
+        m.fs.costing.total_investment_factor.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.wacc.unfix()
+        m.fs.costing.capital_recovery_factor.fix(0.08764)
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(dist.flow_vol_phase["Liq"])

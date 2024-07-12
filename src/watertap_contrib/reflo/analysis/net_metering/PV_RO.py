@@ -25,8 +25,8 @@ from pyomo.environ import (
     Constraint,
 )
 from pyomo.network import Arc
-from idaes.core import FlowsheetBlock
-from idaes.core.solvers.get_solver import get_solver
+
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.scaling import (
@@ -34,12 +34,11 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     constraint_scaling_transform,
 )
-from idaes.core import UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
 
+from watertap.core.solvers import get_solver
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.unit_models.pressure_changer import Pump, EnergyRecoveryDevice
-
 from watertap.unit_models.reverse_osmosis_0D import (
     ReverseOsmosis0D,
     ConcentrationPolarizationType,
@@ -49,6 +48,7 @@ from watertap.unit_models.reverse_osmosis_0D import (
 from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
     calculate_operating_pressure,
 )
+
 from watertap_contrib.reflo.analysis.net_metering.util import (
     display_ro_pv_results,
     display_pv_results,
@@ -365,8 +365,8 @@ def fix_pv_costing(m):
 
 
 def fix_treatment_global_params(m):
-    m.fs.treatment.costing.factor_total_investment.fix(1)
-    m.fs.treatment.costing.factor_maintenance_labor_chemical.fix(0)
+    m.fs.treatment.costing.total_investment_factor.fix(1)
+    m.fs.treatment.costing.maintenance_labor_chemical_factor.fix(0)
 
 
 def size_pv(m):
@@ -402,7 +402,7 @@ def fix_pysam_costing(m):
         cash_model.SystemCosts.om_production[0]
     )
     m.fs.energy.pv.costing.annual_generation.fix(annual_gen)
-    m.fs.energy.costing.factor_maintenance_labor_chemical.fix(0)
+    m.fs.energy.costing.maintenance_labor_chemical_factor.fix(0)
 
 
 def solve(m, solver=None, tee=False, check_termination=True):

@@ -13,15 +13,11 @@
 
 import os
 import sys
-import re
 import time
 import pandas as pd
-import numpy as np
-from pathlib import Path
 from io import StringIO
-import matplotlib.pyplot as plt
 
-from pyomo.environ import ConcreteModel, Var, Constraint, units as pyunits, value, Param
+from pyomo.environ import ConcreteModel, Var, Constraint, units as pyunits
 
 from idaes.core import FlowsheetBlock
 from idaes.core import declare_process_block_class

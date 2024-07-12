@@ -15,20 +15,11 @@ from pyomo.environ import (
     ConcreteModel,
     value,
     assert_optimal_termination,
-    units as pyunits,
-)
-from idaes.core import MaterialFlowBasis
-
-from watertap.property_models.multicomp_aq_sol_prop_pack import (
-    MCASParameterBlock,
 )
 from pyomo.network import Port
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.reflo.unit_models.zero_order.battery import BatteryStorage
-from watertap_contrib.reflo.costing import TreatmentCosting
 
+from idaes.core import FlowsheetBlock
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -41,6 +32,10 @@ from idaes.core.util.scaling import (
     badly_scaled_var_generator,
 )
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
+
+from watertap_contrib.reflo.unit_models.zero_order.battery import BatteryStorage
 
 # Get default solver for testing
 solver = get_solver()

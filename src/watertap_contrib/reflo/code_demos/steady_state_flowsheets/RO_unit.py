@@ -11,10 +11,7 @@
 #################################################################################
 from pyomo.environ import (
     ConcreteModel,
-    Objective,
-    Expression,
     TransformationFactory,
-    value,
 )
 from pyomo.network import Arc
 
@@ -23,22 +20,17 @@ from pyomo.network import Arc
 from idaes.core import FlowsheetBlock
 from idaes.core.util.initialization import propagate_state
 
-# Import function to get default solver
-from idaes.core.solvers import get_solver
-
 # Import function to check degrees of freedom
 from idaes.core.util.model_statistics import degrees_of_freedom
 
 # Import utility function for calculating scaling factors
 from idaes.core.util.scaling import calculate_scaling_factors, set_scaling_factor
 from idaes.models.unit_models import Product, Feed
-from watertap.unit_models.pressure_changer import Pump, EnergyRecoveryDevice
 
 # Imports from WaterTAP
-# Import NaCl property model
+from watertap.core.solvers import get_solver
+from watertap.unit_models.pressure_changer import Pump, EnergyRecoveryDevice
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
-
-# Import RO model
 from watertap.unit_models.reverse_osmosis_0D import (
     ReverseOsmosis0D,
     ConcentrationPolarizationType,
