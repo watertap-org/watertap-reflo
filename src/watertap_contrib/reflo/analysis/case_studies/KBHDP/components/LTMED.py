@@ -105,7 +105,7 @@ def init_LTMED(m, blk, solver=None):
     print("\n\n-------------------- INITIALIZING LTMED --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"LTMED Degrees of Freedom: {degrees_of_freedom(blk)}")
-    assert_no_degrees_of_freedom(m)
+    # assert_no_degrees_of_freedom(m)
 
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_LTMED)

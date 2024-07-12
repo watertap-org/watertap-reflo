@@ -101,9 +101,9 @@ def main():
     # relax_constaints(m,m.fs.RO)
     set_operating_conditions(m)
     init_system(m)
-    # add_costing(m)
-    # solve(m)
-    # display_system_stream_table(m)
+    add_costing(m)
+    solve(m)
+    display_system_stream_table(m)
     # display_costing_breakdown(m)
     # report_softener(m)
     # report_UF(m, m.fs.UF)
@@ -449,6 +449,8 @@ def set_operating_conditions(m):
     set_UF_op_conditions(m.fs.UF)
     set_LTMED_operating_conditions(m, m.fs.LTMED)
 
+    iscale.calculate_scaling_factors(m)
+
 
 def init_system(m, verbose=True, solver=None):
     if solver is None:
@@ -466,23 +468,23 @@ def init_system(m, verbose=True, solver=None):
     propagate_state(m.fs.translator_to_EC)
 
     init_ec(m, m.fs.EC)
-    # propagate_state(m.fs.EC_to_UF)
+    propagate_state(m.fs.EC_to_UF)
 
-    # init_UF(m, m.fs.UF)
-    # propagate_state(m.fs.UF_to_translator4)
+    init_UF(m, m.fs.UF)
+    propagate_state(m.fs.UF_to_translator4)
 
-    # m.fs.TDS_to_TDS_translator.initialize(optarg=optarg)
-    # propagate_state(m.fs.translator4_to_pump)
+    m.fs.TDS_to_TDS_translator.initialize(optarg=optarg)
+    propagate_state(m.fs.translator4_to_pump)
 
-    # m.fs.pump.initialize(optarg=optarg)
-    # propagate_state(m.fs.pump_to_LTMED)
+    m.fs.pump.initialize(optarg=optarg)
+    propagate_state(m.fs.pump_to_LTMED)
     
-    # init_LTMED(m, m.fs.LTMED)
-    # propagate_state(m.fs.LTMED_to_product)
-    # propagate_state(m.fs.LTMED_to_disposal)
+    init_LTMED(m, m.fs.LTMED)
+    propagate_state(m.fs.LTMED_to_product)
+    propagate_state(m.fs.LTMED_to_disposal)
 
-    # m.fs.product.initialize(optarg=optarg)
-    # m.fs.disposal.initialize(optarg=optarg)
+    m.fs.product.initialize(optarg=optarg)
+    m.fs.disposal.initialize(optarg=optarg)
     # display_system_stream_table(m)
 
 
@@ -535,7 +537,7 @@ def display_system_stream_table(m):
     print(
         f'{"Feed":<20s}{m.fs.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}'
     )
-    display_flow_table(m.fs.RO)
+
     print("\n\n")
 
 
@@ -552,6 +554,7 @@ def display_costing_breakdown(m):
     print(header)
     print(f'{"Product Flow":<25s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}')
     print(f'{"LCOW":<24s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
