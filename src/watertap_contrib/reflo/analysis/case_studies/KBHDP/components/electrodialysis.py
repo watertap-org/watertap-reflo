@@ -35,7 +35,10 @@ from idaes.core.util.model_statistics import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
-from watertap.unit_models.zero_order.electrodialysis_reversal_zo import ElectrodialysisReversalZO
+from watertap.unit_models.zero_order.electrodialysis_reversal_zo import (
+    ElectrodialysisReversalZO,
+)
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -62,6 +65,7 @@ def build_ed(m, blk) -> None:
     blk.product.properties[0].conc_mass_phase_comp
     blk.disposal.properties[0].conc_mass_phase_comp
 
+
 def init_ed(m, blk, verbose=True, solver=None):
     if solver is None:
         solver = get_solver()
@@ -71,7 +75,7 @@ def init_ed(m, blk, verbose=True, solver=None):
     print("\n\n-------------------- INITIALIZING DEGASIFIER --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Electrodialysis Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
-    print('\n\n')
+    print("\n\n")
 
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_product)

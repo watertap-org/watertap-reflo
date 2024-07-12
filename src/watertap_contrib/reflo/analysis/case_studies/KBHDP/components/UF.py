@@ -61,18 +61,16 @@ def build_UF(m, blk, prop_package) -> None:
         source=blk.feed.outlet,
         destination=blk.unit.inlet,
     )
-    
+
     blk.unit_to_disposal = Arc(
         source=blk.unit.byproduct,
         destination=blk.disposal.inlet,
     )
-    
+
     blk.unit_to_product = Arc(
         source=blk.unit.treated,
         destination=blk.product.inlet,
     )
-
-    
 
 
 def init_UF(m, blk, verbose=True, solver=None):
@@ -103,23 +101,32 @@ def set_UF_op_conditions(blk):
     blk.unit.removal_frac_mass_comp[0, "tss"].fix(0.9)
     blk.unit.energy_electric_flow_vol_inlet.fix(1)
 
+
 def set_system_conditions(blk):
     blk.feed.properties[0.0].flow_mass_comp["H2O"].fix(1)
     blk.feed.properties[0.0].flow_mass_comp["tds"].fix(0.01)
     blk.feed.properties[0.0].flow_mass_comp["tss"].fix(0.01)
-    
+
+
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.MCAS_properties = MCASParameterBlock(
-        solute_list=["Alkalinity_2-", "Ca_2+", "Cl_-", "Mg_2+", "K_+", "SiO2", "Na_+","SO2_-4+"],
+        solute_list=[
+            "Alkalinity_2-",
+            "Ca_2+",
+            "Cl_-",
+            "Mg_2+",
+            "K_+",
+            "SiO2",
+            "Na_+",
+            "SO2_-4+",
+        ],
         material_flow_basis=MaterialFlowBasis.mass,
     )
-    m.fs.params = WaterParameterBlock(
-            solute_list=["tds", "tss"]
-        )
-    
+    m.fs.params = WaterParameterBlock(solute_list=["tds", "tss"])
+
     m.fs.UF = FlowsheetBlock(dynamic=False)
     build_UF(m, m.fs.UF, m.fs.params)
 
@@ -127,28 +134,57 @@ def build_system():
 
     return m
 
+
 def print_stream_table(blk):
     print(f'{"FEED":<20s}')
-    print(f'{"    H2O":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["H2O"])}')
-    print(f'{"    TDS":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["tds"])}')
-    print(f'{"    TSS":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["tss"])}')
+    print(
+        f'{"    H2O":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["H2O"])}'
+    )
+    print(
+        f'{"    TDS":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["tds"])}'
+    )
+    print(
+        f'{"    TSS":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_mass_comp["tss"])}'
+    )
     print(f'{"PRODUCT":<20s}')
-    print(f'{"    H2O":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["H2O"])}')
-    print(f'{"    TDS":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["tds"])}')
-    print(f'{"    TSS":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["tss"])}')
+    print(
+        f'{"    H2O":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["H2O"])}'
+    )
+    print(
+        f'{"    TDS":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["tds"])}'
+    )
+    print(
+        f'{"    TSS":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.product.properties[0.0].flow_mass_comp["tss"])}'
+    )
     print(f'{"DISPOSAL":<20s}')
-    print(f'{"    H2O":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["H2O"])}')
-    print(f'{"    TDS":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["tds"])}')
-    print(f'{"    TSS":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["tss"])}')
+    print(
+        f'{"    H2O":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["H2O"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["H2O"])}'
+    )
+    print(
+        f'{"    TDS":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["tds"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["tds"])}'
+    )
+    print(
+        f'{"    TSS":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["tss"].value:<10.3f}{pyunits.get_units(m.fs.UF.disposal.properties[0.0].flow_mass_comp["tss"])}'
+    )
+
 
 def report_UF(m, blk, stream_table=False):
     print(f"\n\n-------------------- UF Report --------------------\n")
-    print('\n')
+    print("\n")
     print(f'{"UF Performance:":<30s}')
-    print(f'{"    Recovery":<30s}{100*m.fs.UF.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}')
-    print(f'{"    TDS Removal":<30s}{100-100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}')
-    print(f'{"    TSS Removal":<30s}{100-100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}')
-    print(f'{"    Energy Consumption":<30s}{m.fs.UF.unit.electricity[0.0].value:<10.3f}{"kW"}')
+    print(
+        f'{"    Recovery":<30s}{100*m.fs.UF.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}'
+    )
+    print(
+        f'{"    TDS Removal":<30s}{100-100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}'
+    )
+    print(
+        f'{"    TSS Removal":<30s}{100-100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}'
+    )
+    print(
+        f'{"    Energy Consumption":<30s}{m.fs.UF.unit.electricity[0.0].value:<10.3f}{"kW"}'
+    )
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))

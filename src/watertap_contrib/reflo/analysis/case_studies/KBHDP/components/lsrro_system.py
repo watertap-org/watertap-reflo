@@ -70,6 +70,7 @@ from watertap.costing import WaterTAPCosting
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
+
 def propagate_state(arc):
     _prop_state(arc)
     # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
@@ -80,6 +81,7 @@ def propagate_state(arc):
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
+
 
 def build_ro(m, blk, number_of_stages=1, prop_package=None) -> None:
     pass
@@ -97,9 +99,7 @@ def init_lsrro_stage(m, stage, solver=None):
     pass
 
 
-def set_operating_conditions(
-    m, Qin=None, Qout=None, Cin=None, water_recovery=None
-):
+def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None):
     pass
 
 
@@ -107,9 +107,7 @@ def calc_scale(value):
     return math.floor(math.log(value, 10))
 
 
-def set_lsrro_system_operating_conditions(
-    m, blk, mem_area=100, RO_pump_pressure=15e5
-):
+def set_lsrro_system_operating_conditions(m, blk, mem_area=100, RO_pump_pressure=15e5):
     pass
 
 
@@ -213,7 +211,9 @@ def display_flow_table(blk):
 def report_LSRRO(m, blk):
     print(f"\n\n-------------------- RO Report --------------------\n")
     print(f'{"Recovery":<30s}{value(100*m.fs.water_recovery):<10.1f}{"%"}')
-    print(f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}')
+    print(
+        f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+    )
 
 
 def build_system():
@@ -230,10 +230,10 @@ if __name__ == "__main__":
     set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10)
     init_system(m)
     solve(m)
-    
+
     display_flow_table(m.fs.ro)
     report_RO(m, m.fs.ro)
     # print(m.fs.ro.stage[1].module.report())
     # print(m.fs.costing.display())
 
-#FIX this flowsheet needs to get converted to a lsrro system
+# FIX this flowsheet needs to get converted to a lsrro system

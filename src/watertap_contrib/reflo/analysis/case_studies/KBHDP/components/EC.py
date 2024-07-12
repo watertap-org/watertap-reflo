@@ -40,36 +40,37 @@ import numpy as np
 from watertap.costing import WaterTAPCosting
 import math
 
+
 def propagate_state(arc):
     _prop_state(arc)
 
 
-def build_ec(m, blk, prop_package = None):
-    '''Function to build EC unit model'''
+def build_ec(m, blk, prop_package=None):
+    """Function to build EC unit model"""
 
     print(f'\n{"=======> BUILDING EC SYSTEM <=======":^60}\n')
     if prop_package is None:
         prop_package = m.fs.properties
-    
+
     blk.feed = StateJunction(property_package=prop_package)
     blk.product = StateJunction(property_package=prop_package)
     blk.disposal = StateJunction(property_package=prop_package)
 
-    blk.ec =  ElectrocoagulationZO(
-    property_package = prop_package,
-    database = m.db,
-    electrode_material = 'aluminum',
-    reactor_material = "pvc",
-    overpotential_calculation = 'calculated',
+    blk.ec = ElectrocoagulationZO(
+        property_package=prop_package,
+        database=m.db,
+        electrode_material="aluminum",
+        reactor_material="pvc",
+        overpotential_calculation="calculated",
     )
-    
+
     # print(blk.ec.display())
     # print(blk.ec.report())
     # print(blk.ec.inlet)
     # print(blk.ec.treated)
     # print(blk.ec.byproduct)
     # assert False
-    
+
     blk.feed_to_ec = Arc(
         source=blk.feed.outlet,
         destination=blk.ec.inlet,
@@ -89,20 +90,16 @@ def build_ec(m, blk, prop_package = None):
 
 
 def build_system():
-    '''Function to create concrete model for individual unit model flowsheet'''
+    """Function to create concrete model for individual unit model flowsheet"""
     m = ConcreteModel()
     m.db = Database()
 
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = WaterParameterBlockZO(
-        solute_list=[
-        "tds"
-        ]
-    )  
+    m.fs.properties = WaterParameterBlockZO(solute_list=["tds"])
 
     m.fs.feed = Feed(property_package=m.fs.properties)
 
-    m.fs.EC = FlowsheetBlock(dynamic = False)
+    m.fs.EC = FlowsheetBlock(dynamic=False)
 
     build_ec(m, m.fs.EC)
 
@@ -117,83 +114,99 @@ def build_system():
 
 
 def set_system_operating_conditions(m):
-    '''This function sets the system operating conditions for individual unit model flowsheet'''
-    
-    input = {'q (m3/s)': 0.175,
-             'tds (g/l)': 12,
-             }
-    
-    flow_in = input['q (m3/s)'] * pyunits.m**3 / pyunits.s
-    flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3) #kg/s
+    """This function sets the system operating conditions for individual unit model flowsheet"""
 
-    tds = input['tds (g/l)']*pyunits.g / pyunits.liter
+    input = {
+        "q (m3/s)": 0.175,
+        "tds (g/l)": 12,
+    }
+
+    flow_in = input["q (m3/s)"] * pyunits.m**3 / pyunits.s
+    flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3)  # kg/s
+
+    tds = input["tds (g/l)"] * pyunits.g / pyunits.liter
     tds_in = pyunits.convert(tds, to_units=pyunits.kg / pyunits.m**3)
 
     m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(flow_in_mass)
-    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(tds_in * flow_in) #kg/m3 * m3/s = kg/s
+    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(
+        tds_in * flow_in
+    )  # kg/m3 * m3/s = kg/s
 
 
 def set_ec_operating_conditions(m, blk):
-    '''Set EC operating conditions''' 
+    """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
-    
-    input = {'gap (cm)': 0.32,
-             'thickness (cm)': 0.32,
-             'ret_time (s)': 23,
-             'dose (mg/L)': 2.95,
-             'anode_area (cm2)': 184,
-             'cd (A/m2)': 218,
-             }
 
-    gap = pyunits.convert(input['gap (cm)'] * pyunits.cm, to_units=pyunits.m)()
-    e_thick = pyunits.convert(input['thickness (cm)']* pyunits.cm, to_units=pyunits.m)()
-    time = pyunits.convert(input['ret_time (s)'] * pyunits.seconds, to_units=pyunits.minutes)()
-    
+    input = {
+        "gap (cm)": 0.32,
+        "thickness (cm)": 0.32,
+        "ret_time (s)": 23,
+        "dose (mg/L)": 2.95,
+        "anode_area (cm2)": 184,
+        "cd (A/m2)": 218,
+    }
+
+    gap = pyunits.convert(input["gap (cm)"] * pyunits.cm, to_units=pyunits.m)()
+    e_thick = pyunits.convert(
+        input["thickness (cm)"] * pyunits.cm, to_units=pyunits.m
+    )()
+    time = pyunits.convert(
+        input["ret_time (s)"] * pyunits.seconds, to_units=pyunits.minutes
+    )()
+
     conv = 5e3 * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
-    tds = blk.feed.properties[0].flow_mass_comp["tds"]/(blk.feed.properties[0].flow_mass_comp["H2O"]/(1000 * pyunits.kg / pyunits.m**3))
+    tds = blk.feed.properties[0].flow_mass_comp["tds"] / (
+        blk.feed.properties[0].flow_mass_comp["H2O"]
+        / (1000 * pyunits.kg / pyunits.m**3)
+    )
     # kg/s / (kg/s*m3/kg)
-    cond = pyunits.convert(pyunits.convert(tds, to_units=pyunits.mg / pyunits.liter)/conv,
-                            to_units  = pyunits.S / pyunits.m)
+    cond = pyunits.convert(
+        pyunits.convert(tds, to_units=pyunits.mg / pyunits.liter) / conv,
+        to_units=pyunits.S / pyunits.m,
+    )
     blk.ec.conductivity.fix(cond)
 
-    ec_dose = input['dose (mg/L)']* pyunits.mg / pyunits.liter
+    ec_dose = input["dose (mg/L)"] * pyunits.mg / pyunits.liter
     ec_dose = pyunits.convert(
-        input['dose (mg/L)']* pyunits.mg / pyunits.liter, to_units=pyunits.kg / pyunits.liter
+        input["dose (mg/L)"] * pyunits.mg / pyunits.liter,
+        to_units=pyunits.kg / pyunits.liter,
     )
-    
-    anode_area = pyunits.convert(input['anode_area (cm2)']*pyunits.cm**2,to_units=pyunits.m**2)
+
+    anode_area = pyunits.convert(
+        input["anode_area (cm2)"] * pyunits.cm**2, to_units=pyunits.m**2
+    )
 
     blk.ec.load_parameters_from_database(use_default_removal=True)
 
     blk.ec.electrode_thick.fix(e_thick)
     blk.ec.electrode_gap.fix(gap)
 
-    blk.ec.current_density.fix(input['cd (A/m2)'])
-    blk.ec.metal_dose.fix(ec_dose) 
-    
-    if blk.ec.config.electrode_material == 'aluminum':
+    blk.ec.current_density.fix(input["cd (A/m2)"])
+    blk.ec.metal_dose.fix(ec_dose)
+
+    if blk.ec.config.electrode_material == "aluminum":
         blk.ec.current_efficiency.fix(1)
 
     blk.ec.overpotential_k1.fix(430)
     blk.ec.overpotential_k2.fix(1000)
 
-    
+
 def set_scaling(m, blk):
 
     calculate_scaling_factors(m)
 
     set_scaling_factor(blk.ec.properties_in[0].flow_vol, 1e7)
-    set_scaling_factor(blk.ec.properties_in[0].conc_mass_comp['tds'], 1e5)
-    set_scaling_factor(blk.ec.charge_loading_rate,1e3)
+    set_scaling_factor(blk.ec.properties_in[0].conc_mass_comp["tds"], 1e5)
+    set_scaling_factor(blk.ec.charge_loading_rate, 1e3)
     # set_scaling_factor(m.fs.ec.cell_voltage,1)
-    set_scaling_factor(blk.ec.anode_area,1e4)
-    set_scaling_factor(blk.ec.current_density,1e-1)
+    set_scaling_factor(blk.ec.anode_area, 1e4)
+    set_scaling_factor(blk.ec.current_density, 1e-1)
     # set_scaling_factor(m.fs.ec.applied_current,1e2)
-    set_scaling_factor(blk.ec.metal_dose,1e4)
+    set_scaling_factor(blk.ec.metal_dose, 1e4)
 
 
 def init_system(m, solver=None):
-    '''Initialize system for individual unit process flowsheet'''
+    """Initialize system for individual unit process flowsheet"""
     if solver is None:
         solver = get_solver()
 
@@ -212,7 +225,7 @@ def init_system(m, solver=None):
 
 
 def init_ec(m, blk, solver=None):
-    '''Initialize IX model'''
+    """Initialize IX model"""
 
     if solver is None:
         solver = get_solver()
@@ -228,19 +241,19 @@ def init_ec(m, blk, solver=None):
 
 
 def add_system_costing(m):
-    '''Add system level costing components'''
+    """Add system level costing components"""
     m.fs.costing = ZeroOrderCosting()
     add_ec_costing(m, m.fs.EC)
     calc_costing(m, m.fs.EC)
 
 
 def add_ec_costing(m, blk):
-    '''Add EC model costing components'''
+    """Add EC model costing components"""
     blk.ec.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
 
 def calc_costing(m, blk):
-    '''Add system level solve for costing'''
+    """Add system level solve for costing"""
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(blk.ec.properties_treated[0].flow_vol)
     m.fs.costing.add_electricity_intensity(blk.ec.properties_treated[0].flow_vol)
@@ -248,12 +261,19 @@ def calc_costing(m, blk):
 
 def report_EC(blk):
     print(f'{f"Stream":<20}{f"FLOW RATE H2O":<20}{f"FLOW RATE TDS":<20}')
-    print(f'{"FEED":<20}{value(blk.feed.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.feed.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s')
-    print(f'{"PRODUCT":<20}{value(blk.product.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.product.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s')
-    print(f'{"DISPOSAL":<20}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s')
+    print(
+        f'{"FEED":<20}{value(blk.feed.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.feed.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
+    )
+    print(
+        f'{"PRODUCT":<20}{value(blk.product.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.product.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
+    )
+    print(
+        f'{"DISPOSAL":<20}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
+    )
+
 
 if __name__ == "__main__":
-    
+
     m = build_system()
     set_system_operating_conditions(m)
     set_ec_operating_conditions(m, m.fs.EC)
@@ -261,7 +281,7 @@ if __name__ == "__main__":
 
     init_system(m)
 
-    # solver = get_solver()  
+    # solver = get_solver()
     # results = solver.solve(m)
 
     # add_system_costing(m)

@@ -70,6 +70,7 @@ from watertap.costing import WaterTAPCosting
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
+
 def propagate_state(arc):
     _prop_state(arc)
     # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
@@ -96,14 +97,15 @@ def _initialize(m, blk, optarg):
 
         print("\n")
 
+
 def print_RO_op_pressure_est(blk):
     solver = get_solver()
     operating_pressure = calculate_operating_pressure(
-    feed_state_block=blk.feed.properties[0],
-    over_pressure=0.15,
-    water_recovery=0.8,
-    NaCl_passage=0.01,
-    solver=solver,
+        feed_state_block=blk.feed.properties[0],
+        over_pressure=0.15,
+        water_recovery=0.8,
+        NaCl_passage=0.01,
+        solver=solver,
     )
 
     operating_pressure_psi = pyunits.convert(
@@ -118,6 +120,7 @@ def print_RO_op_pressure_est(blk):
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
+
 
 def build_ro(m, blk, number_of_stages=1, prop_package=None) -> None:
     print(f'\n{"=======> BUILDING RO SYSTEM <=======":^60}\n')
@@ -156,7 +159,7 @@ def build_ro(m, blk, number_of_stages=1, prop_package=None) -> None:
         source=blk.feed.outlet,
         destination=blk.pump.inlet,
     )
-    
+
     blk.ro_pump_to_first_stage = Arc(
         source=blk.pump.outlet,
         destination=blk.stage[1].feed.inlet,
@@ -251,8 +254,9 @@ def build_ro_stage(m, blk, booster_pump=False):
     blk.permeate.properties[0].conc_mass_phase_comp
     blk.retentate.properties[0].conc_mass_phase_comp
 
+
 # def add_ro_costing(m, blk):
-    
+
 
 def init_system(m, verbose=True, solver=None):
     if solver is None:
@@ -284,7 +288,7 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     optarg = solver.options
 
     print("\n\n-------------------- INITIALIZING RO SYSTEM --------------------\n\n")
-    
+
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
     for stage in blk.stage.values():
@@ -349,9 +353,7 @@ def init_ro_stage(m, stage, solver=None):
     stage.retentate.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
 
 
-def set_operating_conditions(
-    m, Qin=None, Qout=None, Cin=None, water_recovery=None
-):
+def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
@@ -424,13 +426,13 @@ def set_operating_conditions(
     m.fs.feed_salinity.fix(Cin)
     iscale.set_scaling_factor(m.fs.feed_salinity, 0.1)
 
-    #     # m.fs.product_salinity.fix(500e-6)
-    #     # m.fs.product_salinity.unfix()
+    # m.fs.product_salinity.fix(500e-6)
+    # m.fs.product_salinity.unfix()
 
-    # m.fs.eq_product_quality = Constraint(
-    #     expr=m.fs.product.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
-    #     <= m.fs.product_salinity
-    # )
+    m.fs.eq_product_quality = Constraint(
+        expr=m.fs.product.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
+        <= m.fs.product_salinity
+    )
 
     m.fs.feed_flow_constraint = Constraint(
         expr=m.fs.feed_flow_mass == m.fs.perm_flow_mass / m.fs.water_recovery
@@ -476,13 +478,11 @@ def calc_scale(value):
     return math.floor(math.log(value, 10))
 
 
-def set_ro_system_operating_conditions(
-    m, blk, mem_area=100, RO_pump_pressure=15e5
-):
+def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pump_pressure=15e5):
     print(
         "\n\n-------------------- SETTING RO OPERATING CONDITIONS --------------------\n\n"
     )
-    solver = get_solver() 
+    solver = get_solver()
     mem_A = 2.75 / 3.6e11  # membrane water permeability coefficient [m/s-Pa]
     mem_B = 0.23 / 1000.0 / 3600.0  # membrane salt permeability coefficient [m/s]
     height = 1e-3  # channel height in membrane stage [m]
@@ -515,12 +515,12 @@ def set_ro_system_operating_conditions(
         iscale.set_scaling_factor(stage.module.feed_side.area, 1e-2)
         iscale.set_scaling_factor(stage.module.width, 1e-2)
 
-    iscale.calculate_scaling_factors(m)
-    
-    # ---checking model---
-    # assert_units_consistent(m)
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
+    # iscale.calculate_scaling_factors(m)
+
+    # # ---checking model---
+    # # assert_units_consistent(m)
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
 
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
@@ -619,10 +619,14 @@ def display_flow_table(blk):
             f'{"RO Stage " + str(idx) + " Retentate":<34s}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.retentate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
 
+
 def report_RO(m, blk):
     print(f"\n\n-------------------- RO Report --------------------\n")
     print(f'{"Recovery":<30s}{value(100*m.fs.water_recovery):<10.1f}{"%"}')
-    print(f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}')
+    print(
+        f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+    )
+
 
 def build_system():
     m = ConcreteModel()
@@ -665,7 +669,7 @@ if __name__ == "__main__":
     set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10)
     init_system(m)
     solve(m)
-    
+
     display_flow_table(m.fs.ro)
     report_RO(m, m.fs.ro)
     # print(m.fs.ro.stage[1].module.report())

@@ -59,18 +59,14 @@ from components.softener import (
     add_softener_costing,
     report_softener,
 )
-from components.UF import (
-    build_UF,
-    init_UF,
-    set_UF_op_conditions,
-    report_UF
-)
+from components.UF import build_UF, init_UF, set_UF_op_conditions, report_UF
 
 from components.electrodialysis import (
     build_ed,
     init_ed,
 )
 from util import *
+
 # from reflo import build_ro, display_ro_system_build
 # # from reflo.analysis.case_studies.KBHDP.components import *
 from components.translator_1 import (
@@ -84,6 +80,7 @@ from components.translator_2 import (
 from components.translator_3 import (
     Translator_TDS_to_NACL,
 )
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -101,7 +98,7 @@ def main():
     display_system_build(m)
     add_connections(m)
     add_constraints(m)
-    relax_constaints(m,m.fs.RO)
+    relax_constaints(m, m.fs.RO)
     set_operating_conditions(m)
     init_system(m)
     add_costing(m)
@@ -111,7 +108,7 @@ def main():
     report_softener(m)
     report_UF(m, m.fs.UF)
     report_RO(m, m.fs.RO)
-    
+
 
 def build_system():
     m = ConcreteModel()
@@ -121,15 +118,22 @@ def build_system():
     m.fs.costing.base_currency = pyunits.USD_2020
 
     m.fs.MCAS_properties = MCASParameterBlock(
-        solute_list=["Alkalinity_2-", "Ca_2+", "Cl_-", "Mg_2+", "K_+", "SiO2", "Na_+","SO2_-4+"],
+        solute_list=[
+            "Alkalinity_2-",
+            "Ca_2+",
+            "Cl_-",
+            "Mg_2+",
+            "K_+",
+            "SiO2",
+            "Na_+",
+            "SO2_-4+",
+        ],
         material_flow_basis=MaterialFlowBasis.mass,
     )
 
     m.fs.RO_properties = NaClParameterBlock()
-    m.fs.UF_properties = WaterParameterBlock(
-            solute_list=["tds", "tss"]
-        )
-    
+    m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
+
     m.fs.feed = Feed(property_package=m.fs.MCAS_properties)
     m.fs.product = Product(property_package=m.fs.RO_properties)
     m.fs.disposal = Product(property_package=m.fs.RO_properties)
@@ -154,7 +158,7 @@ def build_system():
         has_phase_equilibrium=False,
         outlet_state_defined=True,
     )
-    
+
     m.fs.TDS_to_NaCl_translator = Translator_TDS_to_NACL(
         inlet_property_package=m.fs.UF_properties,
         outlet_property_package=m.fs.RO_properties,
@@ -173,8 +177,12 @@ def build_system():
         "flow_mass_phase_comp", 10**-1, index=("Liq", "NaCl")
     )
 
-    m.fs.RO_properties.set_default_scaling('flow_mass_phase_comp', 1, index=('Liq', 'H2O'))
-    m.fs.RO_properties.set_default_scaling('flow_mass_phase_comp', 1e2, index=('Liq', 'NaCl'))
+    m.fs.RO_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
+    )
+    m.fs.RO_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
+    )
 
     return m
 
@@ -195,12 +203,12 @@ def add_connections(m):
         source=m.fs.MCAS_to_TDS_translator.outlet,
         destination=m.fs.UF.feed.inlet,
     )
-    
+
     m.fs.UF_to_translator3 = Arc(
         source=m.fs.UF.product.outlet,
         destination=m.fs.TDS_to_NaCl_translator.inlet,
     )
-    
+
     m.fs.translator_to_pump = Arc(
         source=m.fs.TDS_to_NaCl_translator.outlet,
         destination=m.fs.pump.inlet,
@@ -273,7 +281,7 @@ def add_costing(m):
     m.fs.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
     )
-    
+
     add_softener_costing(m, m.fs.softener)
 
     m.fs.costing.cost_process()
@@ -291,7 +299,7 @@ def relax_constaints(m, blk):
         #             param.molality_phase_comp["Liq", "NaCl"].setlb(0)
         #             param.pressure_osm_phase["Liq"].setlb(0)
         #             param.conc_mass_phase_comp["Liq", "NaCl"].setlb(0)
-    
+
     # for idx, param in blk.module.feed_side.friction_factor_darcy.items():
     #     # if idx[1] > 0:
     #     param.setub(100)
@@ -321,7 +329,12 @@ def define_inlet_composition(m):
 
 
 def set_inlet_conditions(
-    m, Qin=None, Cin=None, water_recovery=None, supply_pressure=1e5, primary_pump_pressure=15e5
+    m,
+    Qin=None,
+    Cin=None,
+    water_recovery=None,
+    supply_pressure=1e5,
+    primary_pump_pressure=15e5,
 ):
     """Sets operating condition for the PV-RO system
 
@@ -348,7 +361,7 @@ def set_inlet_conditions(
         "K_+": 0.016 * pyunits.kg / pyunits.m**3,
         "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,
     }
-    
+
     # inlet_dict = {
     #     "Ca_2+": 0.13 * pyunits.kg / pyunits.m**3,
     #     "Mg_2+": 0.03 * pyunits.kg / pyunits.m**3,
@@ -394,9 +407,7 @@ def set_inlet_conditions(
     #     m.fs.water_recovery.unfix()
     #     m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
 
-    m.fs.pump.control_volume.properties_out[0].pressure.fix(
-        primary_pump_pressure
-    )
+    m.fs.pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
 
     # # iscale.set_scaling_factor(m.fs.perm_flow_mass, 1)
     # iscale.set_scaling_factor(m.fs.feed_flow_mass, 1)
@@ -468,11 +479,11 @@ def set_operating_conditions(m):
     # #     "K_+": 0.016 * pyunits.kg / pyunits.m**3,
     # #     "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,}
     non_important_removals = 0.01
-    m.fs.softener.unit.removal_efficiency['Cl_-'].fix(non_important_removals)
-    m.fs.softener.unit.removal_efficiency['Na_+'].fix(non_important_removals)
-    m.fs.softener.unit.removal_efficiency['K_+'].fix(non_important_removals)
-    m.fs.softener.unit.removal_efficiency['SO2_-4+'].fix(non_important_removals)
-    
+    m.fs.softener.unit.removal_efficiency["Cl_-"].fix(non_important_removals)
+    m.fs.softener.unit.removal_efficiency["Na_+"].fix(non_important_removals)
+    m.fs.softener.unit.removal_efficiency["K_+"].fix(non_important_removals)
+    m.fs.softener.unit.removal_efficiency["SO2_-4+"].fix(non_important_removals)
+
     set_UF_op_conditions(m.fs.UF)
     set_ro_system_operating_conditions(
         m, m.fs.RO, mem_area=10000, RO_pump_pressure=20e5
@@ -545,16 +556,24 @@ def report_MCAS_stream_conc(m, stream):
     print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
     print(f'{"Component":<15s}{"Conc.":<10s}{"Units":10s}')
     for i in solute_set:
-        print(f"{i:<15s}: {stream.conc_mass_phase_comp['Liq', i].value:<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp['Liq', i])}")
-    print(f'{"Overall TDS":<15s}: {sum(value(stream.conc_mass_phase_comp["Liq", i]) for i in solute_set):<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp["Liq", "Ca_2+"])}')
-    print(f"{'Vol. Flow Rate':<15s}: {stream.flow_mass_phase_comp['Liq', 'H2O'].value:<10.3f}{pyunits.get_units(stream.flow_mass_phase_comp['Liq', 'H2O'])}")
+        print(
+            f"{i:<15s}: {stream.conc_mass_phase_comp['Liq', i].value:<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp['Liq', i])}"
+        )
+    print(
+        f'{"Overall TDS":<15s}: {sum(value(stream.conc_mass_phase_comp["Liq", i]) for i in solute_set):<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp["Liq", "Ca_2+"])}'
+    )
+    print(
+        f"{'Vol. Flow Rate':<15s}: {stream.flow_mass_phase_comp['Liq', 'H2O'].value:<10.3f}{pyunits.get_units(stream.flow_mass_phase_comp['Liq', 'H2O'])}"
+    )
 
 
 def report_stream_ion_conc(m, stream):
     print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
     for ion_conc in stream.conc_mass_phase_comp:
-        print(f"{ion_conc[1]:<15s}: {stream.conc_mass_phase_comp[ion_conc].value:<10.3f}{str(pyunits.get_units(stream.conc_mass_phase_comp[ion_conc]))}")
-    
+        print(
+            f"{ion_conc[1]:<15s}: {stream.conc_mass_phase_comp[ion_conc].value:<10.3f}{str(pyunits.get_units(stream.conc_mass_phase_comp[ion_conc]))}"
+        )
+
 
 def display_system_stream_table(m):
     print("\n\n-------------------- SYSTEM STREAM TABLE --------------------\n\n")
@@ -576,17 +595,18 @@ def display_system_stream_table(m):
 
 def display_system_build(m):
     blocks = []
-    for v in m.fs.component_data_objects(
-        ctype=Block, active=True, descend_into=False
-    ):
+    for v in m.fs.component_data_objects(ctype=Block, active=True, descend_into=False):
         print(v)
 
 
 def display_costing_breakdown(m):
     header = f'{"PARAM":<25s}{"VALUE":<25s}{"UNITS":<25s}'
     print(header)
-    print(f'{"Product Flow":<25s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}')
+    print(
+        f'{"Product Flow":<25s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
+    )
     print(f'{"LCOW":<24s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))

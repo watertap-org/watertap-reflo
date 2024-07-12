@@ -46,8 +46,8 @@ def propagate_state(arc):
 
 
 def build_ix(m, prop_package=None):
-    '''Function to build IX unit model'''
-    
+    """Function to build IX unit model"""
+
     print(f'\n{"=======> BUILDING EC SYSTEM <=======":^60}\n')
     if prop_package is None:
         prop_package = m.fs.properties
@@ -64,20 +64,16 @@ def build_ix(m, prop_package=None):
 
 
 def build_system():
-    '''Function to create concrete model for individual unit model flowsheet'''
+    """Function to create concrete model for individual unit model flowsheet"""
     m = ConcreteModel()
     m.db = Database()
 
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = WaterParameterBlockZO(
-        solute_list=[
-        "tds"
-        ]
-    )
-    
+    m.fs.properties = WaterParameterBlockZO(solute_list=["tds"])
+
     m.fs.feed = Feed(property_package=m.fs.properties)
 
-    m.fs.unit = FlowsheetBlock(dynamic = False)
+    m.fs.unit = FlowsheetBlock(dynamic=False)
 
     build_ix(m)
 
@@ -90,24 +86,28 @@ def build_system():
 
     return m
 
-def set_system_operating_conditions(m):
-    '''This function sets the system operating conditions for individual unit model flowsheet'''
-    input = {'q (m3/s)': 0.175,
-             'tds (g/l)': 12,
-             }
-    
-    flow_in = input['q (m3/s)'] * pyunits.m**3 / pyunits.s
-    flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3) #kg/s
 
-    tds = input['tds (g/l)']*pyunits.g / pyunits.liter
+def set_system_operating_conditions(m):
+    """This function sets the system operating conditions for individual unit model flowsheet"""
+    input = {
+        "q (m3/s)": 0.175,
+        "tds (g/l)": 12,
+    }
+
+    flow_in = input["q (m3/s)"] * pyunits.m**3 / pyunits.s
+    flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3)  # kg/s
+
+    tds = input["tds (g/l)"] * pyunits.g / pyunits.liter
     tds_in = pyunits.convert(tds, to_units=pyunits.kg / pyunits.m**3)
 
     m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(flow_in_mass)
-    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(tds_in * flow_in) #kg/m3 * m3/s = kg/s
+    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(
+        tds_in * flow_in
+    )  # kg/m3 * m3/s = kg/s
 
 
 def set_ix_operating_conditions(m):
-    '''Set EC operating conditions''' 
+    """Set EC operating conditions"""
 
     m.fs.ix.load_parameters_from_database(use_default_removal=True)
     m.fs.ix.recovery_frac_mass_H2O.fix(1)
@@ -115,9 +115,10 @@ def set_ix_operating_conditions(m):
     m.fs.ix.NaCl_dose.fix()
     m.fs.ix.resin_replacement.fix()
 
+
 def init_system(m, solver=None):
-    '''Initialize system for individual unit process flowsheet'''
-    
+    """Initialize system for individual unit process flowsheet"""
+
     if solver is None:
         solver = get_solver()
 
@@ -136,7 +137,7 @@ def init_system(m, solver=None):
 
 
 def init_ix_model(m, solver=None):
-    '''Initialize IX model'''
+    """Initialize IX model"""
 
     if solver is None:
         solver = get_solver()
@@ -148,38 +149,40 @@ def init_ix_model(m, solver=None):
 
     m.fs.ix.initialize(optarg=optarg)
 
+
 def add_system_costing(m):
-    '''Add system level costing components'''
+    """Add system level costing components"""
     m.fs.costing = ZeroOrderCosting()
     add_ix_costing(m)
     calc_costing(m)
 
 
 def add_ix_costing(m):
-    '''Add IX model costing components'''
+    """Add IX model costing components"""
     m.fs.ix.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
 
 def calc_costing(m):
-    '''Add system level solve for costing'''
+    """Add system level solve for costing"""
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(m.fs.ix.properties_treated[0].flow_vol)
     m.fs.costing.add_electricity_intensity(m.fs.ix.properties_treated[0].flow_vol)
 
+
 if __name__ == "__main__":
-    
+
     m = build_system()
     set_system_operating_conditions(m)
     set_ix_operating_conditions(m)
     # set_scaling(m)
 
     init_system(m)
-    
-    solver = get_solver()  
+
+    solver = get_solver()
     results = solver.solve(m)
 
     add_system_costing(m)
-    m.fs.objective_lcow = Objective(expr = m.fs.costing.LCOW)
+    m.fs.objective_lcow = Objective(expr=m.fs.costing.LCOW)
     results = solver.solve(m)
 
     print(m.fs.objective_lcow())

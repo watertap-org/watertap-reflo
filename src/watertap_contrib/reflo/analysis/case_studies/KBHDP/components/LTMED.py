@@ -45,13 +45,15 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
 
+
 def propagate_state(arc):
     _prop_state(arc)
     print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
     arc.source.display()
     print(arc.destination.name)
     arc.destination.display()
-    print('\n')
+    print("\n")
+
 
 # The following 3 functions is a template for building and exporting the LTMED to the overall flowsheet
 def build_LTMED(m, blk, liquid_prop, vapor_prop, number_effects=12):
@@ -62,12 +64,12 @@ def build_LTMED(m, blk, liquid_prop, vapor_prop, number_effects=12):
     blk.disposal = StateJunction(property_package=liquid_prop)
 
     blk.unit = LTMEDSurrogate(
-                property_package_liquid=liquid_prop,
-                property_package_vapor=vapor_prop,
-                number_effects=number_effects,
-            )
-    
-    #BUG LTMED Surrogate has no inlet port, so can't connect to feed
+        property_package_liquid=liquid_prop,
+        property_package_vapor=vapor_prop,
+        number_effects=number_effects,
+    )
+
+    # BUG LTMED Surrogate has no inlet port, so can't connect to feed
     blk.feed_to_LTMED = Arc(
         source=blk.feed.outlet,
         destination=blk.unit.feed,
@@ -96,7 +98,7 @@ def set_LTMED_operating_conditions(m, blk):
 
 
 def init_LTMED(m, blk, solver=None):
-    '''Initialize system for individual unit process flowsheet'''
+    """Initialize system for individual unit process flowsheet"""
     if solver is None:
         solver = get_solver()
 
@@ -114,6 +116,7 @@ def init_LTMED(m, blk, solver=None):
     propagate_state(blk.LTMED_to_product)
     propagate_state(blk.LTMED_to_disposal)
 
+
 def set_system_operating_conditions(m):
     m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].fix(1000)
     m.fs.feed.flow_mass_phase_comp[0, "Liq", "TDS"].fix(2)
@@ -130,7 +133,7 @@ def build_system():
 
     m.fs.feed = Feed(property_package=m.fs.liquid_prop)
 
-    m.fs.LTMED = FlowsheetBlock(dynamic = False)
+    m.fs.LTMED = FlowsheetBlock(dynamic=False)
     build_LTMED(m, m.fs.LTMED, m.fs.liquid_prop, m.fs.vapor_prop)
 
     m.fs.feed_to_unit = Arc(
@@ -142,8 +145,9 @@ def build_system():
 
     return m
 
+
 def init_system(m, solver=None):
-    '''Initialize system for individual unit process flowsheet'''
+    """Initialize system for individual unit process flowsheet"""
     if solver is None:
         solver = get_solver()
 
@@ -159,6 +163,7 @@ def init_system(m, solver=None):
     propagate_state(m.fs.feed_to_unit)
 
     init_LTMED(m, m.fs.LTMED)
+
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
     # ---solving---
@@ -184,12 +189,13 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
         print(msg)
         return results
 
+
 if __name__ == "__main__":
-    
+
     m = build_system()
     set_system_operating_conditions(m)
     set_LTMED_operating_conditions(m, m.fs.LTMED)
 
     init_system(m)
-    solver = get_solver()  
+    solver = get_solver()
     results = solve(m)

@@ -70,6 +70,7 @@ from watertap.costing import WaterTAPCosting
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
+
 def build_crystallizer(m):
     pass
 
