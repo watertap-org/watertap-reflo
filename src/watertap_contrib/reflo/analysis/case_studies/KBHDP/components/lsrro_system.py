@@ -73,42 +73,355 @@ from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
 def propagate_state(arc):
     _prop_state(arc)
-    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    # arc.source.display()
-    # print(arc.destination.name)
-    # arc.destination.display()
-    # print('\n')
+    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    arc.source.display()
+    print(arc.destination.name)
+    arc.destination.display()
+    print('\n')
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
 
 
-def build_ro(m, blk, number_of_stages=1, prop_package=None) -> None:
-    pass
+def build_lsrro(m, blk, number_of_stages=1, prop_package=None):
 
+    print(f'\n{"=======> BUILDING LSRRO SYSTEM <=======":^60}\n')
+    print(f"Number of Stages: {number_of_stages}")
+
+    blk.feed = StateJunction(property_package=m.fs.properties)
+    blk.product = StateJunction(property_package=m.fs.properties)
+    blk.retentate = StateJunction(property_package=m.fs.properties)
+    blk.numberOfStages = Param(initialize=number_of_stages)
+    blk.Stages = RangeSet(blk.numberOfStages)
+
+    if number_of_stages > 1:
+        blk.IntermediateStages = RangeSet(2, blk.numberOfStages - 1)
+        blk.LSRRO_Stages = RangeSet(2, blk.numberOfStages)
+    else:
+        blk.IntermediateStages = RangeSet(0)
+
+    blk.FirstStage = blk.Stages.first()
+    blk.LastStage = blk.Stages.last()
+    blk.NonFinalStages = RangeSet(blk.numberOfStages - 1)
+
+    blk.stage = FlowsheetBlock(
+        RangeSet(number_of_stages),
+        dynamic=False)
+    
+    for stage in blk.stage.values():
+        if stage.index() == 1:
+            build_lsrro_stage(m, stage, stage.index(), intermediate_stage=False, non_final_stage=True)
+        elif (stage.index() > 1) & (stage.index() < number_of_stages):
+            build_lsrro_stage(m, stage, stage.index(), intermediate_stage=True, non_final_stage=True)
+        else:
+            build_lsrro_stage(m, stage, stage.index(), intermediate_stage=False, non_final_stage=False)
+
+    blk.feed_to_first_stage = Arc(
+        source=blk.feed.outlet, destination=blk.stage[1].feed.inlet
+    )
+
+    blk.pump_to_mixer = Arc(
+        blk.LSRRO_Stages,
+        rule=lambda blk, n: {
+            "source": blk.stage[n].permeate.outlet,
+            "destination": blk.stage[n-1].mixer.downstream,
+        },
+    )
+    
+    blk.stage_retentate_to_next_stage = Arc(
+        blk.NonFinalStages,
+        rule=lambda blk, n: {
+            "source": blk.stage[n].retentate.outlet,
+            "destination": blk.stage[n + 1].feed.inlet,
+        },
+    )
+
+    blk.first_stage_permeate_to_product = Arc(
+        source=blk.stage[1].permeate.outlet, destination=blk.product.inlet
+    )
+
+    blk.last_retentate_to_disposal = Arc(
+        source=blk.stage[blk.numberOfStages].retentate.outlet, destination=blk.retentate.inlet
+    )
+
+
+def build_lsrro_stage(m, blk, stage_idx, intermediate_stage=False, non_final_stage=False):
+    print(f"Building LSRRO Stage {stage_idx}")
+    blk.feed = StateJunction(property_package=m.fs.properties)
+    blk.permeate = StateJunction(property_package=m.fs.properties)
+    blk.retentate = StateJunction(property_package=m.fs.properties)
+
+    blk.intermediate_stage = intermediate_stage
+    blk.non_final_stage = non_final_stage
+
+    blk.stage_pump = Pump(property_package=m.fs.properties)
+    blk.stage_pump.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+        # Add costing
+    )
+
+    if non_final_stage:
+        blk.mixer = Mixer(
+            property_package=m.fs.properties,
+            has_holdup=False,
+            # momentum_mixing_type=MomentumMixingType.equality,
+            inlet_list=["upstream", "downstream"],
+        )
+
+    if stage_idx > 1:
+        blk.booster_pump = Pump(property_package=m.fs.properties)
+    
+    blk.module = ReverseOsmosis1D(
+        property_package=m.fs.properties,
+        has_pressure_change=True,
+        pressure_change_type=PressureChangeType.calculated,
+        mass_transfer_coefficient=MassTransferCoefficient.calculated,
+        concentration_polarization_type=ConcentrationPolarizationType.calculated,
+        transformation_scheme="BACKWARD",
+        transformation_method="dae.finite_difference",
+        finite_elements=10,
+    )
+
+    # Define Connections
+    blk.stage_feed_to_stage_pump = Arc(
+        source=blk.feed.outlet,
+        destination=blk.stage_pump.inlet,
+    )
+
+    if non_final_stage:
+        blk.stage_pump_to_mixer = Arc(
+            source=blk.stage_pump.outlet,
+            destination=blk.mixer.upstream,
+        )
+
+        blk.mixer_to_module = Arc(
+            source=blk.mixer.outlet,
+            destination=blk.module.inlet,
+        )
+    else:
+        blk.stage_pump_to_module = Arc(
+            source=blk.stage_pump.outlet,
+            destination=blk.module.inlet,
+        )
+
+    if stage_idx > 1:
+        blk.module_to_booster_pump = Arc(
+            source=blk.module.permeate,
+            destination=blk.booster_pump.inlet,
+        )
+        blk.booster_pump_to_ = Arc(
+            source=blk.booster_pump.outlet,
+            destination=blk.permeate.inlet,
+        )
+    else:
+        blk.module_permeate_to_permeate = Arc(
+            source=blk.module.permeate,
+            destination=blk.permeate.inlet,
+        )
+    
+    blk.module_retentate_to_retentate = Arc(
+        source=blk.module.retentate,
+        destination=blk.retentate.inlet,
+    )
 
 def init_system(m, verbose=True, solver=None):
-    pass
+    if solver is None:
+        solver = get_solver()
+
+    optarg = solver.options
+
+    print("\n--------- INITIALIZING SYSTEM ---------\n")
+
+    m.fs.feed.initialize(optarg=optarg)
+    propagate_state(m.fs.feed_to_lsrro_feed)
+
+    init_lsrro_system(m, m.fs.lsrro, verbose=verbose, solver=solver)
 
 
-def init_ro_system(m, blk, verbose=True, solver=None):
-    pass
+def init_lsrro_system(m, blk, verbose=True, solver=None):
+    if solver is None:
+        solver = get_solver()
+
+    optarg = solver.options
+
+    print("\n--------- INITIALIZING LSRRO SYSTEM ---------\n")
+
+    blk.feed.initialize(optarg=optarg)
+    propagate_state(blk.feed_to_first_stage)
+
+    init_lsrro_stage(m, blk.stage[1], solver=solver)
 
 
 def init_lsrro_stage(m, stage, solver=None):
-    pass
+    if solver is None:
+        solver = get_solver()
+
+    optarg = solver.options
+
+    print(f"\n--------- INITIALIZING LSRRO STAGE {stage.index()} ---------\n")
+    stage.feed.initialize(optarg=optarg)
+    propagate_state(stage.stage_feed_to_stage_pump)
+
+    stage.stage_pump.initialize(optarg=optarg)
+    if stage.non_final_stage:
+        propagate_state(stage.stage_pump_to_mixer)
+        stage.mixer.initialize(optarg=optarg)
+        propagate_state(stage.mixer_to_module)
+    else:
+        propagate_state(stage.stage_pump_to_module)
+
+    # stage.module.initialize(optarg=optarg)
+    
+    # if stage.index() > 1:
+    #     propagate_state(stage.module_to_booster_pump)
+    #     stage.booster_pump.initialize(optarg=optarg)
+    # else:
+    #     propagate_state(stage.module_permeate_to_permeate)
+    
 
 
 def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None):
-    pass
+    if Qin is None:
+        Qin = 1
+    if Cin is None:
+        Cin = 35
+
+    feed_temperature = 273.15 + 20
+    pressure_atm = 101325
+    m.fs.feed.pressure[0].fix(pressure_atm)
+    m.fs.feed.temperature[0].fix(feed_temperature)
+
+    m.fs.water_recovery = Var(
+        initialize=0.5,
+        bounds=(0, 1),
+        domain=NonNegativeReals,
+        units=pyunits.dimensionless,
+        doc="System Water Recovery",
+    )
+
+    m.fs.feed_salinity = Var(
+        initialize=35,
+        bounds=(0, 2000),
+        domain=NonNegativeReals,
+        units=pyunits.dimensionless,
+        doc="System Water Recovery",
+    )
+
+    m.fs.product_salinity = Var(
+        initialize=200e-6,
+        domain=NonNegativeReals,
+        units=pyunits.dimensionless,
+    )
+
+    m.fs.feed_flow_mass = Var(
+        initialize=1,
+        bounds=(0.00001, 1e6),
+        domain=NonNegativeReals,
+        units=pyunits.kg / pyunits.s,
+        doc="System Water Recovery",
+    )
+
+    if water_recovery is not None:
+        m.fs.water_recovery.fix(water_recovery)
+    else:
+        m.fs.water_recovery.fix(0.5)
+
+    m.fs.feed_flow_mass.fix(Qin)
+    iscale.set_scaling_factor(m.fs.feed_flow_mass, 1)
+    m.fs.feed_salinity.fix(Cin)
+    iscale.set_scaling_factor(m.fs.feed_salinity, 0.1)
+
+    m.fs.eq_water_recovery = Constraint(
+        expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
+        == m.fs.product.properties[0].flow_vol
+    )
+
+    m.fs.nacl_mass_constraint = Constraint(
+        expr=m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"] * 1000
+        == m.fs.feed_flow_mass * m.fs.feed_salinity
+    )
+
+    m.fs.h2o_mass_constraint = Constraint(
+        expr=m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"]
+        == m.fs.feed_flow_mass * (1 - m.fs.feed_salinity / 1000)
+    )
+
+    m.fs.feed.properties[0].flow_vol_phase["Liq"]
+    m.fs.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
+
+    m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value = (
+        m.fs.feed_flow_mass.value * m.fs.feed_salinity.value / 1000
+    )
+    m.fs.feed.flow_mass_phase_comp[
+        0, "Liq", "H2O"
+    ].value = m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
+
+    assert_units_consistent(m)
+
+    print("\n--------- SETTING OPERATING CONDITIONS ---------\n")
+    print(f"Feed Flow Rate: {Qin} kg/s")
+    print(f"Feed Salinity: {Cin} g/L")
 
 
 def calc_scale(value):
     return math.floor(math.log(value, 10))
 
 
-def set_lsrro_system_operating_conditions(m, blk, mem_area=100, RO_pump_pressure=15e5):
-    pass
+def set_lsrro_system_operating_conditions(m, blk, mem_area=10, RO_pump_pressure=65e5, B_max=None,):
+    # parameters
+    mem_A = 2.0 / 3.6e11  # membrane water permeability coefficient [m/s-Pa]
+    mem_B = 10 / 1000.0 / 3600.0  # membrane salt permeability coefficient [m/s]
+    mem_B_RO = 0.14 / 1000.0 / 3600.0
+    mem_A_RO = 2.0 / 3.6e11  # m
+    height = 1e-3  # channel height in membrane stage [m]
+    spacer_porosity = 0.90  # spacer porosity in membrane stage [-]
+    length = 1  # effective membrane width [m]
+    area = mem_area  # membrane area [m^2]
+    primary_pump_pressure = RO_pump_pressure  # primary pump pressure [Pa]
+    pressure_atm = 101325  # atmospheric pressure [Pa]
+    pump_efi = 0.8  # pump efficiency [-]
+
+    print("\n--------- SETTING OPERATING CONDITIONS ---------\n")
+
+    # initialize stages
+    for idx, stage in m.fs.lsrro.stage.items():
+        if idx == m.fs.lsrro.FirstStage:
+            stage.module.A_comp.fix(mem_A_RO)
+            stage.module.B_comp.fix(mem_B_RO)
+        else:
+            stage.module.A_comp.fix(mem_A)
+            stage.module.B_comp.fix(mem_B)
+
+        stage.module.area.fix(area)
+        stage.module.length.fix(length)
+        stage.module.mixed_permeate[0].pressure.fix(pressure_atm)
+
+        if (
+            stage.module.config.mass_transfer_coefficient == MassTransferCoefficient.calculated
+        ) or stage.module.config.pressure_change_type == PressureChangeType.calculated:
+            stage.module.feed_side.channel_height.fix(height)
+            stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
+
+        iscale.set_scaling_factor(stage.module.area, 1)
+        iscale.set_scaling_factor(stage.module.feed_side.area, 1)
+        iscale.set_scaling_factor(stage.module.width, 1)
+
+        stage.stage_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
+        stage.stage_pump.efficiency_pump.fix(pump_efi)
+
+        if idx > 1:
+            # stage.booster_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
+            stage.booster_pump.efficiency_pump.fix(pump_efi)
+
+        print(f"Stage {idx} Pump Pressure: {primary_pump_pressure:<5.2e} Pa")
+
+        print(f"Stage {idx} Membrane Area: {area:<5.2f} m^2")
+        print(f"Stage {idx} Membrane Length: {length:<5.2f} m")
+        print(f"Stage {idx} Membrane A: {mem_A:<5.2e} {pyunits.get_units(stage.module.A_comp)}")
+        print(f"Stage {idx} Membrane B: {mem_B:<5.2e} {pyunits.get_units(stage.module.B_comp)}")
+        print('\n')
+
+    print(f'DEGREES OF FREEDOM: {degrees_of_freedom(m)}')
 
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
@@ -216,8 +529,35 @@ def report_LSRRO(m, blk):
     )
 
 
-def build_system():
+def build_system(number_of_stages=2):
     m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = NaClParameterBlock()
+    m.fs.costing = WaterTAPCosting()
+    m.fs.feed = Feed(property_package=m.fs.properties)
+    m.fs.product = Product(property_package=m.fs.properties)
+    m.fs.disposal = Product(property_package=m.fs.properties)
+    m.fs.DOF = []
+
+    m.fs.lsrro = FlowsheetBlock(dynamic=False)
+
+    build_lsrro(m, m.fs.lsrro, number_of_stages)
+    
+    m.fs.feed_to_lsrro_feed = Arc(
+        source=m.fs.feed.outlet,
+        destination=m.fs.lsrro.feed.inlet,
+    )
+
+    m.fs.lsrro_to_product = Arc(
+        source=m.fs.lsrro.product.outlet,
+        destination=m.fs.product.inlet,
+    )
+    m.fs.lsrro_to_disposal = Arc(
+        source=m.fs.lsrro.retentate.outlet,
+        destination=m.fs.disposal.inlet,
+    )
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
 
     return m
 
@@ -225,15 +565,15 @@ def build_system():
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
-    display_ro_system_build(m)
-    set_operating_conditions(m, Qin=1, Cin=2.5)
-    set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10)
+    display_lsrro_system_build(m)
+    set_operating_conditions(m)
+    set_lsrro_system_operating_conditions(m, m.fs.lsrro, mem_area=10)
     init_system(m)
-    solve(m)
+    # solve(m)
 
-    display_flow_table(m.fs.ro)
-    report_RO(m, m.fs.ro)
-    # print(m.fs.ro.stage[1].module.report())
-    # print(m.fs.costing.display())
+    # display_flow_table(m.fs.ro)
+    # report_RO(m, m.fs.ro)
+    # # print(m.fs.ro.stage[1].module.report())
+    # # print(m.fs.costing.display())
 
 # FIX this flowsheet needs to get converted to a lsrro system
