@@ -592,4 +592,3 @@ if __name__ == "__main__":
     set_operating_conditions(m)
     set_lsrro_system_operating_conditions(m, m.fs.lsrro, mem_area=10)
     init_system(m)
-    # solve(m)
