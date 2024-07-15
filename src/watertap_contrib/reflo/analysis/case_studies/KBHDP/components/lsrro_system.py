@@ -77,7 +77,7 @@ def propagate_state(arc):
     arc.source.display()
     print(arc.destination.name)
     arc.destination.display()
-    print('\n')
+    print("\n")
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
@@ -104,17 +104,21 @@ def build_lsrro(m, blk, number_of_stages=1, prop_package=None):
     blk.LastStage = blk.Stages.last()
     blk.NonFinalStages = RangeSet(blk.numberOfStages - 1)
 
-    blk.stage = FlowsheetBlock(
-        RangeSet(number_of_stages),
-        dynamic=False)
-    
+    blk.stage = FlowsheetBlock(RangeSet(number_of_stages), dynamic=False)
+
     for stage in blk.stage.values():
         if stage.index() == 1:
-            build_lsrro_stage(m, stage, stage.index(), intermediate_stage=False, non_final_stage=True)
+            build_lsrro_stage(
+                m, stage, stage.index(), intermediate_stage=False, non_final_stage=True
+            )
         elif (stage.index() > 1) & (stage.index() < number_of_stages):
-            build_lsrro_stage(m, stage, stage.index(), intermediate_stage=True, non_final_stage=True)
+            build_lsrro_stage(
+                m, stage, stage.index(), intermediate_stage=True, non_final_stage=True
+            )
         else:
-            build_lsrro_stage(m, stage, stage.index(), intermediate_stage=False, non_final_stage=False)
+            build_lsrro_stage(
+                m, stage, stage.index(), intermediate_stage=False, non_final_stage=False
+            )
 
     blk.feed_to_first_stage = Arc(
         source=blk.feed.outlet, destination=blk.stage[1].feed.inlet
@@ -124,10 +128,10 @@ def build_lsrro(m, blk, number_of_stages=1, prop_package=None):
         blk.LSRRO_Stages,
         rule=lambda blk, n: {
             "source": blk.stage[n].permeate.outlet,
-            "destination": blk.stage[n-1].mixer.downstream,
+            "destination": blk.stage[n - 1].mixer.downstream,
         },
     )
-    
+
     blk.stage_retentate_to_next_stage = Arc(
         blk.NonFinalStages,
         rule=lambda blk, n: {
@@ -141,11 +145,14 @@ def build_lsrro(m, blk, number_of_stages=1, prop_package=None):
     )
 
     blk.last_retentate_to_disposal = Arc(
-        source=blk.stage[blk.numberOfStages].retentate.outlet, destination=blk.retentate.inlet
+        source=blk.stage[blk.numberOfStages].retentate.outlet,
+        destination=blk.retentate.inlet,
     )
 
 
-def build_lsrro_stage(m, blk, stage_idx, intermediate_stage=False, non_final_stage=False):
+def build_lsrro_stage(
+    m, blk, stage_idx, intermediate_stage=False, non_final_stage=False
+):
     print(f"Building LSRRO Stage {stage_idx}")
     blk.feed = StateJunction(property_package=m.fs.properties)
     blk.permeate = StateJunction(property_package=m.fs.properties)
@@ -170,7 +177,7 @@ def build_lsrro_stage(m, blk, stage_idx, intermediate_stage=False, non_final_sta
 
     if stage_idx > 1:
         blk.booster_pump = Pump(property_package=m.fs.properties)
-    
+
     blk.module = ReverseOsmosis1D(
         property_package=m.fs.properties,
         has_pressure_change=True,
@@ -218,11 +225,12 @@ def build_lsrro_stage(m, blk, stage_idx, intermediate_stage=False, non_final_sta
             source=blk.module.permeate,
             destination=blk.permeate.inlet,
         )
-    
+
     blk.module_retentate_to_retentate = Arc(
         source=blk.module.retentate,
         destination=blk.retentate.inlet,
     )
+
 
 def init_system(m, verbose=True, solver=None):
     if solver is None:
@@ -271,13 +279,12 @@ def init_lsrro_stage(m, stage, solver=None):
         propagate_state(stage.stage_pump_to_module)
 
     # stage.module.initialize(optarg=optarg)
-    
+
     # if stage.index() > 1:
     #     propagate_state(stage.module_to_booster_pump)
     #     stage.booster_pump.initialize(optarg=optarg)
     # else:
     #     propagate_state(stage.module_permeate_to_permeate)
-    
 
 
 def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None):
@@ -352,9 +359,9 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
     m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value = (
         m.fs.feed_flow_mass.value * m.fs.feed_salinity.value / 1000
     )
-    m.fs.feed.flow_mass_phase_comp[
-        0, "Liq", "H2O"
-    ].value = m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
+    m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
+        m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
+    )
 
     assert_units_consistent(m)
 
@@ -367,7 +374,13 @@ def calc_scale(value):
     return math.floor(math.log(value, 10))
 
 
-def set_lsrro_system_operating_conditions(m, blk, mem_area=10, RO_pump_pressure=65e5, B_max=None,):
+def set_lsrro_system_operating_conditions(
+    m,
+    blk,
+    mem_area=10,
+    RO_pump_pressure=65e5,
+    B_max=None,
+):
     # parameters
     mem_A = 2.0 / 3.6e11  # membrane water permeability coefficient [m/s-Pa]
     mem_B = 10 / 1000.0 / 3600.0  # membrane salt permeability coefficient [m/s]
@@ -397,8 +410,12 @@ def set_lsrro_system_operating_conditions(m, blk, mem_area=10, RO_pump_pressure=
         stage.module.mixed_permeate[0].pressure.fix(pressure_atm)
 
         if (
-            stage.module.config.mass_transfer_coefficient == MassTransferCoefficient.calculated
-        ) or stage.module.config.pressure_change_type == PressureChangeType.calculated:
+            (
+                stage.module.config.mass_transfer_coefficient
+                == MassTransferCoefficient.calculated
+            )
+            or stage.module.config.pressure_change_type == PressureChangeType.calculated
+        ):
             stage.module.feed_side.channel_height.fix(height)
             stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
 
@@ -406,7 +423,9 @@ def set_lsrro_system_operating_conditions(m, blk, mem_area=10, RO_pump_pressure=
         iscale.set_scaling_factor(stage.module.feed_side.area, 1)
         iscale.set_scaling_factor(stage.module.width, 1)
 
-        stage.stage_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
+        stage.stage_pump.control_volume.properties_out[0].pressure.fix(
+            primary_pump_pressure
+        )
         stage.stage_pump.efficiency_pump.fix(pump_efi)
 
         if idx > 1:
@@ -417,11 +436,15 @@ def set_lsrro_system_operating_conditions(m, blk, mem_area=10, RO_pump_pressure=
 
         print(f"Stage {idx} Membrane Area: {area:<5.2f} m^2")
         print(f"Stage {idx} Membrane Length: {length:<5.2f} m")
-        print(f"Stage {idx} Membrane A: {mem_A:<5.2e} {pyunits.get_units(stage.module.A_comp)}")
-        print(f"Stage {idx} Membrane B: {mem_B:<5.2e} {pyunits.get_units(stage.module.B_comp)}")
-        print('\n')
+        print(
+            f"Stage {idx} Membrane A: {mem_A:<5.2e} {pyunits.get_units(stage.module.A_comp)}"
+        )
+        print(
+            f"Stage {idx} Membrane B: {mem_B:<5.2e} {pyunits.get_units(stage.module.B_comp)}"
+        )
+        print("\n")
 
-    print(f'DEGREES OF FREEDOM: {degrees_of_freedom(m)}')
+    print(f"DEGREES OF FREEDOM: {degrees_of_freedom(m)}")
 
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
@@ -542,7 +565,7 @@ def build_system(number_of_stages=2):
     m.fs.lsrro = FlowsheetBlock(dynamic=False)
 
     build_lsrro(m, m.fs.lsrro, number_of_stages)
-    
+
     m.fs.feed_to_lsrro_feed = Arc(
         source=m.fs.feed.outlet,
         destination=m.fs.lsrro.feed.inlet,
