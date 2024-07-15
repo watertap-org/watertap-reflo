@@ -593,10 +593,3 @@ if __name__ == "__main__":
     set_lsrro_system_operating_conditions(m, m.fs.lsrro, mem_area=10)
     init_system(m)
     # solve(m)
-
-    # display_flow_table(m.fs.ro)
-    # report_RO(m, m.fs.ro)
-    # # print(m.fs.ro.stage[1].module.report())
-    # # print(m.fs.costing.display())
-
-# FIX this flowsheet needs to get converted to a lsrro system
