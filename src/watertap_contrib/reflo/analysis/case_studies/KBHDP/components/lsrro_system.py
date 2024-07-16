@@ -45,6 +45,7 @@ from idaes.models.unit_models.mixer import (
     Mixer,
     MomentumMixingType,
     MaterialBalanceType,
+    MixingType,
 )
 from idaes.models.unit_models.separator import (
     SplittingType,
@@ -70,14 +71,60 @@ from watertap.costing import WaterTAPCosting
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 
+_logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+    "ro_module %(asctime)s %(levelname)s: %(message)s", "%H:%M:%S"
+)
+handler.setFormatter(formatter)
+_logger.addHandler(handler)
+_logger.setLevel(logging.DEBUG)
+
+
+def check_jac(m, print_extreme_jacobian_values=True):
+    jac, jac_scaled, nlp = iscale.constraint_autoscale_large_jac(m, min_scale=1e-8)
+    try:
+        cond_number = iscale.jacobian_cond(m, jac=jac_scaled) / 1e10
+        print("--------------------------")
+        print("COND NUMBER:", cond_number)
+    except:
+        print("Cond number failed")
+        cond_number = None
+    if print_extreme_jacobian_values:
+        print("--------------------------")
+        print("Extreme Jacobian entries:")
+        extreme_entries = iscale.extreme_jacobian_entries(
+            m, jac=jac_scaled, nlp=nlp, zero=1e-20, large=100
+        )
+        for val, var, con in extreme_entries:
+            if val >= 100:
+                print(val, var.name, con.name)
+        print("--------------------------")
+        print("Extreme Jacobian columns:")
+        extreme_cols = iscale.extreme_jacobian_columns(
+            m, jac=jac_scaled, nlp=nlp, small=1e-3
+        )
+        for val, var in extreme_cols:
+            if val >= 100:
+                print(val, var.name)
+        print("------------------------")
+        print("Extreme Jacobian rows:")
+        extreme_rows = iscale.extreme_jacobian_rows(
+            m, jac=jac_scaled, nlp=nlp, small=1e-3
+        )
+        for val, con in extreme_rows:
+            if val >= 100:
+                print(val, con.name)
+    return cond_number
+
 
 def propagate_state(arc):
     _prop_state(arc)
-    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    arc.source.display()
-    print(arc.destination.name)
-    arc.destination.display()
-    print("\n")
+    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    # arc.source.display()
+    # print(arc.destination.name)
+    # arc.destination.display()
+    # print("\n")
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
@@ -171,7 +218,8 @@ def build_lsrro_stage(
         blk.mixer = Mixer(
             property_package=m.fs.properties,
             has_holdup=False,
-            # momentum_mixing_type=MomentumMixingType.equality,
+            momentum_mixing_type=MomentumMixingType.equality,
+            energy_mixing_type=MixingType.none,
             inlet_list=["upstream", "downstream"],
         )
 
@@ -216,7 +264,7 @@ def build_lsrro_stage(
             source=blk.module.permeate,
             destination=blk.booster_pump.inlet,
         )
-        blk.booster_pump_to_ = Arc(
+        blk.booster_pump_to_permeate = Arc(
             source=blk.booster_pump.outlet,
             destination=blk.permeate.inlet,
         )
@@ -245,6 +293,12 @@ def init_system(m, verbose=True, solver=None):
 
     init_lsrro_system(m, m.fs.lsrro, verbose=verbose, solver=solver)
 
+    propagate_state(m.fs.lsrro_to_product)
+    propagate_state(m.fs.lsrro_to_disposal)
+
+    m.fs.product.initialize(optarg=optarg)
+    m.fs.disposal.initialize(optarg=optarg)
+
 
 def init_lsrro_system(m, blk, verbose=True, solver=None):
     if solver is None:
@@ -254,10 +308,49 @@ def init_lsrro_system(m, blk, verbose=True, solver=None):
 
     print("\n--------- INITIALIZING LSRRO SYSTEM ---------\n")
 
+    for init_pass in range(3):
+        print(f"\n--------- INITIALIZATION PASS: {init_pass} ---------\n")
+        forward_init_pass(m, blk, verbose=True, solver=None)
+
+    propagate_state(blk.first_stage_permeate_to_product)
+    propagate_state(blk.last_retentate_to_disposal)
+
+    blk.product.initialize(optarg=optarg)
+    blk.retentate.initialize(optarg=optarg)
+
+
+def forward_init_pass(m, blk, verbose=True, solver=None):
+    if solver is None:
+        solver = get_solver()
+
+    optarg = solver.options
+
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_first_stage)
 
-    init_lsrro_stage(m, blk.stage[1], solver=solver)
+    for stage in blk.stage.values():
+        # init_lsrro_stage(m, stage, solver=solver)
+        init_lsrro_stage(m, stage, solver=solver)
+
+        # Handle propogation of the retentate from the stage to the next stage
+        if stage.index() < blk.numberOfStages:
+            print("Non-final Stage: ", stage)
+            propagate_state(blk.stage_retentate_to_next_stage[stage.index()])
+        else:
+            print("Final Stage: ", stage)
+            propagate_state(blk.last_retentate_to_disposal)
+            blk.retentate.initialize(optarg=optarg)
+
+        # Handle propogation of the permeate depending on the stage
+        if stage.index() > 1:
+            propagate_state(blk.pump_to_mixer[stage.index()])
+        else:
+            propagate_state(blk.first_stage_permeate_to_product)
+            m.fs.product.initialize(optarg=optarg)
+
+
+def backward_init_pass(m, solver=None):
+    pass
 
 
 def init_lsrro_stage(m, stage, solver=None):
@@ -273,18 +366,60 @@ def init_lsrro_stage(m, stage, solver=None):
     stage.stage_pump.initialize(optarg=optarg)
     if stage.non_final_stage:
         propagate_state(stage.stage_pump_to_mixer)
+
+        if stage.index() == 1:
+            stage.mixer.initialize(optarg=optarg)
+        else:
+            stage.mixer.initialize(optarg=optarg)
+
+        propagate_state(stage.mixer_to_module)
         stage.mixer.initialize(optarg=optarg)
         propagate_state(stage.mixer_to_module)
     else:
         propagate_state(stage.stage_pump_to_module)
 
-    # stage.module.initialize(optarg=optarg)
+    stage.module.initialize(optarg=optarg)
+    print(stage.module.report())
 
-    # if stage.index() > 1:
-    #     propagate_state(stage.module_to_booster_pump)
-    #     stage.booster_pump.initialize(optarg=optarg)
-    # else:
-    #     propagate_state(stage.module_permeate_to_permeate)
+    # NOTE HERE MAKE SURE TO HANDLE THE PROPAGATION OF THE BOOSTER PUMP
+    if stage.index() > 1:
+        propagate_state(stage.module_to_booster_pump)
+        stage.booster_pump.initialize(optarg=optarg)
+        propagate_state(stage.booster_pump_to_permeate)
+    else:
+        propagate_state(stage.module_permeate_to_permeate)
+
+    propagate_state(stage.module_retentate_to_retentate)
+    stage.permeate.initialize(optarg=optarg)
+    stage.retentate.initialize(optarg=optarg)
+
+
+def _lsrro_mixer_guess_initializer(
+    mixer, solvent_multiplier, solute_multiplier, optarg
+):
+    print("Mixer Guess Initializer")
+    for vname in mixer.upstream.vars:
+        if vname == "flow_mass_phase_comp":
+            for time, phase, comp in mixer.upstream.vars[vname]:
+                if comp in mixer.config.property_package.solute_set:
+                    mixer.downstream.vars[vname][time, phase, comp].value = (
+                        solute_multiplier
+                        * mixer.upstream.vars[vname][time, phase, comp].value
+                    )
+                elif comp in mixer.config.property_package.solvent_set:
+                    mixer.downstream.vars[vname][time, phase, comp].value = (
+                        solvent_multiplier
+                        * mixer.upstream.vars[vname][time, phase, comp].value
+                    )
+                else:
+                    raise RuntimeError(f"Unknown component {comp}")
+        else:  # copy the state
+            for idx in mixer.upstream.vars[vname]:
+                mixer.downstream.vars[vname][idx].value = mixer.upstream.vars[vname][
+                    idx
+                ].value
+
+    mixer.initialize(optarg=optarg)
 
 
 def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None):
@@ -363,11 +498,40 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
         m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
     )
 
+    scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
+    scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)
+
+    m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "H2O"))
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-2, index=("Liq", "NaCl")
+    )
+
+    _logger.info("ro scaling h2o:{} tds:{}".format(scale_flow, scale_tds))
+
     assert_units_consistent(m)
 
     print("\n--------- SETTING OPERATING CONDITIONS ---------\n")
     print(f"Feed Flow Rate: {Qin} kg/s")
     print(f"Feed Salinity: {Cin} g/L")
+
+
+def scale_system(m):
+    constraint_scaling_transform(m.fs.eq_water_recovery, 1e-2)
+    set_scaling_factor(m.fs.water_recovery, 1)
+
+
+def scale_lsrro_stage(m, stage):
+    module = stage.module
+
+    set_scaling_factor(module.area, 1e-2)
+    set_scaling_factor(module.feed_side.area, 1)
+    set_scaling_factor(module.width, 1e-2)
+
+    for e in module.feed_side.K:
+        set_scaling_factor(module.feed_side.K[e], 1e-2)
+
+    set_scaling_factor(module.feed_side.dh, 1e2)
+    # constraint_scaling_transform(stage.feed_side.eq_dh, 100)
 
 
 def calc_scale(value):
@@ -419,18 +583,18 @@ def set_lsrro_system_operating_conditions(
             stage.module.feed_side.channel_height.fix(height)
             stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
 
-        iscale.set_scaling_factor(stage.module.area, 1)
-        iscale.set_scaling_factor(stage.module.feed_side.area, 1)
-        iscale.set_scaling_factor(stage.module.width, 1)
-
         stage.stage_pump.control_volume.properties_out[0].pressure.fix(
             primary_pump_pressure
         )
         stage.stage_pump.efficiency_pump.fix(pump_efi)
 
         if idx > 1:
-            # stage.booster_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
+            # stage.booster_pump.control_volume.properties_out[0].pressure.unfix()
+            # stage.booster_pump.control_volume..deltaP.unfix()
+            stage.booster_pump.deltaP.unfix()
             stage.booster_pump.efficiency_pump.fix(pump_efi)
+
+        # scale_lsrro_stage(m, stage)
 
         print(f"Stage {idx} Pump Pressure: {primary_pump_pressure:<5.2e} Pa")
 
@@ -447,22 +611,53 @@ def set_lsrro_system_operating_conditions(
     print(f"DEGREES OF FREEDOM: {degrees_of_freedom(m)}")
 
 
-def solve(model, solver=None, tee=True, raise_on_failure=True):
+def optimize(m):
+
+    for stage in m.fs.lsrro.stage.values():
+        if stage.index() > 1:
+            stage.booster_pump.control_volume.properties_out[0].pressure.unfix()
+
+    print(f"DEGREES OF FREEDOM: {degrees_of_freedom(m)}")
+
+
+def solve(m, solver=None, tee=True, raise_on_failure=False, debug=False):
     # ---solving---
     if solver is None:
         solver = get_solver()
 
     print("\n--------- SOLVING ---------\n")
 
-    results = solver.solve(model, tee=tee)
+    results = solver.solve(m, tee=tee)
 
     if check_optimal_termination(results):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            check_jac(m)
+
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(m)
+
         return results
     msg = (
         "The current configuration is infeasible. Please adjust the decision variables."
     )
     if raise_on_failure:
+        print("\n--------- INFEASIBLE SOLVE!!! ---------\n")
+
+        print("\n--------- CLOSE TO BOUNDS ---------\n")
+        print_close_to_bounds(m)
+
+        print("\n--------- INFEASIBLE BOUNDS ---------\n")
+        print_infeasible_bounds(m)
+
+        print("\n--------- INFEASIBLE CONSTRAINTS ---------\n")
+        print_infeasible_constraints(m)
+
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            check_jac(m)
+
         raise RuntimeError(msg)
     else:
         return results
@@ -515,30 +710,30 @@ def display_inlet_conditions(blk):
     # assert False
 
 
-def display_flow_table(blk):
+def display_flow_table(m):
     print("\n\n")
     print(
         f'{"NODE":<34s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
     )
     print(
-        f'{"Feed":<34s}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(blk.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+        f'{"Feed":<34s}{m.fs.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(m.fs.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}{m.fs.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
     )
     print(
-        f'{"Product":<34s}{blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(blk.product.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{blk.product.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+        f'{"Product":<34s}{m.fs.product.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.product.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.product.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
     )
     print(
-        f'{"Disposal":<34s}{blk.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(blk.disposal.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{blk.disposal.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{blk.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
+        f'{"Disposal":<34s}{m.fs.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.disposal.properties[0].pressure, to_units=pyunits.bar)():<30.1f}{m.fs.disposal.properties[0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{m.fs.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
     )
 
-    for idx, stage in blk.stage.items():
+    for idx, stage in m.fs.lsrro.stage.items():
         print(
             f'{"RO Stage " + str(idx) + " Feed":<34s}{stage.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.module.feed_side.properties[0, 0].pressure, to_units=pyunits.bar)():<30.1f}{stage.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0,0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
-    for idx, stage in blk.stage.items():
+    for idx, stage in m.fs.lsrro.stage.items():
         print(
             f'{"RO Stage " + str(idx) + " Permeate":<34s}{stage.permeate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.permeate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.permeate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.mixed_permeate[0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
-    for idx, stage in blk.stage.items():
+    for idx, stage in m.fs.lsrro.stage.items():
         print(
             f'{"RO Stage " + str(idx) + " Retentate":<34s}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.retentate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
@@ -590,5 +785,9 @@ if __name__ == "__main__":
     m = build_system()
     display_lsrro_system_build(m)
     set_operating_conditions(m)
-    set_lsrro_system_operating_conditions(m, m.fs.lsrro, mem_area=10)
+    set_lsrro_system_operating_conditions(m, m.fs.lsrro, mem_area=20)
     init_system(m)
+    display_flow_table(m)
+    optimize(m)
+    solve(m, raise_on_failure=True, debug=True)
+    display_flow_table(m)
