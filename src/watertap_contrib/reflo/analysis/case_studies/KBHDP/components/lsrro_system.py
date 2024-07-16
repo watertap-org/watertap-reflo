@@ -120,11 +120,19 @@ def check_jac(m, print_extreme_jacobian_values=True):
 
 def propagate_state(arc):
     _prop_state(arc)
-    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    # arc.source.display()
-    # print(arc.destination.name)
-    # arc.destination.display()
-    # print("\n")
+    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    arc.source.display()
+    print(arc.destination.name)
+    arc.destination.display()
+    print("\n")
+
+
+def _initialize_lsrro(blk):
+    blk.feed_side.initialize()
+    print(blk.display())
+    print(blk.feed_side.display())
+    blk.initialize()
+    assert False
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
@@ -307,11 +315,11 @@ def init_lsrro_system(m, blk, verbose=True, solver=None):
 
     print("\n--------- INITIALIZING LSRRO SYSTEM ---------\n")
 
-    for init_pass in range(3):
+    for init_pass in range(8):
         print(f"\n--------- INITIALIZATION PASS: {init_pass} ---------\n")
         forward_init_pass(m, blk, verbose=True, solver=None)
 
-    seq_decomp_initialization(m, optarg, verbose=True, solver=solver)
+    # seq_decomp_initialization(m, optarg, verbose=True, solver=solver)
 
     propagate_state(blk.first_stage_permeate_to_product)
     propagate_state(blk.last_retentate_to_disposal)
@@ -408,10 +416,10 @@ def init_lsrro_stage(m, stage, solver=None):
     else:
         propagate_state(stage.stage_pump_to_module)
 
-    stage.module.initialize(optarg=optarg)
+    # stage.module.initialize(optarg=optarg)
+    _initialize_lsrro(stage.module)
     print(stage.module.report())
 
-    # NOTE HERE MAKE SURE TO HANDLE THE PROPAGATION OF THE BOOSTER PUMP
     if stage.index() > 1:
         propagate_state(stage.module_to_booster_pump)
         stage.booster_pump.initialize(optarg=optarg)
@@ -545,9 +553,11 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
     scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
     scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)
 
-    m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "H2O"))
     m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-2, index=("Liq", "NaCl")
+        "flow_mass_phase_comp", 10**scale_flow, index=("Liq", "H2O")
+    )
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 10**scale_tds, index=("Liq", "NaCl")
     )
 
     _logger.info("ro scaling h2o:{} tds:{}".format(scale_flow, scale_tds))
@@ -567,14 +577,17 @@ def scale_system(m):
 def scale_lsrro_stage(m, stage):
     module = stage.module
 
+    set_scaling_factor(stage.stage_pump.control_volume.work, 1e-2)
+
     set_scaling_factor(module.area, 1e-2)
     set_scaling_factor(module.feed_side.area, 1)
     set_scaling_factor(module.width, 1e-2)
 
-    for e in module.feed_side.K:
-        set_scaling_factor(module.feed_side.K[e], 1e-2)
+    # for e in module.feed_side.K:
+    #     set_scaling_factor(module.feed_side.K[e], 1e-2)
 
     set_scaling_factor(module.feed_side.dh, 1e2)
+    set_scaling_factor(module.feed_side.velocity, 1)
     # constraint_scaling_transform(stage.feed_side.eq_dh, 100)
 
 
@@ -639,7 +652,7 @@ def set_lsrro_system_operating_conditions(
             # stage.booster_pump.deltaP.unfix()
             stage.booster_pump.efficiency_pump.fix(pump_efi)
 
-        # scale_lsrro_stage(m, stage)
+        scale_lsrro_stage(m, stage)
 
         print(f"Stage {idx} Pump Pressure: {primary_pump_pressure:<5.2e} Pa")
 
@@ -654,6 +667,8 @@ def set_lsrro_system_operating_conditions(
         print("\n")
 
     print(f"DEGREES OF FREEDOM: {degrees_of_freedom(m)}")
+
+    calculate_scaling_factors(m)
 
 
 def optimize(m):
@@ -706,7 +721,14 @@ def solve(m, solver=None, tee=True, raise_on_failure=False, debug=False):
             print("\n--------- CHECKING JACOBIAN ---------\n")
             check_jac(m)
 
+        [
+            print(
+                f'{f"Variable: {var.name:<90s}"} {f"Value:{val:<10.1f}"} {f"Scale:{iscale.get_scaling_factor(var)}"}'
+            )
+            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+        ]
         display_flow_table(m)
+
         raise RuntimeError(msg)
     else:
         return results
@@ -838,7 +860,7 @@ def build_system(number_of_stages=2):
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
-    m = build_system()
+    m = build_system(number_of_stages=2)
     display_lsrro_system_build(m)
     set_operating_conditions(m)
     set_lsrro_system_operating_conditions(
