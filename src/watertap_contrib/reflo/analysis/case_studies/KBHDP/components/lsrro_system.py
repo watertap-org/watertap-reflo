@@ -219,7 +219,6 @@ def build_lsrro_stage(
             property_package=m.fs.properties,
             has_holdup=False,
             momentum_mixing_type=MomentumMixingType.equality,
-            energy_mixing_type=MixingType.none,
             inlet_list=["upstream", "downstream"],
         )
 
@@ -285,7 +284,7 @@ def init_system(m, verbose=True, solver=None):
         solver = get_solver()
 
     optarg = solver.options
-
+    assert_no_degrees_of_freedom(m)
     print("\n--------- INITIALIZING SYSTEM ---------\n")
 
     m.fs.feed.initialize(optarg=optarg)
@@ -460,7 +459,15 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
         bounds=(0.00001, 1e6),
         domain=NonNegativeReals,
         units=pyunits.kg / pyunits.s,
-        doc="System Water Recovery",
+        doc="System Feed Flowrate",
+    )
+
+    m.fs.perm_flow_mass = Var(
+        initialize=1,
+        bounds=(0.00001, 1e6),
+        domain=NonNegativeReals,
+        units=pyunits.kg / pyunits.s,
+        doc="System Produce Flowrate",
     )
 
     if water_recovery is not None:
@@ -474,8 +481,7 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
     iscale.set_scaling_factor(m.fs.feed_salinity, 0.1)
 
     m.fs.eq_water_recovery = Constraint(
-        expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
-        == m.fs.product.properties[0].flow_vol
+        expr=m.fs.feed_flow_mass * m.fs.water_recovery == m.fs.perm_flow_mass
     )
 
     m.fs.nacl_mass_constraint = Constraint(
@@ -614,8 +620,11 @@ def set_lsrro_system_operating_conditions(
 def optimize(m):
 
     for stage in m.fs.lsrro.stage.values():
+        stage.stage_pump.control_volume.properties_out[0].pressure.unfix()
         if stage.index() > 1:
             stage.booster_pump.control_volume.properties_out[0].pressure.unfix()
+
+    m.fs.water_recovery.fix(0.5)
 
     print(f"DEGREES OF FREEDOM: {degrees_of_freedom(m)}")
 
@@ -658,6 +667,7 @@ def solve(m, solver=None, tee=True, raise_on_failure=False, debug=False):
             print("\n--------- CHECKING JACOBIAN ---------\n")
             check_jac(m)
 
+        display_flow_table(m)
         raise RuntimeError(msg)
     else:
         return results
@@ -737,13 +747,22 @@ def display_flow_table(m):
         print(
             f'{"RO Stage " + str(idx) + " Retentate":<34s}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(stage.retentate.properties[0.0].pressure, to_units=pyunits.bar)():<30.1f}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<20.3e}{stage.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<20.3f}'
         )
+    for idx, stage in m.fs.lsrro.stage.items():
+        report_LSRRO(m, stage)
 
 
 def report_LSRRO(m, blk):
     print(f"\n\n-------------------- RO Report --------------------\n")
     print(f'{"Recovery":<30s}{value(100*m.fs.water_recovery):<10.1f}{"%"}')
     print(
-        f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+        f'{"Feed Flow Volume":<30s}{value(m.fs.feed.properties[0].flow_vol):<10.1f}{"m^3/s"}'
+    )
+    print(
+        f'{"Product Flow Volume":<30s}{value(m.fs.product.properties[0].flow_vol):<10.1f}{"m^3/s"}'
+    )
+
+    print(
+        f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.stage_pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
     )
 
 
