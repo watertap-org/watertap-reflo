@@ -311,6 +311,8 @@ def init_lsrro_system(m, blk, verbose=True, solver=None):
         print(f"\n--------- INITIALIZATION PASS: {init_pass} ---------\n")
         forward_init_pass(m, blk, verbose=True, solver=None)
 
+    seq_decomp_initialization(m, optarg, verbose=True, solver=solver)
+
     propagate_state(blk.first_stage_permeate_to_product)
     propagate_state(blk.last_retentate_to_disposal)
 
@@ -350,6 +352,35 @@ def forward_init_pass(m, blk, verbose=True, solver=None):
 
 def backward_init_pass(m, solver=None):
     pass
+
+
+def seq_decomp_initialization(m, optarg, verbose=True, solver=None):
+    print(
+        f"\n\n--------------------START SEQUENTIAL DECOMPOSITION INITIALIZATION--------------------\n\n"
+    )
+    # # # set up SD tool
+    seq = SequentialDecomposition()
+    seq.options.tear_method = "Direct"
+    seq.options.iterLim = m.fs.lsrro.numberOfStages
+    tear_set = [
+        stage.mixer_to_module
+        for stage in m.fs.lsrro.stage.values()
+        if stage.non_final_stage
+    ]
+    seq.options.tear_set = list(tear_set)
+    seq.options.log_info = True
+
+    print(seq.options)
+
+    # run SD tool
+    def func_initialize(unit):
+        outlvl = idaeslogger.INFO if verbose else idaeslogger.CRITICAL
+        try:
+            unit.initialize(optarg=solver.options, outlvl=outlvl)
+        except InitializationError:
+            pass
+
+    seq.run(m, func_initialize)
 
 
 def init_lsrro_stage(m, stage, solver=None):
@@ -429,16 +460,17 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
 
     feed_temperature = 273.15 + 20
     pressure_atm = 101325
+
     m.fs.feed.pressure[0].fix(pressure_atm)
     m.fs.feed.temperature[0].fix(feed_temperature)
 
-    m.fs.water_recovery = Var(
-        initialize=0.5,
-        bounds=(0, 1),
-        domain=NonNegativeReals,
-        units=pyunits.dimensionless,
-        doc="System Water Recovery",
-    )
+    # m.fs.water_recovery = Var(
+    #     initialize=0.5,
+    #     bounds=(0, 1),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.dimensionless,
+    #     doc="System Water Recovery",
+    # )
 
     m.fs.feed_salinity = Var(
         initialize=35,
@@ -446,12 +478,6 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
         domain=NonNegativeReals,
         units=pyunits.dimensionless,
         doc="System Water Recovery",
-    )
-
-    m.fs.product_salinity = Var(
-        initialize=200e-6,
-        domain=NonNegativeReals,
-        units=pyunits.dimensionless,
     )
 
     m.fs.feed_flow_mass = Var(
@@ -462,27 +488,39 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
         doc="System Feed Flowrate",
     )
 
-    m.fs.perm_flow_mass = Var(
-        initialize=1,
-        bounds=(0.00001, 1e6),
-        domain=NonNegativeReals,
-        units=pyunits.kg / pyunits.s,
-        doc="System Produce Flowrate",
-    )
+    # m.fs.perm_flow_mass = Var(
+    #     initialize=1,
+    #     bounds=(0.00001, 1e6),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.kg / pyunits.s,
+    #     doc="System Produce Flowrate",
+    # )
 
-    if water_recovery is not None:
-        m.fs.water_recovery.fix(water_recovery)
-    else:
-        m.fs.water_recovery.fix(0.5)
+    # if Qout is not None:
+    #     print(f'{"Fixing Permeate Flowrate":<40s}{Qout:<30.3f} kg/s')
+    #     m.fs.perm_flow_mass.fix(Qout)
+    if Qin is not None:
+        print(f'{"Fixing Feed Flowrate":<40s}{Qin:<30.3f} kg/s')
+        m.fs.feed_flow_mass.fix(Qin)
+    if Cin is not None:
+        print(f'{"Fixing Feed Salinity":<40s}{Cin:<30.3f} g/L')
+        m.fs.feed_salinity.fix(Cin)
+    # if water_recovery is not None:
+    #     print(f'{"Fixing Water Recovery":<40s}{water_recovery:<30.3f}')
+    #     m.fs.water_recovery.fix(water_recovery)
 
-    m.fs.feed_flow_mass.fix(Qin)
+    # iscale.set_scaling_factor(m.fs.water_recovery, 10)
     iscale.set_scaling_factor(m.fs.feed_flow_mass, 1)
-    m.fs.feed_salinity.fix(Cin)
+    # iscale.set_scaling_factor(m.fs.perm_flow_mass, 1)
     iscale.set_scaling_factor(m.fs.feed_salinity, 0.1)
 
-    m.fs.eq_water_recovery = Constraint(
-        expr=m.fs.feed_flow_mass * m.fs.water_recovery == m.fs.perm_flow_mass
-    )
+    # m.fs.eq_perm_flow = Constraint(
+    #     expr=m.fs.perm_flow_mass == m.fs.product.flow_mass_phase_comp[0, "Liq", "H2O"])
+
+    # #BUG Stop defining like the FFRRO Flowsheet, this is causing an issue
+    # m.fs.eq_water_recovery = Constraint(
+    #     expr=m.fs.feed_flow_mass * m.fs.water_recovery == m.fs.perm_flow_mass
+    # )
 
     m.fs.nacl_mass_constraint = Constraint(
         expr=m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"] * 1000
@@ -596,8 +634,9 @@ def set_lsrro_system_operating_conditions(
 
         if idx > 1:
             # stage.booster_pump.control_volume.properties_out[0].pressure.unfix()
+            # stage.booster_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
             # stage.booster_pump.control_volume..deltaP.unfix()
-            stage.booster_pump.deltaP.unfix()
+            # stage.booster_pump.deltaP.unfix()
             stage.booster_pump.efficiency_pump.fix(pump_efi)
 
         # scale_lsrro_stage(m, stage)
@@ -753,13 +792,11 @@ def display_flow_table(m):
 
 def report_LSRRO(m, blk):
     print(f"\n\n-------------------- RO Report --------------------\n")
-    print(f'{"Recovery":<30s}{value(100*m.fs.water_recovery):<10.1f}{"%"}')
-    print(
-        f'{"Feed Flow Volume":<30s}{value(m.fs.feed.properties[0].flow_vol):<10.1f}{"m^3/s"}'
-    )
-    print(
-        f'{"Product Flow Volume":<30s}{value(m.fs.product.properties[0].flow_vol):<10.1f}{"m^3/s"}'
-    )
+    # print(f'{"Recovery":<30s}{value(100*m.fs.water_recovery):<10.1f}{"%"}')
+    print(f'{"Feed Flow Volume":<30s}{value(m.fs.feed_flow_mass):<10.3f}{"kg/s"}')
+    # print(
+    #     f'{"Product Flow Volume":<30s}{value(m.fs.perm_flow_mass):<10.3f}{"kg/s"}'
+    # )
 
     print(
         f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.stage_pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
@@ -804,9 +841,14 @@ if __name__ == "__main__":
     m = build_system()
     display_lsrro_system_build(m)
     set_operating_conditions(m)
-    set_lsrro_system_operating_conditions(m, m.fs.lsrro, mem_area=20)
+    set_lsrro_system_operating_conditions(
+        m,
+        m.fs.lsrro,
+        mem_area=20,
+        RO_pump_pressure=65e5,
+    )
     init_system(m)
     display_flow_table(m)
-    optimize(m)
+    # optimize(m)
     solve(m, raise_on_failure=True, debug=True)
     display_flow_table(m)
