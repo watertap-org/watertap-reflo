@@ -48,6 +48,7 @@ from components.ro_system import (
     init_ro_stage,
     calc_scale,
     set_ro_system_operating_conditions,
+    add_ro_costing,
     display_flow_table,
     report_RO,
 )
@@ -59,7 +60,13 @@ from components.softener import (
     add_softener_costing,
     report_softener,
 )
-from components.UF import build_UF, init_UF, set_UF_op_conditions, report_UF
+from components.UF import (
+    build_UF,
+    init_UF,
+    add_UF_costing,
+    set_UF_op_conditions,
+    report_UF,
+)
 
 from components.electrodialysis import (
     build_ed,
@@ -104,10 +111,10 @@ def main():
     add_costing(m)
     solve(m)
     display_system_stream_table(m)
-    display_costing_breakdown(m)
     report_softener(m)
     report_UF(m, m.fs.UF)
     report_RO(m, m.fs.RO)
+    display_costing_breakdown(m)
 
 
 def build_system():
@@ -283,6 +290,8 @@ def add_costing(m):
     )
 
     add_softener_costing(m, m.fs.softener)
+    add_UF_costing(m, m.fs.UF)
+    add_ro_costing(m, m.fs.RO)
 
     m.fs.costing.cost_process()
     m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
@@ -600,14 +609,19 @@ def display_system_build(m):
 
 
 def display_costing_breakdown(m):
+    print("\n\n-------------------- SYSTEM COSTING BREAKDOWN --------------------\n\n")
     header = f'{"PARAM":<25s}{"VALUE":<25s}{"UNITS":<25s}'
     print(header)
     print(
         f'{"Product Flow":<25s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
     print(f'{"LCOW":<24s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
+    print(m.fs.costing.display())
 
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     main()
+
+# TODO Add costing to the system
+# TODO Use case study input values

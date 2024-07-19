@@ -41,6 +41,11 @@ from watertap.core.util.initialization import *
 from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
     ChemicalSofteningZO,
 )
+from watertap_contrib.reflo.costing import (
+    TreatmentCosting,
+    EnergyCosting,
+    REFLOCosting,
+)
 
 
 def propagate_state(arc):
@@ -55,6 +60,7 @@ def propagate_state(arc):
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.costing = REFLOCosting()
     m.fs.properties = MCASParameterBlock(
         solute_list=["Alkalinity_2-", "Ca_2+", "Mg_2+", "SiO2"],
         material_flow_basis=MaterialFlowBasis.mass,
@@ -232,6 +238,9 @@ def add_softener_costing(m, blk):
         flowsheet_costing_block=m.fs.costing,
     )
 
+    # m.fs.costing.cost_process()
+    # m.fs.costing.add_LCOW(blk.properties_in[0].flow_vol)
+
 
 def init_system(blk, solver=None):
     if solver is None:
@@ -403,10 +412,9 @@ if __name__ == "__main__":
     m = build_system()
     set_system_operating_conditions(m)
     set_softener_op_conditions(m, m.fs.softener)
+    # add_softener_costing(m, m.fs.softener)
     # set_scaling(m)
     # m.fs.softener.unit.display()
     init_system(m)
-    # results = solve(m)
+    results = solve(m)
     # assert_optimal_termination(results)
-    # print(m.fs.softener.report())
-    # report_MCAS_stream_conc(m)

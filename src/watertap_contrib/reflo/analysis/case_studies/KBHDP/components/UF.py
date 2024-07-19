@@ -38,6 +38,13 @@ from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 from watertap.core.zero_order_properties import WaterParameterBlock
 from watertap.unit_models.zero_order.ultra_filtration_zo import UltraFiltrationZO
+from watertap_contrib.reflo.costing import (
+    TreatmentCosting,
+    EnergyCosting,
+    REFLOCosting,
+)
+from watertap.costing.zero_order_costing import ZeroOrderCosting
+from watertap.core.wt_database import Database
 
 
 def propagate_state(arc):
@@ -55,7 +62,7 @@ def build_UF(m, blk, prop_package) -> None:
     blk.feed = StateJunction(property_package=prop_package)
     blk.product = StateJunction(property_package=prop_package)
     blk.disposal = StateJunction(property_package=prop_package)
-    blk.unit = UltraFiltrationZO(property_package=prop_package)
+    blk.unit = UltraFiltrationZO(property_package=prop_package, database=m.db)
 
     blk.feed_to_unit = Arc(
         source=blk.feed.outlet,
@@ -83,7 +90,7 @@ def init_UF(m, blk, verbose=True, solver=None):
         "\n\n-------------------- INITIALIZING ULTRAFILTRATION --------------------\n\n"
     )
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"Degasifier Degrees of Freedom: {degrees_of_freedom(blk)}")
+    print(f"UF Degrees of Freedom: {degrees_of_freedom(blk)}")
     print("\n\n")
 
     blk.feed.initialize(optarg=optarg)
@@ -99,7 +106,7 @@ def set_UF_op_conditions(blk):
     blk.unit.recovery_frac_mass_H2O.fix(1)
     blk.unit.removal_frac_mass_comp[0, "tds"].fix(1e-3)
     blk.unit.removal_frac_mass_comp[0, "tss"].fix(0.9)
-    blk.unit.energy_electric_flow_vol_inlet.fix(1)
+    blk.unit.energy_electric_flow_vol_inlet.fix(0.05)
 
 
 def set_system_conditions(blk):
@@ -108,9 +115,26 @@ def set_system_conditions(blk):
     blk.feed.properties[0.0].flow_mass_comp["tss"].fix(0.01)
 
 
+def add_UF_costing(m, blk):
+    # blk.costing = UnitModelCostingBlock(
+    #     flowsheet_costing_block=m.fs.costing,
+    # )
+
+    # m.fs.costing.cost_process()
+    pass
+
+
+def load_parameters(m, blk):
+    m.db.get_unit_operation_parameters("ultra_filtration")
+    blk.unit.load_parameters_from_database()
+
+
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
+    # m.fs.costing = REFLOCosting()
+    m.fs.costing = ZeroOrderCosting()
+    m.db = Database()
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.MCAS_properties = MCASParameterBlock(
         solute_list=[
@@ -133,6 +157,27 @@ def build_system():
     TransformationFactory("network.expand_arcs").apply_to(m)
 
     return m
+
+
+def solve(model, solver=None, tee=True, raise_on_failure=True):
+    # ---solving---
+    if solver is None:
+        solver = get_solver()
+
+    print("\n--------- SOLVING ---------\n")
+
+    results = solver.solve(model, tee=tee)
+
+    if check_optimal_termination(results):
+        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        return results
+    msg = (
+        "The current configuration is infeasible. Please adjust the decision variables."
+    )
+    if raise_on_failure:
+        raise RuntimeError(msg)
+    else:
+        return results
 
 
 def print_stream_table(blk):
@@ -171,18 +216,24 @@ def print_stream_table(blk):
 def report_UF(m, blk, stream_table=False):
     print(f"\n\n-------------------- UF Report --------------------\n")
     print("\n")
+    print(
+        f'{"Inlet Flow Volume":<30s}{value(m.fs.UF.feed.properties[0.0].flow_vol):<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_vol)}'
+    )
     print(f'{"UF Performance:":<30s}')
     print(
         f'{"    Recovery":<30s}{100*m.fs.UF.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}'
     )
     print(
-        f'{"    TDS Removal":<30s}{100-100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}'
+        f'{"    TDS Removal":<30s}{100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}'
     )
     print(
-        f'{"    TSS Removal":<30s}{100-100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}'
+        f'{"    TSS Removal":<30s}{100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}'
     )
     print(
-        f'{"    Energy Consumption":<30s}{m.fs.UF.unit.electricity[0.0].value:<10.3f}{"kW"}'
+        f'{"    Energy Consumption":<30s}{m.fs.UF.unit.electricity[0.0].value:<10.3f}{pyunits.get_units(m.fs.UF.unit.electricity[0.0])}'
+    )
+    print(
+        f'{"    Specific Energy Cons.":<30s}{value(m.fs.UF.unit.energy_electric_flow_vol_inlet):<10.3f}{pyunits.get_units(m.fs.UF.unit.energy_electric_flow_vol_inlet)}'
     )
 
 
@@ -191,13 +242,11 @@ if __name__ == "__main__":
     m = build_system()
     set_UF_op_conditions(m.fs.UF)
     set_system_conditions(m.fs.UF)
+    # load_parameters(m, m.fs.UF)
+    add_UF_costing(m, m.fs.UF)
     init_UF(m, m.fs.UF)
-    # print(m.fs.UF.display())
-    # set_system_operating_conditions(m)
-    # set_softener_op_conditions(m, m.fs.softener)
-    # set_scaling(m)
-    # # m.fs.softener.unit.display()
-    # init_system(m)
+    solve(m)
+
     report_UF(m, m.fs.UF)
 
-    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")

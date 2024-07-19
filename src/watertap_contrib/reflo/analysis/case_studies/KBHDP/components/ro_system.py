@@ -523,6 +523,21 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pump_pressure=15
     print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
 
 
+def add_ro_costing(m, blk):
+    # unit equipment capital and operating costs
+
+    for stage in blk.stage.values():
+        stage.module.costing = UnitModelCostingBlock(
+            flowsheet_costing_block=m.fs.costing
+        )
+
+    # system costing - total investment and operating costs
+    # m.fs.costing.cost_process()
+    # m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
+    # m.fs.costing.add_specific_energy_consumption(m.fs.product.properties[0].flow_vol)
+    # m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
+
+
 def solve(model, solver=None, tee=True, raise_on_failure=True):
     # ---solving---
     if solver is None:
