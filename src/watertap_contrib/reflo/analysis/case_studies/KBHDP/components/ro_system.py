@@ -429,10 +429,10 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
     # m.fs.product_salinity.fix(500e-6)
     # m.fs.product_salinity.unfix()
 
-    m.fs.eq_product_quality = Constraint(
-        expr=m.fs.product.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
-        <= m.fs.product_salinity
-    )
+    # m.fs.eq_product_quality = Constraint(
+    #     expr=m.fs.product.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
+    #     <= m.fs.product_salinity
+    # )
 
     m.fs.feed_flow_constraint = Constraint(
         expr=m.fs.feed_flow_mass == m.fs.perm_flow_mass / m.fs.water_recovery
@@ -455,9 +455,9 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
     m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value = (
         m.fs.feed_flow_mass.value * m.fs.feed_salinity.value / 1000
     )
-    m.fs.feed.flow_mass_phase_comp[
-        0, "Liq", "H2O"
-    ].value = m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
+    m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
+        m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
+    )
 
     scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
     scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)
@@ -515,12 +515,12 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pump_pressure=15
         iscale.set_scaling_factor(stage.module.feed_side.area, 1e-2)
         iscale.set_scaling_factor(stage.module.width, 1e-2)
 
-    # iscale.calculate_scaling_factors(m)
+    iscale.calculate_scaling_factors(m)
 
-    # # ---checking model---
-    # # assert_units_consistent(m)
-    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    # print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
+    # ---checking model---
+    # assert_units_consistent(m)
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
 
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
