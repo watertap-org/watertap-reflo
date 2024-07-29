@@ -552,7 +552,7 @@ class TestChemSoft2:
             "capital_recovery_factor": 0.111955,
             "lime_cost": 0.171,
             "soda_ash_cost": 0.65,
-            "mgcl2_cost": 1.5,
+            "mgcl2_cost": 0.55,
             "co2_cost": 0.38,
             "aggregate_direct_capital_cost": 2529666.8,
             "LCOW": 0.119949,
@@ -945,9 +945,9 @@ class TestChemSoft4:
             },
             "total_capital_cost": 1380546.1,
             "maintenance_labor_chemical_operating_cost": 41416.38,
-            "total_operating_cost": 9697625.31,
+            "total_operating_cost": 8348859.09142,
             "aggregate_direct_capital_cost": 1380546.1,
-            "LCOW": 7.1113,
+            "LCOW": 6.137831,
         }
         for v, r in sys_cost_results.items():
             softv = getattr(m.fs.costing, v)

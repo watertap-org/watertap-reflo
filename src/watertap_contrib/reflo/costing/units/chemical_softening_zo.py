@@ -67,7 +67,7 @@ def build_soda_ash_cost_param_block(blk):
 def build_mgcl2_cost_param_block(blk):
 
     blk.cost = Param(
-        initialize=1.5,
+        initialize=0.55,
         units=pyunits.USD_2020 / pyunits.kg,
         doc="Cost of MgCl2 $/kg",
     )
