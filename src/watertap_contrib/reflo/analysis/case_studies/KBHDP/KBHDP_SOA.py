@@ -355,10 +355,16 @@ def set_inlet_conditions(
     """
     print(f'\n{"=======> SETTING OPERATING CONDITIONS <=======":^60}\n')
 
+    q_in = Qin * pyunits.Mgal / pyunits.day
+    rho = 1000 * pyunits.kg / pyunits.m**3
+    flow_mass_phase_water = pyunits.convert(q_in * rho, to_units=pyunits.kg / pyunits.s)
+
     if Qin is None:
         m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(1)
     else:
-        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(Qin)
+        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(
+            flow_mass_phase_water
+        )
 
     inlet_dict = {
         "Ca_2+": 0.61 * pyunits.kg / pyunits.m**3,
@@ -476,7 +482,7 @@ def display_unfixed_vars(blk, report=True):
 
 def set_operating_conditions(m):
     # Set inlet conditions and operating conditions for each unit
-    set_inlet_conditions(m, Qin=1000, supply_pressure=1e5, primary_pump_pressure=10e5)
+    set_inlet_conditions(m, Qin=4, supply_pressure=1e5, primary_pump_pressure=10e5)
     set_softener_op_conditions(m, m.fs.softener.unit, ca_eff=0.3, mg_eff=0.2)
     # # inlet_dict = {
     # #     "Ca_2+": 0.13 * pyunits.kg / pyunits.m**3,
@@ -497,7 +503,6 @@ def set_operating_conditions(m):
     set_ro_system_operating_conditions(
         m, m.fs.RO, mem_area=10000, RO_pump_pressure=20e5
     )
-    # # set__ED_op_conditions
 
 
 def init_system(m, verbose=True, solver=None):
@@ -533,6 +538,7 @@ def init_system(m, verbose=True, solver=None):
     m.fs.product.initialize(optarg=optarg)
     m.fs.disposal.initialize(optarg=optarg)
     display_system_stream_table(m)
+    m.fs.softener.unit.properties_waste[0].conc_mass_phase_comp
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
@@ -616,7 +622,6 @@ def display_costing_breakdown(m):
         f'{"Product Flow":<25s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
     print(f'{"LCOW":<24s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
-    print(m.fs.costing.display())
 
 
 if __name__ == "__main__":

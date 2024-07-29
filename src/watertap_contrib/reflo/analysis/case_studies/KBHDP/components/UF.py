@@ -103,7 +103,7 @@ def init_UF(m, blk, verbose=True, solver=None):
 
 
 def set_UF_op_conditions(blk):
-    blk.unit.recovery_frac_mass_H2O.fix(1)
+    blk.unit.recovery_frac_mass_H2O.fix(0.99)
     blk.unit.removal_frac_mass_comp[0, "tds"].fix(1e-3)
     blk.unit.removal_frac_mass_comp[0, "tss"].fix(0.9)
     blk.unit.energy_electric_flow_vol_inlet.fix(0.05)

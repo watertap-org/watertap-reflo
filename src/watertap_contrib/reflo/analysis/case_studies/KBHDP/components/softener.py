@@ -62,21 +62,24 @@ def build_system():
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = REFLOCosting()
     m.fs.properties = MCASParameterBlock(
-        solute_list=["Alkalinity_2-", "Ca_2+", "Mg_2+", "SiO2"],
+        solute_list=["Alkalinity_2-", "Ca_2+", "Mg_2+", "SiO2", "Na_+", "Cl_-"],
         material_flow_basis=MaterialFlowBasis.mass,
     )
     m.fs.feed = Feed(property_package=m.fs.properties)
     # m.fs.product = Product(property_package=m.fs.properties)
     # m.fs.disposal = Product(property_package=m.fs.properties)
-    m.fs.softener = ChemicalSofteningZO(
-        property_package=m.fs.properties,
-        silica_removal=True,
-        softening_procedure_type="excess_lime",
-    )
+    # m.fs.softener = ChemicalSofteningZO(
+    #     property_package=m.fs.properties,
+    #     silica_removal=True,
+    #     softening_procedure_type="excess_lime",
+    # )
+
+    m.fs.softener = FlowsheetBlock(dynamic=False)
+    build_softener(m, m.fs.softener, m.fs.properties)
 
     m.fs.feed_to_softener = Arc(
         source=m.fs.feed.outlet,
-        destination=m.fs.softener.inlet,
+        destination=m.fs.softener.unit.inlet,
     )
 
     # m.fs.softener_to_product = Arc(
@@ -104,7 +107,7 @@ def build_softener(m, blk, prop_package=None) -> None:
 
     blk.unit = ChemicalSofteningZO(
         property_package=prop_package,
-        silica_removal=True,
+        silica_removal=False,
         softening_procedure_type="excess_lime",
     )
 
@@ -116,15 +119,18 @@ def set_system_operating_conditions(m):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
-    soft = m.fs.softener
+    soft = m.fs.softener.unit
     ca_in = 0.61 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
     mg_in = 0.161 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
     sio2_in = 0.13 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
     alk_in = 0.0821 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
-    CO2_in = 0.10844915 * pyunits.kg / pyunits.m**3
-    # q_in = 3785 * pyunits.m**3 / pyunits.day  # m3/d
-    q_in = 10 * pyunits.L / pyunits.s
+
+    q_in = 4 * pyunits.Mgal / pyunits.day
     rho = 1000 * pyunits.kg / pyunits.m**3
+
+    nacl_in = 5.6
+    na_in = nacl_in * pyunits.kg / pyunits.m**3
+    cl_in = nacl_in * pyunits.kg / pyunits.m**3
 
     prop_in = soft.properties_in[0]
     prop_out = soft.properties_out[0.0]
@@ -138,6 +144,10 @@ def set_system_operating_conditions(m):
     flow_mass_phase_alk = pyunits.convert(
         q_in * alk_in, to_units=pyunits.kg / pyunits.s
     )
+
+    flow_mass_phase_na = pyunits.convert(q_in * na_in, to_units=pyunits.kg / pyunits.s)
+    flow_mass_phase_cl = pyunits.convert(q_in * cl_in, to_units=pyunits.kg / pyunits.s)
+
     prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water)
 
     prop_in.flow_mass_phase_comp["Liq", "Ca_2+"].fix(flow_mass_phase_ca)
@@ -145,55 +155,59 @@ def set_system_operating_conditions(m):
     prop_in.flow_mass_phase_comp["Liq", "SiO2"].fix(flow_mass_phase_si)
     prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"].fix(flow_mass_phase_alk)
 
+    prop_in.flow_mass_phase_comp["Liq", "Na_+"].fix(flow_mass_phase_na)
+    prop_in.flow_mass_phase_comp["Liq", "Cl_-"].fix(flow_mass_phase_cl)
+
     prop_in.temperature.fix(298)
     prop_in.pressure.fix(101356)
     prop_out.temperature.fix(298)
     prop_out.pressure.fix(101356)
 
     # m.fs.feed.properties[0].conc_mass_phase_comp
-    m.fs.softener.properties_waste[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-    m.fs.softener.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+    # soft.properties_waste[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+    # soft.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
 
-def set_softener_op_conditions(m, blk, ca_eff=30, mg_eff=2):
+def set_softener_op_conditions(m, blk, ca_eff=0.03, mg_eff=0.02):
     print(
         "\n\n-------------------- SETTING SOFTENER REMOVAL EFFICIENCY --------------------\n\n"
     )
     soft = blk
     CO2_in = 0.10844915 * pyunits.kg / pyunits.m**3
-    # blk.ca_eff_target.fix(ca_eff)
-    # blk.mg_eff_target.fix(mg_eff)
 
-    # #Ca to CaCO3 conv = 2.5
-    # ca_eff_target = ca_in()*10
-    # #Mg to CaCO3 conv = 4.12
-    # mg_eff_target = mg_in()*0.1
+    blk.ca_eff_target.fix(ca_eff)
+    blk.mg_eff_target.fix(mg_eff)
 
-    blk.ca_eff_target.fix(1.312938301706484)
-    blk.mg_eff_target.fix(4.2551166976399655)
-
-    soft.no_of_mixer.fix(1)
-    soft.no_of_floc.fix(2)
+    soft.no_of_mixer.fix(2)
+    soft.no_of_floc.fix(4)
     soft.retention_time_mixer.fix(0.4)
     soft.retention_time_floc.fix(25)
-    soft.retention_time_sed.fix(130)
+    soft.retention_time_sed.fix(120)
     soft.retention_time_recarb.fix(20)
-    soft.frac_vol_recovery.fix()
+    soft.frac_vol_recovery.fix(0.99)
     soft.removal_efficiency.fix()
-    soft.CO2_CaCO3.fix(CO2_in)
+    soft.removal_efficiency["Na_+"].fix(0)
+    soft.removal_efficiency["Cl_-"].fix(0)
+    # soft.removal_efficiency["SiO2"].fix(0)
+    # soft.CO2_CaCO3.fix(CO2_in)
     soft.vel_gradient_mix.fix(300)
     soft.vel_gradient_floc.fix(50)
+
     # soft.excess_CaO.fix(0)
     soft.CO2_second_basin.fix(0)
     soft.Na2CO3_dosing.fix(0)
+    soft.MgCl2_dosing.fix(0)
 
     prop_in = soft.properties_in[0.0]
     prop_out = soft.properties_out[0.0]
     prop_out.temperature.fix(298)
     prop_out.pressure.fix(value(prop_in.pressure))
+
+    # soft.properties_waste[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+    # soft.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
@@ -239,7 +253,7 @@ def add_softener_costing(m, blk):
     )
 
     # m.fs.costing.cost_process()
-    # m.fs.costing.add_LCOW(blk.properties_in[0].flow_vol)
+    # m.fs.costing.add_LCOW(blk.unit.properties_in[0].flow_vol)
 
 
 def init_system(blk, solver=None):
@@ -258,7 +272,7 @@ def init_system(blk, solver=None):
     propagate_state(m.fs.feed_to_softener)
 
     try:
-        init_softener(m, m.fs.softener)
+        init_softener(m, m.fs.softener.unit)
     except:
         print_infeasible_bounds(m.fs.softener)
         print_infeasible_constraints(m.fs.softener)
@@ -356,54 +370,64 @@ def report_MCAS_stream_conc(m):
     )
 
 
-def report_softener(m):
+def report_softener(m, blk=None):
+    if blk is None:
+        blk = m.fs.softener.unit
+
+    comps = blk.config.property_package.solute_set
     print(f"\n\n-------------------- Softener Report --------------------\n")
-    print("Stream Table:")
+
+    print("Stream Table:\n")
+
     print(
-        f'{"Component":<20s}{"Flow In":<20s}{"Flow Product":<20s}{"Flow Waste":20s}{"Removal %":20s}'
+        f'{"Flow Basis":<20s}{value(pyunits.convert(blk.properties_in[0.0].flow_vol_phase["Liq"], to_units=pyunits.Mgal / pyunits.day)):<10.3f}{pyunits.get_units(pyunits.convert(blk.properties_in[0.0].flow_vol_phase["Liq"], to_units=pyunits.Mgal / pyunits.day))}'
     )
-    for idx, val in m.fs.softener.unit.properties_in[0.0].flow_mass_phase_comp.items():
-        flow_in = val.value
-        flow_out = (
-            m.fs.softener.unit.properties_out[0.0].flow_mass_phase_comp[idx].value
-        )
-        flow_waste = (
-            m.fs.softener.unit.properties_waste[0.0].flow_mass_phase_comp[idx].value
-        )
+    print(
+        f'{"Overall TDS:":<20s}{sum(value(blk.properties_in[0].conc_mass_phase_comp["Liq", i]) for i in comps):<10.3f}{"g/L"}\n'
+    )
+
+    print(
+        f'{"Component":<20s}{"Flow In (g/L)":<20s}{"Flow Product (g/L)":<20s}{"Flow Waste (g/L)":20s}{"Removal %":20s}'
+    )
+
+    for solute in comps:
+        flow_in = blk.properties_in[0.0].conc_mass_phase_comp["Liq", solute].value
+        flow_out = blk.properties_out[0.0].conc_mass_phase_comp["Liq", solute].value
+        flow_waste = blk.properties_waste[0.0].conc_mass_phase_comp["Liq", solute].value
         removal = (flow_in - flow_out) / flow_in * 100
         print(
-            f"{idx[1]:20s}{flow_in:<20.3f}{flow_out:<20.3f}{flow_waste:<20.3f}{removal:<20.1f}"
+            f"{solute:20s}{flow_in:<20.3f}{flow_out:<20.3f}{flow_waste:<20.3f}{removal:<20.1f}"
         )
 
     print("\nDosing Details:")
     print(
-        f'{"CaO Dose":<20s}{m.fs.softener.unit.CaO_dosing.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.CaO_dosing)}'
+        f'{"CaO Dose":<20s}{blk.CaO_dosing.value:<10.3f}{pyunits.get_units(blk.CaO_dosing)}'
     )
     print(
-        f'{"MgCl Dose":<20s}{value(m.fs.softener.unit.MgCl2_dosing):<20.3f}{pyunits.get_units(m.fs.softener.unit.MgCl2_dosing)}'
+        f'{"MgCl Dose":<20s}{value(blk.MgCl2_dosing):<10.3f}{pyunits.get_units(blk.MgCl2_dosing)}'
     )
     print(
-        f'{"Na2CO3 Dose":<20s}{m.fs.softener.unit.Na2CO3_dosing.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.Na2CO3_dosing)}'
+        f'{"Na2CO3 Dose":<20s}{blk.Na2CO3_dosing.value:<10.3f}{pyunits.get_units(blk.Na2CO3_dosing)}'
     )
     print(
-        f'{"Excess CaO":<20s}{m.fs.softener.unit.excess_CaO.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.excess_CaO)}'
+        f'{"Excess CaO":<20s}{blk.excess_CaO.value:<10.3f}{pyunits.get_units(blk.excess_CaO)}'
     )
     print(
-        f'{"CO2 CaCO3":<20s}{m.fs.softener.unit.CO2_CaCO3.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.CO2_CaCO3)}'
+        f'{"CO2 CaCO3":<20s}{blk.CO2_CaCO3.value:<10.3f}{pyunits.get_units(blk.CO2_CaCO3)}'
     )
     print(
-        f'{"Sludge Produced":<20s}{m.fs.softener.unit.sludge_prod.value:<20.3f}{pyunits.get_units(m.fs.softener.unit.sludge_prod)}'
+        f'{"Sludge Produced":<20s}{blk.sludge_prod.value:<10.3f}{pyunits.get_units(blk.sludge_prod)}'
     )
 
     print("\nCosting Report:")
     print(
-        f'{"Capital Cost":<19s}{f"${m.fs.softener.unit.costing.capital_cost.value:<15,.0f}"}{pyunits.get_units(m.fs.softener.unit.costing.capital_cost)}'
+        f'{"Capital Cost":<19s}{f"${blk.costing.capital_cost.value:<15,.0f}"}{pyunits.get_units(blk.costing.capital_cost)}'
     )
     print(
-        f'{"Operating Cost":<19s}{f"${m.fs.softener.unit.costing.fixed_operating_cost.value:<15,.0f}"}{pyunits.get_units(m.fs.softener.unit.costing.fixed_operating_cost)}'
+        f'{"Operating Cost":<19s}{f"${blk.costing.fixed_operating_cost.value:<15,.0f}"}{pyunits.get_units(blk.costing.fixed_operating_cost)}'
     )
     print(
-        f'{"Electricity Flow":<20s}{m.fs.softener.unit.costing.electricity_flow.value:<15.2f}{pyunits.get_units(m.fs.softener.unit.costing.electricity_flow)}'
+        f'{"Electricity Flow":<20s}{blk.costing.electricity_flow.value:<15.2f}{pyunits.get_units(blk.costing.electricity_flow)}'
     )
 
 
@@ -411,10 +435,11 @@ if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
     set_system_operating_conditions(m)
-    set_softener_op_conditions(m, m.fs.softener)
-    # add_softener_costing(m, m.fs.softener)
+    set_softener_op_conditions(m, m.fs.softener.unit)
+    add_softener_costing(m, m.fs.softener)
     # set_scaling(m)
-    # m.fs.softener.unit.display()
+    # report_MCAS_stream_conc(m)
     init_system(m)
     results = solve(m)
     # assert_optimal_termination(results)
+    report_softener(m)
