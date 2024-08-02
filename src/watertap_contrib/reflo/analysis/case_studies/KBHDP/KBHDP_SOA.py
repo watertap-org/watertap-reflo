@@ -148,7 +148,7 @@ def build_system():
     # Define the Unit Models
     m.fs.softener = FlowsheetBlock(dynamic=False)
     m.fs.UF = FlowsheetBlock(dynamic=False)
-    m.fs.pump = Pump(property_package=m.fs.RO_properties)
+    # m.fs.pump = Pump(property_package=m.fs.RO_properties)
     m.fs.RO = FlowsheetBlock(dynamic=False)
 
     # Define the Translator Blocks
@@ -216,13 +216,18 @@ def add_connections(m):
         destination=m.fs.TDS_to_NaCl_translator.inlet,
     )
 
-    m.fs.translator_to_pump = Arc(
-        source=m.fs.TDS_to_NaCl_translator.outlet,
-        destination=m.fs.pump.inlet,
-    )
+    # m.fs.translator_to_pump = Arc(
+    #     source=m.fs.TDS_to_NaCl_translator.outlet,
+    #     destination=m.fs.pump.inlet,
+    # )
 
-    m.fs.pump_to_ro = Arc(
-        source=m.fs.pump.outlet,
+    # m.fs.pump_to_ro = Arc(
+    #     source=m.fs.pump.outlet,
+    #     destination=m.fs.RO.feed.inlet,
+    # )
+
+    m.fs.translator_to_ro = Arc(
+        source=m.fs.TDS_to_NaCl_translator.outlet,
         destination=m.fs.RO.feed.inlet,
     )
 
@@ -285,9 +290,9 @@ def add_constraints(m):
 
 
 def add_costing(m):
-    m.fs.pump.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
-    )
+    # m.fs.pump.costing = UnitModelCostingBlock(
+    #     flowsheet_costing_block=m.fs.costing,
+    # )
 
     add_softener_costing(m, m.fs.softener)
     add_UF_costing(m, m.fs.UF)
@@ -371,8 +376,8 @@ def set_inlet_conditions(
         "Mg_2+": 0.161 * pyunits.kg / pyunits.m**3,
         "Alkalinity_2-": 0.0821 * pyunits.kg / pyunits.m**3,
         "SiO2": 0.13 * pyunits.kg / pyunits.m**3,
-        "Cl_-": 1.18 * pyunits.kg / pyunits.m**3,
-        "Na_+": 0.77 * pyunits.kg / pyunits.m**3,
+        "Cl_-": 5.5 * pyunits.kg / pyunits.m**3,
+        "Na_+": 5.5 * pyunits.kg / pyunits.m**3,
         "K_+": 0.016 * pyunits.kg / pyunits.m**3,
         "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,
     }
@@ -422,7 +427,7 @@ def set_inlet_conditions(
     #     m.fs.water_recovery.unfix()
     #     m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
 
-    m.fs.pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
+    # m.fs.pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
 
     # # iscale.set_scaling_factor(m.fs.perm_flow_mass, 1)
     # iscale.set_scaling_factor(m.fs.feed_flow_mass, 1)
@@ -528,10 +533,13 @@ def init_system(m, verbose=True, solver=None):
 
     m.fs.TDS_to_NaCl_translator.initialize(optarg=optarg)
 
-    propagate_state(m.fs.translator_to_pump)
-    m.fs.pump.initialize(optarg=optarg)
-    propagate_state(m.fs.pump_to_ro)
+    # propagate_state(m.fs.translator_to_pump)
+    # m.fs.pump.initialize(optarg=optarg)
+    
+    # propagate_state(m.fs.pump_to_ro)
+    propagate_state(m.fs.translator_to_ro)
     init_ro_system(m, m.fs.RO)
+
     propagate_state(m.fs.ro_to_product)
     propagate_state(m.fs.ro_to_disposal)
 
