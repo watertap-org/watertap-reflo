@@ -478,9 +478,10 @@ if __name__ == "__main__":
     add_costing_module(mp, m.costing)
 
     # Fix some global costing params for better comparison to Pyomo model
-    m.costing.factor_total_investment.fix(1)
-    m.costing.factor_maintenance_labor_chemical.fix(0)
-    m.costing.factor_capital_annualization.fix(0.08764)
+    m.costing.total_investment_factor.fix(1)
+    m.costing.maintenance_labor_chemical_factor.fix(0)
+    m.costing.capital_recovery_factor.fix(0.08764)
+    m.costing.wacc.unfix()
 
     m.costing.cost_process()
     m.costing.add_annual_water_production(active_blks[-1].fs.vagmd.system_capacity)
