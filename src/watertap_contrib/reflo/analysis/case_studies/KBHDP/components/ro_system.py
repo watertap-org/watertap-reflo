@@ -324,6 +324,7 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n")
     display_flow_table(blk)
     print(blk.report())
+    print(f'RO Recovery: {100 * (value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]) / value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"])):<5.2f}%')
 
 
 def init_ro_stage(m, stage, solver=None):
