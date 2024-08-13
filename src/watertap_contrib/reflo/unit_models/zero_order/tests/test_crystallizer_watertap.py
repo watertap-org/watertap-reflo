@@ -26,9 +26,8 @@ from watertap_contrib.reflo.unit_models.zero_order.crystallizer_zo_watertap impo
 )
 import watertap_contrib.reflo.property_models.cryst_prop_pack as props
 
-from idaes.core.solvers import get_solver
+from watertap.core.solvers import get_solver
 
-# from watertap.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -42,8 +41,7 @@ from idaes.core.util.scaling import (
     badly_scaled_var_generator,
 )
 from idaes.core import UnitModelCostingBlock
-
-# from watertap.costing import WaterTAPCosting, CrystallizerCostType
+from watertap_contrib.reflo.costing import TreatmentCosting, CrystallizerCostType
 
 # -----------------------------------------------------------------------------
 # Get default solver for testing
@@ -326,17 +324,16 @@ class TestCrystallization:
         for _ in badly_scaled_var_generator(m):
             assert False
 
-    @pytest.mark.requires_idaes_solver
     @pytest.mark.component
     def test_initialize(self, Crystallizer_frame):
         # Add costing function, then initialize
         m = Crystallizer_frame
-        # m.fs.costing = WaterTAPCosting()
-        # m.fs.unit.costing = UnitModelCostingBlock(
-        #     flowsheet_costing_block=m.fs.costing,
-        #     costing_method_arguments={"cost_type": CrystallizerCostType.mass_basis},
-        # )
-        # m.fs.costing.cost_process()
+        m.fs.costing = TreatmentCosting()
+        m.fs.unit.costing = UnitModelCostingBlock(
+            flowsheet_costing_block=m.fs.costing,
+            costing_method_arguments={"cost_type": CrystallizerCostType.mass_basis},
+        )
+        m.fs.costing.cost_process()
 
         initialization_tester(Crystallizer_frame)
         assert_units_consistent(m)
@@ -347,7 +344,6 @@ class TestCrystallization:
     #     badly_scaled_var_lst = list(badly_scaled_var_generator(m))
     #     assert badly_scaled_var_lst == []
 
-    @pytest.mark.requires_idaes_solver
     @pytest.mark.component
     def test_solve(self, Crystallizer_frame):
         m = Crystallizer_frame
@@ -357,7 +353,6 @@ class TestCrystallization:
         assert results.solver.termination_condition == TerminationCondition.optimal
         assert results.solver.status == SolverStatus.ok
 
-    @pytest.mark.requires_idaes_solver
     @pytest.mark.component
     def test_conservation(self, Crystallizer_frame):
         m = Crystallizer_frame
@@ -418,7 +413,6 @@ class TestCrystallization:
             <= 1e-2
         )
 
-    @pytest.mark.requires_idaes_solver
     @pytest.mark.component
     def test_solution(self, Crystallizer_frame):
         m = Crystallizer_frame
@@ -458,11 +452,10 @@ class TestCrystallization:
         # Residence time
         assert pytest.approx(1.0228, rel=1e-3) == value(b.t_res)
         # Mass-basis costing
-        assert pytest.approx(2.0 * 300000, rel=1e-3) == value(
+        assert pytest.approx(704557, rel=1e-3) == value(
             m.fs.costing.aggregate_capital_cost
         )
 
-    @pytest.mark.requires_idaes_solver
     @pytest.mark.component
     def test_solution2_capcosting_by_mass(self, Crystallizer_frame):
         m = Crystallizer_frame
@@ -489,7 +482,7 @@ class TestCrystallization:
         # Minimum active volume
         assert pytest.approx(0.959, rel=1e-3) == value(b.volume_suspension)
         # Mass-basis costing
-        assert pytest.approx(2.0 * 300000, rel=1e-3) == value(
+        assert pytest.approx(704557, rel=1e-3) == value(
             m.fs.costing.aggregate_capital_cost
         )
 
@@ -521,7 +514,7 @@ class TestCrystallization:
         initialization_tester(Crystallizer_frame_2)
         results = solver.solve(m)
 
-        m.fs.costing = WaterTAPCosting()
+        m.fs.costing = TreatmentCosting()
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
             costing_method_arguments={"cost_type": CrystallizerCostType.volume_basis},
@@ -547,7 +540,7 @@ class TestCrystallization:
         # Minimum active volume
         assert pytest.approx(0.959, rel=1e-3) == value(b.volume_suspension)
         # Volume-basis costing
-        assert pytest.approx(2.0 * 199000, rel=1e-3) == value(
+        assert pytest.approx(467490, rel=1e-3) == value(
             m.fs.costing.aggregate_capital_cost
         )
 
@@ -565,10 +558,10 @@ class TestCrystallization:
         assert results.solver.status == SolverStatus.ok
 
         # Operating cost validation
-        assert pytest.approx(835.41, rel=1e-3) == value(
+        assert pytest.approx(980.77, rel=1e-3) == value(
             m.fs.costing.aggregate_flow_costs["electricity"]
         )
-        assert pytest.approx(30666.67, rel=1e-3) == value(
+        assert pytest.approx(36000.75, rel=1e-3) == value(
             m.fs.costing.aggregate_flow_costs["steam"]
         )
         assert pytest.approx(0, rel=1e-3) == value(
@@ -590,10 +583,10 @@ class TestCrystallization:
         assert results.solver.status == SolverStatus.ok
 
         # Operating cost validation
-        assert pytest.approx(835.41, rel=1e-3) == value(
+        assert pytest.approx(980.77, rel=1e-3) == value(
             m.fs.costing.aggregate_flow_costs["electricity"]
         )
-        assert pytest.approx(21451.91, rel=1e-3) == value(
+        assert pytest.approx(25183.20, rel=1e-3) == value(
             m.fs.costing.aggregate_flow_costs["steam"]
         )
         assert pytest.approx(0, abs=1e-6) == value(
@@ -613,175 +606,12 @@ class TestCrystallization:
         assert results.solver.status == SolverStatus.ok
 
         # Operating cost validation
-        assert pytest.approx(835.41, rel=1e-3) == value(
+        assert pytest.approx(980.77, rel=1e-3) == value(
             m.fs.costing.aggregate_flow_costs["electricity"]
         )
-        assert pytest.approx(30666.67, rel=1e-3) == value(
+        assert pytest.approx(36000.75, rel=1e-3) == value(
             m.fs.costing.aggregate_flow_costs["steam"]
         )
-        assert pytest.approx(-187858.2, rel=1e-3) == value(
+        assert pytest.approx(-220533.25, rel=1e-3) == value(
             m.fs.costing.aggregate_flow_costs["NaCl"]
         )
-
-
-if __name__ == "__main__":
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
-
-    m.fs.properties = props.NaClParameterBlock()
-
-    m.fs.unit = Crystallization(property_package=m.fs.properties)
-
-    # fully specify system
-    feed_flow_mass = 1
-    feed_mass_frac_NaCl = 0.2126
-    feed_mass_frac_H2O = 1 - feed_mass_frac_NaCl
-    feed_pressure = 101325
-    feed_temperature = 273.15 + 20
-    eps = 1e-6
-    crystallizer_temperature = 273.15 + 55
-    crystallizer_yield = 0.40
-
-    # Fully define feed
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(
-        feed_flow_mass * feed_mass_frac_NaCl
-    )
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(
-        feed_flow_mass * feed_mass_frac_H2O
-    )
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(eps)
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(eps)
-    m.fs.unit.inlet.pressure[0].fix(feed_pressure)
-    m.fs.unit.inlet.temperature[0].fix(feed_temperature)
-
-    # Define operating conditions
-    m.fs.unit.temperature_operating.fix(crystallizer_temperature)
-    m.fs.unit.crystallization_yield["NaCl"].fix(crystallizer_yield)
-
-    # Fix growth rate, crystal length and Sounders brown constant to default values
-    m.fs.unit.crystal_growth_rate.fix()
-    m.fs.unit.souders_brown_constant.fix()
-    m.fs.unit.crystal_median_length.fix()
-
-    assert_units_consistent(m)
-
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Liq", "NaCl")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Vap", "H2O")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Sol", "NaCl")
-    )
-    calculate_scaling_factors(m)
-
-    m.fs.unit.initialize()
-
-    results = solver.solve(m)
-
-    # Check for optimal solution
-    assert results.solver.termination_condition == TerminationCondition.optimal
-    assert results.solver.status == SolverStatus.ok
-
-
-if __name__ == "__main__":
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
-
-    m.fs.properties = props.NaClParameterBlock()
-
-    m.fs.unit = Crystallization(property_package=m.fs.properties)
-
-    # fully specify system
-    feed_flow_mass = 1
-    feed_mass_frac_NaCl = 0.2126
-    feed_mass_frac_H2O = 1 - feed_mass_frac_NaCl
-    feed_pressure = 101325
-    feed_temperature = 273.15 + 20
-    eps = 1e-6
-    crystallizer_temperature = 273.15 + 55
-    crystallizer_yield = 0.40
-
-    # Fully define feed
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(
-        feed_flow_mass * feed_mass_frac_NaCl
-    )
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(
-        feed_flow_mass * feed_mass_frac_H2O
-    )
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(eps)
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(eps)
-    m.fs.unit.inlet.pressure[0].fix(feed_pressure)
-    m.fs.unit.inlet.temperature[0].fix(feed_temperature)
-
-    # Define operating conditions
-    m.fs.unit.temperature_operating.fix(crystallizer_temperature)
-    m.fs.unit.crystallization_yield["NaCl"].fix(crystallizer_yield)
-
-    # Fix growth rate, crystal length and Sounders brown constant to default values
-    m.fs.unit.crystal_growth_rate.fix()
-    m.fs.unit.souders_brown_constant.fix()
-    m.fs.unit.crystal_median_length.fix()
-
-    assert_units_consistent(m)
-
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Liq", "NaCl")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Vap", "H2O")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Sol", "NaCl")
-    )
-    calculate_scaling_factors(m)
-
-    m.fs.unit.initialize()
-
-    results = solver.solve(m)
-
-    # Check for optimal solution
-    assert results.solver.termination_condition == TerminationCondition.optimal
-    assert results.solver.status == SolverStatus.ok
-
-    b = m.fs.unit
-    assert pytest.approx(
-        value(
-            b.crystallization_yield["NaCl"]
-            * b.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
-        ),
-        rel=1e-3,
-    ) == value(b.solids.flow_mass_phase_comp[0, "Sol", "NaCl"])
-    # Check solid mass in liquid stream
-    assert pytest.approx(
-        value(
-            (1 - b.crystallization_yield["NaCl"])
-            * b.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
-        ),
-        rel=1e-3,
-    ) == value(b.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"])
-    # Check outlet liquid stream composition which is set by solubility
-    assert pytest.approx(0.2695, rel=1e-3) == value(
-        b.properties_out[0].mass_frac_phase_comp["Liq", "NaCl"]
-    )
-    # Check liquid stream solvent flow
-    assert pytest.approx(0.12756 * ((1 / 0.2695) - 1), rel=1e-3) == value(
-        b.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]
-    )
-    # Check saturation pressure
-    assert pytest.approx(11992, rel=1e-3) == value(b.pressure_operating)
-    # Check heat requirement
-    assert pytest.approx(1127.2, rel=1e-3) == value(b.work_mechanical[0])
-    # Check crystallizer diameter
-    assert pytest.approx(1.205, rel=1e-3) == value(b.diameter_crystallizer)
-    # Minimum active volume
-    assert pytest.approx(1.619, rel=1e-3) == value(b.volume_suspension)
-    # Residence time
-    assert pytest.approx(1.0228, rel=1e-3) == value(b.t_res)

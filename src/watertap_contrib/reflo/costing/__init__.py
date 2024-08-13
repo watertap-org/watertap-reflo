@@ -17,3 +17,5 @@ from .watertap_reflo_costing_package import (
     TreatmentCosting,
     EnergyCosting,
 )
+
+from .units.crystallizer_watertap import CrystallizerCostType, _compute_steam_properties

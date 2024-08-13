@@ -41,7 +41,9 @@ import idaes.logger as idaeslog
 
 from watertap.core import InitializationMixin
 from watertap.core.util.initialization import interval_initializer
-from watertap.costing.unit_models.crystallizer import cost_crystallizer
+from watertap_contrib.reflo.costing.units.crystallizer_watertap import (
+    cost_crystallizer_watertap,
+)
 
 _log = idaeslog.getLogger(__name__)
 
@@ -865,4 +867,4 @@ class CrystallizationData(InitializationMixin, UnitModelBlockData):
 
     @property
     def default_costing_method(self):
-        return cost_crystallizer
+        return cost_crystallizer_watertap
