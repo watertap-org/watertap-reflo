@@ -61,13 +61,13 @@ def build_soda_ash_cost_param_block(blk):
     )
 
     costing = blk.parent_block()
-    costing.register_flow_type("soda ash", blk.cost / blk.purity)
+    costing.register_flow_type("soda_ash", blk.cost / blk.purity)
 
 
 def build_mgcl2_cost_param_block(blk):
 
     blk.cost = Param(
-        initialize=1.5,
+        initialize=0.55,
         units=pyunits.USD_2020 / pyunits.kg,
         doc="Cost of MgCl2 $/kg",
     )
@@ -968,6 +968,6 @@ def cost_chemical_softening(blk):
     blk.costing_package.cost_flow(blk.electricity_flow, "electricity")
 
     blk.costing_package.cost_flow(blk.cao_dosing, "lime")
-    blk.costing_package.cost_flow(blk.unit_model.Na2CO3_dosing, "soda ash")
-    # blk.costing_package.cost_flow(blk.mgcl2_dosing, "mgcl2")
+    blk.costing_package.cost_flow(blk.unit_model.Na2CO3_dosing, "soda_ash")
+    blk.costing_package.cost_flow(blk.mgcl2_dosing, "mgcl2")
     blk.costing_package.cost_flow(blk.co2_dosing, "co2")
