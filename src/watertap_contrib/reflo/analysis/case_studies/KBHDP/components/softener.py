@@ -119,6 +119,7 @@ def set_system_operating_conditions(m):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
+    
     soft = m.fs.softener.unit
     ca_in = 0.61 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
     mg_in = 0.161 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
@@ -158,6 +159,11 @@ def set_system_operating_conditions(m):
     prop_in.flow_mass_phase_comp["Liq", "Na_+"].fix(flow_mass_phase_na)
     prop_in.flow_mass_phase_comp["Liq", "Cl_-"].fix(flow_mass_phase_cl)
 
+    print(prop_in.flow_mass_phase_comp["Liq", "Ca_2+"].value)
+    print(prop_in.flow_mass_phase_comp["Liq", "Mg_2+"].value)
+    print(prop_in.flow_mass_phase_comp["Liq", "SiO2"].value)
+    print(prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"].value)
+
     prop_in.temperature.fix(298)
     prop_in.pressure.fix(101356)
     prop_out.temperature.fix(298)
@@ -166,7 +172,8 @@ def set_system_operating_conditions(m):
     # m.fs.feed.properties[0].conc_mass_phase_comp
     # soft.properties_waste[0].conc_mass_phase_comp["Liq", "Mg_2+"]
     # soft.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-
+    print(degrees_of_freedom(m))
+    assert False
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 

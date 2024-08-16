@@ -116,11 +116,11 @@ def set_system_conditions(blk):
 
 
 def add_UF_costing(m, blk):
-    # blk.costing = UnitModelCostingBlock(
-    #     flowsheet_costing_block=m.fs.costing,
-    # )
+    blk.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+    )
 
-    # m.fs.costing.cost_process()
+    m.fs.costing.cost_process()
     pass
 
 
@@ -248,5 +248,5 @@ if __name__ == "__main__":
     solve(m)
 
     report_UF(m, m.fs.UF)
-
+    m.fs.costing.display()
     # # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
