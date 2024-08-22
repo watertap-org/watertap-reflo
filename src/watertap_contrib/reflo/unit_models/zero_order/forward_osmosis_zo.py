@@ -11,8 +11,6 @@
 #################################################################################
 
 from copy import deepcopy
-
-# Import Pyomo libraries
 from pyomo.environ import (
     Var,
     Suffix,
@@ -20,8 +18,6 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
-
-# Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
     UnitModelBlockData,
@@ -30,13 +26,12 @@ from idaes.core import (
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
-from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import InitializationError
 from idaes.core.util.tables import (
     create_stream_table_dataframe,
 )
 import idaes.logger as idaeslog
-
+from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.costing.units.forward_osmosis_zo import (
     cost_forward_osmosis,
 )
@@ -748,3 +743,144 @@ class ForwardOsmosisZOData(UnitModelBlockData):
     @property
     def default_costing_method(self):
         return cost_forward_osmosis
+
+
+if __name__ == "__main__":
+    from pyomo.environ import (
+        ConcreteModel,
+        value,
+        assert_optimal_termination,
+        units as pyunits,
+    )
+    from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+    from watertap_contrib.reflo.unit_models.zero_order.forward_osmosis_zo import (
+        ForwardOsmosisZO,
+    )
+    from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
+        FODrawSolutionParameterBlock,
+    )
+
+    from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+
+    from watertap.core.solvers import get_solver
+    from idaes.core.util.model_statistics import (
+        degrees_of_freedom,
+        number_variables,
+        number_total_constraints,
+        number_unused_variables,
+        unused_variables_set,
+    )
+    from idaes.core.util.testing import initialization_tester
+    from idaes.core.util.scaling import (
+        calculate_scaling_factors,
+        constraint_scaling_transform,
+        unscaled_variables_generator,
+        unscaled_constraints_generator,
+        badly_scaled_var_generator,
+    )
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.water_prop = SeawaterParameterBlock()
+    m.fs.draw_solution_prop = FODrawSolutionParameterBlock()
+    m.fs.fo = ForwardOsmosisZO(
+        property_package_water=m.fs.water_prop,
+        property_package_draw_solution=m.fs.draw_solution_prop,
+    )
+
+    fo = m.fs.fo
+    strong_draw = fo.strong_draw_props[0]
+    product = fo.product_props[0]
+
+    # System specifications
+    recovery_ratio = 0.3  # Assumed FO recovery ratio
+    nanofiltration_recovery_ratio = 0.8  # Nanofiltration recovery ratio
+    dp_brine = 0  # Required pressure over brine osmotic pressure (Pa)
+    heat_mixing = 105  # Heat of mixing in the membrane (MJ/m3 product)
+    reneration_temp = 90  # Separation temperature of the draw solution (C)
+    separator_temp_loss = 1  # Temperature loss in the separator (K)
+    feed_temperature = 13  # Feed water temperature (C)
+    feed_vol_flow = 3.704  # Feed water volumetric flow rate (m3/s)
+    feed_TDS_mass = 0.035  # TDS mass fraction of feed
+    strong_draw_temp = 20  # Strong draw solution inlet temperature (C)
+    strong_draw_mass_frac = 0.8  # Strong draw solution mass fraction
+    product_draw_mas_frac = 0.01  # Mass fraction of draw in the product water
+
+    fo.recovery_ratio.fix(recovery_ratio)
+    fo.nanofiltration_recovery_ratio.fix(nanofiltration_recovery_ratio)
+    fo.dp_brine.fix(dp_brine)
+    fo.heat_mixing.fix(heat_mixing)
+    fo.regeneration_temp.fix(reneration_temp + 273.15)
+    fo.separator_temp_loss.fix(separator_temp_loss)
+
+    # Specify strong draw solution properties
+    fo.strong_draw_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): 1,
+            (
+                "mass_frac_phase_comp",
+                ("Liq", "DrawSolution"),
+            ): strong_draw_mass_frac,
+            ("temperature", None): strong_draw_temp + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    strong_draw.flow_mass_phase_comp["Liq", "DrawSolution"].unfix()
+
+    # Specify product water properties
+    fo.product_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): 1,
+            (
+                "mass_frac_phase_comp",
+                ("Liq", "DrawSolution"),
+            ): product_draw_mas_frac,
+            ("temperature", None): reneration_temp - separator_temp_loss + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    product.flow_mass_phase_comp["Liq", "H2O"].unfix()
+    product.temperature.unfix()
+
+    # Specify feed properties
+    fo.feed_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            ("mass_frac_phase_comp", ("Liq", "TDS")): feed_TDS_mass,
+            ("temperature", None): feed_temperature + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    # Set scaling factors for mass flow rates
+    m.fs.water_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
+    )
+    m.fs.water_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e1, index=("Liq", "TDS")
+    )
+    m.fs.draw_solution_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
+    )
+    m.fs.draw_solution_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1, index=("Liq", "DrawSolution")
+    )
+    calculate_scaling_factors(m)
+    badly_scaled_var_lst = list(badly_scaled_var_generator(m))
+
+    m.fs.fo.initialize()
+
+    strong_draw_mass = 0.8  # Strong draw solution mass fraction
+    product_draw_mass = 0.01  # Mass fraction of draw in the product water
+    m.fs.fo.unfix_and_fix_freedom(strong_draw_mass, product_draw_mass)
+
+    solver = get_solver()
+    results = solver.solve(m)
+
+    # Check for optimal solution
+    assert_optimal_termination(results)

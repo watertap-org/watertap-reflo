@@ -16,21 +16,20 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-
-from watertap_contrib.reflo.analysis.example_flowsheets.fo_trevi_flowsheet import (
-    build_fo_trevi_flowsheet,
-    fix_dof_and_initialize,
-    get_flowsheet_performance,
-)
-from watertap_contrib.reflo.costing import TreatmentCosting
 from idaes.core import UnitModelCostingBlock
-from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
 )
+from watertap_contrib.reflo.analysis.example_flowsheets.fo_trevi_flowsheet import (
+    build_fo_trevi_flowsheet,
+    fix_dof_and_initialize,
+    get_flowsheet_performance,
+)
+from watertap_contrib.reflo.costing import TreatmentCosting
+from watertap.core.solvers import get_solver
 
 solver = get_solver()
 

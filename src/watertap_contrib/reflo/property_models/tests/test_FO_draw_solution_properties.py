@@ -22,24 +22,20 @@ from pyomo.environ import (
 )
 from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock
-
-from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.model_statistics import (
     number_variables,
     number_total_constraints,
     number_unused_variables,
 )
-
 from idaes.core.util.scaling import calculate_scaling_factors
-
+from watertap.core.solvers import get_solver
 from watertap.core.util.initialization import check_dof
-from watertap.property_models.tests.property_test_harness import PropertyAttributeError
-
-import watertap_contrib.reflo.property_models.fo_draw_solution_properties as ds_props
-
 from watertap.property_models.tests.property_test_harness import (
     PropertyTestHarness,
+    PropertyAttributeError,
 )
+
+import watertap_contrib.reflo.property_models.fo_draw_solution_properties as ds_props
 
 solver = get_solver()
 
@@ -54,7 +50,10 @@ def m():
     return m
 
 
-class TestSeawaterProperty(PropertyTestHarness):
+# The TestHarness fails because the sol
+
+
+class TestDrawSolutionProperty(PropertyTestHarness):
     def configure(self):
         self.prop_pack = ds_props.FODrawSolutionParameterBlock
         self.param_args = {}
@@ -63,7 +62,7 @@ class TestSeawaterProperty(PropertyTestHarness):
             ("flow_mass_phase_comp", ("Liq", "DrawSolution")): 1,
         }
         self.stateblock_statistics = {
-            "number_variables": 14,
+            "number_variables": 15,
             "number_total_constraints": 10,
             "number_unused_variables": 1,
             "default_degrees_of_freedom": 3,
@@ -77,7 +76,7 @@ class TestSeawaterProperty(PropertyTestHarness):
             ("conc_mass_phase_comp", ("Liq", "DrawSolution")): 867.899,
             ("pressure_osm_phase", "Liq"): 1.5697e7,
             ("cp_mass_phase", "Liq"): 2257.78,
-            # ("heat_separation_phase", "Liq"): 1e-5,
+            ("heat_separation_phase", "Liq"): 0,
         }
 
 

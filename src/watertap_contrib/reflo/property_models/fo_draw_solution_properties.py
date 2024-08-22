@@ -14,37 +14,6 @@
 This module contains a basic property package for simple water treatment models.
 Volumetric flow and component concentration are used to determine mass flow. 
 """
-from idaes.core import (
-    EnergyBalanceType,
-    MaterialBalanceType,
-    MaterialFlowBasis,
-    PhysicalParameterBlock,
-    StateBlock,
-    StateBlockData,
-    declare_process_block_class,
-)
-from idaes.core.base.components import Solvent, Solute
-from idaes.core.base.phases import LiquidPhase
-from idaes.core.solvers.get_solver import get_solver
-from idaes.core.util.misc import add_object_reference
-from idaes.core.util.initialization import (
-    fix_state_vars,
-    revert_state_vars,
-    solve_indexed_blocks,
-)
-from idaes.core.util.model_statistics import (
-    degrees_of_freedom,
-    number_unfixed_variables,
-)
-import idaes.logger as idaeslog
-import idaes.core.util.scaling as iscale
-
-from idaes.core.util.exceptions import (
-    ConfigurationError,
-    InitializationError,
-    PropertyPackageError,
-)
-
 from pyomo.environ import (
     Param,
     Binary,
@@ -57,10 +26,41 @@ from pyomo.environ import (
     Suffix,
     value,
     check_optimal_termination,
+    Expr_if,
 )
 from pyomo.common.config import ConfigValue
 
+from idaes.core import (
+    EnergyBalanceType,
+    MaterialBalanceType,
+    MaterialFlowBasis,
+    PhysicalParameterBlock,
+    StateBlock,
+    StateBlockData,
+    declare_process_block_class,
+)
+from idaes.core.base.components import Solvent, Solute
+from idaes.core.base.phases import LiquidPhase
+from idaes.core.util.misc import add_object_reference
+from idaes.core.util.initialization import (
+    fix_state_vars,
+    revert_state_vars,
+    solve_indexed_blocks,
+)
+from idaes.core.util.model_statistics import (
+    degrees_of_freedom,
+    number_unfixed_variables,
+)
+import idaes.logger as idaeslog
+import idaes.core.util.scaling as iscale
+from idaes.core.util.exceptions import (
+    ConfigurationError,
+    InitializationError,
+    PropertyPackageError,
+)
+
 from watertap.core.util.scaling import transform_property_constraints
+from watertap.core.solvers import get_solver
 
 __author__ = "Zhuoran Zhang"
 
@@ -173,6 +173,7 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
         self.set_default_scaling("cp_mass_phase", 1e-3, index="Liq")
         self.set_default_scaling("enth_mass_phase", 1e-5, index="Liq")
         self.set_default_scaling("heat_separation_phase", 1e-5, index="Liq")
+        self.set_default_scaling("liquid_separation", 1, index="Liq")
 
     @classmethod
     def define_metadata(cls, obj):
@@ -200,6 +201,12 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
                 "enth_mass_phase": {"method": "_enth_mass_phase"},
                 "heat_separation_phase": {"method": "_heat_separation_phase"},
                 "enth_flow": {"method": "_enth_flow"},
+            }
+        )
+
+        obj.define_custom_properties(
+            {
+                # "heat_separation_phase": {"method": "_heat_separation_phase"},
             }
         )
 
@@ -520,7 +527,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
     def _flow_vol_phase(self):
         self.flow_vol_phase = Var(
             self.params.phase_list,
-            initialize=1,
+            initialize=0.001,
             bounds=(0.0, None),
             units=pyunits.m**3 / pyunits.s,
             doc="Volumetric flow rate",
@@ -541,7 +548,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
         self.conc_mass_phase_comp = Var(
             self.params.phase_list,
             self.params.component_list,
-            initialize=10,
+            initialize=100,
             bounds=(0.0, 1e6),
             units=pyunits.kg * pyunits.m**-3,
             doc="Mass concentration",
@@ -613,16 +620,18 @@ class FODrawSolutionStateBlockData(StateBlockData):
         self.heat_separation_phase = Var(
             self.params.phase_list,
             initialize=1e6,
-            bounds=(0, 1e10),
+            bounds=(-1e10, 1e10),
             units=pyunits.J / pyunits.s,
             doc="Heat of liquid separation",
         )
-        self.liquid_separation = Param(
-            initialize=1e-6,
-            mutable=True,
+        self.liquid_separation = Var(
+            initialize=0.1,
             units=pyunits.dimensionless,
             doc="Indication of whether liquid separation will happen",
         )
+        # Fix this flag to default value to not consider separation heat in most cases
+        self.liquid_separation.fix()
+
         self.mass_frac_after_separation = Param(
             initialize=0.8,
             mutable=True,
@@ -632,8 +641,7 @@ class FODrawSolutionStateBlockData(StateBlockData):
 
         def rule_heat_separation_phase(b, p):
             heat = (
-                b.liquid_separation
-                * b.params.separation_heat
+                b.params.separation_heat
                 * b.flow_mass_phase_comp[p, "H2O"]
                 * 1e-3
                 * pyunits.m**3
@@ -644,8 +652,10 @@ class FODrawSolutionStateBlockData(StateBlockData):
                 / b.mass_frac_after_separation
             )
 
-            return b.heat_separation_phase[p] == pyunits.convert(
-                heat, to_units=pyunits.J / pyunits.s
+            return b.heat_separation_phase[p] == Expr_if(
+                IF_=b.liquid_separation >= 0.5,
+                THEN_=pyunits.convert(heat, to_units=pyunits.J / pyunits.s),
+                ELSE_=0 * pyunits.J / pyunits.s,
             )
 
         self.eq_heat_separation_phase = Constraint(
@@ -787,13 +797,6 @@ class FODrawSolutionStateBlockData(StateBlockData):
                                 self.mass_frac_phase_comp["Liq", j]
                             ),
                         )
-
-        # if self.is_property_constructed("heat_separation_phase"):
-        #     iscale.set_scaling_factor(
-        #         self.heat_separation_phase,
-        #         1 / self.liquid_separation.value
-        #         * iscale.get_scaling_factor(self.heat_separation_phase["Liq"]),
-        #     )
 
         if self.is_property_constructed("enth_mass_phase"):
             iscale.set_scaling_factor(

@@ -39,7 +39,6 @@ from idaes.core.util.scaling import (
     list_badly_scaled_variables,
 )
 from idaes.core import FlowsheetBlock, MaterialBalanceType, EnergyBalanceType
-from idaes.core.solvers.get_solver import get_solver
 from idaes.core import UnitModelCostingBlock
 from idaes.models.unit_models import (
     Mixer,
@@ -54,13 +53,17 @@ from idaes.models.unit_models.heat_exchanger import (
 
 # WaterTAP imports
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.core.solvers import get_solver
+from watertap.core.util.initialization import check_dof
+
+# WaterTAP REFLO imports
 from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
     FODrawSolutionParameterBlock,
 )
+
 from watertap_contrib.reflo.unit_models.zero_order.forward_osmosis_zo import (
     ForwardOsmosisZO,
 )
-from watertap.core.util.initialization import check_dof
 from watertap_contrib.reflo.costing import TreatmentCosting
 
 
@@ -360,12 +363,18 @@ def add_fo(
     )
 
 
-def fix_dof_and_initialize(m, strong_draw_mass_frac=0.8, product_draw_mass_frac=0.01):
+def fix_dof_and_initialize(
+    m,
+    strong_draw_mass_frac=0.8,
+    product_draw_mass_frac=0.01,
+    NF_recovery_ratio=0.8,
+    RO_recovery_ratio=0.9,
+):
 
     calculate_scaling_factors(m)
 
     m.fs.fo.initialize()
-    # Unfix the state variables and fix mass fractrion of two state blocks
+    # Unfix the state variables and fix mass fraction of two state blocks
     m.fs.fo.unfix_and_fix_freedom(strong_draw_mass_frac, product_draw_mass_frac)
 
     m.fs.S1.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
@@ -416,10 +425,15 @@ def fix_dof_and_initialize(m, strong_draw_mass_frac=0.8, product_draw_mass_frac=
     m.fs.HX1.initialize(
         state_args_1=state_args_HX1_hot, state_args_2=state_args_HX1_cold
     )
-    m.fs.HX1.cold_side.properties_out[0].liquid_separation = 1
+    # Cold side has liquid separation
+    m.fs.HX1.cold_side.properties_out[0].liquid_separation.fix(1)
     m.fs.HX1.cold_side.properties_out[
         0
     ].mass_frac_after_separation = strong_draw_mass_frac
+    iscale.set_scaling_factor(
+        m.fs.HX1.cold_side.properties_out[0].heat_separation_phase,
+        1e-5,
+    )
 
     state_args_HX2_hot = {
         "flow_mass_phase_comp": {
@@ -446,38 +460,54 @@ def fix_dof_and_initialize(m, strong_draw_mass_frac=0.8, product_draw_mass_frac=
     m.fs.HX2.initialize(
         state_args_1=state_args_HX2_hot, state_args_2=state_args_HX2_cold
     )
-    m.fs.HX2.cold_side.properties_out[0].liquid_separation = 1
+    # Cold side has liquid separation
+    m.fs.HX2.cold_side.properties_out[0].liquid_separation.fix(1)
     m.fs.HX2.cold_side.properties_out[
         0
     ].mass_frac_after_separation = strong_draw_mass_frac
 
+    # Initialize separator S2
     m.fs.S2.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
     )
     m.fs.S2.inlet.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
     )
-    m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
-        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
+    m.fs.S2.NF_reject.flow_mass_phase_comp[
+        0, "Liq", "H2O"
+    ].value = m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value * (
+        1 - NF_recovery_ratio
     )
-    m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
-        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
+    m.fs.S2.NF_reject.flow_mass_phase_comp[
+        0, "Liq", "DrawSolution"
+    ].value = m.fs.fo.product_props[0].flow_mass_phase_comp[
+        "Liq", "DrawSolution"
+    ].value * (
+        1 - NF_recovery_ratio
     )
     m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
-        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value * 1e-1
+        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
+        * NF_recovery_ratio
+        * (1 - RO_recovery_ratio)
     )
     m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
-        * 1e-1
+        * NF_recovery_ratio
+        * (1 - RO_recovery_ratio)
     )
     m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
+        * NF_recovery_ratio
+        * RO_recovery_ratio
     )
     m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
+        * NF_recovery_ratio
+        * RO_recovery_ratio
     )
     m.fs.S2.initialize()
 
+    # Initialize mixer M1
     m.fs.M1.weak_draw.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value
     )
@@ -492,13 +522,17 @@ def fix_dof_and_initialize(m, strong_draw_mass_frac=0.8, product_draw_mass_frac=
     ].value = m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value
     m.fs.M1.outlet.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value
+        + m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value
     )
     m.fs.M1.outlet.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
+        + m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value
     )
+
     m.fs.M1.mixed_state[0].flow_vol_phase["Liq"]
     m.fs.M1.initialize()
 
+    # Initialize heaters
     m.fs.H1.initialize()
     m.fs.H2.initialize()
     m.fs.Cooler.initialize()
