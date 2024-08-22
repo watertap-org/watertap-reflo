@@ -55,10 +55,11 @@ class TestVAGMDbatch:
         )
 
         fix_dof_and_initialize(
-            m, strong_draw_mass_frac=0.8, 
-               product_draw_mass_frac=0.01,
-               RO_recovery_ratio=0.9,
-               NF_recovery_ratio=0.8, 
+            m,
+            strong_draw_mass_frac=0.8,
+            product_draw_mass_frac=0.01,
+            RO_recovery_ratio=0.9,
+            NF_recovery_ratio=0.8,
         )  # same input as above
 
         # Specify the temperature of the weak draw solution and product water after going through HX1
