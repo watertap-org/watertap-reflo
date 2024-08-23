@@ -50,9 +50,6 @@ def m():
     return m
 
 
-# The TestHarness fails because the sol
-
-
 class TestDrawSolutionProperty(PropertyTestHarness):
     def configure(self):
         self.prop_pack = ds_props.FODrawSolutionParameterBlock
