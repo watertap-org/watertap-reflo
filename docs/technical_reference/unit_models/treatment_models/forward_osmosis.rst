@@ -48,7 +48,7 @@ Typically, the following variables are fixed, including the state variables at t
 Model Structure
 ---------------
 
-This FO model consists of 6 StateBlocks (as 4 Ports in parenthesis below).
+This FO model consists of 6 StateBlocks (as 6 Ports in parenthesis below).
 
 * Feed flow (feed)
 * Product water (product)
