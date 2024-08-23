@@ -55,7 +55,7 @@ from watertap_contrib.reflo.costing import REFLOCosting
 solver = get_solver()
 
 
-class TestMEDTVC:
+class TestFO:
     @pytest.fixture(scope="class")
     def FO_frame(self):
         # create model, flowsheet

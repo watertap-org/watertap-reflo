@@ -34,7 +34,7 @@ from watertap.core.solvers import get_solver
 solver = get_solver()
 
 
-class TestVAGMDbatch:
+class TestTreviFO:
     @pytest.fixture(scope="class")
     def fo_trevi_frame(self):
 
