@@ -6,6 +6,7 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits
 )
+from idaes.core.util.model_statistics import *
 from idaes.core import FlowsheetBlock
 import logging
 import pandas as pd
@@ -57,7 +58,7 @@ def get_variable_pairs(t1,t2):
         ]
 
 def create_multiperiod_thermal_model(
-        n_time_points = 3,
+        n_time_points = 2,
         # 24-hr GHI in Phoenix, AZ on June 18th (W/m2)
         GHI = [0, 0, 0, 0, 0, 23, 170, 386, 596, 784, 939, 1031, 1062, 1031, 938, 790, 599, 383, 166, 31, 0, 0, 0, 0],
 ):
@@ -108,25 +109,19 @@ def create_multiperiod_thermal_model(
     mp.build_multi_period_model(
         model_data_kwargs = model_data,
         flowsheet_options= flowsheet_options,
-        initialization_options= {
-            "GHI" : 0,
-            "mass_fr_fpc" : 0.05,
-            "mass_fr_tes_hx_solar" : 0.1,
-            "mass_fr_tes_process" : 0.05,
-        },
+        initialization_options= None, 
+        # {
+        #     "GHI" : 0,
+        #     "mass_fr_fpc" : 0.05,
+        #     "mass_fr_tes_hx_solar" : 0.1,
+        #     "mass_fr_tes_process" : 0.05,
+        # },
         unfix_dof_options=None,
     )
 
+
     active_blocks = mp.get_active_process_blocks()
 
-    # Initialize the first step
-    active_blocks[0].fs.previous_hx_solar_hot_outlet_temperature.fix(41+273.15)
-    active_blocks[0].fs.previous_fpc_outlet_temperature.fix(41+273.15)
-    active_blocks[0].fs.previous_tes_tank_temp.fix(39+273.15)
-    active_blocks[0].fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
-    active_blocks[0].fs.previous_process_outlet_temperature.fix(36+273.15)
-    active_blocks[0].fs.previous_grid_duty.fix(0)
-    active_blocks[0].fs.previous_acc_grid_duty.fix(0)
 
     # Initialize and unfix dof for each period
     solver = get_solver()
@@ -142,8 +137,15 @@ def create_multiperiod_thermal_model(
         result = solver.solve(blk)
         unfix_dof(m=blk)
 
-    # active_blocks[0].fs.previous_grid_duty.fix(0)
-    # active_blocks[0].fs.previous_acc_grid_duty.fix(0)
+    
+    #Initialize the first step
+    active_blocks[0].fs.previous_hx_solar_hot_outlet_temperature.fix(41+273.15)
+    active_blocks[0].fs.previous_fpc_outlet_temperature.fix(41+273.15)
+    active_blocks[0].fs.previous_tes_tank_temp.fix(39+273.15)
+    active_blocks[0].fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
+    active_blocks[0].fs.previous_process_outlet_temperature.fix(36+273.15)
+    active_blocks[0].fs.previous_grid_duty.fix(0)
+    active_blocks[0].fs.previous_acc_grid_duty.fix(0)
 
     print(active_blocks[0].fs.previous_hx_solar_hot_outlet_temperature()-273.15)
 
@@ -154,7 +156,7 @@ def create_multiperiod_thermal_model(
 if __name__ == "__main__":
 
     mp = create_multiperiod_thermal_model()
-
+    print('Degrees of freedom', degrees_of_freedom(mp))
     solver = get_solver()
     results = solver.solve(mp)
 
