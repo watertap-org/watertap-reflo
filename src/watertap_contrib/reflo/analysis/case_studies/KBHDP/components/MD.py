@@ -34,7 +34,6 @@ from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
 
 from watertap.core.util.model_diagnostics.infeasible import *
-from watertap.core.zero_order_properties import WaterParameterBlock
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 
 from watertap_contrib.reflo.costing import (
@@ -43,7 +42,6 @@ from watertap_contrib.reflo.costing import (
     REFLOCosting,
 )
 from watertap.costing.zero_order_costing import ZeroOrderCosting
-from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import *
 
 # Flowsheet function imports
 from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import (
@@ -54,6 +52,12 @@ from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowshe
 from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_design_model import (
     get_n_time_points,
 )
+
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet_multiperiod import (
+    get_vagmd_batch_variable_pairs,
+    unfix_dof
+)
+
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
 
@@ -61,21 +65,19 @@ def build_system(model_options,n_time_points):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     
+    # Property package
     m.fs.params = SeawaterParameterBlock()
 
+    # Create Streams
+    m.fs.feed = Feed(property_package = m.fs.params)
+    m.fs.product = Product(property_package = m.fs.params)
+    m.fs.disposal = Product(property_package = m.fs.params)
+
+    # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
-    build_streams(m.fs, m.fs.params)
     build_md(m, m.fs.md,model_options,n_time_points)
 
-    TransformationFactory("network.expand_arcs").apply_to(m)
-
     return m
-
-
-def build_streams(blk, prop_package):
-    blk.feed = StateJunction(property_package=prop_package)
-    blk.product = StateJunction(property_package=prop_package)
-    blk.disposal = StateJunction(property_package=prop_package)
 
 
 def build_md(m, blk, model_options,n_time_points) -> None:
@@ -94,7 +96,9 @@ def build_md(m, blk, model_options,n_time_points) -> None:
         outlvl=logging.WARNING,
     )
 
-    feed_flow_rate = pyunits.convert(m.fs.feed.properties[0.0].flow_vol_phase["Liq"],to_units=pyunits.L/pyunits.h)()
+    # Converting to units L/h and supplying only value
+    feed_flow_rate = pyunits.convert(m.fs.feed.properties[0.0].flow_vol_phase["Liq"],
+                                     to_units=pyunits.L/pyunits.h)()
 
     # Because its multiperiod, each instance is assigned an initial value based on model input (kwargs)
     blk.unit.build_multi_period_model(
@@ -117,10 +121,10 @@ def init_md(m, blk, model_options, verbose=True, solver=None):
     print(f"MD Degrees of Freedom: {degrees_of_freedom(blk)}")
     print("\n\n")
 
-    # blk.feed.initialize(optarg=optarg)
-    # propagate_state(blk.feed_to_unit)
+    # Converting to units L/h and supplying only value
     feed_flow_rate = pyunits.convert(m.fs.feed.properties[0.0].flow_vol_phase["Liq"],to_units=pyunits.L/pyunits.h)()
     feed_salinity = m.fs.feed.properties[0.0].conc_mass_phase_comp["Liq","TDS"]
+    # Converting temperature to C units
     feed_temp = m.fs.feed.properties[0.0].temperature() - 273.15
 
     add_performance_constraints(m,blk.unit,model_options)
@@ -138,8 +142,6 @@ def init_md(m, blk, model_options, verbose=True, solver=None):
         result = solver.solve(active)
         unfix_dof(m=active, feed_flow_rate=feed_flow_rate)
 
-    # propagate_state(blk.unit_to_disposal)
-    # propagate_state(blk.unit_to_product)
     m.fs.product.initialize(optarg=optarg)
     m.fs.disposal.initialize(optarg=optarg)
 
@@ -379,7 +381,7 @@ if __name__ == "__main__":
         )
 
     
-    n_time_points = 2
+    n_time_points = 3
 
     m = build_system(model_options,n_time_points)
     
