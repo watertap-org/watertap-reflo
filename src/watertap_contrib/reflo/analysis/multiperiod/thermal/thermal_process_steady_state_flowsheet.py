@@ -14,6 +14,7 @@ from pyomo.environ import (
     NonNegativeReals,
 )
 
+from idaes.core.util.initialization import propagate_state as _prop_state
 from idaes.core.util.model_statistics import *
 from pyomo.network import Arc
 from idaes.core import FlowsheetBlock
@@ -30,13 +31,9 @@ from idaes.core.util.initialization import propagate_state
 from idaes.core.solvers.get_solver import get_solver
 import idaes.logger as idaeslog
 
-
-# from thermal_storage import ThermalEnergyStorage
-from watertap_contrib.reflo.unit_models.zero_dimensional.thermal_storage import ThermalEnergyStorage
-
-# from flat_plate_physical import FlatPlatePhysical
+from watertap_contrib.reflo.unit_models.thermal_energy_storage import ThermalEnergyStorage
 from watertap_contrib.reflo.solar_models.zero_order.flat_plate_physical import FlatPlatePhysical
-
+from watertap_contrib.reflo.core import SolarModelType
 
 from idaes.models.unit_models.heat_exchanger import(  
     HeatExchanger,
@@ -66,20 +63,23 @@ from idaes.core.util.scaling import (
     constraint_autoscale_large_jac
 )
 
-def build_thermal_flowsheet(m=None):
+
+def propagate_state(arc):
+    _prop_state(arc)
+
+
+def build_thermal_flowsheet(m = None):
 
     '''
     This function adds the relevant components to the flowsheet
     '''
-    if m is None:
-        m = ConcreteModel()
 
     m.fs = FlowsheetBlock(dynamic = False)
     m.fs.properties = WaterParameterBlock()
-    
+
     # Include FPC model
     m.fs.fpc =  FlatPlatePhysical(
-        property_package = m.fs.properties
+        property_package = m.fs.properties, solar_model_type=SolarModelType.physical
     )
 
     # Include TES model
@@ -88,7 +88,6 @@ def build_thermal_flowsheet(m=None):
     )
 
     # HX between FPC and TES
-
     m.fs.hx_solar = HeatExchangerNTU(
                 hot_side_name = 'fpc',
                 cold_side_name = 'tes',
@@ -96,351 +95,354 @@ def build_thermal_flowsheet(m=None):
                 tes = {"property_package": m.fs.properties}
         )
 
-    # HX between the TES and process
-    m.fs.hx_process = HeatExchanger(
-                hot_side = {"property_package": m.fs.properties},
-                cold_side = {"property_package": m.fs.properties},
-                delta_temperature_callback = delta_temperature_lmtd_callback,
-                flow_pattern=HeatExchangerFlowPattern.countercurrent,
-        )
-
     # Grid heater to meet process inlet temperature set point
     m.fs.grid_heater = Heater(
         property_package = m.fs.properties)
     
+    return m
+    
+    
+def create_coupling_variables(blk):
     # Create coupling variables
 
-    m.fs.previous_fpc_outlet_temperature = Var(
+    blk.fs.previous_hx_solar_hot_outlet_temperature = Var(
         domain = NonNegativeReals,
-        initialize = 30 +273.15,
+        initialize = 35+273.15,
+        bounds = (20+273.15, 99+273.15),
+        units = pyunits.K,
+        doc = 'Outlet temperature from HX solar hot side from the previous time step'
+    )
+
+    blk.fs.previous_fpc_outlet_temperature = Var(
+        domain = NonNegativeReals,
+        initialize = 40+273.15,
         bounds = (20+273.15, 99+273.15),
         units = pyunits.K,
         doc = 'Outlet temperature from FPC from the previous time step'
     )
 
-    m.fs.previous_tes_tank_temp = Var(
+    blk.fs.previous_tes_tank_temp = Var(
         domain = NonNegativeReals,
-        initialize = 25+273.15,
+        initialize = 30+273.15,
         bounds = (20+273.15, 99+273.15),
         units = pyunits.K,
         doc= 'Temperature of the thermal storage tank from the previous time step'
     )
 
-    return m
+    blk.fs.previous_hx_solar_cold_outlet_temperature = Var(
+        domain = NonNegativeReals,
+        initialize = 40+273.15,
+        bounds = (20+273.15, 99+273.15),
+        units = pyunits.K,
+        doc = 'Outlet temperature from HX solar cold side from the previous time step'
+    )
 
 
-def create_mp_steady_state(
-        m = None,
-        GHI = 900, 
-        elec_price = 0.07,
-        md_set_point = 50 + 273.15,
-        md_outlet_temp = 55 + 273.15,
-        mass_fr_md = 0.01,
-        mass_fr_fpc = 0.05,
-        mass_fr_tes_hx_solar = 0.1,
-        mass_fr_tes_process = 0.05,
-):
+    blk.fs.previous_process_outlet_temperature = Var(
+        domain = NonNegativeReals,
+        initialize = 35+273.15,
+        bounds = (20+273.15, 99+273.15),
+        units = pyunits.K,
+        doc = 'Outlet temperature from process from the previous time step'
+    )
 
-    m = build_thermal_flowsheet(m)
+    blk.fs.previous_grid_duty = Var(
+        initialize = 0,
+        units = pyunits.W,
+        doc = 'Grid heat duty from previous step'
+    )
 
-    _create_feed_streams(m,GHI,mass_fr_fpc,mass_fr_tes_hx_solar,mass_fr_tes_process,md_set_point,md_outlet_temp,mass_fr_md)
-    _create_arcs(m)
-    _create_constraints(m)
-    initialize_feed_arcs(m)
-    # initialize_system(m)
-    m = set_model_inputs(m)
+    blk.fs.acc_grid_duty = Var(
+        initialize = 0,
+        units = pyunits.W,
+        doc = 'Accumulated heat duty at each step'
+    )
 
-    return m
+    blk.fs.previous_acc_grid_duty = Var(
+        initialize = 0,
+        units = pyunits.W,
+        doc = 'Accumulated heat duty from previous step'
+    )
 
-def _create_feed_streams(m,
-                         GHI=500, 
-                         mass_fr_fpc = 0.05,
-                         mass_fr_tes_hx_solar=0.1,
-                         mass_fr_tes_process=0.05,
-                         md_set_point=50+273.15,
-                         md_outlet_temp=35+273.15,
-                         mass_fr_md = 0.01):
 
-    m.fs.GHI = Var(initialize = 500, units=pyunits.W / pyunits.m**2)
-    m.fs.GHI.fix(GHI)    
-    # Creating a state block for the outlet stream from FPC
+def create_feed_streams(m,
+                        mass_fr_fpc = 0.05,
+                        mass_fr_tes_hx_solar=0.1,
+                        mass_fr_tes_process=0.05,
+                        ):
+
+    # Creating state blocks for the outlet stream from TES with the TES tank temperature from the previous step
+
+    # Outlet stream from the FPC going back to the solar HX hot inlet
     m.fs.fpc_outlet = Feed(property_package = m.fs.properties)
-
-    m.fs.fpc_outlet.properties[0].temperature.fix(m.fs.previous_fpc_outlet_temperature)
+    m.fs.fpc_outlet.properties[0].temperature.fix(m.fs.previous_fpc_outlet_temperature())
     m.fs.fpc_outlet.properties[0].flow_mass_phase_comp['Liq','H2O'].fix(mass_fr_fpc)
     m.fs.fpc_outlet.properties[0].flow_mass_phase_comp['Vap','H2O'].fix(0)
     m.fs.fpc_outlet.properties[0].pressure.fix(101325)
 
-    # Creating state blocks for the outlet stream from TES with the TES tank temperature from the previous step
-    # Outlet stream from the TES going back to the solar HX
-    m.fs.tes_hx_outlet = Feed(property_package = m.fs.properties)
 
+    # Outlet stream from the TES going back to the solar HX cold inlet
+    m.fs.tes_hx_outlet = Feed(property_package = m.fs.properties)
     m.fs.tes_hx_outlet.properties[0].temperature.fix(m.fs.previous_tes_tank_temp)
     m.fs.tes_hx_outlet.properties[0].flow_mass_phase_comp['Liq','H2O'].fix(mass_fr_tes_hx_solar)
     m.fs.tes_hx_outlet.properties[0].flow_mass_phase_comp['Vap','H2O'].fix(0)
     m.fs.tes_hx_outlet.properties[0].pressure.fix(101325)
 
 
-    # Outlet stream from the TES going to grid heater/process
-    m.fs.tes_process_outlet = Feed(property_package = m.fs.properties)
+    # Outlet stream from the solar HX hot outlet to the FPC inlet
+    m.fs.hx_solar_hot_outlet = Feed(property_package = m.fs.properties)
+    m.fs.hx_solar_hot_outlet.properties[0].temperature.fix(m.fs.previous_hx_solar_hot_outlet_temperature())
+    m.fs.hx_solar_hot_outlet.properties[0].flow_mass_phase_comp['Liq','H2O'].fix(mass_fr_fpc)
+    m.fs.hx_solar_hot_outlet.properties[0].flow_mass_phase_comp['Vap','H2O'].fix(0)
+    m.fs.hx_solar_hot_outlet.properties[0].pressure.fix(101325)
 
-    m.fs.tes_process_outlet.properties[0].temperature.fix(m.fs.previous_tes_tank_temp)
+
+    # Outlet stream from the solar HX cold outlet to the TES
+    m.fs.hx_solar_cold_outlet = Feed(property_package = m.fs.properties)
+    m.fs.hx_solar_cold_outlet.properties[0].temperature.fix(m.fs.previous_hx_solar_cold_outlet_temperature())
+    m.fs.hx_solar_cold_outlet.properties[0].flow_mass_phase_comp['Liq','H2O'].fix(mass_fr_tes_hx_solar)
+    m.fs.hx_solar_cold_outlet.properties[0].flow_mass_phase_comp['Vap','H2O'].fix(0)
+    m.fs.hx_solar_cold_outlet.properties[0].pressure.fix(101325)
+
+
+    # Outlet stream from process outlet to the TES
+    m.fs.process_outlet = Feed(property_package = m.fs.properties)
+    m.fs.process_outlet.properties[0].temperature.fix(m.fs.previous_process_outlet_temperature())
+    m.fs.process_outlet.properties[0].flow_mass_phase_comp['Liq','H2O'].fix(mass_fr_tes_hx_solar)
+    m.fs.process_outlet.properties[0].flow_mass_phase_comp['Vap','H2O'].fix(0)
+    m.fs.process_outlet.properties[0].pressure.fix(101325)
+
+
+    # Outlet stream from the TES going back to the grid heater inlet
+    m.fs.tes_process_outlet = Feed(property_package = m.fs.properties)
+    m.fs.tes_process_outlet.properties[0].temperature.fix(m.fs.previous_tes_tank_temp())
     m.fs.tes_process_outlet.properties[0].flow_mass_phase_comp['Liq','H2O'].fix(mass_fr_tes_process)
     m.fs.tes_process_outlet.properties[0].flow_mass_phase_comp['Vap','H2O'].fix(0)
     m.fs.tes_process_outlet.properties[0].pressure.fix(101325)
 
-    # In the future, an MD unit model should be included instead of these feed streams
-
-    # Outlet stream going from process to process HX
-    m.fs.process_outlet = Feed(property_package = m.fs.properties)
-
-    m.fs.process_outlet.properties[0].temperature.fix(md_outlet_temp)
-    m.fs.process_outlet.properties[0].flow_mass_phase_comp['Liq','H2O'].fix(mass_fr_md)
-    m.fs.process_outlet.properties[0].flow_mass_phase_comp['Vap','H2O'].fix(0)
-    m.fs.process_outlet.properties[0].pressure.fix(101325)
-
-    # Outlet stream going from process HX to process
-    m.fs.process_inlet = Feed(property_package = m.fs.properties)
-
-    m.fs.process_inlet.properties[0].temperature.fix(md_set_point)
-    m.fs.process_inlet.properties[0].flow_mass_phase_comp['Liq','H2O'].fix(mass_fr_md)
-    m.fs.process_inlet.properties[0].flow_mass_phase_comp['Vap','H2O'].fix(0)
-    m.fs.process_inlet.properties[0].pressure.fix(101325)
+    return m
 
 
-def _create_arcs(m):
+def create_arcs(m):
 
     m.fs.fpc_hx_solar = Arc(source = m.fs.fpc_outlet.outlet, 
                             destination = m.fs.hx_solar.hot_side_inlet,
                             doc = 'Connect FPC outlet to the solar HX hotside inlet')
-    
-    m.fs.hx_solar_fpc = Arc(source = m.fs.hx_solar.hot_side_outlet,
+
+    m.fs.hx_solar_fpc = Arc(source = m.fs.hx_solar_hot_outlet.outlet,
                             destination = m.fs.fpc.inlet,
                             doc = 'Connect solar hx hot side outlet back to fpc')
-    
+
     m.fs.tes_hx_solar = Arc(source = m.fs.tes_hx_outlet.outlet,
                             destination = m.fs.hx_solar.cold_side_inlet,
                             doc = 'Connect TES from previous time step to the solar HX cold side inlet')
-    
-    m.fs.hx_solar_tes = Arc(source = m.fs.hx_solar.cold_side_outlet,
+
+    m.fs.hx_solar_tes = Arc(source = m.fs.hx_solar_cold_outlet.outlet,
                             destination = m.fs.tes.tes_hx_inlet,
                             doc = 'Connect solar HX cold side outlet back to TES inlet')
-    
+
     m.fs.tes_gridHtr = Arc(source = m.fs.tes_process_outlet.outlet,
-                           destination = m.fs.grid_heater.inlet,
-                           doc = 'Connect TES to the grid heater inlet')
-    
-    m.fs.gridHtr_hx_process = Arc(source = m.fs.grid_heater.outlet,
-                                  destination = m.fs.hx_process.hot_side_inlet,
-                                  doc = 'Connect grid heater to the process HX hot side inlet')
-    
-    m.fs.hx_process_tes = Arc(source = m.fs.hx_process.hot_side_outlet,
-                              destination = m.fs.tes.tes_process_inlet,
-                              doc = 'Connect the process HX hot side outlet back to TES' )
-    
-    m.fs.process_hx_process = Arc(source = m.fs.process_outlet.outlet,
-                                  destination = m.fs.hx_process.cold_side_inlet,
-                                  doc = 'Connect process outlet to the process HX cold side inlet')
-        
-
-def _create_constraints(m):
-
-    @m.Constraint(doc='Set the grid heater outlet temperature based on heat balance in process HX')
-    def eq_grid_hx_process(b,t):
-        return b.fs.grid_heater.outlet.temperature[0] == b.fs.hx_process.hot_side_inlet.temperature[0]
-
-    @m.Constraint()
-    def process_temp(b):
-        return b.fs.hx_process.cold_side_outlet.temperature[0] == b.fs.process_inlet.properties[0].temperature
+                            destination = m.fs.grid_heater.inlet,
+                            doc = 'Connect TES to the grid heater inlet')
 
 
-def initialize_feed_arcs(m):
+    m.fs.process_tes = Arc(source = m.fs.process_outlet.outlet,
+                            destination = m.fs.tes.tes_process_inlet,
+                            doc = 'Connect process outlet to the TES')
 
-    # Initialize Feed streams
+    TransformationFactory("network.expand_arcs").apply_to(m)
+
+
+def fix_dof_and_initialize(
+    blk,
+    dt,
+    GHI,
+    mass_fr_tes_hx_solar, 
+    mass_fr_tes_process,
+    process_inlet_temp,
+    outlvl=idaeslog.WARNING,
+):
+    """Fix degrees of freedom and initialize the flowsheet
+
+    This function fixes the degrees of freedom of each unit and initializes the entire flowsheet.
+
+    Args:
+        m: Pyomo `Block` or `ConcreteModel` containing the flowsheet
+        outlvl: Logger (default: idaeslog.WARNING)
+    """
+
     solver = get_solver()
     optarg = solver.options
 
-    m.fs.fpc_outlet.initialize(optarg=optarg)
-    m.fs.tes_hx_outlet.initialize(optarg=optarg)
-    m.fs.tes_process_outlet.initialize(optarg=optarg)
-    m.fs.process_outlet.initialize(optarg=optarg)
-    m.fs.process_inlet.initialize(optarg=optarg)
+    blk.fs.fpc_outlet.properties[0].temperature.fix(blk.fs.previous_fpc_outlet_temperature())
+    blk.fs.tes_hx_outlet.properties[0].temperature.fix(blk.fs.previous_tes_tank_temp())
+    blk.fs.hx_solar_hot_outlet.properties[0].temperature.fix(blk.fs.previous_hx_solar_hot_outlet_temperature())
+    blk.fs.hx_solar_cold_outlet.properties[0].temperature.fix(blk.fs.previous_hx_solar_cold_outlet_temperature())
+    blk.fs.process_outlet.properties[0].temperature.fix(blk.fs.previous_process_outlet_temperature())
+    blk.fs.tes_process_outlet.properties[0].temperature.fix(blk.fs.previous_tes_tank_temp())
+    blk.fs.previous_grid_duty.fix()
+    blk.fs.previous_acc_grid_duty.fix()
 
-
-def initialize_system(m):
-    blk = build_thermal_flowsheet()
-    _create_feed_streams(blk)
-    _create_arcs(blk)
-    _create_constraints(blk)
-    initialize_feed_arcs(blk)
-
-    # Initialize unit models
-    print('Initializing system')
-    # Solar hx
-    propagate_state(blk.fs.fpc_hx_solar)
-    propagate_state(blk.fs.tes_hx_solar)
-
-    blk.fs.hx_solar.hot_side_inlet.fix()
-    blk.fs.hx_solar.cold_side_inlet.fix()
-    blk.fs.hx_solar.hot_side_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
-    blk.fs.hx_solar.cold_side_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
-    blk.fs.hx_solar.effectiveness.fix(0.7)
-    blk.fs.hx_solar.initialize_build()
-
+    # Initializing and propagate the FPC
     # FPC
+    # blk.fs.previous_hx_solar_hot_outlet_temperature.fix()
+    blk.fs.hx_solar_hot_outlet.initialize(optarg=optarg)
+
     propagate_state(blk.fs.hx_solar_fpc)
-    blk.fs.fpc.inlet.fix()
-    blk.fs.fpc.G_trans.set_value(400)
-    blk.fs.fpc.area_coll.fix(1)
+    # m.fs.fpc.inlet.fix()
+    blk.fs.fpc.total_irradiance.fix(GHI)
+    blk.fs.fpc.collector_area.fix(2)
+    blk.fs.fpc.outlet.pressure.fix(101325)
     blk.fs.fpc.initialize()
 
-    # Grid heater
-    propagate_state(blk.fs.tes_gridHtr)
-    blk.fs.grid_heater.inlet.fix()
+    # Initialize and propragate for solar HX
+    # blk.fs.previous_fpc_outlet_temperature.fix() 
+    blk.fs.fpc_outlet.initialize()
+    propagate_state(blk.fs.fpc_hx_solar)
 
-    blk.fs.grid_heater.outlet.temperature[0].setub(99+273.15)
+    # blk.fs.previous_tes_tank_temp.fix()
+    blk.fs.tes_hx_outlet.initialize()
+    propagate_state(blk.fs.tes_hx_solar)
+
+    blk.fs.hx_solar.effectiveness.fix(0.7)
+    blk.fs.hx_solar.hot_side_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
+    blk.fs.hx_solar.cold_side_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
+
+    blk.fs.hx_solar.initialize_build()
+
+    # Initialize and propagate from TES
+    # blk.fs.previous_hx_solar_cold_outlet_temperature.fix()
+    blk.fs.hx_solar_cold_outlet.initialize()
+    propagate_state(blk.fs.hx_solar_tes)
+
+    # blk.fs.previous_process_outlet_temperature.fix()
+    blk.fs.process_outlet.initialize()
+    propagate_state(blk.fs.process_tes)
+
+    blk.fs.tes.dt.fix(dt)
+    # m.fs.tes.tes_hx_inlet.fix()
+    blk.fs.tes.tes_initial_temperature.fix(blk.fs.previous_tes_tank_temp())
+    blk.fs.tes.tes_volume.fix(10)
+    blk.fs.tes.hours_storage.fix(6)
+    # m.fs.tes.heat_load.fix(0.5)
+
+    # m.fs.tes.tes_process_inlet.temperature.fix(20 + 273.15)
+    # m.fs.tes.tes_process_inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(mass_fr_tes_process)
+    # m.fs.tes.tes_process_inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
+    # m.fs.tes.tes_process_inlet.pressure.fix(101325)
+
+    # Fix outlet vapor flow to be 0
+    blk.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
+    blk.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(mass_fr_tes_hx_solar)
+    blk.fs.tes.tes_hx_outlet.pressure.fix()
+    # m.fs.tes.tes_hx_outlet.temperature.fix(m.fs.previous_tes_tank_temp())
+
+    blk.fs.tes.tes_process_outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
+    blk.fs.tes.tes_process_outlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(mass_fr_tes_process)
+    blk.fs.tes.tes_process_outlet.pressure.fix()
+    # m.fs.tes.tes_process_outlet.temperature.fix(m.fs.previous_tes_tank_temp())
+ 
+    blk.fs.tes.initialize()
+
+    # Grid Heater
+    # m.fs.grid_heater.outlet.temperature[0].setub(99+273.15)
+    propagate_state(blk.fs.tes_gridHtr)
+    blk.fs.tes_process_outlet.initialize()
     blk.fs.grid_heater.outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
+    # m.fs.grid_heater.outlet.pressure.fix()
+    blk.fs.grid_heater.outlet.temperature[0].fix(process_inlet_temp + 273.15)
 
     blk.fs.grid_heater.initialize()
 
-    # Process HX
-    propagate_state(blk.fs.process_hx_process)
-    propagate_state(blk.fs.gridHtr_hx_process)
-    propagate_state(blk.fs.process_hx_process)
-
-    blk.fs.hx_process.cold_side_inlet.fix()
-    blk.fs.hx_process.hot_side_inlet.fix()
-    blk.fs.hx_process.hot_side_inlet.temperature.unfix()
-    blk.fs.hx_process.overall_heat_transfer_coefficient[0].fix(100)
-    blk.fs.hx_process.area.fix(1)
-
-    blk.fs.hx_process.hot_side_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
-    blk.fs.hx_process.cold_side_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
-    blk.fs.hx_process.initialize_build()
-
-    # TES
-    propagate_state(blk.fs.hx_solar_tes)
-    propagate_state(blk.fs.hx_process_tes)
-
-    blk.fs.tes.tes_hx_inlet.fix()
-    blk.fs.tes.tes_hx_inlet.temperature.unfix()
-    blk.fs.tes.tes_process_inlet.fix()
-    blk.fs.tes.tes_process_inlet.temperature.unfix()
 
 
-    blk.fs.tes.dt.fix()
-    blk.fs.tes.tes_initial_temp.fix(blk.fs.previous_fpc_outlet_temperature())
-    blk.fs.tes.tes_diameter.fix(1.25)
-
-    blk.fs.tes.initialize()
-
-    solver = get_solver()
-    results = solver.solve(m)
-
-    # Unfix variables
-    blk.fs.hx_solar.hot_side_inlet.temperature.unfix()
-    blk.fs.hx_solar.cold_side_inlet.temperature.unfix()
-    blk.fs.fpc.inlet.temperature.unfix()
-    blk.fs.grid_heater.inlet.temperature.unfix()
-    blk.fs.hx_process.cold_side_inlet.temperature.unfix()
-    blk.fs.tes.tes_initial_temp.unfix()
-
-    return
-
+def create_mp_steady_state(
+        m= None,
+        GHI = 900, 
+        elec_price = 0.07,
+        mass_fr_fpc = 0.05,
+        mass_fr_tes_hx_solar = 0.1,
+        mass_fr_tes_process = 0.05,
+):
     
-def set_model_inputs(m):
-    # fix model inputs
-    # Fixing the solar HX inlet stream
-    print('Setting time step inputs')
-    # solar hx
-    propagate_state(m.fs.fpc_hx_solar)
-    propagate_state(m.fs.tes_hx_solar)
+    if m is None:
+        m = ConcreteModel()
 
-    m.fs.hx_solar.hot_side_inlet.fix()
-    m.fs.hx_solar.cold_side_inlet.fix()
-    m.fs.hx_solar.initialize_build()
+    m = build_thermal_flowsheet(m)
 
-    # FPC
-    propagate_state(m.fs.hx_solar_fpc)
-    m.fs.fpc.inlet.fix()
-    m.fs.fpc.G_trans.set_value(m.fs.GHI)
-    m.fs.fpc.initialize()
+    create_coupling_variables(m)
+    create_feed_streams(m, mass_fr_fpc, mass_fr_tes_hx_solar, mass_fr_tes_process)
+    create_arcs(m)
+
+    # Constraints on the TES output so that the TES tank temperature is the same as the temperature to process and solar hx
+
+    @m.Constraint(doc='Temperature to the process and solar HX are the same')
+    def eq_hx_process(b,t):
+        return b.fs.tes.tes_process_outlet.temperature[0] == b.fs.tes.tes_hx_outlet.temperature[0]
+
+    @m.Constraint(doc='Calculated TES temperature is the same as the outlet to solar HX')
+    def eq_temp_process(b,t):
+        return b.fs.tes.tes_temperature[0] == b.fs.tes.tes_hx_outlet.temperature[0]
     
-    # Fixing the TES outlet to solar HX and grid heater
-    m.fs.hx_solar.cold_side_inlet.fix()
-    m.fs.grid_heater.inlet.fix()
-    # Fixing process outlets stream
-    m.fs.hx_process.cold_side_inlet.fix()
-
-    # Grid heater
-    propagate_state(m.fs.tes_gridHtr)
-    m.fs.grid_heater.inlet.fix()
-    m.fs.grid_heater.initialize()
-    
-    # Process HX
-    propagate_state(m.fs.process_hx_process)
-    propagate_state(m.fs.gridHtr_hx_process)
-    propagate_state(m.fs.process_hx_process)
-
-    m.fs.hx_process.cold_side_inlet.fix()
-    m.fs.hx_process.hot_side_inlet.fix()
-    m.fs.hx_process.hot_side_inlet.temperature.unfix()
-    m.fs.hx_process.initialize_build()
-    
-    # TES
-    propagate_state(m.fs.hx_solar_tes)
-    propagate_state(m.fs.hx_process_tes)
-
-    m.fs.tes.tes_hx_inlet.fix()
-    m.fs.tes.tes_hx_inlet.temperature.unfix()
-    m.fs.tes.tes_process_inlet.fix()
-    m.fs.tes.tes_process_inlet.temperature.unfix()
-
-
-    m.fs.tes.tes_initial_temp.fix(m.fs.previous_fpc_outlet_temperature())
-    m.fs.tes.initialize()
+    @m.Constraint(doc='Calculating the accumulated grid heat duty')
+    def eq_acc_grid_duty(b):
+        return b.fs.acc_grid_duty == b.fs.previous_grid_duty + b.fs.previous_acc_grid_duty
 
     return m
 
+
 def print_results(m):
-    print('Tank temperature:',m.fs.tes.tes_temp[0]()-273.15)
+
+    print('\nTank Variables')
+    print('Tank temperature:', value(m.fs.tes.tes_temperature[0])-273.15)
+    print('Temperature of stream exiting to grid heater:',m.fs.tes.tes_process_outlet.temperature[0]()-273.15)
+    print('Temperature of stream exiting to solar hx:',m.fs.tes.tes_hx_outlet.temperature[0]()-273.15)
 
     # FPC
+    print('\nFlat plate collector')
+    print('FPC inlet temperature:',m.fs.fpc.inlet.temperature[0].value-273.15)
     print('FPC outlet temperature:',m.fs.fpc.outlet.temperature[0]()-273.15)
 
-    # Grid inlet temperature
-    print('Grid heater inlet temperature:',m.fs.grid_heater.inlet.temperature[0]() - 273.15)
+    # Solar HX
+    print('\nSolar HX')
+    print('Solar HX hot side inlet:',m.fs.hx_solar.hot_side_inlet.temperature[0].value - 273.15)
+    print('Solar HX hot side outlet:',m.fs.hx_solar.hot_side_outlet.temperature[0].value - 273.15)
+    print('Solar HX cold side inlet:',m.fs.hx_solar.cold_side_inlet.temperature[0].value - 273.15)
+    print('Solar HX cold side outlet:',m.fs.hx_solar.cold_side_outlet.temperature[0].value - 273.15)
 
-    # Grid outlet temperature
+    # Grid inlet temperature
+    print('\nGrid powered heater')
+    print('Grid heater inlet temperature:',m.fs.grid_heater.inlet.temperature[0]() - 273.15)
     print('Grid heater outlet temperature:',m.fs.grid_heater.outlet.temperature[0]() - 273.15)
 
     # Grid heat duty
     print('Grid heater heat duty:', m.fs.grid_heater.heat_duty[0]())
-
-    # Process inlet temperature (to MD)
-    print('Process heater - hot side inlet temperature:', m.fs.hx_process.hot_side_inlet.temperature[0]() - 273.15)
-
-    # Process inlet temperature (to MD)
-    print('Process heater - cold side outlet temperature:', m.fs.hx_process.cold_side_outlet.temperature[0]() - 273.15)
-
+    print('Accumulated grid heat duty:', m.fs.acc_grid_duty())
+    print('Degrees of freedom:', degrees_of_freedom(m))
 
 def main():
-    m = build_thermal_flowsheet(
-        GHI = 900, 
+    m = create_mp_steady_state(
+        GHI = 0, 
         elec_price = 0.07,
-        md_set_point = 50 + 273.15,
-        md_outlet_temp = 35 + 273.15,
-        mass_fr_md = 0.01,
         mass_fr_fpc = 0.05,
         mass_fr_tes_hx_solar = 0.1,
         mass_fr_tes_process = 0.05,         
     )
     
-    print_results(m)
+    fix_dof_and_initialize(m, 
+                           dt = 3600, 
+                           GHI = 0 ,
+                           mass_fr_tes_hx_solar = 0.1, 
+                           mass_fr_tes_process = 0.05, 
+                           process_inlet_temp=60)
+
+    # print_results(m)
     print(degrees_of_freedom(m))
 
     solver = get_solver()
     results = solver.solve(m)
+
+    print(degrees_of_freedom(m))
 
     return m
     
