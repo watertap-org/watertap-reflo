@@ -292,7 +292,7 @@ def fix_dof_and_initialize(
 
     propagate_state(blk.fs.hx_solar_fpc)
     # m.fs.fpc.inlet.fix()
-    blk.fs.fpc.total_irradiance.fix(GHI)
+
     blk.fs.fpc.collector_area.fix(2)
     blk.fs.fpc.outlet.pressure.fix(101325)
     blk.fs.fpc.initialize()
@@ -376,6 +376,7 @@ def create_mp_steady_state(
     create_feed_streams(m, mass_fr_fpc, mass_fr_tes_hx_solar, mass_fr_tes_process)
     create_arcs(m)
 
+    m.fs.fpc.total_irradiance.fix(GHI)
     # Constraints on the TES output so that the TES tank temperature is the same as the temperature to process and solar hx
 
     @m.Constraint(doc='Temperature to the process and solar HX are the same')
@@ -404,6 +405,7 @@ def print_results(m):
     print('\nFlat plate collector')
     print('FPC inlet temperature:',m.fs.fpc.inlet.temperature[0].value-273.15)
     print('FPC outlet temperature:',m.fs.fpc.outlet.temperature[0]()-273.15)
+    print('GHI: ', m.fs.fpc.total_irradiance())
     print('FPC net heat gain:',m.fs.fpc.net_heat_gain[0].value)
 
     # Solar HX

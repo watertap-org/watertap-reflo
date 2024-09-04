@@ -58,7 +58,7 @@ def get_variable_pairs(t1,t2):
         ]
 
 def create_multiperiod_thermal_model(
-        n_time_points = 3,
+        n_time_points = 10,
         # 24-hr GHI in Phoenix, AZ on June 18th (W/m2)
         GHI = [0, 0, 0, 0, 0, 23, 170, 386, 596, 784, 939, 1031, 1062, 1031, 938, 790, 599, 383, 166, 31, 0, 0, 0, 0],
 ):
@@ -155,8 +155,10 @@ def create_multiperiod_thermal_model(
 if __name__ == "__main__":
 
     mp = create_multiperiod_thermal_model()
+    print('dof before solving: ', degrees_of_freedom(mp))
     solver = get_solver()
     results = solver.solve(mp)
+    print('dof after solving: ', degrees_of_freedom(mp))
 
     # assert_optimal_termination(results)
 
@@ -169,4 +171,14 @@ if __name__ == "__main__":
     print('\nStep 3')
     print_results(mp.blocks[2].process)
 
+    print('\nStep 6')
+    print_results(mp.blocks[5].process)
+    print('\nStep 7')
+    print_results(mp.blocks[6].process)
+    print('\nStep 8')
+    print_results(mp.blocks[7].process)
+    print('\nStep 9')
+    print_results(mp.blocks[8].process)
+    print('\nStep 10')
+    print_results(mp.blocks[9].process)
     # print(mp.blocks[0].process.fs.previous_hx_solar_hot_outlet_temperature.value-273.15)
