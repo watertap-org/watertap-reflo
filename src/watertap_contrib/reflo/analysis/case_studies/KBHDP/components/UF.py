@@ -120,8 +120,7 @@ def add_UF_costing(m, blk):
         flowsheet_costing_block=m.fs.costing,
     )
 
-    m.fs.costing.cost_process()
-    pass
+    # m.fs.costing.cost_process()
 
 
 def load_parameters(m, blk):

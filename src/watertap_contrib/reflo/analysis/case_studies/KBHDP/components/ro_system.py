@@ -21,7 +21,8 @@ from pyomo.environ import (
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.solvers import get_solver
+# from idaes.core.solvers import get_solver
+from watertap.core.solvers import get_solver
 from idaes.core.util.initialization import propagate_state as _prop_state
 import idaes.core.util.scaling as iscale
 from idaes.core.util.scaling import (
@@ -58,9 +59,9 @@ from watertap.costing import (
 )
 
 # from analysisWaterTAP.utils.flowsheet_utils import *
-from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
-    calculate_operating_pressure,
-)
+# from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
+#     calculate_operating_pressure,
+# )
 
 # from analysisWaterTAP.utils import flowsheet_utils as fsTool
 # from analysisWaterTAP.flowsheets.lssro_oaro.costing.LSRRO_ORARO_costing import *
@@ -98,25 +99,25 @@ def _initialize(m, blk, optarg):
         print("\n")
 
 
-def print_RO_op_pressure_est(blk):
-    solver = get_solver()
-    operating_pressure = calculate_operating_pressure(
-        feed_state_block=blk.feed.properties[0],
-        over_pressure=0.15,
-        water_recovery=0.8,
-        NaCl_passage=0.01,
-        solver=solver,
-    )
+# def print_RO_op_pressure_est(blk):
+#     solver = get_solver()
+#     operating_pressure = calculate_operating_pressure(
+#         feed_state_block=blk.feed.properties[0],
+#         over_pressure=0.15,
+#         water_recovery=0.8,
+#         NaCl_passage=0.01,
+#         solver=solver,
+#     )
 
-    operating_pressure_psi = pyunits.convert(
-        operating_pressure * pyunits.Pa, to_units=pyunits.psi
-    )()
-    operating_pressure_bar = pyunits.convert(
-        operating_pressure * pyunits.Pa, to_units=pyunits.bar
-    )()
-    print(
-        f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
-    )
+#     operating_pressure_psi = pyunits.convert(
+#         operating_pressure * pyunits.Pa, to_units=pyunits.psi
+#     )()
+#     operating_pressure_bar = pyunits.convert(
+#         operating_pressure * pyunits.Pa, to_units=pyunits.bar
+#     )()
+#     print(
+#         f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
+#     )
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
@@ -342,7 +343,7 @@ def init_ro_stage(m, stage, solver=None):
         stage.feed.initialize(optarg=optarg)
         propagate_state(stage.stage_feed_to_module)
 
-    print_RO_op_pressure_est(stage)
+    # print_RO_op_pressure_est(stage)
     display_inlet_conditions(stage)
 
     stage.module.initialize(optarg=optarg)
