@@ -173,7 +173,7 @@ def set_system_operating_conditions(m):
     # soft.properties_waste[0].conc_mass_phase_comp["Liq", "Mg_2+"]
     # soft.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
     print(degrees_of_freedom(m))
-    assert False
+
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
