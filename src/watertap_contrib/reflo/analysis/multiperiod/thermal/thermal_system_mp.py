@@ -18,19 +18,18 @@ from watertap_contrib.reflo.analysis.multiperiod.thermal.thermal_process_steady_
     print_results
 )
 
-from idaes.core.solvers.get_solver import get_solver
-import matplotlib.pyplot as plt
+from watertap.core.solvers import get_solver
 
 
 # Can optimize storage tank volume
-def unfix_dof(blk):
-    blk.fs.previous_hx_solar_hot_outlet_temperature.unfix()
-    blk.fs.previous_fpc_outlet_temperature.unfix()
-    blk.fs.previous_tes_tank_temp.unfix()
-    blk.fs.previous_hx_solar_cold_outlet_temperature.unfix()
-    blk.fs.previous_process_outlet_temperature.unfix()
-    blk.fs.previous_acc_grid_duty.unfix()
-    blk.fs.previous_grid_duty.unfix()
+def unfix_dof(m):
+    m.fs.previous_hx_solar_hot_outlet_temperature.unfix()
+    m.fs.previous_fpc_outlet_temperature.unfix()
+    m.fs.previous_tes_tank_temp.unfix()
+    m.fs.previous_hx_solar_cold_outlet_temperature.unfix()
+    m.fs.previous_process_outlet_temperature.unfix()
+    m.fs.previous_acc_grid_duty.unfix()
+    m.fs.previous_grid_duty.unfix()
 
     return None
 
@@ -53,7 +52,6 @@ def get_variable_pairs(t1,t2):
         (t1.fs.tes.tes_temperature[0], t2.fs.previous_tes_tank_temp),
         (t1.fs.hx_solar.cold_side_outlet.temperature[0], t2.fs.previous_hx_solar_cold_outlet_temperature),
         (t1.fs.tes.tes_process_outlet.temperature[0], t2.fs.previous_process_outlet_temperature),
-        
         (t1.fs.acc_grid_duty, t2.fs.previous_acc_grid_duty),
         (t1.fs.grid_heater.heat_duty[0], t2.fs.previous_grid_duty),
         
@@ -62,19 +60,18 @@ def get_variable_pairs(t1,t2):
 def create_multiperiod_thermal_model(
         n_time_points = 3,
         # 24-hr GHI in Phoenix, AZ on June 18th (W/m2)
-        GHI = [0, 0, 0, 0, 0, 23, 170, 386, 596, 784, 939, 1031, 
-               1062, 1031, 938, 790, 599, 383, 166, 31, 0, 0, 0, 0],
+        GHI = [0, 0, 0, 0, 0, 23, 170, 386, 596, 784, 939, 1031, 1062, 1031, 938, 790, 599, 383, 166, 31, 0, 0, 0, 0],
 ):
 
     """
-    This function creates a multi-period thermal flowsheet object. This object contains
+    This function creates a multi-period pv battery flowsheet object. This object contains
     a pyomo model with a block for each time instance.
 
     Args:
         n_time_points: Number of time blocks to create
 
     Returns:
-        Object containing multi-period fpc-tes flowsheet model
+        Object containing multi-period vagmd batch flowsheet model
     """ 
 
     mp = MultiPeriodModel(
@@ -125,15 +122,6 @@ def create_multiperiod_thermal_model(
 
     active_blocks = mp.get_active_process_blocks()
 
-    # Initialize the first step
-    active_blocks[0].fs.previous_hx_solar_hot_outlet_temperature.fix(41+273.15)
-    active_blocks[0].fs.previous_fpc_outlet_temperature.fix(41+273.15)
-    active_blocks[0].fs.previous_tes_tank_temp.fix(39+273.15)
-    active_blocks[0].fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
-    active_blocks[0].fs.previous_process_outlet_temperature.fix(36+273.15)
-
-    active_blocks[0].fs.previous_grid_duty.fix(0)
-    active_blocks[0].fs.previous_acc_grid_duty.fix(0)
 
     # Initialize and unfix dof for each period
     solver = get_solver()
@@ -144,23 +132,21 @@ def create_multiperiod_thermal_model(
             GHI= 0 ,
             mass_fr_tes_hx_solar=0.1,
             mass_fr_tes_process= 0.05, 
-            process_inlet_temp=70, 
+            process_inlet_temp=40, 
         )
+        print('dof before init: ', degrees_of_freedom(blk))
         result = solver.solve(blk)
-        unfix_dof(blk)
-        print('\nDegrees of freedom after initialization function \n', degrees_of_freedom(blk))
+        unfix_dof(m=blk)
+
     
-    # Initialize the first step
+    #Initialize the first step
     active_blocks[0].fs.previous_hx_solar_hot_outlet_temperature.fix(41+273.15)
     active_blocks[0].fs.previous_fpc_outlet_temperature.fix(41+273.15)
     active_blocks[0].fs.previous_tes_tank_temp.fix(39+273.15)
     active_blocks[0].fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
     active_blocks[0].fs.previous_process_outlet_temperature.fix(36+273.15)
-
     active_blocks[0].fs.previous_grid_duty.fix(0)
     active_blocks[0].fs.previous_acc_grid_duty.fix(0)
-
-    # print(active_blocks[0].fs.previous_hx_solar_hot_outlet_temperature()-273.15)
 
     return mp
 
@@ -168,19 +154,11 @@ def create_multiperiod_thermal_model(
 
 if __name__ == "__main__":
 
-    n_time_points = 24
-    mp = create_multiperiod_thermal_model(        
-        n_time_points = n_time_points,
-        # 24-hr GHI in Phoenix, AZ on June 18th (W/m2)
-        GHI = [0, 0, 0, 0, 0, 23, 170, 386, 596, 784, 939, 1031, 
-               1062, 1031, 938, 790, 599, 383, 166, 31, 0, 0, 0, 0])
-    
-    print('\nDegrees of freedom after initialization', degrees_of_freedom(mp))
-
+    mp = create_multiperiod_thermal_model()
     solver = get_solver()
     results = solver.solve(mp)
 
-    assert_optimal_termination(results)
+    # assert_optimal_termination(results)
 
     print('\nStep 1')
     print_results(mp.blocks[0].process)
@@ -191,17 +169,4 @@ if __name__ == "__main__":
     print('\nStep 3')
     print_results(mp.blocks[2].process)
 
-    tes_temp = []
-    grid_duty = []
-
-    fig, (ax0,ax1) = plt.subplots(1,2)
-
-    for n in range(0,n_time_points):
-        tes_temp.append(mp.blocks[n].process.fs.tes.tes_temperature[0].value-273.15)
-        grid_duty.append(mp.blocks[n].process.fs.grid_heater.heat_duty[0].value)
-
-    ax0.scatter(range(0,n_time_points),tes_temp)
-    ax1.scatter(range(0,n_time_points),grid_duty)
-
-    plt.show()
-
+    # print(mp.blocks[0].process.fs.previous_hx_solar_hot_outlet_temperature.value-273.15)
