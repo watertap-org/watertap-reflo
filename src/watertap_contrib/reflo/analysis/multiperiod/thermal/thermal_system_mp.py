@@ -58,7 +58,7 @@ def get_variable_pairs(t1,t2):
         ]
 
 def create_multiperiod_thermal_model(
-        n_time_points = 2,
+        n_time_points = 3,
         # 24-hr GHI in Phoenix, AZ on June 18th (W/m2)
         GHI = [0, 0, 0, 0, 0, 23, 170, 386, 596, 784, 939, 1031, 1062, 1031, 938, 790, 599, 383, 166, 31, 0, 0, 0, 0],
 ):
@@ -122,6 +122,14 @@ def create_multiperiod_thermal_model(
 
     active_blocks = mp.get_active_process_blocks()
 
+    #Initialize the first step
+    active_blocks[0].fs.previous_hx_solar_hot_outlet_temperature.fix(41+273.15)
+    active_blocks[0].fs.previous_fpc_outlet_temperature.fix(41+273.15)
+    active_blocks[0].fs.previous_tes_tank_temp.fix(39+273.15)
+    active_blocks[0].fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
+    active_blocks[0].fs.previous_process_outlet_temperature.fix(36+273.15)
+    active_blocks[0].fs.previous_grid_duty.fix(0)
+    active_blocks[0].fs.previous_acc_grid_duty.fix(0)
 
     # Initialize and unfix dof for each period
     solver = get_solver()
@@ -144,6 +152,9 @@ def create_multiperiod_thermal_model(
     active_blocks[0].fs.previous_tes_tank_temp.fix(39+273.15)
     active_blocks[0].fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
     active_blocks[0].fs.previous_process_outlet_temperature.fix(36+273.15)
+    active_blocks[0].fs.previous_grid_duty.fix(0)
+    active_blocks[0].fs.previous_acc_grid_duty.fix(0)
+
     active_blocks[0].fs.previous_grid_duty.fix(0)
     active_blocks[0].fs.previous_acc_grid_duty.fix(0)
 

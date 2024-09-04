@@ -274,14 +274,12 @@ def fix_dof_and_initialize(
     solver = get_solver()
     optarg = solver.options
 
-    
-    #Initialize the first step
-    blk.fs.previous_hx_solar_hot_outlet_temperature.fix(41+273.15)
-    blk.fs.previous_fpc_outlet_temperature.fix(41+273.15)
-    blk.fs.previous_tes_tank_temp.fix(39+273.15)
-    blk.fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
-    blk.fs.previous_process_outlet_temperature.fix(36+273.15)
-    blk.fs.previous_grid_duty.fix(0)
+    # blk.fs.previous_hx_solar_hot_outlet_temperature.fix(41+273.15)
+    # blk.fs.previous_fpc_outlet_temperature.fix(41+273.15)
+    # blk.fs.previous_tes_tank_temp.fix(39+273.15)
+    # blk.fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
+    # blk.fs.previous_process_outlet_temperature.fix(36+273.15)
+    blk.fs.previous_grid_duty.fix(10)
     blk.fs.previous_acc_grid_duty.fix(0)
 
     blk.fs.fpc_outlet.properties[0].temperature.fix(blk.fs.previous_fpc_outlet_temperature())
@@ -290,7 +288,6 @@ def fix_dof_and_initialize(
     blk.fs.hx_solar_cold_outlet.properties[0].temperature.fix(blk.fs.previous_hx_solar_cold_outlet_temperature())
     blk.fs.process_outlet.properties[0].temperature.fix(blk.fs.previous_process_outlet_temperature())
     blk.fs.tes_process_outlet.properties[0].temperature.fix(blk.fs.previous_tes_tank_temp())
-
 
     # Initializing and propagate the FPC
     # FPC
