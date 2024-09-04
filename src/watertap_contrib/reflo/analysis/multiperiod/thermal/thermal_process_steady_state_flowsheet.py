@@ -165,6 +165,7 @@ def create_coupling_variables(blk):
     )
 
 
+
 def create_feed_streams(m,
                         mass_fr_fpc = 0.05,
                         mass_fr_tes_hx_solar=0.1,
@@ -274,12 +275,7 @@ def fix_dof_and_initialize(
     solver = get_solver()
     optarg = solver.options
 
-    # blk.fs.previous_hx_solar_hot_outlet_temperature.fix(41+273.15)
-    # blk.fs.previous_fpc_outlet_temperature.fix(41+273.15)
-    # blk.fs.previous_tes_tank_temp.fix(39+273.15)
-    # blk.fs.previous_hx_solar_cold_outlet_temperature.fix(41+273.15)
-    # blk.fs.previous_process_outlet_temperature.fix(36+273.15)
-    blk.fs.previous_grid_duty.fix(10)
+    blk.fs.previous_grid_duty.fix(0)
     blk.fs.previous_acc_grid_duty.fix(0)
 
     blk.fs.fpc_outlet.properties[0].temperature.fix(blk.fs.previous_fpc_outlet_temperature())
@@ -392,7 +388,7 @@ def create_mp_steady_state(
     
     @m.Constraint(doc='Calculating the accumulated grid heat duty')
     def eq_acc_grid_duty(b):
-        return b.fs.acc_grid_duty == b.fs.previous_grid_duty + b.fs.previous_acc_grid_duty
+        return (b.fs.acc_grid_duty == (b.fs.previous_grid_duty + b.fs.previous_acc_grid_duty))
 
     return m
 
@@ -408,6 +404,7 @@ def print_results(m):
     print('\nFlat plate collector')
     print('FPC inlet temperature:',m.fs.fpc.inlet.temperature[0].value-273.15)
     print('FPC outlet temperature:',m.fs.fpc.outlet.temperature[0]()-273.15)
+    print('FPC net heat gain:',m.fs.fpc.net_heat_gain[0].value)
 
     # Solar HX
     print('\nSolar HX')
@@ -424,6 +421,8 @@ def print_results(m):
     # Grid heat duty
     print('Grid heater heat duty:', m.fs.grid_heater.heat_duty[0]())
     print('Accumulated grid heat duty:', m.fs.acc_grid_duty())
+    print('Previous accumulated grid heat duty:', m.fs.previous_acc_grid_duty())
+    print('Previous grid duty:', m.fs.previous_grid_duty())
     print('Degrees of freedom:', degrees_of_freedom(m))
 
 def main():
