@@ -72,7 +72,7 @@ def build_system():
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = REFLOCosting()
     m.fs.properties = MCASParameterBlock(
-        solute_list=["Alkalinity_2-", "Ca_2+", "Mg_2+", "SiO2", "Na_+", "Cl_-"],
+        solute_list=["Alkalinity_2-", "Ca_2+", "Mg_2+", "SiO2", "Na_+", "Cl_-", "K_+", "SO2_-4+"],
         material_flow_basis=MaterialFlowBasis.mass,
     )
     m.fs.feed = Feed(property_package=m.fs.properties)
