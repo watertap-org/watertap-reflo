@@ -313,6 +313,7 @@ def fix_dof_and_initialize(
     propagate_state(blk.fs.tes_hx_solar)
 
     blk.fs.hx_solar.effectiveness.fix(0.7)
+    blk.fs.hx_solar.area.fix(1)
     blk.fs.hx_solar.hot_side_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
     blk.fs.hx_solar.cold_side_outlet.flow_mass_phase_comp[0,'Vap','H2O'].fix(0)
 
@@ -467,6 +468,7 @@ def main():
                            mass_fr_tes_hx_solar = 0.1, 
                            mass_fr_tes_process = 0.05, 
                            tank_vol = 2,
+                           fpc_collector_area=3,
                            process_inlet_temp=50,
                            process_outlet_temp=40)
 
