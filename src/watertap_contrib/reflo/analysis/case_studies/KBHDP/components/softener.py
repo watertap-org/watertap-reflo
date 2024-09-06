@@ -269,8 +269,8 @@ def add_softener_costing(m, blk):
         flowsheet_costing_block=m.fs.costing,
     )
 
-    # m.fs.costing.cost_process()
-    # m.fs.costing.add_LCOW(blk.unit.properties_in[0].flow_vol)
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(blk.unit.properties_in[0].flow_vol)
 
 
 def init_system(blk, solver=None):
@@ -456,4 +456,9 @@ if __name__ == "__main__":
     add_softener_costing(m, m.fs.softener)
     # set_scaling(m)
     # report_MCAS_stream_conc(m)
+    print(f"DOF = {degrees_of_freedom(m)}")
     init_system(m)
+    solver = get_solver() 
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+    print(f"LCOW = {m.fs.costing.LCOW()}")
