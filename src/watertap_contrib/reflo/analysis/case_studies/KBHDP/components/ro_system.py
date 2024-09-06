@@ -21,6 +21,7 @@ from pyomo.environ import (
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+
 # from idaes.core.solvers import get_solver
 from watertap.core.solvers import get_solver
 from idaes.core.util.initialization import propagate_state as _prop_state
@@ -59,9 +60,9 @@ from watertap.costing import (
 )
 
 # from analysisWaterTAP.utils.flowsheet_utils import *
-# from watertap.examples.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
-#     calculate_operating_pressure,
-# )
+from watertap.flowsheets.RO_with_energy_recovery.RO_with_energy_recovery import (
+    calculate_operating_pressure,
+)
 
 # from analysisWaterTAP.utils import flowsheet_utils as fsTool
 # from analysisWaterTAP.flowsheets.lssro_oaro.costing.LSRRO_ORARO_costing import *
@@ -70,6 +71,20 @@ from idaes.core.util.model_statistics import *
 from watertap.costing import WaterTAPCosting
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
+
+__all__ = [
+    "build_ro",
+    "build_ro_stage",
+    "init_ro_system",
+    "init_ro_stage",
+    "set_operating_conditions",
+    "set_ro_system_operating_conditions",
+    "add_ro_costing",
+    "display_ro_system_build",
+    "display_dof_breakdown",
+    "display_flow_table",
+    "report_RO",
+]
 
 
 def propagate_state(arc):
@@ -99,25 +114,25 @@ def _initialize(m, blk, optarg):
         print("\n")
 
 
-# def print_RO_op_pressure_est(blk):
-#     solver = get_solver()
-#     operating_pressure = calculate_operating_pressure(
-#         feed_state_block=blk.feed.properties[0],
-#         over_pressure=0.15,
-#         water_recovery=0.8,
-#         NaCl_passage=0.01,
-#         solver=solver,
-#     )
+def print_RO_op_pressure_est(blk):
+    solver = get_solver()
+    operating_pressure = calculate_operating_pressure(
+        feed_state_block=blk.feed.properties[0],
+        over_pressure=0.15,
+        water_recovery=0.8,
+        NaCl_passage=0.01,
+        solver=solver,
+    )
 
-#     operating_pressure_psi = pyunits.convert(
-#         operating_pressure * pyunits.Pa, to_units=pyunits.psi
-#     )()
-#     operating_pressure_bar = pyunits.convert(
-#         operating_pressure * pyunits.Pa, to_units=pyunits.bar
-#     )()
-#     print(
-#         f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
-#     )
+    operating_pressure_psi = pyunits.convert(
+        operating_pressure * pyunits.Pa, to_units=pyunits.psi
+    )()
+    operating_pressure_bar = pyunits.convert(
+        operating_pressure * pyunits.Pa, to_units=pyunits.bar
+    )()
+    print(
+        f"\nOperating Pressure Estimate = {round(operating_pressure_bar, 2)} bar = {round(operating_pressure_psi, 2)} psi\n"
+    )
 
 
 _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
@@ -325,7 +340,9 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n")
     display_flow_table(blk)
     print(blk.report())
-    print(f'RO Recovery: {100 * (value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]) / value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"])):<5.2f}%')
+    print(
+        f'RO Recovery: {100 * (value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]) / value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"])):<5.2f}%'
+    )
 
 
 def init_ro_stage(m, stage, solver=None):
@@ -457,9 +474,9 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
     m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value = (
         m.fs.feed_flow_mass.value * m.fs.feed_salinity.value / 1000
     )
-    m.fs.feed.flow_mass_phase_comp[
-        0, "Liq", "H2O"
-    ].value = m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
+    m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
+        m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
+    )
 
     scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
     scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)

@@ -21,6 +21,7 @@ from pyomo.environ import (
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+
 # from idaes.core.solvers import get_solver
 from watertap.core.solvers import get_solver
 from idaes.core.util.initialization import propagate_state as _prop_state
@@ -47,6 +48,14 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOCosting,
 )
+
+__all__ = [
+    "build_softener",
+    "set_softener_op_conditions",
+    "add_softener_costing",
+    "report_softener",
+    "init_softener",
+]
 
 
 def propagate_state(arc):
@@ -120,7 +129,7 @@ def set_system_operating_conditions(m):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
-    
+
     soft = m.fs.softener.unit
     ca_in = 0.61 * pyunits.kg / pyunits.m**3  # g/L = kg/m3
     mg_in = 0.161 * pyunits.kg / pyunits.m**3  # g/L = kg/m3

@@ -1,5 +1,6 @@
 import os
 import math
+
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -18,75 +19,44 @@ from pyomo.environ import (
 )
 from pyomo.util.check_units import assert_units_consistent
 from pyomo.network import Arc
+
+import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, MaterialFlowBasis
 from idaes.core.util.initialization import propagate_state as _prop_state
 from idaes.core.solvers import get_solver
-import idaes.core.util.scaling as iscale
-from watertap.core.wt_database import Database
-
-from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
-from watertap.core.zero_order_properties import WaterParameterBlock
-from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
-from watertap.costing import WaterTAPCosting
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from idaes.models.unit_models import Product, Feed, StateJunction, Separator
+
+from watertap.core.wt_database import Database
+from watertap.core.util.model_diagnostics.infeasible import *
+from watertap.core.util.initialization import *
+from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
+from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
+import watertap.core.zero_order_properties as prop_ZO
+from watertap.core.zero_order_properties import WaterParameterBlock
+from watertap.unit_models.pressure_changer import Pump
+
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
     REFLOCosting,
 )
-from watertap.unit_models.pressure_changer import Pump
-from watertap.core.util.model_diagnostics.infeasible import *
-from watertap.core.util.initialization import *
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
 
-from components.ro_system import (
-    build_ro,
-    display_ro_system_build,
-    init_ro_system,
-    init_ro_stage,
-    calc_scale,
-    set_ro_system_operating_conditions,
-    add_ro_costing,
-    display_flow_table,
-    report_RO,
-)
-
-from components.softener import (
-    build_softener,
-    init_softener,
-    set_softener_op_conditions,
-    add_softener_costing,
-    report_softener,
-)
-from components.UF import (
-    build_UF,
-    init_UF,
-    add_UF_costing,
-    set_UF_op_conditions,
-    report_UF,
-)
-
-from components.electrodialysis import (
-    build_ed,
-    init_ed,
-)
-from util import *
-
-# from reflo import build_ro, display_ro_system_build
-# # from reflo.analysis.case_studies.KBHDP.components import *
-from components.translator_1 import (
-    Translator_MCAS_to_NACL,
-)
-
-from components.translator_2 import (
-    Translator_MCAS_to_TDS,
-)
-
-from components.translator_3 import (
-    Translator_TDS_to_NACL,
-)
+__all__ = [
+    "build_system",
+    "add_connections",
+    "add_constraints",
+    "add_costing",
+    "relax_constraints",
+    "set_inlet_conditions",
+    "set_operating_conditions",
+    "report_MCAS_stream_conc",
+    "display_system_stream_table",
+    "display_system_build",
+    "init_system",
+]
 
 
 def propagate_state(arc):
@@ -105,7 +75,7 @@ def main():
     display_system_build(m)
     add_connections(m)
     add_constraints(m)
-    relax_constaints(m, m.fs.RO)
+    relax_constraints(m, m.fs.RO)
     set_operating_conditions(m)
     init_system(m)
     add_costing(m)
@@ -303,7 +273,7 @@ def add_costing(m):
     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
 
-def relax_constaints(m, blk):
+def relax_constraints(m, blk):
     # Release constraints related to low concentration
     for idx, stage in blk.stage.items():
         stage.module.width.setub(10000)
@@ -330,7 +300,6 @@ def relax_constaints(m, blk):
 
 
 def define_inlet_composition(m):
-    import watertap.core.zero_order_properties as prop_ZO
 
     m.fs.prop = prop_ZO.WaterParameterBlock(
         solute_list=[
@@ -535,7 +504,7 @@ def init_system(m, verbose=True, solver=None):
 
     # propagate_state(m.fs.translator_to_pump)
     # m.fs.pump.initialize(optarg=optarg)
-    
+
     # propagate_state(m.fs.pump_to_ro)
     propagate_state(m.fs.translator_to_ro)
     init_ro_system(m, m.fs.RO)
