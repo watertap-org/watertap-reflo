@@ -188,15 +188,25 @@ def set_system_operating_conditions(m):
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
 
-def set_softener_op_conditions(m, blk, ca_eff=0.03, mg_eff=0.02):
+def set_softener_op_conditions(m, soft, ca_effluent=0.03, mg_effluent=0.02, non_important_removals=0.01):
     print(
         "\n\n-------------------- SETTING SOFTENER REMOVAL EFFICIENCY --------------------\n\n"
     )
-    soft = blk
     CO2_in = 0.10844915 * pyunits.kg / pyunits.m**3
+    
+    non_important_comps = ["Na_+", "Cl_-", "K_+", "SO2_-4+"]
+    # fix removal efficiency for all comps...
+    soft.removal_efficiency.fix()
+    # ...then refix non important ones
+    for comp in non_important_comps:
+        m.fs.softener.unit.removal_efficiency[comp].fix(non_important_removals)
 
-    blk.ca_eff_target.fix(ca_eff)
-    blk.mg_eff_target.fix(mg_eff)
+    prop_out = soft.properties_out[0.0]
+    prop_out.temperature.fix(293)
+    prop_out.pressure.fix(101325)
+
+    soft.ca_eff_target.fix(ca_effluent)
+    soft.mg_eff_target.fix(mg_effluent)
 
     soft.no_of_mixer.fix(2)
     soft.no_of_floc.fix(4)
@@ -205,26 +215,16 @@ def set_softener_op_conditions(m, blk, ca_eff=0.03, mg_eff=0.02):
     soft.retention_time_sed.fix(120)
     soft.retention_time_recarb.fix(20)
     soft.frac_vol_recovery.fix(0.99)
-    soft.removal_efficiency.fix()
-    soft.removal_efficiency["Na_+"].fix(0)
-    soft.removal_efficiency["Cl_-"].fix(0)
-    # soft.removal_efficiency["SiO2"].fix(0)
-    # soft.CO2_CaCO3.fix(CO2_in)
     soft.vel_gradient_mix.fix(300)
     soft.vel_gradient_floc.fix(50)
+    
+    # soft.removal_efficiency["SiO2"].fix(0)
+    # soft.CO2_CaCO3.fix(CO2_in)
 
     # soft.excess_CaO.fix(0)
     soft.CO2_second_basin.fix(0)
     soft.Na2CO3_dosing.fix(0)
     soft.MgCl2_dosing.fix(0)
-
-    prop_in = soft.properties_in[0.0]
-    prop_out = soft.properties_out[0.0]
-    prop_out.temperature.fix(298)
-    prop_out.pressure.fix(value(prop_in.pressure))
-
-    # soft.properties_waste[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-    # soft.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
@@ -285,7 +285,7 @@ def init_system(blk, solver=None):
     # assert_no_degrees_of_freedom(m)
     print("\n\n")
 
-    m.fs.feed.initialize(optarg=optarg)
+    m.fs.feed.initialize()
     propagate_state(m.fs.feed_to_softener)
 
     try:
@@ -297,8 +297,8 @@ def init_system(blk, solver=None):
 
         # assert False
 
-    # m.fs.product.initialize(optarg=optarg)
-    # m.fs.disposal.initialize(optarg=optarg)
+    # m.fs.product.initialize()
+    # m.fs.disposal.initialize()
 
 
 def init_softener(m, blk, verbose=True, solver=None):
@@ -313,17 +313,17 @@ def init_softener(m, blk, verbose=True, solver=None):
     # assert_units_consistent(m)
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
-    blk.initialize(optarg=optarg)
+    blk.initialize()
     # try:
-    #     blk.initialize(optarg=optarg)
+    #     blk.initialize()
     # except:
     #     print_infeasible_bounds(m.fs.softener)
     #     print_infeasible_constraints(m.fs.softener)
     #     print_close_to_bounds(m.fs.softener)
 
     # propagate_state(blk.unit_to_product)
-    # blk.product.initialize(optarg=optarg)
-    # blk.disposal.initialize(optarg=optarg)
+    # blk.product.initialize()
+    # blk.disposal.initialize()
     # propagate_state(blk.unit_to_disposal)
     # propagate_state(blk.unit_to_product)
 
@@ -457,6 +457,3 @@ if __name__ == "__main__":
     # set_scaling(m)
     # report_MCAS_stream_conc(m)
     init_system(m)
-    results = solve(m)
-    # assert_optimal_termination(results)
-    report_softener(m)

@@ -15,6 +15,7 @@ from pyomo.environ import (
     Block,
     RangeSet,
     check_optimal_termination,
+    assert_optimal_termination,
     units as pyunits,
 )
 from pyomo.util.check_units import assert_units_consistent
@@ -394,24 +395,8 @@ def display_unfixed_vars(blk, report=True):
 
 
 def set_operating_conditions(m):
-    # Set inlet conditions and operating conditions for each unit
     set_inlet_conditions(m, Qin=4, supply_pressure=1e5)
-    set_softener_op_conditions(m, m.fs.softener.unit, ca_eff=0.3, mg_eff=0.2)
-    # # inlet_dict = {
-    # #     "Ca_2+": 0.13 * pyunits.kg / pyunits.m**3,
-    # #     "Mg_2+": 0.03 * pyunits.kg / pyunits.m**3,
-    # #     "Alkalinity_2-": 0.08 * pyunits.kg / pyunits.m**3,
-    # #     "SiO2": 0.031 * pyunits.kg / pyunits.m**3,
-    # #     "Cl_-": 1.18 * pyunits.kg / pyunits.m**3,
-    # #     "Na_+": 0.77 * pyunits.kg / pyunits.m**3,
-    # #     "K_+": 0.016 * pyunits.kg / pyunits.m**3,
-    # #     "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,}
-    non_important_removals = 0.01
-    m.fs.softener.unit.removal_efficiency["Cl_-"].fix(non_important_removals)
-    m.fs.softener.unit.removal_efficiency["Na_+"].fix(non_important_removals)
-    m.fs.softener.unit.removal_efficiency["K_+"].fix(non_important_removals)
-    m.fs.softener.unit.removal_efficiency["SO2_-4+"].fix(non_important_removals)
-
+    set_softener_op_conditions(m, m.fs.softener.unit)
     set_UF_op_conditions(m.fs.UF)
     set_ro_system_operating_conditions(
         m, m.fs.RO, mem_area=10000, RO_pump_pressure=20e5
@@ -581,7 +566,36 @@ def display_costing_breakdown(m):
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
-    main()
+    m = build_system()
+    # display_system_build(m)
+    add_connections(m)
+    add_constraints(m)
+    relax_constraints(m, m.fs.RO)
+    set_operating_conditions(m)
+    constraint_scaling_transform(m.fs.softener.unit.eq_mass_balance_mg, 1e4)
+    # try:
+    init_system(m)
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    solver = get_solver()
+    # set_scaling_factor(m.fs.RO.stage[1].module.feed_side.dh, 1e7)
+    # check_jac(m.fs.RO)
+    results = solver.solve(m)
 
+    # check_jac(m.fs.RO)
+    assert_optimal_termination(results)
+
+    add_costing(m)
+    m.fs.costing.initialize()
+    # m.fs.costing.lime.cost.set_value(0)
+    m.fs.costing.chemical_softening.lime_feed_system_op_coeff.set_value(0)
+    results = solver.solve(m)
+
+    ro = m.fs.RO.stage[1].module
+
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print_infeasible_constraints(m.fs.RO)
+    # print_variables_close_to_bounds(m.fs.RO)
+    print(f"termination {results.solver.termination_condition}")
+    print(f"LCOW = {m.fs.costing.LCOW()}")
 # TODO Add costing to the system
 # TODO Use case study input values
