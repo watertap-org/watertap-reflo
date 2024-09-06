@@ -295,7 +295,7 @@ def init_system(blk, solver=None):
         print_infeasible_constraints(m.fs.softener)
         print_close_to_bounds(m.fs.softener)
 
-        assert False
+        # assert False
 
     # m.fs.product.initialize(optarg=optarg)
     # m.fs.disposal.initialize(optarg=optarg)

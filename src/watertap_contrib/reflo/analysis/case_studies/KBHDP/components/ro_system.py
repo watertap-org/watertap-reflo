@@ -285,7 +285,7 @@ def init_system(m, verbose=True, solver=None):
     print(f"RO Degrees of Freedom: {degrees_of_freedom(m.fs.ro)}")
     display_dof_breakdown(m)
 
-    m.fs.feed.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+    m.fs.feed.initialize()
     print(m.fs.feed.report())
     propagate_state(m.fs.feed_to_ro)
 
@@ -293,8 +293,8 @@ def init_system(m, verbose=True, solver=None):
     propagate_state(m.fs.ro_to_product)
     propagate_state(m.fs.ro_to_disposal)
 
-    m.fs.product.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
-    m.fs.disposal.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+    m.fs.product.initialize()
+    m.fs.disposal.initialize()
 
 
 def init_ro_system(m, blk, verbose=True, solver=None):
@@ -311,10 +311,10 @@ def init_ro_system(m, blk, verbose=True, solver=None):
         print(f"RO Stage {stage} Degrees of Freedom: {degrees_of_freedom(stage)}")
     print("\n\n")
 
-    blk.feed.initialize(optarg=optarg)
+    blk.feed.initialize()
     propagate_state(blk.ro_feed_to_pump)
 
-    blk.pump.initialize(optarg=optarg)
+    blk.pump.initialize()
     propagate_state(blk.ro_pump_to_first_stage)
 
     for stage in blk.stage.values():
@@ -326,10 +326,10 @@ def init_ro_system(m, blk, verbose=True, solver=None):
             propagate_state(blk.last_stage_retentate_to_ro_retentate)
             propagate_state(blk.stage_permeate_to_mixer[stage.index()])
 
-    blk.disposal.initialize(optarg=optarg)
-    blk.primary_mixer.initialize(optarg=optarg)
+    blk.disposal.initialize()
+    blk.primary_mixer.initialize()
     propagate_state(blk.primary_mixer_to_product)
-    blk.product.initialize(optarg=optarg)
+    blk.product.initialize()
     print(
         "\n\n-------------------- RO INITIALIZATION COMPLETE --------------------\n\n"
     )
@@ -352,24 +352,24 @@ def init_ro_stage(m, stage, solver=None):
     optarg = solver.options
 
     if stage.has_booster_pump:
-        stage.feed.initialize(optarg=optarg)
+        stage.feed.initialize()
         propagate_state(stage.stage_feed_to_booster_pump)
-        stage.booster_pump.initialize(optarg=optarg)
+        stage.booster_pump.initialize()
         propagate_state(stage.stage_booster_pump_to_module)
     else:
-        stage.feed.initialize(optarg=optarg)
+        stage.feed.initialize()
         propagate_state(stage.stage_feed_to_module)
 
     # print_RO_op_pressure_est(stage)
     display_inlet_conditions(stage)
 
-    stage.module.initialize(optarg=optarg)
+    stage.module.initialize()
 
     propagate_state(stage.stage_module_to_retentate)
     propagate_state(stage.stage_module_to_permeate)
 
-    stage.permeate.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
-    stage.retentate.initialize(optarg=optarg, outlvl=idaeslog.CRITICAL)
+    stage.permeate.initialize()
+    stage.retentate.initialize()
 
 
 def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None):

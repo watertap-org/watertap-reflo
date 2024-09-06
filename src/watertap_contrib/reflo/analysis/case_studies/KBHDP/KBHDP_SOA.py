@@ -20,7 +20,7 @@ from pyomo.environ import (
 from pyomo.util.check_units import assert_units_consistent
 from pyomo.network import Arc
 
-import idaes.core.util.scaling as iscale
+from idaes.core.util.scaling import * 
 from idaes.core import FlowsheetBlock, MaterialFlowBasis
 from idaes.core.util.initialization import propagate_state as _prop_state
 from idaes.core.solvers import get_solver
@@ -313,32 +313,18 @@ def define_inlet_composition(m):
 
 def set_inlet_conditions(
     m,
-    Qin=None,
-    Cin=None,
-    water_recovery=None,
+    Qin=4,
     supply_pressure=1e5,
     primary_pump_pressure=15e5,
 ):
-    """Sets operating condition for the PV-RO system
 
-    Args:
-        m (obj): Pyomo model
-        flow_in (float, optional): feed volumetric flow rate [m3/s]. Defaults to 1e-2.
-        conc_in (int, optional): solute concentration [g/L]. Defaults to 30.
-        water_recovery (float, optional): water recovery. Defaults to 0.5.
-    """
     print(f'\n{"=======> SETTING OPERATING CONDITIONS <=======":^60}\n')
+    feed_temperature = 293
 
-    q_in = Qin * pyunits.Mgal / pyunits.day
+    Qin = Qin * pyunits.Mgal / pyunits.day
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3/pyunits.s)
     rho = 1000 * pyunits.kg / pyunits.m**3
-    flow_mass_phase_water = pyunits.convert(q_in * rho, to_units=pyunits.kg / pyunits.s)
-
-    if Qin is None:
-        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(1)
-    else:
-        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(
-            flow_mass_phase_water
-        )
+    flow_mass_phase_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
 
     inlet_dict = {
         "Ca_2+": 0.61 * pyunits.kg / pyunits.m**3,
@@ -351,97 +337,50 @@ def set_inlet_conditions(
         "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,
     }
 
-    # inlet_dict = {
-    #     "Ca_2+": 0.13 * pyunits.kg / pyunits.m**3,
-    #     "Mg_2+": 0.03 * pyunits.kg / pyunits.m**3,
-    #     "Alkalinity_2-": 0.08 * pyunits.kg / pyunits.m**3,
-    #     "SiO2": 0.031 * pyunits.kg / pyunits.m**3,
-    #     "Cl_-": 1.18 * pyunits.kg / pyunits.m**3,
-    #     "Na_+": 0.77 * pyunits.kg / pyunits.m**3,
-    #     "K_+": 0.016 * pyunits.kg / pyunits.m**3,
-    #     "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,
-    # }
-
+    calc_state_dict = {
+        ("flow_vol_phase", "Liq"): value(flow_in),
+        ("pressure", None): 101325,
+        ("temperature", None): 298,
+        }
+    
     for solute, solute_conc in inlet_dict.items():
-        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", solute].fix(
-            pyunits.convert(
-                (
-                    m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
-                    / (1000 * pyunits.kg / pyunits.m**3)
-                )
-                * solute_conc,
-                to_units=pyunits.kg / pyunits.s,
-            )
-        )
+        calc_state_dict[("conc_mass_phase_comp", ("Liq", solute))] = solute_conc
+        flow_mass_solute = pyunits.convert(flow_in * solute_conc, to_units=pyunits.kg / pyunits.s)
+        sf = 1 / value(flow_mass_solute)
+        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", solute].set_value(flow_mass_solute)
         m.fs.MCAS_properties.set_default_scaling(
             "flow_mass_phase_comp",
-            1 / value(m.fs.feed.properties[0].flow_mass_phase_comp["Liq", solute]),
+            sf,
             index=("Liq", solute),
         )
+        m.fs.MCAS_properties.set_default_scaling(
+            "conc_mass_phase_comp",
+            1 / solute_conc(),
+            index=("Liq", solute),
+        )
+        m.fs.MCAS_properties.set_default_scaling(
+            "mass_frac_phase_comp",
+            1 / value(flow_mass_solute / flow_mass_phase_water),
+            index=("Liq", solute),
+        )
+
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp",
         1 / value(m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]),
         index=("Liq", "H2O"),
     )
+    calculate_scaling_factors(m)
 
-    # if Cin is None:
-    #     m.fs.feed_salinity.fix(10)
-    # else:
-    #     m.fs.feed_salinity.fix(Cin)
+    m.fs.feed.properties.calculate_state(
+        var_args=calc_state_dict, hold_state=True
+    )
+    calculate_scaling_factors(m)
 
-    # if water_recovery is not None:
-    #     m.fs.water_recovery.fix(water_recovery)
-    #     m.fs.primary_pump.control_volume.properties_out[0].pressure.unfix()
-    # else:
-    #     m.fs.water_recovery.unfix()
-    #     m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
-
-    # m.fs.pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
-
-    # # iscale.set_scaling_factor(m.fs.perm_flow_mass, 1)
-    # iscale.set_scaling_factor(m.fs.feed_flow_mass, 1)
-    # iscale.set_scaling_factor(m.fs.feed_salinity, 1)
-
-    # m.fs.feed_flow_constraint = Constraint(
-    #         expr=m.fs.feed_flow_mass == m.fs.perm_flow_mass / m.fs.water_recovery
-    #     )
-    # iscale.set_scaling_factor(m.fs.perm_flow_mass, 1)
-
-    feed_temperature = 273.15 + 20
-    pressure_atm = 101325
+    
 
     # # initialize feed
     m.fs.feed.pressure[0].fix(supply_pressure)
     m.fs.feed.temperature[0].fix(feed_temperature)
-    # m.fs.disposal.pressure[0].fix(101356)
-    # m.fs.disposal.temperature[0].fix(feed_temperature)
-
-    # m.fs.primary_pump.efficiency_pump.fix(0.85)
-    # iscale.set_scaling_factor(m.fs.primary_pump.control_volume.work, 1e-3)
-
-    # m.fs.feed.properties[0].flow_vol_phase["Liq"]
-    # m.fs.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
-
-    # m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value = (
-    #     m.fs.feed_flow_mass.value * m.fs.feed_salinity.value / 1000
-    # )
-    # m.fs.feed.flow_mass_phase_comp[
-    #     0, "Liq", "H2O"
-    # ].value = m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
-
-    # scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
-    # scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)
-
-    # m.fs.properties.set_default_scaling(
-    #     "flow_mass_phase_comp", 10**-scale_flow, index=("Liq", "H2O")
-    # )
-    # m.fs.properties.set_default_scaling(
-    #     "flow_mass_phase_comp", 10**-scale_tds, index=("Liq", "NaCl")
-    # )
-
-    # assert_units_consistent(m)
-    # m.fs.feed.properties[0].display()
-    # report_MCAS_stream_conc(m)
 
 
 def display_unfixed_vars(blk, report=True):
@@ -456,7 +395,7 @@ def display_unfixed_vars(blk, report=True):
 
 def set_operating_conditions(m):
     # Set inlet conditions and operating conditions for each unit
-    set_inlet_conditions(m, Qin=4, supply_pressure=1e5, primary_pump_pressure=10e5)
+    set_inlet_conditions(m, Qin=4, supply_pressure=1e5)
     set_softener_op_conditions(m, m.fs.softener.unit, ca_eff=0.3, mg_eff=0.2)
     # # inlet_dict = {
     # #     "Ca_2+": 0.13 * pyunits.kg / pyunits.m**3,
@@ -488,34 +427,73 @@ def init_system(m, verbose=True, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
-    m.fs.feed.initialize(optarg=optarg)
+    m.fs.feed.initialize()
     # propagate_state(m.fs.feed_to_primary_pump)
     propagate_state(m.fs.feed_to_softener)
     report_MCAS_stream_conc(m, m.fs.feed.properties[0.0])
     init_softener(m, m.fs.softener.unit)
     propagate_state(m.fs.softener_to_translator)
-    m.fs.MCAS_to_TDS_translator.initialize(optarg=optarg)
+    m.fs.MCAS_to_TDS_translator.initialize()
     propagate_state(m.fs.translator_to_UF)
     init_UF(m, m.fs.UF)
     propagate_state(m.fs.UF_to_translator3)
     # BUG Need to add UF to disposal
 
-    m.fs.TDS_to_NaCl_translator.initialize(optarg=optarg)
+    m.fs.TDS_to_NaCl_translator.initialize()
 
     # propagate_state(m.fs.translator_to_pump)
-    # m.fs.pump.initialize(optarg=optarg)
-
+    # m.fs.pump.initialize()
+    
     # propagate_state(m.fs.pump_to_ro)
     propagate_state(m.fs.translator_to_ro)
+    print("got here")
+    return
     init_ro_system(m, m.fs.RO)
-
     propagate_state(m.fs.ro_to_product)
     propagate_state(m.fs.ro_to_disposal)
 
-    m.fs.product.initialize(optarg=optarg)
-    m.fs.disposal.initialize(optarg=optarg)
+    m.fs.product.initialize()
+    m.fs.disposal.initialize()
     display_system_stream_table(m)
     m.fs.softener.unit.properties_waste[0].conc_mass_phase_comp
+
+# def init_system(m, verbose=True, solver=None):
+#     if solver is None:
+#         solver = get_solver()
+
+#     optarg = solver.options
+
+#     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
+#     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+
+#     m.fs.feed.initialize()
+#     # propagate_state(m.fs.feed_to_primary_pump)
+#     propagate_state(m.fs.feed_to_softener)
+#     report_MCAS_stream_conc(m, m.fs.feed.properties[0.0])
+#     init_softener(m, m.fs.softener.unit)
+#     propagate_state(m.fs.softener_to_translator)
+#     m.fs.MCAS_to_TDS_translator.initialize()
+#     propagate_state(m.fs.translator_to_UF)
+#     init_UF(m, m.fs.UF)
+#     propagate_state(m.fs.UF_to_translator3)
+#     # BUG Need to add UF to disposal
+
+#     m.fs.TDS_to_NaCl_translator.initialize()
+
+#     # propagate_state(m.fs.translator_to_pump)
+#     # m.fs.pump.initialize()
+
+#     # propagate_state(m.fs.pump_to_ro)
+#     propagate_state(m.fs.translator_to_ro)
+#     init_ro_system(m, m.fs.RO)
+
+#     propagate_state(m.fs.ro_to_product)
+#     propagate_state(m.fs.ro_to_disposal)
+
+#     m.fs.product.initialize()
+#     m.fs.disposal.initialize()
+#     display_system_stream_table(m)
+#     m.fs.softener.unit.properties_waste[0].conc_mass_phase_comp
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
