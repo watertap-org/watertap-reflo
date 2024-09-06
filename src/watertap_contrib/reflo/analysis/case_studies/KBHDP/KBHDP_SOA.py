@@ -584,18 +584,18 @@ if __name__ == "__main__":
     # check_jac(m.fs.RO)
     assert_optimal_termination(results)
 
-    add_costing(m)
-    m.fs.costing.initialize()
+    # add_costing(m)
+    # m.fs.costing.initialize()
     # m.fs.costing.lime.cost.set_value(0)
-    m.fs.costing.chemical_softening.lime_feed_system_op_coeff.set_value(0)
+    # m.fs.costing.chemical_softening.lime_feed_system_op_coeff.set_value(0)
     results = solver.solve(m)
 
-    ro = m.fs.RO.stage[1].module
+    # ro = m.fs.RO.stage[1].module
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     # print_infeasible_constraints(m.fs.RO)
     # print_variables_close_to_bounds(m.fs.RO)
     print(f"termination {results.solver.termination_condition}")
-    print(f"LCOW = {m.fs.costing.LCOW()}")
+    # print(f"LCOW = {m.fs.costing.LCOW()}")
 # TODO Add costing to the system
 # TODO Use case study input values
