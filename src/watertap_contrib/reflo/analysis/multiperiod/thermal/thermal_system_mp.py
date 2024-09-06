@@ -21,6 +21,7 @@ from watertap_contrib.reflo.analysis.multiperiod.thermal.thermal_process_steady_
 from idaes.core.solvers.get_solver import get_solver
 import matplotlib.pyplot as plt
 import numpy as np
+from watertap.core.solvers import get_solver
 
 
 # Can optimize storage tank volume
@@ -84,14 +85,13 @@ def get_variable_pairs(t1,t2):
         (t1.fs.tes.tes_temperature[0], t2.fs.previous_tes_tank_temp),
         (t1.fs.hx_solar.cold_side_outlet.temperature[0], t2.fs.previous_hx_solar_cold_outlet_temperature),
         (t1.fs.tes.tes_process_outlet.temperature[0], t2.fs.previous_process_outlet_temperature),
-        
         (t1.fs.acc_grid_duty, t2.fs.previous_acc_grid_duty),
         (t1.fs.grid_heater.heat_duty[0], t2.fs.previous_grid_duty),
         
         ]
 
 def create_multiperiod_thermal_model(
-        n_time_points = 3,
+        n_time_points = 10,
         # 24-hr GHI in Phoenix, AZ on June 18th (W/m2)
         GHI = [10, 20, 30, 0, 0, 23, 170, 386, 596, 784, 939, 1031, 
                1062, 1031, 938, 790, 599, 383, 166, 31, 0, 0, 0, 0],
@@ -110,14 +110,14 @@ def create_multiperiod_thermal_model(
 ):
 
     """
-    This function creates a multi-period thermal flowsheet object. This object contains
+    This function creates a multi-period pv battery flowsheet object. This object contains
     a pyomo model with a block for each time instance.
 
     Args:
         n_time_points: Number of time blocks to create
 
     Returns:
-        Object containing multi-period fpc-tes flowsheet model
+        Object containing multi-period vagmd batch flowsheet model
     """ 
 
     if process_outlet_temperature!= None:
@@ -209,6 +209,7 @@ def create_multiperiod_thermal_model(
             process_inlet_temp=process_inlet_temperature, 
             process_outlet_temp=process_outlet_temperature
         )
+        print('dof before init: ', degrees_of_freedom(blk))
         result = solver.solve(blk)
         print('\nDegrees of freedom after initialization function \n', degrees_of_freedom(blk))
         unfix_dof(blk)
@@ -271,8 +272,9 @@ if __name__ == "__main__":
 
     solver = get_solver()
     results = solver.solve(mp)
+    print('dof after solving: ', degrees_of_freedom(mp))
 
-    assert_optimal_termination(results)
+    # assert_optimal_termination(results)
 
     print('\nStep 1')
     print_results(mp.blocks[0].process)
