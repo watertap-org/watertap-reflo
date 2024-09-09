@@ -526,7 +526,7 @@ def cost_chemical_softening(blk):
         )
     )
 
-    capital_cost_expr += blk.mix_tank_capital_cost
+    capital_cost_expr += blk.mix_tank_capital_cost * blk.unit_model.number_mixers
 
     # Flocculation tank
     blk.floc_tank_capital_cost_constraint = Constraint(
@@ -541,7 +541,7 @@ def cost_chemical_softening(blk):
         )
     )
 
-    capital_cost_expr += blk.floc_tank_capital_cost
+    capital_cost_expr += blk.floc_tank_capital_cost * blk.unit_model.number_floc
 
     # Sedimentation basin
     blk.sed_basin_effective_settling_area_ft2_dimensionless = pyunits.convert(
