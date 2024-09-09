@@ -19,6 +19,7 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.network import Port
+from pyomo.util.check_units import assert_units_consistent
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
 from idaes.core.util.testing import initialization_tester
@@ -33,7 +34,6 @@ from idaes.core.util.scaling import (
     unscaled_variables_generator,
     badly_scaled_var_generator,
 )
-from pyomo.util.check_units import assert_units_consistent
 import idaes.logger as idaeslog
 
 from watertap.core.solvers import get_solver
@@ -90,7 +90,7 @@ class TestChemSoft1:
         flow_mass_phase_alk = pyunits.convert(
             q_in * alk_in, to_units=pyunits.kg / pyunits.s
         )
-        prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water())
+        prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(value(flow_mass_phase_water))
 
         prop_in.flow_mass_phase_comp["Liq", "Ca_2+"].fix(value(flow_mass_phase_ca))
         prop_in.flow_mass_phase_comp["Liq", "Mg_2+"].fix(value(flow_mass_phase_mg))
