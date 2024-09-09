@@ -583,10 +583,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                             ]
                             - (b.Ca_CaCO3 + b.Mg_CaCO3)
                             + b.excess_CaO
-                            + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-                            # + b.ca_eff_target * b.Ca_CaCO3_conv
-                            + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-                            # + b.mg_eff_target * b.Mg_CaCO3_conv
+                            # + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                            + b.ca_eff_target * b.Ca_CaCO3_conv
+                            # + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+                            + b.mg_eff_target * b.Mg_CaCO3_conv
                         )
                         * b.properties_in[0].flow_vol_phase["Liq"]
                         * b.CO2_mw
