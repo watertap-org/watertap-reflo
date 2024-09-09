@@ -50,7 +50,7 @@ _log = idaeslog.getLogger(__name__)
 
 
 @declare_process_block_class("Translator_TDS_to_NACL")
-class Translator_MCAS_to_NACL_Data(TranslatorData):
+class Translator_TDS_to_NACL_Data(TranslatorData):
     """
     Translator block representing the
     """
