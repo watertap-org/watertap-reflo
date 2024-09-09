@@ -759,7 +759,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 initialize=0,
                 units=pyunits.kg / pyunits.m**3,
                 bounds=(0, None),
-                doc="Magnesium Chloride requirments dosing",
+                doc="Magnesium Chloride requirements dosing",
             )
 
         @self.Constraint(doc="Water recovery")
@@ -1010,30 +1010,80 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
-        iscale.set_scaling_factor(self.ca_eff_target, 1)
-        iscale.set_scaling_factor(self.mg_eff_target, 1)
-        iscale.set_scaling_factor(self.removal_efficiency, 1)
-        iscale.set_scaling_factor(self.retention_time_mixer, 1)
-        iscale.set_scaling_factor(self.retention_time_floc, 0.1)
-        iscale.set_scaling_factor(self.retention_time_sed, 1e-2)
-        iscale.set_scaling_factor(self.retention_time_recarb, 0.1)
-        iscale.set_scaling_factor(self.sedimentation_overflow, 0.1)
-        iscale.set_scaling_factor(self.no_of_mixer, 1)
-        iscale.set_scaling_factor(self.no_of_floc, 1)
-        iscale.set_scaling_factor(self.volume_mixer, 1e-1)
-        iscale.set_scaling_factor(self.volume_floc, 1e-2)
-        iscale.set_scaling_factor(self.volume_sed, 1e-2)
-        iscale.set_scaling_factor(self.volume_recarb, 1e-2)
-        iscale.set_scaling_factor(self.vel_gradient_mix, 1e-2)
-        iscale.set_scaling_factor(self.vel_gradient_floc, 1e-2)
-        iscale.set_scaling_factor(self.frac_vol_recovery, 1)
-        iscale.set_scaling_factor(self.CaO_dosing, 1e-4)
-        iscale.set_scaling_factor(self.excess_CaO, 1)
-        iscale.set_scaling_factor(self.CO2_first_basin, 1e-2)
-        iscale.set_scaling_factor(self.CO2_second_basin, 1e-2)
-        iscale.set_scaling_factor(self.Na2CO3_dosing, 1e-5)
-        iscale.set_scaling_factor(self.CO2_CaCO3, 1)
-        iscale.set_scaling_factor(self.sludge_prod, 1)
+        
+        if iscale.get_scaling_factor(self.ca_eff_target) is None:
+            sf = iscale.get_scaling_factor(self.properties_in[0].conc_mass_phase_comp["Liq", "Ca_2+"])
+            iscale.set_scaling_factor(self.ca_eff_target, sf)
+        
+        if iscale.get_scaling_factor(self.mg_eff_target) is None:
+            sf = iscale.get_scaling_factor(self.properties_in[0].conc_mass_phase_comp["Liq", "Mg_2+"])
+            iscale.set_scaling_factor(self.mg_eff_target, 1)
+        
+        if iscale.get_scaling_factor(self.removal_efficiency) is None:
+            iscale.set_scaling_factor(self.removal_efficiency, 1)
+        
+        if iscale.get_scaling_factor(self.retention_time_mixer) is None:
+            iscale.set_scaling_factor(self.retention_time_mixer, 1)
+        
+        if iscale.get_scaling_factor(self.retention_time_floc) is None:
+            iscale.set_scaling_factor(self.retention_time_floc, 0.1)
+        
+        if iscale.get_scaling_factor(self.retention_time_sed) is None:
+            iscale.set_scaling_factor(self.retention_time_sed, 1e-2)
+        
+        if iscale.get_scaling_factor(self.retention_time_recarb) is None:
+            iscale.set_scaling_factor(self.retention_time_recarb, 0.1)
+        
+        if iscale.get_scaling_factor(self.sedimentation_overflow) is None:
+            iscale.set_scaling_factor(self.sedimentation_overflow, 0.1)
+        
+        if iscale.get_scaling_factor(self.no_of_mixer) is None:
+            iscale.set_scaling_factor(self.no_of_mixer, 1)
+        
+        if iscale.get_scaling_factor(self.no_of_floc) is None:
+            iscale.set_scaling_factor(self.no_of_floc, 1)
+        
+        if iscale.get_scaling_factor(self.volume_mixer) is None:
+            iscale.set_scaling_factor(self.volume_mixer, 1e-1)
+        
+        if iscale.get_scaling_factor(self.volume_floc) is None:
+            iscale.set_scaling_factor(self.volume_floc, 1e-2)
+        
+        if iscale.get_scaling_factor(self.volume_sed) is None:
+            iscale.set_scaling_factor(self.volume_sed, 1e-2)
+        
+        if iscale.get_scaling_factor(self.volume_recarb) is None:
+            iscale.set_scaling_factor(self.volume_recarb, 1e-2)
+        
+        if iscale.get_scaling_factor(self.vel_gradient_mix) is None:
+            iscale.set_scaling_factor(self.vel_gradient_mix, 1e-2)
+        
+        if iscale.get_scaling_factor(self.vel_gradient_floc) is None:
+            iscale.set_scaling_factor(self.vel_gradient_floc, 1e-2)
+        
+        if iscale.get_scaling_factor(self.frac_vol_recovery) is None:
+            iscale.set_scaling_factor(self.frac_vol_recovery, 1)
+        
+        if iscale.get_scaling_factor(self.CaO_dosing) is None:
+            iscale.set_scaling_factor(self.CaO_dosing, 1e-4)
+        
+        if iscale.get_scaling_factor(self.excess_CaO) is None:
+            iscale.set_scaling_factor(self.excess_CaO, 10)
+        
+        if iscale.get_scaling_factor(self.CO2_first_basin) is None:
+            iscale.set_scaling_factor(self.CO2_first_basin, 1e-2)
+        
+        if iscale.get_scaling_factor(self.CO2_second_basin) is None:
+            iscale.set_scaling_factor(self.CO2_second_basin, 1e-2)
+
+        if iscale.get_scaling_factor(self.Na2CO3_dosing) is None: 
+            iscale.set_scaling_factor(self.Na2CO3_dosing, 1e-5)
+        
+        if iscale.get_scaling_factor(self.CO2_CaCO3) is None:
+            iscale.set_scaling_factor(self.CO2_CaCO3, 1)
+        
+        if iscale.get_scaling_factor(self.sludge_prod) is None:
+            iscale.set_scaling_factor(self.sludge_prod, 1)
 
         comps = self.config.property_package.solute_set
         non_hardness_comps = [
@@ -1055,7 +1105,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             iscale.constraint_scaling_transform(self.eq_Na2CO3_dosing, 1e-4)
             iscale.constraint_scaling_transform(self.eq_CO2_second_basin, 1e-2)
 
-        # iscale.constraint_scaling_transform(self.eq_CaO_dosing, 1e-3)
+        iscale.constraint_scaling_transform(self.eq_CaO_dosing, 1e-3)
 
         iscale.constraint_scaling_transform(self.eq_CO2_first_basin, 1e-3)
 
