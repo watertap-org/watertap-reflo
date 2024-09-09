@@ -355,12 +355,12 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="Fractional volumetric recovery of water",
         )
 
-        self.CaO_dosing = Var(
-            initialize=1e5,
-            units=pyunits.kg / pyunits.day,
-            bounds=(0, None),
-            doc="Lime requirements",
-        )
+        # self.CaO_dosing = Var(
+        #     initialize=1e5,
+        #     units=pyunits.kg / pyunits.day,
+        #     bounds=(0, None),
+        #     doc="Lime requirements",
+        # )
 
         self.Na2CO3_dosing = Var(
             initialize=1e5,

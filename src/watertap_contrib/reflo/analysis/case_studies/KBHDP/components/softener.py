@@ -519,7 +519,7 @@ if __name__ == "__main__":
     # soft.display()
     # soft.excess_CaO_coeff.display()
     # soft.CO2_CaCO3.display()
-    # soft.CaO_dosing.display()
+    soft.CaO_dosing.display()
     # soft.Mg_CaCO3.display()
     soft.excess_CaO.display()
     # soft.ca_eff_target.display()
