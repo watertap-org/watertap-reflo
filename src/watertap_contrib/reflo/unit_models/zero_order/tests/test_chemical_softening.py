@@ -712,8 +712,8 @@ class TestChemSoft3:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 76
-        assert number_total_constraints(m) == 40
+        assert number_variables(m) == 84
+        assert number_total_constraints(m) == 48
         assert number_unused_variables(m) == 18
 
 

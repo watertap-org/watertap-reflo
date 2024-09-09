@@ -42,7 +42,7 @@ from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
 )
 from watertap.core.util.initialization import interval_initializer
 
-__author__ = "Mukta Hardikar, Abdiel Lugo, Kurban Sitterley"
+__author__ = "Mukta Hardikar, Abdiel Lugo"
 
 _log = idaeslog.getLogger(__name__)
 
@@ -169,6 +169,9 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         self.add_port(name="outlet", block=self.properties_out)
         self.add_port(name="waste", block=self.properties_waste)
 
+        prop_in = self.properties_in[0]
+        prop_out = self.properties_out[0]
+        prop_waste = self.properties_waste[0]
         comps = self.config.property_package.solute_set
         non_hardness_comps = [
             j
@@ -576,8 +579,8 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 return b.CO2_first_basin == Expr_if(
                     b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                     - (b.Ca_CaCO3 + b.Mg_CaCO3)
-                    <= 0,
-                    0,
+                    <= 0 * pyunits.kg / pyunits.m**3,
+                    0 * pyunits.kg / pyunits.day,
                     pyunits.convert(
                         (
                             b.properties_in[0].conc_mass_phase_comp[
@@ -585,10 +588,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                             ]
                             - (b.Ca_CaCO3 + b.Mg_CaCO3)
                             + b.excess_CaO
-                            # + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-                            + b.ca_eff_target * b.Ca_CaCO3_conv
-                            # + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-                            + b.mg_eff_target * b.Mg_CaCO3_conv
+                            + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                            # + b.ca_eff_target * b.Ca_CaCO3_conv
+                            + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+                            # + b.mg_eff_target * b.Mg_CaCO3_conv
                         )
                         * b.properties_in[0].flow_vol_phase["Liq"]
                         * b.CO2_mw
@@ -800,6 +803,14 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 b.ca_eff_target * b.properties_out[0].flow_vol_phase["Liq"],
                 to_units=pyunits.kg / pyunits.s,
             )
+
+        # @self.Constraint(doc="Ca mass balance")
+        # def eq_mass_balance_ca(b):
+        #     return (
+        #         b.properties_waste[0].flow_mass_phase_comp["Liq", "Ca_2+"]
+        #         + b.properties_out[0].flow_mass_phase_comp["Liq", "Ca_2+"]
+        #         == b.properties_in[0].flow_mass_phase_comp["Liq", "Ca_2+"]
+        #     )
 
         @self.Constraint(doc="Ca mass balance")
         def eq_mass_balance_ca(b):
