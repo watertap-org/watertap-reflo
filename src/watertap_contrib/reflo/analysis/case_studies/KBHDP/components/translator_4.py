@@ -42,11 +42,15 @@ from pyomo.environ import (
     Set,
 )
 
+
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.translator_1 import Translator_MCAS_to_NACL_Data
+
 __author__ = "Zachary Binger"
 
 
 # Set up logger
 _log = idaeslog.getLogger(__name__)
+
 
 
 @declare_process_block_class("Translator_ZO_TDS_to_TDS")
