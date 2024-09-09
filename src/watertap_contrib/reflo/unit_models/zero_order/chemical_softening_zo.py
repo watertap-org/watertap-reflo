@@ -380,12 +380,12 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="CO2 concentration required for recarbonation in second basin only in excess lime scenario",
         )
 
-        # self.excess_CaO = Var(
-        #     initialize=0,
-        #     bounds=(0, None),  # typically 30-70 mg/L, MWH
-        #     units=pyunits.kg / pyunits.m**3,
-        #     doc="Excess lime requiremenent",
-        # )
+        self.excess_CaO = Var(
+            initialize=0,
+            bounds=(0, None),  # typically 30-70 mg/L, MWH
+            units=pyunits.kg / pyunits.m**3,
+            doc="Excess lime requiremenent",
+        )
 
         self.CO2_CaCO3 = Var(
             initialize=0.1,
