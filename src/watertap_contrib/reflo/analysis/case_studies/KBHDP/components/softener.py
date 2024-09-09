@@ -494,8 +494,8 @@ if __name__ == "__main__":
     set_system_operating_conditions(m)
     set_softener_op_conditions(m, m.fs.softener.unit)
 
-    add_softener_costing(m, m.fs.softener)
-    m.fs.costing.initialize()
+    # add_softener_costing(m, m.fs.softener)
+    # m.fs.costing.initialize()
 
     # m.fs.obj = Objective(expr=soft.CO2_first_basin)
     # m.fs.obj = Objective(expr=m.fs.costing.LCOW)
@@ -515,6 +515,9 @@ if __name__ == "__main__":
     results = solver.solve(m)
     print_infeasible_constraints(m)
     assert_optimal_termination(results)
+    assert_units_consistent(soft)
+    # print(pyunits.get_units(soft.Mg_CaCO3))
+    assert False
     soft = m.fs.softener.unit
     # soft.display()
     # soft.excess_CaO_coeff.display()

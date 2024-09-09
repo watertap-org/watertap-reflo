@@ -579,8 +579,8 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 return b.CO2_first_basin == Expr_if(
                     b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                     - (b.Ca_CaCO3 + b.Mg_CaCO3)
-                    <= 0,
-                    0,
+                    <= 0 * pyunits.kg / pyunits.m**3,
+                    0 * pyunits.kg / pyunits.day,
                     pyunits.convert(
                         (
                             b.properties_in[0].conc_mass_phase_comp[
@@ -588,10 +588,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                             ]
                             - (b.Ca_CaCO3 + b.Mg_CaCO3)
                             + b.excess_CaO
-                            # + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-                            + b.ca_eff_target * b.Ca_CaCO3_conv
-                            # + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-                            + b.mg_eff_target * b.Mg_CaCO3_conv
+                            + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                            # + b.ca_eff_target * b.Ca_CaCO3_conv
+                            + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+                            # + b.mg_eff_target * b.Mg_CaCO3_conv
                         )
                         * b.properties_in[0].flow_vol_phase["Liq"]
                         * b.CO2_mw
