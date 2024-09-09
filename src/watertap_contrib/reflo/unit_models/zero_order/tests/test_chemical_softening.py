@@ -661,7 +661,7 @@ class TestChemSoft3:
         soft.Na2CO3_dosing.fix(0)
         soft.MgCl2_dosing.fix(0)
 
-        prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water())
+        prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(value(flow_mass_phase_water))
         prop_in.flow_mass_phase_comp["Liq", "Ca_2+"].fix(value(flow_mass_phase_ca))
         prop_in.flow_mass_phase_comp["Liq", "Mg_2+"].fix(value(flow_mass_phase_mg))
         prop_in.flow_mass_phase_comp["Liq", "Alkalinity_2-"].fix(
@@ -712,8 +712,8 @@ class TestChemSoft3:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 84
-        assert number_total_constraints(m) == 48
+        assert number_variables(m) == 76
+        assert number_total_constraints(m) == 40
         assert number_unused_variables(m) == 18
 
 
