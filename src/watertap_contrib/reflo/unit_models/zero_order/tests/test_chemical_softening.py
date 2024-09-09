@@ -167,8 +167,8 @@ class TestChemSoft1:
 
         # test statistics
         assert number_variables(m) == 94
-        assert number_total_constraints(m) == 54
-        assert number_unused_variables(m) == 23
+        assert number_total_constraints(m) == 58
+        assert number_unused_variables(m) == 17
 
     @pytest.mark.unit
     def test_dof(self, chem_soft_frame):
@@ -437,8 +437,8 @@ class TestChemSoft2:
 
         # test statistics
         assert number_variables(m) == 84
-        assert number_total_constraints(m) == 43
-        assert number_unused_variables(m) == 24
+        assert number_total_constraints(m) == 47
+        assert number_unused_variables(m) == 18
 
     @pytest.mark.unit
     def test_dof(self, chem_soft_frame):
@@ -671,17 +671,17 @@ class TestChemSoft3:
         prop_in.pressure.fix()
 
         m.fs.properties.set_default_scaling(
-            "flow_mass_phase_comp", 1 / flow_mass_phase_water(), index=("Liq", "H2O")
+            "flow_mass_phase_comp", 1 / value(flow_mass_phase_water), index=("Liq", "H2O")
         )
         m.fs.properties.set_default_scaling(
-            "flow_mass_phase_comp", 1 / flow_mass_phase_ca(), index=("Liq", "Ca_2+")
+            "flow_mass_phase_comp", 1 / value(flow_mass_phase_ca), index=("Liq", "Ca_2+")
         )
         m.fs.properties.set_default_scaling(
-            "flow_mass_phase_comp", 1 / flow_mass_phase_mg(), index=("Liq", "Mg_2+")
+            "flow_mass_phase_comp", 1 / value(flow_mass_phase_mg), index=("Liq", "Mg_2+")
         )
         m.fs.properties.set_default_scaling(
             "flow_mass_phase_comp",
-            1 / flow_mass_phase_alk(),
+            1 / value(flow_mass_phase_alk),
             index=("Liq", "Alkalinity_2-"),
         )
 
@@ -712,9 +712,9 @@ class TestChemSoft3:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 84
-        assert number_total_constraints(m) == 44
-        assert number_unused_variables(m) == 24
+        assert number_variables(m) == 76
+        assert number_total_constraints(m) == 40
+        assert number_unused_variables(m) == 18
 
 
 class TestChemSoft4:
@@ -834,8 +834,8 @@ class TestChemSoft4:
 
         # test statistics
         assert number_variables(m) == 94
-        assert number_total_constraints(m) == 54
-        assert number_unused_variables(m) == 23
+        assert number_total_constraints(m) == 58
+        assert number_unused_variables(m) == 17
 
     @pytest.mark.unit
     def test_dof(self, chem_soft_frame):
