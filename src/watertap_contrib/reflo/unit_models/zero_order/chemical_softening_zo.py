@@ -355,12 +355,12 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="Fractional volumetric recovery of water",
         )
 
-        # self.CaO_dosing = Var(
-        #     initialize=1e5,
-        #     units=pyunits.kg / pyunits.day,
-        #     bounds=(0, None),
-        #     doc="Lime requirements",
-        # )
+        self.CaO_dosing = Var(
+            initialize=1e5,
+            units=pyunits.kg / pyunits.day,
+            bounds=(0, None),
+            doc="Lime requirements",
+        )
 
         self.Na2CO3_dosing = Var(
             initialize=1e5,
@@ -539,26 +539,9 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     * b.excess_CaO_coeff
                 )
 
-            @self.Expression(doc="Lime dosing")
-            def CaO_dosing(b):
-                return pyunits.convert(
-                    (
-                        b.CO2_CaCO3
-                        + b.properties_in[0].conc_mass_phase_comp[
-                            "Liq", "Alkalinity_2-"
-                        ]
-                        + b.Mg_CaCO3
-                        + b.excess_CaO
-                    )
-                    * b.properties_in[0].flow_vol_phase["Liq"]
-                    * b.CaO_mw
-                    / b.CaCO3_mw,
-                    to_units=pyunits.kg / pyunits.d,
-                )
-
-            # @self.Constraint(doc="Lime dosing")
-            # def eq_CaO_dosing(b):
-            #     return b.CaO_dosing == pyunits.convert(
+            # @self.Expression(doc="Lime dosing")
+            # def CaO_dosing(b):
+            #     return pyunits.convert(
             #         (
             #             b.CO2_CaCO3
             #             + b.properties_in[0].conc_mass_phase_comp[
@@ -572,6 +555,23 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             #         / b.CaCO3_mw,
             #         to_units=pyunits.kg / pyunits.d,
             #     )
+
+            @self.Constraint(doc="Lime dosing")
+            def eq_CaO_dosing(b):
+                return b.CaO_dosing == pyunits.convert(
+                    (
+                        b.CO2_CaCO3
+                        + b.properties_in[0].conc_mass_phase_comp[
+                            "Liq", "Alkalinity_2-"
+                        ]
+                        + b.Mg_CaCO3
+                        + b.excess_CaO
+                    )
+                    * b.properties_in[0].flow_vol_phase["Liq"]
+                    * b.CaO_mw
+                    / b.CaCO3_mw,
+                    to_units=pyunits.kg / pyunits.d,
+                )
 
 
             @self.Constraint(doc="CO2 for first basin")
