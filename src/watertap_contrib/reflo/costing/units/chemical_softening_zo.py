@@ -125,296 +125,210 @@ def build_chemical_softening_cost_param_block(blk):
     )
 
     # Costing equation coefficients - Capital cost
-    blk.mix_tank_capital_coeff_1 = Param(
-        initialize=0.0002,
-        mutable=True,
-        doc="Coefficient of first term in mixer tank capital cost equation",
-    )
 
-    blk.mix_tank_capital_coeff_2 = Param(
-        initialize=22.776,
-        mutable=True,
-        doc="Coefficient of second term in mixer tank capital cost equation",
-    )
+    # Rapid Mix, G=300 s-1
+    # Adapted from Equation 4.22 in Sharma
+    # C = A*x**b
+    # Original bounds = (100, 20000)
 
-    blk.mix_tank_capital_exp_1 = Param(
-        initialize=2,
+    blk.mixer_capital_coeff = Param(
+        initialize=1219.22948,
         mutable=True,
-        doc="Exponent of the first term in the mixer tank capital cost equation",
+        units=pyunits.USD_2009,
+        doc="Capital coefficient for mixer",
     )
-
-    blk.mix_tank_capital_constant = Param(
-        initialize=28584,
+    blk.mixer_capital_exponent = Param(
+        initialize=0.730785,
         mutable=True,
-        doc="Constant in the mixer tank capital cost equation",
+        units=pyunits.dimensionless,
+        doc="Capital exponent for mixer",
     )
 
     blk.floc_tank_capital_coeff = Param(
         initialize=673894,
         mutable=True,
+        units=pyunits.USD_2007 * pyunits.Mgallons**-1,
         doc="Coefficient of flocculation tank capital cost equation",
     )
 
-    blk.floc_tank_capital_constant = Param(
+    blk.floc_tank_capital_intercept = Param(
         initialize=217222,
         mutable=True,
-        doc="Constant in the flocculation tank capital cost equation",
+        units=pyunits.USD_2007,
+        doc="Intercept in the flocculation tank capital cost equation",
     )
 
-    blk.sed_basin_capital_coeff_1 = Param(
-        initialize=-0.0005,
+    # Sedimentation, circular clarifiers
+    # Adapted from Equation 4.32 in Sharma
+    # C = A*x**b
+    # Original bounds = (707, 31416)
+
+    blk.sed_capital_coeff = Param(
+        initialize=969.38,
         mutable=True,
-        doc="Coefficient of first term in sedimentation basin capital cost equation",
+        units=pyunits.USD_2009,
+        doc="Capital coefficient for sedimentation basin",
+    )
+    blk.sed_capital_exponent = Param(
+        initialize=0.75539,
+        mutable=True,
+        units=pyunits.dimensionless,
+        doc="Capital exponent for sedimentation basin",
     )
 
-    blk.sed_basin_capital_coeff_2 = Param(
-        initialize=86.89,
+    # Recarbonation basin
+    # Adapted from Equation 4.60 in Sharma to fit
+    # C = A*x**b
+    # Original bounds = (770, 35200)
+
+    blk.recarb_basin_capital_coeff = Param(
+        initialize=56.60714729,
         mutable=True,
-        doc="Coefficient of second term in sedimentation basin capital cost equation",
+        units=pyunits.USD_2009,
+        doc="Capital coefficient for recarbonation basin",
+    )
+    blk.recarb_basin_capital_exponent = Param(
+        initialize=0.81337136,
+        mutable=True,
+        units=pyunits.dimensionless,
+        doc="Capital coefficient for recarbonation basin",
     )
 
-    blk.sed_basin_capital_exp_1 = Param(
-        initialize=2,
+    # Recarbonation basin, CO2 source (Liquid CO2 as CO2 source)
+    # Adapted from Equation 4.61 in Sharma to fit
+    # C = A*x**b
+    # Original bounds = (380, 15000)
+
+    blk.recarb_source_capital_coeff = Param(
+        initialize=549.13770574,
         mutable=True,
-        doc="Exponent of the first term in the sedimentation basin capital cost equation",
+        units=pyunits.USD_2009,
+        doc="Capital coefficient for recarbonation basin",
+    )
+    blk.recarb_source_capital_exponent = Param(
+        initialize=0.75494096,
+        mutable=True,
+        units=pyunits.dimensionless,
+        doc="Capital exponent for recarbonation basin",
     )
 
-    blk.sed_basin_capital_constant = Param(
-        initialize=182801,
-        mutable=True,
-        doc="Constant in the sedimentation basin capital cost equation",
-    )
-
-    blk.recarb_basin_capital_coeff_1 = Param(
-        initialize=4e-9,
-        mutable=True,
-        doc="Coefficient of first term in recarbonation basin capital cost equation",
-    )
-
-    blk.recarb_basin_capital_coeff_2 = Param(
-        initialize=-0.0002,
-        mutable=True,
-        doc="Coefficient of second term in recarbonation basin capital cost equation",
-    )
-
-    blk.recarb_basin_capital_coeff_3 = Param(
-        initialize=10.027,
-        mutable=True,
-        doc="Coefficient of third term in recarbonation basin capital cost equation",
-    )
-
-    blk.recarb_basin_capital_exp_1 = Param(
-        initialize=3,
-        mutable=True,
-        doc="Exponent of first term in recarbonation basin capital cost equation",
-    )
-
-    blk.recarb_basin_capital_exp_2 = Param(
-        initialize=2,
-        mutable=True,
-        doc="Exponent of second term in recarbonation basin capital cost equation",
-    )
-
-    blk.recarb_basin_capital_constant = Param(
-        initialize=19287,
-        mutable=True,
-        doc="Constant in recarbonation basin capital cost equation",
-    )
-
-    blk.recarb_basin_source_capital_coeff_1 = Param(
-        initialize=9e-8,
-        mutable=True,
-        doc="Coefficient of first term in recarbonation basin capital cost equation",
-    )
-
-    blk.recarb_basin_source_capital_coeff_2 = Param(
-        initialize=-0.001,
-        mutable=True,
-        doc="Coefficient of second term in recarbonation basin source capital cost equation",
-    )
-
-    blk.recarb_basin_source_capital_coeff_3 = Param(
-        initialize=42.578,
-        mutable=True,
-        doc="Coefficient of third term in recarbonation basin source capital cost equation",
-    )
-
-    blk.recarb_basin_source_capital_exp_2 = Param(
-        initialize=2,
-        mutable=True,
-        doc="Exponent of second term in recarbonation basin source capital cost equation",
-    )
-
-    blk.recarb_basin_source_capital_constant = Param(
-        initialize=130812,
-        mutable=True,
-        doc="Constant in recarbonation basin source capital cost equation",
-    )
+    # Lime feed system capital cost
+    # Adapted from Equation 4.59 in Sharma to fit
+    # C = A*x**b
+    # Original bounds = (1000, 10000)
 
     blk.lime_feed_system_capital_coeff = Param(
-        initialize=20.065,
+        initialize=21420.1311,
         mutable=True,
-        doc="Coefficient in lime feed system capital cost",
+        units=pyunits.USD_2009,
+        doc="Capital coefficient for lime feed system",
     )
 
-    blk.lime_feed_system_capital_constant = Param(
-        initialize=193268, mutable=True, doc="Constant in lime feed system capital cost"
+    blk.lime_feed_system_capital_exponent = Param(
+        initialize=0.311419,
+        mutable=True,
+        units=pyunits.dimensionless,
+        doc="Capital exponent for lime feed system",
     )
+
+    # Admin capital costs
+    # Equation 4.94 in Sharma
 
     blk.admin_capital_coeff = Param(
         initialize=69195,
         mutable=True,
+        units=pyunits.USD_2009,
         doc="Coefficient in lime feed system capital cost",
     )
 
     blk.admin_capital_exp = Param(
-        initialize=0.5523, mutable=True, doc="Exponent in lime feed system capital cost"
+        initialize=0.5523,
+        mutable=True,
+        units=pyunits.dimensionless,
+        doc="Exponent in lime feed system capital cost",
     )
 
     # Costing equation coefficients - Operational cost
-    blk.mix_tank_op_coeff_1 = Param(
-        initialize=-3e-8,
+
+    # Mixer operational costs
+    # Adapted from Equation 4.144 in Sharma to fit
+    # C = A*x**b
+    # Original bounds = (100, 20000)
+
+    blk.mixer_op_coeff = Param(
+        initialize=78.98,
         mutable=True,
-        doc="Coefficient of first term in mixer tank operational cost equation",
+        units=pyunits.USD_2009 / pyunits.year,
+        doc="Opex coefficient for mixers",
     )
 
-    blk.mix_tank_op_coeff_2 = Param(
-        initialize=0.0008,
+    blk.mixer_op_exponent = Param(
+        initialize=0.776291,
         mutable=True,
-        doc="Coefficient of second term in mixer tank operational cost equation",
+        units=pyunits.dimensionless,
+        doc="Opex exponent for mixers",
     )
 
-    blk.mix_tank_op_coeff_3 = Param(
-        initialize=2.8375,
+    # Floc operational costs
+    # Adapted from Equation 4.148 in Sharma to fit
+    # C = A*x**b
+    # Original bounds = (1800, 1000000)
+
+    blk.floc_op_coeff = Param(
+        initialize=0.87966855,
         mutable=True,
-        doc="Coefficient of third term in mixer tank operational cost equation",
+        units=pyunits.USD_2009 / pyunits.year,
+        doc="Opex coefficient for flocculators",
     )
 
-    blk.mix_tank_op_exp_1 = Param(
-        initialize=3,
+    blk.floc_op_exponent = Param(
+        initialize=0.89292125,
         mutable=True,
-        doc="Exponent of the first term in the mixer tank operational cost equation",
+        units=pyunits.dimensionless,
+        doc="Opex exponent for flocculators",
     )
 
-    blk.mix_tank_op_exp_2 = Param(
-        initialize=2,
+    # Sedimentation operational costs
+    # Adapted from Equation 4.151 in Sharma to fit
+    # C = m*x + b
+    # Original bounds = (30, 200)
+
+    blk.sed_op_slope = Param(
+        initialize=1.54138506,
         mutable=True,
-        doc="Exponent of the second term in the mixer tank operational cost equation",
+        units=pyunits.USD_2009 / pyunits.year,
+        doc="Opex slope for sedimenation basin",
     )
 
-    blk.mix_tank_op_constant = Param(
-        initialize=22588,
+    blk.sed_op_intercept = Param(
+        initialize=6880,
         mutable=True,
-        doc="Constant in the mixer tank operational cost equation",
+        units=pyunits.USD_2009 / pyunits.year,
+        doc="Opex intercept for sedimentation basin",
     )
 
-    blk.floc_tank_op_coeff_1 = Param(
-        initialize=3e-13,
+    # Recarbonation basin operational costs
+    # Adapted from Equation 4.171 in Sharma to fit
+    # C = A*x**b
+    # Original bounds = (30, 200)
+
+    blk.recarb_basin_op_coeff = Param(
+        initialize=1245.55473,
         mutable=True,
-        doc="Coefficient of the first term in the flocculation tank capital cost equation",
+        units=pyunits.USD_2009 / pyunits.year,
+        doc="Opex coefficient for recarbonation basin",
     )
 
-    blk.floc_tank_op_coeff_2 = Param(
-        initialize=-4e-7,
+    blk.recarb_basin_op_exponent = Param(
+        initialize=0.3806758,
         mutable=True,
-        doc="Coefficient of the second term in the flocculation tank capital cost equation",
+        units=pyunits.dimensionless,
+        doc="Opex exponent for recarbonation basin",
     )
 
-    blk.floc_tank_op_coeff_3 = Param(
-        initialize=0.318,
-        mutable=True,
-        doc="Coefficient of the third term in the flocculation tank capital cost equation",
-    )
-
-    blk.floc_tank_op_exp_1 = Param(
-        initialize=3,
-        mutable=True,
-        doc="Exponent of the first term in the flocculation tank capital cost equation",
-    )
-
-    blk.floc_tank_op_exp_2 = Param(
-        initialize=2,
-        mutable=True,
-        doc="Exponent of the second term in the flocculation tank capital cost equation",
-    )
-
-    blk.floc_tank_op_constant = Param(
-        initialize=6040,
-        mutable=True,
-        doc="Constant in the flocculation tank capital cost equation",
-    )
-
-    blk.sed_basin_op_coeff_1 = Param(
-        initialize=7e-10,
-        mutable=True,
-        doc="Coefficient of first term in sedimentation basin operational cost equation",
-    )
-
-    blk.sed_basin_op_coeff_2 = Param(
-        initialize=-0.00005,
-        mutable=True,
-        doc="Coefficient of second term in sedimentation basin operational cost equation",
-    )
-
-    blk.sed_basin_op_coeff_3 = Param(
-        initialize=1.5908,
-        mutable=True,
-        doc="Coefficient of second term in sedimentation basin operational cost equation",
-    )
-
-    blk.sed_basin_op_exp_1 = Param(
-        initialize=3,
-        mutable=True,
-        doc="Exponent of the first term in the sedimentation basin operational cost equation",
-    )
-
-    blk.sed_basin_op_exp_2 = Param(
-        initialize=2,
-        mutable=True,
-        doc="Exponent of the first term in the sedimentation basin operational cost equation",
-    )
-
-    blk.sed_basin_op_constant = Param(
-        initialize=6872,
-        mutable=True,
-        doc="Constant in the sedimentation basin operational cost equation",
-    )
-
-    blk.recarb_basin_op_coeff_1 = Param(
-        initialize=1e-8,
-        mutable=True,
-        doc="Coefficient of first term in recarbonation basin operational cost equation",
-    )
-
-    blk.recarb_basin_op_coeff_2 = Param(
-        initialize=-0.0004,
-        mutable=True,
-        doc="Coefficient of second term in recarbonation basin operational cost equation",
-    )
-
-    blk.recarb_basin_op_coeff_3 = Param(
-        initialize=6.19,
-        mutable=True,
-        doc="Coefficient of third term in recarbonation basin operational cost equation",
-    )
-
-    blk.recarb_basin_op_exp_1 = Param(
-        initialize=3,
-        mutable=True,
-        doc="Exponent of first term in recarbonation basin operational cost equation",
-    )
-
-    blk.recarb_basin_op_exp_2 = Param(
-        initialize=2,
-        mutable=True,
-        doc="Exponent of second term in recarbonation basin operational cost equation",
-    )
-
-    blk.recarb_basin_op_constant = Param(
-        initialize=10265,
-        mutable=True,
-        doc="Constant in recarbonation basin operational cost equation",
-    )
+    # Lime feed system operational costs
+    # Equation 4.170 in Sharma
+    # DOES NOT INCLUDE CHEMICAL COSTS (see Table C.1 in Sharma)
 
     blk.lime_feed_system_op_coeff = Param(
         initialize=4616.7,
@@ -427,6 +341,9 @@ def build_chemical_softening_cost_param_block(blk):
         mutable=True,
         doc="Constant in lime feed system operational cost",
     )
+
+    # Admin operational costs
+    # Equation 4.196 in Sharma
 
     blk.admin_op_coeff = Param(
         initialize=88589,
@@ -447,7 +364,7 @@ def build_chemical_softening_cost_param_block(blk):
 )
 @register_costing_parameter_block(
     build_rule=build_soda_ash_cost_param_block,
-    parameter_block_name="soda ash",
+    parameter_block_name="soda_ash",
 )
 @register_costing_parameter_block(
     build_rule=build_mgcl2_cost_param_block,
@@ -462,7 +379,6 @@ def build_chemical_softening_cost_param_block(blk):
     parameter_block_name="chemical_softening",
 )
 def cost_chemical_softening(blk):
-
     """
     Capital and operating costs for chemical softening
     """
@@ -544,7 +460,7 @@ def cost_chemical_softening(blk):
 
     # Operating cost components
 
-    blk.mix_tank_op_cost = Var(
+    blk.mixer_op_cost = Var(
         initialize=1e4,
         doc="Operational cost of mixing tank - energy consumption and labor",
         domain=NonNegativeReals,
@@ -598,17 +514,15 @@ def cost_chemical_softening(blk):
     capital_cost_expr = 0
 
     # Mixing tank
+    blk.volume_mixer_ft3_dimensionless = pyunits.convert(
+        blk.unit_model.volume_mixer * pyunits.ft**-3, to_units=pyunits.dimensionless
+    )
     blk.mix_tank_capital_cost_constraint = Constraint(
         expr=blk.mix_tank_capital_cost
-        == (
-            chem_soft.mix_tank_capital_coeff_1
-            * (pyunits.convert(blk.unit_model.volume_mixer, to_units=pyunits.ft**3))
-            ** chem_soft.mix_tank_capital_exp_1
-        )
-        + (
-            chem_soft.mix_tank_capital_coeff_2
-            * (pyunits.convert(blk.unit_model.volume_mixer, to_units=pyunits.ft**3))
-            + chem_soft.mix_tank_capital_constant
+        == pyunits.convert(
+            chem_soft.mixer_capital_coeff
+            * blk.volume_mixer_ft3_dimensionless**chem_soft.mixer_capital_exponent,
+            to_units=blk.costing_package.base_currency,
         )
     )
 
@@ -617,112 +531,107 @@ def cost_chemical_softening(blk):
     # Flocculation tank
     blk.floc_tank_capital_cost_constraint = Constraint(
         expr=blk.floc_tank_capital_cost
-        == (
-            chem_soft.floc_tank_capital_coeff
-            * pyunits.convert(blk.unit_model.volume_floc, to_units=pyunits.megagallon)
-            + chem_soft.floc_tank_capital_constant
+        == pyunits.convert(
+            (
+                chem_soft.floc_tank_capital_coeff
+                * pyunits.convert(blk.unit_model.volume_floc, to_units=pyunits.Mgallon)
+                + chem_soft.floc_tank_capital_intercept
+            ),
+            to_units=blk.costing_package.base_currency,
         )
     )
 
     capital_cost_expr += blk.floc_tank_capital_cost
 
     # Sedimentation basin
+    blk.sed_basin_effective_settling_area_ft2_dimensionless = pyunits.convert(
+        blk.unit_model.volume_sed / chem_soft.sed_basin_depth * pyunits.ft**-2,
+        to_units=pyunits.dimensionless,
+    )
     blk.sed_basin_capital_cost_constraint = Constraint(
         expr=blk.sed_basin_capital_cost
-        == (
-            chem_soft.sed_basin_capital_coeff_1
-            * (
-                pyunits.convert(blk.unit_model.volume_sed, to_units=pyunits.ft**3)
-                / pyunits.convert(chem_soft.sed_basin_depth, to_units=pyunits.ft)
-            )
-            ** chem_soft.sed_basin_capital_exp_1
-            + chem_soft.sed_basin_capital_coeff_2
-            * pyunits.convert(blk.unit_model.volume_sed, to_units=pyunits.ft**3)
-            / pyunits.convert(chem_soft.sed_basin_depth, to_units=pyunits.ft)
-            + chem_soft.sed_basin_capital_constant
+        == pyunits.convert(
+            (
+                chem_soft.sed_capital_coeff
+                * blk.sed_basin_effective_settling_area_ft2_dimensionless
+                ** chem_soft.sed_capital_exponent
+            ),
+            to_units=blk.costing_package.base_currency,
         )
     )
 
     capital_cost_expr += blk.sed_basin_capital_cost
 
     # Recarbonation basin
+    blk.recarb_basin_vol_ft3_dimensionless = pyunits.convert(
+        blk.unit_model.volume_recarb * pyunits.ft**-3, to_units=pyunits.dimensionless
+    )
     blk.recarb_basin_capital_cost_constraint = Constraint(
         expr=blk.recarb_basin_capital_cost
-        == (
-            chem_soft.recarb_basin_capital_coeff_1
-            * (pyunits.convert(blk.unit_model.volume_recarb, to_units=pyunits.ft**3))
-            ** chem_soft.recarb_basin_capital_exp_1
-            + chem_soft.recarb_basin_capital_coeff_2
-            * (pyunits.convert(blk.unit_model.volume_recarb, to_units=pyunits.ft**3))
-            ** chem_soft.recarb_basin_capital_exp_2
-            + chem_soft.recarb_basin_capital_coeff_3
-            * (pyunits.convert(blk.unit_model.volume_recarb, to_units=pyunits.ft**3))
-            + chem_soft.recarb_basin_capital_constant
+        == pyunits.convert(
+            chem_soft.recarb_basin_capital_coeff
+            * blk.recarb_basin_vol_ft3_dimensionless
+            ** chem_soft.recarb_basin_capital_exponent,
+            to_units=blk.costing_package.base_currency,
         )
     )
 
     capital_cost_expr += blk.recarb_basin_capital_cost
 
     # Recarbonation source cost
+    blk.recarb_source_first_basin_lb_day_dimensionless = pyunits.convert(
+        blk.unit_model.CO2_first_basin * pyunits.day * pyunits.lb**-1,
+        to_units=pyunits.dimensionless,
+    )
+    blk.recarb_source_second_basin_lb_day_dimensionless = pyunits.convert(
+        blk.unit_model.CO2_second_basin * pyunits.day * pyunits.lb**-1,
+        to_units=pyunits.dimensionless,
+    )
     blk.recarb_basin_source_capital_cost_constraint = Constraint(
         expr=blk.recarb_basin_source_capital_cost
-        == (
-            chem_soft.recarb_basin_source_capital_coeff_1
+        == pyunits.convert(
+            chem_soft.recarb_source_capital_coeff
             * (
-                pyunits.convert(
-                    blk.unit_model.CO2_first_basin + blk.unit_model.CO2_second_basin,
-                    to_units=pyunits.lb / pyunits.day,
-                )
+                blk.recarb_source_first_basin_lb_day_dimensionless
+                + blk.recarb_source_second_basin_lb_day_dimensionless
             )
-            + chem_soft.recarb_basin_source_capital_coeff_2
-            * (
-                pyunits.convert(
-                    blk.unit_model.CO2_first_basin + blk.unit_model.CO2_second_basin,
-                    to_units=pyunits.lb / pyunits.day,
-                )
-            )
-            ** chem_soft.recarb_basin_source_capital_exp_2
-            + chem_soft.recarb_basin_source_capital_coeff_3
-            * (
-                pyunits.convert(
-                    blk.unit_model.CO2_first_basin + blk.unit_model.CO2_second_basin,
-                    to_units=pyunits.lb / pyunits.day,
-                )
-            )
-            + chem_soft.recarb_basin_source_capital_constant
+            ** chem_soft.recarb_source_capital_exponent,
+            to_units=blk.costing_package.base_currency,
         )
     )
 
     capital_cost_expr += blk.recarb_basin_source_capital_cost
 
     # Lime feed system cost
+    blk.lime_dosing_lb_hr_dimensionless = pyunits.convert(
+        blk.unit_model.CaO_dosing * pyunits.hr * pyunits.lb**-1,
+        to_units=pyunits.dimensionless,
+    )
     blk.lime_feed_system_capital_cost_constraint = Constraint(
         expr=blk.lime_feed_system_capital_cost
-        == (
+        == pyunits.convert(
             chem_soft.lime_feed_system_capital_coeff
-            * (
-                pyunits.convert(
-                    blk.unit_model.CaO_dosing, to_units=pyunits.lb / pyunits.hour
-                )
-            )
-            + chem_soft.lime_feed_system_capital_constant
+            * blk.lime_dosing_lb_hr_dimensionless
+            ** chem_soft.lime_feed_system_capital_exponent,
+            to_units=blk.costing_package.base_currency,
         )
     )
 
     capital_cost_expr += blk.lime_feed_system_capital_cost
 
     # Admin cost
+    flow_vol_mgd_dimensionless = pyunits.convert(
+        blk.unit_model.properties_in[0].flow_vol_phase["Liq"]
+        * pyunits.day
+        * pyunits.Mgallons**-1,
+        to_units=pyunits.dimensionless,
+    )
     blk.admin_capital_cost_constraint = Constraint(
         expr=blk.admin_capital_cost
-        == chem_soft.admin_capital_coeff
-        * (
-            (
-                pyunits.convert(
-                    blk.unit_model.properties_in[0].flow_vol_phase["Liq"],
-                    to_units=pyunits.megagallon / pyunits.day,
-                )
-            )
-            ** chem_soft.admin_capital_exp
+        == pyunits.convert(
+            chem_soft.admin_capital_coeff
+            * flow_vol_mgd_dimensionless**chem_soft.admin_capital_exp,
+            to_units=blk.costing_package.base_currency,
         )
     )
 
@@ -733,87 +642,49 @@ def cost_chemical_softening(blk):
     op_cost_expr = 0
 
     # Mixing tank
+    blk.mixer_volume_ft3_dimensionless = pyunits.convert(
+        blk.unit_model.volume_mixer * pyunits.ft**-3, to_units=pyunits.dimensionless
+    )
     blk.mix_tank_op_cost_constraint = Constraint(
-        expr=blk.mix_tank_op_cost
-        == (
-            chem_soft.mix_tank_op_coeff_1
-            * (pyunits.convert(blk.unit_model.volume_mixer, to_units=pyunits.ft**3))
-            ** chem_soft.mix_tank_op_exp_1
+        expr=blk.mixer_op_cost
+        == pyunits.convert(
+            chem_soft.mixer_op_coeff
+            * blk.mixer_volume_ft3_dimensionless**chem_soft.mixer_op_exponent,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
         )
-        + (
-            chem_soft.mix_tank_op_coeff_2
-            * (pyunits.convert(blk.unit_model.volume_mixer, to_units=pyunits.ft**3))
-            ** chem_soft.mix_tank_op_exp_2
-        )
-        + (
-            chem_soft.mix_tank_op_coeff_3
-            * (pyunits.convert(blk.unit_model.volume_mixer, to_units=pyunits.ft**3))
-        )
-        + chem_soft.mix_tank_op_constant
     )
 
-    op_cost_expr += blk.mix_tank_op_cost
+    op_cost_expr += blk.mixer_op_cost
 
     # Flocculation tank
+    blk.floc_vol_ft3_dimensionless = pyunits.convert(
+        blk.unit_model.volume_floc * pyunits.ft**-3, to_units=pyunits.dimensionless
+    )
     blk.floc_tank_op_cost_constraint = Constraint(
         expr=blk.floc_tank_op_cost
-        == (
-            (
-                chem_soft.floc_tank_op_coeff_1
-                * (
-                    pyunits.convert(
-                        blk.unit_model.volume_floc, to_units=pyunits.ft**3
-                    )
-                )
-                ** chem_soft.floc_tank_op_exp_1
-            )
-            + (
-                chem_soft.floc_tank_op_coeff_2
-                * (
-                    pyunits.convert(
-                        blk.unit_model.volume_floc, to_units=pyunits.ft**3
-                    )
-                )
-                ** chem_soft.floc_tank_op_exp_2
-            )
-            + (
-                chem_soft.floc_tank_op_coeff_3
-                * (
-                    pyunits.convert(
-                        blk.unit_model.volume_floc, to_units=pyunits.ft**3
-                    )
-                )
-                + chem_soft.floc_tank_op_constant
-            )
+        == pyunits.convert(
+            chem_soft.floc_op_coeff
+            * blk.floc_vol_ft3_dimensionless**chem_soft.floc_op_exponent,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
         )
     )
 
     op_cost_expr += blk.floc_tank_op_cost
 
     # Sedimentation basin
+    blk.sed_surf_area_ft2_dimensionless = pyunits.convert(
+        (blk.unit_model.volume_sed / chem_soft.sed_basin_depth) * pyunits.ft**-2,
+        to_units=pyunits.dimensionless,
+    )
     blk.sed_basin_op_cost_constraint = Constraint(
         expr=blk.sed_basin_op_cost
-        == (
-            chem_soft.sed_basin_op_coeff_1
-            * (
-                (pyunits.convert(blk.unit_model.volume_sed, to_units=pyunits.ft**3))
-                / pyunits.convert(chem_soft.sed_basin_depth, to_units=pyunits.ft)
-            )
-            ** chem_soft.sed_basin_op_exp_1
-        )
-        + (
-            chem_soft.sed_basin_op_coeff_2
-            * (
-                (pyunits.convert(blk.unit_model.volume_sed, to_units=pyunits.ft**3))
-                / pyunits.convert(chem_soft.sed_basin_depth, to_units=pyunits.ft)
-            )
-            ** chem_soft.sed_basin_op_exp_2
-        )
-        + (
-            chem_soft.sed_basin_op_coeff_3
-            * (pyunits.convert(blk.unit_model.volume_sed, to_units=pyunits.ft**3))
-            / pyunits.convert(chem_soft.sed_basin_depth, to_units=pyunits.ft)
-            + chem_soft.sed_basin_op_constant
+        == pyunits.convert(
+            chem_soft.sed_op_intercept
+            + chem_soft.sed_op_slope * blk.sed_surf_area_ft2_dimensionless,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
         )
     )
 
@@ -822,40 +693,15 @@ def cost_chemical_softening(blk):
     # Recarbonation basin
     blk.recarb_basin_op_cost_constraint = Constraint(
         expr=blk.recarb_basin_op_cost
-        == (
-            (
-                chem_soft.recarb_basin_op_coeff_1
-                * (
-                    pyunits.convert(
-                        blk.unit_model.CO2_first_basin
-                        + blk.unit_model.CO2_second_basin,
-                        to_units=pyunits.lb / pyunits.day,
-                    )
-                )
-                ** chem_soft.recarb_basin_op_exp_1
+        == pyunits.convert(
+            chem_soft.recarb_basin_op_coeff
+            * (
+                blk.recarb_source_first_basin_lb_day_dimensionless
+                + blk.recarb_source_second_basin_lb_day_dimensionless
             )
-            + (
-                chem_soft.recarb_basin_op_coeff_2
-                * (
-                    pyunits.convert(
-                        blk.unit_model.CO2_first_basin
-                        + blk.unit_model.CO2_second_basin,
-                        to_units=pyunits.lb / pyunits.day,
-                    )
-                )
-                ** chem_soft.recarb_basin_op_exp_2
-            )
-            + (
-                chem_soft.recarb_basin_op_coeff_3
-                * (
-                    pyunits.convert(
-                        blk.unit_model.CO2_first_basin
-                        + blk.unit_model.CO2_second_basin,
-                        to_units=pyunits.lb / pyunits.day,
-                    )
-                )
-                + chem_soft.recarb_basin_op_constant
-            )
+            ** chem_soft.recarb_basin_op_exponent,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
         )
     )
 
@@ -958,7 +804,7 @@ def cost_chemical_softening(blk):
             to_units=pyunits.kg / pyunits.year,
         )
 
-    @blk.Expression(doc="Costing block co2 dosing")
+    @blk.Expression(doc="Costing block CO2 dosing")
     def co2_dosing(b):
         return pyunits.convert(
             b.unit_model.CO2_first_basin + b.unit_model.CO2_second_basin,
