@@ -383,12 +383,12 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="CO2 concentration required for recarbonation in second basin only in excess lime scenario",
         )
 
-        # self.excess_CaO = Var(
-        #     initialize=0,
-        #     bounds=(0, None),  # typically 30-70 mg/L, MWH
-        #     units=pyunits.kg / pyunits.m**3,
-        #     doc="Excess lime requiremenent",
-        # )
+        self.excess_CaO = Var(
+            initialize=0,
+            bounds=(0, None),  # typically 30-70 mg/L, MWH
+            units=pyunits.kg / pyunits.m**3,
+            doc="Excess lime requiremenent",
+        )
 
         self.CO2_CaCO3 = Var(
             initialize=0.1,
@@ -517,27 +517,28 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         elif self.config.softening_procedure_type is SofteningProcedureType.excess_lime:
 
-            @self.Expression(doc="Excess lime addition")
-            def excess_CaO(b):
-                return (
-                    b.CO2_CaCO3
-                    + b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-                    + b.Mg_CaCO3
-                ) * b.excess_CaO_coeff
-
-            # @self.Constraint(doc="Excess lime addition")
-            # def eq_excess_CaO(b):
+            # @self.Expression(doc="Excess lime addition")
+            # def excess_CaO(b):
             #     return (
-            #         b.excess_CaO
-            #         == (
-            #             b.CO2_CaCO3
-            #             + b.properties_in[0].conc_mass_phase_comp[
-            #                 "Liq", "Alkalinity_2-"
-            #             ]
-            #             + b.Mg_CaCO3
-            #         )
-            #         * b.excess_CaO_coeff
-            #     )
+            #         b.CO2_CaCO3
+            #         + b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+            #         + b.Mg_CaCO3
+            #     ) * b.excess_CaO_coeff
+
+            @self.Constraint(doc="Excess lime addition")
+            def eq_excess_CaO(b):
+                return (
+                    b.excess_CaO
+                    == (
+                        b.CO2_CaCO3
+                        + b.properties_in[0].conc_mass_phase_comp[
+                            "Liq", "Alkalinity_2-"
+                        ]
+                        + b.Mg_CaCO3
+                    )
+                    * b.excess_CaO_coeff
+                )
+
             @self.Expression(doc="Lime dosing")
             def CaO_dosing(b):
                 return pyunits.convert(
@@ -572,18 +573,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             #         to_units=pyunits.kg / pyunits.d,
             #     )
 
-            # Expr_if(
-            #                     (
-            #                         (
-            #                             b.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"]
-            #                             * 2.35
-            #                             > b.properties_in[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-            #                         )
-            #                     ),
-            #                     b.MgCl2_SiO2_ratio
-            #                     * b.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"],
-            #                     1e-15 * pyunits.kg / pyunits.m**3,
-            #                 )
+
             @self.Constraint(doc="CO2 for first basin")
             def eq_CO2_first_basin(b):
                 return b.CO2_first_basin == Expr_if(

@@ -502,11 +502,11 @@ if __name__ == "__main__":
     # set_scaling(m)
     # report_MCAS_stream_conc(m)
     print(f"DOF = {degrees_of_freedom(m)}")
-    try:
-        init_system(m)
+    # try:
+    init_system(m)
 
-    except:
-        print_infeasible_constraints(m)
+    # except:
+    #     print_infeasible_constraints(m)
     # check_jac(m)
     soft = m.fs.softener.unit
     # m.fs.softener.unit.display()
@@ -516,17 +516,17 @@ if __name__ == "__main__":
     print_infeasible_constraints(m)
     assert_optimal_termination(results)
     soft = m.fs.softener.unit
-    soft.display()
+    # soft.display()
     # soft.excess_CaO_coeff.display()
     # soft.CO2_CaCO3.display()
     # soft.CaO_dosing.display()
     # soft.Mg_CaCO3.display()
-    # soft.excess_CaO.display()
+    soft.excess_CaO.display()
     # soft.ca_eff_target.display()
     # soft.mg_eff_target.display()
     # soft.CO2_first_basin.display()
     # soft.CO2_second_basin.display()
-    # soft.properties_out[0].conc_mass_phase_comp.display()
+    soft.properties_out[0].conc_mass_phase_comp.display()
     # soft.properties_out[0].flow_mass_phase_comp.display()
     # soft.excess_CaO.fix()
     # soft.CaO_dosing.fix()
