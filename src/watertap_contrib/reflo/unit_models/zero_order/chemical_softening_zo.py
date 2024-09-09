@@ -804,28 +804,25 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.s,
             )
 
-        @self.Constraint(doc="Ca mass balance")
-        def eq_mass_balance_ca(b):
-            return (
-                b.properties_waste[0].flow_mass_phase_comp["Liq", "Ca_2+"]
-                + b.properties_out[0].flow_mass_phase_comp["Liq", "Ca_2+"]
-                == b.properties_in[0].flow_mass_phase_comp["Liq", "Ca_2+"]
-            )
-
         # @self.Constraint(doc="Ca mass balance")
         # def eq_mass_balance_ca(b):
-        #     return b.properties_waste[0].flow_mass_phase_comp[
-        #         "Liq", "Ca_2+"
-        #     ] == b.properties_in[0].flow_mass_phase_comp[
-        #         "Liq", "Ca_2+"
-        #     ] + pyunits.convert(
-        #         b.excess_CaO * (b.Ca_mw / b.CaCO3_mw) * b.properties_in[0].flow_vol_phase["Liq"],
-        #         # b.excess_CaO * b.properties_in[0].flow_vol_phase["Liq"],
-        #         to_units=pyunits.kg / pyunits.s,
-        #     ) - pyunits.convert(
-        #         b.ca_eff_target * b.properties_out[0].flow_vol_phase["Liq"],
-        #         to_units=pyunits.kg / pyunits.s,
+        #     return (
+        #         b.properties_waste[0].flow_mass_phase_comp["Liq", "Ca_2+"]
+        #         + b.properties_out[0].flow_mass_phase_comp["Liq", "Ca_2+"]
+        #         == b.properties_in[0].flow_mass_phase_comp["Liq", "Ca_2+"]
         #     )
+
+        @self.Constraint(doc="Ca mass balance")
+        def eq_mass_balance_ca(b):
+            return b.properties_waste[0].flow_mass_phase_comp[
+                "Liq", "Ca_2+"
+            ] == b.properties_in[0].flow_mass_phase_comp[
+                "Liq", "Ca_2+"
+            ] + pyunits.convert(
+                b.excess_CaO * (b.Ca_mw / b.CaCO3_mw) * b.properties_in[0].flow_vol_phase["Liq"],
+                # b.excess_CaO * b.properties_in[0].flow_vol_phase["Liq"],
+                to_units=pyunits.kg / pyunits.s,
+            ) - b.properties_out[0].flow_mass_phase_comp["Liq", "Ca_2+"]
 
         @self.Constraint(doc="Mg in effluent")
         def eq_effluent_mg(b):
