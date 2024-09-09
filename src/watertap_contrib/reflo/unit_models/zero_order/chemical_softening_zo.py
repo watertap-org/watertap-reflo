@@ -593,7 +593,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                         / b.CaCO3_mw,
                         to_units=pyunits.kg / pyunits.d)
                 return b.CO2_first_basin == Expr_if(co2_required_expr
-                    <= 0 * pyunits.kg / pyunits.m**3,
+                    <= 0 * pyunits.kg / pyunits.day,
                     0 * pyunits.kg / pyunits.day,
                     co2_required_expr,
                     )
