@@ -373,11 +373,11 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="Velocity gradient of flocculator",
         )
 
-        self.frac_vol_recovery = Var(
+        self.frac_mass_water_recovery = Var(
             initialize=0.99,
             units=pyunits.dimensionless,
             bounds=(0, None),
-            doc="Fractional volumetric recovery of water",
+            doc="Fractional recovery of water on mass basis",
         )
 
         self.CaO_dosing = Var(
@@ -487,6 +487,30 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 - b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
             )
 
+        @self.Expression(doc="Mg removal efficiency")
+        def mg_removal_eff(b):
+            mass_flow_mg_eff = pyunits.convert(
+                b.mg_eff_target * b.properties_out[0].flow_vol_phase["Liq"],
+                to_units=pyunits.kg / pyunits.s,
+            )
+            return (
+                1
+                - mass_flow_mg_eff
+                / b.properties_in[0].flow_mass_phase_comp["Liq", "Mg_2+"]
+            )
+
+        @self.Expression(doc="Ca removal efficiency")
+        def ca_removal_eff(b):
+            mass_flow_ca_eff = pyunits.convert(
+                b.ca_eff_target * b.properties_out[0].flow_vol_phase["Liq"],
+                to_units=pyunits.kg / pyunits.s,
+            )
+            return (
+                1
+                - mass_flow_ca_eff
+                / b.properties_in[0].flow_mass_phase_comp["Liq", "Ca_2+"]
+            )
+
         @self.Constraint(doc="Isothermal outlet")
         def eq_isothermal_outlet(b):
             return b.properties_in[0].temperature == b.properties_out[0].temperature
@@ -584,8 +608,8 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                         b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                         - (b.Ca_hardness_CaCO3 + b.Mg_hardness_CaCO3)
                         + b.excess_CaO
-                        + b.ca_eff_target * b.Ca_CaCO3_conv
-                        + b.mg_eff_target * b.Mg_CaCO3_conv
+                        + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"] * b.Ca_CaCO3_conv
+                        + b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"] * b.Mg_CaCO3_conv
                     )
                     * b.properties_in[0].flow_vol_phase["Liq"]
                     * b.CO2_mw
@@ -751,23 +775,23 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             )
 
         @self.Constraint(doc="Water recovery")
-        def eq_recovery(b):
+        def eq_water_recovery(b):
+            return (
+                b.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]
+                == b.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
+                * b.frac_mass_water_recovery
+            )
+
+        @self.Constraint(doc="Water balance")
+        def eq_water_mass_balance(b):
             return (
                 b.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
                 == b.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]
                 + b.properties_waste[0].flow_mass_phase_comp["Liq", "H2O"]
             )
 
-        @self.Constraint(doc="Waste flow")
-        def eq_waste_flow(b):
-            return (
-                b.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]
-                == b.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
-                * b.frac_vol_recovery
-            )
-
         @self.Constraint(non_hardness_comps, doc="Mass balance")
-        def eq_mass_balance(b, j):
+        def eq_non_hardness_comp_mass_balance(b, j):
             return (
                 b.properties_in[0].flow_mass_phase_comp["Liq", j]
                 == b.properties_out[0].flow_mass_phase_comp["Liq", j]
@@ -775,7 +799,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             )
 
         @self.Constraint(non_hardness_comps, doc="Component Removal")
-        def eq_component_removal(b, j):
+        def eq_non_hardness_comp_removal(b, j):
             return b.properties_out[0].flow_mass_phase_comp[
                 "Liq", j
             ] == b.properties_in[0].flow_mass_phase_comp["Liq", j] * (
@@ -1038,8 +1062,8 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.vel_gradient_floc) is None:
             iscale.set_scaling_factor(self.vel_gradient_floc, 1e-2)
 
-        if iscale.get_scaling_factor(self.frac_vol_recovery) is None:
-            iscale.set_scaling_factor(self.frac_vol_recovery, 1)
+        if iscale.get_scaling_factor(self.frac_mass_water_recovery) is None:
+            iscale.set_scaling_factor(self.frac_mass_water_recovery, 1)
 
         if iscale.get_scaling_factor(self.CaO_dosing) is None:
             iscale.set_scaling_factor(self.CaO_dosing, 1e-4)
@@ -1061,7 +1085,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.sludge_prod) is None:
             iscale.set_scaling_factor(self.sludge_prod, 1)
-        
+
         if isinstance(self.MgCl2_dosing, Var):
             if iscale.get_scaling_factor(self.MgCl2_dosing) is None:
                 iscale.set_scaling_factor(self.MgCl2_dosing, 10)
