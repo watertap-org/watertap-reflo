@@ -123,7 +123,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
     @pytest.mark.unit
     def test_config(self, chem_soft_frame):
         m = chem_soft_frame
-        # check Chemical softening config arguments
 
         assert len(m.fs.soft.config) == 6
 
@@ -136,14 +135,12 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
     def test_build(self, chem_soft_frame):
         m = chem_soft_frame
 
-        # Test ports
         port_list = ["inlet", "outlet", "waste"]
         for port_str in port_list:
             port = getattr(m.fs.soft, port_str)
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        # test statistics
         assert number_variables(m) == 92
         assert number_total_constraints(m) == 58
         assert number_unused_variables(m) == 17
@@ -158,7 +155,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         m = chem_soft_frame
         calculate_scaling_factors(m)
 
-        # check that all variables have scaling factors
         unscaled_var_list = list(unscaled_variables_generator(m))
         assert len(unscaled_var_list) == 0
 
@@ -177,8 +173,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
     def test_solve(self, chem_soft_frame):
         m = chem_soft_frame
         results = solver.solve(m)
-
-        # Check for optimal solution
         assert_optimal_termination(results)
 
     @pytest.mark.component
@@ -307,7 +301,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
 class TestChemSoft_SingleStageLime:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):
-        # create model, flowsheet
 
         component_list = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
         m = ConcreteModel()
@@ -379,7 +372,6 @@ class TestChemSoft_SingleStageLime:
     @pytest.mark.unit
     def test_config(self, chem_soft_frame):
         m = chem_soft_frame
-        # check Chemical softening config arguments
 
         assert len(m.fs.soft.config) == 6
 
@@ -393,14 +385,12 @@ class TestChemSoft_SingleStageLime:
     def test_build(self, chem_soft_frame):
         m = chem_soft_frame
 
-        # Test ports
         port_list = ["inlet", "outlet", "waste"]
         for port_str in port_list:
             port = getattr(m.fs.soft, port_str)
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        # test statistics
         assert number_variables(m) == 82
         assert number_total_constraints(m) == 47
         assert number_unused_variables(m) == 18
@@ -415,7 +405,6 @@ class TestChemSoft_SingleStageLime:
         m = chem_soft_frame
         calculate_scaling_factors(m)
 
-        # check that all variables have scaling factors
         unscaled_var_list = list(unscaled_variables_generator(m))
         assert len(unscaled_var_list) == 0
 
@@ -435,7 +424,6 @@ class TestChemSoft_SingleStageLime:
         m = chem_soft_frame
         results = solver.solve(m)
 
-        # Check for optimal solution
         assert_optimal_termination(results)
 
     @pytest.mark.component
@@ -567,7 +555,6 @@ class TestChemSoft_SingleStageLime:
 class TestChemSoft_ExcessLime:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):
-        # create model, flowsheet
 
         component_list = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
         m = ConcreteModel()
@@ -639,7 +626,6 @@ class TestChemSoft_ExcessLime:
     @pytest.mark.unit
     def test_config(self, chem_soft_frame):
         m = chem_soft_frame
-        # check Chemical softening config arguments
 
         assert len(m.fs.soft.config) == 6
 
@@ -653,14 +639,12 @@ class TestChemSoft_ExcessLime:
 
         m = chem_soft_frame
 
-        # Test ports
         port_list = ["inlet", "outlet", "waste"]
         for port_str in port_list:
             port = getattr(m.fs.soft, port_str)
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        # test statistics
         assert number_variables(m) == 82
         assert number_total_constraints(m) == 48
         assert number_unused_variables(m) == 18
@@ -675,7 +659,6 @@ class TestChemSoft_ExcessLime:
         m = chem_soft_frame
         calculate_scaling_factors(m)
 
-        # check that all variables have scaling factors
         unscaled_var_list = list(unscaled_variables_generator(m))
         assert len(unscaled_var_list) == 0
 
@@ -695,7 +678,6 @@ class TestChemSoft_ExcessLime:
         m = chem_soft_frame
         results = solver.solve(m)
 
-        # Check for optimal solution
         assert_optimal_termination(results)
 
     @pytest.mark.component
@@ -703,7 +685,6 @@ class TestChemSoft_ExcessLime:
         m = chem_soft_frame
 
         soft_results = {
-            # "ca_eff_target": 0.0007,
             "mg_eff_target": 6e-05,
             "removal_efficiency": {"Alkalinity_2-": 0.7},
             "volume_mixer": 13.89,
@@ -901,7 +882,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
     @pytest.mark.unit
     def test_config(self, chem_soft_frame):
         m = chem_soft_frame
-        # check Chemical softening config arguments
 
         assert len(m.fs.soft.config) == 6
 
@@ -914,14 +894,12 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
     def test_build(self, chem_soft_frame):
         m = chem_soft_frame
 
-        # Test ports
         port_list = ["inlet", "outlet", "waste"]
         for port_str in port_list:
             port = getattr(m.fs.soft, port_str)
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        # test statistics
         assert number_variables(m) == 92
         assert number_total_constraints(m) == 58
         assert number_unused_variables(m) == 17
@@ -936,7 +914,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         m = chem_soft_frame
         calculate_scaling_factors(m)
 
-        # check that all variables have scaling factors
         unscaled_var_list = list(unscaled_variables_generator(m))
         assert len(unscaled_var_list) == 0
 
@@ -956,7 +933,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         m = chem_soft_frame
         results = solver.solve(m)
 
-        # Check for optimal solution
         assert_optimal_termination(results)
 
     @pytest.mark.component
