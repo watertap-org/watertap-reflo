@@ -13,7 +13,7 @@ jobs:
 
   linting:
     name: Check code is formatted (Black)
-    # OS and/or Python version don't make a difference, so we choose ubuntu and 3.8 as defaults
+    # OS and/or Python version don't make a difference, so we choose ubuntu and 3.10 as defaults
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
