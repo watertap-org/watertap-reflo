@@ -12,13 +12,24 @@ env:
 jobs:
 
   linting:
+    name: Check code is formatted (Black)
+    # OS and/or Python version don't make a difference, so we choose ubuntu and 3.8 as defaults
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: psf/black@stable
+      - uses: actions/setup-python@v5
         with:
-          options: "--check --verbose"
-          version: "~= 22.0"
+          python-version: '3.8'
+      - name: Install Black
+        # unlike the other jobs, we don't need to install WaterTAP and/or all the dev dependencies,
+        # but we still want to specify the Black version to use in requirements-dev.txt for local development
+        # so we extract the relevant line and pass it to a simple `pip install`
+        run: |
+          black_requirement="$(grep '^black==' requirements-dev.txt)"
+          pip --no-cache-dir install "$black_requirement"
+      - name: Run Black to verify that the committed code is formatted
+        run: |
+          black --check .
 
   pytest:
     name: pytest (${{ matrix.os }}/${{ matrix.python-version }}/${{ matrix.install-mode }})
