@@ -177,9 +177,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 + self.total_operating_cost
             )
             / (
-                pyo.units.convert(
-                    flow_rate, to_units=pyo.units.m**3 / self.base_period
-                )
+                pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / self.base_period)
                 * self.utilization_factor
             ),
             doc=f"Constraint for Levelized Cost of Water based on flow {flow_rate.name}",
