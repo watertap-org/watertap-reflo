@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.8'
       - name: Install Black
-        # unlike the other jobs, we don't need to install WaterTAP and/or all the dev dependencies,
+        # unlike the other jobs, we don't need to install watertap-reflo and/or all the dev dependencies,
         # but we still want to specify the Black version to use in requirements-dev.txt for local development
         # so we extract the relevant line and pass it to a simple `pip install`
         run: |
