@@ -140,19 +140,17 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         6.  Lee, C. C., & Lin, S. D. (2007). Handbook of environmental engineering calculations. New York: McGraw Hill.
         """
 
-        # This creates blank scaling factors, which are populated later
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
-        tmp_dict["defined_state"] = True  # inlet block is an inlet
+        tmp_dict["defined_state"] = True
         self.properties_in = self.config.property_package.state_block_class(
             self.flowsheet().config.time, doc="Material properties of inlet", **tmp_dict
         )
 
-        # Add outlet and waste block
-        tmp_dict["defined_state"] = False  # outlet and waste block is not an inlet
+        tmp_dict["defined_state"] = False
         self.properties_out = self.config.property_package.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of outlet",
@@ -163,14 +161,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             self.flowsheet().config.time, doc="Material properties of waste", **tmp_dict
         )
 
-        # Add ports
         self.add_port(name="inlet", block=self.properties_in)
         self.add_port(name="outlet", block=self.properties_out)
         self.add_port(name="waste", block=self.properties_waste)
 
-        prop_in = self.properties_in[0]
-        prop_out = self.properties_out[0]
-        prop_waste = self.properties_waste[0]
         comps = self.config.property_package.solute_set
         non_hardness_comps = [
             j
@@ -179,7 +173,6 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         ]
 
         # MW of components
-
         self.CaO_mw = Param(
             initialize=56,
             units=pyunits.g / pyunits.mol,
@@ -211,30 +204,37 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         )
 
         self.MgCl2_SiO2_ratio = Param(
-            initialize=5.5, mutable=True, doc="Ratio of MgCl2 to SiO2"
+            initialize=5.5,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Ratio of MgCl2 to SiO2",
         )
 
         self.Ca_hardness_CaCO3_sludge_factor = Param(
             initialize=2,
             mutable=True,
+            units=pyunits.dimensionless,
             doc="Sludge produced per kg of Ca in CaCO3 hardness",
         )
 
         self.Mg_hardness_CaCO3_sludge_factor = Param(
             initialize=2.6,
             mutable=True,
+            units=pyunits.dimensionless,
             doc="Sludge produced per kg of Mg in CaCO3 hardness",
         )
 
         self.Mg_hardness_nonCaCO3_sludge_factor = Param(
             initialize=1.6,
             mutable=True,
+            units=pyunits.dimensionless,
             doc="Sludge produced per kg of Mg in non-CaCO3 hardness",
         )
 
         self.excess_CaO_coeff = Param(
             initialize=0.05,
             mutable=True,
+            units=pyunits.dimensionless,
             doc="Multiplication factor to calculate excess CaO dose",
         )
 
@@ -265,13 +265,15 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         )
 
         self.ca_eff_target = Var(
-            initialize=0.020,
+            initialize=0.20,
+            bounds=(0, None),
             units=pyunits.kg / pyunits.m**3,
             doc="Target Ca concentration in the effluent",
         )
 
         self.mg_eff_target = Var(
-            initialize=0.010,
+            initialize=0.10,
+            bounds=(0, None),
             units=pyunits.kg / pyunits.m**3,
             doc="Target Mg concentration in the effluent",
         )
@@ -291,6 +293,8 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         self.removal_efficiency = Var(
             non_hardness_comps,
             initialize=removal_eff_dict,
+            bounds=(0, 1),
+            units=pyunits.dimensionless,
             doc="Removal efficiency of all solutes other than Ca and Mg",
         )
 
@@ -298,36 +302,36 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         self.retention_time_mixer = Var(
             initialize=1,
-            units=pyunits.minutes,
             bounds=(0.1, 5),
+            units=pyunits.minutes,
             doc="Retention time for mixer",
         )
 
         self.retention_time_floc = Var(
             initialize=12,
-            units=pyunits.minutes,
             bounds=(10, 45),
+            units=pyunits.minutes,
             doc="Retention time for flocculator",
         )
 
         self.retention_time_sed = Var(
             initialize=150,
-            units=pyunits.minutes,
             bounds=(120, 240),
+            units=pyunits.minutes,
             doc="Retention time for sedimentation basin",
         )
 
         self.retention_time_recarb = Var(
             initialize=18,
-            units=pyunits.minutes,
             bounds=(15, 30),
+            units=pyunits.minutes,
             doc="Retention time for recarbonation",
         )
 
         self.sedimentation_overflow = Var(
             initialize=90,
-            units=pyunits.m / pyunits.day,
             bounds=(30, 100),
+            units=pyunits.m / pyunits.day,
             doc="Sedimentation basin overflow rate",
         )
 
@@ -375,37 +379,37 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         self.frac_mass_water_recovery = Var(
             initialize=0.99,
+            bounds=(0, 1),
             units=pyunits.dimensionless,
-            bounds=(0, None),
             doc="Fractional recovery of water on mass basis",
         )
 
         self.CaO_dosing = Var(
             initialize=1e5,
-            units=pyunits.kg / pyunits.day,
             bounds=(0, None),
+            units=pyunits.kg / pyunits.day,
             doc="Lime requirements",
         )
 
         self.Na2CO3_dosing = Var(
             initialize=1e5,
-            units=pyunits.kg / pyunits.day,
             bounds=(0, None),
+            units=pyunits.kg / pyunits.day,
             doc="Soda ash requirements",
         )
 
         self.CO2_first_basin = Var(
             initialize=1e2,
-            units=pyunits.kg / pyunits.day,
             bounds=(0, None),
-            doc="CO2 concentration required for recarbonation with single basin",
+            units=pyunits.kg / pyunits.day,
+            doc="CO2 flow required for recarbonation with single basin",
         )
 
         self.CO2_second_basin = Var(
             initialize=1e2,
-            units=pyunits.kg / pyunits.day,
             bounds=(0, None),
-            doc="CO2 concentration required for recarbonation in second basin only in excess lime scenario",
+            units=pyunits.kg / pyunits.day,
+            doc="CO2 flow required for recarbonation in second basin only in excess lime scenario",
         )
 
         self.excess_CaO = Var(
@@ -509,6 +513,42 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 1
                 - mass_flow_ca_eff
                 / b.properties_in[0].flow_mass_phase_comp["Liq", "Ca_2+"]
+            )
+
+        @self.Expression(
+            doc="Lime concentration for inlet stream to achieve dosing target."
+        )
+        def lime_concentration(b):
+            return pyunits.convert(
+                b.CaO_dosing / b.properties_in[0].flow_vol_phase["Liq"],
+                to_units=pyunits.gram / pyunits.liter,
+            )
+
+        @self.Expression(
+            doc="Soda ash concentration for inlet stream to achieve dosing target."
+        )
+        def soda_concentration(b):
+            return pyunits.convert(
+                b.Na2CO3_dosing / b.properties_in[0].flow_vol_phase["Liq"],
+                to_units=pyunits.gram / pyunits.liter,
+            )
+
+        @self.Expression(
+            doc="CO2 concentration for inlet stream in first basin to achieve dosing target."
+        )
+        def co2_first_basin_concentration(b):
+            return pyunits.convert(
+                b.CO2_first_basin / b.properties_in[0].flow_vol_phase["Liq"],
+                to_units=pyunits.gram / pyunits.liter,
+            )
+
+        @self.Expression(
+            doc="CO2 concentration for inlet stream in second basin to achieve dosing target."
+        )
+        def co2_second_basin_concentration(b):
+            return pyunits.convert(
+                b.CO2_second_basin / b.properties_in[0].flow_vol_phase["Liq"],
+                to_units=pyunits.gram / pyunits.liter,
             )
 
         @self.Constraint(doc="Isothermal outlet")
@@ -784,7 +824,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 * b.frac_mass_water_recovery
             )
 
-        @self.Constraint(doc="Water balance")
+        @self.Constraint(doc="Water mass balance")
         def eq_water_mass_balance(b):
             return (
                 b.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
@@ -792,7 +832,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 + b.properties_waste[0].flow_mass_phase_comp["Liq", "H2O"]
             )
 
-        @self.Constraint(non_hardness_comps, doc="Mass balance")
+        @self.Constraint(non_hardness_comps, doc="Non-hardness component mass balance")
         def eq_non_hardness_comp_mass_balance(b, j):
             return (
                 b.properties_in[0].flow_mass_phase_comp["Liq", j]
@@ -800,7 +840,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 + b.properties_waste[0].flow_mass_phase_comp["Liq", j]
             )
 
-        @self.Constraint(non_hardness_comps, doc="Component Removal")
+        @self.Constraint(non_hardness_comps, doc="Non-hardness component Removal")
         def eq_non_hardness_comp_removal(b, j):
             return b.properties_out[0].flow_mass_phase_comp[
                 "Liq", j
@@ -1091,13 +1131,6 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
         if isinstance(self.MgCl2_dosing, Var):
             if iscale.get_scaling_factor(self.MgCl2_dosing) is None:
                 iscale.set_scaling_factor(self.MgCl2_dosing, 10)
-
-        comps = self.config.property_package.solute_set
-        non_hardness_comps = [
-            j
-            for j in self.config.property_package.solute_set
-            if j not in ["Ca_2+", "Mg_2+"]
-        ]
 
         if (
             self.config.softening_procedure_type
