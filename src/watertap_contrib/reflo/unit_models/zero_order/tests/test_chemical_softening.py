@@ -87,7 +87,8 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         )
         for solute, conc in inlet_conc.items():
             mass_flow_solute = pyunits.convert(
-                q_in * conc * pyunits.kg / pyunits.m**3, to_units=pyunits.kg / pyunits.s
+                q_in * conc * pyunits.kg / pyunits.m**3,
+                to_units=pyunits.kg / pyunits.s,
             )
             prop_in.flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
             m.fs.properties.set_default_scaling(
@@ -331,7 +332,8 @@ class TestChemSoft_SingleStageLime:
         )
         for solute, conc in inlet_conc.items():
             mass_flow_solute = pyunits.convert(
-                q_in * conc * pyunits.kg / pyunits.m**3, to_units=pyunits.kg / pyunits.s
+                q_in * conc * pyunits.kg / pyunits.m**3,
+                to_units=pyunits.kg / pyunits.s,
             )
             prop_in.flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
             m.fs.properties.set_default_scaling(
@@ -585,7 +587,8 @@ class TestChemSoft_ExcessLime:
         )
         for solute, conc in inlet_conc.items():
             mass_flow_solute = pyunits.convert(
-                q_in * conc * pyunits.kg / pyunits.m**3, to_units=pyunits.kg / pyunits.s
+                q_in * conc * pyunits.kg / pyunits.m**3,
+                to_units=pyunits.kg / pyunits.s,
             )
             prop_in.flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
             m.fs.properties.set_default_scaling(
@@ -846,7 +849,8 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         )
         for solute, conc in inlet_conc.items():
             mass_flow_solute = pyunits.convert(
-                q_in * conc * pyunits.kg / pyunits.m**3, to_units=pyunits.kg / pyunits.s
+                q_in * conc * pyunits.kg / pyunits.m**3,
+                to_units=pyunits.kg / pyunits.s,
             )
             prop_in.flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
             m.fs.properties.set_default_scaling(
