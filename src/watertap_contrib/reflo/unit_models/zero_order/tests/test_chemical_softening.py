@@ -167,7 +167,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         m = chem_soft_frame
         initialization_tester(m, unit=m.fs.soft, outlvl=idaeslog.DEBUG)
 
-    # @pytest.mark.skip(reason="flow_mol_phase_comp in badly_scaled")
     @pytest.mark.component
     def test_var_scaling(self, chem_soft_frame):
         m = chem_soft_frame
@@ -605,13 +604,12 @@ class TestChemSoft_ExcessLime:
             m.fs.properties.set_default_scaling(
                 "flow_mass_phase_comp",
                 value(1 / mass_flow_solute),
-                # 1e2,
                 index=("Liq", solute),
             )
+
         m.fs.properties.set_default_scaling(
             "flow_mass_phase_comp",
             value(1 / flow_mass_phase_water),
-            # 1e-3,
             index=("Liq", "H2O"),
         )
 
