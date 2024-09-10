@@ -1,12 +1,5 @@
-# black==24.3.0
-# pytest
-# pytest-cov
-# setuptools_scm
-# --editable .[dev]
 black==24.3.0
-pre-commit
-# TODO pin exact version for pylint and astroid
-pylint<3
-astroid
-# Defer to setup.py contents
--e .[dev,notebooks,oli_api]
+pytest
+pytest-cov
+setuptools_scm
+--editable .[dev]
