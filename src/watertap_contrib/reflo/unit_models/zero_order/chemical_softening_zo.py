@@ -1061,6 +1061,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.sludge_prod) is None:
             iscale.set_scaling_factor(self.sludge_prod, 1)
+        
+        if isinstance(self.MgCl2_dosing, Var):
+            if iscale.get_scaling_factor(self.MgCl2_dosing) is None:
+                iscale.set_scaling_factor(self.MgCl2_dosing, 10)
 
         comps = self.config.property_package.solute_set
         non_hardness_comps = [
