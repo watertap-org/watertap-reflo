@@ -340,6 +340,7 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
                 **tmp_dict,
             )
         )
+
         # calculate brine volumetric flow rate
         @self.Constraint(doc="brine volumetric flow rate")
         def eq_brine_volumetric_flow_rate(b):
