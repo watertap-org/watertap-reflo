@@ -17,7 +17,7 @@ from pyomo.environ import (
     check_optimal_termination,
     units as pyunits,
 )
-from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
+from pyomo.common.config import ConfigBlock, ConfigValue, In
 from idaes.core import (
     declare_process_block_class,
     UnitModelBlockData,
