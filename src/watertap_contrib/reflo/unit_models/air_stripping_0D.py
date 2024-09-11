@@ -1180,22 +1180,22 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         var_dict[f"Number transfer units [{target}]"] = self.number_transfer_unit[
             target
         ]
-        var_dict[
-            f"Overall mass transfer coeff (KL_a) [{target}]"
-        ] = self.overall_mass_transfer_coeff[target]
+        var_dict[f"Overall mass transfer coeff (KL_a) [{target}]"] = (
+            self.overall_mass_transfer_coeff[target]
+        )
         var_dict["Pressure drop gradient"] = self.pressure_drop_gradient
         var_dict["OTO Model - M parameter"] = self.oto_M
         var_dict["OTO Model - E parameter"] = self.oto_E
         var_dict["OTO Model - F parameter"] = self.oto_F
-        var_dict[
-            f"OTO Model - liquid mass transfer coeff [{target}]"
-        ] = self.oto_mass_transfer_coeff["Liq", target]
-        var_dict[
-            f"OTO Model - vapor mass transfer coeff [{target}]"
-        ] = self.oto_mass_transfer_coeff["Vap", target]
-        var_dict[
-            f"CV mass transfer term [{target}]"
-        ] = self.process_flow.mass_transfer_term[time_point, "Liq", target]
+        var_dict[f"OTO Model - liquid mass transfer coeff [{target}]"] = (
+            self.oto_mass_transfer_coeff["Liq", target]
+        )
+        var_dict[f"OTO Model - vapor mass transfer coeff [{target}]"] = (
+            self.oto_mass_transfer_coeff["Vap", target]
+        )
+        var_dict[f"CV mass transfer term [{target}]"] = (
+            self.process_flow.mass_transfer_term[time_point, "Liq", target]
+        )
         var_dict[f"CV delta P"] = self.process_flow.deltaP[time_point]
         var_dict[f"Blower power required"] = self.blower_power
         var_dict[f"Pump power required"] = self.pump_power
