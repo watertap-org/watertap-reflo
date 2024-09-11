@@ -1,47 +1,24 @@
 import pandas as pd
 import numpy as np
-import pytest
+
 from pyomo.environ import (
     ConcreteModel,
     TerminationCondition,
     SolverStatus,
-    Objective,
     Expression,
-    maximize,
     value,
-    Set,
     Var,
     log,
     units as pyunits,
 )
-from pyomo.network import Port
-from pyomo.util.check_units import assert_units_consistent
 
-from idaes.core import FlowsheetBlock
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 import idaes.core.util.scaling as iscale
+
+from watertap.core.solvers import get_solver
 from watertap.unit_models.mvc.components.lmtd_chen_callback import (
     delta_temperature_chen_callback,
 )
-from idaes.core.util.model_statistics import (
-    degrees_of_freedom,
-    number_variables,
-    number_total_constraints,
-    number_unused_variables,
-)
-from idaes.models.unit_models import HeatExchanger
-from idaes.models.unit_models.heat_exchanger import (
-    delta_temperature_lmtd_callback,
-    delta_temperature_underwood_callback,
-)
-from idaes.core.util.testing import initialization_tester
-from idaes.core.util.scaling import (
-    calculate_scaling_factors,
-    unscaled_variables_generator,
-    badly_scaled_var_generator,
-)
-from idaes.core import UnitModelCostingBlock
-
-from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.unit_models.zero_order.crystallizer_zo_watertap import (
     Crystallization,
 )
@@ -134,14 +111,14 @@ def add_heat_exchanger_eff1(m, steam_pressure):
         initialize=35,
         bounds=(None, None),
         units=pyunits.K,
-        doc="Temperature differnce at the inlet side",
+        doc="Temperature difference at the inlet side",
     )
     eff_1.delta_temperature_out = Var(
         eff_1.flowsheet().time,
         initialize=35,
         bounds=(None, None),
         units=pyunits.K,
-        doc="Temperature differnce at the outlet side",
+        doc="Temperature difference at the outlet side",
     )
     delta_temperature_chen_callback(eff_1)
 
@@ -219,30 +196,30 @@ def add_heat_exchanger_eff2(m):
         initialize=35,
         bounds=(None, None),
         units=pyunits.K,
-        doc="Temperature differnce at the inlet side",
+        doc="Temperature difference at the inlet side",
     )
     eff_2.delta_temperature_out = Var(
         eff_2.flowsheet().time,
         initialize=35,
         bounds=(None, None),
         units=pyunits.K,
-        doc="Temperature differnce at the outlet side",
+        doc="Temperature difference at the outlet side",
     )
     delta_temperature_chen_callback(eff_2)
 
     eff_2.area = Var(
         bounds=(0, None),
         initialize=1000.0,
-        doc="Heat exchange area",
         units=pyunits.m**2,
+        doc="Heat exchange area",
     )
 
     eff_2.overall_heat_transfer_coefficient = Var(
         eff_2.flowsheet().time,
         bounds=(0, None),
         initialize=100.0,
-        doc="Overall heat transfer coefficient",
         units=pyunits.W / pyunits.m**2 / pyunits.K,
+        doc="Overall heat transfer coefficient",
     )
 
     eff_2.overall_heat_transfer_coefficient[0].fix(100)
@@ -286,30 +263,30 @@ def add_heat_exchanger_eff3(m):
         initialize=35,
         bounds=(None, None),
         units=pyunits.K,
-        doc="Temperature differnce at the inlet side",
+        doc="Temperature difference at the inlet side",
     )
     eff_3.delta_temperature_out = Var(
         eff_3.flowsheet().time,
         initialize=35,
         bounds=(None, None),
         units=pyunits.K,
-        doc="Temperature differnce at the outlet side",
+        doc="Temperature difference at the outlet side",
     )
     delta_temperature_chen_callback(eff_3)
 
     eff_3.area = Var(
         bounds=(0, None),
         initialize=1000.0,
-        doc="Heat exchange area",
         units=pyunits.m**2,
+        doc="Heat exchange area",
     )
 
     eff_3.overall_heat_transfer_coefficient = Var(
         eff_3.flowsheet().time,
         bounds=(0, None),
         initialize=100.0,
-        doc="Overall heat transfer coefficient",
         units=pyunits.W / pyunits.m**2 / pyunits.K,
+        doc="Overall heat transfer coefficient",
     )
 
     eff_3.overall_heat_transfer_coefficient[0].fix(100)
@@ -366,16 +343,16 @@ def add_heat_exchanger_eff4(m):
     eff_4.area = Var(
         bounds=(0, None),
         initialize=1000.0,
-        doc="Heat exchange area",
         units=pyunits.m**2,
+        doc="Heat exchange area",
     )
 
     eff_4.overall_heat_transfer_coefficient = Var(
         eff_4.flowsheet().time,
         bounds=(0, None),
         initialize=100.0,
-        doc="Overall heat transfer coefficient",
         units=pyunits.W / pyunits.m**2 / pyunits.K,
+        doc="Overall heat transfer coefficient",
     )
 
     eff_4.overall_heat_transfer_coefficient[0].fix(100)
@@ -497,7 +474,7 @@ def multi_effect_crystallizer_initialization(m):
     m.fs.props.set_default_scaling("flow_mass_phase_comp", 1e-1, index=("Vap", "H2O"))
     m.fs.props.set_default_scaling("flow_mass_phase_comp", 1e-1, index=("Sol", "NaCl"))
 
-    calculate_scaling_factors(m)
+    iscale.calculate_scaling_factors(m)
 
     m.fs.eff_1.initialize()
     m.fs.eff_2.initialize()
