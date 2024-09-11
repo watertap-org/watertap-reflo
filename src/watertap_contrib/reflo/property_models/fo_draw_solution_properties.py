@@ -16,7 +16,6 @@ Volumetric flow and component concentration are used to determine mass flow.
 """
 from pyomo.environ import (
     Param,
-    Binary,
     Expression,
     units as pyunits,
     Reals,
@@ -27,8 +26,8 @@ from pyomo.environ import (
     value,
     check_optimal_termination,
     Expr_if,
+    units as pyunits,
 )
-from pyomo.common.config import ConfigValue
 
 from idaes.core import (
     EnergyBalanceType,
@@ -41,7 +40,6 @@ from idaes.core import (
 )
 from idaes.core.base.components import Solvent, Solute
 from idaes.core.base.phases import LiquidPhase
-from idaes.core.util.misc import add_object_reference
 from idaes.core.util.initialization import (
     fix_state_vars,
     revert_state_vars,
@@ -56,7 +54,6 @@ import idaes.core.util.scaling as iscale
 from idaes.core.util.exceptions import (
     ConfigurationError,
     InitializationError,
-    PropertyPackageError,
 )
 
 from watertap.core.util.scaling import transform_property_constraints
