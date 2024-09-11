@@ -161,10 +161,7 @@ def cost_lt_med_surrogate(blk):
     )
     blk.med_specific_cost_constraint = pyo.Constraint(
         expr=blk.med_specific_cost
-        == (
-            lt_med_params.med_sys_A_coeff
-            * blk.capacity**lt_med_params.med_sys_B_coeff
-        )
+        == (lt_med_params.med_sys_A_coeff * blk.capacity**lt_med_params.med_sys_B_coeff)
     )
     blk.membrane_system_cost_constraint = pyo.Constraint(
         expr=blk.membrane_system_cost
