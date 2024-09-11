@@ -15,46 +15,24 @@ from pyomo.environ import (
     ConcreteModel,
     TransformationFactory,
     units as pyunits,
-    Expression,
-    Reference,
-    Var,
     value,
-    assert_optimal_termination,
-)
-from idaes.core.util.model_statistics import (
-    degrees_of_freedom,
-    number_variables,
-    number_total_constraints,
-    number_unused_variables,
-    unused_variables_set,
 )
 from pyomo.network import Arc
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 # IDAES imports
 import idaes.core.util.scaling as iscale
-import idaes.logger as idaeslog
-from idaes.core.util.scaling import (
-    calculate_scaling_factors,
-    list_badly_scaled_variables,
-)
-from idaes.core import FlowsheetBlock, MaterialBalanceType, EnergyBalanceType
-from idaes.core import UnitModelCostingBlock
+from idaes.core import FlowsheetBlock, MaterialBalanceType
 from idaes.models.unit_models import (
     Mixer,
     Separator,
     HeatExchanger,
     Heater,
 )
-from idaes.models.unit_models.heat_exchanger import (
-    delta_temperature_lmtd_callback,
-    delta_temperature_underwood_callback,
-)
+from idaes.models.unit_models.heat_exchanger import delta_temperature_underwood_callback
 
 # WaterTAP imports
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.core.solvers import get_solver
-from watertap.core.util.initialization import check_dof
 
 # WaterTAP REFLO imports
 from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
@@ -64,7 +42,6 @@ from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
 from watertap_contrib.reflo.unit_models.zero_order.forward_osmosis_zo import (
     ForwardOsmosisZO,
 )
-from watertap_contrib.reflo.costing import TreatmentCosting
 
 
 def build_fo_trevi_flowsheet(
@@ -307,7 +284,7 @@ def add_fo(
     fo.regeneration_temp.fix(separation_temp + 273.15)
     fo.separator_temp_loss.fix(separator_temp_loss)
 
-    # Specifyf strong draw solution properties
+    # Specify strong draw solution properties
     fo.strong_draw_props.calculate_state(
         var_args={
             ("flow_vol_phase", "Liq"): 1,
@@ -320,7 +297,7 @@ def add_fo(
 
     fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].unfix()
 
-    # Specifyf product water properties
+    # Specify product water properties
     fo.product_props.calculate_state(
         var_args={
             ("flow_vol_phase", "Liq"): 1,
@@ -371,7 +348,7 @@ def fix_dof_and_initialize(
     RO_recovery_ratio=0.9,
 ):
 
-    calculate_scaling_factors(m)
+    iscale.calculate_scaling_factors(m)
 
     m.fs.fo.initialize()
     # Unfix the state variables and fix mass fraction of two state blocks
@@ -545,7 +522,7 @@ def get_flowsheet_performance(m):
         )
         * value(m.fs.system_capacity)
         / 24,
-        "LCOW ($/m3)": m.fs.costing.LCOW(),
+        "LCOW ($/m3)": value(m.fs.costing.LCOW),
     }
 
     operational_parameters = {
