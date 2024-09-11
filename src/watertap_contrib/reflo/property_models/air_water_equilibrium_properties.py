@@ -1397,13 +1397,7 @@ class AirWaterEqStateBlockData(StateBlockData):
         def rule_collision_function_zeta_comp(b, j):
             ee = b.collision_function_ee_comp[j]
             return b.collision_function_zeta_comp[j] == (
-                a
-                + b_ * ee
-                + c * ee**2
-                + d * ee**3
-                + e * ee**4
-                + f * ee**5
-                + g * ee**6
+                a + b_ * ee + c * ee**2 + d * ee**3 + e * ee**4 + f * ee**5 + g * ee**6
             )
 
         self.eq_collision_function_zeta_comp = Constraint(

@@ -444,6 +444,7 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         self, batch_volume, md_feed_flow_rate, md_feed_salinity, dt
     ):
         blk = self.mp.get_active_process_blocks()[0]
+
         # VAGMD feed temperature and concentration are the same as
         # MED brine at the beginning of the process
         @self.Constraint(
