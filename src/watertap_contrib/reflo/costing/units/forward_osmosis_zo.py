@@ -114,8 +114,7 @@ def cost_forward_osmosis(blk):
     )
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
-        == fo_params.base_unit_cost
-        * test_fs.system_capacity**fo_params.unit_cost_index
+        == fo_params.base_unit_cost * test_fs.system_capacity**fo_params.unit_cost_index
     )
 
     blk.labor_cost = pyo.Expression(

@@ -427,9 +427,9 @@ def fix_dof_and_initialize(
     )
     # Cold side has liquid separation
     m.fs.HX1.cold_side.properties_out[0].liquid_separation.fix(1)
-    m.fs.HX1.cold_side.properties_out[
-        0
-    ].mass_frac_after_separation = strong_draw_mass_frac
+    m.fs.HX1.cold_side.properties_out[0].mass_frac_after_separation = (
+        strong_draw_mass_frac
+    )
     iscale.set_scaling_factor(
         m.fs.HX1.cold_side.properties_out[0].heat_separation_phase,
         1e-5,
@@ -462,9 +462,9 @@ def fix_dof_and_initialize(
     )
     # Cold side has liquid separation
     m.fs.HX2.cold_side.properties_out[0].liquid_separation.fix(1)
-    m.fs.HX2.cold_side.properties_out[
-        0
-    ].mass_frac_after_separation = strong_draw_mass_frac
+    m.fs.HX2.cold_side.properties_out[0].mass_frac_after_separation = (
+        strong_draw_mass_frac
+    )
 
     # Initialize separator S2
     m.fs.S2.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
@@ -473,17 +473,13 @@ def fix_dof_and_initialize(
     m.fs.S2.inlet.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
     )
-    m.fs.S2.NF_reject.flow_mass_phase_comp[
-        0, "Liq", "H2O"
-    ].value = m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value * (
-        1 - NF_recovery_ratio
+    m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
+        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
+        * (1 - NF_recovery_ratio)
     )
-    m.fs.S2.NF_reject.flow_mass_phase_comp[
-        0, "Liq", "DrawSolution"
-    ].value = m.fs.fo.product_props[0].flow_mass_phase_comp[
-        "Liq", "DrawSolution"
-    ].value * (
-        1 - NF_recovery_ratio
+    m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
+        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
+        * (1 - NF_recovery_ratio)
     )
     m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
@@ -514,12 +510,12 @@ def fix_dof_and_initialize(
     m.fs.M1.weak_draw.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
     )
-    m.fs.M1.NF_reject.flow_mass_phase_comp[
-        0, "Liq", "H2O"
-    ].value = m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value
-    m.fs.M1.NF_reject.flow_mass_phase_comp[
-        0, "Liq", "DrawSolution"
-    ].value = m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value
+    m.fs.M1.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
+        m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value
+    )
+    m.fs.M1.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
+        m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value
+    )
     m.fs.M1.outlet.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value
         + m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value
