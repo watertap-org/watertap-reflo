@@ -12,14 +12,10 @@
 
 import pytest
 from pyomo.environ import (
-    ConcreteModel,
     assert_optimal_termination,
     units as pyunits,
 )
 from idaes.core import UnitModelCostingBlock
-from idaes.core.util.exceptions import (
-    ConfigurationError,
-)
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
 )
