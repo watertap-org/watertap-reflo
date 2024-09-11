@@ -11,28 +11,23 @@
 #################################################################################
 
 import pytest
-import re
 from pyomo.environ import (
     ConcreteModel,
     value,
     assert_optimal_termination,
-    units as pyunits,
 )
 from pyomo.network import Port
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from idaes.core import FlowsheetBlock
 from idaes.core.util.testing import initialization_tester
-from idaes.core.util.exceptions import ConfigurationError
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
     number_total_constraints,
     number_unused_variables,
-    unused_variables_set,
 )
 from idaes.core.util.testing import initialization_tester
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
-    constraint_scaling_transform,
     unscaled_variables_generator,
     unscaled_constraints_generator,
     badly_scaled_var_generator,
@@ -48,7 +43,6 @@ from watertap_contrib.reflo.unit_models.zero_order.forward_osmosis_zo import (
 from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
     FODrawSolutionParameterBlock,
 )
-from watertap_contrib.reflo.costing import REFLOCosting
 
 # -----------------------------------------------------------------------------
 # Get default solver for testing
@@ -202,7 +196,7 @@ class TestFO:
     def test_solve(self, FO_frame):
         m = FO_frame
 
-        # Unfix the state variables and fix mass fractrion of draw solution state blocks
+        # Unfix the state variables and fix mass fraction of draw solution state blocks
         strong_draw_mass = 0.8  # Strong draw solution mass fraction
         product_draw_mass = 0.01  # Mass fraction of draw in the product water
         m.fs.fo.unfix_and_fix_freedom(strong_draw_mass, product_draw_mass)
