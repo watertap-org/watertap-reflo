@@ -22,7 +22,8 @@ from watertap.unit_models.mvc.components.lmtd_chen_callback import (
 from watertap_contrib.reflo.unit_models.zero_order.crystallizer_zo_watertap import (
     Crystallization,
 )
-import watertap_contrib.reflo.property_models.cryst_prop_pack as props
+# import watertap_contrib.reflo.property_models.cryst_prop_pack as props
+import watertap.property_models.unit_specific.cryst_prop_pack as props
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     CrystallizerCostType,
