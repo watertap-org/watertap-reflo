@@ -254,27 +254,27 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
         cooling_inlet_temp=25,  # 20 - feed_temp deg C, not required when cooling system type is "closed"
     ):
         """
-        This function creates a multi-period vagmd batch flowsheet object. This object contains
-        a pyomo model with a block for each time instance.
+        This function creates a multi-period VAGMD batch flowsheet object. 
+        This object contains a ConcreteModel with a block for each time instance.
 
         Args:
-            dt:              Time interval of simuulation (s)
-            system_capacity: System capacity (m3/day)
-            feed_flow_rate:  Feed flow rate, 400 - 1100 L/h
-            evap_inlet_temp: Evaporator inlet temperature, 60 - 80 deg C
-            cond_inlet_temp: Condenser inlet temperature, 20 - 30 deg C
-            feed_temp:       Feed water temperature, 20 - 30 deg C
-            feed_salinily:   Feed water salinity, 35 - 292 g/L
+            dt:                   Time interval of simulation (s)
+            system_capacity:      System capacity (m3/day)
+            feed_flow_rate:       Feed flow rate, 400 - 1100 L/h
+            evap_inlet_temp:      Evaporator inlet temperature, 60 - 80 deg C
+            cond_inlet_temp:      Condenser inlet temperature, 20 - 30 deg C
+            feed_temp:            Feed water temperature, 20 - 30 deg C
+            feed_salinily:        Feed water salinity, 35 - 292 g/L
             initial_batch_volume: Batch volume of the feed water, > 50 L
-            recovery_ratio:  Target recovery ratio of the batch operation
-            module_type:     Aquastill MD module type, "AS7C1.5L" or "AS26C7.2L",
-                            "AS7C1.5L" yields maximum permeate produtivity,
-                            "AS26C7.2L" yields maximum thermal efficiency.
+            recovery_ratio:       Target recovery ratio of the batch operation
+            module_type:          Aquastill MD module type, "AS7C1.5L" or "AS26C7.2L",
+                                  "AS7C1.5L" yields maximum permeate produtivity,
+                                  "AS26C7.2L" yields maximum thermal efficiency.
             cooling_system_type:  Cooling system type, "open" or "closed"
             cooling_inlet_temp:   Cooling water temperature, 20-30 deg C
-                                only required when cooling system type is "open"
+                                  only required when cooling system type is "open"
         Returns:
-            Object containing multi-period vagmd batch flowsheet model
+            Object containing multi-period VAGMD batch flowsheet model
         """
 
         # Check if the input configurations are valid
@@ -443,9 +443,9 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
 
     def add_costing_module(self, flowsheet_costing_block):
         """
-        This function adds costing module to the batch operation,
-        by adding the unit costing package to the last time step,
-        and overwritting flow values with accumulated ones
+        This function adds costing module to the batch operation
+        by adding the unit costing package to the last time step
+        and overwriting flow values with accumulated ones
         """
 
         # Specify the last time step
@@ -486,8 +486,8 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
 
     def get_model_performance(self):
         """
-        This function returns the overall performance of the batch operation in a dictionary,
-        and the timewise system performance in a pandas dataframe
+        This function returns the overall performance of the batch operation in a dictionary
+        and the timewise system performance in a pandas DataFrame
         """
         blks = self.mp.get_active_process_blocks()
         n_time_points = len(blks)
