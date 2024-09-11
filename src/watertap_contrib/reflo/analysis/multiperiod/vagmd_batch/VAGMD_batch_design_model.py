@@ -396,7 +396,7 @@ def _get_membrane_performance(TEI, FFR, TCI, SgL, module_type, high_brine_salini
     return [PFlux, TCO, TEO, S_c]
 
 
-#%% Test block
+# %% Test block
 
 if __name__ == "__main__":
 
