@@ -254,7 +254,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
         cooling_inlet_temp=25,  # 20 - feed_temp deg C, not required when cooling system type is "closed"
     ):
         """
-        This function creates a multi-period VAGMD batch flowsheet object. 
+        This function creates a multi-period VAGMD batch flowsheet object.
         This object contains a ConcreteModel with a block for each time instance.
 
         Args:
