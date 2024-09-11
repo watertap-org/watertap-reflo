@@ -88,21 +88,21 @@ def test_parameter_block1(m1):
 
     assert isinstance(m.fs.properties.liq_solute_set, Set)
     assert len(m.fs.properties.liq_solute_set) == 2
-    for (p, j) in m.fs.properties.liq_solute_set:
+    for p, j in m.fs.properties.liq_solute_set:
         assert p == "Liq"
         assert j in m.fs.properties.liq_comps
         assert j in m.fs.properties.component_list
 
     assert isinstance(m.fs.properties.vap_solute_set, Set)
     assert len(m.fs.properties.vap_solute_set) == 2
-    for (p, j) in m.fs.properties.vap_solute_set:
+    for p, j in m.fs.properties.vap_solute_set:
         assert p == "Vap"
         assert j in m.fs.properties.vap_comps
         assert j in m.fs.properties.component_list
 
     assert isinstance(m.fs.properties.phase_solute_set, Set)
     assert len(m.fs.properties.phase_solute_set) == len(m.fs.properties.solute_set) * 2
-    for (p, j) in m.fs.properties.phase_solute_set:
+    for p, j in m.fs.properties.phase_solute_set:
         assert p in m.fs.properties.phase_list
         assert j in m.fs.properties.solute_set
 
@@ -325,21 +325,21 @@ def test_parameter_block2(m2):
 
     assert isinstance(m.fs.properties.liq_solute_set, Set)
     assert len(m.fs.properties.liq_solute_set) == 2
-    for (p, j) in m.fs.properties.liq_solute_set:
+    for p, j in m.fs.properties.liq_solute_set:
         assert p == "Liq"
         assert j in m.fs.properties.liq_comps
         assert j in m.fs.properties.component_list
 
     assert isinstance(m.fs.properties.vap_solute_set, Set)
     assert len(m.fs.properties.vap_solute_set) == 2
-    for (p, j) in m.fs.properties.vap_solute_set:
+    for p, j in m.fs.properties.vap_solute_set:
         assert p == "Vap"
         assert j in m.fs.properties.vap_comps
         assert j in m.fs.properties.component_list
 
     assert isinstance(m.fs.properties.phase_solute_set, Set)
     assert len(m.fs.properties.phase_solute_set) == len(m.fs.properties.solute_set) * 2
-    for (p, j) in m.fs.properties.phase_solute_set:
+    for p, j in m.fs.properties.phase_solute_set:
         assert p in m.fs.properties.phase_list
         assert j in m.fs.properties.solute_set
 
@@ -567,21 +567,21 @@ def test_parameter_block3(m3):
 
     assert isinstance(m.fs.properties.liq_solute_set, Set)
     assert len(m.fs.properties.liq_solute_set) == 2
-    for (p, j) in m.fs.properties.liq_solute_set:
+    for p, j in m.fs.properties.liq_solute_set:
         assert p == "Liq"
         assert j in m.fs.properties.liq_comps
         assert j in m.fs.properties.component_list
 
     assert isinstance(m.fs.properties.vap_solute_set, Set)
     assert len(m.fs.properties.vap_solute_set) == 2
-    for (p, j) in m.fs.properties.vap_solute_set:
+    for p, j in m.fs.properties.vap_solute_set:
         assert p == "Vap"
         assert j in m.fs.properties.vap_comps
         assert j in m.fs.properties.component_list
 
     assert isinstance(m.fs.properties.phase_solute_set, Set)
     assert len(m.fs.properties.phase_solute_set) == len(m.fs.properties.solute_set) * 2
-    for (p, j) in m.fs.properties.phase_solute_set:
+    for p, j in m.fs.properties.phase_solute_set:
         assert p in m.fs.properties.phase_list
         assert j in m.fs.properties.solute_set
 

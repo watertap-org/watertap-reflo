@@ -462,7 +462,6 @@ def build_chemical_softening_cost_param_block(blk):
     parameter_block_name="chemical_softening",
 )
 def cost_chemical_softening(blk):
-
     """
     Capital and operating costs for chemical softening
     """
@@ -760,29 +759,17 @@ def cost_chemical_softening(blk):
         == (
             (
                 chem_soft.floc_tank_op_coeff_1
-                * (
-                    pyunits.convert(
-                        blk.unit_model.volume_floc, to_units=pyunits.ft**3
-                    )
-                )
+                * (pyunits.convert(blk.unit_model.volume_floc, to_units=pyunits.ft**3))
                 ** chem_soft.floc_tank_op_exp_1
             )
             + (
                 chem_soft.floc_tank_op_coeff_2
-                * (
-                    pyunits.convert(
-                        blk.unit_model.volume_floc, to_units=pyunits.ft**3
-                    )
-                )
+                * (pyunits.convert(blk.unit_model.volume_floc, to_units=pyunits.ft**3))
                 ** chem_soft.floc_tank_op_exp_2
             )
             + (
                 chem_soft.floc_tank_op_coeff_3
-                * (
-                    pyunits.convert(
-                        blk.unit_model.volume_floc, to_units=pyunits.ft**3
-                    )
-                )
+                * (pyunits.convert(blk.unit_model.volume_floc, to_units=pyunits.ft**3))
                 + chem_soft.floc_tank_op_constant
             )
         )
