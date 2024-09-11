@@ -191,7 +191,7 @@ def build_vagmd_flowsheet(
     )
 
     """
-    Variables aggrated through periods
+    Variables aggregated through periods
     """
     m.fs.acc_distillate_volume = Var(
         initialize=0,

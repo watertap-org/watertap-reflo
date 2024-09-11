@@ -36,9 +36,151 @@ from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_multipe
 solver = get_solver()
 
 
-class TestVAGMDbatch:
+@pytest.mark.unit
+def test_module_type_domain():
+
+    tested_module_type = "new_module_type"
+    error_msg = (
+        f"The MD module type '{tested_module_type}' is not available."
+        f"Available options include 'AS7C1.5L' and 'AS26C7.2L'."
+    )
+    with pytest.raises(ConfigurationError, match=error_msg):
+        model_input = {
+            "dt": None,
+            "system_capacity": 1000,
+            "feed_flow_rate": 600,
+            "evap_inlet_temp": 80,
+            "cond_inlet_temp": 25,
+            "feed_temp": 25,
+            "feed_salinity": 35,
+            "initial_batch_volume": 50,
+            "recovery_ratio": 0.5,
+            "module_type": tested_module_type,
+            "cooling_system_type": "closed",
+            "cooling_inlet_temp": 25,
+        }
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
+
+
+@pytest.mark.unit
+def test_input_variables_domain():
+
+    tested_feed_flow_rate = 1200
+    error_msg = (
+        f"The input variable 'feed_flow_rate' is not valid."
+        f"The valid range is 400 - 1100."
+    )
+    with pytest.raises(ConfigurationError, match=error_msg):
+        model_input = {
+            "dt": None,
+            "system_capacity": 1000,
+            "feed_flow_rate": tested_feed_flow_rate,
+            "evap_inlet_temp": 80,
+            "cond_inlet_temp": 25,
+            "feed_temp": 25,
+            "feed_salinity": 35,
+            "initial_batch_volume": 50,
+            "recovery_ratio": 0.5,
+            "module_type": "AS7C1.5L",
+            "cooling_system_type": "closed",
+            "cooling_inlet_temp": 25,
+        }
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
+
+
+@pytest.mark.unit
+def test_cooling_system_type_domain():
+
+    tested_cooling_system_type = "hybrid"
+    error_msg = (
+        f"The cooling system type '{tested_cooling_system_type}' is not available."
+        f"Available options include 'open' and 'closed'."
+    )
+    with pytest.raises(ConfigurationError, match=error_msg):
+        model_input = {
+            "dt": None,
+            "system_capacity": 1000,
+            "feed_flow_rate": 600,
+            "evap_inlet_temp": 80,
+            "cond_inlet_temp": 25,
+            "feed_temp": 25,
+            "feed_salinity": 35,
+            "initial_batch_volume": 50,
+            "recovery_ratio": 0.5,
+            "module_type": "AS7C1.5L",
+            "cooling_system_type": tested_cooling_system_type,
+            "cooling_inlet_temp": 25,
+        }
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
+
+
+@pytest.mark.unit
+def test_cooling_water_temp_domain():
+
+    tested_cooling_inlet_temp = 28
+    tested_feed_temp = 25
+    error_msg = f"In open circuit cooling system, the valid cooling water temperature is 20 - {tested_feed_temp} deg C"
+    with pytest.raises(ConfigurationError, match=error_msg):
+        model_input = {
+            "dt": None,
+            "system_capacity": 1000,
+            "feed_flow_rate": 600,
+            "evap_inlet_temp": 80,
+            "cond_inlet_temp": 25,
+            "feed_temp": tested_feed_temp,
+            "feed_salinity": 35,
+            "initial_batch_volume": 50,
+            "recovery_ratio": 0.5,
+            "module_type": "AS7C1.5L",
+            "cooling_system_type": "open",
+            "cooling_inlet_temp": tested_cooling_inlet_temp,
+        }
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
+
+
+@pytest.mark.unit
+def test_max_recovery_ratio():
+
+    tested_recovery_ratio = 0.7
+    tested_module_type = "AS26C7.2L"
+    tested_feed_salinity = 100
+    max_allowed_recovery_ratio = 1 - tested_feed_salinity / 245.5
+
+    error_msg = (
+        f"The maximum recovery ratio allowed for module {tested_module_type} with a feed"
+        f"salinity of {tested_feed_salinity} is {max_allowed_recovery_ratio}."
+    )
+    with pytest.raises(ConfigurationError, match=error_msg):
+        model_input = {
+            "dt": None,
+            "system_capacity": 1000,
+            "feed_flow_rate": 600,
+            "evap_inlet_temp": 80,
+            "cond_inlet_temp": 25,
+            "feed_temp": 25,
+            "feed_salinity": tested_feed_salinity,
+            "initial_batch_volume": 50,
+            "recovery_ratio": tested_recovery_ratio,
+            "module_type": tested_module_type,
+            "cooling_system_type": "open",
+            "cooling_inlet_temp": 25,
+        }
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
+
+
+class TestVAGMDbatchAS7C15L_Closed:
     @pytest.fixture(scope="class")
-    def VAGMD_batch_frame(self):
+    def VAGMD_batch_frame_AS7C15L_Closed(self):
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
         model_input = {
@@ -55,162 +197,25 @@ class TestVAGMDbatch:
             "cooling_system_type": "closed",
             "cooling_inlet_temp": 25,
         }
-        m.fs.VAGMD_b = VAGMDbatchSurrogate(model_input=model_input)
+        m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
 
         return m
 
     @pytest.mark.unit
-    def test_module_type_domain(self):
-
-        tested_module_type = "new_module_type"
-        error_msg = (
-            f"The MD module type '{tested_module_type}' is not available."
-            f"Available options include 'AS7C1.5L' and 'AS26C7.2L'."
-        )
-        with pytest.raises(ConfigurationError, match=error_msg):
-            model_input = {
-                "dt": None,
-                "system_capacity": 1000,
-                "feed_flow_rate": 600,
-                "evap_inlet_temp": 80,
-                "cond_inlet_temp": 25,
-                "feed_temp": 25,
-                "feed_salinity": 35,
-                "initial_batch_volume": 50,
-                "recovery_ratio": 0.5,
-                "module_type": tested_module_type,
-                "cooling_system_type": "closed",
-                "cooling_inlet_temp": 25,
-            }
-            m = ConcreteModel()
-            m.fs = FlowsheetBlock(dynamic=False)
-            m.fs.VAGMD_b = VAGMDbatchSurrogate(model_input=model_input)
-
-    @pytest.mark.unit
-    def test_input_variables_domain(self):
-
-        tested_feed_flow_rate = 1200
-        error_msg = (
-            f"The input variable 'feed_flow_rate' is not valid."
-            f"The valid range is 400 - 1100."
-        )
-        with pytest.raises(ConfigurationError, match=error_msg):
-            model_input = {
-                "dt": None,
-                "system_capacity": 1000,
-                "feed_flow_rate": tested_feed_flow_rate,
-                "evap_inlet_temp": 80,
-                "cond_inlet_temp": 25,
-                "feed_temp": 25,
-                "feed_salinity": 35,
-                "initial_batch_volume": 50,
-                "recovery_ratio": 0.5,
-                "module_type": "AS7C1.5L",
-                "cooling_system_type": "closed",
-                "cooling_inlet_temp": 25,
-            }
-            m = ConcreteModel()
-            m.fs = FlowsheetBlock(dynamic=False)
-            m.fs.VAGMD_b = VAGMDbatchSurrogate(model_input=model_input)
-
-    @pytest.mark.unit
-    def test_cooling_system_type_domain(self):
-
-        tested_cooling_system_type = "hybrid"
-        error_msg = (
-            f"The cooling system type '{tested_cooling_system_type}' is not available."
-            f"Available options include 'open' and 'closed'."
-        )
-        with pytest.raises(ConfigurationError, match=error_msg):
-            model_input = {
-                "dt": None,
-                "system_capacity": 1000,
-                "feed_flow_rate": 600,
-                "evap_inlet_temp": 80,
-                "cond_inlet_temp": 25,
-                "feed_temp": 25,
-                "feed_salinity": 35,
-                "initial_batch_volume": 50,
-                "recovery_ratio": 0.5,
-                "module_type": "AS7C1.5L",
-                "cooling_system_type": tested_cooling_system_type,
-                "cooling_inlet_temp": 25,
-            }
-            m = ConcreteModel()
-            m.fs = FlowsheetBlock(dynamic=False)
-            m.fs.VAGMD_b = VAGMDbatchSurrogate(model_input=model_input)
-
-    @pytest.mark.unit
-    def test_cooling_water_temp_domain(self):
-
-        tested_cooling_inlet_temp = 28
-        tested_feed_temp = 25
-        error_msg = f"In open circuit cooling system, the valid cooling water temperature is 20 - {tested_feed_temp} deg C"
-        with pytest.raises(ConfigurationError, match=error_msg):
-            model_input = {
-                "dt": None,
-                "system_capacity": 1000,
-                "feed_flow_rate": 600,
-                "evap_inlet_temp": 80,
-                "cond_inlet_temp": 25,
-                "feed_temp": tested_feed_temp,
-                "feed_salinity": 35,
-                "initial_batch_volume": 50,
-                "recovery_ratio": 0.5,
-                "module_type": "AS7C1.5L",
-                "cooling_system_type": "open",
-                "cooling_inlet_temp": tested_cooling_inlet_temp,
-            }
-            m = ConcreteModel()
-            m.fs = FlowsheetBlock(dynamic=False)
-            m.fs.VAGMD_b = VAGMDbatchSurrogate(model_input=model_input)
-
-    @pytest.mark.unit
-    def test_max_recovery_ratio(self):
-
-        tested_recovery_ratio = 0.7
-        tested_module_type = "AS26C7.2L"
-        tested_feed_salinity = 100
-        max_allowed_recovery_ratio = 1 - tested_feed_salinity / 245.5
-
-        error_msg = (
-            f"The maximum recovery ratio allowed for module {tested_module_type} with a feed"
-            f"salinity of {tested_feed_salinity} is {max_allowed_recovery_ratio}."
-        )
-        with pytest.raises(ConfigurationError, match=error_msg):
-            model_input = {
-                "dt": None,
-                "system_capacity": 1000,
-                "feed_flow_rate": 600,
-                "evap_inlet_temp": 80,
-                "cond_inlet_temp": 25,
-                "feed_temp": 25,
-                "feed_salinity": tested_feed_salinity,
-                "initial_batch_volume": 50,
-                "recovery_ratio": tested_recovery_ratio,
-                "module_type": tested_module_type,
-                "cooling_system_type": "open",
-                "cooling_inlet_temp": 25,
-            }
-            m = ConcreteModel()
-            m.fs = FlowsheetBlock(dynamic=False)
-            m.fs.VAGMD_b = VAGMDbatchSurrogate(model_input=model_input)
-
-    @pytest.mark.unit
-    def test_dof(self, VAGMD_batch_frame):
-        m = VAGMD_batch_frame
+    def test_dof(self, VAGMD_batch_frame_AS7C15L_Closed):
+        m = VAGMD_batch_frame_AS7C15L_Closed
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.component
-    def test_solve(self, VAGMD_batch_frame):
-        m = VAGMD_batch_frame
+    def test_solve(self, VAGMD_batch_frame_AS7C15L_Closed):
+        m = VAGMD_batch_frame_AS7C15L_Closed
         results = solver.solve(m)
         assert_optimal_termination(results)
 
     @pytest.mark.component
-    def test_solution(self, VAGMD_batch_frame):
-        m = VAGMD_batch_frame
-        vagmd_b = m.fs.VAGMD_b
+    def test_solution(self, VAGMD_batch_frame_AS7C15L_Closed):
+        m = VAGMD_batch_frame_AS7C15L_Closed
+        vagmd_b = m.fs.VAGMD
         overall_performance, _ = vagmd_b.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
@@ -236,16 +241,17 @@ class TestVAGMDbatch:
         )
 
     @pytest.mark.component
-    def test_costing(self, VAGMD_batch_frame):
-        m = VAGMD_batch_frame
+    def test_costing(self, VAGMD_batch_frame_AS7C15L_Closed):
 
-        # # The costing model is built upon the last time step
-        vagmd = m.fs.VAGMD_b.mp.get_active_process_blocks()[-1].fs.vagmd
+        m = VAGMD_batch_frame_AS7C15L_Closed
+
+        # The costing model is built upon the last time step
+        vagmd = m.fs.VAGMD.mp.get_active_process_blocks()[-1].fs.vagmd
 
         m.fs.costing = REFLOCosting()
         m.fs.costing.base_currency = pyunits.USD_2020
 
-        m.fs.VAGMD_b.add_costing_module(m.fs.costing)
+        m.fs.VAGMD.add_costing_module(m.fs.costing)
 
         # Fix some global costing params for better comparison to Pyomo model
         m.fs.costing.total_investment_factor.fix(1)
@@ -273,13 +279,14 @@ class TestVAGMDbatch:
         )
         assert pytest.approx(2.777, rel=1e-3) == value(m.fs.costing.LCOW)
 
-    @pytest.mark.component
-    def test_solution2(self):
+
+class TestVAGMDbatchAS7C15L_HighSalinityClosed:
+    @pytest.fixture(scope="class")
+    def VAGMD_batch_frame_AS7C15L_HighSalinityClosed(self):
         # Create model, flowsheet for configuration of module AS7C1.5L,
         # with high brine salinity (> 173.5 g/L) and closed cooling system
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
-
         model_input = {
             "dt": None,
             "system_capacity": 1000,
@@ -295,6 +302,18 @@ class TestVAGMDbatch:
             "cooling_inlet_temp": 25,
         }
         m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
+
+        return m
+
+    @pytest.mark.unit
+    def test_dof(self, VAGMD_batch_frame_AS7C15L_HighSalinityClosed):
+        m = VAGMD_batch_frame_AS7C15L_HighSalinityClosed
+        assert degrees_of_freedom(m) == 0
+
+    @pytest.mark.component
+    def test_solution2(self, VAGMD_batch_frame_AS7C15L_HighSalinityClosed):
+
+        m = VAGMD_batch_frame_AS7C15L_HighSalinityClosed
 
         results = solver.solve(m)
         assert_optimal_termination(results)
@@ -316,8 +335,10 @@ class TestVAGMDbatch:
             "Specific electric energy consumption (kWh/m3)"
         ] == pytest.approx(0.630, rel=1e-3)
 
-    @pytest.mark.component
-    def test_solution3(self):
+
+class TestVAGMDbatchAS7C15L_LowSalinityOpen:
+    @pytest.fixture(scope="class")
+    def VAGMD_batch_frame_AS7C15L_LowSalinityOpen(self):
         # Create model, flowsheet for configuration of module AS7C1.5L,
         # with low brine salinity (< 173.5 g/L) and open cooling system
         m = ConcreteModel()
@@ -339,6 +360,18 @@ class TestVAGMDbatch:
         }
         m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
 
+        return m
+
+    @pytest.mark.unit
+    def test_dof(self, VAGMD_batch_frame_AS7C15L_LowSalinityOpen):
+        m = VAGMD_batch_frame_AS7C15L_LowSalinityOpen
+        assert degrees_of_freedom(m) == 0
+
+    @pytest.mark.component
+    def test_solution3(self, VAGMD_batch_frame_AS7C15L_LowSalinityOpen):
+
+        m = VAGMD_batch_frame_AS7C15L_LowSalinityOpen
+
         results = solver.solve(m)
         assert_optimal_termination(results)
         overall_performance, _ = m.fs.VAGMD.get_model_performance()
@@ -359,8 +392,10 @@ class TestVAGMDbatch:
             "Specific electric energy consumption (kWh/m3)"
         ] == pytest.approx(0.3787, rel=1e-3)
 
-    @pytest.mark.component
-    def test_solution4(self):
+
+class TestVAGMDbatchAS26C72L_Closed:
+    @pytest.fixture(scope="class")
+    def VAGMD_batch_frame_AS26C72L_Closed(self):
         # Create model, flowsheet for configuration of module AS26C7.2L,
         # with closed cooling system
         m = ConcreteModel()
@@ -382,9 +417,21 @@ class TestVAGMDbatch:
         }
         m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
 
+        return m
+
+    @pytest.mark.unit
+    def test_dof(self, VAGMD_batch_frame_AS26C72L_Closed):
+        m = VAGMD_batch_frame_AS26C72L_Closed
+        assert degrees_of_freedom(m) == 0
+
+    @pytest.mark.component
+    def test_solution4(self, VAGMD_batch_frame_AS26C72L_Closed):
+
+        m = VAGMD_batch_frame_AS26C72L_Closed
+
         results = solver.solve(m)
         assert_optimal_termination(results)
-        overall_performance, data_table = m.fs.VAGMD.get_model_performance()
+        overall_performance, _ = m.fs.VAGMD.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
             39.139, abs=1e-3
@@ -402,8 +449,10 @@ class TestVAGMDbatch:
             "Specific electric energy consumption (kWh/m3)"
         ] == pytest.approx(0.3100, rel=1e-3)
 
-    @pytest.mark.component
-    def test_solution5(self):
+
+class TestVAGMDbatchAS26C72L_Open:
+    @pytest.fixture(scope="class")
+    def VAGMD_batch_frame_AS26C72L_Open(self):
         # Create model, flowsheet for configuration of module AS26C7.2L,
         # with open cooling system
         m = ConcreteModel()
@@ -425,9 +474,21 @@ class TestVAGMDbatch:
         }
         m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
 
+        return m
+
+    @pytest.mark.unit
+    def test_dof(self, VAGMD_batch_frame_AS26C72L_Open):
+        m = VAGMD_batch_frame_AS26C72L_Open
+        assert degrees_of_freedom(m) == 0
+
+    @pytest.mark.component
+    def test_solution5(self, VAGMD_batch_frame_AS26C72L_Open):
+
+        m = VAGMD_batch_frame_AS26C72L_Open
+
         results = solver.solve(m)
         assert_optimal_termination(results)
-        overall_performance, data_table = m.fs.VAGMD.get_model_performance()
+        overall_performance, _ = m.fs.VAGMD.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
             34.651, abs=1e-3
