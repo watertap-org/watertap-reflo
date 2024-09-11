@@ -84,8 +84,6 @@ def build_md(m, blk, model_options,n_time_points) -> None:
 
     print(f'\n{"=======> BUILDING MEMBRANE DISTILLATION SYSTEM <=======":^60}\n')
 
-    # n_time_points = 1
-
     # Build the multiperiod object for MD
     blk.unit = MultiPeriodModel(
         n_time_points= n_time_points,
@@ -96,7 +94,7 @@ def build_md(m, blk, model_options,n_time_points) -> None:
         outlvl=logging.WARNING,
     )
 
-    # Converting to units L/h and supplying only value
+    # Converting to units L/h and supplying value only
     feed_flow_rate = pyunits.convert(m.fs.feed.properties[0.0].flow_vol_phase["Liq"],
                                      to_units=pyunits.L/pyunits.h)()
 
@@ -121,7 +119,7 @@ def init_md(m, blk, model_options, verbose=True, solver=None):
     print(f"MD Degrees of Freedom: {degrees_of_freedom(blk)}")
     print("\n\n")
 
-    # Converting to units L/h and supplying only value
+    # Converting to units L/h and supplying value only
     feed_flow_rate = pyunits.convert(m.fs.feed.properties[0.0].flow_vol_phase["Liq"],to_units=pyunits.L/pyunits.h)()
     feed_salinity = m.fs.feed.properties[0.0].conc_mass_phase_comp["Liq","TDS"]
     # Converting temperature to C units
@@ -129,7 +127,7 @@ def init_md(m, blk, model_options, verbose=True, solver=None):
 
     add_performance_constraints(m,blk.unit,model_options)
 
-    iscale.calculate_scaling_factors(blk.unit)
+    # iscale.calculate_scaling_factors(blk.unit)
     solver = get_solver()
     active_blks = blk.unit.get_active_process_blocks()
     for active in active_blks:
@@ -176,11 +174,16 @@ def set_md_op_conditions(blk):
 
 def set_system_conditions(blk, model_options):
 
+    """
+    This function defines the feed conditions to the system
+    """
+
     feed_flow_rate = model_options['feed_flow_rate']*pyunits.L/pyunits.h
     feed_salinity = model_options['feed_salinity']*pyunits.g/pyunits.L
     feed_temp = model_options['feed_temp']
 
-    flow_mass_in = pyunits.convert(feed_flow_rate, to_units=pyunits.m**3/pyunits.s)*1000*pyunits.kg/pyunits.m**3
+    # Converting feed flow rate to mass basis
+    flow_mass_in = pyunits.convert(feed_flow_rate, to_units=pyunits.m**3/pyunits.s)*997*pyunits.kg/pyunits.m**3
     feed_salinity_in = pyunits.convert(feed_salinity*feed_flow_rate, to_units=pyunits.kg/pyunits.s)
     print(feed_salinity(),feed_salinity_in())
 
@@ -204,7 +207,7 @@ def set_system_output(blk,n_time_points,model_options):
     # L/h -> converted to kg/s
     permeate_production_rate = num_modules*value(active_blks[-1].fs.acc_distillate_volume) / (
         value(active_blks[-1].fs.dt) * (n_time_points - 1) / 3600)*pyunits.L/pyunits.h
-    permeate_production_mass_rate = pyunits.convert(permeate_production_rate, pyunits.m**3/pyunits.s) *1000*pyunits.kg/pyunits.m**3
+    permeate_production_mass_rate = pyunits.convert(permeate_production_rate, pyunits.m**3/pyunits.s) *997*pyunits.kg/pyunits.m**3
 
     # TODO: Calculate temperature
 
@@ -325,6 +328,17 @@ def add_md_costing(m, blk):
         )
     )
 
+    m.fs.costing.total_investment_factor.fix(1)
+    m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.costing.capital_recovery_factor.fix(0.08764)
+    m.fs.costing.wacc.unfix()
+
+    m.fs.costing.cost_process()
+
+    active_blks = m.fs.md.unit.get_active_process_blocks()
+    m.fs.costing.add_annual_water_production(active_blks[-1].fs.vagmd.system_capacity)
+    m.fs.costing.add_LCOW(active_blks[-1].fs.vagmd.system_capacity)
+
 
 
 def solve(model, solver=None, tee=True, raise_on_failure=True):
@@ -346,6 +360,46 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         raise RuntimeError(msg)
     else:
         return results
+
+
+def report_MD(m, stream_table=False):
+    print(f"\n\n-------------------- MD Report --------------------\n")
+    print("\n")
+
+    active_blks = m.fs.md.unit.get_active_process_blocks()
+
+    print(
+        f'{"Inlet Flow Volume":<30s}{value(active_blks[0].fs.vagmd.feed_props[0].flow_vol_phase["Liq"]):<10.3f}{pyunits.get_units(active_blks[0].fs.vagmd.feed_props[0].flow_vol_phase["Liq"])}'
+    )
+
+    print(
+        f'{"Feed Flow Volume":<30s}{value(m.fs.feed.properties[0].flow_mass_phase_comp["Liq","H2O"]):<10.3f}{pyunits.get_units(m.fs.feed.properties[0].flow_mass_phase_comp["Liq","H2O"])}'
+    )
+
+    print(
+        f'{"Product Flow Volume":<30s}{value(m.fs.product.properties[0].flow_mass_phase_comp["Liq","H2O"]):<10.3f}{pyunits.get_units(m.fs.product.properties[0].flow_mass_phase_comp["Liq","H2O"])}'
+    )
+
+    print(
+        f'{"Disposal Flow Volume":<30s}{value(m.fs.disposal.properties[0].flow_mass_phase_comp["Liq","H2O"]):<10.3f}{pyunits.get_units(m.fs.disposal.properties[0].flow_mass_phase_comp["Liq","H2O"])}'
+    )   
+
+    # print(f'{"UF Performance:":<30s}')
+    # print(
+    #     f'{"    Recovery":<30s}{100*m.fs.UF.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}'
+    # )
+    # print(
+    #     f'{"    TDS Removal":<30s}{100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}'
+    # )
+    # print(
+    #     f'{"    TSS Removal":<30s}{100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}'
+    # )
+    # print(
+    #     f'{"    Energy Consumption":<30s}{m.fs.UF.unit.electricity[0.0].value:<10.3f}{pyunits.get_units(m.fs.UF.unit.electricity[0.0])}'
+    # )
+    # print(
+    #     f'{"    Specific Energy Cons.":<30s}{value(m.fs.UF.unit.energy_electric_flow_vol_inlet):<10.3f}{pyunits.get_units(m.fs.UF.unit.energy_electric_flow_vol_inlet)}'
+    # )
 
 
 
@@ -401,17 +455,6 @@ if __name__ == "__main__":
         
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
-    m.fs.costing.total_investment_factor.fix(1)
-    m.fs.costing.maintenance_labor_chemical_factor.fix(0)
-    m.fs.costing.capital_recovery_factor.fix(0.08764)
-    m.fs.costing.wacc.unfix()
-
-    m.fs.costing.cost_process()
-
-    active_blks = m.fs.md.unit.get_active_process_blocks()
-    m.fs.costing.add_annual_water_production(active_blks[-1].fs.vagmd.system_capacity)
-    m.fs.costing.add_LCOW(active_blks[-1].fs.vagmd.system_capacity)
-
     # assert degrees_of_freedom(m) == 0
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     results = solver.solve(m)
@@ -420,26 +463,6 @@ if __name__ == "__main__":
     print("Overall LCOW ($/m3): ", value(m.fs.costing.LCOW))
     print('Calculate n_time points', n_time_points_check)
 
+    report_MD(m)
 
-# def report_UF(m, blk, stream_table=False):
-#     print(f"\n\n-------------------- UF Report --------------------\n")
-#     print("\n")
-#     print(
-#         f'{"Inlet Flow Volume":<30s}{value(m.fs.UF.feed.properties[0.0].flow_vol):<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_vol)}'
-#     )
-#     print(f'{"UF Performance:":<30s}')
-#     print(
-#         f'{"    Recovery":<30s}{100*m.fs.UF.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}'
-#     )
-#     print(
-#         f'{"    TDS Removal":<30s}{100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}'
-#     )
-#     print(
-#         f'{"    TSS Removal":<30s}{100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}'
-#     )
-#     print(
-#         f'{"    Energy Consumption":<30s}{m.fs.UF.unit.electricity[0.0].value:<10.3f}{pyunits.get_units(m.fs.UF.unit.electricity[0.0])}'
-#     )
-#     print(
-#         f'{"    Specific Energy Cons.":<30s}{value(m.fs.UF.unit.energy_electric_flow_vol_inlet):<10.3f}{pyunits.get_units(m.fs.UF.unit.energy_electric_flow_vol_inlet)}'
-#     )
+
