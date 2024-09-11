@@ -484,9 +484,7 @@ def add_costings(m):
                 + m.fs.costing.capital_recovery_factor
                 * (m.fs.capex_heat_exchanger + m.fs.capex_end_plates)
             )
-            / pyunits.convert(
-                feed_vol_flow_rates, to_units=pyunits.m**3 / pyunits.year
-            )
+            / pyunits.convert(feed_vol_flow_rates, to_units=pyunits.m**3 / pyunits.year)
         ),
         doc="Levelized cost of feed brine",
     )
