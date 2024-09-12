@@ -17,6 +17,7 @@ from pyomo.environ import (
     ConcreteModel,
     Var,
     check_optimal_termination,
+    assert_optimal_termination,
     Param,
     Constraint,
     Suffix,
@@ -128,7 +129,10 @@ class CrystallizerEffectData(CrystallizationData):
         self.properties_pure_water[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
         self.properties_pure_water[0].mass_frac_phase_comp["Liq", "NaCl"]
 
-        self.heating_steam = self.config.property_package.state_block_class(
+        tmp_dict["parameters"] = self.config.property_package_vapor
+        tmp_dict["defined_state"] = False
+
+        self.heating_steam = self.config.property_package_vapor.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of inlet heating steam",
             **tmp_dict,
@@ -138,7 +142,7 @@ class CrystallizerEffectData(CrystallizationData):
 
         # self.heating_steam[0].flow_mass_phase_comp["Liq", "H2O"].fix(1e-8)
         # self.heating_steam[0].flow_mass_phase_comp["Liq", "NaCl"].fix(0)
-        self.heating_steam[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
+        # self.heating_steam[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
         # self.heating_steam[0].mass_frac_phase_comp["Liq", "NaCl"]
 
         self.inlet.temperature.setub(1000)
@@ -220,15 +224,14 @@ class CrystallizerEffectData(CrystallizationData):
         def eq_delta_temperature_in(b):
             return (
                 b.delta_temperature_in[0]
-                == b.heating_steam[0].temperature_sat_solvent - b.temperature_operating
+                == b.heating_steam[0].temperature - b.temperature_operating
             )
 
         @self.Constraint(doc="Change in temperature at outlet")
         def eq_delta_temperature_out(b):
             return (
                 b.delta_temperature_out[0]
-                == b.heating_steam[0].temperature_sat_solvent
-                - b.properties_in[0].temperature
+                == b.heating_steam[0].temperature - b.properties_in[0].temperature
             )
 
         # self.del_component(self.eq_p_con1)
@@ -314,7 +317,7 @@ class CrystallizerEffectData(CrystallizationData):
         )
 
         state_args_solids = deepcopy(state_args)
-        
+
         for p, j in self.properties_solids.phase_component_set:
             if p == "Sol":
                 state_args_solids["flow_mass_phase_comp"][p, j] = state_args[
@@ -322,7 +325,7 @@ class CrystallizerEffectData(CrystallizationData):
                 ]["Liq", j]
             elif p == "Liq" or p == "Vap":
                 state_args_solids["flow_mass_phase_comp"][p, j] = 1e-8
-        
+
         self.properties_solids.initialize(
             outlvl=outlvl,
             optarg=optarg,
@@ -435,7 +438,9 @@ if __name__ == "__main__":
     m.fs.props = props.NaClParameterBlock()
     m.fs.vapor = WaterParameterBlock()
 
-    m.fs.eff = eff = CrystallizerEffect(property_package=m.fs.props)
+    m.fs.eff = eff = CrystallizerEffect(
+        property_package=m.fs.props, property_package_vapor=m.fs.vapor
+    )
     # m.fs.eff.display()
 
     feed_flow_mass = 1
@@ -459,8 +464,7 @@ if __name__ == "__main__":
 
     eff.inlet.pressure[0].fix(feed_pressure)
     eff.inlet.temperature[0].fix(feed_temperature)
-    eff.inlet.temperature[0].fix(404.5)
-    eff.properties_in[0].pressure_sat
+    # eff.properties_in[0].pressure_sat
 
     # eff.steam.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(
     #     eps
@@ -473,20 +477,18 @@ if __name__ == "__main__":
     # eff.heating_steam[0].flow_mass_phase_comp.fix(eps)
     # eff.heating_steam[0].mass_frac_phase_comp.fix(eps)
     # eff.heating_steam[0].pressure.fix()
+    eff.heating_steam[0].pressure_sat
 
     eff.heating_steam.calculate_state(
         var_args={
             ("pressure", None): 101325,
             # ("pressure_sat", None): 28100
             ("temperature", None): 393,
-            ("mass_frac_phase_comp", ("Liq", "H2O")): 1 - eps,
-            ("mass_frac_phase_comp", ("Liq", "NaCl")): eps,
-            ("flow_vol_phase", ("Liq")): 10,
         },
         hold_state=True,
     )
 
-    ###################### 
+    # ######################
     eff.crystallization_yield["NaCl"].fix(crystallizer_yield)
     eff.crystal_growth_rate.fix()
     eff.souders_brown_constant.fix()
@@ -498,6 +500,9 @@ if __name__ == "__main__":
     print(f"dof = {degrees_of_freedom(m.fs.eff)}")
 
     eff.initialize()
+    solver = get_solver()
+    results = solver.solve(m)
+    assert_optimal_termination(results)
 
     print("\nPROPERTIES IN\n")
     eff.properties_in[0].flow_mass_phase_comp.display()
@@ -513,10 +518,11 @@ if __name__ == "__main__":
 
     print("\nPROPERTIES HEATING STEAM\n")
     eff.heating_steam[0].flow_mass_phase_comp.display()
-    eff.heating_steam[0].mass_frac_phase_comp.display()
+
+    # eff.heating_steam[0].mass_frac_phase_comp.display()
     eff.heating_steam[0].temperature.display()
     eff.heating_steam[0].pressure_sat.display()
-    eff.heating_steam[0].temperature_sat_solvent.display()
+    # eff.heating_steam[0].temperature_sat_solvent.display()
 
     eff.temperature_operating.display()
     # eff.heating_steam.display()
