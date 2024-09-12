@@ -12,6 +12,7 @@
 
 import pytest
 from pyomo.environ import (
+    value,
     assert_optimal_termination,
     units as pyunits,
 )
@@ -103,6 +104,12 @@ class TestTreviFO:
 
         overall_performance, operational_parameters = get_flowsheet_performance(m)
 
+        assert value(m.fs.system_capacity) == pytest.approx(
+            m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "H2O"].value
+            / 1000  # Fresh water density (kg/m3)
+            * 86400,  # convert from sec to day (s/day)
+            rel=1e-3,
+        )
         assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
             85683.32, abs=1e-3
         )
