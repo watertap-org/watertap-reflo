@@ -201,6 +201,14 @@ class CrystallizerEffectData(CrystallizationData):
                 b.delta_temperature_out[0]
                 == b.heating_steam[0].temperature - b.properties_in[0].temperature
             )
+        
+        @self.Constraint(doc="Heat transfer equation")
+        def eq_heat_transfer(b):
+            return b.work_mechanical[0] == (
+                b.overall_heat_transfer_coefficient
+                * b.area
+                * b.delta_temperature[0]
+            )
 
         self.del_component(self.eq_p_con1)
         self.del_component(self.eq_p_con2)
