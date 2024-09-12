@@ -94,23 +94,6 @@ class CrystallizerEffectData(CrystallizationData):
     def build(self):
         super().build()
 
-        # self.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
-        # self.properties_in[0].flow_vol_phase["Liq"]
-
-        # self.tsat_constants_dict = {
-        # "tsat_c1": (42.6776, pyunits.K),
-        # "tsat_c2": (-3892.7, pyunits.K),
-        # "tsat_c3": (1000, pyunits.kPa),
-        # "tsat_c4": (-9.48654, pyunits.dimensionless),
-        # }
-
-        # for c, (v, u) in self.tsat_constants_dict.items():
-        #     self.properties_in[0].add_component(c, Param(initialize=v, units=u))
-
-        # self.properties_in[0].add_component("steam_pressure_sat", Param(initialize=150, units=pyunits.kPa, doc="Steam pressure saturated"))
-
-        # self.properties_in[0].add_component("test", Var())
-
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
@@ -140,11 +123,6 @@ class CrystallizerEffectData(CrystallizationData):
 
         self.add_port(name="steam", block=self.heating_steam)
 
-        # self.heating_steam[0].flow_mass_phase_comp["Liq", "H2O"].fix(1e-8)
-        # self.heating_steam[0].flow_mass_phase_comp["Liq", "NaCl"].fix(0)
-        # self.heating_steam[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
-        # self.heating_steam[0].mass_frac_phase_comp["Liq", "NaCl"]
-
         self.inlet.temperature.setub(1000)
         self.outlet.temperature.setub(1000)
         self.solids.temperature.setub(1000)
@@ -173,6 +151,7 @@ class CrystallizerEffectData(CrystallizationData):
             units=pyunits.K,
             doc="Temperature difference at the outlet side",
         )
+
         delta_temperature_chen_callback(self)
 
         self.area = Var(
@@ -183,23 +162,12 @@ class CrystallizerEffectData(CrystallizationData):
         )
 
         self.overall_heat_transfer_coefficient = Var(
-            # self.flowsheet().time,
             initialize=100.0,
             bounds=(0, None),
             units=pyunits.W / pyunits.m**2 / pyunits.K,
             doc="Overall heat transfer coefficient",
         )
 
-        # self.overall_heat_transfer_coefficient.fix(100)
-        # @self.Constraint()
-        # def eq_mass_frac_nacl_steam(b):
-        #     return (
-        #         b.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
-        #         == b.heating_steam[0].conc_mass_phase_comp["Liq", "NaCl"]
-        #     )
-        # @self.Constraint(doc="Flow rate of liquid motive steam is zero")
-        # def eq_motive_steam_liquid_mass(b):
-        #     return b.heating_steam[0].flow_mass_phase_comp["Liq", "H2O"] == 0
         @self.Constraint()
         def eq_pure_vapor_flow_rate(b):
             return (
@@ -234,19 +202,16 @@ class CrystallizerEffectData(CrystallizationData):
                 == b.heating_steam[0].temperature - b.properties_in[0].temperature
             )
 
-        # self.del_component(self.eq_p_con1)
-        # self.del_component(self.eq_p_con2)
-        # @self.Constraint()
-        # def eq_p_con1(b):
-        #     return b.pressure_operating == b.properties_out[0].pressure
+        self.del_component(self.eq_p_con1)
+        self.del_component(self.eq_p_con2)
+        @self.Constraint()
+        def eq_p_con1(b):
+            return b.pressure_operating == b.properties_out[0].pressure
 
-        # @self.Constraint()
-        # def eq_p_con2(b):
-        #     return b.pressure_operating == b.properties_solids[0].pressure
+        @self.Constraint()
+        def eq_p_con2(b):
+            return b.pressure_operating == b.properties_solids[0].pressure
 
-        # @self.Constraint()
-        # def eq_temp_222(b):
-        #     return b.properties_in[0].temperature == b.temperature_operating
         @self.Constraint()
         def eq_p_con4(b):
             return b.properties_pure_water[0].pressure == self.pressure_operating
@@ -360,7 +325,7 @@ class CrystallizerEffectData(CrystallizationData):
         state_args_steam = deepcopy(state_args)
 
         for p, j in self.properties_vapor.phase_component_set:
-            state_args_steam["flow_mass_phase_comp"][p, j] = 1e-8
+            state_args_steam["flow_mass_phase_comp"][p, j] = 1
 
         self.heating_steam.initialize(
             outlvl=outlvl,
