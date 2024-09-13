@@ -12,6 +12,7 @@
 
 from copy import deepcopy
 
+from watertap.core.util.model_diagnostics.infeasible import * 
 # Import Pyomo libraries
 from pyomo.environ import (
     ConcreteModel,
@@ -24,7 +25,7 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
-
+from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 # Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
@@ -165,13 +166,30 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         self.effects = FlowsheetBlock(self.Effects, dynamic=False)
 
+        self.current_effect = Var()
+
         for n, eff in self.effects.items():
+            self.current_effect.fix(n)
             eff.effect = effect = CrystallizerEffect(
                 property_package=self.config.property_package,
                 property_package_vapor=self.config.property_package_vapor,
                 standalone=False,
             )
             if n == self.first_effect:
+
+                tmp_dict = dict(**self.config.property_package_args)
+                tmp_dict["has_phase_equilibrium"] = False
+                tmp_dict["parameters"] = self.config.property_package_vapor
+                tmp_dict["defined_state"] = False
+
+                effect.heating_steam = self.config.property_package_vapor.state_block_class(
+                    self.flowsheet().config.time,
+                    doc="Material properties of inlet heating steam",
+                    **tmp_dict,
+                )
+
+                # self.add_port(name="steam", block=effect.heating_steam)
+                
 
                 @effect.Constraint(
                     doc="Change in temperature at inlet for first effect."
@@ -206,6 +224,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 self.add_port(name="vapor", block=effect.properties_vapor)
                 self.add_port(name="pure_water", block=effect.properties_pure_water)
                 self.add_port(name="steam", block=effect.heating_steam)
+                self.steam.temperature.setub(1000)
 
             else:
 
@@ -274,7 +293,25 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     == prev_effect.properties_in[0].pressure,
                     doc="Inlet properties pressure for effect {n}",
                 )
-                effect.add_component(f"eq_equiv_temp_effect_{n}", prop_in_press_constr)
+                effect.add_component(f"eq_equiv_press_effect_{n}", prop_in_press_constr)
+
+                prop_in_flow_mass_water_constr = Constraint(
+                    expr=effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
+                    == prev_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"],
+                    doc="Inlet properties mass flow water for effect {n}",
+                )
+                effect.add_component(
+                    f"eq_equiv_mass_flow_liq_water_effect_{n}", prop_in_flow_mass_water_constr
+                )
+
+                prop_in_flow_mass_nacl_constr = Constraint(
+                    expr=effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"]
+                    == prev_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"],
+                    doc="Inlet properties mass flow NaCl for effect {n}",
+                )
+                effect.add_component(
+                    f"eq_equiv_mass_flow_liq_nacl_effect_{n}", prop_in_flow_mass_nacl_constr
+                )
 
                 prop_in_temp_constr = Constraint(
                     expr=effect.properties_in[0].temperature
@@ -282,26 +319,26 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     doc="Inlet properties temperature for effect {n}",
                 )
                 effect.add_component(
-                    f"eq_equiv_pressure_effect_{n}", prop_in_temp_constr
+                    f"eq_equiv_temp_effect_{n}", prop_in_temp_constr
                 )
 
-                steam_temp_sat_constr = Constraint(
-                    expr=effect.heating_steam[0].temperature
-                    == prev_effect.heating_steam[0].temperature,
-                    doc="Steam saturation temperature for effect {n}",
-                )
-                effect.add_component(
-                    f"eq_equiv_steam_temp_sat_effect_{n}", steam_temp_sat_constr
-                )
+                # steam_temp_sat_constr = Constraint(
+                #     expr=effect.heating_steam[0].temperature
+                #     == prev_effect.heating_steam[0].temperature,
+                #     doc="Steam saturation temperature for effect {n}",
+                # )
+                # effect.add_component(
+                #     f"eq_equiv_steam_temp_sat_effect_{n}", steam_temp_sat_constr
+                # )
 
-                steam_press_sat_constr = Constraint(
-                    expr=effect.heating_steam[0].pressure_sat
-                    == prev_effect.heating_steam[0].pressure_sat,
-                    doc="Steam saturation pressure for effect {n}",
-                )
-                effect.add_component(
-                    f"eq_equiv_steam_press_sat_effect_{n}", steam_press_sat_constr
-                )
+                # steam_press_sat_constr = Constraint(
+                #     expr=effect.heating_steam[0].pressure_sat
+                #     == prev_effect.heating_steam[0].pressure_sat,
+                #     doc="Steam saturation pressure for effect {n}",
+                # )
+                # effect.add_component(
+                #     f"eq_equiv_steam_press_sat_effect_{n}", steam_press_sat_constr
+                # )
 
                 cryst_growth_rate_constr = Constraint(
                     expr=effect.crystal_growth_rate == prev_effect.crystal_growth_rate,
@@ -338,13 +375,13 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     f"eq_equiv_crystallization_yield_effect_{n}", cryst_yield_constr
                 )
 
-                op_press_constr = Constraint(
-                    expr=effect.pressure_operating <= prev_effect.pressure_operating,
-                    doc=f"Equivalent operating pressure effect {n}",
-                )
-                effect.add_component(
-                    f"eq_equiv_pressure_operating_effect_{n}", op_press_constr
-                )
+                # op_press_constr = Constraint(
+                #     expr=effect.pressure_operating <= prev_effect.pressure_operating,
+                #     doc=f"Equivalent operating pressure effect {n}",
+                # )
+                # effect.add_component(
+                #     f"eq_equiv_pressure_operating_effect_{n}", op_press_constr
+                # )
 
 
 print(list(range(1, 5, 1)))
@@ -356,14 +393,17 @@ if __name__ == "__main__":
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.props = props.NaClParameterBlock()
     m.fs.vapor = WaterParameterBlock()
-
+    m.fs.props.set_default_scaling("flow_mass_phase_comp", 1e-1, index=("Liq", "H2O"))
+    m.fs.props.set_default_scaling("flow_mass_phase_comp", 1e-1, index=("Liq", "NaCl"))
+    m.fs.props.set_default_scaling("flow_mass_phase_comp", 1e-1, index=("Vap", "H2O"))
+    m.fs.props.set_default_scaling("flow_mass_phase_comp", 1e-1, index=("Sol", "NaCl"))
     m.fs.mec = mec = MultiEffectCrystallizer(
         property_package=m.fs.props, property_package_vapor=m.fs.vapor
     )
     for n, effects in mec.effects.items():
         print(n, effects)
 
-    feed_flow_mass = 1
+    feed_flow_mass = 2
     feed_mass_frac_NaCl = 0.15
     feed_pressure = 101325
     feed_temperature = 273.15 + 20
@@ -377,7 +417,10 @@ if __name__ == "__main__":
     feed_mass_frac_H2O = 1 - feed_mass_frac_NaCl
     eps = 1e-6
 
-    eff = mec.effects[1].effect
+    eff1 = mec.effects[1].effect
+    eff2 = mec.effects[2].effect
+    eff3 = mec.effects[3].effect
+    eff4 = mec.effects[4].effect
 
     mec.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(
         feed_flow_mass * feed_mass_frac_NaCl
@@ -391,9 +434,9 @@ if __name__ == "__main__":
     mec.inlet.pressure[0].fix(feed_pressure)
     mec.inlet.temperature[0].fix(feed_temperature)
 
-    eff.heating_steam[0].pressure_sat
+    eff1.heating_steam[0].pressure_sat
 
-    eff.heating_steam.calculate_state(
+    eff1.heating_steam.calculate_state(
         var_args={
             ("pressure", None): 101325,
             # ("pressure_sat", None): 28100
@@ -401,15 +444,51 @@ if __name__ == "__main__":
         },
         hold_state=True,
     )
-    eff.crystallization_yield["NaCl"].fix(crystallizer_yield)
-    eff.crystal_growth_rate.fix()
-    eff.souders_brown_constant.fix()
-    eff.crystal_median_length.fix()
-    eff.overall_heat_transfer_coefficient.fix(100)
+    eff1.crystallization_yield["NaCl"].fix(crystallizer_yield)
+    eff1.crystal_growth_rate.fix()
+    eff1.souders_brown_constant.fix()
+    eff1.crystal_median_length.fix()
+    eff1.overall_heat_transfer_coefficient.fix(100)
 
     # eff.pressure_operating.fix(operating_pressure_eff1 * pyunits.bar)
-    for (_, eff), op_pressure in zip(mec.effects.items(), operating_pressures):
+    for (n, eff), op_pressure in zip(mec.effects.items(), operating_pressures):
         eff.effect.pressure_operating.fix(
             pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
         )
+        print(f"dof effect {n} = {degrees_of_freedom(eff.effect)}")
+
     print(f"dof = {degrees_of_freedom(m)}")
+    calculate_scaling_factors(m)
+    eff1.initialize()
+    # eff1.properties_in[0].display()
+    cvc(eff2.properties_in[0].flow_mass_phase_comp["Liq", "H2O"], eff2.eq_equiv_mass_flow_liq_water_effect_2)
+    cvc(eff2.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"], eff2.eq_equiv_mass_flow_liq_nacl_effect_2)
+    cvc(eff2.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"], eff2.eq_equiv_mass_flow_sol_nacl_effect_2)
+    cvc(eff2.properties_in[0].flow_mass_phase_comp["Vap", "H2O"], eff2.eq_equiv_mass_flow_vap_water_effect_2)
+    cvc(eff2.properties_in[0].temperature, eff2.eq_equiv_temp_effect_2)
+    # eff2.initialize()
+    # eff2.properties_in[0].display()
+    # mec.current_effect.display()
+    # eff2.del_component(eff2.properties_pure_water)
+    # eff2.properties_pure_water.display()
+    # try:
+    flags = eff2.properties_in.initialize(hold_state=True)
+    eff2.properties_out.initialize(hold_state=False)
+    eff2.properties_solids.initialize(hold_state=False)
+    eff2.properties_vapor.initialize(hold_state=False)
+    eff2.properties_out[0].display()
+    eff2.properties_solids[0].phase_component_set.display()
+    # print(flags)
+    # except: 
+    #     eff2.properties_in[0].display()
+    # eff1.properties_in[0].display()
+    # eff1.heating_steam[0].display()
+    # print(f"dof = {degrees_of_freedom(m)}")
+    # for _, eff in mec.effects.items():
+    #     try:
+    #         eff.effect.initialize()
+    #     except:
+    #         pass
+            # print_infeasible_constraints(m)
+            # print_variables_close_to_bounds(m)
+            # raise
