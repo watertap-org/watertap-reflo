@@ -201,9 +201,9 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     )
 
             else:
-                
+
                 prev_effect = self.effects[n - 1].effect
-                
+
                 del_temp_in_constr = Constraint(
                     expr=effect.delta_temperature_in[0]
                     == prev_effect.properties_vapor[0].temperature
@@ -248,7 +248,8 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     doc="Mass flow of solid NaCl for effect {n}",
                 )
                 effect.add_component(
-                    f"eq_equiv_mass_flow_sol_nacl_effect_{n}", mass_flow_solid_nacl_constr
+                    f"eq_equiv_mass_flow_sol_nacl_effect_{n}",
+                    mass_flow_solid_nacl_constr,
                 )
 
                 mass_flow_vap_water_constr = Constraint(
@@ -257,7 +258,8 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     doc="Mass flow of water vapor for effect {n}",
                 )
                 effect.add_component(
-                    f"eq_equiv_mass_flow_vap_water_effect_{n}", mass_flow_vap_water_constr
+                    f"eq_equiv_mass_flow_vap_water_effect_{n}",
+                    mass_flow_vap_water_constr,
                 )
 
                 prop_in_press_constr = Constraint(
@@ -265,9 +267,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     == prev_effect.properties_in[0].pressure,
                     doc="Inlet properties pressure for effect {n}",
                 )
-                effect.add_component(
-                    f"eq_equiv_temp_effect_{n}", prop_in_press_constr
-                )
+                effect.add_component(f"eq_equiv_temp_effect_{n}", prop_in_press_constr)
 
                 prop_in_temp_constr = Constraint(
                     expr=effect.properties_in[0].temperature
