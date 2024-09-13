@@ -121,24 +121,14 @@ class CrystallizerEffectData(CrystallizationData):
         self.properties_pure_water[0].flow_mass_phase_comp["Liq", "NaCl"].fix(0)
         self.properties_pure_water[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
         self.properties_pure_water[0].mass_frac_phase_comp["Liq", "NaCl"]
-
-        tmp_dict["parameters"] = self.config.property_package_vapor
-        tmp_dict["defined_state"] = False
-
-        self.heating_steam = self.config.property_package_vapor.state_block_class(
-            self.flowsheet().config.time,
-            doc="Material properties of inlet heating steam",
-            **tmp_dict,
-        )
-
-        self.add_port(name="steam", block=self.heating_steam)
+        self.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
+        self.properties_in[0].flow_vol_phase["Liq"]
 
         self.inlet.temperature.setub(1000)
         self.outlet.temperature.setub(1000)
         self.solids.temperature.setub(1000)
         self.vapor.temperature.setub(1000)
         self.pure_water.temperature.setub(1000)
-        self.steam.temperature.setub(1000)
 
         self.energy_flow_superheated_vapor = Var(
             initialize=1e5,
@@ -219,6 +209,18 @@ class CrystallizerEffectData(CrystallizationData):
 
         if self.config.standalone:
 
+            tmp_dict["parameters"] = self.config.property_package_vapor
+            tmp_dict["defined_state"] = False
+
+            self.heating_steam = self.config.property_package_vapor.state_block_class(
+                self.flowsheet().config.time,
+                doc="Material properties of inlet heating steam",
+                **tmp_dict,
+            )
+
+            self.add_port(name="steam", block=self.heating_steam)
+            self.steam.temperature.setub(1000)
+
             @self.Constraint(doc="Change in temperature at inlet")
             def eq_delta_temperature_inlet(b):
                 return (
@@ -241,20 +243,13 @@ class CrystallizerEffectData(CrystallizationData):
                     * b.delta_temperature[0]
                 )
 
-        # else:
-        #     self.del_component(self.inlet)
-        #     self.del_component(self.outlet)
-        #     self.del_component(self.solids)
-        #     self.del_component(self.vapor)
-        #     self.del_component(self.pure_water)
-        #     self.del_component(self.steam)
-
-        # self.inlet.temperature.setub(1000)
-        # self.outlet.temperature.setub(1000)
-        # self.solids.temperature.setub(1000)
-        # self.vapor.temperature.setub(1000)
-        # self.pure_water.temperature.setub(1000)
-        # self.steam.temperature.setub(1000)
+        else:
+            self.del_component(self.inlet)
+            self.del_component(self.outlet)
+            self.del_component(self.solids)
+            self.del_component(self.vapor)
+            self.del_component(self.pure_water)
+            # self.del_component(self.steam)
 
     def initialize_build(
         self,
@@ -358,17 +353,20 @@ class CrystallizerEffectData(CrystallizationData):
             state_args=state_args_vapor,
         )
 
-        state_args_steam = deepcopy(state_args)
+        try:
+            state_args_steam = deepcopy(state_args)
 
-        for p, j in self.properties_vapor.phase_component_set:
-            state_args_steam["flow_mass_phase_comp"][p, j] = 1
+            for p, j in self.properties_vapor.phase_component_set:
+                state_args_steam["flow_mass_phase_comp"][p, j] = 1
 
-        self.heating_steam.initialize(
-            outlvl=outlvl,
-            optarg=optarg,
-            solver=solver,
-            state_args=state_args_steam,
-        )
+            self.heating_steam.initialize(
+                outlvl=outlvl,
+                optarg=optarg,
+                solver=solver,
+                state_args=state_args_steam,
+            )
+        except:
+            pass
 
         init_log.info_high("Initialization Step 2 Complete.")
 
@@ -504,26 +502,28 @@ if __name__ == "__main__":
     solver = get_solver()
     results = solver.solve(m)
     assert_optimal_termination(results)
+    eff.properties_in[0].display()
+    # eff.heating_steam[0].display()
 
-    print("\nPROPERTIES IN\n")
-    eff.properties_in[0].flow_mass_phase_comp.display()
-    eff.properties_in[0].mass_frac_phase_comp.display()
-    eff.properties_in[0].temperature.display()
-    eff.properties_in[0].pressure_sat.display()
-    eff.properties_in[0].temperature_sat_solvent.display()
+    # print("\nPROPERTIES IN\n")
+    # eff.properties_in[0].flow_mass_phase_comp.display()
+    # eff.properties_in[0].mass_frac_phase_comp.display()
+    # eff.properties_in[0].temperature.display()
+    # eff.properties_in[0].pressure_sat.display()
+    # eff.properties_in[0].temperature_sat_solvent.display()
 
-    # print("\nPROPERTIES VAPOR\n")
-    # eff.properties_vapor[0].temperature.display()
-    # eff.properties_vapor[0].pressure_sat.display()
-    # eff.properties_vapor[0].temperature_sat_solvent.display()
+    # # print("\nPROPERTIES VAPOR\n")
+    # # eff.properties_vapor[0].temperature.display()
+    # # eff.properties_vapor[0].pressure_sat.display()
+    # # eff.properties_vapor[0].temperature_sat_solvent.display()
 
-    print("\nPROPERTIES HEATING STEAM\n")
-    eff.heating_steam[0].flow_mass_phase_comp.display()
+    # print("\nPROPERTIES HEATING STEAM\n")
+    # eff.heating_steam[0].flow_mass_phase_comp.display()
 
-    # eff.heating_steam[0].mass_frac_phase_comp.display()
-    eff.heating_steam[0].temperature.display()
-    eff.heating_steam[0].pressure_sat.display()
-    # eff.heating_steam[0].temperature_sat_solvent.display()
+    # # eff.heating_steam[0].mass_frac_phase_comp.display()
+    # eff.heating_steam[0].temperature.display()
+    # eff.heating_steam[0].pressure_sat.display()
+    # # eff.heating_steam[0].temperature_sat_solvent.display()
 
-    eff.temperature_operating.display()
-    # eff.heating_steam.display()
+    # eff.temperature_operating.display()
+    # # eff.heating_steam.display()
