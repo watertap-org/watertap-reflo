@@ -82,12 +82,22 @@ class CrystallizerEffectData(CrystallizationData):
         ConfigValue(
             default=useDefault,
             domain=is_physical_parameter_block,
-            description="Property package to use for heating and motive steam properties",
+            description="Property package to use for heating steam properties",
             doc="""Property parameter object used to define steasm property calculations,
     **default** - useDefault.
     **Valid values:** {
     **useDefault** - use default package from parent model or flowsheet,
     **PhysicalParameterObject** - a PhysicalParameterBlock object.}""",
+        ),
+    )
+    CONFIG.declare(
+        "standalone",
+        ConfigValue(
+            default=True,
+            domain=bool,
+            description="Property package to use for heating and motive steam properties",
+            doc="""Property parameter object used to define steasm property calculations,
+    **default** - True.""",
         ),
     )
 
@@ -188,30 +198,9 @@ class CrystallizerEffectData(CrystallizationData):
                 )
             )
 
-        @self.Constraint(doc="Change in temperature at inlet")
-        def eq_delta_temperature_in(b):
-            return (
-                b.delta_temperature_in[0]
-                == b.heating_steam[0].temperature - b.temperature_operating
-            )
-
-        @self.Constraint(doc="Change in temperature at outlet")
-        def eq_delta_temperature_out(b):
-            return (
-                b.delta_temperature_out[0]
-                == b.heating_steam[0].temperature - b.properties_in[0].temperature
-            )
-        
-        @self.Constraint(doc="Heat transfer equation")
-        def eq_heat_transfer(b):
-            return b.work_mechanical[0] == (
-                b.overall_heat_transfer_coefficient
-                * b.area
-                * b.delta_temperature[0]
-            )
-
         self.del_component(self.eq_p_con1)
         self.del_component(self.eq_p_con2)
+
         @self.Constraint()
         def eq_p_con1(b):
             return b.pressure_operating == b.properties_out[0].pressure
@@ -227,6 +216,45 @@ class CrystallizerEffectData(CrystallizationData):
         @self.Constraint()
         def eq_p_con5(b):
             return b.properties_pure_water[0].pressure_sat == self.pressure_operating
+
+        if self.config.standalone:
+
+            @self.Constraint(doc="Change in temperature at inlet")
+            def eq_delta_temperature_inlet(b):
+                return (
+                    b.delta_temperature_in[0]
+                    == b.heating_steam[0].temperature - b.temperature_operating
+                )
+
+            @self.Constraint(doc="Change in temperature at outlet")
+            def eq_delta_temperature_outlet(b):
+                return (
+                    b.delta_temperature_out[0]
+                    == b.heating_steam[0].temperature - b.properties_in[0].temperature
+                )
+
+            @self.Constraint(doc="Heat transfer equation")
+            def eq_heat_transfer(b):
+                return b.work_mechanical[0] == (
+                    b.overall_heat_transfer_coefficient
+                    * b.area
+                    * b.delta_temperature[0]
+                )
+
+        # else:
+        #     self.del_component(self.inlet)
+        #     self.del_component(self.outlet)
+        #     self.del_component(self.solids)
+        #     self.del_component(self.vapor)
+        #     self.del_component(self.pure_water)
+        #     self.del_component(self.steam)
+
+        # self.inlet.temperature.setub(1000)
+        # self.outlet.temperature.setub(1000)
+        # self.solids.temperature.setub(1000)
+        # self.vapor.temperature.setub(1000)
+        # self.pure_water.temperature.setub(1000)
+        # self.steam.temperature.setub(1000)
 
     def initialize_build(
         self,
@@ -412,7 +440,7 @@ if __name__ == "__main__":
     m.fs.vapor = WaterParameterBlock()
 
     m.fs.eff = eff = CrystallizerEffect(
-        property_package=m.fs.props, property_package_vapor=m.fs.vapor
+        property_package=m.fs.props, property_package_vapor=m.fs.vapor, standalone=True
     )
     # m.fs.eff.display()
 
