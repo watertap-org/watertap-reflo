@@ -200,6 +200,13 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                         * b.delta_temperature[0]
                     )
 
+                self.add_port(name="inlet", block=effect.properties_in)
+                self.add_port(name="outlet", block=effect.properties_out)
+                self.add_port(name="solids", block=effect.properties_solids)
+                self.add_port(name="vapor", block=effect.properties_vapor)
+                self.add_port(name="pure_water", block=effect.properties_pure_water)
+                self.add_port(name="steam", block=effect.heating_steam)
+
             else:
 
                 prev_effect = self.effects[n - 1].effect
@@ -332,7 +339,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 )
 
                 op_press_constr = Constraint(
-                    expr=effect.pressure_operating == prev_effect.pressure_operating,
+                    expr=effect.pressure_operating <= prev_effect.pressure_operating,
                     doc=f"Equivalent operating pressure effect {n}",
                 )
                 effect.add_component(
@@ -361,24 +368,28 @@ if __name__ == "__main__":
     feed_pressure = 101325
     feed_temperature = 273.15 + 20
     crystallizer_yield = 0.5
-    operating_pressure_eff1 = 0.78
+    operating_pressures = [0.78, 0.25, 0.208, 0.095]
+    operating_pressure_eff1 = 0.78  # bar
+    operating_pressure_eff2 = 0.25  # bar
+    operating_pressure_eff3 = 0.208  # bar
+    operating_pressure_eff4 = 0.095  # bar
 
     feed_mass_frac_H2O = 1 - feed_mass_frac_NaCl
     eps = 1e-6
 
     eff = mec.effects[1].effect
 
-    eff.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(
+    mec.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(
         feed_flow_mass * feed_mass_frac_NaCl
     )
-    eff.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(
+    mec.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(
         feed_flow_mass * feed_mass_frac_H2O
     )
-    eff.inlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(eps)
-    eff.inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(eps)
+    mec.inlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(eps)
+    mec.inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(eps)
 
-    eff.inlet.pressure[0].fix(feed_pressure)
-    eff.inlet.temperature[0].fix(feed_temperature)
+    mec.inlet.pressure[0].fix(feed_pressure)
+    mec.inlet.temperature[0].fix(feed_temperature)
 
     eff.heating_steam[0].pressure_sat
 
@@ -396,5 +407,9 @@ if __name__ == "__main__":
     eff.crystal_median_length.fix()
     eff.overall_heat_transfer_coefficient.fix(100)
 
-    eff.pressure_operating.fix(operating_pressure_eff1 * pyunits.bar)
+    # eff.pressure_operating.fix(operating_pressure_eff1 * pyunits.bar)
+    for (_, eff), op_pressure in zip(mec.effects.items(), operating_pressures):
+        eff.effect.pressure_operating.fix(
+            pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
+        )
     print(f"dof = {degrees_of_freedom(m)}")
