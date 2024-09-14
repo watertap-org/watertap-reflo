@@ -21,6 +21,7 @@ from pyomo.environ import (
     check_optimal_termination,
     Param,
     Constraint,
+    Expression, 
     Suffix,
     RangeSet,
     units as pyunits,
@@ -34,6 +35,7 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
     FlowsheetBlock,
+    UnitModelCostingBlock
 )
 from watertap.core.solvers import get_solver
 from idaes.core.util.tables import create_stream_table_dataframe
@@ -68,7 +70,7 @@ from watertap.unit_models.mvc.components.lmtd_chen_callback import (
 )
 
 from watertap_contrib.reflo.unit_models.crystallizer_effect import CrystallizerEffect
-
+from watertap_contrib.reflo.costing.units.multi_effect_crystallizer import cost_multi_effect_crystallizer 
 
 _log = idaeslog.getLogger(__name__)
 
@@ -168,13 +170,16 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         self.effects = FlowsheetBlock(self.Effects, dynamic=False)
 
+        total_flow_vol_in_expr = 0
+
         for n, eff in self.effects.items():
             eff.effect = effect = CrystallizerEffect(
                 property_package=self.config.property_package,
                 property_package_vapor=self.config.property_package_vapor,
                 standalone=False,
             )
-            eff.effect.properties_in[0].conc_mass_phase_comp
+            effect.properties_in[0].conc_mass_phase_comp
+            total_flow_vol_in_expr += effect.properties_in[0].flow_vol_phase["Liq"]
 
             if n == self.first_effect:
 
@@ -291,6 +296,9 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 # )
                 # effect.add_component(f"eq_equiv_brine_conc_effect_{n}_ub", brine_conc_constr)
 
+        self.total_flow_vol_in = Expression(expr=total_flow_vol_in_expr)
+
+
     def initialize_build(
         self,
         state_args=None,
@@ -326,9 +334,13 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             #     eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
             #     eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
             #     eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix(conc)
-
+    
+    @property
+    def default_costing_method(self):
+        return cost_multi_effect_crystallizer
 
 if __name__ == "__main__":
+    from watertap_contrib.reflo.costing import TreatmentCosting
     import watertap.property_models.unit_specific.cryst_prop_pack as props
     from watertap.property_models.water_prop_pack import WaterParameterBlock
 
@@ -418,13 +430,13 @@ if __name__ == "__main__":
     for n, eff in mec.effects.items():
         print(f"\nEFFECT {n}\n")
         # eff.effect.properties_pure_water[0].temperature.display()
-        eff.effect.pressure_operating.display()
-        eff.effect.overall_heat_transfer_coefficient.display()
-        eff.effect.properties_vapor[0].temperature.display()
-        eff.effect.temperature_operating.display()
-        eff.effect.properties_in[0].flow_mass_phase_comp.display()
-        eff.effect.properties_in[0].conc_mass_phase_comp.display()
-        eff.effect.properties_out[0].flow_mass_phase_comp.display()
+        # eff.effect.pressure_operating.display()
+        # eff.effect.overall_heat_transfer_coefficient.display()
+        # eff.effect.properties_vapor[0].temperature.display()
+        # eff.effect.temperature_operating.display()
+        # eff.effect.properties_in[0].flow_mass_phase_comp.display()
+        # eff.effect.properties_in[0].conc_mass_phase_comp.display()
+        # eff.effect.properties_out[0].flow_mass_phase_comp.display()
         eff.effect.overall_heat_transfer_coefficient.setlb(99)
         if n != 1:
             eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
@@ -445,16 +457,29 @@ if __name__ == "__main__":
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
 
-    for n, eff in mec.effects.items():
-        print(f"\nEFFECT {n}\n")
-        # eff.effect.properties_pure_water[0].temperature.display()
-        eff.effect.pressure_operating.display()
-        eff.effect.overall_heat_transfer_coefficient.display()
-        eff.effect.properties_vapor[0].temperature.display()
-        eff.effect.temperature_operating.display()
-        eff.effect.properties_in[0].flow_mass_phase_comp.display()
-        eff.effect.properties_in[0].conc_mass_phase_comp.display()
-        eff.effect.properties_out[0].flow_mass_phase_comp.display()
+
+    # mec.effects[1].effect.flowsheet().flowsheet().mec.display()
+    m.fs.costing = TreatmentCosting()
+    m.fs.mec.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+
+    m.fs.costing.multi_effect_crystallizer.NaCl_recovery_value.fix(-0.024)
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(mec.total_flow_vol_in)
+    print(f"dof after costing = {degrees_of_freedom(m)}")
+    results = solver.solve(m)
+    print(f"termination {results.solver.termination_condition}")
+    print(f"LCOW = {m.fs.costing.LCOW()}")
+    mec.costing.display()
+    # for n, eff in mec.effects.items():
+    #     print(f"\nEFFECT {n}\n")
+    #     # eff.effect.properties_pure_water[0].temperature.display()
+    #     eff.effect.pressure_operating.display()
+    #     eff.effect.overall_heat_transfer_coefficient.display()
+    #     eff.effect.properties_vapor[0].temperature.display()
+    #     eff.effect.temperature_operating.display()
+    #     eff.effect.properties_in[0].flow_mass_phase_comp.display()
+    #     eff.effect.properties_in[0].conc_mass_phase_comp.display()
+    #     eff.effect.properties_out[0].flow_mass_phase_comp.display()
 
         # mass_flow_solid_nacl_constr = Constraint(
         #     expr=effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"]
