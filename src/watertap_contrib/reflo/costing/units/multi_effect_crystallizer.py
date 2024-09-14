@@ -28,23 +28,23 @@ class MultiEffectCrystallizerCostType(StrEnum):
 
 def build_multi_effect_crystallizer_cost_param_block(blk):
 
-    blk.steam_pressure = pyo.Var(
-        initialize=3,
-        units=pyo.units.bar,
-        doc="Steam pressure (gauge) for crystallizer heating: 3 bar default based on Dutta example",
-    )
+    # blk.steam_pressure = pyo.Var(
+    #     initialize=3,
+    #     units=pyo.units.bar,
+    #     doc="Steam pressure (gauge) for crystallizer heating: 3 bar default based on Dutta example",
+    # )
 
-    blk.efficiency_pump = pyo.Var(
-        initialize=0.7,
-        units=pyo.units.dimensionless,
-        doc="Crystallizer pump efficiency - assumed",
-    )
+    # blk.efficiency_pump = pyo.Var(
+    #     initialize=0.7,
+    #     units=pyo.units.dimensionless,
+    #     doc="Crystallizer pump efficiency - assumed",
+    # )
 
-    blk.pump_head_height = pyo.Var(
-        initialize=1,
-        units=pyo.units.m,
-        doc="Crystallizer pump head height -  assumed, unvalidated",
-    )
+    # blk.pump_head_height = pyo.Var(
+    #     initialize=1,
+    #     units=pyo.units.m,
+    #     doc="Crystallizer pump head height -  assumed, unvalidated",
+    # )
 
     # Crystallizer operating cost information from literature
     blk.fob_unit_cost = pyo.Var(
@@ -99,7 +99,10 @@ def build_multi_effect_crystallizer_cost_param_block(blk):
     costing.register_flow_type("steam", blk.steam_cost)
     costing.register_flow_type("NaCl", blk.NaCl_recovery_value)
 
-
+@register_costing_parameter_block(
+    build_rule=build_multi_effect_crystallizer_cost_param_block,
+    parameter_block_name="multi_effect_crystallizer",
+)
 def cost_multi_effect_crystallizer(blk, cost_type=MultiEffectCrystallizerCostType.mass_basis):
     """
     Function for costing the FC crystallizer by the mass flow of produced crystals.
@@ -108,76 +111,125 @@ def cost_multi_effect_crystallizer(blk, cost_type=MultiEffectCrystallizerCostTyp
     Args:
         cost_type: Option for crystallizer cost function type - volume or mass basis
     """
+    global costing_package
+    costing_package = blk.costing_package
+    make_capital_cost_var(blk)
+    blk.costing_package.add_cost_factor(blk, "TIC")
+    
     if cost_type == MultiEffectCrystallizerCostType.mass_basis:
-        cost_crystallizer_by_crystal_mass(blk)
+        costing_method = cost_crystallizer_effect_by_crystal_mass
     elif cost_type == MultiEffectCrystallizerCostType.volume_basis:
-        cost_crystallizer_by_volume(blk)
+        costing_method = cost_crystallizer_by_volume
     else:
         raise ConfigurationError(
             f"{blk.unit_model.name} received invalid argument for cost_type:"
             f" {cost_type}. Argument must be a member of the CrystallizerCostType Enum."
         )
+    
+    # costing_method(blk)
+    total_capex_expr = 0
+    for n, eff in blk.unit_model.effects.items():
+        capex_var = pyo.Var(
+            initialize=1e5,
+            units=costing_package.base_currency,
+            doc=f"Capital cost effect {n}",
+        )
+        capital_cost_effect = costing_method(eff.effect)
+        capex_constr = pyo.Constraint(expr=capex_var == capital_cost_effect)
+        blk.add_component(f"capital_cost_effect_{n}", capex_var)
+        blk.add_component(f"capital_cost_effect_{n}_constraint", capex_constr)
+        total_capex_expr += capital_cost_effect
+
+    blk.capital_cost_constraint = pyo.Constraint(expr=blk.capital_cost == blk.cost_factor * total_capex_expr)
 
 
 def _cost_crystallizer_flows(blk):
-    blk.costing_package.cost_flow(
+
+    # costing_package = blk.flowsheet().flowsheet().costing
+    costing_package.cost_flow(
         pyo.units.convert(
             (
-                blk.unit_model.magma_circulation_flow_vol
-                * blk.unit_model.dens_mass_slurry
+                blk.magma_circulation_flow_vol
+                * blk.dens_mass_slurry
                 * Constants.acceleration_gravity
-                * blk.costing_package.crystallizer.pump_head_height
-                / blk.costing_package.crystallizer.efficiency_pump
+                * blk.pump_head_height
+                / blk.efficiency_pump
             ),
             to_units=pyo.units.kW,
         ),
         "electricity",
     )
 
-    blk.costing_package.cost_flow(
+    costing_package.cost_flow(
         pyo.units.convert(
-            (blk.unit_model.work_mechanical[0] / _compute_steam_properties(blk)),
+            (blk.work_mechanical[0] / _compute_steam_properties(blk)),
             to_units=pyo.units.m**3 / pyo.units.s,
         ),
         "steam",
     )
 
-    blk.costing_package.cost_flow(
-        blk.unit_model.solids.flow_mass_phase_comp[0, "Sol", "NaCl"],
+    costing_package.cost_flow(
+        blk.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"],
         "NaCl",
     )
 
 
-@register_costing_parameter_block(
-    build_rule=build_multi_effect_crystallizer_cost_param_block,
-    parameter_block_name="crystallizer",
-)
-def cost_crystallizer_by_crystal_mass(blk):
+# @register_costing_parameter_block(
+#     build_rule=build_multi_effect_crystallizer_cost_param_block,
+#     parameter_block_name="multi_effect_crystallizer",
+# )
+def cost_crystallizer_effect_by_crystal_mass(blk):
     """
     Mass-based capital cost for FC crystallizer
     """
-    make_capital_cost_var(blk)
-    blk.costing_package.add_cost_factor(blk, "TIC")
-    blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost
-        == blk.cost_factor
-        * blk.unit_model.config.number_effects * (pyo.units.convert(
+    
+    # blk.capital_cost = pyo.Var(
+    #     initialize=1e5,
+    #     # domain=pyo.NonNegativeReals,
+    #     units=costing_package.base_currency,
+    #     doc="Unit capital cost",
+    # )
+    # costing_package = blk.flowsheet().flowsheet().costing
+    # costing_package.add_cost_factor(blk, None)
+    # blk.capital_cost_constraint = pyo.Constraint(
+    #     expr=blk.capital_cost
+    #     == blk.cost_factor
+    #     * (pyo.units.convert(
+    #         (
+    #             costing_package.multi_effect_crystallizer.iec_percent
+    #             * costing_package.multi_effect_crystallizer.fob_unit_cost
+    #             * (
+    #                 sum(
+    #                     blk.properties_solids[0].flow_mass_phase_comp["Sol", j]
+    #                     for j in blk.config.property_package.solute_set
+    #                 )
+    #                 / costing_package.multi_effect_crystallizer.ref_capacity
+    #             )
+    #             ** costing_package.multi_effect_crystallizer.ref_exponent
+    #         ),
+    #         to_units=costing_package.base_currency,
+    #     ))
+    # )
+
+    # for n, eff in blk.unit_model.effects.items():
+
+    _cost_crystallizer_flows(blk)
+    capital_cost_effect = pyo.units.convert(
             (
-                blk.costing_package.crystallizer.iec_percent
-                * blk.costing_package.crystallizer.fob_unit_cost
+                costing_package.multi_effect_crystallizer.iec_percent
+                * costing_package.multi_effect_crystallizer.fob_unit_cost
                 * (
                     sum(
-                        blk.unit_model.solids.flow_mass_phase_comp[0, "Sol", j]
-                        for j in blk.unit_model.config.property_package.solute_set
+                        blk.properties_solids[0].flow_mass_phase_comp["Sol", j]
+                        for j in blk.config.property_package.solute_set
                     )
-                    / blk.costing_package.crystallizer.ref_capacity
+                    / costing_package.multi_effect_crystallizer.ref_capacity
                 )
-                ** blk.costing_package.crystallizer.ref_exponent
+                ** costing_package.multi_effect_crystallizer.ref_exponent
             ),
-            to_units=blk.costing_package.base_currency,
-        ))
-    )
-    _cost_crystallizer_flows(blk)
+            to_units=costing_package.base_currency,
+        )
+    return capital_cost_effect
 
 
 @register_costing_parameter_block(
@@ -227,7 +279,7 @@ def _compute_steam_properties(blk):
     Out:
         Steam thermal capacity (latent heat of condensation * density) in kJ/m3
     """
-    pressure_sat = blk.costing_package.crystallizer.steam_pressure
+    pressure_sat = blk.steam_pressure
     # 1. Compute saturation temperature of steam: computed from El-Dessouky expression
     tsat_constants = [
         42.6776 * pyo.units.K,
