@@ -130,6 +130,27 @@ class CrystallizerEffectData(CrystallizationData):
         self.vapor.temperature.setub(1000)
         self.pure_water.temperature.setub(1000)
 
+        self.steam_pressure = Param(
+            initialize=3,
+            mutable=True,
+            units=pyunits.bar,
+            doc="Steam pressure (gauge) for crystallizer heating: 3 bar default based on Dutta example",
+        )
+
+        self.efficiency_pump = Param(
+            initialize=0.7,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Crystallizer pump efficiency - assumed",
+        )
+
+        self.pump_head_height = Param(
+            initialize=1,
+            mutable=True,
+            units=pyunits.m,
+            doc="Crystallizer pump head height -  assumed, unvalidated",
+        )
+
         self.energy_flow_superheated_vapor = Var(
             initialize=1e5,
             bounds=(-5e6, 5e6),
@@ -418,14 +439,11 @@ class CrystallizerEffectData(CrystallizationData):
             iscale.set_scaling_factor(self.area, 0.1)
 
         if iscale.get_scaling_factor(self.overall_heat_transfer_coefficient) is None:
-            iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 0.1)
+            iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 0.01)
 
         for ind, c in self.eq_p_con4.items():
             sf = iscale.get_scaling_factor(self.properties_pure_water[0].pressure)
             iscale.constraint_scaling_transform(c, sf)
-
-    def _calculate_saturation_temperature(self):
-        pass
 
 
 if __name__ == "__main__":
