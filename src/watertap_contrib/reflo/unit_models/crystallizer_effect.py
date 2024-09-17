@@ -175,11 +175,11 @@ class CrystallizerEffectData(CrystallizationData):
 
         delta_temperature_chen_callback(self)
 
-        self.area = Var(
+        self.heat_exchanger_area = Var(
             initialize=1000.0,
             bounds=(0, None),
             units=pyunits.m**2,
-            doc="Heat exchange area",
+            doc="Heat exchanger area",
         )
 
         self.overall_heat_transfer_coefficient = Var(
