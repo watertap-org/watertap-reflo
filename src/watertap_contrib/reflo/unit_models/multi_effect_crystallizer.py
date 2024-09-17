@@ -19,6 +19,7 @@ from pyomo.environ import (
     ConcreteModel,
     Var,
     check_optimal_termination,
+    assert_optimal_termination,
     Param,
     Constraint,
     Expression,
@@ -75,6 +76,7 @@ from watertap_contrib.reflo.costing.units.multi_effect_crystallizer import (
 )
 
 _log = idaeslog.getLogger(__name__)
+from idaes.core.util.scaling import *
 
 __author__ = "Oluwamayowa Amusat, Zhuoran Zhang, Kurban Sitterley"
 
@@ -184,7 +186,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             total_flow_vol_in_expr += effect.properties_in[0].flow_vol_phase["Liq"]
 
             if n == self.first_effect:
-
                 tmp_dict = dict(**self.config.property_package_args)
                 tmp_dict["has_phase_equilibrium"] = False
                 tmp_dict["parameters"] = self.config.property_package_vapor
@@ -326,22 +327,40 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
         solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
 
         opt = get_solver(solver, optarg)
-
         for n, eff in self.effects.items():
-            if n != 1:
-                prev_effect = self.effects[n - 1].effect
-                work_mechanical = prev_effect.work_mechanical[0].value
-                eff.effect.energy_flow_superheated_vapor.set_value(work_mechanical)
+            if n == 1:
+                assert degrees_of_freedom(eff.effect) == 0
+                eff.effect.initialize()
+                inlet_conc = (
+                    eff.effect.properties_in[0]
+                    .conc_mass_phase_comp["Liq", "NaCl"]
+                    .value
+                )
+                mass_transfer_coeff = eff.effect.overall_heat_transfer_coefficient.value
             else:
-                ec = getattr(self, f"")
-            eff.effect.initialize()
+                c = getattr(
+                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                )
+                c.deactivate()
+                eff.effect.initialize()
+                c.activate()
+                eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
+                eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
+                eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix(
+                    inlet_conc
+                )
+                eff.effect.overall_heat_transfer_coefficient.fix(mass_transfer_coeff)
 
             init_log.info(f"Initialization of Effect {n} Complete.")
-            # if n != 1:
-            #     conc = self.effects[1].effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].value
-            #     eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-            #     eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
-            #     eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix(conc)
+
+        with idaeslog.solver_log(init_log, idaeslog.DEBUG) as slc:
+            res = opt.solve(self, tee=slc.tee)
+        print(f"\n\ntermination {res.solver.termination_condition}")
+        init_log.info_high("Initialization Step 3 {}.".format(idaeslog.condition(res)))
+        # ---------------------------------------------------------------------
+
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {self.name} failed to initialize")
 
     @property
     def default_costing_method(self):
@@ -349,9 +368,12 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
 
 if __name__ == "__main__":
+
     from watertap_contrib.reflo.costing import TreatmentCosting
     import watertap.property_models.unit_specific.cryst_prop_pack as props
     from watertap.property_models.water_prop_pack import WaterParameterBlock
+    
+    solver = get_solver()
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -401,6 +423,7 @@ if __name__ == "__main__":
 
         eff.effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(eps)
         eff.effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"].fix(eps)
+        eff.effect.properties_in[0].conc_mass_phase_comp[...]
         eff.effect.crystallization_yield["NaCl"].fix(crystallizer_yield)
         eff.effect.crystal_growth_rate.fix()
         eff.effect.souders_brown_constant.fix()
@@ -408,13 +431,14 @@ if __name__ == "__main__":
         eff.effect.pressure_operating.fix(
             pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
         )
+        # eff.effect.overall_heat_transfer_coefficient.setlb(99)
         eff.effect.overall_heat_transfer_coefficient.set_value(100)
         if n == 1:
             eff.effect.overall_heat_transfer_coefficient.fix(100)
             eff.effect.heating_steam[0].pressure_sat
             eff.effect.heating_steam.calculate_state(
                 var_args={
-                    ("flow_mass_phase_comp", ("Liq", "H2O")): 0,  # All vapor, no liquid
+                    ("flow_mass_phase_comp", ("Liq", "H2O")): 0,
                     ("pressure", None): 101325,
                     # ("pressure_sat", None): 28100
                     ("temperature", None): 393,
@@ -425,59 +449,23 @@ if __name__ == "__main__":
         print(f"dof effect {n} = {degrees_of_freedom(eff.effect)}")
 
     print(f"dof before init = {degrees_of_freedom(m)}")
+    
     calculate_scaling_factors(m)
+    
     mec.initialize()
-
-    # for n, eff in mec.effects.items():
-    #     try:
-    #         eff.effect.initialize()
-    # eff.effect.energy_flow_superheated_vapor.display()
-    # eff.effect.overall_heat_transfer_coefficient.display()
-    # except:
-    # print_infeasible_constraints(eff.effect)
-    # eff.effect.energy_flow_superheated_vapor.display()
-    # eff.effect.overall_heat_transfer_coefficient.display()
-    # assert False
-    # pass
-
-    # for n, eff in mec.effects.items():
-    #     eff.effect.work_mechanical.display()
-    #     eff.effect.energy_flow_superheated_vapor.display()
-    #     eff.effect.overall_heat_transfer_coefficient.display()
-    # assert False
-    brine_conc = eff1.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].value
-
-    for n, eff in mec.effects.items():
-        # print(f"\nEFFECT {n}\n")
-        # eff.effect.properties_pure_water[0].temperature.display()
-        # eff.effect.pressure_operating.display()
-        # eff.effect.overall_heat_transfer_coefficient.display()
-        # eff.effect.properties_vapor[0].temperature.display()
-        # eff.effect.temperature_operating.display()
-        # eff.effect.properties_in[0].flow_mass_phase_comp.display()
-        # eff.effect.properties_in[0].conc_mass_phase_comp.display()
-        # eff.effect.properties_out[0].flow_mass_phase_comp.display()
-        eff.effect.overall_heat_transfer_coefficient.setlb(99)
-        if n != 1:
-            eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-            eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
-            eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix(
-                brine_conc
-            )
-
-    solver = get_solver()
-    print(f"dof before solve 1 = {degrees_of_freedom(m)}")
+    
+    print(f"dof before solve  = {degrees_of_freedom(m)}")
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
+    assert_optimal_termination(results)
 
     for n, eff in mec.effects.items():
-        eff.effect.overall_heat_transfer_coefficient.fix(100)
+        print(f"\nEFFECT {n}\n")
+        eff.effect.overall_heat_transfer_coefficient.display()
+    #     eff.effect.properties_vapor[0].temperature.display()
+    #     eff.effect.temperature_operating.display()
 
-    print(f"dof before solve 2 = {degrees_of_freedom(m)}")
-    results = solver.solve(m)
-    print(f"termination {results.solver.termination_condition}")
 
-    # mec.effects[1].effect.flowsheet().flowsheet().mec.display()
     m.fs.costing = TreatmentCosting()
     m.fs.mec.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
@@ -488,6 +476,7 @@ if __name__ == "__main__":
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
     print(f"LCOW = {m.fs.costing.LCOW()}")
+
     # mec.costing.display()
     # eff1.work_mechanical.display()
     # for n, eff in mec.effects.items():
