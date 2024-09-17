@@ -155,7 +155,7 @@ class CrystallizerEffectData(CrystallizationData):
             initialize=1e5,
             bounds=(-5e6, 5e6),
             units=pyunits.kJ / pyunits.s,
-            doc="Energy could be supplied from vapor",
+            doc="Energy that could be supplied from vapor",
         )
 
         self.delta_temperature_in = Var(
@@ -179,7 +179,7 @@ class CrystallizerEffectData(CrystallizationData):
             initialize=1000.0,
             bounds=(0, None),
             units=pyunits.m**2,
-            doc="Heat exchanger area",
+            doc="Heat exchanger heat_exchanger_area",
         )
 
         self.overall_heat_transfer_coefficient = Var(
@@ -260,7 +260,7 @@ class CrystallizerEffectData(CrystallizationData):
             def eq_heat_transfer(b):
                 return b.work_mechanical[0] == (
                     b.overall_heat_transfer_coefficient
-                    * b.area
+                    * b.heat_exchanger_area
                     * b.delta_temperature[0]
                 )
 
@@ -435,8 +435,8 @@ class CrystallizerEffectData(CrystallizationData):
         if iscale.get_scaling_factor(self.delta_temperature_out[0]) is None:
             iscale.set_scaling_factor(self.delta_temperature_out[0], 0.1)
 
-        if iscale.get_scaling_factor(self.area) is None:
-            iscale.set_scaling_factor(self.area, 0.1)
+        if iscale.get_scaling_factor(self.heat_exchanger_area) is None:
+            iscale.set_scaling_factor(self.heat_exchanger_area, 0.1)
 
         if iscale.get_scaling_factor(self.overall_heat_transfer_coefficient) is None:
             iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 0.01)
