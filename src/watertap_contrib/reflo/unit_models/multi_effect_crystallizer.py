@@ -338,9 +338,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 )
                 mass_transfer_coeff = eff.effect.overall_heat_transfer_coefficient.value
             else:
-                c = getattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
-                )
+                c = getattr(eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}")
                 c.deactivate()
                 eff.effect.initialize()
                 c.activate()
@@ -372,7 +370,7 @@ if __name__ == "__main__":
     from watertap_contrib.reflo.costing import TreatmentCosting
     import watertap.property_models.unit_specific.cryst_prop_pack as props
     from watertap.property_models.water_prop_pack import WaterParameterBlock
-    
+
     solver = get_solver()
 
     m = ConcreteModel()
@@ -449,11 +447,11 @@ if __name__ == "__main__":
         print(f"dof effect {n} = {degrees_of_freedom(eff.effect)}")
 
     print(f"dof before init = {degrees_of_freedom(m)}")
-    
+
     calculate_scaling_factors(m)
-    
+
     mec.initialize()
-    
+
     print(f"dof before solve  = {degrees_of_freedom(m)}")
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
@@ -464,7 +462,6 @@ if __name__ == "__main__":
         eff.effect.overall_heat_transfer_coefficient.display()
     #     eff.effect.properties_vapor[0].temperature.display()
     #     eff.effect.temperature_operating.display()
-
 
     m.fs.costing = TreatmentCosting()
     m.fs.mec.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
