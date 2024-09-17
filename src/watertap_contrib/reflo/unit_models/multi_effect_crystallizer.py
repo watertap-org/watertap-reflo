@@ -21,7 +21,7 @@ from pyomo.environ import (
     check_optimal_termination,
     Param,
     Constraint,
-    Expression, 
+    Expression,
     Suffix,
     RangeSet,
     units as pyunits,
@@ -35,7 +35,7 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
     FlowsheetBlock,
-    UnitModelCostingBlock
+    UnitModelCostingBlock,
 )
 from watertap.core.solvers import get_solver
 from idaes.core.util.tables import create_stream_table_dataframe
@@ -70,7 +70,9 @@ from watertap.unit_models.mvc.components.lmtd_chen_callback import (
 )
 
 from watertap_contrib.reflo.unit_models.crystallizer_effect import CrystallizerEffect
-from watertap_contrib.reflo.costing.units.multi_effect_crystallizer import cost_multi_effect_crystallizer 
+from watertap_contrib.reflo.costing.units.multi_effect_crystallizer import (
+    cost_multi_effect_crystallizer,
+)
 
 _log = idaeslog.getLogger(__name__)
 
@@ -221,7 +223,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 def eq_heat_transfer_effect_1(b):
                     return b.work_mechanical[0] == (
                         b.overall_heat_transfer_coefficient
-                        * b.area
+                        * b.heat_exchanger_area
                         * b.delta_temperature[0]
                     )
 
@@ -270,7 +272,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 hx_constr = Constraint(
                     expr=prev_effect.energy_flow_superheated_vapor
                     == effect.overall_heat_transfer_coefficient
-                    * effect.area
+                    * effect.heat_exchanger_area
                     * effect.delta_temperature[0],
                     doc=f"Heat transfer equation for effect {n}",
                 )
@@ -297,7 +299,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 # effect.add_component(f"eq_equiv_brine_conc_effect_{n}_ub", brine_conc_constr)
 
         self.total_flow_vol_in = Expression(expr=total_flow_vol_in_expr)
-
 
     def initialize_build(
         self,
@@ -327,17 +328,25 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
         opt = get_solver(solver, optarg)
 
         for n, eff in self.effects.items():
+            if n != 1:
+                prev_effect = self.effects[n - 1].effect
+                work_mechanical = prev_effect.work_mechanical[0].value
+                eff.effect.energy_flow_superheated_vapor.set_value(work_mechanical)
+            else:
+                ec = getattr(self, f"")
             eff.effect.initialize()
+
             init_log.info(f"Initialization of Effect {n} Complete.")
             # if n != 1:
             #     conc = self.effects[1].effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].value
             #     eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
             #     eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
             #     eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix(conc)
-    
+
     @property
     def default_costing_method(self):
         return cost_multi_effect_crystallizer
+
 
 if __name__ == "__main__":
     from watertap_contrib.reflo.costing import TreatmentCosting
@@ -399,6 +408,7 @@ if __name__ == "__main__":
         eff.effect.pressure_operating.fix(
             pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
         )
+        eff.effect.overall_heat_transfer_coefficient.set_value(100)
         if n == 1:
             eff.effect.overall_heat_transfer_coefficient.fix(100)
             eff.effect.heating_steam[0].pressure_sat
@@ -416,19 +426,29 @@ if __name__ == "__main__":
 
     print(f"dof before init = {degrees_of_freedom(m)}")
     calculate_scaling_factors(m)
-    # mec.initialize()
+    mec.initialize()
 
-    for n, eff in mec.effects.items():
-        try:
-            eff.effect.initialize()
-        except:
-            # print_infeasible_constraints(eff.effect)
-            pass
+    # for n, eff in mec.effects.items():
+    #     try:
+    #         eff.effect.initialize()
+    # eff.effect.energy_flow_superheated_vapor.display()
+    # eff.effect.overall_heat_transfer_coefficient.display()
+    # except:
+    # print_infeasible_constraints(eff.effect)
+    # eff.effect.energy_flow_superheated_vapor.display()
+    # eff.effect.overall_heat_transfer_coefficient.display()
+    # assert False
+    # pass
 
+    # for n, eff in mec.effects.items():
+    #     eff.effect.work_mechanical.display()
+    #     eff.effect.energy_flow_superheated_vapor.display()
+    #     eff.effect.overall_heat_transfer_coefficient.display()
+    # assert False
     brine_conc = eff1.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].value
 
     for n, eff in mec.effects.items():
-        print(f"\nEFFECT {n}\n")
+        # print(f"\nEFFECT {n}\n")
         # eff.effect.properties_pure_water[0].temperature.display()
         # eff.effect.pressure_operating.display()
         # eff.effect.overall_heat_transfer_coefficient.display()
@@ -457,7 +477,6 @@ if __name__ == "__main__":
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
 
-
     # mec.effects[1].effect.flowsheet().flowsheet().mec.display()
     m.fs.costing = TreatmentCosting()
     m.fs.mec.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
@@ -469,7 +488,11 @@ if __name__ == "__main__":
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
     print(f"LCOW = {m.fs.costing.LCOW()}")
-    mec.costing.display()
+    # mec.costing.display()
+    # eff1.work_mechanical.display()
+    # for n, eff in mec.effects.items():
+    #     eff.effect.energy_flow_superheated_vapor.display()
+    #     eff.effect.overall_heat_transfer_coefficient.display()
     # for n, eff in mec.effects.items():
     #     print(f"\nEFFECT {n}\n")
     #     # eff.effect.properties_pure_water[0].temperature.display()
@@ -481,95 +504,95 @@ if __name__ == "__main__":
     #     eff.effect.properties_in[0].conc_mass_phase_comp.display()
     #     eff.effect.properties_out[0].flow_mass_phase_comp.display()
 
-        # mass_flow_solid_nacl_constr = Constraint(
-        #     expr=effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"]
-        #     == prev_effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"],
-        #     doc="Mass flow of solid NaCl for effect {n}",
-        # )
-        # effect.add_component(
-        #     f"eq_equiv_mass_flow_sol_nacl_effect_{n}",
-        #     mass_flow_solid_nacl_constr,
-        # )
+    # mass_flow_solid_nacl_constr = Constraint(
+    #     expr=effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"]
+    #     == prev_effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"],
+    #     doc="Mass flow of solid NaCl for effect {n}",
+    # )
+    # effect.add_component(
+    #     f"eq_equiv_mass_flow_sol_nacl_effect_{n}",
+    #     mass_flow_solid_nacl_constr,
+    # )
 
-        # mass_flow_vap_water_constr = Constraint(
-        #     expr=effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"]
-        #     == prev_effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"],
-        #     doc="Mass flow of water vapor for effect {n}",
-        # )
-        # effect.add_component(
-        #     f"eq_equiv_mass_flow_vap_water_effect_{n}",
-        #     mass_flow_vap_water_constr,
-        # )
+    # mass_flow_vap_water_constr = Constraint(
+    #     expr=effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"]
+    #     == prev_effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"],
+    #     doc="Mass flow of water vapor for effect {n}",
+    # )
+    # effect.add_component(
+    #     f"eq_equiv_mass_flow_vap_water_effect_{n}",
+    #     mass_flow_vap_water_constr,
+    # )
 
-        # prop_in_press_constr = Constraint(
-        #     expr=effect.properties_in[0].pressure
-        #     == prev_effect.properties_in[0].pressure,
-        #     doc="Inlet properties pressure for effect {n}",
-        # )
-        # effect.add_component(f"eq_equiv_press_effect_{n}", prop_in_press_constr)
+    # prop_in_press_constr = Constraint(
+    #     expr=effect.properties_in[0].pressure
+    #     == prev_effect.properties_in[0].pressure,
+    #     doc="Inlet properties pressure for effect {n}",
+    # )
+    # effect.add_component(f"eq_equiv_press_effect_{n}", prop_in_press_constr)
 
-        # prop_in_press_constr_ub = Constraint(
-        #     expr=effect.properties_in[0].pressure
-        #     <= 1.0001 * prev_effect.properties_in[0].pressure,
-        #     doc="Inlet properties pressure for effect {n}",
-        # )
-        # effect.add_component(f"eq_equiv_press_effect_{n}_ub", prop_in_press_constr_ub)
+    # prop_in_press_constr_ub = Constraint(
+    #     expr=effect.properties_in[0].pressure
+    #     <= 1.0001 * prev_effect.properties_in[0].pressure,
+    #     doc="Inlet properties pressure for effect {n}",
+    # )
+    # effect.add_component(f"eq_equiv_press_effect_{n}_ub", prop_in_press_constr_ub)
 
-        # prop_in_press_constr_lb = Constraint(
-        #     expr=effect.properties_in[0].pressure
-        #     >= 0.9999 * prev_effect.properties_in[0].pressure,
-        #     doc="Inlet properties pressure for effect {n}",
-        # )
-        # effect.add_component(f"eq_equiv_press_effect_{n}_lb", prop_in_press_constr_lb)
+    # prop_in_press_constr_lb = Constraint(
+    #     expr=effect.properties_in[0].pressure
+    #     >= 0.9999 * prev_effect.properties_in[0].pressure,
+    #     doc="Inlet properties pressure for effect {n}",
+    # )
+    # effect.add_component(f"eq_equiv_press_effect_{n}_lb", prop_in_press_constr_lb)
 
-        # prop_in_temp_constr = Constraint(
-        #     expr=effect.properties_in[0].temperature
-        #     == prev_effect.properties_in[0].temperature,
-        #     doc="Inlet properties temperature for effect {n}",
-        # )
-        # effect.add_component(
-        #     f"eq_equiv_temp_effect_{n}", prop_in_temp_constr
-        # )
+    # prop_in_temp_constr = Constraint(
+    #     expr=effect.properties_in[0].temperature
+    #     == prev_effect.properties_in[0].temperature,
+    #     doc="Inlet properties temperature for effect {n}",
+    # )
+    # effect.add_component(
+    #     f"eq_equiv_temp_effect_{n}", prop_in_temp_constr
+    # )
 
-        # cryst_growth_rate_constr = Constraint(
-        #     expr=effect.crystal_growth_rate == prev_effect.crystal_growth_rate,
-        #     doc="Equivalent crystal growth rate effect {n}",
-        # )
-        # effect.add_component(
-        #     f"eq_equiv_crystal_growth_rate_effect_{n}", cryst_growth_rate_constr
-        # )
+    # cryst_growth_rate_constr = Constraint(
+    #     expr=effect.crystal_growth_rate == prev_effect.crystal_growth_rate,
+    #     doc="Equivalent crystal growth rate effect {n}",
+    # )
+    # effect.add_component(
+    #     f"eq_equiv_crystal_growth_rate_effect_{n}", cryst_growth_rate_constr
+    # )
 
-        # souders_brown_constr = Constraint(
-        #     expr=effect.souders_brown_constant
-        #     == prev_effect.souders_brown_constant,
-        #     doc="Equivalent Sounders Brown constant effect {n}",
-        # )
-        # effect.add_component(
-        #     f"eq_equiv_souders_brown_constant_effect_{n}", souders_brown_constr
-        # )
+    # souders_brown_constr = Constraint(
+    #     expr=effect.souders_brown_constant
+    #     == prev_effect.souders_brown_constant,
+    #     doc="Equivalent Sounders Brown constant effect {n}",
+    # )
+    # effect.add_component(
+    #     f"eq_equiv_souders_brown_constant_effect_{n}", souders_brown_constr
+    # )
 
-        # cryst_med_len_constr = Constraint(
-        #     expr=effect.crystal_median_length
-        #     == prev_effect.crystal_median_length,
-        #     doc="Equivalent crystal median length effect {n}",
-        # )
-        # effect.add_component(
-        #     f"eq_equiv_crystal_median_length_effect_{n}", cryst_med_len_constr
-        # )
+    # cryst_med_len_constr = Constraint(
+    #     expr=effect.crystal_median_length
+    #     == prev_effect.crystal_median_length,
+    #     doc="Equivalent crystal median length effect {n}",
+    # )
+    # effect.add_component(
+    #     f"eq_equiv_crystal_median_length_effect_{n}", cryst_med_len_constr
+    # )
 
-        # cryst_yield_constr = Constraint(
-        #     expr=effect.crystallization_yield["NaCl"]
-        #     == prev_effect.crystallization_yield["NaCl"],
-        #     doc="Equivalent crystallization yield effect {n}",
-        # )
-        # effect.add_component(
-        #     f"eq_equiv_crystallization_yield_effect_{n}", cryst_yield_constr
-        # )
+    # cryst_yield_constr = Constraint(
+    #     expr=effect.crystallization_yield["NaCl"]
+    #     == prev_effect.crystallization_yield["NaCl"],
+    #     doc="Equivalent crystallization yield effect {n}",
+    # )
+    # effect.add_component(
+    #     f"eq_equiv_crystallization_yield_effect_{n}", cryst_yield_constr
+    # )
 
-        # op_press_constr = Constraint(
-        #     expr=effect.pressure_operating <= prev_effect.pressure_operating,
-        #     doc=f"Equivalent operating pressure effect {n}",
-        # )
-        # effect.add_component(
-        #     f"eq_equiv_pressure_operating_effect_{n}", op_press_constr
-        # )
+    # op_press_constr = Constraint(
+    #     expr=effect.pressure_operating <= prev_effect.pressure_operating,
+    #     doc=f"Equivalent operating pressure effect {n}",
+    # )
+    # effect.add_component(
+    #     f"eq_equiv_pressure_operating_effect_{n}", op_press_constr
+    # )

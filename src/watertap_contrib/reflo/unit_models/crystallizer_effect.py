@@ -520,7 +520,9 @@ if __name__ == "__main__":
     solver = get_solver()
     results = solver.solve(m)
     assert_optimal_termination(results)
-    eff.properties_in[0].display()
+    # eff.properties_in[0].display()
+    eff.work_mechanical.display()
+    # eff.costing.display()
     # eff.heating_steam[0].display()
 
     # print("\nPROPERTIES IN\n")
