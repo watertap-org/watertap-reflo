@@ -10,17 +10,12 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-from copy import deepcopy
-
-from watertap.core.util.model_diagnostics.infeasible import *
 
 # Import Pyomo libraries
 from pyomo.environ import (
     ConcreteModel,
-    Var,
     check_optimal_termination,
     assert_optimal_termination,
-    Param,
     Constraint,
     Expression,
     Suffix,
@@ -28,7 +23,6 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
-from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
 # Import IDAES cores
 from idaes.core import (
@@ -38,37 +32,19 @@ from idaes.core import (
     FlowsheetBlock,
     UnitModelCostingBlock,
 )
-from watertap.core.solvers import get_solver
-from idaes.core.util.tables import create_stream_table_dataframe
-from idaes.core.util.constants import Constants
-from idaes.core.util.config import is_physical_parameter_block
-
 from idaes.core.util.exceptions import InitializationError
-
-import idaes.core.util.scaling as iscale
-import idaes.logger as idaeslog
-
-from watertap.core import InitializationMixin
-from watertap.core.util.initialization import interval_initializer
-from watertap.unit_models.crystallizer import Crystallization, CrystallizationData
-from watertap_contrib.reflo.costing.units.crystallizer_watertap import (
-    cost_crystallizer_watertap,
-)
+from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
     number_total_constraints,
     number_unused_variables,
 )
-from idaes.core.util.testing import initialization_tester
-from idaes.core.util.scaling import (
-    calculate_scaling_factors,
-    unscaled_variables_generator,
-    badly_scaled_var_generator,
-)
-from watertap.unit_models.mvc.components.lmtd_chen_callback import (
-    delta_temperature_chen_callback,
-)
+from idaes.core.util.tables import create_stream_table_dataframe
+import idaes.logger as idaeslog
+
+from watertap.core import InitializationMixin
+from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.unit_models.crystallizer_effect import CrystallizerEffect
 from watertap_contrib.reflo.costing.units.multi_effect_crystallizer import (
@@ -76,7 +52,6 @@ from watertap_contrib.reflo.costing.units.multi_effect_crystallizer import (
 )
 
 _log = idaeslog.getLogger(__name__)
-from idaes.core.util.scaling import *
 
 __author__ = "Oluwamayowa Amusat, Zhuoran Zhang, Kurban Sitterley"
 
@@ -288,17 +263,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     f"eq_energy_for_effect_{n}_from_effect_{n - 1}", energy_flow_constr
                 )
 
-                # brine_conc_constr = Constraint(
-                #     expr=effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
-                #     >= 0.95* prev_effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
-                # )
-                # effect.add_component(f"eq_equiv_brine_conc_effect_{n}_lb", brine_conc_constr)
-                # brine_conc_constr = Constraint(
-                #     expr=effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
-                #     <= 1.05 * prev_effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
-                # )
-                # effect.add_component(f"eq_equiv_brine_conc_effect_{n}_ub", brine_conc_constr)
-
         self.total_flow_vol_in = Expression(expr=total_flow_vol_in_expr)
 
     def initialize_build(
@@ -309,8 +273,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
         optarg=None,
     ):
         """
-        General wrapper for pressure changer initialization routines
-
         Keyword Arguments:
             state_args : a dict of arguments to be passed to the property
                          package(s) to provide an initial state for
@@ -323,6 +285,14 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         Returns: None
         """
+
+        init_args = dict(
+            state_args=state_args,
+            outlvl=outlvl,
+            solver=solver,
+            optarg=optarg,
+        )
+        
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
         solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
 
@@ -330,7 +300,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
         for n, eff in self.effects.items():
             if n == 1:
                 assert degrees_of_freedom(eff.effect) == 0
-                eff.effect.initialize()
+                eff.effect.initialize(**init_args)
                 inlet_conc = (
                     eff.effect.properties_in[0]
                     .conc_mass_phase_comp["Liq", "NaCl"]
@@ -340,7 +310,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             else:
                 c = getattr(eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}")
                 c.deactivate()
-                eff.effect.initialize()
+                eff.effect.initialize(**init_args)
                 c.activate()
                 eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
                 eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
@@ -353,9 +323,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         with idaeslog.solver_log(init_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
-        print(f"\n\ntermination {res.solver.termination_condition}")
         init_log.info_high("Initialization Step 3 {}.".format(idaeslog.condition(res)))
-        # ---------------------------------------------------------------------
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
@@ -370,6 +338,15 @@ if __name__ == "__main__":
     from watertap_contrib.reflo.costing import TreatmentCosting
     import watertap.property_models.unit_specific.cryst_prop_pack as props
     from watertap.property_models.water_prop_pack import WaterParameterBlock
+    from watertap.core.util.model_diagnostics.infeasible import *
+    from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
+    from idaes.core.util.scaling import *
+    from idaes.core.util.testing import initialization_tester
+    from idaes.core.util.scaling import (
+        calculate_scaling_factors,
+        unscaled_variables_generator,
+        badly_scaled_var_generator,
+    )
 
     solver = get_solver()
 
@@ -431,7 +408,6 @@ if __name__ == "__main__":
         eff.effect.pressure_operating.fix(
             pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
         )
-        # eff.effect.overall_heat_transfer_coefficient.setlb(99)
         eff.effect.overall_heat_transfer_coefficient.set_value(100)
         if n == 1:
             eff.effect.overall_heat_transfer_coefficient.fix(100)
@@ -457,20 +433,18 @@ if __name__ == "__main__":
         mec.initialize()
     except:
         print_infeasible_constraints(m)
-    # assert False
 
-    print(f"dof before solve  = {degrees_of_freedom(m)}")
+    print(f"DOF before solve  = {degrees_of_freedom(m)}")
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
     assert_optimal_termination(results)
 
-    for n, eff in mec.effects.items():
-        print(f"\nEFFECT {n}\n")
-        eff.effect.overall_heat_transfer_coefficient.display()
-        eff.effect.properties_solids[0].flow_mass_phase_comp.display()
+    # for n, eff in mec.effects.items():
+    #     print(f"\nEFFECT {n}\n")
+    #     eff.effect.overall_heat_transfer_coefficient.display()
+    #     eff.effect.properties_solids[0].flow_mass_phase_comp.display()
     #     eff.effect.temperature_operating.display()
 
-    # assert False
     m.fs.costing = TreatmentCosting()
     m.fs.mec.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
@@ -480,7 +454,8 @@ if __name__ == "__main__":
     m.fs.costing.nacl_recovered.cost.set_value(-0.024)
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(mec.total_flow_vol_in)
-    print(f"dof after costing = {degrees_of_freedom(m)}")
+
+    print(f"DOF after costing = {degrees_of_freedom(m)}")
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
     print(f"LCOW = {m.fs.costing.LCOW()}")
@@ -603,3 +578,14 @@ if __name__ == "__main__":
 # effect.add_component(
 #     f"eq_equiv_pressure_operating_effect_{n}", op_press_constr
 # )
+
+# brine_conc_constr = Constraint(
+#     expr=effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
+#     >= 0.95* prev_effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
+# )
+# effect.add_component(f"eq_equiv_brine_conc_effect_{n}_lb", brine_conc_constr)
+# brine_conc_constr = Constraint(
+#     expr=effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
+#     <= 1.05 * prev_effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
+# )
+# effect.add_component(f"eq_equiv_brine_conc_effect_{n}_ub", brine_conc_constr)
