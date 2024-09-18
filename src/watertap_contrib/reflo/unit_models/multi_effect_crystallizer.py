@@ -423,8 +423,10 @@ if __name__ == "__main__":
         eff.effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"].fix(eps)
         eff.effect.properties_in[0].conc_mass_phase_comp[...]
         eff.effect.crystallization_yield["NaCl"].fix(crystallizer_yield)
+        # eff.effect.crystal_growth_rate.fix(5e-9)
         eff.effect.crystal_growth_rate.fix()
         eff.effect.souders_brown_constant.fix()
+        # eff.effect.crystal_median_length.fix(0.6e-3)
         eff.effect.crystal_median_length.fix()
         eff.effect.pressure_operating.fix(
             pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
@@ -434,6 +436,7 @@ if __name__ == "__main__":
         if n == 1:
             eff.effect.overall_heat_transfer_coefficient.fix(100)
             eff.effect.heating_steam[0].pressure_sat
+            eff.effect.heating_steam[0].dh_vap_mass
             eff.effect.heating_steam.calculate_state(
                 var_args={
                     ("flow_mass_phase_comp", ("Liq", "H2O")): 0,
@@ -444,13 +447,17 @@ if __name__ == "__main__":
                 hold_state=True,
             )
             eff.effect.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
+            eff.effect.heating_steam[0].flow_vol_phase
         print(f"dof effect {n} = {degrees_of_freedom(eff.effect)}")
 
     print(f"dof before init = {degrees_of_freedom(m)}")
 
     calculate_scaling_factors(m)
-
-    mec.initialize()
+    try:
+        mec.initialize()
+    except:
+        print_infeasible_constraints(m)
+    # assert False
 
     print(f"dof before solve  = {degrees_of_freedom(m)}")
     results = solver.solve(m)
@@ -460,13 +467,17 @@ if __name__ == "__main__":
     for n, eff in mec.effects.items():
         print(f"\nEFFECT {n}\n")
         eff.effect.overall_heat_transfer_coefficient.display()
-    #     eff.effect.properties_vapor[0].temperature.display()
+        eff.effect.properties_solids[0].flow_mass_phase_comp.display()
     #     eff.effect.temperature_operating.display()
 
+    # assert False
     m.fs.costing = TreatmentCosting()
-    m.fs.mec.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    m.fs.mec.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+        costing_method_arguments={"cost_type": "mass_basis"},
+    )
 
-    m.fs.costing.multi_effect_crystallizer.NaCl_recovery_value.fix(-0.024)
+    m.fs.costing.nacl_recovered.cost.set_value(-0.024)
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(mec.total_flow_vol_in)
     print(f"dof after costing = {degrees_of_freedom(m)}")
@@ -474,15 +485,20 @@ if __name__ == "__main__":
     print(f"termination {results.solver.termination_condition}")
     print(f"LCOW = {m.fs.costing.LCOW()}")
 
+    # m.fs.costing.display()
     # mec.costing.display()
     # eff1.work_mechanical.display()
-    # for n, eff in mec.effects.items():
-    #     eff.effect.energy_flow_superheated_vapor.display()
-    #     eff.effect.overall_heat_transfer_coefficient.display()
+    # eff1.pressure_operating.display()
+    # eff1.heating_steam[0].pressure.display()
+    # eff1.heating_steam[0].pressure_sat.display()
+
     # for n, eff in mec.effects.items():
     #     print(f"\nEFFECT {n}\n")
-    #     # eff.effect.properties_pure_water[0].temperature.display()
-    #     eff.effect.pressure_operating.display()
+    #     eff.effect.properties_pure_water[0].temperature.display()
+    # eff.effect.height_crystallizer.display()
+    # eff.effect.height_slurry.display()
+    # eff.effect.volume_suspension.display()
+    # eff.effect.t_res.display()
     #     eff.effect.overall_heat_transfer_coefficient.display()
     #     eff.effect.properties_vapor[0].temperature.display()
     #     eff.effect.temperature_operating.display()
@@ -490,95 +506,100 @@ if __name__ == "__main__":
     #     eff.effect.properties_in[0].conc_mass_phase_comp.display()
     #     eff.effect.properties_out[0].flow_mass_phase_comp.display()
 
-    # mass_flow_solid_nacl_constr = Constraint(
-    #     expr=effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"]
-    #     == prev_effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"],
-    #     doc="Mass flow of solid NaCl for effect {n}",
-    # )
-    # effect.add_component(
-    #     f"eq_equiv_mass_flow_sol_nacl_effect_{n}",
-    #     mass_flow_solid_nacl_constr,
-    # )
 
-    # mass_flow_vap_water_constr = Constraint(
-    #     expr=effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"]
-    #     == prev_effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"],
-    #     doc="Mass flow of water vapor for effect {n}",
-    # )
-    # effect.add_component(
-    #     f"eq_equiv_mass_flow_vap_water_effect_{n}",
-    #     mass_flow_vap_water_constr,
-    # )
+##################################################################################################
+# "Linking" constraints below that weren't working well but want to keep them here until model is ready for merge
+# just in case so I don't have to write them again.
 
-    # prop_in_press_constr = Constraint(
-    #     expr=effect.properties_in[0].pressure
-    #     == prev_effect.properties_in[0].pressure,
-    #     doc="Inlet properties pressure for effect {n}",
-    # )
-    # effect.add_component(f"eq_equiv_press_effect_{n}", prop_in_press_constr)
+# mass_flow_solid_nacl_constr = Constraint(
+#     expr=effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"]
+#     == prev_effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"],
+#     doc="Mass flow of solid NaCl for effect {n}",
+# )
+# effect.add_component(
+#     f"eq_equiv_mass_flow_sol_nacl_effect_{n}",
+#     mass_flow_solid_nacl_constr,
+# )
 
-    # prop_in_press_constr_ub = Constraint(
-    #     expr=effect.properties_in[0].pressure
-    #     <= 1.0001 * prev_effect.properties_in[0].pressure,
-    #     doc="Inlet properties pressure for effect {n}",
-    # )
-    # effect.add_component(f"eq_equiv_press_effect_{n}_ub", prop_in_press_constr_ub)
+# mass_flow_vap_water_constr = Constraint(
+#     expr=effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"]
+#     == prev_effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"],
+#     doc="Mass flow of water vapor for effect {n}",
+# )
+# effect.add_component(
+#     f"eq_equiv_mass_flow_vap_water_effect_{n}",
+#     mass_flow_vap_water_constr,
+# )
 
-    # prop_in_press_constr_lb = Constraint(
-    #     expr=effect.properties_in[0].pressure
-    #     >= 0.9999 * prev_effect.properties_in[0].pressure,
-    #     doc="Inlet properties pressure for effect {n}",
-    # )
-    # effect.add_component(f"eq_equiv_press_effect_{n}_lb", prop_in_press_constr_lb)
+# prop_in_press_constr = Constraint(
+#     expr=effect.properties_in[0].pressure
+#     == prev_effect.properties_in[0].pressure,
+#     doc="Inlet properties pressure for effect {n}",
+# )
+# effect.add_component(f"eq_equiv_press_effect_{n}", prop_in_press_constr)
 
-    # prop_in_temp_constr = Constraint(
-    #     expr=effect.properties_in[0].temperature
-    #     == prev_effect.properties_in[0].temperature,
-    #     doc="Inlet properties temperature for effect {n}",
-    # )
-    # effect.add_component(
-    #     f"eq_equiv_temp_effect_{n}", prop_in_temp_constr
-    # )
+# prop_in_press_constr_ub = Constraint(
+#     expr=effect.properties_in[0].pressure
+#     <= 1.0001 * prev_effect.properties_in[0].pressure,
+#     doc="Inlet properties pressure for effect {n}",
+# )
+# effect.add_component(f"eq_equiv_press_effect_{n}_ub", prop_in_press_constr_ub)
 
-    # cryst_growth_rate_constr = Constraint(
-    #     expr=effect.crystal_growth_rate == prev_effect.crystal_growth_rate,
-    #     doc="Equivalent crystal growth rate effect {n}",
-    # )
-    # effect.add_component(
-    #     f"eq_equiv_crystal_growth_rate_effect_{n}", cryst_growth_rate_constr
-    # )
+# prop_in_press_constr_lb = Constraint(
+#     expr=effect.properties_in[0].pressure
+#     >= 0.9999 * prev_effect.properties_in[0].pressure,
+#     doc="Inlet properties pressure for effect {n}",
+# )
+# effect.add_component(f"eq_equiv_press_effect_{n}_lb", prop_in_press_constr_lb)
 
-    # souders_brown_constr = Constraint(
-    #     expr=effect.souders_brown_constant
-    #     == prev_effect.souders_brown_constant,
-    #     doc="Equivalent Sounders Brown constant effect {n}",
-    # )
-    # effect.add_component(
-    #     f"eq_equiv_souders_brown_constant_effect_{n}", souders_brown_constr
-    # )
+# prop_in_temp_constr = Constraint(
+#     expr=effect.properties_in[0].temperature
+#     == prev_effect.properties_in[0].temperature,
+#     doc="Inlet properties temperature for effect {n}",
+# )
+# effect.add_component(
+#     f"eq_equiv_temp_effect_{n}", prop_in_temp_constr
+# )
 
-    # cryst_med_len_constr = Constraint(
-    #     expr=effect.crystal_median_length
-    #     == prev_effect.crystal_median_length,
-    #     doc="Equivalent crystal median length effect {n}",
-    # )
-    # effect.add_component(
-    #     f"eq_equiv_crystal_median_length_effect_{n}", cryst_med_len_constr
-    # )
+# cryst_growth_rate_constr = Constraint(
+#     expr=effect.crystal_growth_rate == prev_effect.crystal_growth_rate,
+#     doc="Equivalent crystal growth rate effect {n}",
+# )
+# effect.add_component(
+#     f"eq_equiv_crystal_growth_rate_effect_{n}", cryst_growth_rate_constr
+# )
 
-    # cryst_yield_constr = Constraint(
-    #     expr=effect.crystallization_yield["NaCl"]
-    #     == prev_effect.crystallization_yield["NaCl"],
-    #     doc="Equivalent crystallization yield effect {n}",
-    # )
-    # effect.add_component(
-    #     f"eq_equiv_crystallization_yield_effect_{n}", cryst_yield_constr
-    # )
+# souders_brown_constr = Constraint(
+#     expr=effect.souders_brown_constant
+#     == prev_effect.souders_brown_constant,
+#     doc="Equivalent Sounders Brown constant effect {n}",
+# )
+# effect.add_component(
+#     f"eq_equiv_souders_brown_constant_effect_{n}", souders_brown_constr
+# )
 
-    # op_press_constr = Constraint(
-    #     expr=effect.pressure_operating <= prev_effect.pressure_operating,
-    #     doc=f"Equivalent operating pressure effect {n}",
-    # )
-    # effect.add_component(
-    #     f"eq_equiv_pressure_operating_effect_{n}", op_press_constr
-    # )
+# cryst_med_len_constr = Constraint(
+#     expr=effect.crystal_median_length
+#     == prev_effect.crystal_median_length,
+#     doc="Equivalent crystal median length effect {n}",
+# )
+# effect.add_component(
+#     f"eq_equiv_crystal_median_length_effect_{n}", cryst_med_len_constr
+# )
+
+# cryst_yield_constr = Constraint(
+#     expr=effect.crystallization_yield["NaCl"]
+#     == prev_effect.crystallization_yield["NaCl"],
+#     doc="Equivalent crystallization yield effect {n}",
+# )
+# effect.add_component(
+#     f"eq_equiv_crystallization_yield_effect_{n}", cryst_yield_constr
+# )
+
+# op_press_constr = Constraint(
+#     expr=effect.pressure_operating <= prev_effect.pressure_operating,
+#     doc=f"Equivalent operating pressure effect {n}",
+# )
+# effect.add_component(
+#     f"eq_equiv_pressure_operating_effect_{n}", op_press_constr
+# )
