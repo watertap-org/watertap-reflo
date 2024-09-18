@@ -19,22 +19,18 @@ from pyomo.environ import (
     check_optimal_termination,
     assert_optimal_termination,
     Param,
-    Constraint,
-    Suffix,
     units as pyunits,
 )
-from pyomo.common.config import ConfigBlock, ConfigValue, In
+from pyomo.common.config import ConfigValue
 
 # Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
-    UnitModelBlockData,
     useDefault,
     FlowsheetBlock,
 )
 from watertap.core.solvers import get_solver
 from idaes.core.util.tables import create_stream_table_dataframe
-from idaes.core.util.constants import Constants
 from idaes.core.util.config import is_physical_parameter_block
 
 from idaes.core.util.exceptions import InitializationError
@@ -42,12 +38,9 @@ from idaes.core.util.exceptions import InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
-from watertap.core import InitializationMixin
 from watertap.core.util.initialization import interval_initializer
 from watertap.unit_models.crystallizer import Crystallization, CrystallizationData
-from watertap_contrib.reflo.costing.units.crystallizer_watertap import (
-    cost_crystallizer_watertap,
-)
+
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -374,7 +367,7 @@ class CrystallizerEffectData(CrystallizationData):
             state_args=state_args_vapor,
         )
 
-        try:
+        if hasattr(self, "heating_steam"):
             state_args_steam = deepcopy(state_args)
 
             for p, j in self.properties_vapor.phase_component_set:
@@ -386,8 +379,6 @@ class CrystallizerEffectData(CrystallizationData):
                 solver=solver,
                 state_args=state_args_steam,
             )
-        except:
-            pass
 
         init_log.info_high("Initialization Step 2 Complete.")
 
@@ -400,7 +391,9 @@ class CrystallizerEffectData(CrystallizationData):
         # ---------------------------------------------------------------------
         # Release Inlet state
         self.properties_in.release_state(flags, outlvl=outlvl)
-        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+        init_log.info_high(
+            "Initialization Complete: {}".format(idaeslog.condition(res))
+        )
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
@@ -441,7 +434,7 @@ class CrystallizerEffectData(CrystallizationData):
         if iscale.get_scaling_factor(self.overall_heat_transfer_coefficient) is None:
             iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 0.01)
 
-        for ind, c in self.eq_p_con4.items():
+        for _, c in self.eq_p_con4.items():
             sf = iscale.get_scaling_factor(self.properties_pure_water[0].pressure)
             iscale.constraint_scaling_transform(c, sf)
 
