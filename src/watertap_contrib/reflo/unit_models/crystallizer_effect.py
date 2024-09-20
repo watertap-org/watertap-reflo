@@ -65,7 +65,7 @@ __author__ = "Oluwamayowa Amusat, Zhuoran Zhang, Kurban Sitterley"
 @declare_process_block_class("CrystallizerEffect")
 class CrystallizerEffectData(CrystallizationData):
     """
-    Zero-order model for crystallizer effect
+    Zero dimensional model for crystallizer effect
     """
 
     CONFIG = CrystallizationData.CONFIG()
@@ -76,7 +76,7 @@ class CrystallizerEffectData(CrystallizationData):
             default=useDefault,
             domain=is_physical_parameter_block,
             description="Property package to use for heating steam properties",
-            doc="""Property parameter object used to define steasm property calculations,
+            doc="""Property parameter object used to define steam property calculations,
     **default** - useDefault.
     **Valid values:** {
     **useDefault** - use default package from parent model or flowsheet,
@@ -88,8 +88,8 @@ class CrystallizerEffectData(CrystallizationData):
         ConfigValue(
             default=True,
             domain=bool,
-            description="Property package to use for heating and motive steam properties",
-            doc="""Property parameter object used to define steasm property calculations,
+            description="Flag to indicate if model is used alone or as part of MultiEffectCrystallizer.",
+            doc="""Flag to indicate if model is used alone or as part of MultiEffectCrystallizer unit model,
     **default** - True.""",
         ),
     )
@@ -147,7 +147,7 @@ class CrystallizerEffectData(CrystallizationData):
         self.energy_flow_superheated_vapor = Var(
             initialize=1e5,
             bounds=(-5e6, 5e6),
-            units=pyunits.kJ / pyunits.s,
+            units=pyunits.kilowatt,
             doc="Energy that could be supplied from vapor",
         )
 
@@ -155,14 +155,15 @@ class CrystallizerEffectData(CrystallizationData):
             self.flowsheet().time,
             initialize=35,
             bounds=(None, None),
-            units=pyunits.K,
+            units=pyunits.degK,
             doc="Temperature difference at the inlet side",
         )
+
         self.delta_temperature_out = Var(
             self.flowsheet().time,
             initialize=35,
             bounds=(None, None),
-            units=pyunits.K,
+            units=pyunits.degK,
             doc="Temperature difference at the outlet side",
         )
 
@@ -172,14 +173,14 @@ class CrystallizerEffectData(CrystallizationData):
             initialize=1000.0,
             bounds=(0, None),
             units=pyunits.m**2,
-            doc="Heat exchanger heat_exchanger_area",
+            doc="Heat exchanger area",
         )
 
         self.overall_heat_transfer_coefficient = Var(
             initialize=100.0,
             bounds=(0, None),
-            units=pyunits.W / pyunits.m**2 / pyunits.K,
-            doc="Overall heat transfer coefficient",
+            units=pyunits.kilowatt / pyunits.m**2 / pyunits.degK,
+            doc="Overall heat transfer coefficient for heat exchangers",
         )
 
         @self.Constraint()
@@ -263,7 +264,6 @@ class CrystallizerEffectData(CrystallizationData):
             self.del_component(self.solids)
             self.del_component(self.vapor)
             self.del_component(self.pure_water)
-            # self.del_component(self.steam)
 
     def initialize_build(
         self,
@@ -292,8 +292,6 @@ class CrystallizerEffectData(CrystallizationData):
 
         opt = get_solver(solver, optarg)
 
-        # ---------------------------------------------------------------------
-        # Initialize holdup block
         flags = self.properties_in.initialize(
             outlvl=outlvl,
             optarg=optarg,
@@ -302,9 +300,7 @@ class CrystallizerEffectData(CrystallizationData):
             hold_state=True,
         )
         init_log.info_high("Initialization Step 1 Complete.")
-        # ---------------------------------------------------------------------
-        # Initialize other state blocks
-        # Set state_args from inlet state
+
         if state_args is None:
             state_args = {}
             state_dict = self.properties_in[
@@ -333,7 +329,7 @@ class CrystallizerEffectData(CrystallizationData):
                 state_args_solids["flow_mass_phase_comp"][p, j] = state_args[
                     "flow_mass_phase_comp"
                 ]["Liq", j]
-            elif p == "Liq" or p == "Vap":
+            elif p in ["Liq", "Vap"]:
                 state_args_solids["flow_mass_phase_comp"][p, j] = 1e-8
 
         self.properties_solids.initialize(
@@ -383,13 +379,11 @@ class CrystallizerEffectData(CrystallizationData):
         init_log.info_high("Initialization Step 2 Complete.")
 
         interval_initializer(self)
-        # ---------------------------------------------------------------------
-        # Solve unit
+
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
         init_log.info_high("Initialization Step 3 {}.".format(idaeslog.condition(res)))
-        # ---------------------------------------------------------------------
-        # Release Inlet state
+
         self.properties_in.release_state(flags, outlvl=outlvl)
         init_log.info_high(
             "Initialization Complete: {}".format(idaeslog.condition(res))
