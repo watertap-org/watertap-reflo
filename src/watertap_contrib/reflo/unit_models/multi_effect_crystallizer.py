@@ -34,14 +34,10 @@ from idaes.core import (
 )
 from idaes.core.util.exceptions import InitializationError
 from idaes.core.util.config import is_physical_parameter_block
-from idaes.core.util.model_statistics import (
-    degrees_of_freedom,
-    number_variables,
-    number_total_constraints,
-    number_unused_variables,
-)
+from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.tables import create_stream_table_dataframe
 import idaes.logger as idaeslog
+from idaes.core.util.constants import Constants
 
 from watertap.core import InitializationMixin
 from watertap.core.solvers import get_solver
@@ -158,6 +154,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 standalone=False,
             )
             effect.properties_in[0].conc_mass_phase_comp
+
             total_flow_vol_in_expr += effect.properties_in[0].flow_vol_phase["Liq"]
 
             if n == self.first_effect:
@@ -174,10 +171,8 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     )
                 )
 
-                # self.add_port(name="steam", block=effect.heating_steam)
-
                 @effect.Constraint(
-                    doc="Change in temperature at inlet for first effect."
+                    doc="Change in temperature at inlet for first effect"
                 )
                 def eq_delta_temperature_inlet_effect_1(b):
                     return (
@@ -186,7 +181,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     )
 
                 @effect.Constraint(
-                    doc="Change in temperature at outlet for first effect."
+                    doc="Change in temperature at outlet for first effect"
                 )
                 def eq_delta_temperature_outlet_effect_1(b):
                     return (
@@ -195,10 +190,17 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                         - b.properties_in[0].temperature
                     )
 
-                @effect.Constraint(doc="Heat transfer equation for first effect.")
+                @effect.Constraint(doc="Heat transfer equation for first effect")
                 def eq_heat_transfer_effect_1(b):
-                    return b.work_mechanical[0] == (
-                        b.overall_heat_transfer_coefficient
+                    # return b.work_mechanical[0] == pyunits.convert(
+                    #     b.overall_heat_transfer_coefficient
+                    #     * b.heat_exchanger_area
+                    #     * b.delta_temperature[0]
+                    #     # , to_units=pyunits.kilowatt
+                    # )
+                    return (
+                        b.work_mechanical[0]
+                        == b.overall_heat_transfer_coefficient
                         * b.heat_exchanger_area
                         * b.delta_temperature[0]
                     )
@@ -292,7 +294,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             solver=solver,
             optarg=optarg,
         )
-        
+
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
         solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
 
@@ -347,6 +349,7 @@ if __name__ == "__main__":
         unscaled_variables_generator,
         badly_scaled_var_generator,
     )
+    from pyomo.util.check_units import assert_units_consistent
 
     solver = get_solver()
 
@@ -408,9 +411,9 @@ if __name__ == "__main__":
         eff.effect.pressure_operating.fix(
             pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
         )
-        eff.effect.overall_heat_transfer_coefficient.set_value(100)
+        eff.effect.overall_heat_transfer_coefficient.set_value(0.100)
         if n == 1:
-            eff.effect.overall_heat_transfer_coefficient.fix(100)
+            eff.effect.overall_heat_transfer_coefficient.fix(0.100)
             eff.effect.heating_steam[0].pressure_sat
             eff.effect.heating_steam[0].dh_vap_mass
             eff.effect.heating_steam.calculate_state(
@@ -429,6 +432,7 @@ if __name__ == "__main__":
     print(f"dof before init = {degrees_of_freedom(m)}")
 
     calculate_scaling_factors(m)
+    assert_units_consistent(m)
     try:
         mec.initialize()
     except:
@@ -438,13 +442,14 @@ if __name__ == "__main__":
     results = solver.solve(m)
     print(f"termination {results.solver.termination_condition}")
     assert_optimal_termination(results)
-
+    print(mec.effects[mec.last_effect].effect.height_crystallizer.name)
     # for n, eff in mec.effects.items():
     #     print(f"\nEFFECT {n}\n")
+    #     print(n, eff.effect.name)
     #     eff.effect.overall_heat_transfer_coefficient.display()
     #     eff.effect.properties_solids[0].flow_mass_phase_comp.display()
     #     eff.effect.temperature_operating.display()
-
+    # assert False
     m.fs.costing = TreatmentCosting()
     m.fs.mec.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
@@ -467,9 +472,20 @@ if __name__ == "__main__":
     # eff1.heating_steam[0].pressure.display()
     # eff1.heating_steam[0].pressure_sat.display()
 
-    # for n, eff in mec.effects.items():
-    #     print(f"\nEFFECT {n}\n")
-    #     eff.effect.properties_pure_water[0].temperature.display()
+    for n, eff in mec.effects.items():
+        print(f"\nEFFECT {n}\n")
+        eff.effect.work_mechanical.display()
+        eff.effect.energy_flow_superheated_vapor.display()
+        # eff.effect.properties_pure_water[0].temperature.display()
+        # eff.effect.vapor_head_diam_expr.display()
+        # eff.effect.properties_out[0].dens_mass_phase.display()
+        # eff.effect.properties_vapor[0].dens_mass_solvent.display()
+        # eff.effect.eq_max_allowable_velocity.display()
+        # eff.effect.height_crystallizer.display()
+        # eff.effect.height_slurry.display()
+        # eff.effect.diameter_crystallizer.display()
+        # eff.effect.volume_suspension.display()
+
     # eff.effect.height_crystallizer.display()
     # eff.effect.height_slurry.display()
     # eff.effect.volume_suspension.display()
@@ -589,3 +605,84 @@ if __name__ == "__main__":
 #     <= 1.05 * prev_effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
 # )
 # effect.add_component(f"eq_equiv_brine_conc_effect_{n}_ub", brine_conc_constr)
+
+
+# height_cryst_constr = Constraint(
+#     expr=effect.height_crystallizer == self.effects[self.last_effect].effect.height_crystallizer
+# )
+# effect.add_component(
+#     f"eq_equiv_height_cryst_effect_{n}", height_cryst_constr
+# )
+# effect.eq_crystallizer_height_constraint.deactivate()
+
+# diam_constr = Constraint(
+#     expr=effect.diameter_crystallizer
+#     == prev_effect.diameter_crystallizer
+# )
+# effect.add_component(f"eq_equiv_diam_effect_{n}", diam_constr)
+# effect.eq_vapor_head_diameter_constraint.deactivate()
+
+# height_slurry_constr = Constraint(
+#     expr=effect.height_slurry
+#     == 4
+#     * prev_effect.volume_suspension
+#     / (Constants.pi * prev_effect.diameter_crystallizer)
+# )
+# effect.add_component(
+#     f"eq_equiv_height_slurry_effect_{n}", height_slurry_constr
+# )
+# effect.eq_slurry_height_constraint.deactivate()
+
+# vol_cryst_expr = Expression(
+#     expr=Constants.pi
+#     * (effect.diameter_crystallizer / 2) ** 2
+#     * effect.height_crystallizer,
+#     doc=f"Actual volume of effect {n}",
+# )
+# effect.add_component(f"total_volume_effect_{n}", vol_cryst_expr)
+
+# vapor_head_diam_expr = Expression(
+#     expr=(
+#         4
+#         * effect.properties_vapor[0].flow_vol_phase["Vap"]
+#         / (Constants.pi * effect.eq_max_allowable_velocity)
+#     )
+#     ** 0.5
+# )
+# effect.add_component(
+#     f"vapor_head_diameter_effect_{n}", vapor_head_diam_expr
+# )
+
+# actual_vapor_vel_expr = Expression(expr=pyunits.convert(
+#         (effect.properties_vapor[0].flow_vol_phase["Vap"] * 4)
+#         / (effect.diameter_crystallizer**2 * Constants.pi),
+#         to_units=pyunits.m / pyunits.s,
+#     ))
+# effect.add_component(
+#     f"actual_vapor_velocity_effect_{n}", actual_vapor_vel_expr
+# )
+
+
+# @effect.Expression(doc="Total volume of effect 1")
+# def total_volume_effect_1(b):
+#     return (
+#         Constants.pi
+#         * (effect.diameter_crystallizer / 2) ** 2
+#         * effect.height_crystallizer
+#     )
+
+# @effect.Expression(doc="Total volume of effect 1.")
+# def vapor_head_diameter_effect_1(b):
+#     return (
+#         4
+#         * effect.properties_vapor[0].flow_vol_phase["Vap"]
+#         / (Constants.pi * effect.eq_max_allowable_velocity)
+#     ) ** 0.5
+
+# @effect.Expression(doc="Actual vapor velocity")
+# def actual_vapor_velocity_effect_1(b):
+#     return pyunits.convert(
+#         (b.properties_vapor[0].flow_vol_phase["Vap"] * 4)
+#         / (b.diameter_crystallizer**2 * Constants.pi),
+#         to_units=pyunits.m / pyunits.s,
+#     )
