@@ -170,7 +170,7 @@ def cost_multi_effect_crystallizer(
 
         effect_capex_constr = pyo.Constraint(
             expr=effect_capex_var == effect_capex_expr,
-            doc="Constraint for capital cost of effect {effect_number}.",
+            doc=f"Constraint for capital cost of effect {effect_number}.",
         )
         blk.add_component(f"capital_cost_effect_{effect_number}", effect_capex_var)
         blk.add_component(
@@ -349,14 +349,14 @@ def _compute_steam_specific_energy(effect):
         + dh_constants[3] * t**3
         + dh_constants[4] * t**4
     )
-    dh_vap = pyo.units.convert(dh_vap, to_units=pyo.units.kJ / pyo.units.kg)
+    # dh_vap = pyo.units.convert(dh_vap, to_units=pyo.units.kJ / pyo.units.kg)
     effect.dh_vap = dh_vap
 
     # 3. Compute specific volume: computed from Affandi expression (Eq 5)
     t_critical = 647.096 * pyo.units.K
     # t_red = temperature_sat / t_critical  # Reduced temperature
     t_red = effect.heating_steam[0].temperature / t_critical  # Reduced temperature
-    effect.t_red = t_red
+
     sp_vol_constants = [
         -7.75883 * pyo.units.dimensionless,
         3.23753 * pyo.units.dimensionless,
