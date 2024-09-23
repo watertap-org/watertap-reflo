@@ -369,7 +369,11 @@ def report_MD(m, stream_table=False):
     active_blks = m.fs.md.unit.get_active_process_blocks()
 
     print(
-        f'{"Inlet Flow Volume":<30s}{value(active_blks[0].fs.vagmd.feed_props[0].flow_vol_phase["Liq"]):<10.3f}{pyunits.get_units(active_blks[0].fs.vagmd.feed_props[0].flow_vol_phase["Liq"])}'
+        'Number of modules:', value(active_blks[-1].fs.vagmd.num_modules)
+    )
+
+    print(
+        f'{"Inlet Flow Volume":<30s}{value(active_blks[-1].fs.vagmd.feed_props[0].flow_vol_phase["Liq"]):<10.3f}{pyunits.get_units(active_blks[-1].fs.vagmd.feed_props[0].flow_vol_phase["Liq"])}'
     )
 
     print(

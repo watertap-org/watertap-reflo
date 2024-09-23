@@ -57,7 +57,8 @@ from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_design_
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
 
-# TODO: Add translator block after
+# TODO: Add translator block after feed block
+# TODO: Add opex calculator at each time step and capex on the last time step
 
 # __all__ = [
 #     "build_system",
