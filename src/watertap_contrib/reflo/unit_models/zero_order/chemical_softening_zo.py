@@ -441,7 +441,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             mutable=True,
             doc="Smoothing factor",
         )
-        
+
         self.eps2 = Param(
             initialize=1e-18,
             units=pyunits.kg / pyunits.day,
@@ -670,7 +670,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     / b.CaCO3_mw,
                     to_units=pyunits.kg / pyunits.d,
                 )
-                return b.CO2_first_basin ==  smooth_max(
+                return b.CO2_first_basin == smooth_max(
                     0 * pyunits.kg / pyunits.day,
                     co2_required_expr,
                     b.eps2,
@@ -813,6 +813,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     * b.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"],
                     b.eps,
                 )
+
         else:
             self.MgCl2_dosing = Var(
                 initialize=0,
