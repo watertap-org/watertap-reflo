@@ -12,6 +12,7 @@
 
 import pytest
 from pyomo.environ import (
+    value,
     assert_optimal_termination,
     units as pyunits,
 )
@@ -83,17 +84,17 @@ class TestTreviFO:
         m = fo_trevi_frame
         # Add cost package of Trevi FO system
         m.fs.costing = TreatmentCosting()
-        m.fs.costing.base_currency = pyunits.USD_2020
+        m.fs.costing.base_currency = pyunits.USD_2021
 
         # Create cost block for FO
         m.fs.fo.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         # Add LCOW component
         m.fs.costing.cost_process()
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
         m.fs.costing.add_annual_water_production(m.fs.system_capacity)
         m.fs.costing.add_LCOW(m.fs.system_capacity)
 
-        solver = get_solver()
         results = solver.solve(m)
         assert_optimal_termination(results)
 
@@ -103,6 +104,12 @@ class TestTreviFO:
 
         overall_performance, operational_parameters = get_flowsheet_performance(m)
 
+        assert value(m.fs.system_capacity) == pytest.approx(
+            m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "H2O"].value
+            / 1000  # Fresh water density (kg/m3)
+            * 86400,  # convert from sec to day (s/day)
+            rel=1e-3,
+        )
         assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
             85683.32, abs=1e-3
         )
@@ -112,7 +119,7 @@ class TestTreviFO:
         assert overall_performance["Thermal power requirement (kW)"] == pytest.approx(
             101038.77, rel=1e-3
         )
-        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.579, rel=1e-3)
+        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.511, rel=1e-3)
 
         assert operational_parameters["HX1 cold in temp"] == pytest.approx(
             21.49, rel=1e-3

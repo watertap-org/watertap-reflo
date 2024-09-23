@@ -11,8 +11,8 @@
 #################################################################################
 
 """
-This module contains a basic property package for simple water treatment models.
-Volumetric flow and component concentration are used to determine mass flow. 
+This module contains a property package for a proprietary draw solution used in
+Trevi's FO system.
 """
 from pyomo.environ import (
     Param,
@@ -28,7 +28,7 @@ from pyomo.environ import (
     Expr_if,
     units as pyunits,
 )
-
+from pyomo.gdp import Disjunction
 from idaes.core import (
     EnergyBalanceType,
     MaterialBalanceType,
@@ -68,10 +68,8 @@ _log = idaeslog.getLogger(__name__)
 @declare_process_block_class("FODrawSolutionParameterBlock")
 class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
     """
-    Property Parameter Block Class
-
-    Defines component lists, along with base units and constant
-    parameters.
+    Property parameters derived from experimental data of the draw
+    solution that is used in the Trevi's FO system
     """
 
     CONFIG = PhysicalParameterBlock.CONFIG()
@@ -198,12 +196,6 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
                 "enth_mass_phase": {"method": "_enth_mass_phase"},
                 "heat_separation_phase": {"method": "_heat_separation_phase"},
                 "enth_flow": {"method": "_enth_flow"},
-            }
-        )
-
-        obj.define_custom_properties(
-            {
-                # "heat_separation_phase": {"method": "_heat_separation_phase"},
             }
         )
 

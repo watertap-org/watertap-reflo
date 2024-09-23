@@ -28,7 +28,7 @@ def build_forward_osmosis_cost_param_block(blk):
 
     blk.base_unit_cost = pyo.Var(
         initialize=26784,
-        units=costing.base_currency / (pyo.units.m**3 / pyo.units.day),
+        units=pyo.units.USD_2021 / (pyo.units.m**3 / pyo.units.day),
         bounds=(0, None),
         doc="Base price of Trevi FO system ($/m3/day), including membranes, heat exchangers, \
             construction, draw solution, coalescers, structural, polishing, pipes, plumbing, \
@@ -42,20 +42,6 @@ def build_forward_osmosis_cost_param_block(blk):
         doc="Scaling factor of Trevi FO system capital cost",
     )
 
-    blk.base_labor_cost = pyo.Var(
-        initialize=0.4757,
-        units=costing.base_currency / pyo.units.m**3,
-        bounds=(0, None),
-        doc="Base price of the labor cost ($/m3)",
-    )
-
-    blk.labor_cost_index = pyo.Var(
-        initialize=-0.178,
-        units=pyo.units.dimensionless,
-        bounds=(None, 0),
-        doc="Scaling factor of Trevi FO system capital cost",
-    )
-
     blk.specific_energy_consumption_electric = pyo.Var(
         initialize=1,
         units=pyo.units.kWh / pyo.units.m**3,
@@ -63,32 +49,18 @@ def build_forward_osmosis_cost_param_block(blk):
         doc="Specific electric energy consumption (kWh/m3)",
     )
 
-    blk.cost_chemicals = pyo.Var(
-        initialize=0.07,
-        units=costing.base_currency / pyo.units.m**3,
-        bounds=(0, None),
-        doc="Cost of chemicals per m3 product",
-    )
-
     blk.cost_durable_goods = pyo.Var(
         initialize=0.05,
-        units=costing.base_currency / pyo.units.m**3,
+        units=pyo.units.USD_2021 / pyo.units.m**3,
         bounds=(0, None),
         doc="Cost of durable goods per m3 product",
     )
 
     blk.cost_disposal = pyo.Var(
         initialize=0.02,
-        units=costing.base_currency / pyo.units.m**3,
+        units=pyo.units.USD_2021 / pyo.units.m**3,
         bounds=(0, None),
         doc="Cost of disposal per m3 brine",
-    )
-
-    blk.cost_fraction_insurance = pyo.Var(
-        initialize=0.005,
-        units=pyo.units.dimensionless,
-        bounds=(0, None),
-        doc="Fraction of capital cost for insurance",
     )
 
 
@@ -103,30 +75,23 @@ def cost_forward_osmosis(blk):
     make_fixed_operating_cost_var(blk)
 
     fo = blk.unit_model
-    test_fs = fo.flowsheet()
+    fo_fs = fo.flowsheet()
 
     brine = fo.brine_props[0]
 
     blk.costing_package.add_cost_factor(blk, None)
     blk.annual_dist_production = pyo.units.convert(
-        test_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.year
+        fo_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.year
     )
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
-        == fo_params.base_unit_cost * test_fs.system_capacity**fo_params.unit_cost_index
-    )
-
-    blk.labor_cost = pyo.Expression(
-        expr=fo_params.base_labor_cost
-        * test_fs.system_capacity**fo_params.labor_cost_index
+        == fo_params.base_unit_cost * fo_fs.system_capacity**fo_params.unit_cost_index
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=(
             blk.fixed_operating_cost
-            == blk.annual_dist_production
-            * (blk.labor_cost + fo_params.cost_chemicals + fo_params.cost_durable_goods)
-            + blk.capital_cost * fo_params.cost_fraction_insurance
+            == blk.annual_dist_production * fo_params.cost_durable_goods
             + pyo.units.convert(
                 brine.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.year
             )
@@ -135,16 +100,16 @@ def cost_forward_osmosis(blk):
     )
 
     blk.thermal_energy_flow = pyo.Expression(
-        expr=test_fs.specific_energy_consumption_thermal
+        expr=fo_fs.specific_energy_consumption_thermal
         * pyo.units.convert(
-            test_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.hr
+            fo_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.hr
         )
     )
 
     blk.electricity_flow = pyo.Expression(
         expr=fo_params.specific_energy_consumption_electric
         * pyo.units.convert(
-            test_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.hr
+            fo_fs.system_capacity, to_units=pyo.units.m**3 / pyo.units.hr
         )
     )
 
