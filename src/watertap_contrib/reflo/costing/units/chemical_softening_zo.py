@@ -29,9 +29,9 @@ from ..util import (
 def build_lime_cost_param_block(blk):
 
     blk.cost = Param(
-        initialize=0.171,
-        units=pyunits.USD_2020 / pyunits.kg,
-        doc="Cost of CaO $/kg",
+        initialize=0.10,
+        units=pyunits.USD_2021 / pyunits.kg,
+        doc="Cost of CaO $/kg", # taken from CatCost, 9/2024
     )
 
     blk.purity = Param(
@@ -48,9 +48,9 @@ def build_lime_cost_param_block(blk):
 def build_soda_ash_cost_param_block(blk):
 
     blk.cost = Param(
-        initialize=0.65,
-        units=pyunits.USD_2020 / pyunits.kg,
-        doc="Cost of Na2CO3 $/kg",
+        initialize=0.24,
+        units=pyunits.USD_2021 / pyunits.kg,
+        doc="Cost of Na2CO3 $/kg", # taken from CatCost, 9/2024
     )
 
     blk.purity = Param(
@@ -67,9 +67,9 @@ def build_soda_ash_cost_param_block(blk):
 def build_mgcl2_cost_param_block(blk):
 
     blk.cost = Param(
-        initialize=0.55,
+        initialize=0.49,
         units=pyunits.USD_2020 / pyunits.kg,
-        doc="Cost of MgCl2 $/kg",
+        doc="Cost of MgCl2 $/kg", # taken from CatCost, 9/2024
     )
 
     blk.purity = Param(
