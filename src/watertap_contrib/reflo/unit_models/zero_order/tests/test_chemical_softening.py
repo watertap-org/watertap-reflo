@@ -221,82 +221,82 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             rel=1e-3,
         )
 
-    # @pytest.mark.component
-    # def test_costing(self, chem_soft_frame):
+    @pytest.mark.component
+    def test_costing(self, chem_soft_frame):
 
-    #     m = chem_soft_frame
-    #     prop_in = m.fs.soft.properties_in[0]
-    #     m.fs.costing = TreatmentCosting()
-    #     m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-    #     m.fs.costing.cost_process()
-    #     m.fs.costing.add_LCOW(prop_in.flow_vol)
+        m = chem_soft_frame
+        prop_in = m.fs.soft.properties_in[0]
+        m.fs.costing = TreatmentCosting()
+        m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(prop_in.flow_vol)
 
-    #     results = solver.solve(m)
-    #     assert_optimal_termination(results)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
 
-    #     sys_cost_results = {
-    #         "aggregate_capital_cost": 2292991.76,
-    #         "aggregate_fixed_operating_cost": 906885.05,
-    #         "aggregate_variable_operating_cost": 0.0,
-    #         "aggregate_flow_electricity": 0.259444,
-    #         "aggregate_flow_lime": 3868083.56,
-    #         "aggregate_flow_soda_ash": 15652.67,
-    #         "aggregate_flow_co2": 2530917.25,
-    #         "aggregate_flow_costs": {
-    #             "electricity": 186.89,
-    #             "lime": 785476.58,
-    #             "soda_ash": 4412996.0,
-    #             "co2": 1142096.57,
-    #         },
-    #         "total_capital_cost": 2292991.76,
-    #         "total_operating_cost": 7316430.86,
-    #         "aggregate_direct_capital_cost": 2292991.76,
-    #         "maintenance_labor_chemical_operating_cost": 68789.75,
-    #         "total_fixed_operating_cost": 975674.8,
-    #         "total_variable_operating_cost": 6340756.05,
-    #         "total_annualized_cost": 7573144.93,
-    #         "LCOW": 5.4665,
-    #     }
-    #     for v, r in sys_cost_results.items():
-    #         softv = getattr(m.fs.costing, v)
-    #         if softv.is_indexed():
-    #             for i, s in r.items():
-    #                 assert pytest.approx(value(softv[i]), rel=1e-3) == s
-    #         else:
-    #             assert pytest.approx(value(softv), rel=1e-3) == r
+        sys_cost_results = {
+            "aggregate_capital_cost": 2292991.76,
+            "aggregate_fixed_operating_cost": 906885.05,
+            "aggregate_variable_operating_cost": 0.0,
+            "aggregate_flow_electricity": 0.259444,
+            "aggregate_flow_lime": 3868083.56,
+            "aggregate_flow_soda_ash": 15652.67,
+            "aggregate_flow_co2": 2530917.25,
+            "aggregate_flow_costs": {
+                "electricity": 186.89,
+                "lime": 386808.35,
+                "soda_ash": 1372113.8,
+                "co2": 1142096.57,
+            },
+            "total_capital_cost": 2292991.76,
+            "total_operating_cost": 7316430.86,
+            "aggregate_direct_capital_cost": 2292991.76,
+            "maintenance_labor_chemical_operating_cost": 68789.75,
+            "total_fixed_operating_cost": 975674.8,
+            "total_variable_operating_cost": 2901205.62,
+            "total_annualized_cost": 4133594.5,
+            "LCOW": 2.9837,
+        }
+        for v, r in sys_cost_results.items():
+            softv = getattr(m.fs.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
 
-    #     soft_cost_results = {
-    #         "capital_cost": 2292991.76,
-    #         "fixed_operating_cost": 906885.05,
-    #         "mixer_power": 94.82,
-    #         "floc_power": 164.62,
-    #         "electricity_flow": 0.259444,
-    #         "mix_tank_capital_cost": 23244.46,
-    #         "floc_tank_capital_cost": 308513.2,
-    #         "sed_basin_capital_cost": 208749.21,
-    #         "recarb_basin_capital_cost": 35051.86,
-    #         "recarb_basin_source_capital_cost": 1073536.45,
-    #         "lime_feed_system_capital_cost": 241412.21,
-    #         "admin_capital_cost": 93971.14,
-    #         "mixer_op_cost": 1775.1,
-    #         "floc_tank_op_cost": 1210.0,
-    #         "sed_basin_op_cost": 11045.92,
-    #         "recarb_basin_op_cost": 66155.3,
-    #         "lime_feed_op_cost": 449419.57,
-    #         "lime_sludge_mngt_op_cost": 288609.79,
-    #         "admin_op_cost": 88669.34,
-    #         "direct_capital_cost": 2292991.76,
-    #         "cao_dosing": 3868083.56,
-    #         "co2_dosing": 2530917.25,
-    #     }
+        soft_cost_results = {
+            "capital_cost": 2292991.76,
+            "fixed_operating_cost": 906885.05,
+            "mixer_power": 94.82,
+            "floc_power": 164.62,
+            "electricity_flow": 0.259444,
+            "mix_tank_capital_cost": 23244.46,
+            "floc_tank_capital_cost": 308513.2,
+            "sed_basin_capital_cost": 208749.21,
+            "recarb_basin_capital_cost": 35051.86,
+            "recarb_basin_source_capital_cost": 1073536.45,
+            "lime_feed_system_capital_cost": 241412.21,
+            "admin_capital_cost": 93971.14,
+            "mixer_op_cost": 1775.1,
+            "floc_tank_op_cost": 1210.0,
+            "sed_basin_op_cost": 11045.92,
+            "recarb_basin_op_cost": 66155.3,
+            "lime_feed_op_cost": 449419.57,
+            "lime_sludge_mngt_op_cost": 288609.79,
+            "admin_op_cost": 88669.34,
+            "direct_capital_cost": 2292991.76,
+            "cao_dosing": 3868083.56,
+            "co2_dosing": 2530917.25,
+        }
 
-    #     for v, r in soft_cost_results.items():
-    #         softv = getattr(m.fs.soft.costing, v)
-    #         if softv.is_indexed():
-    #             for i, s in r.items():
-    #                 assert pytest.approx(value(softv[i]), rel=1e-3) == s
-    #         else:
-    #             assert pytest.approx(value(softv), rel=1e-3) == r
+        for v, r in soft_cost_results.items():
+            softv = getattr(m.fs.soft.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
 
 
 class TestChemSoft_SingleStageLime:
@@ -476,82 +476,82 @@ class TestChemSoft_SingleStageLime:
             rel=1e-3,
         )
 
-    # @pytest.mark.component
-    # def test_costing(self, chem_soft_frame):
+    @pytest.mark.component
+    def test_costing(self, chem_soft_frame):
 
-    #     m = chem_soft_frame
-    #     prop_in = m.fs.soft.properties_in[0]
-    #     m.fs.costing = TreatmentCosting()
-    #     m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-    #     m.fs.costing.cost_process()
-    #     m.fs.costing.add_LCOW(prop_in.flow_vol)
+        m = chem_soft_frame
+        prop_in = m.fs.soft.properties_in[0]
+        m.fs.costing = TreatmentCosting()
+        m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(prop_in.flow_vol)
 
-    #     results = solver.solve(m)
-    #     assert_optimal_termination(results)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
 
-    #     sys_cost_results = {
-    #         "aggregate_capital_cost": 3729796.07,
-    #         "aggregate_fixed_operating_cost": 1084973.26,
-    #         "aggregate_variable_operating_cost": 0.0,
-    #         "aggregate_flow_electricity": 3.421,
-    #         "aggregate_flow_lime": 3028170.69,
-    #         "aggregate_flow_co2": 281286.38,
-    #         "aggregate_flow_costs": {
-    #             "electricity": 2464.36,
-    #             "lime": 614918.76,
-    #             "soda_ash": 0.0,
-    #             "mgcl2": 0.0,
-    #             "co2": 126932.72,
-    #         },
-    #         "total_capital_cost": 3729796.07,
-    #         "total_operating_cost": 1941183.0,
-    #         "aggregate_direct_capital_cost": 3729796.07,
-    #         "maintenance_labor_chemical_operating_cost": 111893.88,
-    #         "total_fixed_operating_cost": 1196867.14,
-    #         "total_variable_operating_cost": 744315.86,
-    #         "total_annualized_cost": 2358755.86,
-    #         "LCOW": 0.129123,
-    #     }
-    #     for v, r in sys_cost_results.items():
-    #         softv = getattr(m.fs.costing, v)
-    #         if softv.is_indexed():
-    #             for i, s in r.items():
-    #                 assert pytest.approx(value(softv[i]), rel=1e-3) == s
-    #         else:
-    #             assert pytest.approx(value(softv), rel=1e-3) == r
+        sys_cost_results = {
+            "aggregate_capital_cost": 3729796.07,
+            "aggregate_fixed_operating_cost": 1084973.26,
+            "aggregate_variable_operating_cost": 0.0,
+            "aggregate_flow_electricity": 3.421,
+            "aggregate_flow_lime": 3028170.69,
+            "aggregate_flow_co2": 281286.38,
+            "aggregate_flow_costs": {
+                "electricity": 2464.36,
+                "lime": 302817.06,
+                "soda_ash": 0.0,
+                "mgcl2": 0.0,
+                "co2": 126932.72,
+            },
+            "total_capital_cost": 3729796.07,
+            "total_operating_cost": 1629081.31,
+            "aggregate_direct_capital_cost": 3729796.07,
+            "maintenance_labor_chemical_operating_cost": 111893.88,
+            "total_fixed_operating_cost": 1196867.14,
+            "total_variable_operating_cost": 432214.16,
+            "total_annualized_cost": 2046654.17,
+            "LCOW": 0.112038,
+        }
+        for v, r in sys_cost_results.items():
+            softv = getattr(m.fs.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
 
-    #     soft_cost_results = {
-    #         "capital_cost": 3729796.07,
-    #         "fixed_operating_cost": 1084973.26,
-    #         "mixer_power": 1250.34,
-    #         "floc_power": 2170.73,
-    #         "mix_tank_capital_cost": 153068.11,
-    #         "floc_tank_capital_cost": 501015.63,
-    #         "sed_basin_capital_cost": 1464705.96,
-    #         "recarb_basin_capital_cost": 285616.04,
-    #         "recarb_basin_source_capital_cost": 204411.61,
-    #         "lime_feed_system_capital_cost": 229450.13,
-    #         "admin_capital_cost": 390512.93,
-    #         "mixer_op_cost": 13145.02,
-    #         "floc_tank_op_cost": 12104.99,
-    #         "sed_basin_op_cost": 31916.41,
-    #         "recarb_basin_op_cost": 28664.92,
-    #         "lime_feed_op_cost": 416992.99,
-    #         "lime_sludge_mngt_op_cost": 292551.0,
-    #         "admin_op_cost": 289597.92,
-    #         "direct_capital_cost": 3729796.07,
-    #         "cao_dosing": 3028170.69,
-    #         "mgcl2_dosing": 0.0,
-    #         "co2_dosing": 281286.38,
-    #     }
+        soft_cost_results = {
+            "capital_cost": 3729796.07,
+            "fixed_operating_cost": 1084973.26,
+            "mixer_power": 1250.34,
+            "floc_power": 2170.73,
+            "mix_tank_capital_cost": 153068.11,
+            "floc_tank_capital_cost": 501015.63,
+            "sed_basin_capital_cost": 1464705.96,
+            "recarb_basin_capital_cost": 285616.04,
+            "recarb_basin_source_capital_cost": 204411.61,
+            "lime_feed_system_capital_cost": 229450.13,
+            "admin_capital_cost": 390512.93,
+            "mixer_op_cost": 13145.02,
+            "floc_tank_op_cost": 12104.99,
+            "sed_basin_op_cost": 31916.41,
+            "recarb_basin_op_cost": 28664.92,
+            "lime_feed_op_cost": 416992.99,
+            "lime_sludge_mngt_op_cost": 292551.0,
+            "admin_op_cost": 289597.92,
+            "direct_capital_cost": 3729796.07,
+            "cao_dosing": 3028170.69,
+            "mgcl2_dosing": 0.0,
+            "co2_dosing": 281286.38,
+        }
 
-    #     for v, r in soft_cost_results.items():
-    #         softv = getattr(m.fs.soft.costing, v)
-    #         if softv.is_indexed():
-    #             for i, s in r.items():
-    #                 assert pytest.approx(value(softv[i]), rel=1e-3) == s
-    #         else:
-    #             assert pytest.approx(value(softv), rel=1e-3) == r
+        for v, r in soft_cost_results.items():
+            softv = getattr(m.fs.soft.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
 
 
 class TestChemSoft_ExcessLime:
@@ -730,85 +730,85 @@ class TestChemSoft_ExcessLime:
             rel=1e-3,
         )
 
-    # @pytest.mark.component
-    # def test_costing(self, chem_soft_frame):
+    @pytest.mark.component
+    def test_costing(self, chem_soft_frame):
 
-    #     m = chem_soft_frame
-    #     prop_in = m.fs.soft.properties_in[0]
-    #     m.fs.costing = TreatmentCosting()
-    #     m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-    #     m.fs.costing.cost_process()
-    #     m.fs.costing.add_LCOW(prop_in.flow_vol)
+        m = chem_soft_frame
+        prop_in = m.fs.soft.properties_in[0]
+        m.fs.costing = TreatmentCosting()
+        m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(prop_in.flow_vol)
 
-    #     results = solver.solve(m)
-    #     assert_optimal_termination(results)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
 
-    #     sys_cost_results = {
-    #         "aggregate_capital_cost": 3639108.84,
-    #         "aggregate_fixed_operating_cost": 1087586.89,
-    #         "aggregate_variable_operating_cost": 0.0,
-    #         "aggregate_flow_electricity": 3.421,
-    #         "aggregate_flow_lime": 3285945.05,
-    #         "aggregate_flow_soda_ash": 0.0,
-    #         "aggregate_flow_mgcl2": 0.0,
-    #         "aggregate_flow_co2": 129361.33,
-    #         "aggregate_flow_costs": {
-    #             "electricity": 2464.36,
-    #             "lime": 667263.99,
-    #             "soda_ash": 0.0,
-    #             "mgcl2": 0.0,
-    #             "co2": 58375.33,
-    #         },
-    #         "total_capital_cost": 3639108.84,
-    #         "total_operating_cost": 1924863.86,
-    #         "aggregate_direct_capital_cost": 3639108.84,
-    #         "maintenance_labor_chemical_operating_cost": 109173.26,
-    #         "total_fixed_operating_cost": 1196760.16,
-    #         "total_variable_operating_cost": 728103.7,
-    #         "total_annualized_cost": 2332283.74,
-    #         "LCOW": 0.127674,
-    #     }
-    #     for v, r in sys_cost_results.items():
-    #         softv = getattr(m.fs.costing, v)
-    #         if softv.is_indexed():
-    #             for i, s in r.items():
-    #                 assert pytest.approx(value(softv[i]), rel=1e-3) == s
-    #         else:
-    #             assert pytest.approx(value(softv), rel=1e-3) == r
+        sys_cost_results = {
+            "aggregate_capital_cost": 3639108.84,
+            "aggregate_fixed_operating_cost": 1087586.89,
+            "aggregate_variable_operating_cost": 0.0,
+            "aggregate_flow_electricity": 3.421,
+            "aggregate_flow_lime": 3285945.05,
+            "aggregate_flow_soda_ash": 0.0,
+            "aggregate_flow_mgcl2": 0.0,
+            "aggregate_flow_co2": 129361.33,
+            "aggregate_flow_costs": {
+                "electricity": 2464.36,
+                "lime": 328594.5,
+                "soda_ash": 0.0,
+                "mgcl2": 0.0,
+                "co2": 58375.33,
+            },
+            "total_capital_cost": 3639108.84,
+            "total_operating_cost": 1586194.3,
+            "aggregate_direct_capital_cost": 3639108.84,
+            "maintenance_labor_chemical_operating_cost": 109173.26,
+            "total_fixed_operating_cost": 1196760.16,
+            "total_variable_operating_cost": 389434.2,
+            "total_annualized_cost": 1993614.2,
+            "LCOW": 0.109134,
+        }
+        for v, r in sys_cost_results.items():
+            softv = getattr(m.fs.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
 
-    #     soft_cost_results = {
-    #         "capital_cost": 3639108.84,
-    #         "fixed_operating_cost": 1087586.89,
-    #         "mixer_power": 1250.34,
-    #         "floc_power": 2170.73,
-    #         "electricity_flow": 3.421,
-    #         "mix_tank_capital_cost": 153068.11,
-    #         "floc_tank_capital_cost": 501015.63,
-    #         "sed_basin_capital_cost": 1464705.96,
-    #         "recarb_basin_capital_cost": 285616.04,
-    #         "recarb_basin_source_capital_cost": 113718.35,
-    #         "lime_feed_system_capital_cost": 229456.15,
-    #         "admin_capital_cost": 390512.93,
-    #         "mixer_op_cost": 13145.02,
-    #         "floc_tank_op_cost": 12104.99,
-    #         "sed_basin_op_cost": 31916.41,
-    #         "recarb_basin_op_cost": 21327.1,
-    #         "lime_feed_op_cost": 417009.11,
-    #         "lime_sludge_mngt_op_cost": 302486.32,
-    #         "admin_op_cost": 289597.92,
-    #         "cost_factor": 1.0,
-    #         "direct_capital_cost": 3639108.84,
-    #         "cao_dosing": 3285945.05,
-    #         "mgcl2_dosing": 0.0,
-    #         "co2_dosing": 129361.33,
-    #     }
-    #     for v, r in soft_cost_results.items():
-    #         softv = getattr(m.fs.soft.costing, v)
-    #         if softv.is_indexed():
-    #             for i, s in r.items():
-    #                 assert pytest.approx(value(softv[i]), rel=1e-3) == s
-    #         else:
-    #             assert pytest.approx(value(softv), rel=1e-3) == r
+        soft_cost_results = {
+            "capital_cost": 3639108.84,
+            "fixed_operating_cost": 1087586.89,
+            "mixer_power": 1250.34,
+            "floc_power": 2170.73,
+            "electricity_flow": 3.421,
+            "mix_tank_capital_cost": 153068.11,
+            "floc_tank_capital_cost": 501015.63,
+            "sed_basin_capital_cost": 1464705.96,
+            "recarb_basin_capital_cost": 285616.04,
+            "recarb_basin_source_capital_cost": 113718.35,
+            "lime_feed_system_capital_cost": 229456.15,
+            "admin_capital_cost": 390512.93,
+            "mixer_op_cost": 13145.02,
+            "floc_tank_op_cost": 12104.99,
+            "sed_basin_op_cost": 31916.41,
+            "recarb_basin_op_cost": 21327.1,
+            "lime_feed_op_cost": 417009.11,
+            "lime_sludge_mngt_op_cost": 302486.32,
+            "admin_op_cost": 289597.92,
+            "cost_factor": 1.0,
+            "direct_capital_cost": 3639108.84,
+            "cao_dosing": 3285945.05,
+            "mgcl2_dosing": 0.0,
+            "co2_dosing": 129361.33,
+        }
+        for v, r in soft_cost_results.items():
+            softv = getattr(m.fs.soft.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
 
 
 class TestChemSoft_ExcessLimeSodaSilicaRemoval:
@@ -986,82 +986,82 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             rel=1e-3,
         )
 
-    # @pytest.mark.component
-    # def test_costing(self, chem_soft_frame):
+    @pytest.mark.component
+    def test_costing(self, chem_soft_frame):
 
-    #     m = chem_soft_frame
-    #     prop_in = m.fs.soft.properties_in[0]
-    #     m.fs.costing = TreatmentCosting()
-    #     m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-    #     m.fs.costing.cost_process()
-    #     m.fs.costing.add_LCOW(prop_in.flow_vol)
+        m = chem_soft_frame
+        prop_in = m.fs.soft.properties_in[0]
+        m.fs.costing = TreatmentCosting()
+        m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(prop_in.flow_vol)
 
-    #     results = solver.solve(m)
-    #     assert_optimal_termination(results)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
 
-    #     sys_cost_results = {
-    #         "aggregate_capital_cost": 2294225.15,
-    #         "aggregate_fixed_operating_cost": 936733.35,
-    #         "aggregate_variable_operating_cost": 0.0,
-    #         "aggregate_flow_electricity": 0.259455,
-    #         "aggregate_flow_lime": 3908257.93,
-    #         "aggregate_flow_soda_ash": 15652.67,
-    #         "aggregate_flow_mgcl2": 714737.63,
-    #         "aggregate_flow_co2": 2532303.54,
-    #         "aggregate_flow_costs": {
-    #             "electricity": 186.89,
-    #             "lime": 793634.63,
-    #             "soda_ash": 4412996.0,
-    #             "mgcl2": 466821.26,
-    #             "co2": 1142722.15,
-    #         },
-    #         "total_capital_cost": 2294225.15,
-    #         "total_operating_cost": 7821921.06,
-    #         "aggregate_direct_capital_cost": 2294225.15,
-    #         "maintenance_labor_chemical_operating_cost": 68826.75,
-    #         "total_fixed_operating_cost": 1005560.11,
-    #         "total_variable_operating_cost": 6816360.94,
-    #         "total_annualized_cost": 8078773.21,
-    #         "LCOW": 5.8313,
-    #     }
-    #     for v, r in sys_cost_results.items():
-    #         softv = getattr(m.fs.costing, v)
-    #         if softv.is_indexed():
-    #             for i, s in r.items():
-    #                 assert pytest.approx(value(softv[i]), rel=1e-3) == s
-    #         else:
-    #             assert pytest.approx(value(softv), rel=1e-3) == r
+        sys_cost_results = {
+            "aggregate_capital_cost": 2294225.15,
+            "aggregate_fixed_operating_cost": 936733.35,
+            "aggregate_variable_operating_cost": 0.0,
+            "aggregate_flow_electricity": 0.259455,
+            "aggregate_flow_lime": 3908257.93,
+            "aggregate_flow_soda_ash": 15652.67,
+            "aggregate_flow_mgcl2": 714737.63,
+            "aggregate_flow_co2": 2532303.54,
+            "aggregate_flow_costs": {
+                "electricity": 186.89,
+                "lime": 390825.7,
+                "soda_ash": 1372113.8,
+                "mgcl2": 415895.3,
+                "co2": 1142722.15,
+            },
+            "total_capital_cost": 2294225.15,
+            "total_operating_cost": 4327304,
+            "aggregate_direct_capital_cost": 2294225.15,
+            "maintenance_labor_chemical_operating_cost": 68826.75,
+            "total_fixed_operating_cost": 1005560.11,
+            "total_variable_operating_cost": 3321743.95,
+            "total_annualized_cost": 4584156.2,
+            "LCOW": 3.3088,
+        }
+        for v, r in sys_cost_results.items():
+            softv = getattr(m.fs.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
 
-    #     soft_cost_results = {
-    #         "capital_cost": 2294225.15,
-    #         "fixed_operating_cost": 936733.35,
-    #         "mixer_power": 94.82,
-    #         "floc_power": 164.62,
-    #         "electricity_flow": 0.259455,
-    #         "mix_tank_capital_cost": 23245.14,
-    #         "floc_tank_capital_cost": 308513.83,
-    #         "sed_basin_capital_cost": 208755.51,
-    #         "recarb_basin_capital_cost": 35052.99,
-    #         "recarb_basin_source_capital_cost": 1073980.34,
-    #         "lime_feed_system_capital_cost": 242190.27,
-    #         "admin_capital_cost": 93973.21,
-    #         "mixer_op_cost": 1775.16,
-    #         "floc_tank_op_cost": 1210.04,
-    #         "sed_basin_op_cost": 11045.99,
-    #         "recarb_basin_op_cost": 66169.09,
-    #         "lime_feed_op_cost": 451555.6,
-    #         "lime_sludge_mngt_op_cost": 316306.48,
-    #         "admin_op_cost": 88670.96,
-    #         "direct_capital_cost": 2294225.15,
-    #         "cao_dosing": 3908257.93,
-    #         "mgcl2_dosing": 714737.63,
-    #         "co2_dosing": 2532303.54,
-    #     }
+        soft_cost_results = {
+            "capital_cost": 2294225.15,
+            "fixed_operating_cost": 936733.35,
+            "mixer_power": 94.82,
+            "floc_power": 164.62,
+            "electricity_flow": 0.259455,
+            "mix_tank_capital_cost": 23245.14,
+            "floc_tank_capital_cost": 308513.83,
+            "sed_basin_capital_cost": 208755.51,
+            "recarb_basin_capital_cost": 35052.99,
+            "recarb_basin_source_capital_cost": 1073980.34,
+            "lime_feed_system_capital_cost": 242190.27,
+            "admin_capital_cost": 93973.21,
+            "mixer_op_cost": 1775.16,
+            "floc_tank_op_cost": 1210.04,
+            "sed_basin_op_cost": 11045.99,
+            "recarb_basin_op_cost": 66169.09,
+            "lime_feed_op_cost": 451555.6,
+            "lime_sludge_mngt_op_cost": 316306.48,
+            "admin_op_cost": 88670.96,
+            "direct_capital_cost": 2294225.15,
+            "cao_dosing": 3908257.93,
+            "mgcl2_dosing": 714737.63,
+            "co2_dosing": 2532303.54,
+        }
 
-    #     for v, r in soft_cost_results.items():
-    #         softv = getattr(m.fs.soft.costing, v)
-    #         if softv.is_indexed():
-    #             for i, s in r.items():
-    #                 assert pytest.approx(value(softv[i]), rel=1e-3) == s
-    #         else:
-    #             assert pytest.approx(value(softv), rel=1e-3) == r
+        for v, r in soft_cost_results.items():
+            softv = getattr(m.fs.soft.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
