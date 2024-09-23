@@ -18,6 +18,7 @@ from pyomo.environ import (
     Suffix,
     units as pyunits,
     Expr_if,
+    value,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
@@ -27,6 +28,7 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
+from idaes.core.util.math import smooth_min, smooth_max
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.misc import StrEnum
@@ -433,6 +435,20 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="Sludge production rate in kg/day",
         )
 
+        self.eps = Param(
+            initialize=1e-18,
+            units=pyunits.kg / pyunits.m**3,
+            mutable=True,
+            doc="Smoothing factor",
+        )
+        
+        self.eps2 = Param(
+            initialize=1e-18,
+            units=pyunits.kg / pyunits.day,
+            mutable=True,
+            doc="Smoothing factor",
+        )
+
         # Add Ca,Mg carbonate hardness
 
         @self.Expression(doc="Calcium in influent converted to equivalent CaCO3")
@@ -453,42 +469,38 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         @self.Expression(doc="Calculate Calcium carbonate hardness")
         def Ca_hardness_CaCO3(b):
-            return Expr_if(
-                b.Ca_CaCO3
-                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+            return smooth_min(
                 b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
                 b.Ca_CaCO3,
+                b.eps,
             )
 
         @self.Expression(doc="Calculate Calcium non carbonate hardness")
         def Ca_hardness_nonCaCO3(b):
-            return Expr_if(
-                b.Ca_CaCO3
-                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+            return smooth_max(
                 b.Ca_CaCO3
                 - b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                1e-15 * pyunits.kg / pyunits.m**3,
+                0 * pyunits.kg / pyunits.m**3,
+                b.eps,
             )
 
         @self.Expression(doc="Calculate Magnesium carbonate hardness")
         def Mg_hardness_CaCO3(b):
-            return Expr_if(
-                b.Ca_CaCO3
-                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                1e-15 * pyunits.kg / pyunits.m**3,
+            return smooth_max(
                 b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
                 - b.Ca_CaCO3,
+                0 * pyunits.kg / pyunits.m**3,
+                b.eps,
             )
 
         @self.Expression(doc="Calculate Magnesium non carbonate hardness")
         def Mg_hardness_nonCaCO3(b):
-            return Expr_if(
-                b.Ca_CaCO3
-                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+            return smooth_min(
                 b.Mg_CaCO3,
                 b.Mg_CaCO3
                 + b.Ca_CaCO3
                 - b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                b.eps,
             )
 
         @self.Expression(doc="Mg removal efficiency")
@@ -602,10 +614,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     * b.CO2_mw
                     / b.CaCO3_mw
                 )
-                return b.CO2_first_basin == Expr_if(
-                    co2_required_expr <= 0 * pyunits.kg / pyunits.day,
+                return b.CO2_first_basin == smooth_max(
                     0 * pyunits.kg / pyunits.day,
                     co2_required_expr,
+                    b.eps2,
                 )
 
         elif self.config.softening_procedure_type is SofteningProcedureType.excess_lime:
@@ -658,10 +670,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     / b.CaCO3_mw,
                     to_units=pyunits.kg / pyunits.d,
                 )
-                return b.CO2_first_basin == Expr_if(
-                    co2_required_expr <= 0 * pyunits.kg / pyunits.day,
+                return b.CO2_first_basin ==  smooth_max(
                     0 * pyunits.kg / pyunits.day,
                     co2_required_expr,
+                    b.eps2,
                 )
 
         elif (
@@ -704,10 +716,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
-                return b.CO2_first_basin == Expr_if(
-                    co2_required_expr <= 0 * pyunits.kg / pyunits.day,
+                return b.CO2_first_basin == smooth_max(
                     0 * pyunits.kg / pyunits.day,
                     co2_required_expr,
+                    b.eps2,
                 )
 
         elif (
@@ -767,10 +779,10 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.d,
                 )
-                return b.CO2_first_basin == Expr_if(
-                    co2_required_expr <= 0 * pyunits.kg / pyunits.day,
+                return b.CO2_first_basin == smooth_max(
                     0 * pyunits.kg / pyunits.day,
                     co2_required_expr,
+                    b.eps2,
                 )
 
             @self.Constraint(doc="CO2 for second basin")
@@ -795,19 +807,12 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
             @self.Expression(doc="MgCl2 dosing constraint")
             def MgCl2_dosing(b):
-                return Expr_if(
-                    (
-                        (
-                            b.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"]
-                            * 2.35
-                            > b.properties_in[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-                        )
-                    ),
+                return smooth_max(
+                    0 * pyunits.kg / pyunits.m**3,
                     b.MgCl2_SiO2_ratio
                     * b.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"],
-                    1e-15 * pyunits.kg / pyunits.m**3,
+                    b.eps,
                 )
-
         else:
             self.MgCl2_dosing = Var(
                 initialize=0,
