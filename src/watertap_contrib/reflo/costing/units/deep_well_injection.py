@@ -30,7 +30,7 @@ from ..util import (
     make_fixed_operating_cost_var,
 )
 
-costing_params_dict = {
+blm_costing_params_dict = {
     2500: {
         "logging_testing": {"intercept": 251.48, "slope": 4.5193},
         "drilling": {"intercept": 338.05, "slope": 17.611},
@@ -76,7 +76,7 @@ def cost_deep_well_injection(blk, cost_method=DeepWellInjectionCostMethod.blm):
     else:
         raise ConfigurationError(
             f"{blk.unit_model.name} received invalid argument for cost_method:"
-            f" {cost_method} argument must be a member of the DeepWellInjectionCostMethod Enum."
+            f" {cost_method}. Argument must be a member of the DeepWellInjectionCostMethod Enum."
         )
 
 
@@ -275,7 +275,7 @@ def cost_deep_well_injection_blm(blk):
     )
     make_capital_cost_var(blk)
 
-    costing_params_depth_dict = costing_params_dict[
+    costing_params_depth_dict = blm_costing_params_dict[
         int(value(injection_well_depth_dimensionless))
     ]
     # change value of costing parameters based on
