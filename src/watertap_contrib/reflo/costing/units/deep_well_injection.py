@@ -67,7 +67,7 @@ def build_deep_well_injection_cost_param_block(blk):
     blk.tubing_capital_cost_base = Param(
         initialize=116.65,
         mutable=True,
-        units=pyunits.kUSD_2001 * pyunits.inches**-1,
+        units=pyunits.kUSD_2001,
         doc="Tubing capital cost equation - base",
     )
 
@@ -159,6 +159,7 @@ def cost_deep_well_injection(blk):
     """
     dwi_params = blk.costing_package.deep_well_injection
     dwi = blk.unit_model
+    pipe_diam_dimensionless = pyunits.convert(dwi.pipe_diameter * pyunits.inches **-1, to_units=pyunits.dimensionless)
     make_capital_cost_var(blk)
     # make_fixed_operating_cost_var(blk)
 
@@ -230,6 +231,26 @@ def cost_deep_well_injection(blk):
     )
 
     capital_cost_expr += blk.logging_testing_capital_cost
+
+    blk.drilling_capital_cost_constraint = Constraint(
+        expr=blk.drilling_capital_cost == pyunits.convert(
+            dwi_params.drilling_capital_cost_slope * dwi.pipe_diameter
+            + dwi_params.drilling_capital_cost_intercept,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.drilling_capital_cost
+
+    blk.tubing_capital_cost_constraint = Constraint(
+        expr=blk.tubing_capital_cost == pyunits.convert(
+            dwi_params.tubing_capital_cost_base * pipe_diam_dimensionless
+            + dwi_params.tubing_capital_cost_exponent,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.tubing_capital_cost
 
     blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = Constraint(expr=blk.capital_cost == capital_cost_expr)
