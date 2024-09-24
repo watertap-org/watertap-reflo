@@ -27,6 +27,37 @@ from ..util import (
     make_fixed_operating_cost_var,
 )
 
+cost_param_dict = {
+    2500: {
+        "logging_testing": {"intercept": 251.48, "slope": 4.5193},
+        "drilling": {"intercept": 338.05, "slope": 17.611},
+        "tubing": {"base": 116.65, "exponent": 0.3786},
+        "casing": {"intercept": 384.36, "slope": 20.545},
+        "grouting": {"base": 145.01, "exp_coeff": 0.0708},
+    },
+    5000: {
+        "logging_testing": {"intercept": 306.27, "slope": 5.5412},
+        "drilling": {"intercept": 616.91, "slope": 31.783},
+        "tubing": {"base": 213.65, "exponent": 0.3748},
+        "casing": {"intercept": 698.25 "slope": 37.591},
+        "grouting": {"base": 268.83, "exp_coeff": 0.0708},
+    },
+    7500: {
+        "logging_testing": {"intercept": 361.17, "slope": 6.5739},
+        "drilling": {"intercept": 889.24, "slope": 46.01},
+        "tubing": {"base": 309.88, "exponent": 0.3733},
+        "casing": {"intercept": 956.01, "slope": 51.407},
+        "grouting": {"base": 368.65, "exp_coeff": 0.0709},
+    },
+    10000: {
+        "logging_testing": {"intercept": 415.55, "slope": 7.5694},
+        "drilling": {"intercept": 1166.5, "slope": 60.407},
+        "tubing": {"base": 407.38, "exponent": 0.3741},
+        "casing": {"intercept": 1228.1, "slope": 65.52},
+        "grouting": {"base": 465.73, "exp_coeff": 0.0708},
+    },
+}
+
 
 def build_deep_well_injection_cost_param_block(blk):
     """
@@ -35,6 +66,48 @@ def build_deep_well_injection_cost_param_block(blk):
 
     """
     costing = blk.parent_block()
+
+    blk.packing_capital_cost_base = Param(
+        initialize=579.85,
+        mutable=True,
+        units=pyunits.kUSD_2001,
+        doc="Packing capital cost equation - base",
+    )
+
+    blk.packing_capital_cost_intercept = Param(
+        initialize=596.64,
+        mutable=True,
+        units=pyunits.kUSD_2001,
+        doc="Packing capital cost equation - intercept",
+    )
+
+    blk.monitoring_well_capital_cost_base = Param(
+        initialize=31.337,
+        mutable=True,
+        units=pyunits.kUSD_2001,
+        doc="Monitoring well capital cost equation - base",
+    )
+
+    blk.monitoring_well_capital_cost_exponent = Param(
+        initialize=0.3742,
+        mutable=True,
+        units=pyunits.dimensionless,
+        doc="Monitoring well capital cost equation - exponent",
+    )
+
+    blk.mobilization_capital_cost_base = Param(
+        initialize=31.337,
+        mutable=True,
+        units=pyunits.kUSD_2001,
+        doc="Mobilization capital cost equation - base",
+    )
+
+    blk.mobilization_capital_cost_exponent = Param(
+        initialize=0.3742,
+        mutable=True,
+        units=pyunits.dimensionless,
+        doc="Mobilization capital cost equation - exponent",
+    )
 
     # All default values are for 2,500 ft depth
 
@@ -80,20 +153,6 @@ def build_deep_well_injection_cost_param_block(blk):
         doc="Tubing capital cost equation - exponent",
     )
 
-    blk.packing_capital_cost_base = Param(
-        initialize=579.85,
-        mutable=True,
-        units=pyunits.kUSD_2001,
-        doc="Packing capital cost equation - base",
-    )
-
-    blk.packing_capital_cost_intercept = Param(
-        initialize=596.64,
-        mutable=True,
-        units=pyunits.kUSD_2001,
-        doc="Packing capital cost equation - intercept",
-    )
-
     blk.casing_capital_cost_intercept = Param(
         initialize=20.545,
         mutable=True,
@@ -122,34 +181,6 @@ def build_deep_well_injection_cost_param_block(blk):
         doc="Grouting capital cost equation - exponential coefficient",
     )
 
-    blk.monitoring_well_capital_cost_base = Param(
-        initialize=31.337,
-        mutable=True,
-        units=pyunits.kUSD_2001,
-        doc="Monitoring well capital cost equation - base",
-    )
-
-    blk.monitoring_well_capital_cost_exponent = Param(
-        initialize=0.3742,
-        mutable=True,
-        units=pyunits.dimensionless,
-        doc="Monitoring well capital cost equation - exponent",
-    )
-
-    blk.mobilization_capital_cost_base = Param(
-        initialize=31.337,
-        mutable=True,
-        units=pyunits.kUSD_2001,
-        doc="Mobilization capital cost equation - base",
-    )
-
-    blk.mobilization_capital_cost_exponent = Param(
-        initialize=0.3742,
-        mutable=True,
-        units=pyunits.dimensionless,
-        doc="Mobilization capital cost equation - exponent",
-    )
-
 
 @register_costing_parameter_block(
     build_rule=build_deep_well_injection_cost_param_block,
@@ -164,7 +195,12 @@ def cost_deep_well_injection(blk):
     pipe_diam_dimensionless = pyunits.convert(
         dwi.pipe_diameter * pyunits.inches**-1, to_units=pyunits.dimensionless
     )
-    well_depth_dimensionless = pyunits.convert(dwi.well_depth * pyunits.ft**-1, to_units=pyunits.dimensionless)
+    injection_well_depth_dimensionless = pyunits.convert(
+        dwi.injection_well_depth * pyunits.ft**-1, to_units=pyunits.dimensionless
+    )
+    monitoring_well_depth_dimensionless = pyunits.convert(
+        dwi.monitoring_well_depth * pyunits.ft**-1, to_units=pyunits.dimensionless
+    )
     make_capital_cost_var(blk)
     # make_fixed_operating_cost_var(blk)
 
@@ -296,7 +332,8 @@ def cost_deep_well_injection(blk):
         expr=blk.monitoring_well_capital_cost
         == pyunits.convert(
             dwi_params.monitoring_well_capital_cost_base
-            * well_depth_dimensionless**dwi_params.monitoring_well_capital_cost_exponent,
+            * monitoring_well_depth_dimensionless
+            ** dwi_params.monitoring_well_capital_cost_exponent,
             to_units=blk.costing_package.base_currency,
         )
     )
@@ -307,7 +344,8 @@ def cost_deep_well_injection(blk):
         expr=blk.mobilization_capital_cost
         == pyunits.convert(
             dwi_params.mobilization_capital_cost_base
-            * well_depth_dimensionless**dwi_params.mobilization_capital_cost_exponent,
+            * injection_well_depth_dimensionless
+            ** dwi_params.mobilization_capital_cost_exponent,
             to_units=blk.costing_package.base_currency,
         )
     )
