@@ -182,6 +182,61 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
             )
             return smooth_bound(pipe_diameter, 2, 24) * pyunits.inches
 
+    def initialize_build(
+        blk,
+        state_args=None,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
+    ):
+        """
+        General wrapper for initialization routines
+
+        Keyword Arguments:
+            state_args : a dict of arguments to be passed to the property
+                         package(s) to provide an initial state for
+                         initialization (see documentation of the specific
+                         property package) (default = {}).
+            outlvl : sets output level of initialization routine
+            optarg : solver options dictionary object (default=None)
+            solver : str indicating which solver to use during
+                     initialization (default = None)
+
+        Returns: None
+        """
+        init_log = idaeslog.getInitLogger(blk.name, outlvl, tag="unit")
+        solve_log = idaeslog.getSolveLogger(blk.name, outlvl, tag="unit")
+
+        opt = get_solver(solver, optarg)
+
+        flags = blk.properties.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+            hold_state=True,
+        )
+        init_log.info("Initialization Step 1 Complete.")
+
+        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
+            res = opt.solve(blk, tee=slc.tee)
+        init_log.info("Initialization Step 2 {}.".format(idaeslog.condition(res)))
+
+        blk.properties.release_state(flags, outlvl=outlvl)
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {blk.name} failed to initialize")
+
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+
+    def _get_stream_table_contents(self, time_point=0):
+        return create_stream_table_dataframe(
+            {"Feed Inlet": self.inlet},
+            time_point=time_point,
+        )
+
     @property
     def default_costing_method(self):
         return cost_deep_well_injection
@@ -218,7 +273,7 @@ if __name__ == "__main__":
         unscaled_variables_generator,
         badly_scaled_var_generator,
     )
-    from idaes.core import UnitModelCostingBlock
+    from idaes.core import UnitModelCostingBlock, MaterialFlowBasis
 
     from watertap.property_models.multicomp_aq_sol_prop_pack import (
         MCASParameterBlock,
@@ -259,16 +314,19 @@ if __name__ == "__main__":
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = MCASParameterBlock(solute_list=inlet_conc.keys())
+    m.fs.properties = MCASParameterBlock(
+        solute_list=inlet_conc.keys(), material_flow_basis=MaterialFlowBasis.mass
+    )
     m.fs.dwi = dwi = DeepWellInjection(
         property_package=m.fs.properties, injection_well_depth=2500
     )
-    m.fs.costing = TreatmentCosting()
-    # m.fs.costing.base_currency = pyunits.kUSD_2001
-    m.fs.dwi.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-    m.fs.costing.cost_process()
-    m.fs.costing.add_LCOW(dwi.properties[0].flow_vol_phase["Liq"])
+    # m.fs.costing = TreatmentCosting()
+    # # m.fs.costing.base_currency = pyunits.kUSD_2001
+    # m.fs.dwi.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    # m.fs.costing.cost_process()
+    # m.fs.costing.add_LCOW(dwi.properties[0].flow_vol_phase["Liq"])
     prop_in = dwi.properties[0]
+    prop_in.conc_mass_phase_comp
     prop_in.temperature.fix()
     prop_in.pressure.fix()
     flow_mass_phase_water = pyunits.convert(
@@ -293,6 +351,7 @@ if __name__ == "__main__":
     )
 
     dwi.injection_pressure.set_value(1)
+    dwi.initialize()
 
     results = solver.solve(m)
 
@@ -302,6 +361,8 @@ if __name__ == "__main__":
     print(f"well_depth = {dwi.injection_well_depth()} ft")
     print()
     print(f"DOF = {degrees_of_freedom(m)}")
+    dwi.properties[0].display()
+    assert False
     print(f"LCOW = {m.fs.costing.LCOW()}")
     # print(
     #     dwi.flow_mgd(),
