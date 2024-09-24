@@ -260,7 +260,9 @@ if __name__ == "__main__":
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = MCASParameterBlock(solute_list=inlet_conc.keys())
-    m.fs.dwi = dwi = DeepWellInjection(property_package=m.fs.properties, injection_well_depth=2500)
+    m.fs.dwi = dwi = DeepWellInjection(
+        property_package=m.fs.properties, injection_well_depth=2500
+    )
     m.fs.costing = TreatmentCosting()
     # m.fs.costing.base_currency = pyunits.kUSD_2001
     m.fs.dwi.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
@@ -293,7 +295,6 @@ if __name__ == "__main__":
     dwi.injection_pressure.set_value(1)
 
     results = solver.solve(m)
-
 
     print(
         f"pipe_diameter = {dwi.pipe_diameter()} {pyunits.get_units(dwi.pipe_diameter)}"
