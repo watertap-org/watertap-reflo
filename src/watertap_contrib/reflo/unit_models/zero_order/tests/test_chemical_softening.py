@@ -188,7 +188,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             "volume_floc": 65.8489,
             "volume_sed": 342.4143,
             "volume_recarb": 52.6791,
-            "CaO_dosing": 9760.27,
+            "CaO_dosing": 2740.80,
             "Na2CO3_dosing": 15652.67,
             "CO2_first_basin": 381.86,
             "CO2_second_basin": 6547.40,
@@ -235,7 +235,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 2292991.76,
+            "aggregate_capital_cost": 2183265.99,
             "aggregate_fixed_operating_cost": 906885.05,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 0.259444,
@@ -248,9 +248,9 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
                 "soda_ash": 1372113.8,
                 "co2": 1142096.57,
             },
-            "total_capital_cost": 2292991.76,
+            "total_capital_cost": 2183265.99,
             "total_operating_cost": 7316430.86,
-            "aggregate_direct_capital_cost": 2292991.76,
+            "aggregate_direct_capital_cost": 2183265.996,
             "maintenance_labor_chemical_operating_cost": 68789.75,
             "total_fixed_operating_cost": 975674.8,
             "total_variable_operating_cost": 2901205.62,
@@ -266,7 +266,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
                 assert pytest.approx(value(softv), rel=1e-3) == r
 
         soft_cost_results = {
-            "capital_cost": 2292991.76,
+            "capital_cost": 2183265.99,
             "fixed_operating_cost": 906885.05,
             "mixer_power": 94.82,
             "floc_power": 164.62,
@@ -285,7 +285,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             "lime_feed_op_cost": 449419.57,
             "lime_sludge_mngt_op_cost": 288609.79,
             "admin_op_cost": 88669.34,
-            "direct_capital_cost": 2292991.76,
+            "direct_capital_cost": 2183265.99,
             "cao_dosing": 3868083.56,
             "co2_dosing": 2530917.25,
         }
@@ -443,7 +443,7 @@ class TestChemSoft_SingleStageLime:
             "vel_gradient_mix": 300.0,
             "vel_gradient_floc": 50.0,
             "frac_mass_water_recovery": 0.99,
-            "CaO_dosing": 8290.67,
+            "CaO_dosing": 8710.67,
             "Na2CO3_dosing": 0.0,
             "CO2_first_basin": 770.12,
             "CO2_second_basin": 0.0,
@@ -480,6 +480,7 @@ class TestChemSoft_SingleStageLime:
     def test_costing(self, chem_soft_frame):
 
         m = chem_soft_frame
+
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
         m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
@@ -490,7 +491,7 @@ class TestChemSoft_SingleStageLime:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 3729796.07,
+            "aggregate_capital_cost": 3662930.51,
             "aggregate_fixed_operating_cost": 1084973.26,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 3.421,
@@ -503,9 +504,9 @@ class TestChemSoft_SingleStageLime:
                 "mgcl2": 0.0,
                 "co2": 126932.72,
             },
-            "total_capital_cost": 3729796.07,
+            "total_capital_cost": 3662930.51,
             "total_operating_cost": 1629081.31,
-            "aggregate_direct_capital_cost": 3729796.07,
+            "aggregate_direct_capital_cost": 3662930.51,
             "maintenance_labor_chemical_operating_cost": 111893.88,
             "total_fixed_operating_cost": 1196867.14,
             "total_variable_operating_cost": 432214.16,
@@ -521,7 +522,7 @@ class TestChemSoft_SingleStageLime:
                 assert pytest.approx(value(softv), rel=1e-3) == r
 
         soft_cost_results = {
-            "capital_cost": 3729796.07,
+            "capital_cost": 3662930.51,
             "fixed_operating_cost": 1084973.26,
             "mixer_power": 1250.34,
             "floc_power": 2170.73,
@@ -539,7 +540,7 @@ class TestChemSoft_SingleStageLime:
             "lime_feed_op_cost": 416992.99,
             "lime_sludge_mngt_op_cost": 292551.0,
             "admin_op_cost": 289597.92,
-            "direct_capital_cost": 3729796.07,
+            "direct_capital_cost": 3662930.51,
             "cao_dosing": 3028170.69,
             "mgcl2_dosing": 0.0,
             "co2_dosing": 281286.38,
@@ -694,7 +695,7 @@ class TestChemSoft_ExcessLime:
             "volume_floc": 868.29,
             "volume_sed": 4515.12,
             "volume_recarb": 694.63,
-            "CaO_dosing": 8291.37,
+            "CaO_dosing": 8589.25,
             "Na2CO3_dosing": 0.0,
             "CO2_first_basin": 354.17,
             "CO2_second_basin": 0.0,
@@ -744,7 +745,7 @@ class TestChemSoft_ExcessLime:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 3639108.84,
+            "aggregate_capital_cost": 3644336.21,
             "aggregate_fixed_operating_cost": 1087586.89,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 3.421,
@@ -759,9 +760,9 @@ class TestChemSoft_ExcessLime:
                 "mgcl2": 0.0,
                 "co2": 58375.33,
             },
-            "total_capital_cost": 3639108.84,
+            "total_capital_cost": 3644336.21,
             "total_operating_cost": 1586194.3,
-            "aggregate_direct_capital_cost": 3639108.84,
+            "aggregate_direct_capital_cost": 3644336.21,
             "maintenance_labor_chemical_operating_cost": 109173.26,
             "total_fixed_operating_cost": 1196760.16,
             "total_variable_operating_cost": 389434.2,
@@ -777,7 +778,7 @@ class TestChemSoft_ExcessLime:
                 assert pytest.approx(value(softv), rel=1e-3) == r
 
         soft_cost_results = {
-            "capital_cost": 3639108.84,
+            "capital_cost": 3644336.21,
             "fixed_operating_cost": 1087586.89,
             "mixer_power": 1250.34,
             "floc_power": 2170.73,
@@ -797,7 +798,7 @@ class TestChemSoft_ExcessLime:
             "lime_sludge_mngt_op_cost": 302486.32,
             "admin_op_cost": 289597.92,
             "cost_factor": 1.0,
-            "direct_capital_cost": 3639108.84,
+            "direct_capital_cost": 3644336.21,
             "cao_dosing": 3285945.05,
             "mgcl2_dosing": 0.0,
             "co2_dosing": 129361.33,
@@ -811,7 +812,7 @@ class TestChemSoft_ExcessLime:
                 assert pytest.approx(value(softv), rel=1e-3) == r
 
 
-class TestChemSoft_ExcessLimeSodaSilicaRemoval:
+class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):
 
@@ -951,7 +952,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             "volume_sed": 342.42,
             "volume_recarb": 52.68,
             "frac_mass_water_recovery": 0.99,
-            "CaO_dosing": 9861.65,
+            "CaO_dosing":2624.48,
             "Na2CO3_dosing": 15652.67,
             "CO2_first_basin": 385.66,
             "CO2_second_basin": 6547.4,
@@ -1000,7 +1001,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 2294225.15,
+            "aggregate_capital_cost": 2180583.39,
             "aggregate_fixed_operating_cost": 936733.35,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": 0.259455,
@@ -1015,9 +1016,9 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
                 "mgcl2": 415895.3,
                 "co2": 1142722.15,
             },
-            "total_capital_cost": 2294225.15,
+            "total_capital_cost": 2180583.39,
             "total_operating_cost": 4327304,
-            "aggregate_direct_capital_cost": 2294225.15,
+            "aggregate_direct_capital_cost": 2180583.39,
             "maintenance_labor_chemical_operating_cost": 68826.75,
             "total_fixed_operating_cost": 1005560.11,
             "total_variable_operating_cost": 3321743.95,
@@ -1033,7 +1034,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
                 assert pytest.approx(value(softv), rel=1e-3) == r
 
         soft_cost_results = {
-            "capital_cost": 2294225.15,
+            "capital_cost": 2180583.39,
             "fixed_operating_cost": 936733.35,
             "mixer_power": 94.82,
             "floc_power": 164.62,
@@ -1052,7 +1053,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             "lime_feed_op_cost": 451555.6,
             "lime_sludge_mngt_op_cost": 316306.48,
             "admin_op_cost": 88670.96,
-            "direct_capital_cost": 2294225.15,
+            "direct_capital_cost": 2180583.39,
             "cao_dosing": 3908257.93,
             "mgcl2_dosing": 714737.63,
             "co2_dosing": 2532303.54,
