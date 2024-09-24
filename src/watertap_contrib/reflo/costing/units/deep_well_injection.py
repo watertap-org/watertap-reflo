@@ -16,6 +16,8 @@ from pyomo.environ import (
     NonNegativeReals,
     Var,
     Param,
+    log,
+    exp,
     units as pyunits,
 )
 
@@ -123,7 +125,7 @@ def build_deep_well_injection_cost_param_block(blk):
     blk.monitoring_well_capital_cost_base = Param(
         initialize=31.337,
         mutable=True,
-        units=pyunits.kUSD_2001 * pyunits.feet**-1,
+        units=pyunits.kUSD_2001,
         doc="Monitoring well capital cost equation - base",
     )
 
@@ -137,7 +139,7 @@ def build_deep_well_injection_cost_param_block(blk):
     blk.mobilization_capital_cost_base = Param(
         initialize=31.337,
         mutable=True,
-        units=pyunits.kUSD_2001 * pyunits.feet**-1,
+        units=pyunits.kUSD_2001,
         doc="Mobilization capital cost equation - base",
     )
 
@@ -159,7 +161,10 @@ def cost_deep_well_injection(blk):
     """
     dwi_params = blk.costing_package.deep_well_injection
     dwi = blk.unit_model
-    pipe_diam_dimensionless = pyunits.convert(dwi.pipe_diameter * pyunits.inches **-1, to_units=pyunits.dimensionless)
+    pipe_diam_dimensionless = pyunits.convert(
+        dwi.pipe_diameter * pyunits.inches**-1, to_units=pyunits.dimensionless
+    )
+    well_depth_dimensionless = pyunits.convert(dwi.well_depth * pyunits.ft**-1, to_units=pyunits.dimensionless)
     make_capital_cost_var(blk)
     # make_fixed_operating_cost_var(blk)
 
@@ -233,7 +238,8 @@ def cost_deep_well_injection(blk):
     capital_cost_expr += blk.logging_testing_capital_cost
 
     blk.drilling_capital_cost_constraint = Constraint(
-        expr=blk.drilling_capital_cost == pyunits.convert(
+        expr=blk.drilling_capital_cost
+        == pyunits.convert(
             dwi_params.drilling_capital_cost_slope * dwi.pipe_diameter
             + dwi_params.drilling_capital_cost_intercept,
             to_units=blk.costing_package.base_currency,
@@ -243,14 +249,70 @@ def cost_deep_well_injection(blk):
     capital_cost_expr += blk.drilling_capital_cost
 
     blk.tubing_capital_cost_constraint = Constraint(
-        expr=blk.tubing_capital_cost == pyunits.convert(
-            dwi_params.tubing_capital_cost_base * pipe_diam_dimensionless
-            + dwi_params.tubing_capital_cost_exponent,
+        expr=blk.tubing_capital_cost
+        == pyunits.convert(
+            dwi_params.tubing_capital_cost_base
+            * pipe_diam_dimensionless**dwi_params.tubing_capital_cost_exponent,
             to_units=blk.costing_package.base_currency,
         )
     )
 
     capital_cost_expr += blk.tubing_capital_cost
+
+    blk.packing_capital_cost_constraint = Constraint(
+        expr=blk.packing_capital_cost
+        == pyunits.convert(
+            dwi_params.packing_capital_cost_base * log(pipe_diam_dimensionless)
+            + dwi_params.packing_capital_cost_intercept,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.packing_capital_cost
+
+    blk.casing_capital_cost_constraint = Constraint(
+        expr=blk.casing_capital_cost
+        == pyunits.convert(
+            dwi_params.casing_capital_cost_slope * dwi.pipe_diameter
+            + dwi_params.casing_capital_cost_intercept,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.casing_capital_cost
+
+    blk.grouting_capital_cost_constraint = Constraint(
+        expr=blk.grouting_capital_cost
+        == pyunits.convert(
+            dwi_params.grouting_capital_cost_base
+            * exp(dwi_params.grouting_capital_cost_exp_coeff * dwi.pipe_diameter),
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.grouting_capital_cost
+
+    blk.monitoring_well_capital_cost_constraint = Constraint(
+        expr=blk.monitoring_well_capital_cost
+        == pyunits.convert(
+            dwi_params.monitoring_well_capital_cost_base
+            * well_depth_dimensionless**dwi_params.monitoring_well_capital_cost_exponent,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.monitoring_well_capital_cost
+
+    blk.mobilization_capital_cost_constraint = Constraint(
+        expr=blk.mobilization_capital_cost
+        == pyunits.convert(
+            dwi_params.mobilization_capital_cost_base
+            * well_depth_dimensionless**dwi_params.mobilization_capital_cost_exponent,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.mobilization_capital_cost
 
     blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = Constraint(expr=blk.capital_cost == capital_cost_expr)

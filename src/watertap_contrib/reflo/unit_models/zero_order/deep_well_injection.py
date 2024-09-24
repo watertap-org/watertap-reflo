@@ -243,7 +243,7 @@ if __name__ == "__main__":
     }
 
     flow_mgd = 5.08 * pyunits.Mgallons / pyunits.day
-    flow_mgd = 21 * pyunits.Mgallons / pyunits.day
+    flow_mgd = 4 * pyunits.Mgallons / pyunits.day
     rho = 1000 * pyunits.kg / pyunits.m**3
 
     flow_mass_water_in = pyunits.convert(
