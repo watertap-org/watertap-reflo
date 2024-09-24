@@ -18,8 +18,11 @@ from pyomo.environ import (
     Param,
     log,
     exp,
+    value,
     units as pyunits,
 )
+from idaes.core.util.exceptions import ConfigurationError
+from idaes.core.util.misc import StrEnum
 
 from watertap.costing.util import register_costing_parameter_block
 from ..util import (
@@ -27,7 +30,7 @@ from ..util import (
     make_fixed_operating_cost_var,
 )
 
-cost_param_dict = {
+costing_params_dict = {
     2500: {
         "logging_testing": {"intercept": 251.48, "slope": 4.5193},
         "drilling": {"intercept": 338.05, "slope": 17.611},
@@ -39,7 +42,7 @@ cost_param_dict = {
         "logging_testing": {"intercept": 306.27, "slope": 5.5412},
         "drilling": {"intercept": 616.91, "slope": 31.783},
         "tubing": {"base": 213.65, "exponent": 0.3748},
-        "casing": {"intercept": 698.25 "slope": 37.591},
+        "casing": {"intercept": 698.25, "slope": 37.591},
         "grouting": {"base": 268.83, "exp_coeff": 0.0708},
     },
     7500: {
@@ -59,23 +62,91 @@ cost_param_dict = {
 }
 
 
-def build_deep_well_injection_cost_param_block(blk):
-    """
-    Parameters and variables to be used in the costing model
-    References :
+class DeepWellInjectionCostMethod(StrEnum):
+    simple = "simple"
+    blm = "blm"
 
-    """
+
+def cost_deep_well_injection(blk, cost_method=DeepWellInjectionCostMethod.blm):
+
+    if cost_method == DeepWellInjectionCostMethod.blm:
+        cost_deep_well_injection_blm(blk)
+    elif cost_method == DeepWellInjectionCostMethod.simple:
+        cost_deep_well_injection_simple(blk)
+    else:
+        raise ConfigurationError(
+            f"{blk.unit_model.name} received invalid argument for cost_method:"
+            f" {cost_method} argument must be a member of the DeepWellInjectionCostMethod Enum."
+        )
+
+
+def build_deep_well_injection_cost_simple_param_block(blk):
     costing = blk.parent_block()
+    blk.dwi_lcow = Param(
+        initialize=0.0587,
+        mutable=True,
+        units=costing.base_currency / pyunits.m**3,
+        doc="Assumed LCOW of deep well injection",
+    )
 
-    blk.packing_capital_cost_base = Param(
-        initialize=579.85,
+
+@register_costing_parameter_block(
+    build_rule=build_deep_well_injection_cost_simple_param_block,
+    parameter_block_name="deep_well_injection",
+)
+def cost_deep_well_injection_simple(blk):
+    """
+    When this method is used, capital and fixed operating costs are calculated
+    so that the unit LCOW will equal the value provided for 'dwi_lcow' on the
+    parameter costing block (e.g., m.fs.costing.deep_well_injection)
+    """
+    make_capital_cost_var(blk)
+    make_fixed_operating_cost_var(blk)
+    blk.costing_package.add_cost_factor(blk, None)
+
+    blk.annual_flow = pyunits.convert(
+        blk.unit_model.properties[0].flow_vol_phase["Liq"]
+        * blk.costing_package.utilization_factor,
+        to_units=pyunits.m**3 / blk.costing_package.base_period,
+    )
+
+    blk.capital_cost_constraint = Constraint(
+        expr=blk.capital_cost
+        == pyunits.convert(
+            (blk.costing_package.deep_well_injection.dwi_lcow * blk.annual_flow)
+            / blk.costing_package.capital_recovery_factor,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    blk.fixed_operating_cost_constraint = Constraint(
+        expr=blk.fixed_operating_cost
+        == -blk.costing_package.maintenance_labor_chemical_factor * blk.capital_cost
+    )
+
+
+def build_deep_well_injection_cost_blm_param_block(blk):
+    """
+    Costing DWI unit model from BLM reference
+
+    Membrane Concentrate Disposal: Practices and Regulation
+    Michael C. Mickley, P.E., Ph.D.
+    Prepared for US Dept. of Interior, Bureau of Land Management
+    Agreement No. 98-FC-81-0054
+    April 2006
+
+
+    """
+
+    blk.packing_capital_cost_slope = Param(
+        initialize=21.153,
         mutable=True,
         units=pyunits.kUSD_2001,
         doc="Packing capital cost equation - base",
     )
 
     blk.packing_capital_cost_intercept = Param(
-        initialize=596.64,
+        initialize=37.31,
         mutable=True,
         units=pyunits.kUSD_2001,
         doc="Packing capital cost equation - intercept",
@@ -110,20 +181,6 @@ def build_deep_well_injection_cost_param_block(blk):
     )
 
     # All default values are for 2,500 ft depth
-
-    blk.logging_testing_capital_cost_intercept = Param(
-        initialize=251.48,
-        mutable=True,
-        units=pyunits.kUSD_2001,
-        doc="Logging + testing capital cost equation - intercept",
-    )
-
-    blk.logging_testing_capital_cost_slope = Param(
-        initialize=4.5193,
-        mutable=True,
-        units=pyunits.kUSD_2001 * pyunits.inches**-1,
-        doc="Logging + testing capital cost equation - slope",
-    )
 
     blk.drilling_capital_cost_intercept = Param(
         initialize=338.05,
@@ -181,14 +238,29 @@ def build_deep_well_injection_cost_param_block(blk):
         doc="Grouting capital cost equation - exponential coefficient",
     )
 
+    blk.logging_testing_capital_cost_intercept = Param(
+        initialize=251.48,
+        mutable=True,
+        units=pyunits.kUSD_2001,
+        doc="Logging + testing capital cost equation - intercept",
+    )
+
+    blk.logging_testing_capital_cost_slope = Param(
+        initialize=4.5193,
+        mutable=True,
+        units=pyunits.kUSD_2001 * pyunits.inches**-1,
+        doc="Logging + testing capital cost equation - slope",
+    )
+
 
 @register_costing_parameter_block(
-    build_rule=build_deep_well_injection_cost_param_block,
+    build_rule=build_deep_well_injection_cost_blm_param_block,
     parameter_block_name="deep_well_injection",
 )
-def cost_deep_well_injection(blk):
+def cost_deep_well_injection_blm(blk):
     """
     Capital and operating costs for deep well injection
+    based on BLM reference
     """
     dwi_params = blk.costing_package.deep_well_injection
     dwi = blk.unit_model
@@ -202,14 +274,16 @@ def cost_deep_well_injection(blk):
         dwi.monitoring_well_depth * pyunits.ft**-1, to_units=pyunits.dimensionless
     )
     make_capital_cost_var(blk)
-    # make_fixed_operating_cost_var(blk)
 
-    blk.logging_testing_capital_cost = Var(
-        initialize=1e5,
-        domain=NonNegativeReals,
-        units=blk.costing_package.base_currency,
-        doc="Logging + testing capital costs",
-    )
+    costing_params_depth_dict = costing_params_dict[
+        int(value(injection_well_depth_dimensionless))
+    ]
+    # change value of costing parameters based on
+    # user provided injection_well_depth
+    for cv, d in costing_params_depth_dict.items():
+        for p, v in d.items():
+            cvp = getattr(dwi_params, f"{cv}_capital_cost_{p}")
+            cvp.set_value(v)
 
     blk.drilling_capital_cost = Var(
         initialize=1e5,
@@ -260,18 +334,14 @@ def cost_deep_well_injection(blk):
         doc="Mobilization capital costs",
     )
 
-    capital_cost_expr = 0
-
-    blk.logging_testing_capital_cost_constraint = Constraint(
-        expr=blk.logging_testing_capital_cost
-        == pyunits.convert(
-            dwi_params.logging_testing_capital_cost_slope * dwi.pipe_diameter
-            + dwi_params.logging_testing_capital_cost_intercept,
-            to_units=blk.costing_package.base_currency,
-        )
+    blk.logging_testing_capital_cost = Var(
+        initialize=1e5,
+        domain=NonNegativeReals,
+        units=blk.costing_package.base_currency,
+        doc="Logging + testing capital costs",
     )
 
-    capital_cost_expr += blk.logging_testing_capital_cost
+    capital_cost_expr = 0
 
     blk.drilling_capital_cost_constraint = Constraint(
         expr=blk.drilling_capital_cost
@@ -298,7 +368,7 @@ def cost_deep_well_injection(blk):
     blk.packing_capital_cost_constraint = Constraint(
         expr=blk.packing_capital_cost
         == pyunits.convert(
-            dwi_params.packing_capital_cost_base * log(pipe_diam_dimensionless)
+            dwi_params.packing_capital_cost_slope * log(pipe_diam_dimensionless)
             + dwi_params.packing_capital_cost_intercept,
             to_units=blk.costing_package.base_currency,
         )
@@ -352,5 +422,34 @@ def cost_deep_well_injection(blk):
 
     capital_cost_expr += blk.mobilization_capital_cost
 
+    blk.logging_testing_capital_cost_constraint = Constraint(
+        expr=blk.logging_testing_capital_cost
+        == pyunits.convert(
+            dwi_params.logging_testing_capital_cost_slope * dwi.pipe_diameter
+            + dwi_params.logging_testing_capital_cost_intercept,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.logging_testing_capital_cost
+
     blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = Constraint(expr=blk.capital_cost == capital_cost_expr)
+
+    blk.pumping_power_required = Var(
+        initialize=1e3,
+        bounds=(0, None),
+        units=pyunits.kilowatt,
+        doc="Pumping power required",
+    )
+
+    # calculate power required based on user provided required pumping pressure
+    # TODO: add capital cost for pump?
+    blk.pumping_power_required_constraint = Constraint(
+        expr=blk.pumping_power_required
+        == pyunits.convert(
+            dwi.properties[0].flow_vol_phase["Liq"] * dwi.injection_pressure,
+            to_units=pyunits.kilowatt,
+        )
+    )
+    blk.costing_package.cost_flow(blk.pumping_power_required, "electricity")
