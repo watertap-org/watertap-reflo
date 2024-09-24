@@ -20,7 +20,6 @@ from pyomo.environ import (
     Expr_if,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
-from idaes.core.util.math import smooth_min, smooth_max, smooth_bound
 
 # Import IDAES cores
 from idaes.core import (
@@ -28,7 +27,7 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
-from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
+from idaes.core.util.math import smooth_bound
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.misc import StrEnum
@@ -114,7 +113,7 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
     CONFIG.declare(
         "injection_well_depth",
         ConfigValue(
-            default=5000,
+            default=2500,
             domain=In([2500, 5000, 7500, 10000]),
             description="Depth of injection well. Costing is available for 2500, 5000, 7500, and 10000 ft depths.",
             doc="""Depth of injection well for costing purposes.""",
@@ -148,6 +147,12 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
             doc="Exponent parameter for pipe diameter equation",
         )
 
+        self.injection_pressure = Param(
+            initialize=5,
+            units=pyunits.bar,
+            doc="Pressure required for injection",
+        )
+
         self.injection_well_depth = Param(
             initialize=self.config.injection_well_depth,
             units=pyunits.ft,
@@ -159,11 +164,6 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
             mutable=True,
             units=pyunits.ft,
             doc="Depth of monitoring well",
-        )
-
-        self.flow_mgd = pyunits.convert(
-            self.properties[0].flow_vol_phase["Liq"],
-            to_units=pyunits.Mgallons / pyunits.day,
         )
 
         @self.Expression(doc="Injection pipe diameter in inches")
@@ -181,7 +181,6 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
                 b.pipe_diameter_coeff * flow_mgd_dimensionless**b.pipe_diameter_exponent
             )
             return smooth_bound(pipe_diameter, 2, 24) * pyunits.inches
-            # return pipe_diameter
 
     @property
     def default_costing_method(self):
@@ -251,7 +250,7 @@ if __name__ == "__main__":
     }
 
     flow_mgd = 5.08 * pyunits.Mgallons / pyunits.day
-    flow_mgd = 4 * pyunits.Mgallons / pyunits.day
+    # flow_mgd = 0.95 * pyunits.Mgallons / pyunits.day
     rho = 1000 * pyunits.kg / pyunits.m**3
 
     flow_mass_water_in = pyunits.convert(
@@ -261,12 +260,12 @@ if __name__ == "__main__":
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = MCASParameterBlock(solute_list=inlet_conc.keys())
-    m.fs.dwi = dwi = DeepWellInjection(property_package=m.fs.properties)
+    m.fs.dwi = dwi = DeepWellInjection(property_package=m.fs.properties, injection_well_depth=2500)
     m.fs.costing = TreatmentCosting()
+    # m.fs.costing.base_currency = pyunits.kUSD_2001
     m.fs.dwi.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(dwi.properties[0].flow_vol_phase["Liq"])
-
     prop_in = dwi.properties[0]
     prop_in.temperature.fix()
     prop_in.pressure.fix()
@@ -291,11 +290,15 @@ if __name__ == "__main__":
         index=("Liq", "H2O"),
     )
 
+    dwi.injection_pressure.set_value(1)
+
     results = solver.solve(m)
+
 
     print(
         f"pipe_diameter = {dwi.pipe_diameter()} {pyunits.get_units(dwi.pipe_diameter)}"
     )
+    print(f"well_depth = {dwi.injection_well_depth()} ft")
     print()
     print(f"DOF = {degrees_of_freedom(m)}")
     print(f"LCOW = {m.fs.costing.LCOW()}")
@@ -307,4 +310,7 @@ if __name__ == "__main__":
     # )
     # dwi.well_depth.display()
 
-    # dwi.costing.display()
+    dwi.costing.display()
+    m.fs.costing.total_operating_cost.display()
+    m.fs.costing.total_fixed_operating_cost.display()
+    m.fs.costing.total_variable_operating_cost.display()
