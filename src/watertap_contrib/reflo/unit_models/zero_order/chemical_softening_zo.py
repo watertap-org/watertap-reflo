@@ -28,6 +28,7 @@ from idaes.core import (
     useDefault,
 )
 from idaes.core.util.tables import create_stream_table_dataframe
+from idaes.core.util.math import smooth_min, smooth_max
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.misc import StrEnum
 from idaes.core.util.exceptions import InitializationError
@@ -433,6 +434,34 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="Sludge production rate in kg/day",
         )
 
+        self.total_hardness = Var(
+            initialize=100,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.m**3,
+            doc="Total hardness",
+        )
+
+        self.carbonate_hardness = Var(
+            initialize=100,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.m**3,
+            doc="Total carbonate hardness",
+        )
+
+        self.noncarbonate_hardness = Var(
+            initialize=100,
+            bounds=(0, None),
+            units=pyunits.kg / pyunits.m**3,
+            doc="Total noncarbonate hardness",
+        )
+
+        self.eps = Param(
+            initialize=1e-18,
+            units=pyunits.kg / pyunits.m**3,
+            mutable=True,
+            doc="Smoothing factor",
+        )
+
         # Add Ca,Mg carbonate hardness
 
         @self.Expression(doc="Calcium in influent converted to equivalent CaCO3")
@@ -451,44 +480,56 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.m**3,
             )
 
+        @self.Constraint(doc="Total Hardness in CaCO3")
+        def eq_total_hardness(b):
+            return b.total_hardness == pyunits.convert(
+                b.Ca_CaCO3 + b.Mg_CaCO3, to_units=pyunits.kg / pyunits.m**3
+            )
+
+        @self.Constraint(doc="Total Hardness in CaCO3")
+        def eq_carbonate_hardness(b):
+            return b.carbonate_hardness == pyunits.convert(
+                smooth_min(
+                    b.total_hardness,
+                    b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                    b.eps,
+                ),
+                to_units=pyunits.kg / pyunits.m**3,
+            )
+
+        @self.Constraint(doc="Total Hardness in CaCO3")
+        def eq_noncarbonate_hardness(b):
+            return b.noncarbonate_hardness == pyunits.convert(
+                b.total_hardness - b.carbonate_hardness,
+                to_units=pyunits.kg / pyunits.m**3,
+            )
+
         @self.Expression(doc="Calculate Calcium carbonate hardness")
         def Ca_hardness_CaCO3(b):
-            return Expr_if(
-                b.Ca_CaCO3
-                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                b.Ca_CaCO3,
-            )
+            return smooth_min(b.Ca_CaCO3, b.carbonate_hardness, b.eps)
 
         @self.Expression(doc="Calculate Calcium non carbonate hardness")
         def Ca_hardness_nonCaCO3(b):
-            return Expr_if(
-                b.Ca_CaCO3
-                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                b.Ca_CaCO3
-                - b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                1e-15 * pyunits.kg / pyunits.m**3,
+            return smooth_max(
+                b.Ca_CaCO3 - b.carbonate_hardness,
+                0 * pyunits.kg / pyunits.m**3,
+                b.eps,
             )
 
         @self.Expression(doc="Calculate Magnesium carbonate hardness")
         def Mg_hardness_CaCO3(b):
-            return Expr_if(
-                b.Ca_CaCO3
-                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
-                1e-15 * pyunits.kg / pyunits.m**3,
-                b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-                - b.Ca_CaCO3,
+            return smooth_max(
+                b.carbonate_hardness - b.Ca_CaCO3,
+                0 * pyunits.kg / pyunits.m**3,
+                b.eps,
             )
 
         @self.Expression(doc="Calculate Magnesium non carbonate hardness")
         def Mg_hardness_nonCaCO3(b):
-            return Expr_if(
-                b.Ca_CaCO3
-                >= b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+            return smooth_min(
                 b.Mg_CaCO3,
-                b.Mg_CaCO3
-                + b.Ca_CaCO3
-                - b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"],
+                b.total_hardness - b.carbonate_hardness,
+                b.eps,
             )
 
         @self.Expression(doc="Mg removal efficiency")
@@ -1127,6 +1168,15 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.sludge_prod) is None:
             iscale.set_scaling_factor(self.sludge_prod, 1)
+
+        if iscale.get_scaling_factor(self.total_hardness) is None:
+            iscale.set_scaling_factor(self.total_hardness, 1e-1)
+
+        if iscale.get_scaling_factor(self.carbonate_hardness) is None:
+            iscale.set_scaling_factor(self.carbonate_hardness, 1e-1)
+
+        if iscale.get_scaling_factor(self.noncarbonate_hardness) is None:
+            iscale.set_scaling_factor(self.noncarbonate_hardness, 1e-1)
 
         if isinstance(self.MgCl2_dosing, Var):
             if iscale.get_scaling_factor(self.MgCl2_dosing) is None:
