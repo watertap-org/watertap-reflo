@@ -28,6 +28,7 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
+from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.misc import StrEnum
@@ -108,6 +109,16 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
         ),
     )
 
+    CONFIG.declare(
+        "well_depth",
+        ConfigValue(
+            default=5000,
+            domain=In([2500, 5000, 7500, 10000]),
+            description="Depth of injection well. Costing is available for 2500, 5000, 7500, and 10000 ft depths.",
+            doc="""Depth of injection well for costing purposes.""",
+        ),
+    )
+
     def build(self):
         super().build()
 
@@ -133,6 +144,12 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
             initialize=0.4998,
             units=pyunits.dimensionless,
             doc="Exponent parameter for pipe diameter equation",
+        )
+
+        self.well_depth = Param(
+            initialize=self.config.well_depth,
+            units=pyunits.ft,
+            doc="Depth of injection well",
         )
 
         self.flow_mgd = pyunits.convert(
@@ -268,3 +285,4 @@ if __name__ == "__main__":
         dwi.properties[0].flow_mass_phase_comp["Liq", "H2O"](),
         dwi.properties[0].flow_vol_phase["Liq"](),
     )
+    dwi.well_depth.display()
