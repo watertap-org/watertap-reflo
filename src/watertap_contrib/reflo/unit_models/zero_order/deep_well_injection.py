@@ -38,7 +38,9 @@ import idaes.logger as idaeslog
 
 from watertap.core import InitializationMixin
 from watertap.core.solvers import get_solver
-
+from watertap_contrib.reflo.costing.units.deep_well_injection import (
+    cost_deep_well_injection,
+)
 
 __author__ = "Kurban Sitterley"
 
@@ -173,7 +175,10 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
             )
             return smooth_bound(pipe_diameter, 2, 24) * pyunits.inches
             # return pipe_diameter
-
+    
+    @property
+    def default_costing_method(self):
+        return cost_deep_well_injection
 
 if __name__ == "__main__":
 
@@ -249,6 +254,10 @@ if __name__ == "__main__":
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = MCASParameterBlock(solute_list=inlet_conc.keys())
     m.fs.dwi = dwi = DeepWellInjection(property_package=m.fs.properties)
+    m.fs.costing = TreatmentCosting()
+    m.fs.dwi.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(dwi.properties[0].flow_vol_phase["Liq"])
 
     prop_in = dwi.properties[0]
     prop_in.temperature.fix()
@@ -276,13 +285,16 @@ if __name__ == "__main__":
 
     results = solver.solve(m)
 
-    print(f"pipe_diameter = {dwi.pipe_diameter()}")
-    print(pyunits.get_units(dwi.pipe_diameter))
+    print(f"pipe_diameter = {dwi.pipe_diameter()} {pyunits.get_units(dwi.pipe_diameter)}")
+    print()
     print(f"DOF = {degrees_of_freedom(m)}")
-    print(
-        dwi.flow_mgd(),
-        flow_mass_water_in(),
-        dwi.properties[0].flow_mass_phase_comp["Liq", "H2O"](),
-        dwi.properties[0].flow_vol_phase["Liq"](),
-    )
-    dwi.well_depth.display()
+    print(f"LCOW = {m.fs.costing.LCOW()}")
+    # print(
+    #     dwi.flow_mgd(),
+    #     flow_mass_water_in(),
+    #     dwi.properties[0].flow_mass_phase_comp["Liq", "H2O"](),
+    #     dwi.properties[0].flow_vol_phase["Liq"](),
+    # )
+    # dwi.well_depth.display()
+
+    # dwi.costing.display()
