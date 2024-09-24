@@ -112,7 +112,7 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
     )
 
     CONFIG.declare(
-        "well_depth",
+        "injection_well_depth",
         ConfigValue(
             default=5000,
             domain=In([2500, 5000, 7500, 10000]),
@@ -148,10 +148,17 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
             doc="Exponent parameter for pipe diameter equation",
         )
 
-        self.well_depth = Param(
-            initialize=self.config.well_depth,
+        self.injection_well_depth = Param(
+            initialize=self.config.injection_well_depth,
             units=pyunits.ft,
             doc="Depth of injection well",
+        )
+
+        self.monitoring_well_depth = Param(
+            initialize=1000,
+            mutable=True,
+            units=pyunits.ft,
+            doc="Depth of monitoring well",
         )
 
         self.flow_mgd = pyunits.convert(
@@ -175,10 +182,11 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
             )
             return smooth_bound(pipe_diameter, 2, 24) * pyunits.inches
             # return pipe_diameter
-    
+
     @property
     def default_costing_method(self):
         return cost_deep_well_injection
+
 
 if __name__ == "__main__":
 
@@ -285,7 +293,9 @@ if __name__ == "__main__":
 
     results = solver.solve(m)
 
-    print(f"pipe_diameter = {dwi.pipe_diameter()} {pyunits.get_units(dwi.pipe_diameter)}")
+    print(
+        f"pipe_diameter = {dwi.pipe_diameter()} {pyunits.get_units(dwi.pipe_diameter)}"
+    )
     print()
     print(f"DOF = {degrees_of_freedom(m)}")
     print(f"LCOW = {m.fs.costing.LCOW()}")
