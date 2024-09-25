@@ -364,10 +364,6 @@ class TestChemSoft_SingleStageLime:
         soft.CO2_CaCO3.fix(CO2_in)
         soft.vel_gradient_mix.fix(300)
         soft.vel_gradient_floc.fix(50)
-        soft.excess_CaO.fix(0)
-        soft.CO2_second_basin.fix(0)
-        soft.Na2CO3_dosing.fix(0)
-        soft.MgCl2_dosing.fix(0)
 
         return m
 
@@ -609,7 +605,6 @@ class TestChemSoft_ExcessLime:
         soft.number_mixers.set_value(1)
         soft.number_floc.set_value(2)
 
-        soft.MgCl2_dosing.fix(0)
         soft.ca_eff_target.fix(0.0007)
         soft.mg_eff_target.fix(0.00006)
 
@@ -622,8 +617,6 @@ class TestChemSoft_ExcessLime:
         soft.CO2_CaCO3.fix(CO2_in)
         soft.vel_gradient_mix.fix(300)
         soft.vel_gradient_floc.fix(50)
-        soft.CO2_second_basin.fix(0)
-        soft.Na2CO3_dosing.fix(0)
 
         return m
 
