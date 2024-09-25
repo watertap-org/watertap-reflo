@@ -42,7 +42,7 @@ from watertap.property_models.multicomp_aq_sol_prop_pack import (
 )
 
 from watertap_contrib.reflo.unit_models.chemical_softening import (
-    ChemicalSofteningZO,
+    ChemicalSoftening,
 )
 from watertap_contrib.reflo.costing import TreatmentCosting
 
@@ -60,7 +60,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             solute_list=component_list, material_flow_basis=MaterialFlowBasis.mass
         )
 
-        m.fs.soft = soft = ChemicalSofteningZO(
+        m.fs.soft = soft = ChemicalSoftening(
             property_package=m.fs.properties,
             silica_removal=True,
             softening_procedure_type="excess_lime_soda",
@@ -310,7 +310,7 @@ class TestChemSoft_SingleStageLime:
             solute_list=component_list, material_flow_basis=MaterialFlowBasis.mass
         )
 
-        m.fs.soft = soft = ChemicalSofteningZO(
+        m.fs.soft = soft = ChemicalSoftening(
             property_package=m.fs.properties,
             silica_removal=False,
             softening_procedure_type="single_stage_lime",
@@ -566,7 +566,7 @@ class TestChemSoft_ExcessLime:
             solute_list=component_list, material_flow_basis=MaterialFlowBasis.mass
         )
 
-        m.fs.soft = soft = ChemicalSofteningZO(
+        m.fs.soft = soft = ChemicalSoftening(
             property_package=m.fs.properties,
             silica_removal=False,
             softening_procedure_type="excess_lime",
@@ -823,7 +823,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
             solute_list=component_list, material_flow_basis=MaterialFlowBasis.mass
         )
 
-        m.fs.soft = soft = ChemicalSofteningZO(
+        m.fs.soft = soft = ChemicalSoftening(
             property_package=m.fs.properties,
             silica_removal=True,
             softening_procedure_type="excess_lime_soda",
