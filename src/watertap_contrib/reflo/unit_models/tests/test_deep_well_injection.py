@@ -47,6 +47,8 @@ from watertap_contrib.reflo.costing.units.deep_well_injection import (
 # Get default solver for testing
 solver = get_solver()
 
+rho = 1000 * pyunits.kg / pyunits.m**3
+
 
 def build_dwi_default():
     """
@@ -62,7 +64,6 @@ def build_dwi_default():
     }
 
     flow_mgd = 5.08 * pyunits.Mgallons / pyunits.day
-    rho = 1000 * pyunits.kg / pyunits.m**3
 
     flow_mass_phase_water = pyunits.convert(
         flow_mgd * rho, to_units=pyunits.kg / pyunits.s
@@ -113,7 +114,6 @@ def build_dwi_10000():
     }
 
     flow_mgd = 1 * pyunits.Mgallons / pyunits.day
-    rho = 1000 * pyunits.kg / pyunits.m**3
 
     flow_mass_phase_water = pyunits.convert(
         flow_mgd * rho, to_units=pyunits.kg / pyunits.s
@@ -171,6 +171,98 @@ def test_injection_well_depth_config():
         m.fs.unit = DeepWellInjection(
             property_package=m.fs.properties, injection_well_depth=1234567890
         )
+
+
+@pytest.mark.component()
+def test_smooth_bound_lower():
+    """
+    Test that smooth_bound will give lower bound on pipe_diameter.
+    """
+
+    inlet_conc = {
+        "Pb_2+": 200,
+    }
+
+    flow_mgd = 0.08 * pyunits.Mgallons / pyunits.day
+    flow_mass_phase_water = pyunits.convert(
+        flow_mgd * rho, to_units=pyunits.kg / pyunits.s
+    )
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = MCASParameterBlock(
+        solute_list=inlet_conc.keys(), material_flow_basis=MaterialFlowBasis.mass
+    )
+    m.fs.unit = dwi = DeepWellInjection(
+        property_package=m.fs.properties, injection_well_depth=5000
+    )
+    prop = dwi.properties[0]
+    prop.temperature.fix()
+    prop.pressure.fix()
+
+    prop.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water)
+    for solute, conc in inlet_conc.items():
+        mass_flow_solute = pyunits.convert(
+            flow_mgd * conc * pyunits.kg / pyunits.m**3,
+            to_units=pyunits.kg / pyunits.s,
+        )
+        prop.flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
+
+    assert degrees_of_freedom(m) == 0
+    m.fs.unit.initialize()
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+
+    assert pytest.approx(value(m.fs.unit.pipe_diameter), rel=1e-3) == 2
+
+    return m
+
+
+@pytest.mark.component()
+def test_smooth_bound_upper():
+    """
+    Test that smooth_bound will give upper bound on pipe_diameter.
+    """
+
+    inlet_conc = {
+        "Au_1+": 42,
+    }
+
+    flow_mgd = 200 * pyunits.Mgallons / pyunits.day
+    flow_mass_phase_water = pyunits.convert(
+        flow_mgd * rho, to_units=pyunits.kg / pyunits.s
+    )
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = MCASParameterBlock(
+        solute_list=inlet_conc.keys(), material_flow_basis=MaterialFlowBasis.mass
+    )
+    m.fs.unit = dwi = DeepWellInjection(
+        property_package=m.fs.properties, injection_well_depth=5000
+    )
+    prop = dwi.properties[0]
+    prop.temperature.fix()
+    prop.pressure.fix()
+
+    prop.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water)
+    for solute, conc in inlet_conc.items():
+        mass_flow_solute = pyunits.convert(
+            flow_mgd * conc * pyunits.kg / pyunits.m**3,
+            to_units=pyunits.kg / pyunits.s,
+        )
+        prop.flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
+
+    assert degrees_of_freedom(m) == 0
+    m.fs.unit.initialize()
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+
+    assert pytest.approx(value(m.fs.unit.pipe_diameter), rel=1e-3) == 24
+
+    return m
 
 
 class TestDeepWellInjection_BLMCosting:
