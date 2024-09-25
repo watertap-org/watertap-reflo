@@ -182,7 +182,7 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
             )
             return smooth_bound(pipe_diameter, 2, 24) * pyunits.inches
 
-    def initialize_build(
+    def initialize(
         blk,
         state_args=None,
         outlvl=idaeslog.NOTSET,
@@ -320,11 +320,11 @@ if __name__ == "__main__":
     m.fs.dwi = dwi = DeepWellInjection(
         property_package=m.fs.properties, injection_well_depth=2500
     )
-    # m.fs.costing = TreatmentCosting()
-    # # m.fs.costing.base_currency = pyunits.kUSD_2001
-    # m.fs.dwi.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-    # m.fs.costing.cost_process()
-    # m.fs.costing.add_LCOW(dwi.properties[0].flow_vol_phase["Liq"])
+    m.fs.costing = TreatmentCosting()
+    # m.fs.costing.base_currency = pyunits.kUSD_2001
+    m.fs.dwi.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(dwi.properties[0].flow_vol_phase["Liq"])
     prop_in = dwi.properties[0]
     prop_in.conc_mass_phase_comp
     prop_in.temperature.fix()
