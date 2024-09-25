@@ -22,6 +22,7 @@ from pyomo.network import Port
 from pyomo.util.check_units import assert_units_consistent
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
+from idaes.core.util.exceptions import ConfigurationError
 from idaes.core.util.testing import initialization_tester
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
@@ -152,6 +153,24 @@ def build_dwi_10000():
     )
 
     return m
+
+
+@pytest.mark.unit
+def test_injection_well_depth_config():
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = MCASParameterBlock(
+        solute_list=["Ca_2+"], material_flow_basis=MaterialFlowBasis.mass
+    )
+    error_msg = (
+        f"The injection well depth was specified as 1234567890. "
+        "The injection well depth must be 2500, 5000, 7500, or 10000."
+    )
+    with pytest.raises(ConfigurationError, match=error_msg):
+
+        m.fs.unit = DeepWellInjection(
+            property_package=m.fs.properties, injection_well_depth=1234567890
+        )
 
 
 class TestDeepWellInjection_BLMCosting:
@@ -406,7 +425,6 @@ class TestDeepWellInjection_10000ft:
 
         assert pytest.approx(value(m.fs.unit.pipe_diameter), rel=1e-3) == 5.33166
 
-
     @pytest.mark.component
     def test_costing(self, dwi_10000_frame):
         m = dwi_10000_frame
@@ -437,7 +455,9 @@ class TestDeepWellInjection_10000ft:
 
         for cv, d in costing_params_depth_dict.items():
             for p, v in d.items():
-                cvp = getattr(m.fs.costing.deep_well_injection, f"{cv}_capital_cost_{p}")
+                cvp = getattr(
+                    m.fs.costing.deep_well_injection, f"{cv}_capital_cost_{p}"
+                )
                 assert value(cvp) == v
 
         sys_cost_results = {
@@ -483,4 +503,3 @@ class TestDeepWellInjection_10000ft:
                     assert pytest.approx(value(dwiv[i]), rel=1e-3) == s
             else:
                 assert pytest.approx(value(dwiv), rel=1e-3) == r
-
