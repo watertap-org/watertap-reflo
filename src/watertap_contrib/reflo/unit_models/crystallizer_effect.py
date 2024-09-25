@@ -177,7 +177,7 @@ class CrystallizerEffectData(CrystallizationData):
         )
 
         self.overall_heat_transfer_coefficient = Var(
-            initialize=100.0,
+            initialize=0.1,
             bounds=(0, None),
             units=pyunits.kilowatt / pyunits.m**2 / pyunits.degK,
             doc="Overall heat transfer coefficient for heat exchangers",
@@ -426,7 +426,7 @@ class CrystallizerEffectData(CrystallizationData):
             iscale.set_scaling_factor(self.heat_exchanger_area, 0.1)
 
         if iscale.get_scaling_factor(self.overall_heat_transfer_coefficient) is None:
-            iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 0.01)
+            iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 10)
 
         for _, c in self.eq_p_con4.items():
             sf = iscale.get_scaling_factor(self.properties_pure_water[0].pressure)
