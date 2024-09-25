@@ -41,7 +41,7 @@ from watertap.property_models.multicomp_aq_sol_prop_pack import (
     MCASParameterBlock,
 )
 
-from watertap_contrib.reflo.unit_models.zero_order.chemical_softening_zo import (
+from watertap_contrib.reflo.unit_models.chemical_softening import (
     ChemicalSofteningZO,
 )
 from watertap_contrib.reflo.costing import TreatmentCosting
