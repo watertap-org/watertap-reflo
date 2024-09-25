@@ -799,7 +799,9 @@ def cost_chemical_softening(blk):
     @blk.Expression(doc="Costing block MgCl2 dosing")
     def mgcl2_dosing(b):
         return pyunits.convert(
-            b.unit_model.MgCl2_dosing * b.unit_model.MgCl2_mw/b.unit_model.Mg_mw  # to convert to MgCl2 solid
+            b.unit_model.MgCl2_dosing
+            * b.unit_model.MgCl2_mw
+            / b.unit_model.Mg_mw  # to convert to MgCl2 solid
             * b.unit_model.properties_in[0].flow_vol_phase["Liq"],
             to_units=pyunits.kg / pyunits.year,
         )

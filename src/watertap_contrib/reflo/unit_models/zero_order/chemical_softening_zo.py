@@ -204,7 +204,25 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             doc="Molecular weight of carbon dioxide",
         )
 
-        self.SiO2_check_conv  = Param(
+        self.Mg_mw = Param(
+            initialize=24.3,
+            units=pyunits.g / pyunits.mol,
+            doc="Molecular weight of Mg2+",
+        )
+
+        self.MgCl2_mw = Param(
+            initialize=95.2,
+            units=pyunits.g / pyunits.mol,
+            doc="Molecular weight of MgCl2",
+        )
+
+        self.MgOH2_mw = Param(
+            initialize=58.3,
+            units=pyunits.g / pyunits.mol,
+            doc="Molecular weight of Mg(OH)2",
+        )
+
+        self.SiO2_check_conv = Param(
             initialize=2.35,
             units=pyunits.dimensionless,
             doc="Silica conversion factor to compare with Mg2+ concentration",
@@ -628,12 +646,13 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             @self.Constraint(doc="Lime dosing")
             def eq_CaO_dosing(b):
                 return b.CaO_dosing == pyunits.convert(
-                    (b.CO2_CaCO3 
-                     + b.properties_in[0].conc_mass_phase_comp[
+                    (
+                        b.CO2_CaCO3
+                        + b.properties_in[0].conc_mass_phase_comp[
                             "Liq", "Alkalinity_2-"
                         ]
                         + b.Mg_CaCO3
-                        )
+                    )
                     * b.CaO_mw
                     / b.CaCO3_mw
                     * b.properties_in[0].flow_vol_phase["Liq"],
@@ -728,12 +747,13 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
             @self.Constraint(doc="Lime dosing")
             def eq_CaO_dosing(b):
                 return b.CaO_dosing == pyunits.convert(
-                    (b.CO2_CaCO3 
-                     + b.properties_in[0].conc_mass_phase_comp[
+                    (
+                        b.CO2_CaCO3
+                        + b.properties_in[0].conc_mass_phase_comp[
                             "Liq", "Alkalinity_2-"
                         ]
                         + b.Mg_CaCO3
-                        )
+                    )
                     * b.CaO_mw
                     / b.CaCO3_mw
                     * b.properties_in[0].flow_vol_phase["Liq"],
@@ -862,7 +882,7 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                     (
                         (
                             b.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"]
-                            * b.SiO2_check_conv 
+                            * b.SiO2_check_conv
                             > b.properties_in[0].conc_mass_phase_comp["Liq", "Mg_2+"]
                         )
                     ),
@@ -970,7 +990,9 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                         + b.Mg_hardness_nonCaCO3_sludge_factor * b.Mg_hardness_nonCaCO3
                         + b.excess_CaO
                         + b.properties_in[0].conc_mass_phase_comp["Liq", "TSS"]
-                        + b.MgCl2_dosing * b.MgOH2_mw/b.Mg_mw  # to convert to Mg(OH)2 solid
+                        + b.MgCl2_dosing
+                        * b.MgOH2_mw
+                        / b.Mg_mw  # to convert to Mg(OH)2 solid
                     )
                     * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.s,
@@ -987,7 +1009,9 @@ class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
                         + b.Ca_hardness_nonCaCO3
                         + b.Mg_hardness_nonCaCO3_sludge_factor * b.Mg_hardness_nonCaCO3
                         + b.excess_CaO
-                        + b.MgCl2_dosing* b.MgOH2_mw/b.Mg_mw  # to convert to Mg(OH)2 solid
+                        + b.MgCl2_dosing
+                        * b.MgOH2_mw
+                        / b.Mg_mw  # to convert to Mg(OH)2 solid
                     )
                     * b.properties_in[0].flow_vol_phase["Liq"],
                     to_units=pyunits.kg / pyunits.s,
