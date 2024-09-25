@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -38,11 +38,12 @@ import idaes.logger as idaeslog
 from watertap.core import InitializationMixin
 from watertap.core.solvers import get_solver
 
-from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
+from watertap_contrib.reflo.costing.units.chemical_softening import (
     cost_chemical_softening,
 )
 
 __author__ = "Mukta Hardikar, Abdiel Lugo, Kurban Sitterley, Zachary Binger"
+
 
 class SofteningProcedureType(StrEnum):
     single_stage_lime = "single_stage_lime"
@@ -139,6 +140,8 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
         """
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
+
+        # TODO: add ConfigurationError test for required components (Ca, Mg, Alk, etc)
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
@@ -286,6 +289,13 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             doc="Number of flocculators",
         )
 
+        self.eps = Param(
+            initialize=1e-18,
+            units=pyunits.kg / pyunits.m**3,
+            mutable=True,
+            doc="Smoothing factor",
+        )
+
         self.ca_eff_target = Var(
             initialize=0.20,
             bounds=(0, None),
@@ -302,6 +312,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
 
         # Creating default effluent composition of all solutes other than Ca and Mg
 
+        # TODO: determine if removal of Alk can be calculated
         removal_eff_dict = dict(
             zip(
                 non_hardness_comps,
@@ -441,6 +452,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             doc="Excess lime requiremenent",
         )
 
+        # TODO: make a function of pH
         self.CO2_CaCO3 = Var(
             initialize=0.1,
             units=pyunits.kg / pyunits.m**3,
@@ -476,13 +488,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             doc="Total noncarbonate hardness",
         )
 
-        self.eps = Param(
-            initialize=1e-18,
-            units=pyunits.kg / pyunits.m**3,
-            mutable=True,
-            doc="Smoothing factor",
-        )
-
         # Add Ca,Mg carbonate hardness
 
         @self.Expression(doc="Calcium in influent converted to equivalent CaCO3")
@@ -493,7 +498,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.m**3,
             )
 
-        @self.Expression(doc="Magnesium in influent converted to kg/m3 as CaCO3")
+        @self.Expression(doc="Magnesium in influent converted to equivalent CaCO3")
         def Mg_CaCO3(b):
             return pyunits.convert(
                 b.properties_in[0].conc_mass_phase_comp["Liq", "Mg_2+"]
