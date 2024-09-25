@@ -112,7 +112,6 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
-        # Check if the number of effects is valid
         if self.config.injection_well_depth not in [2500, 5000, 7500, 10000]:
             raise ConfigurationError(
                 f"The injection well depth was specified as {self.config.injection_well_depth}. The injection well depth must be 2500, 5000, 7500, or 10000."
@@ -121,7 +120,7 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
-        tmp_dict["defined_state"] = True  # inlet block is an inlet
+        tmp_dict["defined_state"] = True
         self.properties = self.config.property_package.state_block_class(
             self.flowsheet().config.time, doc="Material properties of inlet", **tmp_dict
         )
