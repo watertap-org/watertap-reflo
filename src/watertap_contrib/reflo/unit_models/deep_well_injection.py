@@ -16,7 +16,7 @@ from pyomo.environ import (
     Suffix,
     units as pyunits,
 )
-from pyomo.common.config import ConfigBlock, ConfigValue, In
+from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
 
 # Import IDAES cores
 from idaes.core import (
@@ -27,7 +27,7 @@ from idaes.core import (
 from idaes.core.util.math import smooth_bound
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.config import is_physical_parameter_block
-from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.exceptions import InitializationError, ConfigurationError
 import idaes.logger as idaeslog
 
 from watertap.core import InitializationMixin
@@ -101,7 +101,7 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
         "injection_well_depth",
         ConfigValue(
             default=2500,
-            domain=In([2500, 5000, 7500, 10000]),
+            domain=PositiveInt,
             description="Depth of injection well. Costing is available for 2500, 5000, 7500, and 10000 ft depths.",
             doc="""Depth of injection well for use with BLM costing approach.""",
         ),
@@ -111,6 +111,12 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
         super().build()
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
+
+        # Check if the number of effects is valid
+        if self.config.injection_well_depth not in [2500, 5000, 7500, 10000]:
+            raise ConfigurationError(
+                f"The injection well depth was specified as {self.config.injection_well_depth}. The injection well depth must be 2500, 5000, 7500, or 10000."
+            )
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
