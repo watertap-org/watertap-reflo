@@ -42,10 +42,7 @@ from watertap_contrib.reflo.costing.units.chemical_softening_zo import (
     cost_chemical_softening,
 )
 
-__author__ = "Mukta Hardikar, Abdiel Lugo, Kurban Sitterley"
-
-_log = idaeslog.getLogger(__name__)
-
+__author__ = "Mukta Hardikar, Abdiel Lugo, Kurban Sitterley, Zachary Binger"
 
 class SofteningProcedureType(StrEnum):
     single_stage_lime = "single_stage_lime"
@@ -54,10 +51,10 @@ class SofteningProcedureType(StrEnum):
     excess_lime_soda = "excess_lime_soda"
 
 
-@declare_process_block_class("ChemicalSofteningZO")
-class ChemicalSofteningZOData(InitializationMixin, UnitModelBlockData):
+@declare_process_block_class("ChemicalSoftening")
+class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
     """
-    Zero order chemical softening model
+    Chemical softening model
     """
 
     CONFIG = ConfigBlock()
