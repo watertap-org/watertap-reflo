@@ -142,8 +142,8 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 95
-        assert number_total_constraints(m) == 61
+        assert number_variables(m) == 96
+        assert number_total_constraints(m) == 62
         assert number_unused_variables(m) == 17
 
     @pytest.mark.unit
@@ -389,8 +389,8 @@ class TestChemSoft_SingleStageLime:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 85
-        assert number_total_constraints(m) == 50
+        assert number_variables(m) == 86
+        assert number_total_constraints(m) == 51
         assert number_unused_variables(m) == 18
 
     @pytest.mark.unit
@@ -642,8 +642,8 @@ class TestChemSoft_ExcessLime:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 85
-        assert number_total_constraints(m) == 51
+        assert number_variables(m) == 86
+        assert number_total_constraints(m) == 52
         assert number_unused_variables(m) == 18
 
     @pytest.mark.unit
@@ -898,8 +898,8 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 95
-        assert number_total_constraints(m) == 61
+        assert number_variables(m) == 96
+        assert number_total_constraints(m) == 62
         assert number_unused_variables(m) == 17
 
     @pytest.mark.unit
