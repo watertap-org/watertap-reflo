@@ -30,32 +30,34 @@ from ..util import (
     make_fixed_operating_cost_var,
 )
 
+__author__ = "Kurban Sitterley"
+
 blm_costing_params_dict = {
     2500: {
         "logging_testing": {"intercept": 251.48, "slope": 4.5193},
         "drilling": {"intercept": 338.05, "slope": 17.611},
-        "tubing": {"base": 116.65, "exponent": 0.3786},
+        "piping": {"base": 116.65, "exponent": 0.3786},
         "casing": {"intercept": 384.36, "slope": 20.545},
         "grouting": {"base": 145.01, "exp_coeff": 0.0708},
     },
     5000: {
         "logging_testing": {"intercept": 306.27, "slope": 5.5412},
         "drilling": {"intercept": 616.91, "slope": 31.783},
-        "tubing": {"base": 213.65, "exponent": 0.3748},
+        "piping": {"base": 213.65, "exponent": 0.3748},
         "casing": {"intercept": 698.25, "slope": 37.591},
         "grouting": {"base": 268.83, "exp_coeff": 0.0708},
     },
     7500: {
         "logging_testing": {"intercept": 361.17, "slope": 6.5739},
         "drilling": {"intercept": 889.24, "slope": 46.01},
-        "tubing": {"base": 309.88, "exponent": 0.3733},
+        "piping": {"base": 309.88, "exponent": 0.3733},
         "casing": {"intercept": 956.01, "slope": 51.407},
         "grouting": {"base": 368.65, "exp_coeff": 0.0709},
     },
     10000: {
         "logging_testing": {"intercept": 415.55, "slope": 7.5694},
         "drilling": {"intercept": 1166.5, "slope": 60.407},
-        "tubing": {"base": 407.38, "exponent": 0.3741},
+        "piping": {"base": 407.38, "exponent": 0.3741},
         "casing": {"intercept": 1228.1, "slope": 65.52},
         "grouting": {"base": 465.73, "exp_coeff": 0.0708},
     },
@@ -135,6 +137,7 @@ def build_deep_well_injection_cost_blm_param_block(blk):
     Agreement No. 98-FC-81-0054
     April 2006
 
+    Data from plots in this document was extracted and fit using Excel.
 
     """
 
@@ -196,18 +199,18 @@ def build_deep_well_injection_cost_blm_param_block(blk):
         doc="Drilling capital cost equation - slope",
     )
 
-    blk.tubing_capital_cost_base = Param(
+    blk.piping_capital_cost_base = Param(
         initialize=116.65,
         mutable=True,
         units=pyunits.kUSD_2001,
-        doc="Tubing capital cost equation - base",
+        doc="Injection piping capital cost equation - base",
     )
 
-    blk.tubing_capital_cost_exponent = Param(
+    blk.piping_capital_cost_exponent = Param(
         initialize=0.3786,
         mutable=True,
         units=pyunits.dimensionless,
-        doc="Tubing capital cost equation - exponent",
+        doc="Injection piping capital cost equation - exponent",
     )
 
     blk.casing_capital_cost_intercept = Param(
@@ -292,11 +295,11 @@ def cost_deep_well_injection_blm(blk):
         doc="Drilling capital costs",
     )
 
-    blk.tubing_capital_cost = Var(
+    blk.piping_capital_cost = Var(
         initialize=1e5,
         domain=NonNegativeReals,
         units=blk.costing_package.base_currency,
-        doc="Tubing capital costs",
+        doc="Injection piping capital costs",
     )
 
     blk.packing_capital_cost = Var(
@@ -354,16 +357,16 @@ def cost_deep_well_injection_blm(blk):
 
     capital_cost_expr += blk.drilling_capital_cost
 
-    blk.tubing_capital_cost_constraint = Constraint(
-        expr=blk.tubing_capital_cost
+    blk.piping_capital_cost_constraint = Constraint(
+        expr=blk.piping_capital_cost
         == pyunits.convert(
-            dwi_params.tubing_capital_cost_base
-            * pipe_diam_dimensionless**dwi_params.tubing_capital_cost_exponent,
+            dwi_params.piping_capital_cost_base
+            * pipe_diam_dimensionless**dwi_params.piping_capital_cost_exponent,
             to_units=blk.costing_package.base_currency,
         )
     )
 
-    capital_cost_expr += blk.tubing_capital_cost
+    capital_cost_expr += blk.piping_capital_cost
 
     blk.packing_capital_cost_constraint = Constraint(
         expr=blk.packing_capital_cost
