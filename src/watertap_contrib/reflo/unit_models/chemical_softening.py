@@ -502,18 +502,20 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             doc="Equation to calculate the inlet CO2 in the inlet in equivalent CaCO3"
         )
         def eq_CO2_CaCO3(b):
+            dimensionless_temp = pyunits.convert(
+                b.properties_in[0].temperature * pyunits.degK**-1,
+                to_units=pyunits.dimensionless,
+            )
             K1 = 10 ** (
-                14.8435
-                - 3404.71 / b.properties_in[0].temperature
-                - 0.032786 * b.properties_in[0].temperature
+                14.8435 - 3404.71 / dimensionless_temp - 0.032786 * dimensionless_temp
             )
             K2 = 10 ** (
-                6.498
-                - 2909.39 / b.properties_in[0].temperature
-                - 0.02379 * b.properties_in[0].temperature
+                6.498 - 2909.39 / dimensionless_temp - 0.02379 * dimensionless_temp
             )
 
-            alpha = 1 / ((10 ** (-b.pH)) / K1 + 1 + K2 / (10 ** (-b.pH)))
+            alpha = (
+                1 / ((10 ** (-b.pH)) / K1 + 1 + K2 / (10 ** (-b.pH)))
+            ) * pyunits.dimensionless
             CT = (
                 b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"] / alpha
             )  # mg CaCO3 /L
@@ -1289,6 +1291,9 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.noncarbonate_hardness) is None:
             iscale.set_scaling_factor(self.noncarbonate_hardness, 1e-1)
+
+        if iscale.get_scaling_factor(self.pH) is None:
+            iscale.set_scaling_factor(self.pH, 1)
 
         if isinstance(self.MgCl2_dosing, Var):
             if iscale.get_scaling_factor(self.MgCl2_dosing) is None:
