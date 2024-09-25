@@ -534,10 +534,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
         def Ca_hardness_CaCO3(b):
             return smooth_min(b.Ca_CaCO3, b.carbonate_hardness, b.eps)
 
-        @self.Expression(doc="Calculate Calcium carbonate hardness")
-        def Ca_hardness_CaCO3(b):
-            return smooth_min(b.Ca_CaCO3, b.carbonate_hardness, b.eps)
-
         @self.Expression(doc="Calculate Calcium non carbonate hardness")
         def Ca_hardness_nonCaCO3(b):
             return smooth_max(
