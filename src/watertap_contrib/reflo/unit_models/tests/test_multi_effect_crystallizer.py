@@ -29,7 +29,6 @@ from idaes.core.util.model_statistics import (
     number_total_constraints,
     number_unused_variables,
 )
-from idaes.core.util.testing import initialization_tester
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
@@ -47,14 +46,10 @@ from watertap.property_models.water_prop_pack import (
     WaterStateBlock,
 )
 
-from watertap_contrib.reflo.costing import TreatmentCosting, CrystallizerCostType
+from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.unit_models.multi_effect_crystallizer import (
     MultiEffectCrystallizer,
 )
-from watertap_contrib.reflo.costing.units.multi_effect_crystallizer import (
-    MultiEffectCrystallizerCostType,
-)
-
 from watertap_contrib.reflo.unit_models.crystallizer_effect import CrystallizerEffect
 
 __author__ = "Kurban Sitterley"
