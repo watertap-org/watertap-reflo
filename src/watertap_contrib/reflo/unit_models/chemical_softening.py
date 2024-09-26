@@ -242,14 +242,14 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             doc="Sludge produced per kg of Ca in CaCO3 hardness",
         )
 
-        self.Mg_hardness_CaCO3_sludge_factor = Param(
+        self.Mg_carbonate_hardness_sludge_factor = Param(
             initialize=2.6,
             mutable=True,
             units=pyunits.dimensionless,
             doc="Sludge produced per kg of Mg in CaCO3 hardness",
         )
 
-        self.Mg_hardness_nonCaCO3_sludge_factor = Param(
+        self.Mg_noncarbonate_hardness_sludge_factor = Param(
             initialize=1.6,
             mutable=True,
             units=pyunits.dimensionless,
@@ -498,9 +498,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
 
         # Calculate the CO2 in the inlet
 
-        @self.Constraint(
-            doc="Equation to calculate the inlet CO2 in the inlet in equivalent CaCO3"
-        )
+        @self.Constraint(doc="Equation to calculate the inlet CO2 in equivalent CaCO3")
         def eq_CO2_CaCO3(b):
             dimensionless_temp = pyunits.convert(
                 b.properties_in[0].temperature * pyunits.degK**-1,
@@ -543,7 +541,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.m**3,
             )
 
-        @self.Constraint(doc="Total Hardness in CaCO3")
+        @self.Constraint(doc="Total Hardness in equivalent CaCO3")
         def eq_total_hardness(b):
             return b.total_hardness == pyunits.convert(
                 b.Ca_CaCO3 + b.Mg_CaCO3, to_units=pyunits.kg / pyunits.m**3
@@ -560,27 +558,29 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.m**3,
             )
 
-        @self.Constraint(doc="Noncarbonate hardness in CaCO3")
+        @self.Constraint(doc="Noncarbonate hardness in equivalent CaCO3")
         def eq_noncarbonate_hardness(b):
             return b.noncarbonate_hardness == pyunits.convert(
                 b.total_hardness - b.carbonate_hardness,
                 to_units=pyunits.kg / pyunits.m**3,
             )
 
-        @self.Expression(doc="Calculate Calcium carbonate hardness")
-        def Ca_hardness_CaCO3(b):
+        @self.Expression(doc="Calculate Calcium carbonate hardness in equivalent CaCO3")
+        def Ca_carbonate_hardness_CaCO3(b):
             return smooth_min(b.Ca_CaCO3, b.carbonate_hardness, b.eps)
 
         @self.Expression(doc="Calculate Calcium non carbonate hardness")
-        def Ca_hardness_nonCaCO3(b):
+        def Ca_noncarbonate_hardness_CaCO3(b):
             return smooth_max(
                 b.Ca_CaCO3 - b.carbonate_hardness,
                 0 * pyunits.kg / pyunits.m**3,
                 b.eps,
             )
 
-        @self.Expression(doc="Calculate Magnesium carbonate hardness")
-        def Mg_hardness_CaCO3(b):
+        @self.Expression(
+            doc="Calculate Magnesium carbonate hardness in equivalent CaCO3"
+        )
+        def Mg_carbonate_hardness_CaCO3(b):
             return smooth_max(
                 b.carbonate_hardness - b.Ca_CaCO3,
                 0 * pyunits.kg / pyunits.m**3,
@@ -588,7 +588,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             )
 
         @self.Expression(doc="Calculate Magnesium non carbonate hardness")
-        def Mg_hardness_nonCaCO3(b):
+        def Mg_noncarbonate_hardness_CaCO3(b):
             return smooth_min(
                 b.Mg_CaCO3,
                 b.total_hardness - b.carbonate_hardness,
@@ -764,7 +764,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 co2_required_expr = pyunits.convert(
                     (
                         b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-                        # - (b.Ca_hardness_CaCO3 + b.Mg_hardness_CaCO3)
                         - b.total_hardness
                         + b.excess_CaO
                         + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
@@ -807,7 +806,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             @self.Constraint(doc="Soda dosing")
             def eq_Na2CO3_dosing(b):
                 return b.Na2CO3_dosing == pyunits.convert(
-                    # (b.Ca_hardness_nonCaCO3 + b.Mg_hardness_nonCaCO3)
                     b.noncarbonate_hardness
                     * b.Na2CO3_mw
                     / b.CaCO3_mw
@@ -820,7 +818,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 co2_required_expr = pyunits.convert(
                     (
                         b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-                        # + (b.Ca_hardness_nonCaCO3 + b.Mg_hardness_nonCaCO3)
                         + b.noncarbonate_hardness
                         - b.Ca_CaCO3
                         + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
@@ -876,7 +873,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             @self.Constraint(doc="Soda dosing")
             def eq_Na2CO3_dosing(b):
                 return b.Na2CO3_dosing == pyunits.convert(
-                    # (b.Ca_hardness_nonCaCO3 + b.Mg_hardness_nonCaCO3)
                     b.noncarbonate_hardness
                     * b.Na2CO3_mw
                     / b.CaCO3_mw
@@ -908,9 +904,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 return b.CO2_second_basin == pyunits.convert(
                     (
                         b.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-                        # + (b.Ca_hardness_nonCaCO3 + b.Mg_hardness_nonCaCO3)
                         + b.noncarbonate_hardness
-                        # - (b.Ca_hardness_CaCO3 + b.Mg_hardness_CaCO3)
                         - b.total_hardness
                         + b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
                         * b.Ca_CaCO3_conv
@@ -1031,31 +1025,19 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.s,
             )
 
-        # @self.Constraint(doc="Alkalinity mass balance")
-        # def eq_mass_balance_mg(b):
-        #     return b.properties_waste[0].flow_mass_phase_comp[
-        #         "Liq", "Mg_2+"
-        #     ] == b.properties_in[0].flow_mass_phase_comp[
-        #         "Liq", "Mg_2+"
-        #     ] - b.properties_out[
-        #         0
-        #     ].flow_mass_phase_comp[
-        #         "Liq", "Mg_2+"
-        #     ] + pyunits.convert(
-        #         (b.MgCl2_dosing * b.properties_out[0].flow_vol_phase["Liq"]),
-        #         to_units=pyunits.kg / pyunits.s,
-        #     )
-
         if ["TSS"] in comps:
 
             @self.Constraint(doc="Sludge production")
             def eq_sludge_prod(b):
                 return b.sludge_prod == pyunits.convert(
                     (
-                        b.Ca_hardness_CaCO3_sludge_factor * b.Ca_hardness_CaCO3
-                        + b.Mg_hardness_CaCO3_sludge_factor * b.Mg_hardness_CaCO3
-                        + b.Ca_hardness_nonCaCO3
-                        + b.Mg_hardness_nonCaCO3_sludge_factor * b.Mg_hardness_nonCaCO3
+                        b.Ca_hardness_CaCO3_sludge_factor
+                        * b.Ca_carbonate_hardness_CaCO3
+                        + b.Mg_carbonate_hardness_sludge_factor
+                        * b.Mg_carbonate_hardness_CaCO3
+                        + b.Ca_noncarbonate_hardness_CaCO3
+                        + b.Mg_noncarbonate_hardness_sludge_factor
+                        * b.Mg_noncarbonate_hardness_CaCO3
                         + b.excess_CaO
                         + b.properties_in[0].conc_mass_phase_comp["Liq", "TSS"]
                         + b.MgCl2_dosing
@@ -1072,10 +1054,13 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             def eq_sludge_prod(b):
                 return b.sludge_prod == pyunits.convert(
                     (
-                        b.Ca_hardness_CaCO3_sludge_factor * b.Ca_hardness_CaCO3
-                        + b.Mg_hardness_CaCO3_sludge_factor * b.Mg_hardness_CaCO3
-                        + b.Ca_hardness_nonCaCO3
-                        + b.Mg_hardness_nonCaCO3_sludge_factor * b.Mg_hardness_nonCaCO3
+                        b.Ca_hardness_CaCO3_sludge_factor
+                        * b.Ca_carbonate_hardness_CaCO3
+                        + b.Mg_carbonate_hardness_sludge_factor
+                        * b.Mg_carbonate_hardness_CaCO3
+                        + b.Ca_noncarbonate_hardness_CaCO3
+                        + b.Mg_noncarbonate_hardness_sludge_factor
+                        * b.Mg_noncarbonate_hardness_CaCO3
                         + b.excess_CaO
                         + b.MgCl2_dosing
                         * b.MgOH2_mw
