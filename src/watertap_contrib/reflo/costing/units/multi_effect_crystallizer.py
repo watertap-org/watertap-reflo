@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -153,35 +153,99 @@ def cost_multi_effect_crystallizer(
 
     total_capex_expr = 0
 
-    for effect_number, eff in blk.unit_model.effects.items():
+    if not hasattr(blk.unit_model, "effects"):
 
+        assert blk.unit_model.config.standalone
+        # blk.unit_model is CrystallizerEffect as standalone unit
         effect_capex_expr = 0
 
-        effect_capex_var = pyo.Var(
-            initialize=1e5,
-            units=costing_package.base_currency,
-            doc=f"Capital cost effect {effect_number}",
-        )
-
-        # add capital of crystallizer
-        effect_capex_expr += effect_costing_method(eff.effect)
-        # add capital of heat exchangers
-        effect_capex_expr += cost_crystallizer_heat_exchanger(eff.effect)
-
-        effect_capex_constr = pyo.Constraint(
-            expr=effect_capex_var == effect_capex_expr,
-            doc=f"Constraint for capital cost of effect {effect_number}.",
-        )
-        blk.add_component(f"capital_cost_effect_{effect_number}", effect_capex_var)
+        # Add capital of crystallizer
+        effect_capex_expr += effect_costing_method(blk.unit_model)
+        # separate expression for crystallizer capex for reporting
         blk.add_component(
-            f"capital_cost_effect_{effect_number}_constraint", effect_capex_constr
+            f"capital_cost_crystallizer",
+            pyo.Expression(
+                expr=blk.cost_factor * effect_costing_method(blk.unit_model),
+                doc=f"Capital cost for only crystallizer including TIC",
+            ),
         )
-        total_capex_expr += effect_capex_expr
-        _cost_effect_flows(eff.effect, effect_number)
 
-    blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost == blk.cost_factor * total_capex_expr
-    )
+        # Add capital of heat exchangers
+        effect_capex_expr += cost_crystallizer_heat_exchanger(eff.effect)
+        # separate expression for heat exchanger for reporting
+        blk.add_component(
+            f"capital_cost_heat_exchanger",
+            pyo.Expression(
+                expr=blk.cost_factor * cost_crystallizer_heat_exchanger(blk.unit_model),
+                doc=f"Capital cost for only heat exchanger including TIC",
+            ),
+        )
+
+        blk.capital_cost_constraint = pyo.Constraint(
+            expr=blk.capital_cost == blk.cost_factor * effect_capex_expr,
+            doc=f"Constraint for total capital cost of crystallizer.",
+        )
+
+        _cost_effect_flows(blk.unit_model, 1)
+
+    elif hasattr(blk.unit_model, "effects"):
+
+        # blk.unit_model is MultiEffectCrystallizer
+
+        for effect_number, eff in blk.unit_model.effects.items():
+
+            effect_capex_expr = 0
+
+            effect_capex_var = pyo.Var(
+                initialize=1e5,
+                units=costing_package.base_currency,
+                doc=f"Capital cost effect {effect_number}",
+            )
+
+            # Add capital of crystallizer
+            effect_capex_expr += effect_costing_method(eff.effect)
+            # separate expression for crystallizer capex for reporting
+            blk.add_component(
+                f"capital_cost_crystallizer_effect_{effect_number}",
+                pyo.Expression(
+                    expr=blk.cost_factor * effect_costing_method(eff.effect),
+                    doc=f"Capital cost for only crystallizer for effect {effect_number} including TIC",
+                ),
+            )
+
+            # Add capital of heat exchangers
+            effect_capex_expr += cost_crystallizer_heat_exchanger(eff.effect)
+            # separate expression for heat exchanger for reporting
+            blk.add_component(
+                f"capital_cost_heat_exchanger_effect_{effect_number}",
+                pyo.Expression(
+                    expr=blk.cost_factor * cost_crystallizer_heat_exchanger(eff.effect),
+                    doc=f"Capital cost for only heat exchanger for effect {effect_number} including TIC",
+                ),
+            )
+
+            # Total effect CAPEX constraint
+            effect_capex_constr = pyo.Constraint(
+                expr=effect_capex_var == effect_capex_expr,
+                doc=f"Constraint for total capital cost of effect {effect_number}.",
+            )
+            # Add effect Var and Constraint to costing blk
+            blk.add_component(f"capital_cost_effect_{effect_number}", effect_capex_var)
+            blk.add_component(
+                f"total_capital_cost_effect_{effect_number}_constraint",
+                effect_capex_constr,
+            )
+            total_capex_expr += effect_capex_expr
+            _cost_effect_flows(eff.effect, effect_number)
+
+        blk.capital_cost_constraint = pyo.Constraint(
+            expr=blk.capital_cost == blk.cost_factor * total_capex_expr
+        )
+    else:
+        raise ConfigurationError(
+            f"{blk.unit_model.name} is not a valid unit model type for this costing package:"
+            f" {type(blk.unit_model)}. Must be either CrystallizerEffect or MultiEffectCrystallizer."
+        )
 
 
 def cost_crystallizer_heat_exchanger(effect):
