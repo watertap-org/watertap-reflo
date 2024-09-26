@@ -242,7 +242,16 @@ class CrystallizerEffectData(CrystallizationData):
                     * b.heat_exchanger_area
                     * b.delta_temperature[0]
                 )
-
+            
+            @self.Constraint(doc="Calculate mass flow rate of heating steam")
+            def eq_heating_steam_flow_rate(b):
+                return b.work_mechanical[0] == (
+                    pyunits.convert(
+                        b.heating_steam[0].dh_vap_mass
+                        * b.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"],
+                        to_units=pyunits.kJ / pyunits.s,
+                    )
+                )
         else:
             self.del_component(self.inlet)
             self.del_component(self.outlet)
