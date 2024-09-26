@@ -810,6 +810,265 @@ class TestChemSoft_ExcessLime:
                 assert pytest.approx(value(softv), rel=1e-3) == r
 
 
+class TestChemSoft_ExcessLime_2:
+    @pytest.fixture(scope="class")
+    def chem_soft_frame(self):
+
+        component_list = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        m.fs.properties = MCASParameterBlock(
+            solute_list=component_list, material_flow_basis=MaterialFlowBasis.mass
+        )
+
+        m.fs.soft = soft = ChemicalSoftening(
+            property_package=m.fs.properties,
+            silica_removal=False,
+            softening_procedure_type="excess_lime",
+        )
+
+        q_in = 50000 * pyunits.m**3 / pyunits.day  # m3/d
+        rho = 1000 * pyunits.kg / pyunits.m**3
+
+        inlet_conc = {"Ca_2+": 0.075, "Mg_2+": 0.0061, "Alkalinity_2-": 0.195}
+        prop_in = soft.properties_in[0]
+        prop_in.temperature.fix(20 + 273.15)
+        prop_in.pressure.fix()
+
+        flow_mass_phase_water = pyunits.convert(
+            q_in * rho, to_units=pyunits.kg / pyunits.s
+        )
+        prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(
+            pyunits.convert(q_in * rho, to_units=pyunits.kg / pyunits.s)
+        )
+        for solute, conc in inlet_conc.items():
+            mass_flow_solute = pyunits.convert(
+                q_in * conc * pyunits.kg / pyunits.m**3,
+                to_units=pyunits.kg / pyunits.s,
+            )
+            prop_in.flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
+            m.fs.properties.set_default_scaling(
+                "flow_mass_phase_comp",
+                value(1 / mass_flow_solute),
+                index=("Liq", solute),
+            )
+
+        m.fs.properties.set_default_scaling(
+            "flow_mass_phase_comp",
+            value(1 / flow_mass_phase_water),
+            index=("Liq", "H2O"),
+        )
+
+        # CO2_in = 0.072 * 1.612 * pyunits.kg / pyunits.m**3
+
+        soft.number_mixers.set_value(1)
+        soft.number_floc.set_value(2)
+
+        soft.ca_eff_target.fix(0.03 / 2.5)
+        soft.mg_eff_target.fix(0.003 / 4.12)
+
+        soft.retention_time_mixer.fix(0.4)
+        soft.retention_time_floc.fix(25)
+        soft.retention_time_sed.fix(130)
+        soft.retention_time_recarb.fix(20)
+        soft.frac_mass_water_recovery.fix()
+        soft.removal_efficiency.fix()
+        soft.pH.fix(6.607)
+        soft.vel_gradient_mix.fix(300)
+        soft.vel_gradient_floc.fix(50)
+
+        soft.CO2_second_basin.fix(0)
+        soft.Na2CO3_dosing.fix(0)
+        soft.MgCl2_dosing.fix(0)
+
+        return m
+
+    @pytest.mark.unit
+    def test_config(self, chem_soft_frame):
+        m = chem_soft_frame
+
+        assert len(m.fs.soft.config) == 6
+
+        assert not m.fs.soft.config.dynamic
+        assert not m.fs.soft.config.has_holdup
+        assert m.fs.soft.config.property_package is m.fs.properties
+        assert_units_consistent(m)
+
+    @pytest.mark.unit
+    def test_build(self, chem_soft_frame):
+
+        m = chem_soft_frame
+
+        port_list = ["inlet", "outlet", "waste"]
+        for port_str in port_list:
+            port = getattr(m.fs.soft, port_str)
+            assert isinstance(port, Port)
+            assert len(port.vars) == 3
+
+        assert number_variables(m) == 86
+        assert number_total_constraints(m) == 52
+        assert number_unused_variables(m) == 18
+
+    @pytest.mark.unit
+    def test_dof(self, chem_soft_frame):
+        m = chem_soft_frame
+        assert degrees_of_freedom(m) == 0
+
+    @pytest.mark.unit
+    def test_calculate_scaling(self, chem_soft_frame):
+        m = chem_soft_frame
+        calculate_scaling_factors(m)
+
+        unscaled_var_list = list(unscaled_variables_generator(m))
+        assert len(unscaled_var_list) == 0
+
+    @pytest.mark.component
+    def test_initialize(self, chem_soft_frame):
+        m = chem_soft_frame
+        initialization_tester(m, unit=m.fs.soft, outlvl=idaeslog.DEBUG)
+
+    @pytest.mark.component
+    def test_var_scaling(self, chem_soft_frame):
+        m = chem_soft_frame
+        badly_scaled_var_lst = list(badly_scaled_var_generator(m))
+        assert badly_scaled_var_lst == []
+
+    @pytest.mark.component
+    def test_solve(self, chem_soft_frame):
+        m = chem_soft_frame
+        results = solver.solve(m)
+
+        assert_optimal_termination(results)
+
+    @pytest.mark.component
+    def test_solution(self, chem_soft_frame):
+        m = chem_soft_frame
+
+        soft_results = {
+            "ca_eff_target": 0.012,
+            "mg_eff_target": 0.000728,
+            "removal_efficiency": {"Alkalinity_2-": 0.7},
+            "volume_mixer": 13.89,
+            "volume_floc": 868.29,
+            "volume_sed": 4515.12,
+            "volume_recarb": 694.63,
+            "CaO_dosing": 9885.09,
+            "Na2CO3_dosing": 0.0,
+            "CO2_first_basin": 708.147,
+            "CO2_second_basin": 0.0,
+            "excess_CaO": 0.016806,
+            "CO2_CaCO3": 0.11606,
+            "sludge_prod": 0.25435,
+            "MgCl2_dosing": 0.0,
+            "Ca_CaCO3": 0.18744,
+            "Mg_CaCO3": 0.025125,
+            "Ca_carbonate_hardness_CaCO3": 0.1874,
+            "Ca_noncarbonate_hardness_CaCO3": 0.0,
+            "Mg_carbonate_hardness_CaCO3": 0.00749792,
+            "Mg_noncarbonate_hardness_CaCO3": 0.01762,
+            "mg_removal_eff": 0.881815,
+            "ca_removal_eff": 0.841588,
+        }
+
+        for v, r in soft_results.items():
+            softv = getattr(m.fs.soft, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
+
+        assert value(m.fs.soft.ca_eff_target) == pytest.approx(
+            value(m.fs.soft.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]),
+            rel=1e-3,
+        )
+
+        assert value(m.fs.soft.mg_eff_target) == pytest.approx(
+            value(m.fs.soft.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]),
+            rel=1e-3,
+        )
+
+    @pytest.mark.component
+    def test_costing(self, chem_soft_frame):
+
+        m = chem_soft_frame
+        prop_in = m.fs.soft.properties_in[0]
+        m.fs.costing = TreatmentCosting()
+        m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(prop_in.flow_vol)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        sys_cost_results = {
+            "aggregate_capital_cost": 3730176.670,
+            "aggregate_fixed_operating_cost": 1136257.323,
+            "aggregate_variable_operating_cost": 0.0,
+            "aggregate_flow_electricity": 3.421,
+            "aggregate_flow_lime": 3917552.66,
+            "aggregate_flow_soda_ash": 0.0,
+            "aggregate_flow_mgcl2": 0.0,
+            "aggregate_flow_co2": 258650.80,
+            "aggregate_flow_costs": {
+                "electricity": 2464.36,
+                "lime": 391755.266,
+                "soda_ash": 0.0,
+                "mgcl2": 0.0,
+                "co2": 116718.23,
+            },
+            "total_capital_cost": 3730176.67,
+            "total_operating_cost": 1759100.50,
+            "aggregate_direct_capital_cost": 3730176.67,
+            "maintenance_labor_chemical_operating_cost": 111905.30,
+            "total_fixed_operating_cost": 1248162.623,
+            "total_variable_operating_cost": 510937.87,
+            "total_annualized_cost": 2176715.97,
+            "LCOW": 0.119157,
+        }
+        for v, r in sys_cost_results.items():
+            softv = getattr(m.fs.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
+
+        soft_cost_results = {
+            "capital_cost": 3730176.67,
+            "fixed_operating_cost": 1136257.32,
+            "mixer_power": 1250.34,
+            "floc_power": 2170.73,
+            "electricity_flow": 3.421,
+            "mix_tank_capital_cost": 153068.11,
+            "floc_tank_capital_cost": 501015.63,
+            "sed_basin_capital_cost": 1464705.96,
+            "recarb_basin_capital_cost": 285616.04,
+            "recarb_basin_source_capital_cost": 191866.59,
+            "lime_feed_system_capital_cost": 242369.41,
+            "admin_capital_cost": 390512.93,
+            "mixer_op_cost": 13145.02,
+            "floc_tank_op_cost": 12104.99,
+            "sed_basin_op_cost": 31916.41,
+            "recarb_basin_op_cost": 27763.92,
+            "lime_feed_op_cost": 452048.100,
+            "lime_sludge_mngt_op_cost": 309680.42,
+            "admin_op_cost": 289598.31,
+            "cost_factor": 1.0,
+            "direct_capital_cost": 3730176.67,
+            "cao_dosing": 3917552.66,
+            "mgcl2_dosing": 0.0,
+            "co2_dosing": 258650.80,
+        }
+        for v, r in soft_cost_results.items():
+            softv = getattr(m.fs.soft.costing, v)
+            if softv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(softv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(softv), rel=1e-3) == r
+
+
 class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):

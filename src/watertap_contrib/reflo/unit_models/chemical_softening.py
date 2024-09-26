@@ -452,8 +452,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             doc="Excess lime requiremenent",
         )
 
-        # TODO: make a function of pH
-
         self.pH = Var(
             initialize=7,
             units=pyunits.dimensionless,
