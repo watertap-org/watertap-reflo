@@ -171,7 +171,7 @@ def cost_multi_effect_crystallizer(
         )
 
         # Add capital of heat exchangers
-        effect_capex_expr += cost_crystallizer_heat_exchanger(eff.effect)
+        effect_capex_expr += cost_crystallizer_heat_exchanger(blk.unit_model)
         # separate expression for heat exchanger for reporting
         blk.add_component(
             f"capital_cost_heat_exchanger",
