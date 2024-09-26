@@ -14,11 +14,9 @@ from copy import deepcopy
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    ConcreteModel,
     Var,
-    check_optimal_termination,
-    assert_optimal_termination,
     Param,
+    check_optimal_termination,
     units as pyunits,
 )
 from pyomo.common.config import ConfigValue
@@ -27,10 +25,7 @@ from pyomo.common.config import ConfigValue
 from idaes.core import (
     declare_process_block_class,
     useDefault,
-    FlowsheetBlock,
 )
-from watertap.core.solvers import get_solver
-from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.config import is_physical_parameter_block
 
 from idaes.core.util.exceptions import InitializationError
@@ -38,26 +33,16 @@ from idaes.core.util.exceptions import InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
+from watertap.core.solvers import get_solver
 from watertap.core.util.initialization import interval_initializer
-from watertap.unit_models.crystallizer import Crystallization, CrystallizationData
-
-from idaes.core.util.model_statistics import (
-    degrees_of_freedom,
-    number_variables,
-    number_total_constraints,
-    number_unused_variables,
-)
-from idaes.core.util.testing import initialization_tester
-from idaes.core.util.scaling import (
-    calculate_scaling_factors,
-    unscaled_variables_generator,
-    badly_scaled_var_generator,
-)
+from watertap.unit_models.crystallizer import CrystallizationData
 from watertap.unit_models.mvc.components.lmtd_chen_callback import (
     delta_temperature_chen_callback,
 )
 
-_log = idaeslog.getLogger(__name__)
+from watertap_contrib.reflo.costing.units.multi_effect_crystallizer import (
+    cost_multi_effect_crystallizer,
+)
 
 __author__ = "Oluwamayowa Amusat, Zhuoran Zhang, Kurban Sitterley"
 
@@ -431,3 +416,7 @@ class CrystallizerEffectData(CrystallizationData):
         for _, c in self.eq_p_con4.items():
             sf = iscale.get_scaling_factor(self.properties_pure_water[0].pressure)
             iscale.constraint_scaling_transform(c, sf)
+
+    @property
+    def default_costing_method(self):
+        return cost_multi_effect_crystallizer
