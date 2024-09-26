@@ -204,6 +204,7 @@ class TestMultiEffectCrystallizer_4Effects:
 
         for _, eff in m.fs.unit.effects.items():
             assert isinstance(eff.effect, CrystallizerEffect)
+            assert not eff.effect.config.standalone
 
     @pytest.mark.unit
     def test_build(self, MEC4_frame):
@@ -677,11 +678,19 @@ class TestMultiEffectCrystallizer_4Effects:
 
         eff_costing_dict = {
             "capital_cost": 4613044.11,
-            "capital_cost_effect_1": 476995.87,
-            "capital_cost_effect_2": 562980.66,
-            "capital_cost_effect_3": 726747.44,
-            "capital_cost_effect_4": 539798.07,
             "direct_capital_cost": 2306522.05,
+            "capital_cost_crystallizer_effect_1": 659171.48,
+            "capital_cost_heat_exchanger_effect_1": 294820.27,
+            "capital_cost_effect_1": 476995.87,
+            "capital_cost_crystallizer_effect_2": 627459.32,
+            "capital_cost_heat_exchanger_effect_2": 498502.0,
+            "capital_cost_effect_2": 562980.66,
+            "capital_cost_crystallizer_effect_3": 602356.42,
+            "capital_cost_heat_exchanger_effect_3": 851138.46,
+            "capital_cost_effect_3": 726747.44,
+            "capital_cost_crystallizer_effect_4": 587458.93,
+            "capital_cost_heat_exchanger_effect_4": 492137.2,
+            "capital_cost_effect_4": 539798.07,
         }
 
         for v, r in eff_costing_dict.items():
@@ -795,6 +804,7 @@ class TestMultiEffectCrystallizer_3Effects:
 
         for _, eff in m.fs.unit.effects.items():
             assert isinstance(eff.effect, CrystallizerEffect)
+            assert not eff.effect.config.standalone
 
     @pytest.mark.unit
     def test_dof(self, MEC3_frame):
@@ -1081,9 +1091,15 @@ class TestMultiEffectCrystallizer_3Effects:
 
         eff_costing_dict = {
             "capital_cost": 17518907.2,
+            "capital_cost_crystallizer_effect_1": 3079736.6,
+            "capital_cost_crystallizer_effect_2": 2932488.6,
+            "capital_cost_crystallizer_effect_3": 2818630.8,
             "capital_cost_effect_1": 1939078.0,
             "capital_cost_effect_2": 2525607.6,
             "capital_cost_effect_3": 4294767.8,
+            "capital_cost_heat_exchanger_effect_1": 798419.4,
+            "capital_cost_heat_exchanger_effect_2": 2118726.6,
+            "capital_cost_heat_exchanger_effect_3": 5770904.9,
             "direct_capital_cost": 8759453.6,
         }
 
