@@ -42,10 +42,6 @@ from pyomo.environ import (
     Set,
 )
 
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.translator_1 import (
-    Translator_MCAS_to_NACL_Data,
-)
-
 __author__ = "Zachary Binger"
 
 
@@ -171,7 +167,7 @@ see property package for documentation.}""",
             None
         """
         # Call UnitModel.build to setup dynamics
-        super(Translator_MCAS_to_NACL_Data, self).build()
+        super(Translator_TDS_to_NACL_Data, self).build()
 
         # @self.Constraint(
         #     self.flowsheet().time,
