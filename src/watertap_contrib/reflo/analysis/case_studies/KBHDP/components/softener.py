@@ -565,5 +565,5 @@ if __name__ == "__main__":
     e = soft.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"] - (
         soft.Ca_hardness_CaCO3 + soft.Mg_hardness_CaCO3
     )
-    e = soft.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"]* 2.35
+    e = soft.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"] * 2.35
     print(value(e))

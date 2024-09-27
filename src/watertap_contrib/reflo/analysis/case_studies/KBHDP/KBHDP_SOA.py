@@ -21,7 +21,7 @@ from pyomo.environ import (
 from pyomo.util.check_units import assert_units_consistent
 from pyomo.network import Arc
 
-from idaes.core.util.scaling import * 
+from idaes.core.util.scaling import *
 from idaes.core import FlowsheetBlock, MaterialFlowBasis
 from idaes.core.util.initialization import propagate_state as _prop_state
 from idaes.core.solvers import get_solver
@@ -323,7 +323,7 @@ def set_inlet_conditions(
     feed_temperature = 293
 
     Qin = Qin * pyunits.Mgal / pyunits.day
-    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3/pyunits.s)
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
     rho = 1000 * pyunits.kg / pyunits.m**3
     flow_mass_phase_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
 
@@ -342,13 +342,17 @@ def set_inlet_conditions(
         ("flow_vol_phase", "Liq"): value(flow_in),
         ("pressure", None): 101325,
         ("temperature", None): 298,
-        }
-    
+    }
+
     for solute, solute_conc in inlet_dict.items():
         calc_state_dict[("conc_mass_phase_comp", ("Liq", solute))] = solute_conc
-        flow_mass_solute = pyunits.convert(flow_in * solute_conc, to_units=pyunits.kg / pyunits.s)
+        flow_mass_solute = pyunits.convert(
+            flow_in * solute_conc, to_units=pyunits.kg / pyunits.s
+        )
         sf = 1 / value(flow_mass_solute)
-        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", solute].set_value(flow_mass_solute)
+        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", solute].set_value(
+            flow_mass_solute
+        )
         m.fs.MCAS_properties.set_default_scaling(
             "flow_mass_phase_comp",
             sf,
@@ -372,12 +376,8 @@ def set_inlet_conditions(
     )
     calculate_scaling_factors(m)
 
-    m.fs.feed.properties.calculate_state(
-        var_args=calc_state_dict, hold_state=True
-    )
+    m.fs.feed.properties.calculate_state(var_args=calc_state_dict, hold_state=True)
     calculate_scaling_factors(m)
-
-    
 
     # # initialize feed
     m.fs.feed.pressure[0].fix(supply_pressure)
@@ -428,7 +428,7 @@ def init_system(m, verbose=True, solver=None):
 
     # propagate_state(m.fs.translator_to_pump)
     # m.fs.pump.initialize()
-    
+
     # propagate_state(m.fs.pump_to_ro)
     propagate_state(m.fs.translator_to_ro)
     print("got here")
@@ -441,6 +441,7 @@ def init_system(m, verbose=True, solver=None):
     m.fs.disposal.initialize()
     display_system_stream_table(m)
     m.fs.softener.unit.properties_waste[0].conc_mass_phase_comp
+
 
 # def init_system(m, verbose=True, solver=None):
 #     if solver is None:
@@ -589,7 +590,6 @@ if __name__ == "__main__":
     # m.fs.costing.lime.cost.set_value(0)
     # m.fs.costing.chemical_softening.lime_feed_system_op_coeff.set_value(0)
     results = solver.solve(m)
-    
 
     # ro = m.fs.RO.stage[1].module
 
