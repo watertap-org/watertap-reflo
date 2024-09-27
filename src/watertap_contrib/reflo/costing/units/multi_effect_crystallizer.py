@@ -352,8 +352,7 @@ def _cost_effect_flows(effect, effect_number):
     )
 
     if effect_number == 1:
-        costing_package.cost_flow(effect.heating_steam[0].flow_vol_phase["Vap"],
+        costing_package.cost_flow(
+            effect.heating_steam[0].flow_vol_phase["Vap"],
             "steam",
         )
-
- 
