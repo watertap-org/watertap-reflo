@@ -73,11 +73,18 @@ def build_mec4():
         property_package=m.fs.properties, property_package_vapor=m.fs.vapor_properties
     )
 
+    operating_pressures = [0.45, 0.25, 0.208, 0.095]
+
     feed_flow_mass = 1
     feed_mass_frac_NaCl = 0.15
     crystallizer_yield = 0.5
-    operating_pressures = [0.45, 0.25, 0.208, 0.095]
     feed_mass_frac_H2O = 1 - feed_mass_frac_NaCl
+
+    atm_pressure = 101325 * pyunits.Pa
+    saturated_steam_pressure_gage = 3 * pyunits.bar
+    saturated_steam_pressure = atm_pressure + pyunits.convert(
+        saturated_steam_pressure_gage, to_units=pyunits.Pa
+    )
 
     for (_, eff), op_pressure in zip(mec.effects.items(), operating_pressures):
         eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
@@ -104,17 +111,15 @@ def build_mec4():
     first_effect = m.fs.unit.effects[1].effect
 
     first_effect.overall_heat_transfer_coefficient.fix(0.1)
-    first_effect.heating_steam[0].pressure_sat
     first_effect.heating_steam[0].dh_vap_mass
     first_effect.heating_steam.calculate_state(
         var_args={
             ("flow_mass_phase_comp", ("Liq", "H2O")): 0,
-            ("pressure", None): 101325,
-            ("temperature", None): 393,
+            ("pressure", None): saturated_steam_pressure,
+            ("pressure_sat", None): saturated_steam_pressure,
         },
         hold_state=True,
     )
-    first_effect.heating_steam[0].flow_vol_phase
     first_effect.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
 
     return m
@@ -140,6 +145,12 @@ def build_mec3():
     operating_pressures = [0.85, 0.25, 0.208]
     feed_mass_frac_H2O = 1 - feed_mass_frac_NaCl
 
+    atm_pressure = 101325 * pyunits.Pa
+    saturated_steam_pressure_gage = 2.5 * pyunits.bar
+    saturated_steam_pressure = atm_pressure + pyunits.convert(
+        saturated_steam_pressure_gage, to_units=pyunits.Pa
+    )
+
     for (_, eff), op_pressure in zip(mec.effects.items(), operating_pressures):
         eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
             feed_flow_mass * feed_mass_frac_H2O
@@ -165,17 +176,15 @@ def build_mec3():
     first_effect = m.fs.unit.effects[1].effect
 
     first_effect.overall_heat_transfer_coefficient.fix(0.1)
-    first_effect.heating_steam[0].pressure_sat
     first_effect.heating_steam[0].dh_vap_mass
     first_effect.heating_steam.calculate_state(
         var_args={
             ("flow_mass_phase_comp", ("Liq", "H2O")): 0,
-            ("pressure", None): 101325,
-            ("temperature", None): 500,
+            ("pressure", None): saturated_steam_pressure,
+            ("pressure_sat", None): saturated_steam_pressure,
         },
         hold_state=True,
     )
-    first_effect.heating_steam[0].flow_vol_phase
     first_effect.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
 
     return m
@@ -311,9 +320,9 @@ class TestMultiEffectCrystallizer_4Effects:
             assert hasattr(eff.effect, f"eq_heat_transfer_effect_{n}")
 
             if n == 1:
-                assert number_variables(eff.effect) == 150
-                assert number_total_constraints(eff.effect) == 124
-                assert number_unused_variables(eff.effect) == 1
+                assert number_variables(eff.effect) == 146
+                assert number_total_constraints(eff.effect) == 120
+                assert number_unused_variables(eff.effect) == 3
                 assert hasattr(eff.effect, "heating_steam")
                 assert isinstance(eff.effect.heating_steam, WaterStateBlock)
                 assert eff.effect.heating_steam[0].temperature.ub == 1000
@@ -327,9 +336,9 @@ class TestMultiEffectCrystallizer_4Effects:
                     eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
 
-        assert number_variables(m) == 712
-        assert number_total_constraints(m) == 478
-        assert number_unused_variables(m) == 37
+        assert number_variables(m) == 708
+        assert number_total_constraints(m) == 474
+        assert number_unused_variables(m) == 46
 
         assert_units_consistent(m)
 
@@ -511,9 +520,9 @@ class TestMultiEffectCrystallizer_4Effects:
 
         unit_results_dict = {
             1: {
-                "delta_temperature": {0.0: 60.65},
-                "delta_temperature_in": {0.0: 33.51},
-                "delta_temperature_out": {0.0: 99.85},
+                "delta_temperature": {0.0: 86.31},
+                "delta_temperature_in": {0.0: 57.39},
+                "delta_temperature_out": {0.0: 123.72},
                 "dens_mass_magma": 281.24,
                 "dens_mass_slurry": 1298.23,
                 "diameter_crystallizer": 1.0799,
@@ -521,14 +530,15 @@ class TestMultiEffectCrystallizer_4Effects:
                 "eq_max_allowable_velocity": 2.6304,
                 "eq_minimum_height_diameter_ratio": 1.6199,
                 "eq_vapor_space_height": 0.809971,
-                "heat_exchanger_area": 281,
-                "height_crystallizer": 1.88304,
-                "height_slurry": 1.0730,
+                "heat_exchanger_area": 197.47,
+                "height_crystallizer": 1.883,
+                "height_slurry": 1.073,
                 "magma_circulation_flow_vol": 0.119395,
-                "product_volumetric_solids_fraction": 0.1329756,
-                "relative_supersaturation": {"NaCl": 0.56703},
+                "product_volumetric_solids_fraction": 0.132975,
+                "relative_supersaturation": {"NaCl": 0.567038},
+                "t_res": 1.0228,
                 "temperature_operating": 359.48,
-                "volume_suspension": 0.98296,
+                "volume_suspension": 0.982965,
                 "work_mechanical": {0.0: 1704.47},
             },
             2: {
@@ -539,12 +549,12 @@ class TestMultiEffectCrystallizer_4Effects:
                 "dens_mass_slurry": 1301.86,
                 "diameter_crystallizer": 1.1773,
                 "energy_flow_superheated_vapor": 1396.71,
-                "eq_max_allowable_velocity": 3.46414453,
-                "eq_minimum_height_diameter_ratio": 1.7660549,
+                "eq_max_allowable_velocity": 3.4641,
+                "eq_minimum_height_diameter_ratio": 1.766,
                 "eq_vapor_space_height": 0.883027,
                 "heat_exchanger_area": 480.72,
-                "height_crystallizer": 1.7660549,
-                "height_slurry": 0.828680,
+                "height_crystallizer": 1.766,
+                "height_slurry": 0.82868,
                 "magma_circulation_flow_vol": 0.105985,
                 "product_volumetric_solids_fraction": 0.132132,
                 "relative_supersaturation": {"NaCl": 0.571251},
@@ -554,47 +564,48 @@ class TestMultiEffectCrystallizer_4Effects:
                 "work_mechanical": {0.0: 1518.73},
             },
             3: {
-                "delta_temperature": {0.0: 16.853},
+                "delta_temperature": {0.0: 16.85},
                 "delta_temperature_in": {0.0: 4.3421},
-                "delta_temperature_out": {0.0: 44.835},
+                "delta_temperature_out": {0.0: 44.83},
                 "dens_mass_magma": 279.07,
                 "dens_mass_slurry": 1303.08,
                 "diameter_crystallizer": 1.1811,
                 "energy_flow_superheated_vapor": 1296.7,
-                "eq_max_allowable_velocity": 3.776,
+                "eq_max_allowable_velocity": 3.7763,
                 "eq_minimum_height_diameter_ratio": 1.7717,
-                "eq_vapor_space_height": 0.88588,
+                "eq_vapor_space_height": 0.885888,
                 "heat_exchanger_area": 828.74,
                 "height_crystallizer": 1.7717,
                 "height_slurry": 0.763759,
-                "magma_circulation_flow_vol": 0.097350,
-                "product_volumetric_solids_fraction": 0.13195,
-                "relative_supersaturation": {"NaCl": 0.57239},
-                "temperature_operating": 340.5214,
+                "magma_circulation_flow_vol": 0.09735,
+                "product_volumetric_solids_fraction": 0.131951,
+                "relative_supersaturation": {"NaCl": 0.572396},
+                "t_res": 1.0228,
+                "temperature_operating": 340.52,
                 "volume_suspension": 0.836915,
                 "work_mechanical": {0.0: 1396.71},
             },
             4: {
-                "delta_temperature": {0.0: 27.3299},
-                "delta_temperature_in": {0.0: 17.299},
-                "delta_temperature_out": {0.0: 40.695},
+                "delta_temperature": {0.0: 27.32},
+                "delta_temperature_in": {0.0: 17.29},
+                "delta_temperature_out": {0.0: 40.69},
                 "dens_mass_magma": 278.12,
                 "dens_mass_slurry": 1308.54,
                 "diameter_crystallizer": 1.3795,
-                "energy_flow_superheated_vapor": 1250.3,
+                "energy_flow_superheated_vapor": 1250.34,
                 "eq_max_allowable_velocity": 5.4596,
                 "eq_minimum_height_diameter_ratio": 2.0692,
-                "eq_vapor_space_height": 1.03464,
-                "heat_exchanger_area": 474.4,
+                "eq_vapor_space_height": 1.0346,
+                "heat_exchanger_area": 474.46,
                 "height_crystallizer": 2.0692,
-                "height_slurry": 0.53750,
+                "height_slurry": 0.537503,
                 "magma_circulation_flow_vol": 0.089893,
                 "product_volumetric_solids_fraction": 0.131503,
                 "relative_supersaturation": {"NaCl": 0.576471},
                 "t_res": 1.0228,
-                "temperature_operating": 323.2,
+                "temperature_operating": 323.22,
                 "volume_suspension": 0.803391,
-                "work_mechanical": {0.0: 1296.70},
+                "work_mechanical": {0.0: 1296.7},
             },
         }
 
@@ -609,15 +620,11 @@ class TestMultiEffectCrystallizer_4Effects:
                     assert pytest.approx(value(effv), rel=1e-3) == r
 
         steam_results_dict = {
-            "dens_mass_phase": {"Liq": 943.14, "Vap": 0.55862},
-            "dh_vap_mass": 2202682,
-            "flow_mass_phase_comp": {
-                ("Liq", "H2O"): 0.0,
-                ("Vap", "H2O"): 0.77381,
-            },
-            "flow_vol_phase": {"Liq": 0.0, "Vap": 1.3852},
-            "pressure_sat": 197743,
-            "temperature": 393,
+            "flow_mass_phase_comp": {("Liq", "H2O"): 0.0, ("Vap", "H2O"): 0.799053},
+            "temperature": 416.87,
+            "pressure": 401325.0,
+            "dh_vap_mass": 2133119.0,
+            "pressure_sat": 401325.0,
         }
 
         for v, r in steam_results_dict.items():
@@ -646,26 +653,24 @@ class TestMultiEffectCrystallizer_4Effects:
         assert_optimal_termination(results)
 
         sys_costing_dict = {
-            "LCOW": 5.1605,
-            "SEC": 0.651465,
-            "NaCl_recovered_cost": -0.024,
-            "aggregate_capital_cost": 4613044.1,
-            "aggregate_direct_capital_cost": 2306522,
-            "aggregate_flow_NaCl_recovered": 0.26696,
-            "aggregate_flow_costs": {
-                "NaCl_recovered": -240108.0,
-                "electricity": 5423.99,
-                "steam": 102690.74,
-            },
+            "aggregate_capital_cost": 4527295.03,
             "aggregate_flow_electricity": 7.5296,
-            "aggregate_flow_steam": 0.69298,
-            "capital_recovery_factor": 0.111955,
-            "maintenance_labor_chemical_operating_cost": 138391.3,
-            "total_annualized_cost": 522855.76,
-            "total_capital_cost": 4613044.1,
-            "total_fixed_operating_cost": 138391.32,
-            "total_operating_cost": 6398.03,
-            "total_variable_operating_cost": -131993.29,
+            "aggregate_flow_NaCl_recovered": 0.266962,
+            "aggregate_flow_steam": 0.383078,
+            "aggregate_flow_costs": {
+                "electricity": 5423.99,
+                "NaCl_recovered": -240108.02,
+                "steam": 56766.9,
+            },
+            "aggregate_direct_capital_cost": 2263647.51,
+            "total_capital_cost": 4527295.03,
+            "total_operating_cost": -42098.28,
+            "maintenance_labor_chemical_operating_cost": 135818.85,
+            "total_fixed_operating_cost": 135818.85,
+            "total_variable_operating_cost": -177917.13,
+            "total_annualized_cost": 464759.33,
+            "LCOW": 4.5871,
+            "SEC": 0.651465,
         }
 
         for v, r in sys_costing_dict.items():
@@ -677,11 +682,11 @@ class TestMultiEffectCrystallizer_4Effects:
                 assert pytest.approx(value(cv), rel=1e-3) == r
 
         eff_costing_dict = {
-            "capital_cost": 4613044.11,
-            "direct_capital_cost": 2306522.05,
+            "capital_cost": 4527295.03,
+            "direct_capital_cost": 2263647.51,
             "capital_cost_crystallizer_effect_1": 659171.48,
-            "capital_cost_heat_exchanger_effect_1": 294820.27,
-            "capital_cost_effect_1": 476995.87,
+            "capital_cost_heat_exchanger_effect_1": 209071.19,
+            "capital_cost_effect_1": 434121.33,
             "capital_cost_crystallizer_effect_2": 627459.32,
             "capital_cost_heat_exchanger_effect_2": 498502.0,
             "capital_cost_effect_2": 562980.66,
@@ -732,25 +737,26 @@ class TestMultiEffectCrystallizer_4Effects:
         assert_optimal_termination(results)
 
         sys_costing_dict = {
-            "LCOW": 5.364,
-            "SEC": 0.65146,
-            "aggregate_capital_cost": 4758270.1,
-            "aggregate_direct_capital_cost": 2379135.0,
-            "aggregate_flow_NaCl_recovered": 0.26696,
+            "aggregate_capital_cost": 4672521.02,
+            "aggregate_fixed_operating_cost": 0.0,
+            "aggregate_variable_operating_cost": 0.0,
+            "aggregate_flow_electricity": 7.5296,
+            "aggregate_flow_NaCl_recovered": 0.266962,
+            "aggregate_flow_steam": 0.383078,
             "aggregate_flow_costs": {
+                "electricity": 5423.99,
                 "NaCl_recovered": -240108.02,
-                "electricity": 5423.9,
-                "steam": 102690.74,
+                "steam": 56766.9,
             },
-            "aggregate_flow_electricity": 7.529,
-            "aggregate_flow_steam": 0.69298,
-            "capital_recovery_factor": 0.11195,
-            "maintenance_labor_chemical_operating_cost": 142748.1,
-            "total_annualized_cost": 543471.45,
-            "total_capital_cost": 4758270.10,
-            "total_fixed_operating_cost": 142748.1,
-            "total_operating_cost": 10754.8,
-            "total_variable_operating_cost": -131993.29,
+            "aggregate_direct_capital_cost": 2336260.51,
+            "total_capital_cost": 4672521.02,
+            "total_operating_cost": -37741.5,
+            "maintenance_labor_chemical_operating_cost": 140175.63,
+            "total_fixed_operating_cost": 140175.63,
+            "total_variable_operating_cost": -177917.13,
+            "total_annualized_cost": 485375.02,
+            "LCOW": 4.7906,
+            "SEC": 0.651465,
         }
 
         for v, r in sys_costing_dict.items():
@@ -762,12 +768,20 @@ class TestMultiEffectCrystallizer_4Effects:
                 assert pytest.approx(value(cv), rel=1e-3) == r
 
         eff_costing_dict = {
-            "capital_cost": 4758270.1,
-            "capital_cost_effect_1": 485242.6,
-            "capital_cost_effect_2": 578618.5,
-            "capital_cost_effect_3": 744925.5,
-            "capital_cost_effect_4": 570348.2,
-            "direct_capital_cost": 2379135.0,
+            "capital_cost": 4672521.02,
+            "direct_capital_cost": 2336260.51,
+            "capital_cost_crystallizer_effect_1": 675665.09,
+            "capital_cost_heat_exchanger_effect_1": 209071.19,
+            "capital_cost_effect_1": 442368.14,
+            "capital_cost_crystallizer_effect_2": 658735.08,
+            "capital_cost_heat_exchanger_effect_2": 498502.0,
+            "capital_cost_effect_2": 578618.54,
+            "capital_cost_crystallizer_effect_3": 638712.62,
+            "capital_cost_heat_exchanger_effect_3": 851138.46,
+            "capital_cost_effect_3": 744925.54,
+            "capital_cost_crystallizer_effect_4": 648559.35,
+            "capital_cost_heat_exchanger_effect_4": 492137.2,
+            "capital_cost_effect_4": 570348.28,
         }
 
         for v, r in eff_costing_dict.items():
@@ -844,11 +858,17 @@ class TestMultiEffectCrystallizer_3Effects:
                     .is_fixed()
                 )
                 assert (
-                    value(
-                        eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
+                    pytest.approx(
+                        value(
+                            eff.effect.properties_in[0].conc_mass_phase_comp[
+                                "Liq", "NaCl"
+                            ]
+                        ),
+                        rel=1e-3,
                     )
                     == c0
                 )
+
                 c = getattr(eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}")
                 assert c.active
                 assert eff.effect.overall_heat_transfer_coefficient.is_fixed()
@@ -953,53 +973,55 @@ class TestMultiEffectCrystallizer_3Effects:
 
         unit_results_dict = {
             1: {
-                "delta_temperature": {0.0: 161.4093},
-                "delta_temperature_in": {0.0: 123.1938},
-                "delta_temperature_out": {0.0: 206.85},
-                "dens_mass_magma": 337.00,
+                "delta_temperature": {0.0: 68.7},
+                "delta_temperature_in": {0.0: 35.33},
+                "delta_temperature_out": {0.0: 118.98},
+                "dens_mass_magma": 337.0,
                 "dens_mass_slurry": 1318.39,
                 "diameter_crystallizer": 2.4814,
                 "energy_flow_superheated_vapor": 10546.62,
-                "eq_max_allowable_velocity": 1.95486,
-                "eq_minimum_height_diameter_ratio": 3.72212,
-                "eq_vapor_space_height": 1.8610,
-                "heat_exchanger_area": 776.59,
-                "height_crystallizer": 4.96774,
-                "height_slurry": 3.10668,
-                "magma_circulation_flow_vol": 0.89371,
-                "product_volumetric_solids_fraction": 0.15933,
+                "eq_max_allowable_velocity": 1.9548,
+                "eq_minimum_height_diameter_ratio": 3.7221,
+                "eq_vapor_space_height": 1.861,
+                "heat_exchanger_area": 1824.34,
+                "height_crystallizer": 4.9677,
+                "height_slurry": 3.1066,
+                "magma_circulation_flow_vol": 0.893716,
+                "product_volumetric_solids_fraction": 0.159339,
                 "relative_supersaturation": {"NaCl": 0.654196},
-                "temperature_operating": 376.80,
-                "volume_suspension": 15.0239,
-                "work_mechanical": {0.0: 12535},
+                "t_res": 1.0228,
+                "temperature_operating": 376.8,
+                "volume_suspension": 15.02,
+                "work_mechanical": {0.0: 12535.0},
             },
             2: {
-                "delta_temperature": {0.0: 50.4936},
-                "delta_temperature_in": {0.0: 31.9425},
-                "delta_temperature_out": {0.0: 75.2194},
+                "delta_temperature": {0.0: 50.49},
+                "delta_temperature_in": {0.0: 31.94},
+                "delta_temperature_out": {0.0: 75.21},
                 "dens_mass_magma": 331.37,
                 "dens_mass_slurry": 1324.86,
                 "diameter_crystallizer": 3.0991,
-                "energy_flow_superheated_vapor": 9677.8,
+                "energy_flow_superheated_vapor": 9677.81,
                 "eq_max_allowable_velocity": 3.4641,
                 "eq_minimum_height_diameter_ratio": 4.6487,
                 "eq_vapor_space_height": 2.3243,
-                "heat_exchanger_area": 2088.70,
+                "heat_exchanger_area": 2088.7,
                 "height_crystallizer": 4.6487,
                 "height_slurry": 1.8467,
-                "magma_circulation_flow_vol": 0.7461,
-                "product_volumetric_solids_fraction": 0.15667,
-                "relative_supersaturation": {"NaCl": 0.6664},
+                "magma_circulation_flow_vol": 0.746131,
+                "product_volumetric_solids_fraction": 0.156677,
+                "relative_supersaturation": {"NaCl": 0.666441},
+                "t_res": 1.0228,
                 "temperature_operating": 344.86,
-                "volume_suspension": 13.9312,
-                "work_mechanical": {0.0: 10546.6},
+                "volume_suspension": 13.93,
+                "work_mechanical": {0.0: 10546.62},
             },
             3: {
-                "delta_temperature": {0.0: 16.8533},
+                "delta_temperature": {0.0: 16.85},
                 "delta_temperature_in": {0.0: 4.3421},
-                "delta_temperature_out": {0.0: 44.8351},
+                "delta_temperature_out": {0.0: 44.83},
                 "dens_mass_magma": 330.8,
-                "dens_mass_slurry": 1325.9,
+                "dens_mass_slurry": 1325.96,
                 "diameter_crystallizer": 3.1102,
                 "energy_flow_superheated_vapor": 8990.6,
                 "eq_max_allowable_velocity": 3.7763,
@@ -1008,12 +1030,13 @@ class TestMultiEffectCrystallizer_3Effects:
                 "heat_exchanger_area": 5742.36,
                 "height_crystallizer": 4.6653,
                 "height_slurry": 1.7045,
-                "magma_circulation_flow_vol": 0.68382,
-                "product_volumetric_solids_fraction": 0.156410,
+                "magma_circulation_flow_vol": 0.683822,
+                "product_volumetric_solids_fraction": 0.15641,
                 "relative_supersaturation": {"NaCl": 0.667858},
-                "temperature_operating": 340.5,
-                "volume_suspension": 12.950,
-                "work_mechanical": {0.0: 9677.8},
+                "t_res": 1.0228,
+                "temperature_operating": 340.52,
+                "volume_suspension": 12.95,
+                "work_mechanical": {0.0: 9677.81},
             },
         }
 
@@ -1028,11 +1051,11 @@ class TestMultiEffectCrystallizer_3Effects:
                     assert pytest.approx(value(effv), rel=1e-3) == r
 
         steam_results_dict = {
-            "dens_mass_phase": {"Liq": 828.03, "Vap": 0.439081},
-            "dh_vap_mass": 1827723.26,
-            "flow_mass_phase_comp": {("Liq", "H2O"): 0.0, ("Vap", "H2O"): 6.858},
-            "flow_vol_phase": {"Liq": 0.0, "Vap": 15.619},
-            "pressure_sat": 2639870.3,
+            "flow_mass_phase_comp": {("Liq", "H2O"): 0.0, ("Vap", "H2O"): 5.8372},
+            "temperature": 412.13,
+            "pressure": 351325.0,
+            "dh_vap_mass": 2147398.27,
+            "pressure_sat": 351325.0,
         }
 
         for v, r in steam_results_dict.items():
@@ -1061,24 +1084,26 @@ class TestMultiEffectCrystallizer_3Effects:
         assert_optimal_termination(results)
 
         sys_costing_dict = {
-            "LCOW": 2.7665,
-            "SEC": 0.51529,
-            "aggregate_capital_cost": 17518907.2,
-            "aggregate_direct_capital_cost": 8759453.6,
-            "aggregate_flow_NaCl_recovered": 3.7919,
+            "LCOW": 3.505301,
+            "aggregate_capital_cost": 18573931.258,
+            "aggregate_direct_capital_cost": 9286965.629,
+            "aggregate_flow_NaCl_recovered": 3.791939,
             "aggregate_flow_costs": {
-                "NaCl_recovered": -568416.4,
-                "electricity": 31017.1,
-                "steam": 76976.0,
+                "NaCl_recovered": -568416.44,
+                "electricity": 31017.111,
+                "steam": 468332.767,
             },
-            "aggregate_flow_electricity": 43.05,
-            "aggregate_flow_steam": 0.51945,
-            "capital_recovery_factor": 0.11195,
-            "total_annualized_cost": 2026489.8,
-            "total_capital_cost": 17518907.2,
-            "total_fixed_operating_cost": 525567.2,
-            "total_operating_cost": 65143.9,
-            "total_variable_operating_cost": -460423.2,
+            "aggregate_flow_electricity": 43.058,
+            "aggregate_flow_steam": 3.160433,
+            "capital_recovery_factor": 0.111955949,
+            "maintenance_labor_chemical_operating_cost": 557217.937,
+            "total_annualized_cost": 2567613.48,
+            "total_capital_cost": 18573931.258,
+            "total_fixed_operating_cost": 557217.937,
+            "total_operating_cost": 488151.375,
+            "total_variable_operating_cost": -69066.562,
+            "utilization_factor": 1.0,
+            "wacc": 0.0930733,
         }
 
         for v, r in sys_costing_dict.items():
@@ -1090,17 +1115,17 @@ class TestMultiEffectCrystallizer_3Effects:
                 assert pytest.approx(value(cv), rel=1e-3) == r
 
         eff_costing_dict = {
-            "capital_cost": 17518907.2,
+            "capital_cost": 18573931.2,
             "capital_cost_crystallizer_effect_1": 3079736.6,
             "capital_cost_crystallizer_effect_2": 2932488.6,
             "capital_cost_crystallizer_effect_3": 2818630.8,
-            "capital_cost_effect_1": 1939078.0,
+            "capital_cost_effect_1": 2466590.0,
             "capital_cost_effect_2": 2525607.6,
             "capital_cost_effect_3": 4294767.8,
-            "capital_cost_heat_exchanger_effect_1": 798419.4,
+            "capital_cost_heat_exchanger_effect_1": 1853443.4,
             "capital_cost_heat_exchanger_effect_2": 2118726.6,
             "capital_cost_heat_exchanger_effect_3": 5770904.9,
-            "direct_capital_cost": 8759453.6,
+            "direct_capital_cost": 9286965.6,
         }
 
         for v, r in eff_costing_dict.items():

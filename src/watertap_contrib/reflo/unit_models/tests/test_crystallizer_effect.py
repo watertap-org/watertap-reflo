@@ -70,11 +70,14 @@ def build_effect():
 
     feed_flow_mass = 1
     feed_mass_frac_NaCl = 0.15
-    feed_pressure = 101325
+    atm_pressure = 101325 * pyunits.Pa
+    saturated_steam_pressure_gage = 3 * pyunits.bar
+    saturated_steam_pressure = atm_pressure + pyunits.convert(
+        saturated_steam_pressure_gage, to_units=pyunits.Pa
+    )
     feed_temperature = 273.15 + 20
     crystallizer_yield = 0.5
     operating_pressure_eff = 0.45
-    operating_temperature = 393  # degK
 
     feed_mass_frac_H2O = 1 - feed_mass_frac_NaCl
     eps = 1e-6
@@ -88,20 +91,20 @@ def build_effect():
     eff.inlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(eps)
     eff.inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(eps)
 
-    eff.inlet.pressure[0].fix(feed_pressure)
+    eff.inlet.pressure[0].fix(atm_pressure)
     eff.inlet.temperature[0].fix(feed_temperature)
+
     eff.heating_steam[0].pressure_sat
 
     eff.heating_steam.calculate_state(
         var_args={
             ("flow_mass_phase_comp", ("Liq", "H2O")): 0,
-            ("pressure", None): feed_pressure,
-            ("temperature", None): operating_temperature,
+            ("pressure", None): saturated_steam_pressure,
+            ("pressure_sat", None): saturated_steam_pressure,
         },
         hold_state=True,
     )
     eff.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
-    eff.heating_steam[0].flow_vol_phase[...]
 
     eff.crystallization_yield["NaCl"].fix(crystallizer_yield)
     eff.crystal_growth_rate.fix()
@@ -207,9 +210,9 @@ class TestCrystallizerEffect:
             p = getattr(m.fs.unit, ep)
             assert isinstance(p, Param)
 
-        assert number_variables(m) == 292
-        assert number_total_constraints(m) == 124
-        assert number_unused_variables(m) == 34
+        assert number_variables(m) == 288
+        assert number_total_constraints(m) == 120
+        assert number_unused_variables(m) == 43
 
         assert_units_consistent(m)
 
@@ -330,7 +333,6 @@ class TestCrystallizerEffect:
         eff_dict = {
             "product_volumetric_solids_fraction": 0.132975,
             "temperature_operating": 359.48,
-            "pressure_operating": 45000.0,
             "dens_mass_magma": 281.24,
             "dens_mass_slurry": 1298.23,
             "work_mechanical": {0.0: 1704.47},
@@ -345,11 +347,12 @@ class TestCrystallizerEffect:
             "eq_vapor_space_height": 0.809971,
             "eq_minimum_height_diameter_ratio": 1.6199,
             "energy_flow_superheated_vapor": 1518.73,
-            "delta_temperature_in": {0.0: 33.51},
-            "delta_temperature_out": {0.0: 99.85},
-            "delta_temperature": {0.0: 60.65},
-            "heat_exchanger_area": 281.0,
+            "delta_temperature_in": {0.0: 57.39},
+            "delta_temperature_out": {0.0: 123.72},
+            "delta_temperature": {0.0: 86.31},
+            "heat_exchanger_area": 197.47,
         }
+
         for v, r in eff_dict.items():
             effv = getattr(m.fs.unit, v)
             if effv.is_indexed():
@@ -357,6 +360,22 @@ class TestCrystallizerEffect:
                     assert pytest.approx(value(effv[i]), rel=1e-3) == s
             else:
                 assert pytest.approx(value(effv), rel=1e-3) == r
+
+        steam_dict = {
+            "flow_mass_phase_comp": {("Liq", "H2O"): 0.0, ("Vap", "H2O"): 0.799053},
+            "temperature": 416.87,
+            "pressure": 401325.0,
+            "dh_vap_mass": 2133119.0,
+            "pressure_sat": 401325.0,
+        }
+
+        for v, r in steam_dict.items():
+            sv = getattr(m.fs.unit.heating_steam[0], v)
+            if sv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(sv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(sv), rel=1e-3) == r
 
     @pytest.mark.component
     def test_costing(self, effect_frame):
@@ -375,23 +394,23 @@ class TestCrystallizerEffect:
         assert_optimal_termination(results)
 
         sys_costing_dict = {
-            "aggregate_capital_cost": 953991.75,
+            "aggregate_capital_cost": 868242.67,
             "aggregate_flow_electricity": 2.1715,
             "aggregate_flow_NaCl_recovered": 0.075,
-            "aggregate_flow_steam": 0.692984,
+            "aggregate_flow_steam": 0.383078,
             "aggregate_flow_costs": {
                 "electricity": 1564.26,
                 "NaCl_recovered": -67456.42,
-                "steam": 102690.74,
+                "steam": 56766.9,
             },
-            "aggregate_direct_capital_cost": 476995.87,
-            "total_capital_cost": 953991.75,
-            "total_operating_cost": 65418.33,
-            "maintenance_labor_chemical_operating_cost": 28619.75,
-            "total_fixed_operating_cost": 28619.75,
-            "total_variable_operating_cost": 36798.58,
-            "total_annualized_cost": 172223.38,
-            "LCOW": 6.0504,
+            "aggregate_direct_capital_cost": 434121.33,
+            "total_capital_cost": 868242.67,
+            "total_operating_cost": 16922.02,
+            "maintenance_labor_chemical_operating_cost": 26047.28,
+            "total_fixed_operating_cost": 26047.28,
+            "total_variable_operating_cost": -9125.25,
+            "total_annualized_cost": 114126.95,
+            "LCOW": 4.0094,
             "SEC": 0.66875,
         }
 
@@ -404,10 +423,10 @@ class TestCrystallizerEffect:
                 assert pytest.approx(value(cv), rel=1e-3) == r
 
         eff_costing_dict = {
-            "capital_cost": 953991.75,
-            "direct_capital_cost": 476995.87,
+            "capital_cost": 868242.67,
+            "direct_capital_cost": 434121.33,
             "capital_cost_crystallizer": 659171.48,
-            "capital_cost_heat_exchanger": 294820.27,
+            "capital_cost_heat_exchanger": 209071.19,
         }
 
         for v, r in eff_costing_dict.items():
@@ -417,3 +436,12 @@ class TestCrystallizerEffect:
                     assert pytest.approx(value(cv[i]), rel=1e-3) == s
             else:
                 assert pytest.approx(value(cv), rel=1e-3) == r
+
+        assert (
+            pytest.approx(
+                value(m.fs.unit.heating_steam[0].flow_vol_phase["Vap"]), rel=1e-3
+            )
+            == 0.383078
+        )
+
+        assert value(m.fs.unit.heating_steam[0].flow_vol_phase["Liq"]) == 0
