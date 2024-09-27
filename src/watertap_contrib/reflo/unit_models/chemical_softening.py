@@ -1027,82 +1027,109 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 (b.MgCl2_dosing * b.properties_out[0].flow_vol_phase["Liq"]),
                 to_units=pyunits.kg / pyunits.s,
             )
-        
-        # TODO: 
+
+        # TODO:
         # single stage lime (example in book Crittenden): source water alkalinity - Ca hardness + residual Ca hardness
         # excess lime (example in book Crittenden): source water alkalinity - Ca hardness - excess lime dose + residual Ca hardness
         # single stage lime soda (only hydroxide alkalinity): source water alkalinity + soda ash - total hardness + residual hardness
         # excess lime soda (only hydroxide alkalinity): source water alkalinity + soda ash - total hardness + residual hardness
 
+        if (
+            self.config.softening_procedure_type
+            is SofteningProcedureType.single_stage_lime
+        ):
 
-        if self.config.softening_procedure_type is SofteningProcedureType.single_stage_lime:
             @self.Constraint(doc="Alkalinity mass balance")
             def eq_effluent_alk(b):
                 return b.properties_out[0].flow_mass_phase_comp[
                     "Liq", "Alkalinity_2-"
-                ] == b.properties_in[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"
-                    ]  - pyunits.convert( b.Ca_CaCO3*b.properties_in[0].flow_vol_phase["Liq"], to_units=pyunits.kg / pyunits.s
-                    ) + pyunits.convert( b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-                            * b.Ca_CaCO3_conv* b.properties_out[0].flow_vol_phase["Liq"],  to_units=pyunits.kg / pyunits.s,
-                    ) 
-    
+                ] == b.properties_in[0].flow_mass_phase_comp[
+                    "Liq", "Alkalinity_2-"
+                ] - pyunits.convert(
+                    b.Ca_CaCO3 * b.properties_in[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                ) + pyunits.convert(
+                    b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                    * b.Ca_CaCO3_conv
+                    * b.properties_out[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                )
 
         elif self.config.softening_procedure_type is SofteningProcedureType.excess_lime:
-            @self.Constraint(doc="Alkalinity mass balance")
-            def eq_effluent_alk(b):
-                return b.properties_out[0].flow_mass_phase_comp[
-                    "Liq", "Alkalinity_2-"
-                ] == b.properties_in[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"
-                    ]  - pyunits.convert( b.Ca_CaCO3* b.properties_in[0].flow_vol_phase["Liq"], to_units=pyunits.kg / pyunits.s
-                    )  - pyunits.convert(b.excess_CaO*b.properties_in[0].flow_vol_phase["Liq"],  to_units=pyunits.kg / pyunits.s
-                    ) + pyunits.convert( b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-                            * b.Ca_CaCO3_conv* b.properties_out[0].flow_vol_phase["Liq"],  to_units=pyunits.kg / pyunits.s,
-                    ) 
-            
-        elif  self.config.softening_procedure_type is SofteningProcedureType.single_stage_lime_soda:
-            @self.Constraint(doc="Alkalinity mass balance")
-            def eq_effluent_alk(b):
-                return b.properties_out[0].flow_mass_phase_comp[
-                    "Liq", "Alkalinity_2-"
-                ] == b.properties_in[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"
-                    ]  - pyunits.convert( b.Ca_CaCO3 * b.properties_in[0].flow_vol_phase["Liq"], to_units=pyunits.kg / pyunits.s
-                    ) + pyunits.convert( 
-                                b.noncarbonate_hardness * b.properties_in[0].flow_vol_phase["Liq"], to_units=pyunits.kg / pyunits.s
-                    ) + pyunits.convert( b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-                            * b.Ca_CaCO3_conv* b.properties_out[0].flow_vol_phase["Liq"],  to_units=pyunits.kg / pyunits.s,
-                    ) 
-            
-        elif (
-                self.config.softening_procedure_type
-                is SofteningProcedureType.excess_lime_soda 
-            ):
 
-                @self.Constraint(doc="Alkalinity mass balance")
-                def eq_effluent_alk(b):
-                    return b.properties_out[0].flow_mass_phase_comp[
-                        "Liq", "Alkalinity_2-"
-                    ] == b.properties_in[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"
-                        ]  - pyunits.convert( b.total_hardness * b.properties_in[0].flow_vol_phase["Liq"], to_units=pyunits.kg / pyunits.s
-                        ) + pyunits.convert( 
-                                    b.noncarbonate_hardness * b.properties_in[0].flow_vol_phase["Liq"], to_units=pyunits.kg / pyunits.s
-                        ) + pyunits.convert( b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-                                * b.Ca_CaCO3_conv* b.properties_out[0].flow_vol_phase["Liq"],  to_units=pyunits.kg / pyunits.s,
-                        ) + pyunits.convert( b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-                                * b.Mg_CaCO3_conv* b.properties_out[0].flow_vol_phase["Liq"],  to_units=pyunits.kg / pyunits.s)
-    
+            @self.Constraint(doc="Alkalinity mass balance")
+            def eq_effluent_alk(b):
+                return b.properties_out[0].flow_mass_phase_comp[
+                    "Liq", "Alkalinity_2-"
+                ] == b.properties_in[0].flow_mass_phase_comp[
+                    "Liq", "Alkalinity_2-"
+                ] - pyunits.convert(
+                    b.total_hardness * b.properties_in[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                ) - pyunits.convert(
+                    b.excess_CaO * b.properties_in[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                ) + pyunits.convert(
+                    b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                    * b.Ca_CaCO3_conv
+                    * b.properties_out[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                ) + pyunits.convert(
+                    b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                    * b.Ca_CaCO3_conv
+                    * b.properties_out[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                ) + pyunits.convert(
+                    b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+                    * b.Mg_CaCO3_conv
+                    * b.properties_out[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                )
+
+        elif (
+            self.config.softening_procedure_type
+            is SofteningProcedureType.single_stage_lime_soda
+        ):
+
+            @self.Constraint(doc="Alkalinity mass balance")
+            def eq_effluent_alk(b):
+                return b.properties_out[0].flow_mass_phase_comp[
+                    "Liq", "Alkalinity_2-"
+                ] == pyunits.convert(
+                    b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                    * b.Ca_CaCO3_conv
+                    * b.properties_out[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                )
+
+        elif (
+            self.config.softening_procedure_type
+            is SofteningProcedureType.excess_lime_soda
+        ):
+
+            @self.Constraint(doc="Alkalinity mass balance")
+            def eq_effluent_alk(b):
+                return b.properties_out[0].flow_mass_phase_comp[
+                    "Liq", "Alkalinity_2-"
+                ] == pyunits.convert(
+                    b.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+                    * b.Ca_CaCO3_conv
+                    * b.properties_out[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                ) + pyunits.convert(
+                    b.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+                    * b.Mg_CaCO3_conv
+                    * b.properties_out[0].flow_vol_phase["Liq"],
+                    to_units=pyunits.kg / pyunits.s,
+                )
 
         @self.Constraint(doc="Alkalinity mass balance")
         def eq_mass_balance_alk(b):
-            return b.properties_waste[0].flow_mass_phase_comp[
-                "Liq", "Alkalinity_2-"
-            ] == b.properties_in[0].flow_mass_phase_comp[
-                "Liq", "Alkalinity_2-"
-            ] - b.properties_out[
-                0
-            ].flow_mass_phase_comp[
-                "Liq", "Alkalinity_2-"
-            ] 
-               
+            return (
+                b.properties_waste[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"]
+                == b.properties_in[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"]
+                - b.properties_out[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"]
+            )
 
         if ["TSS"] in comps:
 
