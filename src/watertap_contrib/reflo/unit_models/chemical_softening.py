@@ -31,7 +31,7 @@ from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.math import smooth_min, smooth_max
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.misc import StrEnum
-from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.exceptions import InitializationError, ConfigurationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
@@ -141,7 +141,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
-        # TODO: add ConfigurationError test for required components (Ca, Mg, Alk, etc)
+        required_comps = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
@@ -167,6 +167,11 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
         self.add_port(name="waste", block=self.properties_waste)
 
         comps = self.config.property_package.solute_set
+        if not all(rc in comps for rc in required_comps):
+            raise ConfigurationError(
+                f"ChemicalSoftening requires Ca_2+, Mg_2+, and Alkalinity_2- as solutes in inlet stream"
+                " but not all were provided.",
+            )
         non_hardness_comps = [
             j
             for j in self.config.property_package.solute_set

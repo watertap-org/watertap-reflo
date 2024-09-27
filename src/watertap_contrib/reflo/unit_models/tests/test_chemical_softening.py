@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -23,6 +23,7 @@ from pyomo.util.check_units import assert_units_consistent
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
 from idaes.core.util.testing import initialization_tester
+from idaes.core.util.exceptions import InitializationError, ConfigurationError
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -48,6 +49,28 @@ from watertap_contrib.reflo.costing import TreatmentCosting
 
 # Get default solver for testing
 solver = get_solver()
+
+
+@pytest.mark.unit
+def test_inlet_required_components():
+    component_list = ["Ca_2+", "Mg_2+", "Cats_3+"]
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = MCASParameterBlock(
+        solute_list=component_list, material_flow_basis=MaterialFlowBasis.mass
+    )
+    error_msg = (
+        "ChemicalSoftening requires Ca_2+, Mg_2+, and Alkalinity_2-"
+        + "as solutes in inlet stream but not all were not provided."
+    )
+
+    with pytest.raises(ConfigurationError):
+
+        m.fs.soft = ChemicalSoftening(
+            property_package=m.fs.properties,
+            silica_removal=True,
+            softening_procedure_type="excess_lime_soda",
+        )
 
 
 class TestChemSoft_ExcessLimeSodaSilicaRemoval:
@@ -618,10 +641,6 @@ class TestChemSoft_ExcessLime:
         soft.vel_gradient_mix.fix(300)
         soft.vel_gradient_floc.fix(50)
 
-        soft.CO2_second_basin.fix(0)
-        soft.Na2CO3_dosing.fix(0)
-        soft.MgCl2_dosing.fix(0)
-
         return m
 
     @pytest.mark.unit
@@ -876,10 +895,6 @@ class TestChemSoft_ExcessLime_2:
         soft.pH.fix(6.607)
         soft.vel_gradient_mix.fix(300)
         soft.vel_gradient_floc.fix(50)
-
-        soft.CO2_second_basin.fix(0)
-        soft.Na2CO3_dosing.fix(0)
-        soft.MgCl2_dosing.fix(0)
 
         return m
 
