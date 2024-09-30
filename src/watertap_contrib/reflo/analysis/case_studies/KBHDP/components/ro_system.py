@@ -84,6 +84,7 @@ __all__ = [
     "display_dof_breakdown",
     "display_flow_table",
     "report_RO",
+    "print_RO_costing_breakdown"
 ]
 
 
@@ -152,10 +153,10 @@ def build_ro(m, blk, number_of_stages=1, prop_package=None) -> None:
     blk.LastStage = blk.Stages.last()
     blk.NonFinalStages = RangeSet(number_of_stages - 1)
 
-    blk.pump = Pump(property_package=m.fs.RO_properties)
-    blk.pump.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
-    )
+    # blk.pump = Pump(property_package=m.fs.RO_properties)
+    # blk.pump.costing = UnitModelCostingBlock(
+    #     flowsheet_costing_block=m.fs.costing,
+    # )
 
     blk.primary_mixer = Mixer(
         property_package=m.fs.RO_properties,
@@ -171,15 +172,15 @@ def build_ro(m, blk, number_of_stages=1, prop_package=None) -> None:
         else:
             build_ro_stage(m, stage)
 
-    blk.ro_feed_to_pump = Arc(
+    blk.ro_feed_to_ro = Arc(
         source=blk.feed.outlet,
-        destination=blk.pump.inlet,
-    )
-
-    blk.ro_pump_to_first_stage = Arc(
-        source=blk.pump.outlet,
         destination=blk.stage[1].feed.inlet,
     )
+
+    # blk.ro_pump_to_first_stage = Arc(
+    #     source=blk.pump.outlet,
+    #     destination=blk.stage[1].feed.inlet,
+    # )
 
     blk.stage_retentate_to_next_stage = Arc(
         blk.NonFinalStages,
@@ -312,10 +313,10 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n")
 
     blk.feed.initialize()
-    propagate_state(blk.ro_feed_to_pump)
+    propagate_state(blk.ro_feed_to_ro)
 
-    blk.pump.initialize()
-    propagate_state(blk.ro_pump_to_first_stage)
+    # blk.pump.initialize()
+    # propagate_state(blk.ro_pump_to_first_stage)
 
     for stage in blk.stage.values():
         init_ro_stage(m, stage, solver=solver)
@@ -372,7 +373,7 @@ def init_ro_stage(m, stage, solver=None):
     stage.retentate.initialize()
 
 
-def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None):
+def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None, ro_pressure=25e5):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
@@ -424,10 +425,10 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
 
     feed_temperature = 273.15 + 20
     pressure_atm = 101325
-    supply_pressure = 2.7e5
+    supply_pressure = ro_pressure
 
     #     # initialize feed
-    m.fs.feed.pressure[0].fix(pressure_atm)
+    m.fs.feed.pressure[0].fix(supply_pressure)
     m.fs.feed.temperature[0].fix(feed_temperature)
 
     m.fs.eq_water_recovery = Constraint(
@@ -497,7 +498,7 @@ def calc_scale(value):
     return math.floor(math.log(value, 10))
 
 
-def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pump_pressure=15e5):
+def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
     print(
         "\n\n-------------------- SETTING RO OPERATING CONDITIONS --------------------\n\n"
     )
@@ -512,8 +513,11 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pump_pressure=15
     pump_efi = 0.8  # pump efficiency [-]
 
     # blk.stage[1].module.feed_side.velocity[0, 0].fix(0.35)
-    blk.pump.efficiency_pump.fix(pump_efi)
-    blk.pump.control_volume.properties_out[0].pressure.fix(RO_pump_pressure)
+    # blk.pump.efficiency_pump.fix(pump_efi)
+    # blk.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
+
+    for idx, stage in blk.stage.items():
+        stage.module.width.setub(10000)
 
     for idx, stage in blk.stage.items():
         stage.module.A_comp.fix(mem_A)
@@ -627,6 +631,7 @@ def display_inlet_conditions(blk):
 
 def display_flow_table(blk):
     print("\n\n")
+    print("RO System Flow Table")
     print(
         f'{"NODE":<34s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
     )
@@ -658,7 +663,10 @@ def report_RO(m, blk):
     print(f"\n\n-------------------- RO Report --------------------\n")
     print(f'{"Recovery":<30s}{value(100*m.fs.water_recovery):<10.1f}{"%"}')
     print(
-        f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+        f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.feed.properties[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+    )
+    print(
+        f'{"RO Membrane Area":<30s}{value(blk.stage[1].module.area):<10.1f}{"m^2"}'
     )
 
 
@@ -694,17 +702,23 @@ def build_system():
 
     return m
 
+def print_RO_costing_breakdown(blk):
+    print(f'{"RO Capital Cost":<35s}{f"${value(blk.stage[1].module.costing.capital_cost):<25,.0f}"}')
+    print(f'{"RO Operating Cost":<35s}{f"${value(blk.stage[1].module.costing.fixed_operating_cost):<25,.0f}"}')
+    # print(f'{"Pump Capital Cost":<35s}{f"${value(blk.pump.costing.capital_cost):<25,.0f}"}')
+    # print(blk.pump.costing.display())
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
     display_ro_system_build(m)
-    set_operating_conditions(m, Qin=1, Cin=2.5)
-    set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10)
+    set_operating_conditions(m, Qin=169.663, Cin=17.367, ro_pressure=25e5)
+    set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10000)
     init_system(m)
     solve(m)
 
     display_flow_table(m.fs.ro)
     report_RO(m, m.fs.ro)
+    print_RO_costing_breakdown(m.fs.ro)
     # print(m.fs.ro.stage[1].module.report())
     # print(m.fs.costing.display())

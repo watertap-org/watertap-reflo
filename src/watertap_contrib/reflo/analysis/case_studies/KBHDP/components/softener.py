@@ -56,6 +56,7 @@ __all__ = [
     "add_softener_costing",
     "report_softener",
     "init_softener",
+    "print_softening_costing_breakdown",
 ]
 rho = 1000 * pyunits.kg / pyunits.m**3
 
@@ -292,8 +293,8 @@ def add_softener_costing(m, blk):
         flowsheet_costing_block=m.fs.costing,
     )
 
-    m.fs.costing.cost_process()
-    m.fs.costing.add_LCOW(blk.unit.properties_in[0].flow_vol)
+    # m.fs.costing.cost_process()
+    # m.fs.costing.add_LCOW(blk.unit.properties_in[0].flow_vol)
 
 
 def init_system(blk, solver=None):
@@ -471,6 +472,10 @@ def report_softener(m, blk=None):
         f'{"Electricity Flow":<20s}{blk.costing.electricity_flow.value:<15.2f}{pyunits.get_units(blk.costing.electricity_flow)}'
     )
 
+def print_softening_costing_breakdown(blk):
+    print(f'{"Softening Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
+    print(f'{"Softening Operating Cost":<35s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}')
+    
 
 # calculate_variable_from_constraint
 if __name__ == "__main__":
@@ -481,89 +486,84 @@ if __name__ == "__main__":
 
     soft = m.fs.softener.unit
     soft.properties_out[0].conc_mass_phase_comp[...]
-    # soft.eq_excess_CaO.deactivate()
-    # soft.eq_effluent_ca.deactivate()
-    # soft.eq_mass_balance_ca.deactivate()
     soft.sedimentation_overflow.fix()
     soft.CO2_CaCO3.fix(0.063)
     soft.ca_eff_target.fix(0.02)
     soft.mg_eff_target.fix(0.02)
-    # soft.excess_CaO_coeff.set_value(0)
-    # soft.excess_CaO.fix(0.07)
 
     set_system_operating_conditions(m)
     set_softener_op_conditions(m, m.fs.softener.unit)
     print(f"\n\n\n\n\nDOF = {degrees_of_freedom(m)}\n\n\n\n")
 
     add_softener_costing(m, m.fs.softener)
+    m.fs.costing.cost_process()
     m.fs.costing.initialize()
 
-    # m.fs.obj = Objective(expr=soft.CO2_first_basin)
-    # m.fs.obj = Objective(expr=m.fs.costing.LCOW)
-    # set_scaling(m)
-    # report_MCAS_stream_conc(m)
+    m.fs.costing.add_LCOW(m.fs.softener.unit.properties_in[0].flow_vol)
+    m.fs.obj = Objective(expr=m.fs.costing.LCOW)
     init_system(m)
-    print(f"\n\n\n\n\nherer DOF = {degrees_of_freedom(m)}\n\n\n\n")
+    solve(m)
 
-    # except:
-    #     print_infeasible_constraints(m)
-    # check_jac(m)
-    soft = m.fs.softener.unit
-    # m.fs.softener.unit.display()
-    solver = get_solver()
-
-    results = solver.solve(m)
-    print_infeasible_constraints(m)
-    assert_optimal_termination(results)
+    print_softening_costing_breakdown(m.fs.softener)
+    print(f'{"Softening LCOW":<35s}{f"${m.fs.costing.LCOW():<25,.2f}"}')
+    report_softener(m, m.fs.softener.unit)
+    print(m.fs.costing.display())
+    print(
+        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.feed.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
+    )
+    print(f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.0f}"}')
+    print(f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.0f}"}')
+    for flow in m.fs.costing.aggregate_flow_costs:
+        print(f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():<25,.3f}"}')
     # assert_units_consistent(soft)
     # print(pyunits.get_units(soft.Mg_CaCO3))
     # assert False
-    soft = m.fs.softener.unit
-    # soft.display()
-    # soft.excess_CaO_coeff.display()
-    soft.CO2_CaCO3.display()
-    soft.CaO_dosing.display()
-    soft.Ca_CaCO3.display()
-    soft.Mg_CaCO3.display()
-    soft.excess_CaO.display()
-    soft.Mg_hardness_CaCO3.display()
-    soft.Ca_hardness_CaCO3.display()
-    # soft.ca_eff_target.display()
-    # soft.mg_eff_target.display()
-    # soft.CO2_first_basin.display()
-    soft.MgCl2_dosing.display()
-    soft.MgCl2_SiO2_ratio.display()
-    soft.CO2_second_basin.display()
-    soft.properties_in[0].conc_mass_phase_comp.display()
-    soft.properties_out[0].conc_mass_phase_comp.display()
+    # soft = m.fs.softener.unit
+    # # soft.display()
+    # # soft.excess_CaO_coeff.display()
+    # soft.CO2_CaCO3.display()
+    # soft.CaO_dosing.display()
+    # soft.Ca_CaCO3.display()
+    # soft.Mg_CaCO3.display()
+    # soft.excess_CaO.display()
+    # soft.Mg_hardness_CaCO3.display()
+    # soft.Ca_hardness_CaCO3.display()
+    # # soft.ca_eff_target.display()
+    # # soft.mg_eff_target.display()
+    # # soft.CO2_first_basin.display()
+    # soft.MgCl2_dosing.display()
+    # soft.MgCl2_SiO2_ratio.display()
+    # soft.CO2_second_basin.display()
+    # soft.properties_in[0].conc_mass_phase_comp.display()
+    # soft.properties_out[0].conc_mass_phase_comp.display()
     # soft.properties_out[0].flow_mass_phase_comp.display()
     # soft.excess_CaO.fix()
     # soft.CaO_dosing.fix()
-    print(f"DOF = {degrees_of_freedom(m)}")
-    print(f"LCOW = {m.fs.costing.LCOW()}")
-    print(soft.config.softening_procedure_type)
-    e = (
-        soft.CO2_CaCO3
-        + soft.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-        + soft.Mg_CaCO3
-    ) * soft.excess_CaO_coeff
-    e = pyunits.convert(
-        (
-            soft.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
-            - (soft.Ca_hardness_CaCO3 + soft.Mg_hardness_CaCO3)
-            + soft.excess_CaO
-            # + soft.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
-            + soft.ca_eff_target * soft.Ca_CaCO3_conv
-            # + soft.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
-            + soft.mg_eff_target * soft.Mg_CaCO3_conv
-        )
-        * soft.properties_in[0].flow_vol_phase["Liq"]
-        * soft.CO2_mw
-        / soft.CaCO3_mw,
-        to_units=pyunits.kg / pyunits.d,
-    )
-    e = soft.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"] - (
-        soft.Ca_hardness_CaCO3 + soft.Mg_hardness_CaCO3
-    )
-    e = soft.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"] * 2.35
-    print(value(e))
+    # print(f"DOF = {degrees_of_freedom(m)}")
+    # print(f"LCOW = {m.fs.costing.LCOW()}")
+    # print(soft.config.softening_procedure_type)
+    # e = (
+    #     soft.CO2_CaCO3
+    #     + soft.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+    #     + soft.Mg_CaCO3
+    # ) * soft.excess_CaO_coeff
+    # e = pyunits.convert(
+    #     (
+    #         soft.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"]
+    #         - (soft.Ca_hardness_CaCO3 + soft.Mg_hardness_CaCO3)
+    #         + soft.excess_CaO
+    #         # + soft.properties_out[0].conc_mass_phase_comp["Liq", "Ca_2+"]
+    #         + soft.ca_eff_target * soft.Ca_CaCO3_conv
+    #         # + soft.properties_out[0].conc_mass_phase_comp["Liq", "Mg_2+"]
+    #         + soft.mg_eff_target * soft.Mg_CaCO3_conv
+    #     )
+    #     * soft.properties_in[0].flow_vol_phase["Liq"]
+    #     * soft.CO2_mw
+    #     / soft.CaCO3_mw,
+    #     to_units=pyunits.kg / pyunits.d,
+    # )
+    # e = soft.properties_in[0].conc_mass_phase_comp["Liq", "Alkalinity_2-"] - (
+    #     soft.Ca_hardness_CaCO3 + soft.Mg_hardness_CaCO3
+    # )
+    # e = soft.properties_in[0].conc_mass_phase_comp["Liq", "SiO2"] * 2.35
+    # print(value(e))

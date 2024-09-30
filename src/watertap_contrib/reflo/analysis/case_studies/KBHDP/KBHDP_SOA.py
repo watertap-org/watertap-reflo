@@ -50,7 +50,7 @@ __all__ = [
     "add_connections",
     "add_constraints",
     "add_costing",
-    "relax_constraints",
+    # "relax_constraints",
     "set_inlet_conditions",
     "set_operating_conditions",
     "report_MCAS_stream_conc",
@@ -73,15 +73,18 @@ def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     m = build_system()
-    display_system_build(m)
+    # display_system_build(m)
     add_connections(m)
     add_constraints(m)
-    relax_constraints(m, m.fs.RO)
+    # relax_constraints(m, m.fs.RO)
     set_operating_conditions(m)
     init_system(m)
     add_costing(m)
+    display_system_build(m)
+    optimize(m, ro_mem_area=None)
     solve(m)
     display_system_stream_table(m)
+    print(m.fs.pump.report())
     report_softener(m)
     report_UF(m, m.fs.UF)
     report_RO(m, m.fs.RO)
@@ -119,7 +122,7 @@ def build_system():
     # Define the Unit Models
     m.fs.softener = FlowsheetBlock(dynamic=False)
     m.fs.UF = FlowsheetBlock(dynamic=False)
-    # m.fs.pump = Pump(property_package=m.fs.RO_properties)
+    m.fs.pump = Pump(property_package=m.fs.RO_properties)
     m.fs.RO = FlowsheetBlock(dynamic=False)
 
     # Define the Translator Blocks
@@ -147,6 +150,8 @@ def build_system():
     build_softener(m, m.fs.softener, prop_package=m.fs.MCAS_properties)
     build_UF(m, m.fs.UF, prop_package=m.fs.UF_properties)
     build_ro(m, m.fs.RO, prop_package=m.fs.RO_properties)
+
+    m.fs.units = [m.fs.softener, m.fs.UF, m.fs.pump, m.fs.RO]
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -187,20 +192,20 @@ def add_connections(m):
         destination=m.fs.TDS_to_NaCl_translator.inlet,
     )
 
-    # m.fs.translator_to_pump = Arc(
-    #     source=m.fs.TDS_to_NaCl_translator.outlet,
-    #     destination=m.fs.pump.inlet,
-    # )
-
-    # m.fs.pump_to_ro = Arc(
-    #     source=m.fs.pump.outlet,
-    #     destination=m.fs.RO.feed.inlet,
-    # )
-
-    m.fs.translator_to_ro = Arc(
+    m.fs.translator_to_pump = Arc(
         source=m.fs.TDS_to_NaCl_translator.outlet,
+        destination=m.fs.pump.inlet,
+    )
+
+    m.fs.pump_to_ro = Arc(
+        source=m.fs.pump.outlet,
         destination=m.fs.RO.feed.inlet,
     )
+
+    # m.fs.translator_to_ro = Arc(
+    #     source=m.fs.TDS_to_NaCl_translator.outlet,
+    #     destination=m.fs.RO.feed.inlet,
+    # )
 
     m.fs.ro_to_product = Arc(
         source=m.fs.RO.product.outlet,
@@ -249,8 +254,8 @@ def add_constraints(m):
     )
 
     m.fs.eq_water_recovery = Constraint(
-        expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
-        == m.fs.product.properties[0].flow_vol
+        expr=m.fs.feed.properties[0].flow_vol_phase['Liq'] * m.fs.water_recovery
+        == m.fs.product.properties[0].flow_vol_phase['Liq']
     )
 
     m.fs.feed.properties[0].conc_mass_phase_comp
@@ -261,43 +266,34 @@ def add_constraints(m):
 
 
 def add_costing(m):
-    # m.fs.pump.costing = UnitModelCostingBlock(
-    #     flowsheet_costing_block=m.fs.costing,
-    # )
+    m.fs.pump.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+    )
 
     add_softener_costing(m, m.fs.softener)
     add_UF_costing(m, m.fs.UF)
     add_ro_costing(m, m.fs.RO)
-
+    
     m.fs.costing.cost_process()
     m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
+    m.fs.costing.initialize()
 
-def relax_constraints(m, blk):
-    # Release constraints related to low concentration
-    for idx, stage in blk.stage.items():
-        stage.module.width.setub(10000)
-        # for item in [stage.module.permeate_side, stage.module.feed_side.properties_interface]:
-        #     for idx, param in item.items():
-        #         if idx[1] > 0:
-        #             param.molality_phase_comp["Liq", "NaCl"].setlb(0)
-        #             param.pressure_osm_phase["Liq"].setlb(0)
-        #             param.conc_mass_phase_comp["Liq", "NaCl"].setlb(0)
+    m.fs.costing.total_annualized_cost = pyo.Expression(
+        expr=(
+            m.fs.costing.total_capital_cost * m.fs.costing.capital_recovery_factor
+            + m.fs.costing.total_operating_cost
+        ),
+        doc="Total annualized cost of operation",
+    )
 
-    # for idx, param in blk.module.feed_side.friction_factor_darcy.items():
-    #     # if idx[1] > 0:
-    #     param.setub(100)
 
-    # # Release constraints related to low velocity and low flux
-    # for idx1, item in enumerate([blk.module.feed_side.K, blk.module.feed_side.cp_modulus]):
-    #     for idx2, param in item.items():
-    #         if idx1 > 0:
-    #             if idx2[1] > 0:
-    #                 param.setub(4)
-    #         else:
-    #             if idx2[1] > 0:
-    #                 param.setlb(0)
+# def relax_constraints(m, blk):
+#     # Release constraints related to low concentration
+#     for idx, stage in blk.stage.items():
+#         stage.module.width.setub(10000)
+
 
 
 def define_inlet_composition(m):
@@ -394,12 +390,17 @@ def display_unfixed_vars(blk, report=True):
             print(f"\t{v2.name:<40s}")
 
 
-def set_operating_conditions(m):
+def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1e5):
+    pump_efi = 0.8  # pump efficiency [-]
+
     set_inlet_conditions(m, Qin=4, supply_pressure=1e5)
     set_softener_op_conditions(m, m.fs.softener.unit)
     set_UF_op_conditions(m.fs.UF)
+    m.fs.pump.efficiency_pump.fix(pump_efi)
+    m.fs.pump.control_volume.properties_in[0].pressure.fix(supply_pressure)
+    m.fs.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
     set_ro_system_operating_conditions(
-        m, m.fs.RO, mem_area=10000, RO_pump_pressure=20e5
+        m, m.fs.RO, mem_area=10000,
     )
 
 
@@ -426,13 +427,12 @@ def init_system(m, verbose=True, solver=None):
 
     m.fs.TDS_to_NaCl_translator.initialize()
 
-    # propagate_state(m.fs.translator_to_pump)
-    # m.fs.pump.initialize()
+    propagate_state(m.fs.translator_to_pump)
+    m.fs.pump.initialize()
 
-    # propagate_state(m.fs.pump_to_ro)
-    propagate_state(m.fs.translator_to_ro)
-    print("got here")
-    return
+    propagate_state(m.fs.pump_to_ro)
+    # propagate_state(m.fs.translator_to_ro)
+
     init_ro_system(m, m.fs.RO)
     propagate_state(m.fs.ro_to_product)
     propagate_state(m.fs.ro_to_disposal)
@@ -443,49 +443,42 @@ def init_system(m, verbose=True, solver=None):
     m.fs.softener.unit.properties_waste[0].conc_mass_phase_comp
 
 
-# def init_system(m, verbose=True, solver=None):
-#     if solver is None:
-#         solver = get_solver()
+def optimize(m, water_recovery=0.5, fixed_pressure=None, ro_mem_area=None, objective="LCOW",):
+    print("\n\nDOF before optimization: ", degrees_of_freedom(m))
 
-#     optarg = solver.options
+    if objective == "LCOW":
+        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
 
-#     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
-#     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    if water_recovery is not None:
+        print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
+        m.fs.water_recovery.fix(water_recovery)
+    else:
+        m.fs.water_recovery.unfix()
+        m.fs.water_recovery.setlb(0.01)
+        m.fs.water_recovery.setub(0.99)
 
-#     m.fs.feed.initialize()
-#     # propagate_state(m.fs.feed_to_primary_pump)
-#     propagate_state(m.fs.feed_to_softener)
-#     report_MCAS_stream_conc(m, m.fs.feed.properties[0.0])
-#     init_softener(m, m.fs.softener.unit)
-#     propagate_state(m.fs.softener_to_translator)
-#     m.fs.MCAS_to_TDS_translator.initialize()
-#     propagate_state(m.fs.translator_to_UF)
-#     init_UF(m, m.fs.UF)
-#     propagate_state(m.fs.UF_to_translator3)
-#     # BUG Need to add UF to disposal
+    if fixed_pressure is not None:
+        print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
+        m.fs.pump.control_volume.properties_out[0].pressure.fix(fixed_pressure)
+    else:
+        print(f"------- Unfixed RO Pump Pressure -------")
+        m.fs.pump.control_volume.properties_out[0].pressure.unfix()
 
-#     m.fs.TDS_to_NaCl_translator.initialize()
-
-#     # propagate_state(m.fs.translator_to_pump)
-#     # m.fs.pump.initialize()
-
-#     # propagate_state(m.fs.pump_to_ro)
-#     propagate_state(m.fs.translator_to_ro)
-#     init_ro_system(m, m.fs.RO)
-
-#     propagate_state(m.fs.ro_to_product)
-#     propagate_state(m.fs.ro_to_disposal)
-
-#     m.fs.product.initialize()
-#     m.fs.disposal.initialize()
-#     display_system_stream_table(m)
-#     m.fs.softener.unit.properties_waste[0].conc_mass_phase_comp
+    if ro_mem_area is not None:
+        print(f"\n------- Fixed RO Membrane Area at {ro_mem_area} -------\n")
+        for idx, stage in m.fs.RO.stage.items():
+            stage.module.area.fix(ro_mem_area)
+    else:
+        print(f"\n------- Unfixed RO Membrane Area -------\n")
+        for idx, stage in m.fs.RO.stage.items():
+            stage.module.area.unfix()
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
     # ---solving---
     if solver is None:
         solver = get_solver()
+        solver.options["max_iter"] = 2000
 
     print("\n--------- SOLVING ---------\n")
 
@@ -545,58 +538,63 @@ def display_system_stream_table(m):
     print(
         f'{"Softener Outlet":<20s}{m.fs.softener.unit.properties_out[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.softener.unit.properties_out[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
     )
+    print(m.fs.UF.display())
+    print(
+        f'{"UF Inlet":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["H2O"].value:<30.3f}'
+    )
+    print(
+        f'{"UF Product":<20s}{m.fs.UF.product.properties[0.0].flow_mass_comp["H2O"].value:<30.3f}'
+    )
+    print(
+        f'{"UF Disposal":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["H2O"].value:<30.3f}'
+    )
+    
+    print(
+        f'{"Pump Inlet":<20s}{m.fs.pump.control_volume.properties_in[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.pump.control_volume.properties_in[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
+    )
+    print(
+        f'{"Pump Outlet":<20s}{m.fs.pump.control_volume.properties_out[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.pump.control_volume.properties_out[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
+    )
+    print(m.fs.pump.report())
     display_flow_table(m.fs.RO)
     print("\n\n")
 
 
+
 def display_system_build(m):
     blocks = []
-    for v in m.fs.component_data_objects(ctype=Block, active=True, descend_into=False):
-        print(v)
+    for unit in m.fs.component_data_objects(ctype=Block, active=True, descend_into=False):
+        print(unit)
+        for component in unit.component_data_objects(ctype=Block, active=True, descend_into=False):
+            print("   ",component)
 
 
 def display_costing_breakdown(m):
     print("\n\n-------------------- SYSTEM COSTING BREAKDOWN --------------------\n\n")
-    header = f'{"PARAM":<25s}{"VALUE":<25s}{"UNITS":<25s}'
+    header = f'{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
     print(header)
     print(
-        f'{"Product Flow":<25s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
+        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
-    print(f'{"LCOW":<24s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
+    print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
+    print('\n')
+    print_RO_costing_breakdown(m.fs.RO)
+    print_softening_costing_breakdown(m.fs.softener)
+    print_UF_costing_breakdown(m.fs.UF)
+    print(f'{"Pump Capital Cost":<35s}{f"${value(m.fs.pump.costing.capital_cost):<25,.0f}"}')
+    print('\n')
+    print(f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.3f}"}')
+    print(f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.3f}"}')
+    print(f'{"Total Annualized Cost":<35s}{f"${m.fs.costing.total_annualized_cost():<25,.3f}"}')
+    print('\nOperating Costs:')
+    print(f'{f"Total Fixed Operating Costs":<35s}{f"${m.fs.costing.total_fixed_operating_cost():<25,.3f}"}')
+    print(f'{f"    Agg Fixed Operating Costs":<35s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<25,.3f}"}')
+    print(f'{f"    MLC Operating Costs":<35s}{f"${m.fs.costing.maintenance_labor_chemical_operating_cost():<25,.3f}"}')
+    print(f'{f"Total Variable Operating Costs":<35s}{f"${m.fs.costing.total_variable_operating_cost():<25,.3f}"}')
+    print(f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.costing.aggregate_variable_operating_cost():<25,.3f}"}')
+    for flow in m.fs.costing.aggregate_flow_costs:
+        print(f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():>25,.0f}"}')
 
 
 if __name__ == "__main__":
-    file_dir = os.path.dirname(os.path.abspath(__file__))
-    m = build_system()
-    # display_system_build(m)
-    add_connections(m)
-    add_constraints(m)
-    relax_constraints(m, m.fs.RO)
-    set_operating_conditions(m)
-    constraint_scaling_transform(m.fs.softener.unit.eq_mass_balance_mg, 1e4)
-    # try:
-    init_system(m)
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    solver = get_solver()
-    # set_scaling_factor(m.fs.RO.stage[1].module.feed_side.dh, 1e7)
-    # check_jac(m.fs.RO)
-    results = solver.solve(m)
-
-    # check_jac(m.fs.RO)
-    assert_optimal_termination(results)
-
-    # add_costing(m)
-    # m.fs.costing.initialize()
-    # m.fs.costing.lime.cost.set_value(0)
-    # m.fs.costing.chemical_softening.lime_feed_system_op_coeff.set_value(0)
-    results = solver.solve(m)
-
-    # ro = m.fs.RO.stage[1].module
-
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    # print_infeasible_constraints(m.fs.RO)
-    # print_variables_close_to_bounds(m.fs.RO)
-    print(f"termination {results.solver.termination_condition}")
-    # print(f"LCOW = {m.fs.costing.LCOW()}")
-# TODO Add costing to the system
-# TODO Use case study input values
+    main()

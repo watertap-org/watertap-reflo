@@ -46,7 +46,7 @@ from watertap_contrib.reflo.costing import (
 from watertap.costing.zero_order_costing import ZeroOrderCosting
 from watertap.core.wt_database import Database
 
-__all__ = ["build_UF", "init_UF", "set_UF_op_conditions", "add_UF_costing", "report_UF"]
+__all__ = ["build_UF", "init_UF", "set_UF_op_conditions", "add_UF_costing", "report_UF", "print_UF_costing_breakdown"]
 
 
 def propagate_state(arc):
@@ -133,8 +133,8 @@ def load_parameters(m, blk):
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    # m.fs.costing = REFLOCosting()
-    m.fs.costing = ZeroOrderCosting()
+    m.fs.costing = REFLOCosting()
+    # m.fs.costing = ZeroOrderCosting()
     m.db = Database()
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.MCAS_properties = MCASParameterBlock(
@@ -237,6 +237,12 @@ def report_UF(m, blk, stream_table=False):
         f'{"    Specific Energy Cons.":<30s}{value(m.fs.UF.unit.energy_electric_flow_vol_inlet):<10.3f}{pyunits.get_units(m.fs.UF.unit.energy_electric_flow_vol_inlet)}'
     )
 
+def print_UF_costing_breakdown(blk, debug=False):
+    print(f'{"UF Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
+
+    if debug:
+        print(blk.unit.costing.display())
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -245,9 +251,13 @@ if __name__ == "__main__":
     set_system_conditions(m.fs.UF)
     # load_parameters(m, m.fs.UF)
     add_UF_costing(m, m.fs.UF)
+    m.fs.costing.cost_process()
+    # m.fs.costing.initialize()
     init_UF(m, m.fs.UF)
     solve(m)
 
     report_UF(m, m.fs.UF)
+    m.fs.UF.unit.costing.display()
     m.fs.costing.display()
+    print_UF_costing_breakdown(m.fs.UF, debug=False)
     # # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
