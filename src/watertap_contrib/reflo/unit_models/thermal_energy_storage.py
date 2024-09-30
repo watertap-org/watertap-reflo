@@ -14,37 +14,29 @@
 """
 Thermal Energy Storage Tank
 
-Molten salt Properties:
-From https://github.com/gmlc-dispatches/dispatches/blob/main/dispatches/properties/solarsalt_properties.py
-Ref: (2015) Chang et al, Energy Procedia 69, 779 - 789
-
 """
 
 # Import Pyomo libraries
 from copy import deepcopy
-from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 from pyomo.environ import (
     Var,
     Param,
     units as pyunits,
 )
+from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
-    EnergyBalanceType,
-    MomentumBalanceType,
     UnitModelBlockData,
     useDefault,
 )
-
-from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
 import idaes.core.util.scaling as iscale
-
 from idaes.core.util.config import is_physical_parameter_block
-from watertap.core import InitializationMixin
+
+from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.costing.solar.thermal_energy_storage import (
     cost_tes,
@@ -109,46 +101,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         ),
     )
 
-    CONFIG.declare(
-        "storage material", ConfigValue(default="salt", doc="Thermal storage material")
-    )
-
-    CONFIG.declare(
-        "energy_balance_type",
-        ConfigValue(
-            default=EnergyBalanceType.useDefault,
-            domain=In(EnergyBalanceType),
-            description="Energy balance construction flag",
-            doc="""Indicates what type of energy balance should be constructed,
-            **default** - EnergyBalanceType.useDefault.
-            **Valid values:** {
-            **EnergyBalanceType.useDefault - refer to property package for default
-            balance type
-            **EnergyBalanceType.none** - exclude energy balances,
-            **EnergyBalanceType.enthalpyTotal** - single enthalpy balance for material,
-            **EnergyBalanceType.enthalpyPhase** - enthalpy balances for each phase,
-            **EnergyBalanceType.energyTotal** - single energy balance for material,
-            **EnergyBalanceType.energyPhase** - energy balances for each phase.}""",
-        ),
-    )
-
-    CONFIG.declare(
-        "momentum_balance_type",
-        ConfigValue(
-            default=MomentumBalanceType.pressureTotal,
-            domain=In(MomentumBalanceType),
-            description="Momentum balance construction flag",
-            doc="""Indicates what type of momentum balance should be constructed,
-            **default** - MomentumBalanceType.pressureTotal.
-            **Valid values:** {
-            **MomentumBalanceType.none** - exclude momentum balances,
-            **MomentumBalanceType.pressureTotal** - single pressure balance for material,
-            **MomentumBalanceType.pressurePhase** - pressure balances for each phase,
-            **MomentumBalanceType.momentumTotal** - single momentum balance for material,
-            **MomentumBalanceType.momentumPhase** - momentum balances for each phase.}""",
-        ),
-    )
-
     def build(self):
         super().build()
 
@@ -202,14 +154,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         self.add_inlet_port(name="tes_process_inlet", block=self.process_inlet_block)
         self.add_outlet_port(name="tes_process_outlet", block=self.process_outlet_block)
 
-        # TODO: Add multiple tanks?
-
-        self.salt_csp = Param(
-            initialize=1443,
-            units=pyunits.J / pyunits.kg / pyunits.K,
-            doc="Specific heat capacity of the salt in the TES",
-        )
-
         self.hours_storage = Var(
             initialize=8, bounds=(0, 24), units=pyunits.h, doc="Hours of storage"
         )
@@ -238,21 +182,21 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         self.heat_in = Var(
             self.flowsheet().config.time,
             initialize=0,
-            units=pyunits.W,
+            units=pyunits.J / pyunits.s,
             doc="Thermal energy from a solar power source",
         )
 
         self.heat_out = Var(
             self.flowsheet().config.time,
             initialize=0,
-            units=pyunits.W,
+            units=pyunits.J / pyunits.s,
             doc="Thermal energy exiting the thermal storage tank",
         )
 
         self.tes_initial_temperature = Var(
             initialize=30 + 273.15,
             units=pyunits.K,
-            bounds=(25 + 273.15, 150 + 273.15),
+            bounds=(25 + 273.15, 99 + 273.15),
             doc="Temperature of the thermal storage tank initially from the previous time step",
         )
 
@@ -260,25 +204,26 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             self.flowsheet().config.time,
             initialize=30 + 273.15,
             units=pyunits.K,
-            bounds=(25 + 273.15, 150 + 273.15),
+            bounds=(25 + 273.15, 99 + 273.15),
             doc="Temperature of the thermal storage tank to track convective heat losses",
         )
 
         self.dt = Var(initialize=3600, units=pyunits.s, doc="Time step for multiperiod")
 
         ## TODO Convective heat loss as a function of tank temperature
-        # Can be updated to be a function of temperature
 
-        self.salt_mass = Var(
-            initialize=100,
-            units=pyunits.kg,
-            doc="Mass of salt in the thermal energy storage tank",
+        self.heat_transfer_fluid_density = Param(
+            initialize=1000,
+            units=pyunits.kg / pyunits.m**3,
+            mutable=True,
+            doc="Density of heat transfer fluid",
         )
 
-        self.salt_packing_density = Param(
-            initialize=1,
-            units=pyunits.kg / pyunits.m**3,
-            doc="Packing density of salt",
+        self.heat_transfer_fluid_csp = Param(
+            initialize=4184,
+            units=pyunits.J / pyunits.kg / pyunits.K,
+            mutable=True,
+            doc="Specific heat capacity of heat transfer fluid in the TES",
         )
 
         self.pump_power = Param(
@@ -295,16 +240,18 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         self.electricity = Var(initialize=1, units=pyunits.W, doc="Total electricity")
 
         self.temperature_design = Param(
-            initialize=80 + 273.15, units=pyunits.K, doc="ambient temperature"
+            initialize=90 + 273.15,
+            units=pyunits.K,
+            mutable=True,
+            doc="Storage design temperature",
         )
 
-        self.temperature_ambient = Param(
-            initialize=25 + 273.15, units=pyunits.K, doc="ambient temperature"
+        self.temperature_cold = Param(
+            initialize=20 + 273.15,
+            units=pyunits.K,
+            mutable=True,
+            doc="Ambient temperature",
         )
-
-        @self.Constraint(doc="Calculate mass of solar salt")
-        def eq_salt_mass(b):
-            return b.salt_mass == b.tes_volume * b.salt_packing_density
 
         # Constraint to calculate the total heat entering
         @self.Constraint(self.flowsheet().config.time)
@@ -326,7 +273,7 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         @self.Constraint(self.flowsheet().config.time)
         def eq_tes_temp(b, t):
             return b.tes_temperature[t] == b.tes_initial_temperature + 1 / (
-                b.salt_csp * b.salt_mass
+                b.tes_volume * b.heat_transfer_fluid_density * b.heat_transfer_fluid_csp
             ) * (b.heat_in[t] * b.dt - b.heat_out[t] * b.dt)
 
         @self.Constraint()
@@ -335,10 +282,12 @@ class ThermalEnergyStorageData(UnitModelBlockData):
 
         @self.Constraint()
         def eq_tes_volume(b):
-            return b.tes_volume == b.thermal_energy_capacity / (
-                b.salt_csp
-                * b.salt_packing_density
-                * (b.temperature_design - b.temperature_ambient)
+            return b.tes_volume == pyunits.convert(
+                b.thermal_energy_capacity, to_units=pyunits.J
+            ) / (
+                b.heat_transfer_fluid_density
+                * b.heat_transfer_fluid_csp
+                * (b.temperature_design - b.temperature_cold)
             )
 
         @self.Constraint(doc="Pump power")
@@ -431,10 +380,6 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         if iscale.get_scaling_factor(self.dt) is None:
             sf = iscale.get_scaling_factor(self.dt, default=1e-3)
             iscale.set_scaling_factor(self.dt, sf)
-
-        if iscale.get_scaling_factor(self.salt_mass) is None:
-            sf = iscale.get_scaling_factor(self.salt_mass, default=1e-2)
-            iscale.set_scaling_factor(self.salt_mass, sf)
 
         if iscale.get_scaling_factor(self.electricity) is None:
             sf = iscale.get_scaling_factor(self.electricity, default=1e-1)

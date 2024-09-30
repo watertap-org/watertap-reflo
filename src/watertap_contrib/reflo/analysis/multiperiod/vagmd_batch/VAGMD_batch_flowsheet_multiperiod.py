@@ -24,23 +24,21 @@ from pyomo.environ import (
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # IDAES imports
-from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 from idaes.core import (
     declare_process_block_class,
     UnitModelBlockData,
+    UnitModelCostingBlock,
     useDefault,
 )
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
 import idaes.core.util.scaling as iscale
-from idaes.core import UnitModelCostingBlock
 import idaes.logger as idaeslog
-from idaes.core.solvers.get_solver import get_solver
+from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
 # WaterTAP imports
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap_contrib.reflo.costing import REFLOCosting
+from watertap.core.solvers import get_solver
 
 # Flowsheet function imports
 from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import (
@@ -218,9 +216,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
                 self.mp.get_active_process_blocks()[
                     -1
                 ].fs.specific_energy_consumption_thermal
-                * pyunits.convert(
-                    b.system_capacity, to_units=pyunits.m**3 / pyunits.h
-                )
+                * pyunits.convert(b.system_capacity, to_units=pyunits.m**3 / pyunits.h)
             )
 
         @self.Constraint(
@@ -231,9 +227,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
                 self.mp.get_active_process_blocks()[
                     -1
                 ].fs.specific_energy_consumption_electric
-                * pyunits.convert(
-                    b.system_capacity, to_units=pyunits.m**3 / pyunits.h
-                )
+                * pyunits.convert(b.system_capacity, to_units=pyunits.m**3 / pyunits.h)
             )
 
         super().calculate_scaling_factors()

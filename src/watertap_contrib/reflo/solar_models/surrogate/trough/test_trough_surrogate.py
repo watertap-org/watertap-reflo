@@ -30,9 +30,6 @@ from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
 from watertap_contrib.reflo.core import SolarEnergyBaseData
 from watertap_contrib.reflo.costing import EnergyCosting
 
-from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
-from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import (
@@ -45,6 +42,8 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
 )
+
+from watertap.core.solvers import get_solver
 
 # Get default solver for testing
 solver = get_solver()
@@ -184,8 +183,8 @@ class TestTroughLarge:
         m = trough_frame
         trough = m.fs.trough
         for output_label in trough.output_labels:
-            assert trough.trained_rbf.get_result(output_label).metrics["R2"] > 0.99
-            assert trough.trained_rbf.get_result(output_label).metrics["RMSE"] < 0.005
+            assert trough.trained_rbf.get_result(output_label).metrics["R2"] > 0.9999
+            assert trough.trained_rbf.get_result(output_label).metrics["RMSE"] < 0.003
         assert os.path.getsize(test_surrogate_filename) > 0
 
     @pytest.mark.unit
@@ -205,6 +204,8 @@ class TestTroughLarge:
     @pytest.mark.component
     def test_initialization(self, trough_frame):
         m = trough_frame
+        m.fs.trough.heat_load.fix(250)
+        m.fs.trough.hours_storage.fix(12)
         m.fs.trough.initialize()
 
     @pytest.mark.component
@@ -213,27 +214,27 @@ class TestTroughLarge:
         assert_optimal_termination(results)
 
     @pytest.mark.component
-    @pytest.mark.skip
     def test_solution(self, trough_frame):
         m = trough_frame
-
         trough_results = {
-            "electricity": 1781.038,
-            "heat": 149141.681,
-            "heat_load": 250.0,
-            "hours_storage": 12.0,
-            "heat_annual_scaled": 0.493202,
-            "electricity_annual_scaled": 0.119025,
-            "heat_annual": 1307375976.576,
-            "electricity_annual": 15612580.501,
+            "heat_load": 250,
+            "hours_storage": 12,
+            "heat_annual": 1316250846.7021363,
+            "electricity_annual": 15896041.853637693,
+            "heat_annual_scaled": 0.49670227139084466,
+            "electricity_annual_scaled": 0.12127082028823094,
         }
+
+        m.fs.trough.heat_load.fix(trough_results["heat_load"])
+        m.fs.trough.hours_storage.fix(trough_results["hours_storage"])
+        results = solver.solve(trough_frame)
+        assert_optimal_termination(results)
 
         for v, r in trough_results.items():
             tv = getattr(m.fs.trough, v)
             assert pytest.approx(r, rel=1e-1) == value(tv)
 
     @pytest.mark.unit
-    @pytest.mark.skip
     def test_solvability(self, trough_frame):
         m = trough_frame
         trough = m.fs.trough
@@ -271,7 +272,6 @@ class TestTroughLarge:
             )
 
     @pytest.mark.component
-    @pytest.mark.skip
     def test_costing(self, trough_frame):
 
         m = trough_frame
@@ -285,8 +285,8 @@ class TestTroughLarge:
         m.fs.trough.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
         )
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_total_investment.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.total_investment_factor.fix(1)
         m.fs.costing.cost_process()
         m.fs.costing.initialize()
 
@@ -295,7 +295,7 @@ class TestTroughLarge:
 
         trough_costing_dict = {
             "capital_cost": 249933275.0,
-            "variable_operating_cost": 1308211.583,
+            "variable_operating_cost": 1313013.020,
             "fixed_operating_cost": 2000000.0,
             "direct_cost": 249310000.0,
             "cost_factor": 1.0,
@@ -309,14 +309,14 @@ class TestTroughLarge:
         sys_costing_dict = {
             "aggregate_capital_cost": 249933275.0,
             "aggregate_fixed_operating_cost": 2000000.0,
-            "aggregate_variable_operating_cost": 1308211.583,
-            "aggregate_flow_heat": -149237.004,
-            "aggregate_flow_electricity": 1798.782,
-            "aggregate_flow_costs": {"heat": -15357549.351, "electricity": 1295752.434},
+            "aggregate_variable_operating_cost": 1313013.020,
+            "aggregate_flow_heat": -149784.738,
+            "aggregate_flow_electricity": 1843.139,
+            "aggregate_flow_costs": {"heat": -15413915.083, "electricity": 1327705.190},
             "total_capital_cost": 249933275.0,
             "maintenance_labor_chemical_operating_cost": 0.0,
-            "total_operating_cost": -10753585.333,
-            "capital_recovery_factor": 0.1,
+            "total_operating_cost": -10773196.871,
+            "capital_recovery_factor": 0.11955949,
             "aggregate_direct_capital_cost": 249933275.0,
         }
 

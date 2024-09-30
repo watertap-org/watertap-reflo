@@ -20,16 +20,7 @@ from pyomo.environ import (
     value,
     assert_optimal_termination,
 )
-
 from pyomo.network import Port
-from watertap_contrib.reflo.unit_models.air_stripping_0D import (
-    AirStripping0D,
-    PackingMaterial,
-)
-
-from watertap.core import ControlVolume0DBlock
-from watertap_contrib.reflo.property_models import AirWaterEq
-from watertap_contrib.reflo.costing import REFLOCosting
 
 from idaes.core import (
     MaterialBalanceType,
@@ -38,7 +29,6 @@ from idaes.core import (
 )
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -51,6 +41,16 @@ from idaes.core.util.scaling import (
     set_scaling_factor,
 )
 import idaes.logger as idaeslog
+
+from watertap.core import ControlVolume0DBlock
+from watertap.core.solvers import get_solver
+
+from watertap_contrib.reflo.property_models import AirWaterEq
+from watertap_contrib.reflo.costing import REFLOCosting
+from watertap_contrib.reflo.unit_models.air_stripping_0D import (
+    AirStripping0D,
+    PackingMaterial,
+)
 
 # Get default solver for testing
 solver = get_solver()
@@ -412,7 +412,7 @@ class TestAirStripping0D:
             "total_capital_cost": 391313.521,
             "maintenance_labor_chemical_operating_cost": 11739.41,
             "total_operating_cost": 27280.755,
-            "LCOW": 0.013319447,
+            "LCOW": 0.0142577,
             "SEC": 0.03793025,
         }
 
@@ -781,7 +781,7 @@ class TestAirStripping0D:
             "total_capital_cost": 1414661.385,
             "maintenance_labor_chemical_operating_cost": 42439.841,
             "total_operating_cost": 62494.830,
-            "LCOW": 0.06463132,
+            "LCOW": 0.0699909,
             "SEC": 0.077335064,
         }
 

@@ -1,13 +1,15 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
-# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
-# National Renewable Energy Laboratory, and National Energy Technology
-# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
-# of Energy). All rights reserved.
+# DISPATCHES was produced under the DOE Design Integration and Synthesis Platform
+# to Advance Tightly Coupled Hybrid Energy Systems program (DISPATCHES), and is
+# copyright (c) 2020-2023 by the software owners: The Regents of the University
+# of California, through Lawrence Berkeley National Laboratory, National
+# Technology & Engineering Solutions of Sandia, LLC, Alliance for Sustainable
+# Energy, LLC, Battelle Energy Alliance, LLC, University of Notre Dame du Lac, et
+# al. All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
-# information, respectively. These files are also available online at the URL
-# "https://github.com/watertap-org/watertap/"
+# information, respectively. Both files are also available online at the URL:
+# "https://github.com/gmlc-dispatches/dispatches".
 #################################################################################
 
 import sys
@@ -17,20 +19,17 @@ import textwrap
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    ConcreteModel,
     Var,
     Param,
     NonNegativeReals,
-    units as pyunits,
     value,
+    units as pyunits,
 )
 from pyomo.network import Port
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 # Import IDAES cores
-from idaes.core import FlowsheetBlock
 from idaes.core import declare_process_block_class, UnitModelBlockData
-from idaes.core.solvers import get_solver
 from idaes.core.util.tables import stream_table_dataframe_to_string
 import idaes.core.util.scaling as iscale
 from idaes.core.util.model_statistics import (
@@ -40,6 +39,8 @@ from idaes.core.util.model_statistics import (
     number_activated_blocks,
 )
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
 
 _log = idaeslog.getLogger(__name__)
 

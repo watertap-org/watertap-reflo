@@ -31,9 +31,10 @@ from idaes.core import (
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
-from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
     cost_med_tvc_surrogate,
@@ -292,6 +293,7 @@ class MEDTVCData(UnitModelBlockData):
         """
         Mass balances
         """
+
         # Distillate flow rate calculation
         @self.Constraint(doc="Distallate volumetric flow rate")
         def eq_dist_vol_flow(b):
@@ -833,9 +835,9 @@ class MEDTVCData(UnitModelBlockData):
         var_dict = {}
         var_dict["Gained output ratio"] = self.gain_output_ratio
         var_dict["Thermal power reqruiement (kW)"] = self.thermal_power_requirement
-        var_dict[
-            "Specific thermal energy consumption (kWh/m3)"
-        ] = self.specific_energy_consumption_thermal
+        var_dict["Specific thermal energy consumption (kWh/m3)"] = (
+            self.specific_energy_consumption_thermal
+        )
         var_dict["Feed water volumetric flow rate"] = self.feed_props[0].flow_vol_phase[
             "Liq"
         ]
@@ -1522,8 +1524,7 @@ class MEDTVCData(UnitModelBlockData):
             + 1 * self.motive_steam_mass_flow_rate_coeffs[num_effect][15]
             + self.motive_pressure**2
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][16]
-            + self.capacity**2
-            * self.motive_steam_mass_flow_rate_coeffs[num_effect][17]
+            + self.capacity**2 * self.motive_steam_mass_flow_rate_coeffs[num_effect][17]
             + self.feed_temperature**2
             * self.motive_steam_mass_flow_rate_coeffs[num_effect][18]
             + self.recovery_vol_phase[0, "Liq"] ** 2

@@ -29,12 +29,13 @@ from idaes.core import (
     useDefault,
 )
 from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.core.util.scaling as iscale
 from idaes.core.util.tables import create_stream_table_dataframe
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.costing.units.lt_med_surrogate import cost_lt_med_surrogate
 
@@ -272,6 +273,7 @@ class LTMEDData(UnitModelBlockData):
         """
         Mass balances
         """
+
         # Distillate flow rate calculation
         @self.Constraint(doc="Distillate volumetric flow rate")
         def eq_dist_vol_flow(b):
@@ -696,9 +698,9 @@ class LTMEDData(UnitModelBlockData):
         var_dict = {}
         var_dict["Gained output ratio"] = self.gain_output_ratio
         var_dict["Thermal power requirement (kW)"] = self.thermal_power_requirement
-        var_dict[
-            "Specific thermal energy consumption (kWh/m3)"
-        ] = self.specific_energy_consumption_thermal
+        var_dict["Specific thermal energy consumption (kWh/m3)"] = (
+            self.specific_energy_consumption_thermal
+        )
         var_dict["Feed water volumetric flow rate"] = self.feed_props[0].flow_vol_phase[
             "Liq"
         ]

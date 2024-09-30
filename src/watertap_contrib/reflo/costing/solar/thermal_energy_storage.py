@@ -15,7 +15,6 @@ from watertap.costing.util import register_costing_parameter_block
 from watertap_contrib.reflo.costing.util import (
     make_capital_cost_var,
     make_fixed_operating_cost_var,
-    make_variable_operating_cost_var,
 )
 
 
@@ -23,11 +22,11 @@ def build_tes_cost_param_block(blk):
 
     costing = blk.parent_block()
 
-    blk.thermal_energy_storage_cost = pyo.Var(
-        initialize=10.79,
-        units=costing.base_currency / pyo.units.kW,
+    blk.cost_per_volume_storage = pyo.Var(
+        initialize=2000,
+        units=costing.base_currency / pyo.units.m**3,
         bounds=(0, None),
-        doc="Cost per kW storage",
+        doc="Cost per volume for thermal storage",
     )
 
     blk.contingency_frac_direct_cost = pyo.Var(
@@ -87,7 +86,7 @@ def cost_tes(blk):
 
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_capital_cost
-        == (tes_params.thermal_energy_storage_cost * tes.thermal_energy_capacity)
+        == (tes_params.cost_per_volume_storage * tes.tes_volume)
         * (1 + tes_params.contingency_frac_direct_cost)
     )
 
@@ -111,7 +110,6 @@ def cost_tes(blk):
         * pyo.units.convert(tes.heat_load, to_units=pyo.units.kW)
     )
 
-    # register the flows, e.g.,:
     blk.costing_package.cost_flow(
         tes.electricity,
         "electricity",

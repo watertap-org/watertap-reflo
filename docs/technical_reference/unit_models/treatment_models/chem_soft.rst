@@ -1,6 +1,8 @@
 Chemical Softening
 ====================================================
 
+.. note:: This unit model was recently (9/2024) updated for stability and some relationships were modified. An update to this documentation page is pending.
+
 This chemical softening model includes the units mixer, flocculator, sedimentation basin and recarbonation basin. The model calculates the chemical dose required for target removal of hardness causing components 
 and calculates the size of the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model:
    * supports steady-state only
@@ -14,6 +16,12 @@ The model requires 2 configuration inputs:
    * Softening procedure: ``single_stage_lime`` or ``excess_lime`` or ``single_stage_lime_soda`` or ``excess_lime_soda``
    * Silica removal: ``True`` or ``False``
 
+The softening procedure should be selected based on the inlet feed composition as shown below:
+   1. if [:math:`\text{Mg}^{2+}`] in CaCO3 \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] > [:math:`\text{Ca}^{2+}`] in CaCO3 : ``single_stage_lime``
+   2. if [:math:`\text{Mg}^{2+}`] in CaCO3 \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \>= Total hardness : ``excess_lime``
+   3. if [:math:`\text{Mg}^{2+}`] in CaCO3 \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \<= Total hardness : ``single_stage_lime_soda``
+   4. if [:math:`\text{Mg}^{2+}`] in CaCO3 \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] >\<= Total hardness - ``excess_lime_soda``
+
 
 Solution Composition
 ---------------------
@@ -26,22 +34,12 @@ are shown in the code below. Additional components can be included by the user s
    component_list = ["Ca_2+","Mg_2+","Alkalinity_2-"]
 
 A default removal efficiency is assumed for components (other than :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`) and shown below in the code block.
-Users can provide an input dictionary of removal efficiencies for each of the components by modifying the sample dictionary below and passing it to the input variable ``removal_efficiency``.
+Users can update the removal efficiencies for specific components by first fixing the ``removal_efficiency`` variable and then using the specific component as a key to modify its removal efficiency as shown below.
 
 .. code-block::
 
-   removal_eff_dict = dict(
-            zip([
-                x for x in component_list if x not in ["Ca_2+","Mg_2+"]
-                ]
-                ,
-                [   
-                    0.7 if j != "TDS" else 1e-3
-                    for j in component_list 
-                ],
-            )
-        )
-
+   removal_efficiency.fix()
+   removal_efficiency['Cl_-'].fix(0.8)
 
 Degrees of Freedom/Variables
 ----------------------------
@@ -59,21 +57,21 @@ Typically, the following 7 variables define the input feed.
    "Feed composition Mg2+", "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
    "Feed composition Alkalinity2-", "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``",":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
    "Feed temperature", "``feed_props.temperature``", ":math:`T`", ":math:`^o\text{C}`"
-   "Ca2+ effluent target in CaCO3 equivalents", "``ca_eff_target``", "", ":math:`\text{g/}\text{L}`"
-   "Mg2+ effluent target in CaCO3 equivalents", "``mg_eff_target``", "", ":math:`\text{g/}\text{L}`"
+   "Ca2+ effluent target", "``ca_eff_target``", "", ":math:`\text{g/}\text{L}`"
+   "Mg2+ effluent target", "``mg_eff_target``", "", ":math:`\text{g/}\text{L}`"
    
 The following 11 variables define the system design.
 
 .. csv-table::
    :header: "Variables", "Variable Name", "Symbol",  "Valid Range", "Unit"
 
-   "Number of mixers", "``no_of_mixer``", ":math:`n_{mixer}`", "", ":math:`\text{dimensionless}`"
-   "Number of flocculators", "``no_of_floc``", ":math:`n_{floc}`", "", ":math:`\text{dimensionless}`"
+   "Number of mixers", "``number_mixers``", ":math:`n_{mixer}`", "", ":math:`\text{dimensionless}`"
+   "Number of flocculators", "``number_floc``", ":math:`n_{floc}`", "", ":math:`\text{dimensionless}`"
    "Retention time of mixer", "``retention_time_mixer``", ":math:`RT_{mixer}`", "0.1-5", ":math:`\text{min}`"
    "Retention time of flocculator", "``retention_time_floc``", ":math:`RT_{floc}`", "10-45", ":math:`\text{min}`"
    "Retention time of sedimentation basin", "``retention_time_sed``", ":math:`RT_{sed}`", "120-240",  ":math:`\text{min}`"
    "Retention time of recarbonation basin", "``retention_time_recarb``", ":math:`RT_{recarb}`", "15-30", ":math:`\text{min}`"
-   "Fractional volume recovery", "``frac_vol_recovery``", "", "", ":math:`\text{dimensionless}`"
+   "Fractional recovery of water on mass basis", "``frac_mass_water_recovery``", "", "", ":math:`\text{dimensionless}`"
    "Removal efficiency of components (except Ca2+ and Mg2+)", "``removal_efficiency``", "","",":math:`\text{dimensionless}`"
    "CO2 dose in CaCO3 equivalents", "``CO2_CaCO3``",":math:`CO_{2,CaCO_{3}-hardness}`","", ":math:`\text{g/}\text{L}`"
    "Velocity gradient in mixer", "``vel_gradient_mix``", ":math:`\text{velocity gradient}_{mixer}`", "300-1000",":math:`\text{/}\text{s}`"
@@ -126,7 +124,7 @@ The following parameters are used as default values and are not mutable.
    "Ratio of MgCl2 to SiO2", "``MgCl2_SiO2_ratio``", ":math:`Ratio_{MgCl_{2}/SiO_{2}}`"
    "Sludge produced per kg Ca in CaCO3 hardness", "``Ca_hardness_CaCO3_sludge_factor``", ":math:`\text{Ca-SF}_{CaCO_{3}-hardness}`"
    "Sludge produced per kg Mg in CaCO3 hardness", "``Mg_hardness_CaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{CaCO_{3}-hardness}`"
-   "Sludge produced per kg Mg in non-CaCO3 hardness", "``Mg_hardness_nonCaCO3_sludge_prod_factor``", ":math:`\text{Mg-SF}_{non-CaCO_{3}-hardness}`"
+   "Sludge produced per kg Mg in non-CaCO3 hardness", "``Mg_hardness_nonCaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{non-CaCO_{3}-hardness}`"
    "Multiplication factor to calculate excess CaO", "``excess_CaO_coeff``", ""
 
 

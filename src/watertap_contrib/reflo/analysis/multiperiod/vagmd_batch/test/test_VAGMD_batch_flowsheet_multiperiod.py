@@ -17,16 +17,8 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-import re
-from pyomo.network import Port
+
 from idaes.core import FlowsheetBlock
-from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet_multiperiod import (
-    VAGMDbatchSurrogate,
-)
-
-from watertap_contrib.reflo.costing import REFLOCosting
-
-from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
@@ -34,6 +26,12 @@ from idaes.core.util.model_statistics import (
     degrees_of_freedom,
 )
 
+from watertap.core.solvers import get_solver
+
+from watertap_contrib.reflo.costing import REFLOCosting
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet_multiperiod import (
+    VAGMDbatchSurrogate,
+)
 
 solver = get_solver()
 
@@ -213,7 +211,7 @@ class TestVAGMDbatch:
     def test_solution(self, VAGMD_batch_frame):
         m = VAGMD_batch_frame
         vagmd_b = m.fs.VAGMD_b
-        overall_performance, data_table = vagmd_b.get_model_performance()
+        overall_performance, _ = vagmd_b.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
             37.5599, abs=1e-3
@@ -250,9 +248,10 @@ class TestVAGMDbatch:
         m.fs.VAGMD_b.add_costing_module(m.fs.costing)
 
         # Fix some global costing params for better comparison to Pyomo model
-        m.fs.costing.factor_total_investment.fix(1)
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_capital_annualization.fix(0.08764)
+        m.fs.costing.total_investment_factor.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.capital_recovery_factor.fix(0.08764)
+        m.fs.costing.wacc.unfix()
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(vagmd.system_capacity)
@@ -300,7 +299,7 @@ class TestVAGMDbatch:
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        overall_performance, data_table = m.fs.VAGMD.get_model_performance()
+        overall_performance, _ = m.fs.VAGMD.get_model_performance()
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
             53.767, abs=1e-3
         )
@@ -342,7 +341,7 @@ class TestVAGMDbatch:
 
         results = solver.solve(m)
         assert_optimal_termination(results)
-        overall_performance, data_table = m.fs.VAGMD.get_model_performance()
+        overall_performance, _ = m.fs.VAGMD.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
             36.091, abs=1e-3

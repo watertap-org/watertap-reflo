@@ -22,13 +22,11 @@ from pyomo.environ import (
 
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
-
-from watertap_contrib.reflo.core import SolarEnergyBaseData
-from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.exceptions import InitializationError
-
 import idaes.logger as idaeslog
 
+from watertap.core.solvers import get_solver
+from watertap_contrib.reflo.core import SolarEnergyBaseData
 from watertap_contrib.reflo.costing.solar.trough_surrogate import cost_trough_surrogate
 
 _log = idaeslog.getLogger(__name__)

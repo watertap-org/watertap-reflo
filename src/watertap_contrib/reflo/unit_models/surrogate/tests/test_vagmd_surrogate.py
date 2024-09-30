@@ -18,14 +18,8 @@ from pyomo.environ import (
     units as pyunits,
 )
 
-from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.reflo.costing import TreatmentCosting
-
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -38,6 +32,13 @@ from idaes.core.util.scaling import (
     badly_scaled_var_generator,
 )
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.property_models.water_prop_pack import WaterParameterBlock
+
+from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
+from watertap_contrib.reflo.costing import TreatmentCosting
 
 # Get default solver for testing
 solver = get_solver()
@@ -137,9 +138,9 @@ class TestVAGMD_unit_model:
         m = VAGMD_frame
 
         # test statistics
-        assert number_variables(m) == 234
+        assert number_variables(m) == 246
         assert number_total_constraints(m) == 74
-        assert number_unused_variables(m) == 127
+        assert number_unused_variables(m) == 139
 
     @pytest.mark.unit
     def test_dof(self, VAGMD_frame):
@@ -202,9 +203,10 @@ class TestVAGMD_unit_model:
         vagmd.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         # Fix some global costing params for better comparison to Pyomo model
-        m.fs.costing.factor_total_investment.fix(1)
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_capital_annualization.fix(0.08764)
+        m.fs.costing.total_investment_factor.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.capital_recovery_factor.fix(0.08764)
+        m.fs.costing.wacc.unfix()
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(vagmd.system_capacity)

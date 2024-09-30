@@ -17,17 +17,10 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-import re
 from pyomo.network import Port
+
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
-
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.reflo.costing import REFLOCosting
-
 from idaes.core.util.testing import initialization_tester
-from idaes.core.solvers import get_solver
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
@@ -41,6 +34,13 @@ from idaes.core.util.scaling import (
     badly_scaled_var_generator,
 )
 import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.property_models.water_prop_pack import WaterParameterBlock
+
+from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
+from watertap_contrib.reflo.costing import REFLOCosting
 
 # Get default solver for testing
 solver = get_solver()
@@ -61,8 +61,6 @@ class TestLTMED:
         )
 
         lt_med = m.fs.lt_med
-        feed = lt_med.feed_props[0]
-        dist = lt_med.distillate_props[0]
         steam = lt_med.steam_props[0]
 
         # System specification
@@ -161,9 +159,11 @@ class TestLTMED:
             assert len(port.vars) == 3
 
         # test statistics
-        assert number_variables(m) == 193
+        assert number_variables(m) == 205
         assert number_total_constraints(m) == 51
-        assert number_unused_variables(m) == 90  # vars from property package parameters
+        assert (
+            number_unused_variables(m) == 102
+        )  # vars from property package parameters
 
     @pytest.mark.unit
     def test_dof(self, LT_MED_frame):
@@ -277,9 +277,10 @@ class TestLTMED:
 
         # Fix some global costing params for better comparison to Pyomo model
         # (This is not necessary in general)
-        m.fs.costing.factor_total_investment.fix(1)
-        m.fs.costing.factor_maintenance_labor_chemical.fix(0)
-        m.fs.costing.factor_capital_annualization.fix(0.08764)
+        m.fs.costing.total_investment_factor.fix(1)
+        m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+        m.fs.costing.capital_recovery_factor.fix(0.08764)
+        m.fs.costing.wacc.unfix()
 
         m.fs.costing.cost_process()
         m.fs.costing.add_annual_water_production(dist.flow_vol_phase["Liq"])
@@ -341,8 +342,6 @@ class TestLTMED:
         )
 
         lt_med = m.fs.lt_med
-        feed = lt_med.feed_props[0]
-        dist = lt_med.distillate_props[0]
         steam = lt_med.steam_props[0]
 
         # System specification

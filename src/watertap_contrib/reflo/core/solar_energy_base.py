@@ -14,14 +14,16 @@ This module contains a base class for all solar energy unit models.
 """
 import os
 import sys
-from copy import deepcopy
 import numpy as np
 import pandas as pd
+from copy import deepcopy
 from io import StringIO
+
+from pyomo.common.config import ConfigBlock, ConfigValue, In
+from pyomo.environ import Param, Var, Suffix, NonNegativeReals, units as pyunits
 
 import idaes.logger as idaeslog
 from idaes.core import UnitModelBlockData, declare_process_block_class
-from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.exceptions import InitializationError
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
@@ -29,8 +31,7 @@ from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 from idaes.core.util.misc import StrEnum
 
-from pyomo.common.config import ConfigBlock, ConfigValue, In
-from pyomo.environ import Param, Var, Suffix, NonNegativeReals, units as pyunits
+from watertap.core.solvers import get_solver
 
 __author__ = "Kurban Sitterley"
 
@@ -301,7 +302,9 @@ class SolarEnergyBaseData(UnitModelBlockData):
                 self.pickle_df = self.pickle_df[
                     (self.pickle_df[col] >= lo) & (self.pickle_df[col] <= hi)
                 ].copy()
-        self.data = self.pickle_df.sample(n=self.config.number_samples)
+        self.data = self.pickle_df.sample(
+            n=self.config.number_samples, random_state=len(self.pickle_df)
+        )
         self.data_training, self.data_validation = split_training_validation(
             self.data, self.config.training_fraction, seed=len(self.data)
         )

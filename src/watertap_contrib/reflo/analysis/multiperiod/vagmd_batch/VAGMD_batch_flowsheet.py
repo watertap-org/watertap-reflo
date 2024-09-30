@@ -18,12 +18,9 @@ from pyomo.environ import (
 )
 
 # IDAES imports
-import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock
+import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
-from idaes.core.util.scaling import (
-    calculate_scaling_factors,
-)
 
 # WaterTAP imports
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
@@ -358,7 +355,7 @@ def fix_dof_and_initialize(
     m.fs.pre_feed_pump_power_elec.fix(0)
     m.fs.pre_cooling_pump_power_elec.fix(0)
 
-    calculate_scaling_factors(m.fs.vagmd)
+    iscale.calculate_scaling_factors(m.fs.vagmd)
     m.fs.vagmd.initialize_build(outlvl=outlvl)
 
     if iscale.get_scaling_factor(m.fs.dt) is None:
