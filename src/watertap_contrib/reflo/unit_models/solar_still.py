@@ -19,7 +19,7 @@ from pyomo.environ import (
     Suffix,
     units as pyunits,
 )
-from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
+from pyomo.common.config import ConfigBlock, ConfigValue, In
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 # Import IDAES cores
@@ -31,14 +31,13 @@ from idaes.core import (
 from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.config import is_physical_parameter_block
-from idaes.core.util.misc import StrEnum
 
 from idaes.core.util.exceptions import InitializationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
 from watertap.core import InitializationMixin
-from watertap_contrib.reflo.costing.units.solar_still_zo import cost_solar_still
+from watertap_contrib.reflo.costing.units.solar_still import cost_solar_still
 from watertap_contrib.reflo.unit_models.util.water_yield_calculation import (
     get_solar_still_daily_water_yield,
 )
