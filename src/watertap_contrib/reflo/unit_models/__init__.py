@@ -10,5 +10,5 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-from .zero_order.chemical_softening_zo import ChemicalSofteningZO
+from .chemical_softening import ChemicalSoftening
 from .air_stripping_0D import AirStripping0D
