@@ -32,6 +32,7 @@ def get_solar_still_daily_water_yield(
 
         # Allocating the variables
         # Second variables
+        saltwater_density_list = list()
         evaporated_saltwater_mass = np.zeros(seconds_per_day)
         irradiance = np.zeros(seconds_per_day)
         time = np.zeros(seconds_per_day)
@@ -205,6 +206,8 @@ def get_solar_still_daily_water_yield(
                 + (saltwater_density_coefficient_7 * saltwater_density_coefficient_12)
                 + (saltwater_density_coefficient_8 * saltwater_density_coefficient_13)
             )  # saltwater density (kg/m^3)
+
+            saltwater_density_list.append(saltwater_density)
 
             # Calculation of water dynamic viscosity as a function of Temperature (°C) and salinity (g/l)
             # Accuracy of correlation is valid for up to 150 g/l; however, intuitive behaviour is reported for up to 350 g/l
@@ -564,17 +567,16 @@ def get_solar_still_daily_water_yield(
         * np.nansum(cumulative_yearly_water_yield)
     ) / 1000  # Total Water Productivity in year [m3 water per m2 area per year]
 
-    print(annual_water_yield / days_in_year)
-    print(interval_day)
-    print(operational_matrix)
+    # daily water yield on volumetric basis
+    daily_water_yield_vol = annual_water_yield / days_in_year # [m3 water per m2 area per year]
+    # daily water yield on mass basis
+    daily_water_yield_mass = daily_water_yield_vol * 1000 
 
-    daily_water_yield = annual_water_yield / days_in_year
-
-    return daily_water_yield
+    return daily_water_yield_mass
 
 
 if __name__ == "__main__":
 
     f = "/Users/ksitterl/Documents/SETO/models/solar_still/SS_model-Sept2024/SS_Model/Data/TMY2 SAM CSV/data.csv"
-    water_yield = get_water_yield(input_weather_file_path=f, interval_day=100)
+    water_yield = get_solar_still_daily_water_yield(input_weather_file_path=f, interval_day=100)
     print(f"water_yield = {water_yield}")

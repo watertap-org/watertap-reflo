@@ -46,10 +46,10 @@ from watertap_contrib.reflo.unit_models.util.water_yield_calculation import (
 __author__ = "Kurban Sitterley"
 
 
-@declare_process_block_class("SolarStillZO")
-class SolarStillZOData(InitializationMixin, UnitModelBlockData):
+@declare_process_block_class("SolarStill")
+class SolarStillData(InitializationMixin, UnitModelBlockData):
     """
-    Zero order chemical softening model
+    Zero dimensional solar still model
     """
 
     CONFIG = ConfigBlock()
@@ -117,6 +117,7 @@ class SolarStillZOData(InitializationMixin, UnitModelBlockData):
 
         # This creates blank scaling factors, which are populated later
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
+        unit_log = idaeslog.getModelLogger(self.name, tag="unit")
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
@@ -149,8 +150,16 @@ class SolarStillZOData(InitializationMixin, UnitModelBlockData):
         prop_waste.flow_mass_phase_comp["Liq", "H2O"].fix(0)
         comps = self.config.property_package.component_list
 
+        unit_log.info(
+            f"Calculating daily water yield assuming {self.config.water_yield_calculation_args['salinity']} g/L TDS with {self.config.water_yield_calculation_args['interval_day']} day intervals..."
+        )
+
         daily_water_yield_mass = get_solar_still_daily_water_yield(
             **self.config.water_yield_calculation_args
+        )
+
+        unit_log.info(
+            f"Water yield calculation complete."
         )
 
         self.water_yield = Param(
@@ -298,11 +307,7 @@ class SolarStillZOData(InitializationMixin, UnitModelBlockData):
             hold_state=True,
         )
         init_log.info("Initialization Step 1a Complete.")
-        # ---------------------------------------------------------------------
-        # Initialize other state blocks
-        # Set state_args from inlet state
 
-        # cvc_dict = {""}
         if state_args is None:
             self.state_args = state_args = {}
             self.state_dict = state_dict = self.properties_in[
