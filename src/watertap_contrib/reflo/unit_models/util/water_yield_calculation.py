@@ -1,31 +1,45 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
 import math
 import pandas as pd
 import numpy as np
 
 days_in_year = 365
-hours_per_day = 24  
-seconds_per_day = 86400  
-stefan_boltzmann_constant = 5.6697e-8 # W / m2 / K4
+hours_per_day = 24
+seconds_per_day = 86400
+stefan_boltzmann_constant = 5.6697e-8  # W / m2 / K4
+
 
 def get_solar_still_daily_water_yield(
-        input_weather_file_path=None, # path to input weather file
-        interval_day=15, # interval at which to calculate water yield (e.g., every 15 days)
-        salinity=20, # salinity of influent water; g/L
-        water_depth_basin=0.02, # depth of water in solar still basin; m
-        length_basin=0.6, # length of each side of basin (length=width); m
+    input_weather_file_path=None,  # path to input weather file
+    interval_day=15,  # interval at which to calculate water yield (e.g., every 15 days)
+    salinity=20,  # salinity of influent water; g/L
+    water_depth_basin=0.02,  # depth of water in solar still basin; m
+    length_basin=0.6,  # length of each side of basin (length=width); m
 ):
     """
     Uses input weather data to calculate daily water yield for solar still (m3/m2/day)
     """
-    
+
     weather_data = pd.read_csv(input_weather_file_path, skiprows=2)
     daterow = np.zeros(days_in_year)
 
     for tt in range(0, days_in_year, interval_day + 1):
         daterow[tt] = tt * 24
-        operational_matrix = [daterow[i] for i in range(len(daterow)) if daterow[i] != 0]
+        operational_matrix = [
+            daterow[i] for i in range(len(daterow)) if daterow[i] != 0
+        ]
         cumulative_yearly_water_yield = np.zeros(len(operational_matrix))
-
 
     for tt in range(len(operational_matrix)):
         u = int(operational_matrix[tt])
@@ -68,7 +82,9 @@ def get_solar_still_daily_water_yield(
             end_index = start_index + 3600
             irradiance[start_index:end_index] = hourly_irradiance[hour]
             wind_velocity[start_index:end_index] = hourly_wind_velocity[hour]
-            ambient_temperature[start_index:end_index] = hourly_ambient_temperature[hour]
+            ambient_temperature[start_index:end_index] = hourly_ambient_temperature[
+                hour
+            ]
 
         # Initializing Temperatures
         # Initial system is assumed to be in thermal equilibrium with ambient
@@ -89,7 +105,9 @@ def get_solar_still_daily_water_yield(
 
         # Geometrical properties of squared basin
         area_bottom_basin = length_basin**2  # Area of square basin (m^2)
-        area_side_water = (2 * (2 * length_basin)) * water_depth_basin  # Perimeter x water_depth_basin of water (m^2)
+        area_side_water = (
+            2 * (2 * length_basin)
+        ) * water_depth_basin  # Perimeter x water_depth_basin of water (m^2)
 
         # Radiative properties
         absorptivity_glass = 0.047  # Absorptivity of glass (-)
@@ -127,7 +145,9 @@ def get_solar_still_daily_water_yield(
         sky_temperature[1] = 0.0552 * (
             (ambient_temperature[1]) ** 1.5
         )  # Initial effective radiation temperature of the sky (deg C), converted into K and then back to Celsius to avoid
-        Stephen_Aoltzman = 5.6697 * (10**-8)  # Stephen-Boltzman Constant (W / (m^2.K^4))
+        Stephen_Aoltzman = 5.6697 * (
+            10**-8
+        )  # Stephen-Boltzman Constant (W / (m^2.K^4))
 
         thickness_insulation = 0.005  # Thickness of SS Insulation (m)
         conductivity_insulation = 0.033  # Conductivity of SS Insulation (W/m.K)
@@ -168,7 +188,9 @@ def get_solar_still_daily_water_yield(
             saltwater_density_coefficient_1 = ((2 * salinity) - 150) / 150
             saltwater_density_coefficient_2 = 0.5
             saltwater_density_coefficient_3 = saltwater_density_coefficient_1
-            saltwater_density_coefficient_4 = (2 * (saltwater_density_coefficient_1**2)) - 1
+            saltwater_density_coefficient_4 = (
+                2 * (saltwater_density_coefficient_1**2)
+            ) - 1
             saltwater_density_coefficient_5 = (
                 (4.032 * saltwater_density_coefficient_2)
                 + (0.115 * saltwater_density_coefficient_3)
@@ -280,7 +302,10 @@ def get_solar_still_daily_water_yield(
             )
             saltwater_thermal_conductivity_coefficient_2 = 0.434 * (
                 2.3
-                - ((343.5 + (0.037 * salinity)) / ((saltwater_temperature[i - 1] + 273)))
+                - (
+                    (343.5 + (0.037 * salinity))
+                    / ((saltwater_temperature[i - 1] + 273))
+                )
             )
             saltwater_thermal_conductivity_coefficient_3 = abs(
                 1 - ((saltwater_temperature[i - 1] + 273) / (647 + 0.03 * salinity))
@@ -304,7 +329,9 @@ def get_solar_still_daily_water_yield(
             saltwater_mass = saltwater_density * (
                 area_bottom_basin * water_depth_basin
             )  # Water Mass (kg)
-            saltwater_kinematic_viscosity = saltwater_dynamic_viscosity / saltwater_density
+            saltwater_kinematic_viscosity = (
+                saltwater_dynamic_viscosity / saltwater_density
+            )
             saltwater_prandtl_number = (
                 saltwater_specific_heat * saltwater_dynamic_viscosity
             ) / saltwater_thermal_conductivity  # Prandtl number for water (-)
@@ -496,7 +523,10 @@ def get_solar_still_daily_water_yield(
             )
             time_dependent_term = (
                 (effective_absorptivity * irradiance[i])
-                + (overall_external_heat_transfer_loss_coefficient * ambient_temperature[i])
+                + (
+                    overall_external_heat_transfer_loss_coefficient
+                    * ambient_temperature[i]
+                )
             ) / (saltwater_mass * saltwater_specific_heat)
             glass_temperature[i] = (
                 (absorptivity_effective_glass * irradiance[i])
@@ -548,8 +578,12 @@ def get_solar_still_daily_water_yield(
         )
         reshaping_mass_evaporated_water[reshaping_mass_evaporated_water < 0] = 0
         reshaping_mass_evaporated_water[reshaping_mass_evaporated_water > 1] = 0
-        df_reshaping_mass_evaporated_water = pd.DataFrame(reshaping_mass_evaporated_water)
-        total_evaporated_saltwater_in_year = df_reshaping_mass_evaporated_water.mean(axis=1)
+        df_reshaping_mass_evaporated_water = pd.DataFrame(
+            reshaping_mass_evaporated_water
+        )
+        total_evaporated_saltwater_in_year = df_reshaping_mass_evaporated_water.mean(
+            axis=1
+        )
 
         hourly_productivity = (
             total_evaporated_saltwater_in_year / area_bottom_basin
@@ -568,9 +602,11 @@ def get_solar_still_daily_water_yield(
     ) / 1000  # Total Water Productivity in year [m3 water per m2 area per year]
 
     # daily water yield on volumetric basis
-    daily_water_yield_vol = annual_water_yield / days_in_year # [m3 water per m2 area per year]
+    daily_water_yield_vol = (
+        annual_water_yield / days_in_year
+    )  # [m3 water per m2 area per year]
     # daily water yield on mass basis
-    daily_water_yield_mass = daily_water_yield_vol * 1000 
+    daily_water_yield_mass = daily_water_yield_vol * 1000
 
     return daily_water_yield_mass
 
@@ -578,5 +614,7 @@ def get_solar_still_daily_water_yield(
 if __name__ == "__main__":
 
     f = "/Users/ksitterl/Documents/SETO/models/solar_still/SS_model-Sept2024/SS_Model/Data/TMY2 SAM CSV/data.csv"
-    water_yield = get_solar_still_daily_water_yield(input_weather_file_path=f, interval_day=100)
+    water_yield = get_solar_still_daily_water_yield(
+        input_weather_file_path=f, interval_day=100
+    )
     print(f"water_yield = {water_yield}")
