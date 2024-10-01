@@ -337,8 +337,6 @@ def build_vagmd_flowsheet(
 
 def fix_dof_and_initialize(
     m,
-    feed_flow_rate=600,
-    feed_salinity=35,
     feed_temp=25,
     outlvl=idaeslog.WARNING,
 ):

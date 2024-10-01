@@ -402,8 +402,6 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
             model_data_kwargs={t: model_options for t in range(n_time_points)},
             flowsheet_options=model_options,
             initialization_options={
-                "feed_flow_rate": feed_flow_rate,
-                "feed_salinity": feed_salinity,
                 "feed_temp": feed_temp,
             },
             unfix_dof_options={"feed_flow_rate": feed_flow_rate},
@@ -416,8 +414,6 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
         for blk in active_blks:
             fix_dof_and_initialize(
                 m=blk,
-                feed_flow_rate=feed_flow_rate,
-                feed_salinity=feed_salinity,
                 feed_temp=feed_temp,
             )
             result = solver.solve(blk)
