@@ -157,15 +157,13 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             **self.config.water_yield_calculation_args
         )
 
-        unit_log.info(
-            f"Water yield calculation complete."
-        )
+        unit_log.info(f"Water yield calculation complete.")
 
         self.water_yield = Param(
             initialize=daily_water_yield_mass,
             mutable=True,
             units=pyunits.kg / (pyunits.m**2 * pyunits.day),
-            doc="Average daily water yield",
+            doc="Average daily water yield per unit area",
         )
 
         self.length_basin = Param(
@@ -199,6 +197,16 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             units=pyunits.m**2,
             doc="Total area of solar still",
         )
+
+        @self.Expression(doc="Annual water yield per unit area")
+        def annual_water_yield(b):
+            return pyunits.convert(
+                b.water_yield
+                / b.properties_in[0].dens_mass_phase["Liq"]
+                * 365
+                * pyunits.day,
+                to_units=pyunits.m**3 / pyunits.m**2,
+            )
 
         @self.Expression(doc="Volumetric flow of salts")
         def flow_vol_salt(b):
