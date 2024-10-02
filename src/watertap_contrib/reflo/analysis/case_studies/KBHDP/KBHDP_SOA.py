@@ -38,7 +38,9 @@ import watertap.core.zero_order_properties as prop_ZO
 from watertap.core.zero_order_properties import WaterParameterBlock
 from watertap.unit_models.pressure_changer import Pump
 
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.disposal_costing import cost_disposal
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.disposal_costing import (
+    cost_disposal,
+)
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
@@ -262,8 +264,8 @@ def add_constraints(m):
     )
 
     m.fs.eq_water_recovery = Constraint(
-        expr=m.fs.feed.properties[0].flow_vol_phase['Liq'] * m.fs.water_recovery
-        == m.fs.product.properties[0].flow_vol_phase['Liq']
+        expr=m.fs.feed.properties[0].flow_vol_phase["Liq"] * m.fs.water_recovery
+        == m.fs.product.properties[0].flow_vol_phase["Liq"]
     )
 
     m.fs.feed.properties[0].conc_mass_phase_comp
@@ -281,7 +283,7 @@ def add_costing(m):
     add_softener_costing(m, m.fs.softener)
     add_UF_costing(m, m.fs.UF)
     add_ro_costing(m, m.fs.RO)
-    
+
     m.fs.costing.cost_process()
     m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
@@ -401,7 +403,9 @@ def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1.1e5):
     m.fs.pump.control_volume.properties_in[0].pressure.fix(supply_pressure)
     m.fs.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
     set_ro_system_operating_conditions(
-        m, m.fs.RO, mem_area=10000,
+        m,
+        m.fs.RO,
+        mem_area=10000,
     )
 
 
@@ -444,7 +448,13 @@ def init_system(m, verbose=True, solver=None):
     m.fs.softener.unit.properties_waste[0].conc_mass_phase_comp
 
 
-def optimize(m, water_recovery=0.5, fixed_pressure=None, ro_mem_area=None, objective="LCOW",):
+def optimize(
+    m,
+    water_recovery=0.5,
+    fixed_pressure=None,
+    ro_mem_area=None,
+    objective="LCOW",
+):
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
 
     if objective == "LCOW":
@@ -476,7 +486,7 @@ def optimize(m, water_recovery=0.5, fixed_pressure=None, ro_mem_area=None, objec
 
 
 def solve(model, solver=None, tee=False, raise_on_failure=False, debug=False):
-    print(f'DEGREES OF FREEDOM BEFORE SOLVING: {degrees_of_freedom(model)}')
+    print(f"DEGREES OF FREEDOM BEFORE SOLVING: {degrees_of_freedom(model)}")
 
     # ---solving---
     if solver is None:
@@ -484,7 +494,10 @@ def solve(model, solver=None, tee=False, raise_on_failure=False, debug=False):
 
     print("\n--------- SOLVING ---------\n")
     solver.options["max_iter"] = 3000
-    results = solver.solve(model, tee=tee, )
+    results = solver.solve(
+        model,
+        tee=tee,
+    )
 
     if check_optimal_termination(results):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
@@ -565,7 +578,7 @@ def display_system_stream_table(m):
     print(
         f'{"UF Disposal":<20s}{m.fs.UF.disposal.properties[0.0].flow_mass_comp["H2O"].value:<30.3f}'
     )
-    
+
     print(
         f'{"Pump Inlet":<20s}{m.fs.pump.control_volume.properties_in[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.pump.control_volume.properties_in[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
     )
@@ -579,10 +592,14 @@ def display_system_stream_table(m):
 
 def display_system_build(m):
     blocks = []
-    for unit in m.fs.component_data_objects(ctype=Block, active=True, descend_into=False):
+    for unit in m.fs.component_data_objects(
+        ctype=Block, active=True, descend_into=False
+    ):
         print(unit)
-        for component in unit.component_data_objects(ctype=Block, active=True, descend_into=False):
-            print("   ",component)
+        for component in unit.component_data_objects(
+            ctype=Block, active=True, descend_into=False
+        ):
+            print("   ", component)
 
 
 def display_costing_breakdown(m):
@@ -593,24 +610,46 @@ def display_costing_breakdown(m):
         f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
     print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
-    print('\n')
+    print("\n")
     print_RO_costing_breakdown(m.fs.RO)
     print_softening_costing_breakdown(m.fs.softener)
     print_UF_costing_breakdown(m.fs.UF)
-    print(f'{"Pump Capital Cost":<35s}{f"${value(m.fs.pump.costing.capital_cost):<25,.0f}"}')
-    print(f'{"Brine Disposal Cost":<35s}{f"${value(m.fs.disposal.costing.fixed_operating_cost()):<25,.0f}"}')
-    print('\n')
-    print(f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.3f}"}')
-    print(f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.3f}"}')
-    print(f'{"Total Annualized Cost":<35s}{f"${m.fs.costing.total_annualized_cost():<25,.3f}"}')
-    print('\nOperating Costs:')
-    print(f'{f"Total Fixed Operating Costs":<35s}{f"${m.fs.costing.total_fixed_operating_cost():<25,.3f}"}')
-    print(f'{f"    Agg Fixed Operating Costs":<35s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<25,.3f}"}')
-    print(f'{f"    MLC Operating Costs":<35s}{f"${m.fs.costing.maintenance_labor_chemical_operating_cost():<25,.3f}"}')
-    print(f'{f"Total Variable Operating Costs":<35s}{f"${m.fs.costing.total_variable_operating_cost():<25,.3f}"}')
-    print(f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.costing.aggregate_variable_operating_cost():<25,.3f}"}')
+    print(
+        f'{"Pump Capital Cost":<35s}{f"${value(m.fs.pump.costing.capital_cost):<25,.0f}"}'
+    )
+    print(
+        f'{"Brine Disposal Cost":<35s}{f"${value(m.fs.disposal.costing.fixed_operating_cost()):<25,.0f}"}'
+    )
+    print("\n")
+    print(
+        f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.3f}"}'
+    )
+    print(
+        f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.3f}"}'
+    )
+    print(
+        f'{"Total Annualized Cost":<35s}{f"${m.fs.costing.total_annualized_cost():<25,.3f}"}'
+    )
+    print("\nOperating Costs:")
+    print(
+        f'{f"Total Fixed Operating Costs":<35s}{f"${m.fs.costing.total_fixed_operating_cost():<25,.3f}"}'
+    )
+    print(
+        f'{f"    Agg Fixed Operating Costs":<35s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<25,.3f}"}'
+    )
+    print(
+        f'{f"    MLC Operating Costs":<35s}{f"${m.fs.costing.maintenance_labor_chemical_operating_cost():<25,.3f}"}'
+    )
+    print(
+        f'{f"Total Variable Operating Costs":<35s}{f"${m.fs.costing.total_variable_operating_cost():<25,.3f}"}'
+    )
+    print(
+        f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.costing.aggregate_variable_operating_cost():<25,.3f}"}'
+    )
     for flow in m.fs.costing.aggregate_flow_costs:
-        print(f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():>25,.0f}"}')
+        print(
+            f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():>25,.0f}"}'
+        )
 
 
 def print_all_results(m):

@@ -9,7 +9,8 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_SOA import (
     optimize,
     solve,
     print_all_results,
-    )
+)
+
 
 def build():
 
@@ -22,8 +23,9 @@ def build():
     optimize(m, ro_mem_area=None)
     return m
 
+
 def solve_system(m, solver=None, use_model_state_storage=False, **kwargs):
-  
+
     results = solve(m, solver=solver, raise_on_failure=True)
 
     print("solved okay!")

@@ -10,6 +10,7 @@ from pyomo.environ import (
 
 from watertap.costing.util import register_costing_parameter_block
 
+
 def make_fixed_operating_cost_var(blk):
     blk.fixed_operating_cost = Var(
         initialize=1e5,
@@ -17,6 +18,7 @@ def make_fixed_operating_cost_var(blk):
         units=blk.costing_package.base_currency / blk.costing_package.base_period,
         doc="Unit fixed operating cost",
     )
+
 
 def build_disposal_cost_param_block(blk):
     costing = blk.parent_block()
@@ -26,6 +28,7 @@ def build_disposal_cost_param_block(blk):
         units=costing.base_currency / pyunits.m**3,
         doc="Assumed LCOW of deep well injection",
     )
+
 
 @register_costing_parameter_block(
     build_rule=build_disposal_cost_param_block,
@@ -39,7 +42,8 @@ def cost_disposal(blk):
     blk.fixed_operating_cost_constraint = Constraint(
         expr=blk.fixed_operating_cost
         == pyunits.convert(
-            blk.unit_model.properties[0].flow_vol_phase["Liq"] * blk.costing_package.brine_disposal.cost_of_disposal,
+            blk.unit_model.properties[0].flow_vol_phase["Liq"]
+            * blk.costing_package.brine_disposal.cost_of_disposal,
             to_units=blk.costing_package.base_currency
             / blk.costing_package.base_period,
         )

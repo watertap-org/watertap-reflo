@@ -8,8 +8,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 pal = {
-    "Baseline":"#1f78b4",
-    "FFRRO":"#33a02c",
+    "Baseline": "#1f78b4",
+    "FFRRO": "#33a02c",
     # "#b2df8a",
     # "#33a02c",
     # "#fb9a99",
@@ -22,12 +22,13 @@ pal = {
     # "#b15928",
 }
 
+
 def create_sweep_cost_breakdown():
     filepath = os.path.abspath(__file__)
     parent_dir = os.path.dirname(filepath)
     top_level_dir = os.path.dirname(parent_dir)
-    save_path = os.path.join(top_level_dir,'figures')
-    data_path = os.path.join(top_level_dir,'sweep_results/output/')
+    save_path = os.path.join(top_level_dir, "figures")
+    data_path = os.path.join(top_level_dir, "sweep_results/output/")
 
     """ import data"""
     costing_data = psDataManager(
@@ -44,9 +45,7 @@ def create_sweep_cost_breakdown():
     device_groups = {
         "Pumps": {
             "CAPEX": {
-                "units": {
-                    "fs.pump.costing.capital_cost"
-                },
+                "units": {"fs.pump.costing.capital_cost"},
             },
             "OPEX": {
                 "units": {
@@ -76,7 +75,7 @@ def create_sweep_cost_breakdown():
                 "units": {
                     "fs.UF.unit.electricity[0.0]",
                 },
-            }
+            },
         },
         # "Deep Well Injection": {
         #     "OPEX": {
@@ -100,13 +99,13 @@ def create_sweep_cost_breakdown():
             },
             "OPEX": {
                 "units": {
-                    'fs.softener.unit.costing.fixed_operating_cost',
+                    "fs.softener.unit.costing.fixed_operating_cost",
                     # "fs.costing.aggregate_flow_costs[co2]",
                     # "fs.costing.aggregate_flow_costs[soda_ash]",
                     # "fs.costing.aggregate_flow_costs[mgcl2]"
                     "fs.costing.aggregate_flow_costs[electricity]",
                 },
-            }
+            },
         },
         "Lime Dosing": {
             "OPEX": {
@@ -214,7 +213,7 @@ def create_sweep_cost_breakdown():
     # #                 label="2-Stage Baseline LCOW",
     # #                 lw=2,
     # #             )
-    
+
     # # cost_plotter.fig.plot_line(
     # #                 xdata=[84, 84],
     # #                 ydata=[0 , 0.223],
@@ -223,14 +222,15 @@ def create_sweep_cost_breakdown():
     # #                 label="Breakeven Recovery",
     # #                 lw=2,
     # #             )
-    
+
     # cost_plotter.generate_figure(loc="upper left")
+
 
 def create_system_comparison():
     filepath = os.path.abspath(__file__)
     parent_dir = os.path.dirname(filepath)
-    save_path = os.path.join(parent_dir,'figures')
-    data_path = os.path.join(parent_dir,'presentations/data/system_comp.csv')
+    save_path = os.path.join(parent_dir, "figures")
+    data_path = os.path.join(parent_dir, "presentations/data/system_comp.csv")
 
     # default_font = {
     #         "family": "serif",
@@ -270,6 +270,7 @@ def create_system_comparison():
     # plt.tight_layout()
     # # plt.savefig(os.path.join(save_path, "system_comparison.png"), dpi=900)
     # plt.show()
+
 
 if __name__ == "__main__":
     # create_system_comparison()

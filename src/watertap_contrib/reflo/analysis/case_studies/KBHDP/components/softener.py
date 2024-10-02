@@ -472,10 +472,15 @@ def report_softener(m, blk=None):
         f'{"Electricity Flow":<20s}{blk.costing.electricity_flow.value:<15.2f}{pyunits.get_units(blk.costing.electricity_flow)}'
     )
 
+
 def print_softening_costing_breakdown(blk):
-    print(f'{"Softening Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
-    print(f'{"Softening Operating Cost":<35s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}')
-    
+    print(
+        f'{"Softening Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}'
+    )
+    print(
+        f'{"Softening Operating Cost":<35s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
+    )
+
 
 # calculate_variable_from_constraint
 if __name__ == "__main__":
@@ -499,7 +504,7 @@ if __name__ == "__main__":
     m.fs.costing.cost_process()
     m.fs.costing.initialize()
 
-    m.fs.costing.add_LCOW(0.2*m.fs.softener.unit.properties_in[0].flow_vol)
+    m.fs.costing.add_LCOW(0.2 * m.fs.softener.unit.properties_in[0].flow_vol)
     m.fs.obj = Objective(expr=m.fs.costing.LCOW)
     init_system(m)
     solve(m)
@@ -511,10 +516,16 @@ if __name__ == "__main__":
     print(
         f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.feed.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
-    print(f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.0f}"}')
-    print(f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.0f}"}')
+    print(
+        f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.0f}"}'
+    )
+    print(
+        f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.0f}"}'
+    )
     for flow in m.fs.costing.aggregate_flow_costs:
-        print(f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():<25,.3f}"}')
+        print(
+            f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():<25,.3f}"}'
+        )
     # assert_units_consistent(soft)
     # print(pyunits.get_units(soft.Mg_CaCO3))
     # assert False

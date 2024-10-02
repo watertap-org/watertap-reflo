@@ -1,13 +1,15 @@
 import os
 from parameter_sweep.loop_tool.loop_tool import loopTool, get_working_dir
 
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.sweep_setup import build, solve_system
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.sweep_setup import (
+    build,
+    solve_system,
+)
 
 filepath = os.path.abspath(__file__)
 parent_dir = os.path.dirname(filepath)
 sweep_yaml_dir = os.path.join(parent_dir, "sweep_yamls")
 save_dir = os.path.join(parent_dir, "sweep_results")
-
 
 
 def run_water_recovery_sweep():
@@ -35,8 +37,6 @@ def run_water_recovery_sweep():
         number_of_subprocesses=8,
         # parallel_back_end="RayIo",
     )
-
-
 
 
 if __name__ == "__main__":

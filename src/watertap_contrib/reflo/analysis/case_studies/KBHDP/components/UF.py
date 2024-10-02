@@ -46,7 +46,14 @@ from watertap_contrib.reflo.costing import (
 from watertap.costing.zero_order_costing import ZeroOrderCosting
 from watertap.core.wt_database import Database
 
-__all__ = ["build_UF", "init_UF", "set_UF_op_conditions", "add_UF_costing", "report_UF", "print_UF_costing_breakdown"]
+__all__ = [
+    "build_UF",
+    "init_UF",
+    "set_UF_op_conditions",
+    "add_UF_costing",
+    "report_UF",
+    "print_UF_costing_breakdown",
+]
 
 
 def propagate_state(arc):
@@ -114,7 +121,7 @@ def set_UF_op_conditions(blk):
 def set_system_conditions(blk):
     blk.feed.properties[0.0].flow_mass_comp["H2O"].fix(171.37)
     blk.feed.properties[0.0].flow_mass_comp["tds"].fix(1.96)
-    blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22E-6)
+    blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
 
 
 def add_UF_costing(m, blk):
@@ -236,6 +243,7 @@ def report_UF(m, blk, stream_table=False):
     print(
         f'{"    Specific Energy Cons.":<30s}{value(m.fs.UF.unit.energy_electric_flow_vol_inlet):<10.3f}{pyunits.get_units(m.fs.UF.unit.energy_electric_flow_vol_inlet)}'
     )
+
 
 def print_UF_costing_breakdown(blk, debug=False):
     print(f'{"UF Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')

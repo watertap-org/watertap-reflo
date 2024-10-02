@@ -84,7 +84,7 @@ __all__ = [
     "display_dof_breakdown",
     "display_flow_table",
     "report_RO",
-    "print_RO_costing_breakdown"
+    "print_RO_costing_breakdown",
 ]
 
 
@@ -373,7 +373,9 @@ def init_ro_stage(m, stage, solver=None):
     stage.retentate.initialize()
 
 
-def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=None, ro_pressure=25e5):
+def set_operating_conditions(
+    m, Qin=None, Qout=None, Cin=None, water_recovery=None, ro_pressure=25e5
+):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
@@ -665,9 +667,7 @@ def report_RO(m, blk):
     print(
         f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.feed.properties[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
     )
-    print(
-        f'{"RO Membrane Area":<30s}{value(blk.stage[1].module.area):<10.1f}{"m^2"}'
-    )
+    print(f'{"RO Membrane Area":<30s}{value(blk.stage[1].module.area):<10.1f}{"m^2"}')
 
 
 def build_system():
@@ -702,11 +702,17 @@ def build_system():
 
     return m
 
+
 def print_RO_costing_breakdown(blk):
-    print(f'{"RO Capital Cost":<35s}{f"${value(blk.stage[1].module.costing.capital_cost):<25,.0f}"}')
-    print(f'{"RO Operating Cost":<35s}{f"${value(blk.stage[1].module.costing.fixed_operating_cost):<25,.0f}"}')
+    print(
+        f'{"RO Capital Cost":<35s}{f"${value(blk.stage[1].module.costing.capital_cost):<25,.0f}"}'
+    )
+    print(
+        f'{"RO Operating Cost":<35s}{f"${value(blk.stage[1].module.costing.fixed_operating_cost):<25,.0f}"}'
+    )
     # print(f'{"Pump Capital Cost":<35s}{f"${value(blk.pump.costing.capital_cost):<25,.0f}"}')
     # print(blk.pump.costing.display())
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))

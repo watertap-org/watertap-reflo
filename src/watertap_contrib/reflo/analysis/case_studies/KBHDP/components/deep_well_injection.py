@@ -49,7 +49,14 @@ from watertap_contrib.reflo.costing.units.deep_well_injection import (
     blm_costing_params_dict,
 )
 
-__all__ = ["build_DWI", "init_DWI", "set_DWI_op_conditions", "add_DWI_costing", "report_DWI", "print_DWI_costing_breakdown"]
+__all__ = [
+    "build_DWI",
+    "init_DWI",
+    "set_DWI_op_conditions",
+    "add_DWI_costing",
+    "report_DWI",
+    "print_DWI_costing_breakdown",
+]
 
 
 def propagate_state(arc):
@@ -60,10 +67,12 @@ def propagate_state(arc):
     # arc.destination.display()
     # print('\n')
 
+
 def build_DWI(m, blk, prop_package) -> None:
     print(f'\n{"=======> BUILDING DEEP WELL INJECTION SYSTEM <=======":^60}\n')
 
     blk.unit = DeepWellInjection(property_package=m.fs.properties)
+
 
 def set_DWI_op_conditions(blk):
     inlet_conc = {
@@ -102,6 +111,7 @@ def set_DWI_op_conditions(blk):
         index=("Liq", "H2O"),
     )
 
+
 def init_DWI(m, blk, verbose=True, solver=None):
     if solver is None:
         solver = get_solver()
@@ -110,10 +120,12 @@ def init_DWI(m, blk, verbose=True, solver=None):
 
     blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
 
+
 def add_DWI_costing(m, blk):
     blk.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
     )
+
 
 def report_DWI(m, blk):
     print(f"\n\n-------------------- UF Report --------------------\n")
@@ -122,12 +134,11 @@ def report_DWI(m, blk):
         f'{"Injection Well Depth":<30s}{value(blk.unit.config.injection_well_depth):<10.3f}{pyunits.get_units(blk.unit.config.injection_well_depth)}'
     )
 
+
 def print_DWI_costing_breakdown(m, blk):
     print(f"\n\n-------------------- UF Costing Breakdown --------------------\n")
     print("\n")
-    print(
-        f'{"Capital Cost":<30s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}'
-    )
+    print(f'{"Capital Cost":<30s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
     # print(
     #     f'{"Capital Cost":<30s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
     # )
@@ -155,6 +166,7 @@ def build_system():
 
     return m
 
+
 def solve(model, solver=None, tee=True, raise_on_failure=True):
     # ---solving---
     if solver is None:
@@ -174,6 +186,7 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         raise RuntimeError(msg)
     else:
         return results
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
