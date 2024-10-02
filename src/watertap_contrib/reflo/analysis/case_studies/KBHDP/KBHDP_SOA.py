@@ -38,6 +38,7 @@ import watertap.core.zero_order_properties as prop_ZO
 from watertap.core.zero_order_properties import WaterParameterBlock
 from watertap.unit_models.pressure_changer import Pump
 
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.disposal_costing import cost_disposal
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
@@ -81,14 +82,14 @@ def main():
     init_system(m)
     add_costing(m)
     display_system_build(m)
-    optimize(m, ro_mem_area=None)
-    solve(m)
-    display_system_stream_table(m)
-    print(m.fs.pump.report())
-    report_softener(m)
-    report_UF(m, m.fs.UF)
-    report_RO(m, m.fs.RO)
-    display_costing_breakdown(m)
+    optimize(m, ro_mem_area=None, water_recovery=0.5)
+    solve(m, debug=True)
+    # display_system_stream_table(m)
+    # report_softener(m)
+    # report_UF(m, m.fs.UF)
+    # report_RO(m, m.fs.RO)
+    # display_costing_breakdown(m)
+    print_all_results(m)
 
 
 def build_system():
@@ -119,11 +120,17 @@ def build_system():
     m.fs.product = Product(property_package=m.fs.RO_properties)
     m.fs.disposal = Product(property_package=m.fs.RO_properties)
 
+    m.fs.disposal.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+        costing_method=cost_disposal,
+    )
+
     # Define the Unit Models
     m.fs.softener = FlowsheetBlock(dynamic=False)
     m.fs.UF = FlowsheetBlock(dynamic=False)
     m.fs.pump = Pump(property_package=m.fs.RO_properties)
     m.fs.RO = FlowsheetBlock(dynamic=False)
+    m.fs.DWI = FlowsheetBlock(dynamic=False)
 
     # Define the Translator Blocks
     m.fs.MCAS_to_NaCl_translator = Translator_MCAS_to_NACL(
@@ -149,7 +156,8 @@ def build_system():
 
     build_softener(m, m.fs.softener, prop_package=m.fs.MCAS_properties)
     build_UF(m, m.fs.UF, prop_package=m.fs.UF_properties)
-    build_ro(m, m.fs.RO, prop_package=m.fs.RO_properties)
+    build_ro(m, m.fs.RO, prop_package=m.fs.RO_properties, number_of_stages=2)
+    # build_DWI(m, m.fs.DWI, prop_package=m.fs.MCAS_properties)
 
     m.fs.units = [m.fs.softener, m.fs.UF, m.fs.pump, m.fs.RO]
 
@@ -289,13 +297,6 @@ def add_costing(m):
     )
 
 
-# def relax_constraints(m, blk):
-#     # Release constraints related to low concentration
-#     for idx, stage in blk.stage.items():
-#         stage.module.width.setub(10000)
-
-
-
 def define_inlet_composition(m):
 
     m.fs.prop = prop_ZO.WaterParameterBlock(
@@ -311,7 +312,7 @@ def define_inlet_composition(m):
 def set_inlet_conditions(
     m,
     Qin=4,
-    supply_pressure=1e5,
+    supply_pressure=1.1e5,
     primary_pump_pressure=15e5,
 ):
 
@@ -390,10 +391,10 @@ def display_unfixed_vars(blk, report=True):
             print(f"\t{v2.name:<40s}")
 
 
-def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1e5):
+def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1.1e5):
     pump_efi = 0.8  # pump efficiency [-]
 
-    set_inlet_conditions(m, Qin=4, supply_pressure=1e5)
+    set_inlet_conditions(m, Qin=4, supply_pressure=1.1e5)
     set_softener_op_conditions(m, m.fs.softener.unit)
     set_UF_op_conditions(m.fs.UF)
     m.fs.pump.efficiency_pump.fix(pump_efi)
@@ -474,30 +475,47 @@ def optimize(m, water_recovery=0.5, fixed_pressure=None, ro_mem_area=None, objec
             stage.module.area.unfix()
 
 
-def solve(m, solver=None, tee=True, raise_on_failure=True):
+def solve(model, solver=None, tee=False, raise_on_failure=False, debug=False):
+    print(f'DEGREES OF FREEDOM BEFORE SOLVING: {degrees_of_freedom(model)}')
+
     # ---solving---
     if solver is None:
         solver = get_solver()
-        solver.options["max_iter"] = 2000
 
     print("\n--------- SOLVING ---------\n")
-
-    results = solver.solve(m, tee=tee)
+    solver.options["max_iter"] = 3000
+    results = solver.solve(model, tee=tee, )
 
     if check_optimal_termination(results):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(model)
+
+            print("\n--------- INFEASIBLE BOUNDS ---------\n")
+            print_infeasible_bounds(model)
+
+            print("\n--------- CHECKING JACOBIAN ---------\n")
         return results
     msg = (
         "The current configuration is infeasible. Please adjust the decision variables."
     )
     if raise_on_failure:
-        print_infeasible_bounds(m)
-        print_close_to_bounds(m)
+        print("\n--------- INFEASIBLE SOLVE!!! ---------\n")
 
+        print("\n--------- CHECKING JACOBIAN ---------\n")
+
+        print("\n--------- CLOSE TO BOUNDS ---------\n")
+        print_close_to_bounds(model)
+
+        print("\n--------- INFEASIBLE BOUNDS ---------\n")
+        print_infeasible_bounds(model)
+        print("\n--------- INFEASIBLE CONSTRAINTS ---------\n")
+        print_infeasible_constraints(model)
         raise RuntimeError(msg)
     else:
         print(msg)
-        return results
+        assert False
 
 
 def report_MCAS_stream_conc(m, stream):
@@ -538,7 +556,6 @@ def display_system_stream_table(m):
     print(
         f'{"Softener Outlet":<20s}{m.fs.softener.unit.properties_out[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{pyunits.convert(m.fs.softener.unit.properties_out[0.0].pressure, to_units=pyunits.bar)():<30.1f}'
     )
-    print(m.fs.UF.display())
     print(
         f'{"UF Inlet":<20s}{m.fs.UF.feed.properties[0.0].flow_mass_comp["H2O"].value:<30.3f}'
     )
@@ -558,7 +575,6 @@ def display_system_stream_table(m):
     print(m.fs.pump.report())
     display_flow_table(m.fs.RO)
     print("\n\n")
-
 
 
 def display_system_build(m):
@@ -582,6 +598,7 @@ def display_costing_breakdown(m):
     print_softening_costing_breakdown(m.fs.softener)
     print_UF_costing_breakdown(m.fs.UF)
     print(f'{"Pump Capital Cost":<35s}{f"${value(m.fs.pump.costing.capital_cost):<25,.0f}"}')
+    print(f'{"Brine Disposal Cost":<35s}{f"${value(m.fs.disposal.costing.fixed_operating_cost()):<25,.0f}"}')
     print('\n')
     print(f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.3f}"}')
     print(f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.3f}"}')
@@ -594,6 +611,14 @@ def display_costing_breakdown(m):
     print(f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.costing.aggregate_variable_operating_cost():<25,.3f}"}')
     for flow in m.fs.costing.aggregate_flow_costs:
         print(f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():>25,.0f}"}')
+
+
+def print_all_results(m):
+    display_system_stream_table(m)
+    report_softener(m)
+    report_UF(m, m.fs.UF)
+    report_RO(m, m.fs.RO)
+    display_costing_breakdown(m)
 
 
 if __name__ == "__main__":

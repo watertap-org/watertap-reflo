@@ -227,13 +227,13 @@ def set_softener_op_conditions(
     # prop_out.temperature.fix(293)
     # prop_out.pressure.fix(101325)
 
-    # soft.ca_eff_target.fix(ca_effluent)
-    # soft.mg_eff_target.fix(mg_effluent)
+    soft.ca_eff_target.fix(ca_effluent)
+    soft.mg_eff_target.fix(mg_effluent)
     # soft.ca_eff_target.set_value(ca_effluent)
     # soft.mg_eff_target.set_value(mg_effluent)
 
-    # soft.number_mixers.fix(2)
-    # soft.number_floc.fix(4)
+    soft.number_mixers.value = 2
+    soft.number_floc.value = 4
     soft.retention_time_mixer.fix(0.4)
     soft.retention_time_floc.fix(25)
     soft.retention_time_sed.fix(120)
@@ -248,7 +248,7 @@ def set_softener_op_conditions(
     # # soft.excess_CaO.fix(0)
     # soft.CO2_second_basin.fix(0)
     # soft.Na2CO3_dosing.fix(0)
-    # soft.MgCl2_dosing.fix(0)
+    soft.MgCl2_dosing.fix(0)
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener.unit)}")
@@ -488,8 +488,8 @@ if __name__ == "__main__":
     soft.properties_out[0].conc_mass_phase_comp[...]
     soft.sedimentation_overflow.fix()
     soft.CO2_CaCO3.fix(0.063)
-    soft.ca_eff_target.fix(0.02)
-    soft.mg_eff_target.fix(0.02)
+    soft.ca_eff_target.fix(0.01)
+    soft.mg_eff_target.fix(0.01)
 
     set_system_operating_conditions(m)
     set_softener_op_conditions(m, m.fs.softener.unit)
@@ -499,7 +499,7 @@ if __name__ == "__main__":
     m.fs.costing.cost_process()
     m.fs.costing.initialize()
 
-    m.fs.costing.add_LCOW(m.fs.softener.unit.properties_in[0].flow_vol)
+    m.fs.costing.add_LCOW(0.2*m.fs.softener.unit.properties_in[0].flow_vol)
     m.fs.obj = Objective(expr=m.fs.costing.LCOW)
     init_system(m)
     solve(m)
@@ -507,7 +507,7 @@ if __name__ == "__main__":
     print_softening_costing_breakdown(m.fs.softener)
     print(f'{"Softening LCOW":<35s}{f"${m.fs.costing.LCOW():<25,.2f}"}')
     report_softener(m, m.fs.softener.unit)
-    print(m.fs.costing.display())
+    # print(m.fs.costing.display())
     print(
         f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.feed.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
