@@ -350,7 +350,7 @@ def report_MD(m, stream_table=False):
 
 if __name__ == "__main__":
 
-    Qin = 4 * pyunits.Mgal / pyunits.day
+    Qin = 4 * pyunits.Mgal / pyunits.day  # KBHDP flow rate
     Qin = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.day)
 
     overall_recovery = 0.45
@@ -386,7 +386,7 @@ if __name__ == "__main__":
     )
 
     # n_time_points = 2
-    n_time_points = n_time_points_check
+    n_time_points = n_time_points_check + 1
 
     m = build_system(model_options, n_time_points)
 
@@ -425,10 +425,6 @@ if __name__ == "__main__":
     print("Number of batches in 24h:", value(no_of_batches))
 
     print("Calculated number of modules:", value(active_blks[-1].fs.vagmd.num_modules))
-    print(
-        "Actual number of modules:",
-        value(active_blks[-1].fs.vagmd.num_modules) / value(no_of_batches),
-    )
 
     print(
         "\nSystem Capacity:", value(system_capacity), pyunits.get_units(system_capacity)
@@ -445,3 +441,27 @@ if __name__ == "__main__":
     )
     print("Brine salinity:", value(brine_salinity), pyunits.get_units(brine_salinity))
     print("Accumulate recovery ratio:", value(active_blks[-1].fs.acc_recovery_ratio))
+
+    print(
+        "Accumulate distillate volume by 1 module in 1 batch:",
+        value(active_blks[-1].fs.acc_distillate_volume),
+        pyunits.get_units(active_blks[-1].fs.acc_distillate_volume),
+    )
+    print(
+        "Total accumulate Distillate Volume by all modules in 1 batch:",
+        value(active_blks[-1].fs.vagmd.num_modules)
+        * value(active_blks[-1].fs.acc_distillate_volume),
+        pyunits.get_units(active_blks[-1].fs.acc_distillate_volume),
+    )
+
+    total_distillate_check = (
+        pyunits.convert(active_blks[-1].fs.acc_distillate_volume, to_units=pyunits.m**3)
+        * value(active_blks[-1].fs.vagmd.num_modules)
+        * no_of_batches
+    )
+
+    print(
+        "Check on total distillate produced:",
+        value(total_distillate_check),
+        pyunits.get_units(total_distillate_check),
+    )
