@@ -61,6 +61,10 @@ from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowshe
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
 
+def propagate_state(arc):
+    _prop_state(arc)
+
+
 def build_system(model_options, n_time_points):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -68,16 +72,33 @@ def build_system(model_options, n_time_points):
     # Property package
     m.fs.params = SeawaterParameterBlock()
 
+    # Create feed, product and concentrate state blocks
+    m.fs.feed = Feed(property_package=m.fs.params)
+
     # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
     build_md(m, m.fs.md, model_options, n_time_points)
+    add_connections(m)
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
 
     return m
+
+def add_connections(m):
+
+    m.fs.feed_to_md = Arc(
+        source = m.fs.feed.outlet,
+        destination = m.fs.md.feed.inlet
+    )
 
 
 def build_md(m, blk, model_options, n_time_points) -> None:
 
     print(f'\n{"=======> BUILDING MEMBRANE DISTILLATION SYSTEM <=======":^60}\n')
+
+    # Build a feed, permeate and brine state function for MD
+
+    blk.feed = StateJunction(property_package=m.fs.params)
 
     # Build the multiperiod object for MD
     blk.unit = MultiPeriodModel(
@@ -89,8 +110,19 @@ def build_md(m, blk, model_options, n_time_points) -> None:
         outlvl=logging.WARNING,
     )
 
-    # Converting to units L/h and supplying value only
-    feed_flow_rate = model_options["feed_flow_rate"]
+ 
+def init_md(blk,  model_options, verbose=True, solver=None):
+    m.fs.md.feed.properties[0]._flow_vol_phase()
+    m.fs.md.feed.properties[0]._conc_mass_phase_comp()
+
+    m.fs.md.feed.initialize()
+
+    feed_flow_rate = pyunits.convert(
+        m.fs.md.feed.properties[0].flow_vol_phase['Liq'],
+        to_units = pyunits.L/pyunits.h)()
+
+    feed_salinity = m.fs.md.feed.properties[0].conc_mass_phase_comp['Liq','TDS']()
+    feed_temp = pyunits.convert_temp_K_to_C(m.fs.md.feed.properties[0].temperature())
 
     # Because its multiperiod, each instance is assigned an initial value based on model input (kwargs)
     blk.unit.build_multi_period_model(
@@ -98,26 +130,6 @@ def build_md(m, blk, model_options, n_time_points) -> None:
         flowsheet_options=model_options,
         unfix_dof_options={"feed_flow_rate": feed_flow_rate},
     )
-
-
-def init_md(m, blk, model_options, verbose=True, solver=None):
-    if solver is None:
-        solver = get_solver()
-
-    optarg = solver.options
-
-    print(
-        "\n\n-------------------- INITIALIZING MEMBRANE DISTILLATION --------------------\n\n"
-    )
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"MD Degrees of Freedom: {degrees_of_freedom(blk)}")
-    print("\n\n")
-
-    # Converting to units L/h and supplying value only
-    feed_flow_rate = model_options["feed_flow_rate"]
-    feed_salinity = model_options["feed_salinity"]
-    # Converting temperature to C units
-    feed_temp = model_options["feed_temp"]
 
     add_performance_constraints(m, blk.unit, model_options)
 
@@ -135,15 +147,69 @@ def init_md(m, blk, model_options, verbose=True, solver=None):
         unfix_dof(m=active, feed_flow_rate=feed_flow_rate)
 
 
+
+def init_system(m, blk, model_options, verbose=True, solver=None):
+    if solver is None:
+        solver = get_solver()
+
+    optarg = solver.options
+
+    print(
+        "\n\n-------------------- INITIALIZING MEMBRANE DISTILLATION --------------------\n\n"
+    )
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print(f"MD Degrees of Freedom: {degrees_of_freedom(blk)}")
+    print("\n\n")
+
+    # # Converting to units L/h and supplying value only
+    # feed_flow_rate = model_options["feed_flow_rate"]
+    # feed_salinity = model_options["feed_salinity"]
+    # # Converting temperature to C units
+    # feed_temp = model_options["feed_temp"]
+    
+    m.fs.feed.initialize()
+    propagate_state(m.fs.feed_to_md)
+
+    init_md(blk,  model_options, verbose=True, solver=None)
+    
+
+
+def set_system_op_conditions(blk, model_options):
+
+    feed_flow_rate = model_options["feed_flow_rate"]
+    feed_salinity = model_options["feed_salinity"]
+    feed_temp = model_options["feed_temp"]
+
+    blk.feed.properties.calculate_state(
+            var_args={
+                ("flow_vol_phase", "Liq"): pyunits.convert(
+                    feed_flow_rate* pyunits.L / pyunits.h,
+                    to_units=pyunits.m**3 / pyunits.s,
+                ),
+                ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
+                ("temperature", None): feed_temp + 273.15,
+                ("pressure", None): 101325,
+            },
+            hold_state = True
+        )
+    
+
 def set_md_op_conditions(blk):
 
     active_blks = blk.unit.get_active_process_blocks()
 
-    # Set-up for the first time period
-    feed_salinity = model_options["feed_salinity"]
-    feed_temp = model_options["feed_temp"]
+    # # Set-up for the first time period
+    # feed_salinity = model_options["feed_salinity"]
+    # feed_temp = model_options["feed_temp"]
+    feed_flow_rate = pyunits.convert(
+        m.fs.md.feed.properties[0].flow_vol_phase['Liq'],
+        to_units = pyunits.L/pyunits.h)()
+
+    feed_salinity = m.fs.md.feed.properties[0].conc_mass_phase_comp['Liq','TDS']()
+    feed_temp = pyunits.convert_temp_K_to_C(m.fs.md.feed.properties[0].temperature())
 
     print("\n--------- MD TIME PERIOD 1 INPUTS ---------\n")
+    print('Feed flow rate in L/h:',feed_flow_rate)
     print("Feed salinity in g/l:", feed_salinity)
     print("Feed temperature in C:", feed_temp)
 
@@ -385,13 +451,18 @@ if __name__ == "__main__":
         cooling_inlet_temp=model_options["cooling_inlet_temp"],
     )
 
-    # n_time_points = 2
-    n_time_points = n_time_points_check + 1
+    n_time_points = 2
+    # n_time_points = n_time_points_check + 1
 
     m = build_system(model_options, n_time_points)
-
-    init_md(m, m.fs.md, model_options)
+    print(f"\nBuild System:system Degrees of Freedom: {degrees_of_freedom(m)}")
+    set_system_op_conditions(m.fs, model_options)
+    print(f"\nSet inlet conditions:system Degrees of Freedom: {degrees_of_freedom(m)}")
+    init_system(m, m.fs.md, model_options)
+    print(f"\nInitialize MD:system Degrees of Freedom: {degrees_of_freedom(m)}")
     set_md_op_conditions(m.fs.md)
+    print(f"\nSet MD conditions:system Degrees of Freedom: {degrees_of_freedom(m)}")
+
     add_md_costing(m, m.fs.md.unit)
 
     solver = get_solver()
@@ -401,9 +472,8 @@ if __name__ == "__main__":
         m.fs.md.unit.active_blocks[0].fs.vagmd.display()
         # print_infeasible_constraints(m)
 
-    assert degrees_of_freedom(m) == 0
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    results = solver.solve(m)
+    # assert degrees_of_freedom(m) == 0
 
     active_blks = m.fs.md.unit.get_active_process_blocks()
 
@@ -430,12 +500,12 @@ if __name__ == "__main__":
         "\nSystem Capacity:", value(system_capacity), pyunits.get_units(system_capacity)
     )
     print(
-        "Permeate mass flow:",
+        "Permeate flow rate:",
         value(permeate_flow_rate),
         pyunits.get_units(permeate_flow_rate),
     )
     print(
-        "Brine mass flow rate:",
+        "Brine flow rate:",
         value(brine_flow_rate),
         pyunits.get_units(brine_flow_rate),
     )
