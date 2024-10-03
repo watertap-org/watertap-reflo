@@ -75,7 +75,7 @@ def build_system(model_options, n_time_points):
     # Create feed, product and concentrate state blocks
     m.fs.feed = Feed(property_package=m.fs.params)
     m.fs.product = Product(property_package=m.fs.params)
-    # m.fs.waste = Product(property_package=m.fs.params)
+    m.fs.waste = Product(property_package=m.fs.params)
 
     # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
@@ -100,6 +100,12 @@ def add_connections(m):
     )
 
 
+    m.fs.md_to_waste = Arc(
+        source = m.fs.md.concentrate.outlet,
+        destination = m.fs.waste.inlet
+    )
+
+
 def build_md(m, blk, model_options, n_time_points) -> None:
 
     print(f'\n{"=======> BUILDING MEMBRANE DISTILLATION SYSTEM <=======":^60}\n')
@@ -108,7 +114,7 @@ def build_md(m, blk, model_options, n_time_points) -> None:
 
     blk.feed = StateJunction(property_package=m.fs.params)
     blk.permeate = StateJunction(property_package=m.fs.params)
-    # blk.concentrate = StateJunction(property_package=m.fs.params)
+    blk.concentrate = StateJunction(property_package=m.fs.params)
 
     # Build the multiperiod object for MD
     blk.unit = MultiPeriodModel(
@@ -121,7 +127,7 @@ def build_md(m, blk, model_options, n_time_points) -> None:
     )
 
  
-def init_md(blk,  model_options, verbose=True, solver=None):
+def init_md(blk,  model_options, n_time_points, verbose=True, solver=None):
     blk.feed.properties[0]._flow_vol_phase()
     blk.feed.properties[0]._conc_mass_phase_comp()
 
@@ -143,7 +149,6 @@ def init_md(blk,  model_options, verbose=True, solver=None):
 
     add_performance_constraints(m, blk.unit, model_options)
 
-    # iscale.calculate_scaling_factors(blk.unit)
     solver = get_solver()
     active_blks = blk.unit.get_active_process_blocks()
     for active in active_blks:
@@ -159,29 +164,15 @@ def init_md(blk,  model_options, verbose=True, solver=None):
     
     # Build connection to permeate state junction
 
-
     @blk.Constraint()
-    def get_permeate(b):
-        # Get final variables
-        # active_blks = b.unit.get_active_process_blocks()
-        num_modules = active_blks[-1].fs.vagmd.num_modules
-
-        # L/h -> converted to kg/s
-        # permeate_production_rate = (
-        #     num_modules
-        #     * value(active_blks[-1].fs.acc_distillate_volume)
-        #     / (value(active_blks[-1].fs.dt) * (n_time_points - 1) / 3600)
-        #     * pyunits.L
-        #     / pyunits.h
-        # )
+    def get_permeate_flow(b):
+        num_modules = blk.unit.get_active_process_blocks()[-1].fs.vagmd.num_modules
 
         return (b.permeate.properties[0].flow_mass_phase_comp['Liq','H2O'] 
                 == pyunits.convert(pyunits.convert(
                                         (   num_modules
-                                            * blk.unit.get_active_process_blocks()[-1].fs.acc_distillate_volume
-                                            / (blk.unit.get_active_process_blocks()[-1].fs.dt * (n_time_points - 1))
-                                            # * pyunits.L
-                                            # / pyunits.h
+                                            * b.unit.get_active_process_blocks()[-1].fs.acc_distillate_volume
+                                            / (b.unit.get_active_process_blocks()[-1].fs.dt * (n_time_points - 1))
                                         )
                                     , to_units= pyunits.m**3 / pyunits.day
                                     ) *1000*pyunits.kg/pyunits.m**3               
@@ -192,11 +183,42 @@ def init_md(blk,  model_options, verbose=True, solver=None):
     blk.permeate.properties[0].flow_mass_phase_comp['Liq','TDS'].fix(0)
     blk.permeate.properties[0].pressure.fix(101325)
     blk.permeate.properties[0].temperature.fix(298.15)
-    
-    
+
+    # Build connection to concentrate state junction
+
+    blk.concentrate.properties[0]._flow_vol_phase()
+    blk.concentrate.properties[0]._conc_mass_phase_comp()
+
+    @blk.Constraint()
+    def get_concentrate_flow(b):
+        num_modules = blk.unit.get_active_process_blocks()[-1].fs.vagmd.num_modules
 
 
-def init_system(m, blk, model_options, verbose=True, solver=None):
+        return (b.concentrate.properties[0].flow_vol_phase['Liq'] 
+                == pyunits.convert(
+                                        (num_modules
+                                        * model_options["initial_batch_volume"]*pyunits.L
+                                        * (1 - b.unit.get_active_process_blocks()[-1].fs.acc_recovery_ratio)
+                                        / (b.unit.get_active_process_blocks()[-1].fs.dt * (n_time_points - 1))
+                                        )
+                                    , to_units= pyunits.m**3 / pyunits.s
+                                    )                    
+                )
+    
+    @blk.Constraint()
+    def get_concentrate_conc(b):
+        return ( b.concentrate.properties[0].conc_mass_phase_comp['Liq','TDS'] 
+                ==  pyunits.convert(
+                                b.unit.get_active_process_blocks()[-1].fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"],
+                                to_units=pyunits.kg / pyunits.m**3,
+                             )
+        )
+
+    blk.concentrate.properties[0].pressure.fix(101325)
+    blk.concentrate.properties[0].temperature.fix(298.15)
+
+
+def init_system(m, blk, model_options,n_time_points, verbose=True, solver=None):
     if solver is None:
         solver = get_solver()
 
@@ -218,10 +240,13 @@ def init_system(m, blk, model_options, verbose=True, solver=None):
     m.fs.feed.initialize()
     propagate_state(m.fs.feed_to_md)
 
-    init_md(blk,  model_options, verbose=True, solver=None)
+    init_md(blk,  model_options,n_time_points, verbose=True, solver=None)
 
     propagate_state(m.fs.md_to_product)
     m.fs.product.initialize()
+
+    propagate_state(m.fs.md_to_waste)
+    m.fs.waste.initialize()
 
 
 def set_system_op_conditions(blk, model_options):
@@ -464,6 +489,8 @@ def report_MD(m, stream_table=False):
     )
 
 
+# def get_md_time_steps(model)
+
 if __name__ == "__main__":
 
     Qin = 4 * pyunits.Mgal / pyunits.day  # KBHDP flow rate
@@ -501,14 +528,14 @@ if __name__ == "__main__":
         cooling_inlet_temp=model_options["cooling_inlet_temp"],
     )
 
-    # n_time_points = 4
+    # n_time_points = 2
     n_time_points = n_time_points_check
 
     m = build_system(model_options, n_time_points)
     print(f"\nBuild System:system Degrees of Freedom: {degrees_of_freedom(m)}")
     set_system_op_conditions(m.fs, model_options)
     print(f"\nSet inlet conditions:system Degrees of Freedom: {degrees_of_freedom(m)}")
-    init_system(m, m.fs.md, model_options)
+    init_system(m, m.fs.md, model_options, n_time_points)
     print(f"\nInitialize MD:system Degrees of Freedom: {degrees_of_freedom(m)}")
     set_md_op_conditions(m.fs.md)
     print(f"\nSet MD conditions:system Degrees of Freedom: {degrees_of_freedom(m)}")
@@ -586,6 +613,13 @@ if __name__ == "__main__":
         pyunits.get_units(total_distillate_check),
     )
 
+    print(m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"])
+
+    m.fs.md.concentrate.properties[0].flow_mass_phase_comp.display()
+
+    m.fs.waste.properties[0].flow_mass_phase_comp.display()
+
+    
     m.fs.md.permeate.properties[0].flow_mass_phase_comp.display()
 
     m.fs.product.properties[0].flow_mass_phase_comp.display()
