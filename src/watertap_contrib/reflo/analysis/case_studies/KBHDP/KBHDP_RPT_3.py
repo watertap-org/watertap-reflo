@@ -93,7 +93,6 @@ def main():
     add_costing(m)
     solve(m)
 
-
     display_costing_breakdown(m)
 
 
@@ -114,7 +113,7 @@ def build_system():
 
     # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
-    model_options, n_time_points= build_md(m, m.fs.md)
+    model_options, n_time_points = build_md(m, m.fs.md)
     # m.fs.dwi = FlowsheetBlock(dynamic=False)
 
     return m, model_options, n_time_points
@@ -122,20 +121,14 @@ def build_system():
 
 def add_connections(m):
 
-    m.fs.feed_to_md = Arc(
-        source = m.fs.feed.outlet,
-        destination = m.fs.md.feed.inlet
-    )
-
+    m.fs.feed_to_md = Arc(source=m.fs.feed.outlet, destination=m.fs.md.feed.inlet)
 
     m.fs.md_to_product = Arc(
-        source = m.fs.md.permeate.outlet,
-        destination = m.fs.product.inlet
+        source=m.fs.md.permeate.outlet, destination=m.fs.product.inlet
     )
 
     m.fs.md_to_disposal = Arc(
-        source = m.fs.md.concentrate.outlet,
-        destination = m.fs.disposal.inlet
+        source=m.fs.md.concentrate.outlet, destination=m.fs.disposal.inlet
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -193,9 +186,7 @@ def add_constraints(m):
 #     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
 
-def set_inlet_conditions(
-    blk, model_options
-):
+def set_inlet_conditions(blk, model_options):
 
     print(f'\n{"=======> SETTING FEED CONDITIONS <=======":^60}\n')
     feed_flow_rate = model_options["feed_flow_rate"]
@@ -203,23 +194,23 @@ def set_inlet_conditions(
     feed_temp = model_options["feed_temp"]
 
     blk.feed.properties.calculate_state(
-            var_args={
-                ("flow_vol_phase", "Liq"): pyunits.convert(
-                    feed_flow_rate* pyunits.L / pyunits.h,
-                    to_units=pyunits.m**3 / pyunits.s,
-                ),
-                ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
-                ("temperature", None): feed_temp + 273.15,
-                ("pressure", None): 101325,
-            },
-            hold_state = True
-        )
+        var_args={
+            ("flow_vol_phase", "Liq"): pyunits.convert(
+                feed_flow_rate * pyunits.L / pyunits.h,
+                to_units=pyunits.m**3 / pyunits.s,
+            ),
+            ("conc_mass_phase_comp", ("Liq", "TDS")): feed_salinity,
+            ("temperature", None): feed_temp + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
 
 
 def set_operating_conditions(m, model_options):
-    
+
     set_inlet_conditions(m.fs, model_options)
-    init_md(m.fs.md,  model_options,n_time_points, verbose=True, solver=None)
+    init_md(m.fs.md, model_options, n_time_points, verbose=True, solver=None)
     set_md_op_conditions(m.fs.md)
 
 
@@ -233,10 +224,6 @@ def init_system(m, verbose=True, solver=None):
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     m.fs.feed.initialize()
-
-
-
-
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
@@ -262,7 +249,6 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
     else:
         print(msg)
         return results
-
 
 
 if __name__ == "__main__":
