@@ -1,8 +1,0 @@
-KBHDP_SOA_1_sweep:
-  sweep_param_loop:
-    water_recovery:
-      type: LinearSample
-      param: fs.water_recovery
-      lower_limit: 0.2
-      upper_limit: 0.7
-      num_samples: 11
