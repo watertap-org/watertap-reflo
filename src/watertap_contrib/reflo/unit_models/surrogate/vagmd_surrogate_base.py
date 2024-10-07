@@ -918,6 +918,8 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
 
+        self.feed_props.release_state(flags, outlvl=outlvl)
+
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
 
