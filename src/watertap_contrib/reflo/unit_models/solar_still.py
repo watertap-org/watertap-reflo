@@ -32,7 +32,7 @@ from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.config import is_physical_parameter_block
 
-from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.exceptions import InitializationError, ConfigurationError
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
@@ -107,27 +107,34 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             default=dict(),
             domain=dict,
             description="Dict of arguments to pass to water yield calculation function.",
-            doc="""""",
+            doc="""Dictionary of arguments passed to helper function get_solar_still_daily_water_yield""",
         ),
     )
 
     def build(self):
         super().build()
 
-        # This creates blank scaling factors, which are populated later
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
         unit_log = idaeslog.getModelLogger(self.name, tag="unit")
+
+        if len(self.config.water_yield_calculation_args) > 0:
+            required_args = ["input_weather_file_path", "interval_day", "salinity", "water_depth_basin", "length_basin"]
+            if not all(a in self.config.water_yield_calculation_args.keys() for a in required_args):
+                raise ConfigurationError(
+                    f'Water yield calculation dict must contain values for "input_weather_file_path", "interval_day", '
+                    f'"salinity", "water_depth_basin", and "length_basin", but only '
+                    f'{[*self.config.water_yield_calculation_args.keys()]}  were found.'
+                )
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
-        tmp_dict["defined_state"] = True  # inlet block is an inlet
+        tmp_dict["defined_state"] = True
         self.properties_in = self.config.property_package.state_block_class(
             self.flowsheet().config.time, doc="Material properties of inlet", **tmp_dict
         )
 
-        # Add outlet and waste block
-        tmp_dict["defined_state"] = False  # outlet and waste block is not an inlet
+        tmp_dict["defined_state"] = False
         self.properties_out = self.config.property_package.state_block_class(
             self.flowsheet().config.time,
             doc="Material properties of outlet",
@@ -138,7 +145,6 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             self.flowsheet().config.time, doc="Material properties of waste", **tmp_dict
         )
 
-        # Add ports
         self.add_port(name="inlet", block=self.properties_in)
         self.add_port(name="outlet", block=self.properties_out)
         self.add_port(name="waste", block=self.properties_waste)
@@ -149,34 +155,54 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         prop_waste.flow_mass_phase_comp["Liq", "H2O"].fix(0)
         comps = self.config.property_package.component_list
 
-        unit_log.info(
-            f"Calculating daily water yield assuming {self.config.water_yield_calculation_args['salinity']} g/L TDS with {self.config.water_yield_calculation_args['interval_day']} day intervals..."
-        )
-
-        daily_water_yield_mass = get_solar_still_daily_water_yield(
-            **self.config.water_yield_calculation_args
-        )
-
-        unit_log.info(f"Water yield calculation complete.")
-
         self.water_yield = Param(
-            initialize=daily_water_yield_mass,
+            initialize=2.5,
             mutable=True,
             units=pyunits.kg / (pyunits.m**2 * pyunits.day),
-            doc="Average daily water yield per unit area",
+            doc="Average daily mass water yield per unit area",
         )
 
         self.length_basin = Param(
-            initialize=self.config.water_yield_calculation_args["length_basin"],
+            initialize=0.6,
+            mutable=True,
             units=pyunits.m,
             doc="Dimension of one side of solar still",
         )
 
         self.water_depth_basin = Param(
-            initialize=self.config.water_yield_calculation_args["water_depth_basin"],
+            initialize=0.02,
+            mutable=True,
             units=pyunits.m,
             doc="Depth of water in solar solar still",
         )
+
+        if self.config.water_yield_calculation_args != {}:
+
+            unit_log.info(
+                f"Found water yield calculation arguments in {self.name} configuration."
+                f" Calculating daily water yield assuming {self.config.water_yield_calculation_args['salinity']}"
+                f" g/L TDS with {self.config.water_yield_calculation_args['interval_day']} day intervals..."
+            )
+
+            daily_water_yield_mass = get_solar_still_daily_water_yield(
+                **self.config.water_yield_calculation_args
+            )
+
+            unit_log.info(f"Water yield calculation complete.")
+
+            self.water_yield.set_value(daily_water_yield_mass)
+            self.length_basin.set_value(
+                self.config.water_yield_calculation_args["length_basin"]
+            )
+            self.water_depth_basin.set_value(
+                self.config.water_yield_calculation_args["water_depth_basin"]
+            )
+
+        else:
+
+            unit_log.info(
+                f"No water yield calculation arguments found in {self.name} configuration. Assuming default values."
+            )
 
         self.dens_mass_salt = Param(
             initialize=2.16,
