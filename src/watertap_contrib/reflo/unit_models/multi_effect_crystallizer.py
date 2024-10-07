@@ -192,12 +192,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
                 @effect.Constraint(doc="Heat transfer equation for first effect")
                 def eq_heat_transfer_effect_1(b):
-                    # return b.work_mechanical[0] == pyunits.convert(
-                    #     b.overall_heat_transfer_coefficient
-                    #     * b.heat_exchanger_area
-                    #     * b.delta_temperature[0]
-                    #     # , to_units=pyunits.kilowatt
-                    # )
                     return (
                         b.work_mechanical[0]
                         == b.overall_heat_transfer_coefficient
