@@ -53,7 +53,7 @@ from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_design_
     get_n_time_points,
 )
 
-from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet_multiperiod import (
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_multiperiod_flowsheet import (
     get_vagmd_batch_variable_pairs,
     unfix_dof,
 )
@@ -65,7 +65,7 @@ def propagate_state(arc):
     _prop_state(arc)
 
 
-def build_system(model_options, n_time_points):
+def build_system( overall_recovery = 0.5, n_time_points=None):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
 
@@ -75,16 +75,14 @@ def build_system(model_options, n_time_points):
     # Create feed, product and concentrate state blocks
     m.fs.feed = Feed(property_package=m.fs.params)
     m.fs.product = Product(property_package=m.fs.params)
-    m.fs.waste = Product(property_package=m.fs.params)
+    m.fs.disposal = Product(property_package=m.fs.params)
 
     # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
-    build_md(m, m.fs.md, model_options, n_time_points)
+    model_options, n_time_points = build_md(m, m.fs.md, overall_recovery, n_time_points)
     add_connections(m)
 
-    TransformationFactory("network.expand_arcs").apply_to(m)
-
-    return m
+    return m,  model_options, n_time_points
 
 def add_connections(m):
 
@@ -100,13 +98,51 @@ def add_connections(m):
     )
 
 
-    m.fs.md_to_waste = Arc(
+    m.fs.md_to_disposal = Arc(
         source = m.fs.md.concentrate.outlet,
-        destination = m.fs.waste.inlet
+        destination = m.fs.disposal.inlet
     )
 
+    TransformationFactory("network.expand_arcs").apply_to(m)
 
-def build_md(m, blk, model_options, n_time_points) -> None:
+def set_md_model_options(feed_flow_rate, feed_salinity,overall_recovery,n_time_points=None):
+
+    system_capacity = overall_recovery * pyunits.convert(feed_flow_rate, to_units = pyunits.m**3 / pyunits.day)
+    feed_salinity = pyunits.convert(feed_salinity, to_units = pyunits.g/pyunits.L)
+    
+    model_options = {
+        "dt": None,
+        "system_capacity": system_capacity,  # m3/day
+        "feed_flow_rate": 750,  # L/h
+        "evap_inlet_temp": 80,
+        "cond_inlet_temp": 30,
+        "feed_temp": 30,
+        "feed_salinity": feed_salinity(), # g/L
+        "initial_batch_volume": 50,  # L
+        "module_type": "AS26C7.2L",
+        "cooling_system_type": "closed",
+        "cooling_inlet_temp": 25,
+    }
+
+    if n_time_points == None:
+    # Calculate the number of periods to reach target recovery rate by solving the system first
+        n_time_points = get_n_time_points(
+            dt=model_options["dt"],
+            feed_flow_rate=model_options["feed_flow_rate"],
+            evap_inlet_temp=model_options["evap_inlet_temp"],
+            cond_inlet_temp=model_options["cond_inlet_temp"],
+            feed_temp=model_options["feed_temp"],
+            feed_salinity=model_options["feed_salinity"],
+            recovery_ratio=overall_recovery,
+            initial_batch_volume=model_options["initial_batch_volume"],
+            module_type=model_options["module_type"],
+            cooling_system_type=model_options["cooling_system_type"],
+            cooling_inlet_temp=model_options["cooling_inlet_temp"],
+        )
+
+    return model_options, n_time_points
+
+def build_md(m, blk, overall_recovery = 0.5, n_time_points=None) -> None:
 
     print(f'\n{"=======> BUILDING MEMBRANE DISTILLATION SYSTEM <=======":^60}\n')
 
@@ -115,6 +151,8 @@ def build_md(m, blk, model_options, n_time_points) -> None:
     blk.feed = StateJunction(property_package=m.fs.params)
     blk.permeate = StateJunction(property_package=m.fs.params)
     blk.concentrate = StateJunction(property_package=m.fs.params)
+
+    model_options, n_time_points = set_md_model_options(Qin,feed_salinity,overall_recovery,n_time_points)
 
     # Build the multiperiod object for MD
     blk.unit = MultiPeriodModel(
@@ -125,6 +163,8 @@ def build_md(m, blk, model_options, n_time_points) -> None:
         unfix_dof_func=unfix_dof,
         outlvl=logging.WARNING,
     )
+
+    return model_options, n_time_points
 
  
 def init_md(blk,  model_options, n_time_points, verbose=True, solver=None):
@@ -154,8 +194,6 @@ def init_md(blk,  model_options, n_time_points, verbose=True, solver=None):
     for active in active_blks:
         fix_dof_and_initialize(
             m=active,
-            feed_flow_rate=feed_flow_rate,
-            feed_salinity=feed_salinity,
             feed_temp=feed_temp,
         )
         result = solver.solve(active)
@@ -163,20 +201,24 @@ def init_md(blk,  model_options, n_time_points, verbose=True, solver=None):
 
     
     # Build connection to permeate state junction
+    blk.permeate.properties[0]._flow_vol_phase()
 
-    @blk.Constraint()
+    @blk.Constraint(doc="Assign the permeate flow rate to its respective state junction")
     def get_permeate_flow(b):
         num_modules = blk.unit.get_active_process_blocks()[-1].fs.vagmd.num_modules
 
-        return (b.permeate.properties[0].flow_mass_phase_comp['Liq','H2O'] 
-                == pyunits.convert(pyunits.convert(
+        return (b.permeate.properties[0].flow_vol_phase['Liq'] 
+                == 
+                    # pyunits.convert(
+                    pyunits.convert(
                                         (   num_modules
                                             * b.unit.get_active_process_blocks()[-1].fs.acc_distillate_volume
                                             / (b.unit.get_active_process_blocks()[-1].fs.dt * (n_time_points - 1))
                                         )
-                                    , to_units= pyunits.m**3 / pyunits.day
-                                    ) *1000*pyunits.kg/pyunits.m**3               
-                                   , to_units = pyunits.kg/pyunits.s)
+                                    , to_units= pyunits.m**3 / pyunits.s
+                                    ) 
+                                #     *1000*pyunits.kg/pyunits.m**3               
+                                #    , to_units = pyunits.kg/pyunits.s)
                 )
     
     
@@ -189,10 +231,9 @@ def init_md(blk,  model_options, n_time_points, verbose=True, solver=None):
     blk.concentrate.properties[0]._flow_vol_phase()
     blk.concentrate.properties[0]._conc_mass_phase_comp()
 
-    @blk.Constraint()
+    @blk.Constraint(doc="Assign the concentrate flow rate to its respective state junction")
     def get_concentrate_flow(b):
         num_modules = blk.unit.get_active_process_blocks()[-1].fs.vagmd.num_modules
-
 
         return (b.concentrate.properties[0].flow_vol_phase['Liq'] 
                 == pyunits.convert(
@@ -205,7 +246,7 @@ def init_md(blk,  model_options, n_time_points, verbose=True, solver=None):
                                     )                    
                 )
     
-    @blk.Constraint()
+    @blk.Constraint(doc="Assign the concentrate concentration to its respective state junction")
     def get_concentrate_conc(b):
         return ( b.concentrate.properties[0].conc_mass_phase_comp['Liq','TDS'] 
                 ==  pyunits.convert(
@@ -216,6 +257,7 @@ def init_md(blk,  model_options, n_time_points, verbose=True, solver=None):
 
     blk.concentrate.properties[0].pressure.fix(101325)
     blk.concentrate.properties[0].temperature.fix(298.15)
+
 
 
 def init_system(m, blk, model_options,n_time_points, verbose=True, solver=None):
@@ -245,8 +287,8 @@ def init_system(m, blk, model_options,n_time_points, verbose=True, solver=None):
     propagate_state(m.fs.md_to_product)
     m.fs.product.initialize()
 
-    propagate_state(m.fs.md_to_waste)
-    m.fs.waste.initialize()
+    propagate_state(m.fs.md_to_disposal)
+    m.fs.disposal.initialize()
 
 
 def set_system_op_conditions(blk, model_options):
@@ -287,6 +329,7 @@ def set_md_op_conditions(blk):
     print('Feed flow rate in L/h:',feed_flow_rate)
     print("Feed salinity in g/l:", feed_salinity)
     print("Feed temperature in C:", feed_temp)
+    print("\n")
 
     active_blks[0].fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(
         feed_salinity
@@ -476,69 +519,112 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         return results
 
 
-def report_MD(m, stream_table=False):
-    print(f"\n\n-------------------- MD Report --------------------\n")
-    print("\n")
+def report_MD(m):
 
     active_blks = m.fs.md.unit.get_active_process_blocks()
 
-    print("Number of modules:", value(active_blks[-1].fs.vagmd.num_modules))
+    print(f"\n\n-------------------- MD Operations Report --------------------\n")
+    print("\n")
 
     print(
-        f'{"Inlet Flow Volume":<30s}{value(active_blks[0].fs.vagmd.feed_props[0].flow_vol_phase["Liq"]):<10.5f}{pyunits.get_units(active_blks[-1].fs.vagmd.feed_props[0].flow_vol_phase["Liq"])}'
+        f'{"System Capacity":<30s}{value(active_blks[0].fs.vagmd.system_capacity):<10,.2f}{pyunits.get_units(active_blks[0].fs.vagmd.system_capacity)}'
+    )
+
+    print(
+        f'{"Feed stream salinity":<30s}{value(m.fs.feed.properties[0].conc_mass_phase_comp["Liq","TDS"]):<10.5f}{pyunits.get_units(m.fs.feed.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
+    )
+
+    print(
+        f'{"MD Period 1 Feed salinity":<30s}{value(m.fs.md.feed.properties[0].conc_mass_phase_comp["Liq","TDS"]):<10.5f}{pyunits.get_units(m.fs.md.feed.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
+    )
+
+    print(
+        f'{"Number of modules:":<30s}{value(active_blks[-1].fs.vagmd.num_modules)}'
+        )
+
+    print(
+        f'{"Membrane type":<30s}{active_blks[-1].fs.vagmd.config.module_type}'
+    )
+
+    print(
+        f'{"Accumulated recovery":<30s}{value(active_blks[-1].fs.acc_recovery_ratio):<10.5f}{pyunits.get_units(active_blks[-1].fs.acc_recovery_ratio)}'
+    )
+    
+    perm_flow = pyunits.convert(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"],to_units = pyunits.m**3/pyunits.day)
+
+    print(
+        f'{"Permeate flow rate":<30s}{value(perm_flow):<10.2f}{pyunits.get_units(perm_flow)}'
+    )
+
+    conc_flow = pyunits.convert(m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"],to_units = pyunits.m**3/pyunits.day)
+
+    print(
+        f'{"Concentrate flow rate":<30s}{value(conc_flow):<10.2f}{pyunits.get_units(conc_flow)}'
+    )
+
+    print(
+        f'{"Concentrate concentration":<30s}{value(m.fs.md.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"]):<10.2f}{pyunits.get_units(m.fs.md.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
+    )
+
+    print(
+        f'{"STEC":<30s}{value(active_blks[-1].fs.specific_energy_consumption_thermal):<10.2f}{pyunits.get_units(active_blks[-1].fs.specific_energy_consumption_thermal)}'
+    )
+
+    print(
+        f'{"SEC":<30s}{value(active_blks[-1].fs.specific_energy_consumption_electric):<10.2f}{pyunits.get_units(active_blks[-1].fs.specific_energy_consumption_electric)}'
+    )
+
+   
+    # TODO: Operating parameters to track
+
+    print(f"\n\n-------------------- MD Costing Report --------------------\n")
+    print("\n")
+
+    print(
+        f'{"LCOW":<30s}{value(m.fs.costing.LCOW):<20.5f}{pyunits.get_units(m.fs.costing.LCOW)}'
+    )
+
+    print(
+        f'{"Capital Cost":<30s}{value(m.fs.costing.aggregate_capital_cost):<20,.2f}{pyunits.get_units(m.fs.costing.LCOW)}'
+    )
+
+    print(
+        f'{"Operating Cost":<30s}{value(m.fs.costing.aggregate_fixed_operating_cost):<20,.2f}{pyunits.get_units(m.fs.costing.LCOW)}'
+    )
+
+    print(
+        f'{"Membrane Cost":<30s}{value(active_blks[-1].fs.vagmd.costing.module_cost):<20,.2f}{pyunits.get_units(active_blks[-1].fs.vagmd.costing.module_cost)}'
+    )
+
+    print(
+        f'{"Aggregated Heat Cost":<30s}{value(m.fs.costing.aggregate_flow_costs["heat"]):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_costs["heat"])}'
     )
 
 
-# def get_md_time_steps(model)
+    print(
+        f'{"Aggregated Electricity Cost":<30s}{value(m.fs.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_costs["electricity"])}'
+    )
+    
+
 
 if __name__ == "__main__":
 
     Qin = 4 * pyunits.Mgal / pyunits.day  # KBHDP flow rate
     Qin = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.day)
 
+    feed_salinity = 12*pyunits.g/pyunits.L
+
     overall_recovery = 0.45
-    system_capacity = overall_recovery * Qin
+    
+    n_time_points = None
+    m, model_options, n_time_points = build_system(overall_recovery, n_time_points=n_time_points)
+    print('Number of time points being modeled',n_time_points)
 
-    model_options = {
-        "dt": None,
-        "system_capacity": system_capacity,  # m3/day
-        "feed_flow_rate": 750,  # L/h
-        "evap_inlet_temp": 80,
-        "cond_inlet_temp": 30,
-        "feed_temp": 30,
-        "feed_salinity": 12,
-        "initial_batch_volume": 50,  # L
-        "module_type": "AS26C7.2L",
-        "cooling_system_type": "closed",
-        "cooling_inlet_temp": 25,
-    }
-
-    # Calculate the number of periods to reach target recovery rate by solving the system first
-    n_time_points_check = get_n_time_points(
-        dt=model_options["dt"],
-        feed_flow_rate=model_options["feed_flow_rate"],
-        evap_inlet_temp=model_options["evap_inlet_temp"],
-        cond_inlet_temp=model_options["cond_inlet_temp"],
-        feed_temp=model_options["feed_temp"],
-        feed_salinity=model_options["feed_salinity"],
-        recovery_ratio=overall_recovery,
-        initial_batch_volume=model_options["initial_batch_volume"],
-        module_type=model_options["module_type"],
-        cooling_system_type=model_options["cooling_system_type"],
-        cooling_inlet_temp=model_options["cooling_inlet_temp"],
-    )
-
-    # n_time_points = 2
-    n_time_points = n_time_points_check
-
-    m = build_system(model_options, n_time_points)
-    print(f"\nBuild System:system Degrees of Freedom: {degrees_of_freedom(m)}")
     set_system_op_conditions(m.fs, model_options)
-    print(f"\nSet inlet conditions:system Degrees of Freedom: {degrees_of_freedom(m)}")
     init_system(m, m.fs.md, model_options, n_time_points)
-    print(f"\nInitialize MD:system Degrees of Freedom: {degrees_of_freedom(m)}")
+    
     set_md_op_conditions(m.fs.md)
-    print(f"\nSet MD conditions:system Degrees of Freedom: {degrees_of_freedom(m)}")
+    
 
     add_md_costing(m, m.fs.md.unit)
 
@@ -550,77 +636,32 @@ if __name__ == "__main__":
     #     print_infeasible_constraints(m)
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    # assert degrees_of_freedom(m) == 0
+
+    assert degrees_of_freedom(m) == 0
     results = solver.solve(m)
     active_blks = m.fs.md.unit.get_active_process_blocks()
 
     permeate_flow_rate, brine_flow_rate, brine_salinity = md_output(
         m.fs, n_time_points, model_options
     )
-    print("\nOverall LCOW ($/m3): ", value(m.fs.costing.LCOW))
 
-    print("\nCalculate n_time points", n_time_points)
-    print(
-        "Time step duration:",
-        value(active_blks[0].fs.dt),
-        pyunits.get_units(active_blks[0].fs.dt),
-    )
-
-    batch_duration = n_time_points * active_blks[0].fs.dt
-    print("Batch duration:", value(batch_duration), pyunits.get_units(batch_duration))
-    no_of_batches = 24 * pyunits.h / pyunits.convert(batch_duration, to_units=pyunits.h)
-    print("Number of batches in 24h:", value(no_of_batches))
-
-    print("Calculated number of modules:", value(active_blks[-1].fs.vagmd.num_modules))
-
-    print(
-        "\nSystem Capacity:", value(system_capacity), pyunits.get_units(system_capacity)
-    )
-    print(
-        "Permeate flow rate:",
-        value(permeate_flow_rate),
-        pyunits.get_units(permeate_flow_rate),
-    )
-    print(
-        "Brine flow rate:",
-        value(brine_flow_rate),
-        pyunits.get_units(brine_flow_rate),
-    )
-    print("Brine salinity:", value(brine_salinity), pyunits.get_units(brine_salinity))
-    print("Accumulate recovery ratio:", value(active_blks[-1].fs.acc_recovery_ratio))
-
-    print(
-        "Accumulate distillate volume by 1 module in 1 batch:",
-        value(active_blks[-1].fs.acc_distillate_volume),
-        pyunits.get_units(active_blks[-1].fs.acc_distillate_volume),
-    )
-    print(
-        "Total accumulate Distillate Volume by all modules in 1 batch:",
-        value(active_blks[-1].fs.vagmd.num_modules)
-        * value(active_blks[-1].fs.acc_distillate_volume),
-        pyunits.get_units(active_blks[-1].fs.acc_distillate_volume),
-    )
-
-    total_distillate_check = (
-        pyunits.convert(active_blks[-1].fs.acc_distillate_volume, to_units=pyunits.m**3)
-        * value(active_blks[-1].fs.vagmd.num_modules)
-        * no_of_batches
-    )
-
-    print(
-        "Check on total distillate produced:",
-        value(total_distillate_check),
-        pyunits.get_units(total_distillate_check),
-    )
-
-    print(m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd.feed_props[0].flow_mass_phase_comp["Liq", "TDS"])
-
-    m.fs.md.concentrate.properties[0].flow_mass_phase_comp.display()
-
-    m.fs.waste.properties[0].flow_mass_phase_comp.display()
-
+    report_MD(m)
     
-    m.fs.md.permeate.properties[0].flow_mass_phase_comp.display()
+    # print("\nCalculate n_time points", n_time_points)
+    # print(
+    #     "Time step duration:",
+    #     value(active_blks[0].fs.dt),
+    #     pyunits.get_units(active_blks[0].fs.dt),
+    # )
 
-    m.fs.product.properties[0].flow_mass_phase_comp.display()
+    # batch_duration = n_time_points * active_blks[0].fs.dt
+    # print("Batch duration:", value(batch_duration), pyunits.get_units(batch_duration))
+    # no_of_batches = 24 * pyunits.h / pyunits.convert(batch_duration, to_units=pyunits.h)
+    # print("Number of batches in 24h:", value(no_of_batches))
+
+    # m.fs.md.permeate.properties[0].flow_vol_phase.display()
+    # m.fs.md.permeate.properties[0].flow_mass_phase_comp.display()
+
+
+
 
