@@ -1,6 +1,8 @@
 Chemical Softening
 ====================================================
 
+.. note:: This unit model was recently (9/2024) updated for stability and some relationships were modified. An update to this documentation page is pending.
+
 This chemical softening model includes the units mixer, flocculator, sedimentation basin and recarbonation basin. The model calculates the chemical dose required for target removal of hardness causing components 
 and calculates the size of the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model:
    * supports steady-state only
@@ -63,13 +65,13 @@ The following 11 variables define the system design.
 .. csv-table::
    :header: "Variables", "Variable Name", "Symbol",  "Valid Range", "Unit"
 
-   "Number of mixers", "``no_of_mixer``", ":math:`n_{mixer}`", "", ":math:`\text{dimensionless}`"
-   "Number of flocculators", "``no_of_floc``", ":math:`n_{floc}`", "", ":math:`\text{dimensionless}`"
+   "Number of mixers", "``number_mixers``", ":math:`n_{mixer}`", "", ":math:`\text{dimensionless}`"
+   "Number of flocculators", "``number_floc``", ":math:`n_{floc}`", "", ":math:`\text{dimensionless}`"
    "Retention time of mixer", "``retention_time_mixer``", ":math:`RT_{mixer}`", "0.1-5", ":math:`\text{min}`"
    "Retention time of flocculator", "``retention_time_floc``", ":math:`RT_{floc}`", "10-45", ":math:`\text{min}`"
    "Retention time of sedimentation basin", "``retention_time_sed``", ":math:`RT_{sed}`", "120-240",  ":math:`\text{min}`"
    "Retention time of recarbonation basin", "``retention_time_recarb``", ":math:`RT_{recarb}`", "15-30", ":math:`\text{min}`"
-   "Fractional volume recovery", "``frac_vol_recovery``", "", "", ":math:`\text{dimensionless}`"
+   "Fractional recovery of water on mass basis", "``frac_mass_water_recovery``", "", "", ":math:`\text{dimensionless}`"
    "Removal efficiency of components (except Ca2+ and Mg2+)", "``removal_efficiency``", "","",":math:`\text{dimensionless}`"
    "CO2 dose in CaCO3 equivalents", "``CO2_CaCO3``",":math:`CO_{2,CaCO_{3}-hardness}`","", ":math:`\text{g/}\text{L}`"
    "Velocity gradient in mixer", "``vel_gradient_mix``", ":math:`\text{velocity gradient}_{mixer}`", "300-1000",":math:`\text{/}\text{s}`"
