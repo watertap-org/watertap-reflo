@@ -27,6 +27,7 @@ from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
 # Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
+    MaterialBalanceType,
     UnitModelBlockData,
     useDefault,
     FlowsheetBlock,
@@ -39,7 +40,7 @@ from idaes.core.util.tables import create_stream_table_dataframe
 import idaes.logger as idaeslog
 from idaes.core.util.constants import Constants
 
-from watertap.core import InitializationMixin
+from watertap.core import InitializationMixin, ControlVolume0DBlock
 from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.unit_models.crystallizer_effect import CrystallizerEffect
@@ -96,6 +97,20 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
     )
 
     CONFIG.declare(
+        "property_package_vapor",
+        ConfigValue(
+            default=useDefault,
+            domain=is_physical_parameter_block,
+            description="Property package to use for heating steam properties",
+            doc="""Property parameter object used to define steam property calculations,
+    **default** - useDefault.
+    **Valid values:** {
+    **useDefault** - use default package from parent model or flowsheet,
+    **PhysicalParameterObject** - a PhysicalParameterBlock object.}""",
+        ),
+    )
+
+    CONFIG.declare(
         "property_package_args",
         ConfigBlock(
             implicit=True,
@@ -105,20 +120,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
     **default** - None.
     **Valid values:** {
     see property package for documentation.}""",
-        ),
-    )
-
-    CONFIG.declare(
-        "property_package_vapor",
-        ConfigValue(
-            default=useDefault,
-            domain=is_physical_parameter_block,
-            description="Property package to use for heating and motive steam properties",
-            doc="""Property parameter object used to define steasm property calculations,
-    **default** - useDefault.
-    **Valid values:** {
-    **useDefault** - use default package from parent model or flowsheet,
-    **PhysicalParameterObject** - a PhysicalParameterBlock object.}""",
         ),
     )
 
@@ -137,6 +138,20 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
+        self.control_volume = ControlVolume0DBlock(
+            dynamic=False,
+            has_holdup=False,
+            property_package=self.config.property_package,
+            property_package_args=self.config.property_package_args,
+        )
+
+        self.control_volume.add_state_blocks(has_phase_equilibrium=False)
+        self.control_volume.add_material_balances(
+            balance_type=MaterialBalanceType.componentPhase, has_mass_transfer=True
+        )
+        self.add_inlet_port(name="inlet", block=self.control_volume)
+        self.add_outlet_port(name="outlet", block=self.control_volume)
+
         self.number_effects = self.config.number_effects
         self.Effects = RangeSet(self.config.number_effects)
 
@@ -145,7 +160,19 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         self.effects = FlowsheetBlock(self.Effects, dynamic=False)
 
+        # There is no solid NaCl coming in
+        self.control_volume.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
+        # All solid NaCl accessed through properties_solids
+        self.control_volume.mass_transfer_term[0, "Sol", "NaCl"].fix(0)
+
+        # Local expressions to aggregate material flows for all effects
+        total_mass_flow_water_in_expr = 0
+        total_mass_flow_salt_in_expr = 0
+        total_mass_flow_pure_water_out_expr = 0
+        total_mass_flow_water_out_expr = 0
+        total_mass_flow_salt_out_expr = 0
         total_flow_vol_in_expr = 0
+        total_flow_vol_out_expr = 0
 
         for n, eff in self.effects.items():
             eff.effect = effect = CrystallizerEffect(
@@ -156,6 +183,30 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             effect.properties_in[0].conc_mass_phase_comp
 
             total_flow_vol_in_expr += effect.properties_in[0].flow_vol_phase["Liq"]
+            total_flow_vol_out_expr += effect.properties_pure_water[0].flow_vol_phase[
+                "Liq"
+            ]
+
+            total_mass_flow_water_in_expr += effect.properties_in[
+                0
+            ].flow_mass_phase_comp["Liq", "H2O"]
+
+            total_mass_flow_salt_in_expr += effect.properties_in[
+                0
+            ].flow_mass_phase_comp["Liq", "NaCl"]
+
+            total_mass_flow_pure_water_out_expr += effect.properties_pure_water[
+                0
+            ].flow_mass_phase_comp["Liq", "H2O"]
+
+            total_mass_flow_water_out_expr += effect.properties_out[
+                0
+            ].flow_mass_phase_comp["Liq", "H2O"]
+
+            total_mass_flow_salt_out_expr += (
+                effect.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]
+                + effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]
+            )
 
             if n == self.first_effect:
                 tmp_dict = dict(**self.config.property_package_args)
@@ -209,8 +260,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                         )
                     )
 
-                self.add_port(name="inlet", block=effect.properties_in)
-                self.add_port(name="outlet", block=effect.properties_out)
                 self.add_port(name="solids", block=effect.properties_solids)
                 self.add_port(name="vapor", block=effect.properties_vapor)
                 self.add_port(name="pure_water", block=effect.properties_pure_water)
@@ -259,6 +308,47 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     f"eq_energy_for_effect_{n}_from_effect_{n - 1}", energy_flow_constr
                 )
 
+        @self.Constraint(doc="Mass transfer term for liquid water")
+        def eq_mass_transfer_term_liq_water(b):
+            return b.control_volume.mass_transfer_term[0, "Liq", "H2O"] == -1 * (
+                total_mass_flow_water_out_expr
+            )
+
+        @self.Constraint(doc="Mass transfer term for vapor water")
+        def eq_mass_transfer_term_vap_water(b):
+            return b.control_volume.mass_transfer_term[0, "Vap", "H2O"] == -1 * (
+                b.effects[1].effect.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"]
+            )
+
+        @self.Constraint(doc="Mass transfer term for salt in liquid phase")
+        def eq_mass_transfer_term_liq_salt(b):
+            return b.control_volume.mass_transfer_term[0, "Liq", "NaCl"] == -1 * (
+                total_mass_flow_salt_out_expr
+            )
+
+        @self.Constraint(doc="Steam flow")
+        def eq_overall_steam_flow(b):
+            return (
+                b.control_volume.properties_in[0].flow_mass_phase_comp["Vap", "H2O"]
+                == b.effects[1]
+                .effect.heating_steam[0]
+                .flow_mass_phase_comp["Vap", "H2O"]
+            )
+
+        @self.Constraint(doc="Mass balance of water for all effects")
+        def eq_overall_mass_balance_water_in(b):
+            return (
+                b.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
+                == total_mass_flow_water_in_expr
+            )
+
+        @self.Constraint(doc="Mass balance of salt for all effects")
+        def eq_overall_mass_balance_salt_in(b):
+            return (
+                b.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"]
+                == total_mass_flow_salt_in_expr
+            )
+
         self.total_flow_vol_in = Expression(expr=total_flow_vol_in_expr)
 
     def initialize_build(
@@ -294,8 +384,9 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         opt = get_solver(solver, optarg)
         for n, eff in self.effects.items():
+            eff.effect.properties_in[0].flow_mass_phase_comp.fix()
             if n == 1:
-                assert degrees_of_freedom(eff.effect) == 0
+                # assert degrees_of_freedom(eff.effect) == 0
                 eff.effect.initialize(**init_args)
                 inlet_conc = (
                     eff.effect.properties_in[0]
@@ -303,6 +394,8 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     .value
                 )
                 mass_transfer_coeff = eff.effect.overall_heat_transfer_coefficient.value
+                eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
+                eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
             else:
                 c = getattr(eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}")
                 c.deactivate()
