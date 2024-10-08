@@ -67,9 +67,10 @@ def propagate_state(arc):
     _prop_state(arc)
 
 
-def build_system(overall_recovery=0.5, n_time_points=None):
+def build_system(inlet_cond, n_time_points=None):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.costing = TreatmentCosting()
 
     # Property package
     m.fs.params = SeawaterParameterBlock()
@@ -81,7 +82,7 @@ def build_system(overall_recovery=0.5, n_time_points=None):
 
     # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
-    model_options, n_time_points = build_md(m, m.fs.md, overall_recovery, n_time_points)
+    model_options, n_time_points = build_md(m, m.fs.md, inlet_cond, n_time_points)
     add_connections(m)
 
     return m, model_options, n_time_points
@@ -103,13 +104,13 @@ def add_connections(m):
 
 
 def set_md_model_options(
-    feed_flow_rate, feed_salinity, overall_recovery, n_time_points=None
+    inlet_cond, n_time_points=None
 ):
 
-    system_capacity = overall_recovery * pyunits.convert(
-        feed_flow_rate, to_units=pyunits.m**3 / pyunits.day
+    system_capacity = inlet_cond['recovery'] * pyunits.convert(
+        inlet_cond['inlet_flow_rate'], to_units=pyunits.m**3 / pyunits.day
     )
-    feed_salinity = pyunits.convert(feed_salinity, to_units=pyunits.g / pyunits.L)
+    feed_salinity = pyunits.convert(inlet_cond['inlet_salinity'], to_units=pyunits.g / pyunits.L)
 
     model_options = {
         "dt": None,
@@ -134,7 +135,7 @@ def set_md_model_options(
             cond_inlet_temp=model_options["cond_inlet_temp"],
             feed_temp=model_options["feed_temp"],
             feed_salinity=model_options["feed_salinity"],
-            recovery_ratio=overall_recovery,
+            recovery_ratio=inlet_cond['recovery'],
             initial_batch_volume=model_options["initial_batch_volume"],
             module_type=model_options["module_type"],
             cooling_system_type=model_options["cooling_system_type"],
@@ -144,7 +145,7 @@ def set_md_model_options(
     return model_options, n_time_points
 
 
-def build_md(m, blk, overall_recovery=0.5, n_time_points=None) -> None:
+def build_md(m, blk, inlet_cond, n_time_points=None) -> None:
 
     print(f'\n{"=======> BUILDING MEMBRANE DISTILLATION SYSTEM <=======":^60}\n')
 
@@ -155,7 +156,7 @@ def build_md(m, blk, overall_recovery=0.5, n_time_points=None) -> None:
     blk.concentrate = StateJunction(property_package=m.fs.params)
 
     model_options, n_time_points = set_md_model_options(
-        Qin, feed_salinity, overall_recovery, n_time_points
+        inlet_cond, n_time_points
     )
 
     # Build the multiperiod object for MD
@@ -172,6 +173,8 @@ def build_md(m, blk, overall_recovery=0.5, n_time_points=None) -> None:
 
 
 def init_md(blk, model_options, n_time_points, verbose=True, solver=None):
+    # blk = m.fs.md
+
     blk.feed.properties[0]._flow_vol_phase()
     blk.feed.properties[0]._conc_mass_phase_comp()
 
@@ -190,7 +193,7 @@ def init_md(blk, model_options, n_time_points, verbose=True, solver=None):
         unfix_dof_options={"feed_flow_rate": feed_flow_rate},
     )
 
-    add_performance_constraints(m, blk.unit, model_options)
+    add_performance_constraints(blk.unit, model_options)
 
     blk.unit.system_capacity.fix(model_options["system_capacity"])
 
@@ -334,11 +337,11 @@ def set_md_op_conditions(blk):
     # feed_salinity = model_options["feed_salinity"]
     # feed_temp = model_options["feed_temp"]
     feed_flow_rate = pyunits.convert(
-        m.fs.md.feed.properties[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
+       blk.feed.properties[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
     )()
 
-    feed_salinity = m.fs.md.feed.properties[0].conc_mass_phase_comp["Liq", "TDS"]()
-    feed_temp = pyunits.convert_temp_K_to_C(m.fs.md.feed.properties[0].temperature())
+    feed_salinity = blk.feed.properties[0].conc_mass_phase_comp["Liq", "TDS"]()
+    feed_temp = pyunits.convert_temp_K_to_C(blk.feed.properties[0].temperature())
 
     print("\n--------- MD TIME PERIOD 1 INPUTS ---------\n")
     print("Feed flow rate in L/h:", feed_flow_rate)
@@ -401,7 +404,7 @@ def md_output(blk, n_time_points, model_options):
     return permeate_flow_rate, brine_flow_rate, brine_salinity
 
 
-def add_performance_constraints(m, blk, model_options):
+def add_performance_constraints(blk, model_options):
 
     # Create accumlative energy terms
     blk.system_capacity = Var(
@@ -452,7 +455,7 @@ def add_performance_constraints(m, blk, model_options):
         iscale.set_scaling_factor(blk.overall_elec_power_requirement, 1e-3)
 
 
-def add_md_costing(m, blk):
+def add_md_costing(blk, costing_block):
     """
     This function adds costing module to the target multiperiod module mp,
     by adding the unit costing package to the last time step,
@@ -465,11 +468,10 @@ def add_md_costing(m, blk):
     Returns:
         object: A costing module associated to the multiperiod module
     """
-    m.fs.costing = REFLOCosting()
     # blk.system_capacity.fix()
     # Specify the last time step
     vagmd = blk.get_active_process_blocks()[-1].fs.vagmd
-    vagmd.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    vagmd.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
 
     # Overwrite the thermal and electric energy flow with the accumulated values
     vagmd.costing.costing_package.cost_flow(
@@ -546,9 +548,10 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         return results
 
 
-def report_MD(m):
+def report_MD(m,blk):
 
-    active_blks = m.fs.md.unit.get_active_process_blocks()
+    # blk = m.fs.md
+    active_blks =blk.unit.get_active_process_blocks()
 
     print(f"\n\n-------------------- MD Operations Report --------------------\n")
     print("\n")
@@ -562,7 +565,7 @@ def report_MD(m):
     )
 
     print(
-        f'{"MD Period 1 Feed salinity":<30s}{value(m.fs.md.feed.properties[0].conc_mass_phase_comp["Liq","TDS"]):<10.2f}{pyunits.get_units(m.fs.md.feed.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
+        f'{"MD Period 1 Feed salinity":<30s}{value(blk.feed.properties[0].conc_mass_phase_comp["Liq","TDS"]):<10.2f}{pyunits.get_units(blk.feed.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
     )
 
     print(
@@ -576,7 +579,7 @@ def report_MD(m):
     )
 
     perm_flow = pyunits.convert(
-        m.fs.md.permeate.properties[0].flow_vol_phase["Liq"],
+        blk.permeate.properties[0].flow_vol_phase["Liq"],
         to_units=pyunits.m**3 / pyunits.day,
     )
 
@@ -585,7 +588,7 @@ def report_MD(m):
     )
 
     conc_flow = pyunits.convert(
-        m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"],
+        blk.concentrate.properties[0].flow_vol_phase["Liq"],
         to_units=pyunits.m**3 / pyunits.day,
     )
 
@@ -594,7 +597,7 @@ def report_MD(m):
     )
 
     print(
-        f'{"Concentrate concentration":<30s}{value(m.fs.md.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"]):<10.2f}{pyunits.get_units(m.fs.md.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
+        f'{"Concentrate concentration":<30s}{value(blk.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"]):<10.2f}{pyunits.get_units(blk.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
     )
 
     prod_flow = pyunits.convert(
@@ -602,18 +605,18 @@ def report_MD(m):
         to_units=pyunits.m**3 / pyunits.day,
     )
 
-    print(
-        f'{"Product flow rate":<30s}{value(prod_flow):<10,.2f}{pyunits.get_units(prod_flow)}'
-    )
+    # print(
+    #     f'{"Product flow rate":<30s}{value(prod_flow):<10,.2f}{pyunits.get_units(prod_flow)}'
+    # )
 
-    disp_flow = pyunits.convert(
-        m.fs.disposal.properties[0].flow_vol_phase["Liq"],
-        to_units=pyunits.m**3 / pyunits.day,
-    )
+    # disp_flow = pyunits.convert(
+    #     m.fs.disposal.properties[0].flow_vol_phase["Liq"],
+    #     to_units=pyunits.m**3 / pyunits.day,
+    # )
 
-    print(
-        f'{"Disposal flow rate":<30s}{value(disp_flow):<10,.2f}{pyunits.get_units(disp_flow)}'
-    )
+    # print(
+    #     f'{"Disposal flow rate":<30s}{value(disp_flow):<10,.2f}{pyunits.get_units(disp_flow)}'
+    # )
 
     print(
         f'{"STEC":<30s}{value(active_blks[-1].fs.specific_energy_consumption_thermal):<10.2f}{pyunits.get_units(active_blks[-1].fs.specific_energy_consumption_thermal)}'
@@ -624,28 +627,27 @@ def report_MD(m):
     )
 
     print(
-        f'{"Overall thermal requirement":<30s}{value(m.fs.md.unit.overall_thermal_power_requirement):<10.2f}{pyunits.get_units(m.fs.md.unit.overall_thermal_power_requirement)}'
+        f'{"Overall thermal requirement":<30s}{value(blk.unit.overall_thermal_power_requirement):<10.2f}{pyunits.get_units(blk.unit.overall_thermal_power_requirement)}'
     )
 
     print(
-        f'{"Overall elec requirement":<30s}{value(m.fs.md.unit.overall_elec_power_requirement):<10.2f}{pyunits.get_units(m.fs.md.unit.overall_elec_power_requirement)}'
+        f'{"Overall elec requirement":<30s}{value(blk.unit.overall_elec_power_requirement):<10.2f}{pyunits.get_units(blk.unit.overall_elec_power_requirement)}'
     )
 
-    # Operating parameters to track
+
+def report_md_costing(m,blk):
+
+    active_blks =blk.md.unit.get_active_process_blocks()
 
     print(f"\n\n-------------------- MD Costing Report --------------------\n")
     print("\n")
 
     print(
-        f'{"LCOW":<30s}{value(m.fs.costing.LCOW):<20.5f}{pyunits.get_units(m.fs.costing.LCOW)}'
+        f'{"Capital Cost":<30s}{value(blk.costing.aggregate_capital_cost):<20,.2f}{pyunits.get_units(blk.costing.LCOW)}'
     )
 
     print(
-        f'{"Capital Cost":<30s}{value(m.fs.costing.aggregate_capital_cost):<20,.2f}{pyunits.get_units(m.fs.costing.LCOW)}'
-    )
-
-    print(
-        f'{"Fixed Operating Cost":<30s}{value(m.fs.costing.aggregate_fixed_operating_cost):<20,.2f}{pyunits.get_units(m.fs.costing.LCOW)}'
+        f'{"Fixed Operating Cost":<30s}{value(blk.costing.aggregate_fixed_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.LCOW)}'
     )
 
     print(
@@ -653,11 +655,19 @@ def report_MD(m):
     )
 
     print(
-        f'{"Aggregated Heat Cost":<30s}{value(m.fs.costing.aggregate_flow_costs["heat"]):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_costs["heat"])}'
+        f'{"Heat flow":<30s}{value(blk.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_heat)}'
+    )
+    
+    print(
+        f'{"Aggregated Heat Cost":<30s}{value(blk.costing.aggregate_flow_costs["heat"]):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_costs["heat"])}'
     )
 
     print(
-        f'{"Aggregated Elec Cost":<30s}{value(m.fs.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_costs["electricity"])}'
+        f'{"Elec Flow":<30s}{value(blk.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_electricity)}'
+    )
+
+    print(
+        f'{"Aggregated Elec Cost":<30s}{value(blk.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_costs["electricity"])}'
     )
 
 
@@ -672,9 +682,14 @@ if __name__ == "__main__":
 
     overall_recovery = 0.45
 
-    n_time_points = None
+    inlet_cond = {'inlet_flow_rate': Qin,
+                  "inlet_salinity": feed_salinity,
+                  "recovery": overall_recovery}
+
+
+    n_time_points = 2 #None
     m, model_options, n_time_points = build_system(
-        overall_recovery, n_time_points=n_time_points
+        inlet_cond, n_time_points=n_time_points
     )
     print("Number of time points being modeled:", n_time_points)
 
@@ -691,7 +706,7 @@ if __name__ == "__main__":
 
     # results = solver.solve(m)
 
-    add_md_costing(m, m.fs.md.unit)
+    add_md_costing(m.fs.md.unit,costing_block=m.fs.costing)
     calc_costing(m, m.fs)
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
@@ -699,7 +714,15 @@ if __name__ == "__main__":
     assert degrees_of_freedom(m) == 0
 
     results = solver.solve(m)
-    report_MD(m)
+
+    print(
+        f'{"LCOW":<30s}{value(m.fs.md.unit.costing.LCOW):<20.5f}{pyunits.get_units(m.fs.md.unit.costing.LCOW)}'
+    )
+    
+    report_MD(m, m.fs.md)
+    report_md_costing(m,m.fs)
+
+
 
     # try:
     #     results = solver.solve(m.fs.md)

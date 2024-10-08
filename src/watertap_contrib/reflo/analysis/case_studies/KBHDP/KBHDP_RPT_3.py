@@ -34,74 +34,33 @@ from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
 
 from watertap.core.util.model_diagnostics.infeasible import *
-from watertap.core.zero_order_properties import WaterParameterBlock
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
     REFLOCosting,
+    REFLOSystemCosting,
 )
-from watertap.costing.zero_order_costing import ZeroOrderCosting
-from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import *
-
-# Flowsheet function imports
-from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowsheet import (
-    build_vagmd_flowsheet,
-    fix_dof_and_initialize,
-)
-
-from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_design_model import (
-    get_n_time_points,
-)
-from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.MD import *
-
-
-# TODO: Add translator block after feed block
-# TODO: Add opex calculator at each time step and capex on the last time step
-
-__all__ = [
-    "build_system",
-    "add_connections",
-    "add_constraints",
-    "add_costing",
-    "relax_constraints",
-    "set_inlet_conditions",
-    "set_operating_conditions",
-    "report_MCAS_stream_conc",
-    "display_system_stream_table",
-    "display_system_build",
-    "init_system",
-]
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.FPC import *
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.deep_well_injection import *
 
 
 def propagate_state(arc):
     _prop_state(arc)
 
 
-def main():
-
-    m, model_options, n_time_points = build_system()
-    add_connections(m)
-
-    # add_constraints(m)
-
-    set_operating_conditions(m)
-    init_system(m)
-    add_costing(m)
-    solve(m)
-
-    display_costing_breakdown(m)
-
-
-def build_system():
+def build_system(inlet_cond, n_time_points):
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    # m.fs.costing = REFLOCosting()
-    # m.fs.costing.base_currency = pyunits.USD_2020
+    m.fs.treatment = Block()
+    m.fs.energy = Block()
+
+    m.fs.treatment.costing = TreatmentCosting()
+    m.fs.energy.costing = EnergyCosting()
 
     # Property package
     m.fs.params = SeawaterParameterBlock()
@@ -109,26 +68,34 @@ def build_system():
     # Create feed, product and concentrate state blocks
     m.fs.feed = Feed(property_package=m.fs.params)
     m.fs.product = Product(property_package=m.fs.params)
-    m.fs.disposal = Product(property_package=m.fs.params)
+    # m.fs.disposal = Product(property_package=m.fs.params)
 
     # Create MD unit model at flowsheet level
-    m.fs.md = FlowsheetBlock(dynamic=False)
-    model_options, n_time_points = build_md(m, m.fs.md)
-    # m.fs.dwi = FlowsheetBlock(dynamic=False)
+    m.fs.treatment.md = FlowsheetBlock(dynamic=False)
+    model_options, n_time_points = build_md(m, m.fs.treatment.md, inlet_cond, n_time_points)
+    m.fs.treatment.dwi = FlowsheetBlock(dynamic=False)
+    build_DWI(m, m.fs.treatment.dwi, m.fs.params)
 
+    build_fpc(m.fs.energy)
+
+    add_connections(m)
     return m, model_options, n_time_points
 
 
 def add_connections(m):
 
-    m.fs.feed_to_md = Arc(source=m.fs.feed.outlet, destination=m.fs.md.feed.inlet)
+    m.fs.feed_to_md = Arc(
+        source=m.fs.feed.outlet, 
+        destination=m.fs.treatment.md.feed.inlet)
 
     m.fs.md_to_product = Arc(
-        source=m.fs.md.permeate.outlet, destination=m.fs.product.inlet
+        source=m.fs.treatment.md.permeate.outlet, 
+        destination=m.fs.product.inlet
     )
 
-    m.fs.md_to_disposal = Arc(
-        source=m.fs.md.concentrate.outlet, destination=m.fs.disposal.inlet
+    m.fs.md_to_dwi = Arc(
+        source=m.fs.treatment.md.concentrate.outlet, 
+        destination=m.fs.treatment.dwi.unit.inlet
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -174,16 +141,48 @@ def add_constraints(m):
 
     m.fs.feed.properties[0].conc_mass_phase_comp
     m.fs.product.properties[0].conc_mass_phase_comp
-    m.fs.disposal.properties[0].conc_mass_phase_comp
-    m.fs.MCAS_to_NaCl_translator.properties_in[0.0].conc_mass_phase_comp
-    m.fs.MCAS_to_NaCl_translator.properties_out[0.0].conc_mass_phase_comp
+    # m.fs.disposal.properties[0].conc_mass_phase_comp
 
+def add_energy_constraints(m):
 
-# def add_costing(m):
+    @m.Constraint()
+    def eq_thermal_req(b):
+        return (b.fs.energy.costing.aggregate_flow_heat <=
+            -1*b.fs.treatment.costing.aggregate_flow_heat
+        )
 
-#     m.fs.costing.cost_process()
-#     m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
-#     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
+def add_costing(m,treatment_costing_block, energy_costing_block):
+    add_fpc_costing(m.fs.energy ,energy_costing_block)
+    add_md_costing(m.fs.treatment.md.unit,treatment_costing_block)
+    add_DWI_costing(m, m.fs.treatment.dwi, treatment_costing_block)
+    
+def calc_costing(m):
+
+    # Treatment costing
+
+    m.fs.treatment.costing.total_investment_factor.fix(1)
+    m.fs.treatment.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.treatment.costing.capital_recovery_factor.fix(0.08764)
+    m.fs.treatment.costing.wacc.unfix()
+    m.fs.treatment.costing.cost_process()
+
+    m.fs.treatment.costing.initialize()
+    
+    m.fs.treatment.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
+    m.fs.treatment.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
+
+    # Energy costing
+    m.fs.energy.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.energy.costing.total_investment_factor.fix(1)
+    m.fs.energy.costing.cost_process()
+
+    m.fs.energy.costing.initialize()
+
+    m.fs.energy.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
+    m.fs.energy.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
+
+    # m.fs.sys_costing = REFLOSystemCosting()
+    # m.fs.sys_costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
 
 def set_inlet_conditions(blk, model_options):
@@ -207,14 +206,14 @@ def set_inlet_conditions(blk, model_options):
     )
 
 
-def set_operating_conditions(m, model_options):
+def set_operating_conditions(m):
 
-    set_inlet_conditions(m.fs, model_options)
-    init_md(m.fs.md, model_options, n_time_points, verbose=True, solver=None)
-    set_md_op_conditions(m.fs.md)
+    set_md_op_conditions(m.fs.treatment.md)
+    set_fpc_op_conditions(m.fs.energy)
+    # m.fs.energy.fpc.heat_load.unfix()
 
 
-def init_system(m, verbose=True, solver=None):
+def init_system(m, blk, model_options, n_time_points, verbose=True, solver=None):
     if solver is None:
         solver = get_solver()
 
@@ -224,6 +223,19 @@ def init_system(m, verbose=True, solver=None):
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     m.fs.feed.initialize()
+    propagate_state(m.fs.feed_to_md)
+
+    init_md(blk.treatment.md, model_options, n_time_points)
+
+    propagate_state(m.fs.md_to_product)
+    m.fs.product.initialize()
+
+    propagate_state(m.fs.md_to_dwi)
+    # m.fs.disposal.initialize()
+
+    init_DWI(m, blk.treatment.dwi, verbose=True, solver=None)
+
+    init_fpc(blk.energy)
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
@@ -252,4 +264,58 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
 
 
 if __name__ == "__main__":
-    main()
+
+    solver = get_solver()
+    solver = SolverFactory("ipopt")
+
+    Qin = 4 * pyunits.Mgal / pyunits.day  # KBHDP flow rate
+    Qin = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.day)
+
+    feed_salinity = 12 * pyunits.g / pyunits.L
+
+    overall_recovery = 0.45
+
+    inlet_cond = {'inlet_flow_rate': Qin,
+                  "inlet_salinity": feed_salinity,
+                  "recovery": overall_recovery}
+    
+    n_time_points = 2
+
+    # Build  MD, DWI and FPC
+    m, model_options, n_time_points = build_system(inlet_cond, n_time_points=n_time_points)
+    set_inlet_conditions(m.fs, model_options)
+
+    init_system(m, m.fs, model_options, n_time_points)
+
+    set_operating_conditions(m)
+
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+
+    results = solver.solve(m)
+
+    # Touching variables to solve for volumetric flow rate
+    m.fs.product.properties[0].flow_vol_phase
+    # m.fs.disposal.properties[0].flow_vol_phase
+
+    add_costing(m, treatment_costing_block = m.fs.treatment.costing, 
+                energy_costing_block = m.fs.energy.costing)
+    calc_costing(m)
+
+    add_energy_constraints(m)
+
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+
+
+    results = solver.solve(m)
+
+    m.fs.obj = Objective(expr=m.fs.energy.costing.LCOW)
+    results = solver.solve(m)
+
+    report_MD(m, m.fs.treatment.md)
+    report_md_costing(m,m.fs.treatment)
+
+    print_DWI_costing_breakdown(m, m.fs.treatment.dwi)
+
+    report_fpc(m,m.fs.energy.fpc)
+    report_fpc_costing(m, m.fs.energy)
+
