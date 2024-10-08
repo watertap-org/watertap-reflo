@@ -93,10 +93,9 @@ class CrystallizerEffectData(CrystallizationData):
 
         self.add_port(name="pure_water", block=self.properties_pure_water)
 
-        self.properties_pure_water[0].flow_mass_phase_comp["Liq", "H2O"].fix(1e-8)
+        self.properties_pure_water[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
         self.properties_pure_water[0].flow_mass_phase_comp["Liq", "NaCl"].fix(0)
         self.properties_pure_water[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
-        self.properties_pure_water[0].mass_frac_phase_comp["Liq", "NaCl"]
         self.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"]
         self.properties_in[0].flow_vol_phase["Liq"]
 
@@ -166,11 +165,18 @@ class CrystallizerEffectData(CrystallizationData):
             doc="Overall heat transfer coefficient for heat exchangers",
         )
 
+        # @self.Constraint()
+        # def eq_pure_vapor_flow_rate(b):
+        #     return (
+        #         b.properties_pure_water[0].flow_mass_phase_comp["Vap", "H2O"]
+        #         == b.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"]
+        #     )
+
         @self.Constraint()
-        def eq_pure_vapor_flow_rate(b):
+        def eq_pure_water_mass_flow_rate(b):
             return (
-                b.properties_pure_water[0].flow_mass_phase_comp["Vap", "H2O"]
-                == b.properties_in[0].flow_mass_phase_comp["Vap", "H2O"]
+                b.properties_pure_water[0].flow_mass_phase_comp["Liq", "H2O"]
+                == b.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"]
             )
 
         @self.Constraint(doc="Thermal energy in the vapor")
