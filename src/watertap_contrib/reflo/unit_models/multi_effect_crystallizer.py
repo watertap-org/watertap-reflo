@@ -349,6 +349,20 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 == total_mass_flow_salt_in_expr
             )
 
+        @self.Constraint(doc="Control volume temperature at outlet")
+        def eq_temperature_outlet(b):
+            return (
+                b.control_volume.properties_out[0].temperature
+                == b.effects[b.last_effect].effect.properties_pure_water[0].temperature
+            )
+
+        @self.Constraint(doc="Control volume temperature out")
+        def eq_isobaric(b):
+            return (
+                b.control_volume.properties_out[0].pressure
+                == b.control_volume.properties_in[0].pressure
+            )
+
         self.total_flow_vol_in = Expression(expr=total_flow_vol_in_expr)
 
     def initialize_build(
@@ -395,7 +409,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
         )
 
         opt = get_solver(solver, optarg)
-        
+
         for n, eff in self.effects.items():
             # Each effect is first solved in a vacuum with linking constraints deactivated
             eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
