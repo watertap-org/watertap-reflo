@@ -16,6 +16,7 @@ from pyomo.environ import (
     ConcreteModel,
     check_optimal_termination,
     assert_optimal_termination,
+    Var,
     Constraint,
     Expression,
     Suffix,
@@ -34,6 +35,7 @@ from idaes.core import (
     UnitModelCostingBlock,
 )
 from idaes.core.util.exceptions import InitializationError
+import idaes.core.util.scaling as iscale
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.tables import create_stream_table_dataframe
@@ -356,7 +358,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 == b.effects[b.last_effect].effect.properties_pure_water[0].temperature
             )
 
-        @self.Constraint(doc="Control volume temperature out")
+        @self.Constraint(doc="Control volume pressure at outlet")
         def eq_isobaric(b):
             return (
                 b.control_volume.properties_out[0].pressure
@@ -364,6 +366,21 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             )
 
         self.total_flow_vol_in = Expression(expr=total_flow_vol_in_expr)
+
+        self.recovery_vol_phase = Var(
+            ["Liq"],
+            initialize=0.75,
+            bounds=(0, 1),
+            units=pyunits.dimensionless,
+            doc="Overall unit recovery on volumetric basis",
+        )
+
+        @self.Constraint(doc="Volumetric recovery")
+        def eq_recovery_vol_phase(b):
+            return (
+                b.recovery_vol_phase["Liq"]
+                == total_flow_vol_out_expr / total_flow_vol_in_expr
+            )
 
     def initialize_build(
         self,
@@ -453,10 +470,16 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         with idaeslog.solver_log(init_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
-        init_log.info_high("Initialization Step 3 {}.".format(idaeslog.condition(res)))
+        init_log.info("Initialization Step 3 {}.".format(idaeslog.condition(res)))
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
+
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+
+        if iscale.get_scaling_factor(self.recovery_vol_phase) is None:
+            iscale.set_scaling_factor(self.recovery_vol_phase, 10)
 
     @property
     def default_costing_method(self):
