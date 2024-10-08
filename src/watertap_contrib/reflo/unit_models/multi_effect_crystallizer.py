@@ -380,13 +380,36 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
         )
 
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
-        solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
+
+        flow_mass_water_initial = (
+            self.control_volume.properties_in[0]
+            .flow_mass_phase_comp["Liq", "H2O"]
+            .value
+            / self.number_effects
+        )
+        flow_mass_salt_initial = (
+            self.control_volume.properties_in[0]
+            .flow_mass_phase_comp["Liq", "NaCl"]
+            .value
+            / self.number_effects
+        )
 
         opt = get_solver(solver, optarg)
+        
         for n, eff in self.effects.items():
-            eff.effect.properties_in[0].flow_mass_phase_comp.fix()
+            # Each effect is first solved in a vacuum with linking constraints deactivated
+            eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
+                flow_mass_water_initial
+            )
+            eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].fix(
+                flow_mass_salt_initial
+            )
             if n == 1:
-                # assert degrees_of_freedom(eff.effect) == 0
+                if not degrees_of_freedom(eff.effect) == 0:
+                    raise InitializationError(
+                        f"Degrees of freedom in first effect must be zero during initialization, "
+                        f"but has {degrees_of_freedom(eff.effect)}. Check inlet conditions and re-initialize."
+                    )
                 eff.effect.initialize(**init_args)
                 inlet_conc = (
                     eff.effect.properties_in[0]
@@ -394,19 +417,23 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     .value
                 )
                 mass_transfer_coeff = eff.effect.overall_heat_transfer_coefficient.value
-                eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-                eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
             else:
-                c = getattr(eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}")
-                c.deactivate()
+                # Deactivate contraint that links energy flow between effects
+                linking_constr = getattr(
+                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                )
+                linking_constr.deactivate()
                 eff.effect.initialize(**init_args)
-                c.activate()
-                eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-                eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
+                linking_constr.activate()
+                # Fix inlet feed concentration to be equal across all effects
                 eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix(
                     inlet_conc
                 )
                 eff.effect.overall_heat_transfer_coefficient.fix(mass_transfer_coeff)
+
+            # Unfix inlet mass flow rates to allow unit model to determine based on energy flows
+            eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
+            eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
 
             init_log.info(f"Initialization of Effect {n} Complete.")
 
