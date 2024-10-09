@@ -142,7 +142,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             raise ConfigurationError(
                 "The MultiEffectCrystallizer model requires more than 1 effect."
                 "To model a crystallizer with one effect, use the CrystallizerEffect model with 'standalone=True'."
-                
             )
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
