@@ -124,6 +124,9 @@ def init_DWI(m, blk, verbose=True, solver=None):
 def add_DWI_costing(m, blk):
     blk.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
+        costing_method_arguments={
+            "cost_method": "as_opex"
+        },  # could be "as_capex" or "blm"
     )
 
 
@@ -142,6 +145,9 @@ def print_DWI_costing_breakdown(m, blk):
     # print(
     #     f'{"Capital Cost":<30s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
     # )
+    print(
+        f'{"Capital Cost":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
+    )
 
 
 def build_system():
