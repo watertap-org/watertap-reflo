@@ -21,8 +21,8 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.network import Port
-from idaes.core import FlowsheetBlock
 
+from idaes.core import FlowsheetBlock
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -35,6 +35,7 @@ from idaes.core.util.scaling import (
     badly_scaled_var_generator,
 )
 from idaes.core import UnitModelCostingBlock
+from idaes.core.util.exceptions import ConfigurationError
 
 from watertap.core.solvers import get_solver
 from watertap.property_models.unit_specific.cryst_prop_pack import (
@@ -287,6 +288,28 @@ def build_mec4():
     m.fs.unit.control_volume.properties_in[0].temperature.fix(feed_temperature)
 
     return m
+
+
+@pytest.mark.component
+def test_single_effect_error():
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+
+    m.fs.properties = NaClParameterBlock()
+    m.fs.vapor_properties = WaterParameterBlock()
+
+    error_msg = (
+        "The MultiEffectCrystallizer model requires more than 1 effect."
+        "To model a crystallizer with one effect, use the CrystallizerEffect model with 'standalone=True'."
+    )
+
+    with pytest.raises(ConfigurationError, match=error_msg):
+        m.fs.unit = MultiEffectCrystallizer(
+            property_package=m.fs.properties,
+            property_package_vapor=m.fs.vapor_properties,
+            number_effects=1,
+        )
 
 
 class TestMultiEffectCrystallizer_2Effects:
