@@ -409,13 +409,13 @@ class TestDeepWellInjection_SimpleCosting:
         _ = m.fs.unit._get_stream_table_contents()
 
     @pytest.mark.component
-    def test_simple_costing(self, dwi_frame):
+    def test_costing_as_capex(self, dwi_frame):
         m = dwi_frame
 
         m.fs.costing = TreatmentCosting()
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
-            costing_method_arguments={"cost_method": "simple"},
+            costing_method_arguments={"cost_method": "as_capex"},
         )
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(m.fs.unit.properties[0].flow_vol_phase["Liq"])
@@ -432,6 +432,46 @@ class TestDeepWellInjection_SimpleCosting:
             "total_annualized_cost": 413152.45,
             "LCOW": 0.0587,
         }
+        for v, r in sys_cost_results.items():
+            dwiv = getattr(m.fs.costing, v)
+            if dwiv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(dwiv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(dwiv), rel=1e-3) == r
+
+        assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == value(
+            m.fs.costing.deep_well_injection.dwi_lcow
+        )
+
+    @pytest.mark.component
+    def test_costing_as_opex(self, dwi_frame):
+        m = dwi_frame
+
+        m.fs.costing = TreatmentCosting()
+        m.fs.unit.costing = UnitModelCostingBlock(
+            flowsheet_costing_block=m.fs.costing,
+            costing_method_arguments={"cost_method": "as_opex"},
+        )
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(m.fs.unit.properties[0].flow_vol_phase["Liq"])
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        sys_cost_results = {
+            "aggregate_capital_cost": 0.0,
+            "aggregate_variable_operating_cost": 413152.45,
+            "total_capital_cost": 0.0,
+            "total_operating_cost": 413152.45,
+            "aggregate_direct_capital_cost": 0.0,
+            "maintenance_labor_chemical_operating_cost": 0.0,
+            "total_fixed_operating_cost": 0.0,
+            "total_variable_operating_cost": 413152.45,
+            "total_annualized_cost": 413152.45,
+            "LCOW": 0.0587,
+        }
+
         for v, r in sys_cost_results.items():
             dwiv = getattr(m.fs.costing, v)
             if dwiv.is_indexed():
