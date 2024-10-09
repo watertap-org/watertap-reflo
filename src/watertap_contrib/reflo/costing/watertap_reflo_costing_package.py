@@ -76,6 +76,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         self.fix_all_vars()
         self.plant_lifetime.fix(20)
         self.utilization_factor.fix(1)
+        self.electricity_cost.fix(0.0718)
 
         # Build the integrated system costs
         self.build_integrated_costs()
@@ -208,7 +209,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 * self.utilization_factor
             )
             self.add_component("LCOE", LCOE_expr)
-        
+
         else:
             raise NotImplementedError(
                 "add_LCOE for surrogate models not available yet."
