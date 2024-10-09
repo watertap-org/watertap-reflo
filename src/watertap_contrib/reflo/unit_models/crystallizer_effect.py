@@ -165,12 +165,6 @@ class CrystallizerEffectData(CrystallizationData):
             doc="Overall heat transfer coefficient for heat exchangers",
         )
 
-        # @self.Constraint()
-        # def eq_pure_vapor_flow_rate(b):
-        #     return (
-        #         b.properties_pure_water[0].flow_mass_phase_comp["Vap", "H2O"]
-        #         == b.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"]
-        #     )
 
         @self.Constraint()
         def eq_pure_water_mass_flow_rate(b):
