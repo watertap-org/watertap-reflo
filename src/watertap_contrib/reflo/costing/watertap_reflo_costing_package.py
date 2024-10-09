@@ -184,7 +184,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             pysam = self._get_pysam()
 
             if not pysam._has_been_run:
-                raise Exception(
+                raise RuntimeError(
                     f"PySAM model {pysam._pysam_model_name} has not yet been run, so there is no annual_energy data available."
                     "You must run the PySAM model before adding LCOE metric."
                 )
@@ -208,8 +208,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 * self.utilization_factor
             )
             self.add_component("LCOE", LCOE_expr)
-
-        if e_model == "surrogate":
+        
+        else:
             raise NotImplementedError(
                 "add_LCOE for surrogate models not available yet."
             )
