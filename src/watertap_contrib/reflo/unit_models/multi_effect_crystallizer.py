@@ -34,7 +34,7 @@ from idaes.core import (
     FlowsheetBlock,
     UnitModelCostingBlock,
 )
-from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.exceptions import InitializationError, ConfigurationError
 import idaes.core.util.scaling as iscale
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.model_statistics import degrees_of_freedom
@@ -137,6 +137,13 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
     def build(self):
         super().build()
+
+        if self.config.number_effects <= 1:
+            raise ConfigurationError(
+                "The MultiEffectCrystallizer model requires more than 1 effect."
+                "To model a crystallizer with one effect, use the CrystallizerEffect model with 'standalone=True'."
+                
+            )
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
