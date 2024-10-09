@@ -212,7 +212,7 @@ class TestCrystallizerEffect:
 
         assert number_variables(m) == 288
         assert number_total_constraints(m) == 120
-        assert number_unused_variables(m) == 43
+        assert number_unused_variables(m) == 44
 
         assert_units_consistent(m)
 
