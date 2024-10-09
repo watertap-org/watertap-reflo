@@ -270,7 +270,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
                 self.add_port(name="solids", block=effect.properties_solids)
                 self.add_port(name="vapor", block=effect.properties_vapor)
-                self.add_port(name="pure_water", block=effect.properties_pure_water)
                 self.add_port(name="steam", block=effect.heating_steam)
                 self.steam.temperature.setub(1000)
 
