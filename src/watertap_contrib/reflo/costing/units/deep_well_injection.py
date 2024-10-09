@@ -28,6 +28,7 @@ from watertap.costing.util import register_costing_parameter_block
 from ..util import (
     make_capital_cost_var,
     make_fixed_operating_cost_var,
+    make_variable_operating_cost_var,
 )
 
 __author__ = "Kurban Sitterley"
@@ -65,7 +66,8 @@ blm_costing_params_dict = {
 
 
 class DeepWellInjectionCostMethod(StrEnum):
-    simple = "simple"
+    as_capex = "as_capex"
+    as_opex = "as_opex"
     blm = "blm"
 
 
@@ -73,8 +75,10 @@ def cost_deep_well_injection(blk, cost_method=DeepWellInjectionCostMethod.blm):
 
     if cost_method == DeepWellInjectionCostMethod.blm:
         cost_deep_well_injection_blm(blk)
-    elif cost_method == DeepWellInjectionCostMethod.simple:
-        cost_deep_well_injection_simple(blk)
+    elif cost_method == DeepWellInjectionCostMethod.as_capex:
+        cost_deep_well_injection_as_capex(blk)
+    elif cost_method == DeepWellInjectionCostMethod.as_opex:
+        cost_deep_well_injection_as_opex(blk)
     else:
         raise ConfigurationError(
             f"{blk.unit_model.name} received invalid argument for cost_method:"
@@ -82,7 +86,17 @@ def cost_deep_well_injection(blk, cost_method=DeepWellInjectionCostMethod.blm):
         )
 
 
-def build_deep_well_injection_cost_simple_param_block(blk):
+def build_deep_well_injection_cost_as_opex_param_block(blk):
+    costing = blk.parent_block()
+    blk.dwi_lcow = Param(
+        initialize=0.0587,
+        mutable=True,
+        units=costing.base_currency / pyunits.m**3,
+        doc="Assumed LCOW of deep well injection",
+    )
+
+
+def build_deep_well_injection_cost_as_capex_param_block(blk):
     costing = blk.parent_block()
     blk.dwi_lcow = Param(
         initialize=0.0587,
@@ -93,20 +107,19 @@ def build_deep_well_injection_cost_simple_param_block(blk):
 
 
 @register_costing_parameter_block(
-    build_rule=build_deep_well_injection_cost_simple_param_block,
+    build_rule=build_deep_well_injection_cost_as_capex_param_block,
     parameter_block_name="deep_well_injection",
 )
-def cost_deep_well_injection_simple(blk):
+def cost_deep_well_injection_as_capex(blk):
     """
-    When this method is used, capital and fixed operating costs are calculated
-    so that the unit LCOW will equal the value provided for 'dwi_lcow' on the
-    parameter costing block (e.g., m.fs.costing.deep_well_injection)
+    Provied LCOW is used to calculate the equivalent capital costs.
+    All of the LCOW is attributable to CAPEX.
     """
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
     blk.costing_package.add_cost_factor(blk, None)
 
-    blk.annual_flow = pyunits.convert(
+    blk.base_period_flow = pyunits.convert(
         blk.unit_model.properties[0].flow_vol_phase["Liq"]
         * blk.costing_package.utilization_factor,
         to_units=pyunits.m**3 / blk.costing_package.base_period,
@@ -115,7 +128,7 @@ def cost_deep_well_injection_simple(blk):
     blk.capital_cost_constraint = Constraint(
         expr=blk.capital_cost
         == pyunits.convert(
-            (blk.costing_package.deep_well_injection.dwi_lcow * blk.annual_flow)
+            (blk.costing_package.deep_well_injection.dwi_lcow * blk.base_period_flow)
             / blk.costing_package.capital_recovery_factor,
             to_units=blk.costing_package.base_currency,
         )
@@ -124,6 +137,37 @@ def cost_deep_well_injection_simple(blk):
     blk.fixed_operating_cost_constraint = Constraint(
         expr=blk.fixed_operating_cost
         == -blk.costing_package.maintenance_labor_chemical_factor * blk.capital_cost
+    )
+
+
+@register_costing_parameter_block(
+    build_rule=build_deep_well_injection_cost_as_opex_param_block,
+    parameter_block_name="deep_well_injection",
+)
+def cost_deep_well_injection_as_opex(blk):
+    """
+    Provied LCOW is used to calculate the equivalent operating costs.
+    All of the LCOW is attributable to OPEX.
+    """
+    make_capital_cost_var(blk)
+    make_variable_operating_cost_var(blk)
+    blk.costing_package.add_cost_factor(blk, None)
+
+    blk.capital_cost.fix(0)
+
+    blk.base_period_flow = pyunits.convert(
+        blk.unit_model.properties[0].flow_vol_phase["Liq"]
+        * blk.costing_package.utilization_factor,
+        to_units=pyunits.m**3 / blk.costing_package.base_period,
+    )
+
+    blk.variable_operating_cost_constraint = Constraint(
+        expr=blk.variable_operating_cost
+        == pyunits.convert(
+            blk.costing_package.deep_well_injection.dwi_lcow * blk.base_period_flow,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
+        )
     )
 
 
