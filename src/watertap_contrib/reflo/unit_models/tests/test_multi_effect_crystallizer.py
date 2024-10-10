@@ -16,6 +16,7 @@ from pyomo.util.check_units import assert_units_consistent
 from pyomo.environ import (
     ConcreteModel,
     Var,
+    Objective,
     assert_optimal_termination,
     value,
     units as pyunits,
@@ -2000,8 +2001,6 @@ class TestMultiEffectCrystallizer_4Effects:
 
         assert_optimal_termination(results)
 
-        # return m
-
         sys_costing_dict = {
             "aggregate_capital_cost": 5078402.93,
             "aggregate_flow_electricity": 8.4612,
@@ -2056,3 +2055,142 @@ class TestMultiEffectCrystallizer_4Effects:
                     assert pytest.approx(value(cv[i]), rel=1e-3) == s
             else:
                 assert pytest.approx(value(cv), rel=1e-3) == r
+
+    @pytest.mark.component
+    def test_optimization(self, MEC4_frame):
+        m = MEC4_frame
+
+        # optimization scenario
+        n_effects = m.fs.unit.Effects
+
+        [m.fs.unit.effects[n].effect.pressure_operating.unfix() for n in n_effects]
+        m.fs.unit.effects[1].effect.pressure_operating.setub(1.2 * 1e5)
+        m.fs.unit.effects[4].effect.pressure_operating.setlb(0.02 * 1e5)
+
+        @m.Constraint([2, 3, 4], doc="Pressure decreasing across effects")
+        def pressure_bound(b, n):
+            return (
+                b.fs.unit.effects[n].effect.pressure_operating
+                <= b.fs.unit.effects[n - 1].effect.pressure_operating
+            )
+
+        @m.Constraint(
+            [2, 3, 4],
+            doc="Temperature difference limit (based on industrial convention)",
+        )
+        def temp_bound(b, n):
+            return (
+                b.fs.unit.effects[n].effect.temperature_operating
+                >= b.fs.unit.effects[n - 1].effect.temperature_operating - 12
+            )
+
+        m.fs.objective = Objective(expr=m.fs.costing.LCOW)
+
+        opt_results = solver.solve(m, tee=False)
+        assert_optimal_termination(opt_results)
+
+    @pytest.mark.component
+    def test_optimization(self, MEC4_frame):
+        m = MEC4_frame
+
+        # Optimization scenario
+
+        # Looking for the best operating pressures within a typical range
+        n_effects = m.fs.unit.Effects
+        [m.fs.unit.effects[n].effect.pressure_operating.unfix() for n in n_effects]
+        m.fs.unit.effects[1].effect.pressure_operating.setub(1.2 * 1e5)
+        m.fs.unit.effects[4].effect.pressure_operating.setlb(0.02 * 1e5)
+
+        # Add constraints
+        @m.Constraint([2, 3, 4], doc="Pressure decreasing across effects")
+        def pressure_bound(b, n):
+            return (
+                b.fs.unit.effects[n].effect.pressure_operating
+                <= b.fs.unit.effects[n - 1].effect.pressure_operating
+            )
+
+        @m.Constraint(
+            [2, 3, 4],
+            doc="Temperature difference limit (based on industrial convention)",
+        )
+        def temp_bound(b, n):
+            return (
+                b.fs.unit.effects[n].effect.temperature_operating
+                >= b.fs.unit.effects[n - 1].effect.temperature_operating - 12
+            )
+
+        # Set objective to minimize cost
+        m.fs.objective = Objective(expr=m.fs.costing.LCOW)
+
+        opt_results = solver.solve(m, tee=False)
+        assert_optimal_termination(opt_results)
+
+    @pytest.mark.component
+    def test_optimization_solution(self, MEC4_frame):
+        m = MEC4_frame
+
+        # Check the optimized LCOW
+        assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 3.865
+
+        assert (
+            pytest.approx(value(m.fs.unit.recovery_vol_phase["Liq"]), rel=1e-3)
+            == 0.7544
+        )
+
+        unit_results_dict = {
+            1: {
+                "crystallization_yield": {"NaCl": 0.5},
+                "product_volumetric_solids_fraction": 0.135236,
+                "temperature_operating": 387.01,
+                "pressure_operating": 120000.0,
+                "work_mechanical": {0.0: 2163.65},
+                "heat_exchanger_area": 329.25,
+            },
+            2: {
+                "product_volumetric_solids_fraction": 0.134156,
+                "temperature_operating": 375.01,
+                "pressure_operating": 79812.1,
+                "work_mechanical": {0.0: 1818.52},
+                "heat_exchanger_area": 495.94,
+            },
+            3: {
+                "product_volumetric_solids_fraction": 0.13323,
+                "temperature_operating": 363.01,
+                "pressure_operating": 51490.6,
+                "work_mechanical": {0.0: 1567.57},
+                "heat_exchanger_area": 467.40,
+            },
+            4: {
+                "product_volumetric_solids_fraction": 0.132473,
+                "temperature_operating": 351.01,
+                "pressure_operating": 32193.7,
+                "work_mechanical": {0.0: 1386.22},
+                "heat_exchanger_area": 458.50,
+            },
+        }
+
+        for n, d in unit_results_dict.items():
+            eff = m.fs.unit.effects[n].effect
+            for v, r in d.items():
+                effv = getattr(eff, v)
+                if effv.is_indexed():
+                    for i, s in r.items():
+                        assert pytest.approx(value(effv[i]), rel=1e-3) == s
+                else:
+                    assert pytest.approx(value(effv), rel=1e-3) == r
+
+        steam_results_dict = {
+            "flow_mass_phase_comp": {("Liq", "H2O"): 0.0, ("Vap", "H2O"): 1.014},
+            "temperature": 416.8,
+            "pressure": 401325.0,
+            "dh_vap_mass": 2133119.0,
+            "pressure_sat": 401325.0,
+        }
+
+        for v, r in steam_results_dict.items():
+            sv = getattr(m.fs.unit.effects[1].effect.heating_steam[0], v)
+            if sv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(sv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(sv), rel=1e-3) == r
