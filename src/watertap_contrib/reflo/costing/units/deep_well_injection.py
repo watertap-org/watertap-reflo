@@ -153,14 +153,14 @@ def cost_deep_well_injection_as_opex(blk):
     make_variable_operating_cost_var(blk)
     blk.costing_package.add_cost_factor(blk, None)
 
+    blk.capital_cost_constraint = Constraint(
+        expr=blk.capital_cost == 0 * blk.costing_package.base_currency,
+    )
+
     blk.base_period_flow = pyunits.convert(
         blk.unit_model.properties[0].flow_vol_phase["Liq"]
         * blk.costing_package.utilization_factor,
         to_units=pyunits.m**3 / blk.costing_package.base_period,
-    )
-
-    blk.capital_cost_constraint = Constraint(
-        expr=blk.capital_cost == 0 * blk.costing_package.base_currency,
     )
 
     blk.variable_operating_cost_constraint = Constraint(
