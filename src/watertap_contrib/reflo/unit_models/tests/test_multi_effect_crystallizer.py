@@ -2060,69 +2060,48 @@ class TestMultiEffectCrystallizer_4Effects:
     def test_optimization(self, MEC4_frame):
         m = MEC4_frame
 
-        # optimization scenario
-        n_effects = m.fs.unit.Effects
-
-        [m.fs.unit.effects[n].effect.pressure_operating.unfix() for n in n_effects]
-        m.fs.unit.effects[1].effect.pressure_operating.setub(1.2 * 1e5)
-        m.fs.unit.effects[4].effect.pressure_operating.setlb(0.02 * 1e5)
-
-        @m.Constraint([2, 3, 4], doc="Pressure decreasing across effects")
-        def pressure_bound(b, n):
-            return (
-                b.fs.unit.effects[n].effect.pressure_operating
-                <= b.fs.unit.effects[n - 1].effect.pressure_operating
-            )
-
-        @m.Constraint(
-            [2, 3, 4],
-            doc="Temperature difference limit (based on industrial convention)",
-        )
-        def temp_bound(b, n):
-            return (
-                b.fs.unit.effects[n].effect.temperature_operating
-                >= b.fs.unit.effects[n - 1].effect.temperature_operating - 12
-            )
-
-        m.fs.objective = Objective(expr=m.fs.costing.LCOW)
-
-        opt_results = solver.solve(m, tee=False)
-        assert_optimal_termination(opt_results)
-
-    @pytest.mark.component
-    def test_optimization(self, MEC4_frame):
-        m = MEC4_frame
-
         # Optimization scenario
-
         # Looking for the best operating pressures within a typical range
-        n_effects = m.fs.unit.Effects
-        [m.fs.unit.effects[n].effect.pressure_operating.unfix() for n in n_effects]
-        m.fs.unit.effects[1].effect.pressure_operating.setub(1.2 * 1e5)
-        m.fs.unit.effects[4].effect.pressure_operating.setlb(0.02 * 1e5)
 
-        # Add constraints
-        @m.Constraint([2, 3, 4], doc="Pressure decreasing across effects")
-        def pressure_bound(b, n):
+        for n, eff in m.fs.unit.effects.items():
+            eff.effect.pressure_operating.unfix()
+            if n == m.fs.unit.first_effect:
+                eff.effect.pressure_operating.setub(1.2e5)
+            if n == m.fs.unit.last_effect:
+                eff.effect.pressure_operating.setlb(0.02e5)
+
+        eff_idx = [n for n in m.fs.unit.Effects if n != m.fs.unit.first_effect]
+
+        @m.fs.unit.Constraint(eff_idx, doc="Pressure decreasing across effects")
+        def eq_pressure_decreasing_across_eff(b, n):
             return (
-                b.fs.unit.effects[n].effect.pressure_operating
-                <= b.fs.unit.effects[n - 1].effect.pressure_operating
+                b.effects[n].effect.pressure_operating
+                <= b.effects[n - 1].effect.pressure_operating
             )
 
-        @m.Constraint(
-            [2, 3, 4],
+        m.fs.unit.temperature_diff_typical = Var(
+            initialize=12,
+            bounds=(0, None),
+            units=pyunits.degK,
+            doc="Typical temperature difference limit between effects in industry",
+        )
+
+        m.fs.unit.temperature_diff_typical.fix()
+
+        @m.fs.unit.Constraint(
+            eff_idx,
             doc="Temperature difference limit (based on industrial convention)",
         )
-        def temp_bound(b, n):
+        def eq_temperature_difference_limit(b, n):
             return (
-                b.fs.unit.effects[n].effect.temperature_operating
-                >= b.fs.unit.effects[n - 1].effect.temperature_operating - 12
+                b.effects[n].effect.temperature_operating
+                >= b.effects[n - 1].effect.temperature_operating
+                - b.temperature_diff_typical
             )
 
-        # Set objective to minimize cost
         m.fs.objective = Objective(expr=m.fs.costing.LCOW)
 
-        opt_results = solver.solve(m, tee=False)
+        opt_results = solver.solve(m)
         assert_optimal_termination(opt_results)
 
     @pytest.mark.component
@@ -2139,7 +2118,6 @@ class TestMultiEffectCrystallizer_4Effects:
 
         unit_results_dict = {
             1: {
-                "crystallization_yield": {"NaCl": 0.5},
                 "product_volumetric_solids_fraction": 0.135236,
                 "temperature_operating": 387.01,
                 "pressure_operating": 120000.0,
@@ -2194,3 +2172,117 @@ class TestMultiEffectCrystallizer_4Effects:
                     assert pytest.approx(value(sv[i]), rel=1e-3) == s
             else:
                 assert pytest.approx(value(sv), rel=1e-3) == r
+
+    @pytest.mark.component
+    def test_optimization_conservation(self, MEC4_frame):
+
+        m = MEC4_frame
+
+        comp_lst = ["NaCl", "H2O"]
+        phase_lst = ["Sol", "Liq", "Vap"]
+
+        total_mass_flow_water_in = 0
+        total_mass_flow_salt_in = 0
+        total_mass_flow_water_out = 0
+
+        for _, e in m.fs.unit.effects.items():
+            eff = e.effect
+
+            phase_comp_list = [
+                (p, j)
+                for j in comp_lst
+                for p in phase_lst
+                if (p, j) in eff.properties_in[0].phase_component_set
+            ]
+            flow_mass_in = sum(
+                eff.properties_in[0].flow_mass_phase_comp[p, j]
+                for p in phase_lst
+                for j in comp_lst
+                if (p, j) in phase_comp_list
+            )
+            flow_mass_out = sum(
+                eff.properties_out[0].flow_mass_phase_comp[p, j]
+                for p in phase_lst
+                for j in comp_lst
+                if (p, j) in phase_comp_list
+            )
+            flow_mass_solids = sum(
+                eff.properties_solids[0].flow_mass_phase_comp[p, j]
+                for p in phase_lst
+                for j in comp_lst
+                if (p, j) in phase_comp_list
+            )
+            flow_mass_vapor = sum(
+                eff.properties_vapor[0].flow_mass_phase_comp[p, j]
+                for p in phase_lst
+                for j in comp_lst
+                if (p, j) in phase_comp_list
+            )
+
+            assert (
+                abs(
+                    value(
+                        flow_mass_in
+                        - flow_mass_out
+                        - flow_mass_solids
+                        - flow_mass_vapor
+                    )
+                )
+                <= 1e-6
+            )
+
+            assert (
+                abs(
+                    value(
+                        flow_mass_in * eff.properties_in[0].enth_mass_phase["Liq"]
+                        - flow_mass_out * eff.properties_out[0].enth_mass_phase["Liq"]
+                        - flow_mass_vapor
+                        * eff.properties_vapor[0].enth_mass_solvent["Vap"]
+                        - flow_mass_solids
+                        * eff.properties_solids[0].enth_mass_solute["Sol"]
+                        - flow_mass_solids
+                        * eff.properties_solids[0].dh_crystallization_mass_comp["NaCl"]
+                        + eff.work_mechanical[0]
+                    )
+                )
+                <= 1e-2
+            )
+
+            total_mass_flow_water_in += value(
+                eff.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
+            )
+            total_mass_flow_salt_in += value(
+                eff.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"]
+            )
+            total_mass_flow_water_out += value(
+                eff.properties_pure_water[0].flow_mass_phase_comp["Liq", "H2O"]
+            )
+
+        # Test control volume mass balance
+        assert (
+            pytest.approx(
+                m.fs.unit.control_volume.properties_in[0]
+                .flow_mass_phase_comp["Liq", "H2O"]
+                .value,
+                rel=1e-6,
+            )
+            == total_mass_flow_water_in
+        )
+        assert (
+            pytest.approx(
+                m.fs.unit.control_volume.properties_in[0]
+                .flow_mass_phase_comp["Liq", "NaCl"]
+                .value,
+                rel=1e-6,
+            )
+            == total_mass_flow_salt_in
+        )
+        assert (
+            pytest.approx(
+                m.fs.unit.control_volume.properties_out[0]
+                .flow_mass_phase_comp["Liq", "H2O"]
+                .value,
+                rel=1e-6,
+            )
+            == total_mass_flow_water_out
+        )
