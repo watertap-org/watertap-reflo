@@ -254,7 +254,7 @@ if __name__ == "__main__":
 
     # create flowsheet input variables
     m.fs.heat_load = Var(
-        initialize=1000, bounds=[100, 1000], doc="rated plant heat capacity in MWt"
+        initialize=100, bounds=[5, 200], doc="rated plant heat capacity in MWt"
     )
     m.fs.hours_storage = Var(
         initialize=20, bounds=[0, 26], doc="rated plant hours of storage"
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     sys.stdout = oldstdout
 
     # fix input values and solve flowsheet
-    m.fs.heat_load.fix(1000)
+    m.fs.heat_load.fix(100)
     m.fs.hours_storage.fix(20)
     m.fs.temperature_hot.fix(70)
     solver = SolverFactory("ipopt")

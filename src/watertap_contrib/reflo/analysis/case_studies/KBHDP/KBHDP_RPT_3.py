@@ -72,11 +72,14 @@ def build_system(inlet_cond, n_time_points):
 
     # Create MD unit model at flowsheet level
     m.fs.treatment.md = FlowsheetBlock(dynamic=False)
-    model_options, n_time_points = build_md(m, m.fs.treatment.md, inlet_cond, n_time_points)
+    model_options, n_time_points = build_md(
+        m, m.fs.treatment.md, inlet_cond, n_time_points
+    )
     m.fs.treatment.dwi = FlowsheetBlock(dynamic=False)
     build_DWI(m, m.fs.treatment.dwi, m.fs.params)
 
-    build_fpc(m.fs.energy)
+    m.fs.energy.fpc = FlowsheetBlock(dynamic=False)
+    build_fpc(m.fs.energy.fpc)
 
     add_connections(m)
     return m, model_options, n_time_points
@@ -85,22 +88,22 @@ def build_system(inlet_cond, n_time_points):
 def add_connections(m):
 
     m.fs.feed_to_md = Arc(
-        source=m.fs.feed.outlet, 
-        destination=m.fs.treatment.md.feed.inlet)
+        source=m.fs.feed.outlet, destination=m.fs.treatment.md.feed.inlet
+    )
 
     m.fs.md_to_product = Arc(
-        source=m.fs.treatment.md.permeate.outlet, 
-        destination=m.fs.product.inlet
+        source=m.fs.treatment.md.permeate.outlet, destination=m.fs.product.inlet
     )
 
     m.fs.md_to_dwi = Arc(
-        source=m.fs.treatment.md.concentrate.outlet, 
-        destination=m.fs.treatment.dwi.unit.inlet
+        source=m.fs.treatment.md.concentrate.outlet,
+        destination=m.fs.treatment.dwi.unit.inlet,
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
+# TODO: Should the recovery be a constraint of a variable thats fixed?
 def add_constraints(m):
     m.fs.water_recovery = Var(
         initialize=0.5,
@@ -143,19 +146,23 @@ def add_constraints(m):
     m.fs.product.properties[0].conc_mass_phase_comp
     # m.fs.disposal.properties[0].conc_mass_phase_comp
 
+
 def add_energy_constraints(m):
 
     @m.Constraint()
     def eq_thermal_req(b):
-        return (b.fs.energy.costing.aggregate_flow_heat <=
-            -1*b.fs.treatment.costing.aggregate_flow_heat
+        return (
+            b.fs.energy.costing.aggregate_flow_heat
+            <= -1 * b.fs.treatment.costing.aggregate_flow_heat
         )
 
-def add_costing(m,treatment_costing_block, energy_costing_block):
-    add_fpc_costing(m.fs.energy ,energy_costing_block)
-    add_md_costing(m.fs.treatment.md.unit,treatment_costing_block)
-    add_DWI_costing(m, m.fs.treatment.dwi, treatment_costing_block)
-    
+
+def add_costing(m, treatment_costing_block, energy_costing_block):
+    add_fpc_costing(m.fs.energy.fpc, energy_costing_block)
+    add_md_costing(m.fs.treatment.md.unit, treatment_costing_block)
+    add_DWI_costing(m.fs.treatment, m.fs.treatment.dwi, treatment_costing_block)
+
+
 def calc_costing(m):
 
     # Treatment costing
@@ -167,8 +174,10 @@ def calc_costing(m):
     m.fs.treatment.costing.cost_process()
 
     m.fs.treatment.costing.initialize()
-    
-    m.fs.treatment.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
+
+    m.fs.treatment.costing.add_annual_water_production(
+        m.fs.product.properties[0].flow_vol
+    )
     m.fs.treatment.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
     # Energy costing
@@ -181,8 +190,13 @@ def calc_costing(m):
     m.fs.energy.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
     m.fs.energy.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
-    # m.fs.sys_costing = REFLOSystemCosting()
-    # m.fs.sys_costing.add_LCOW(m.fs.product.properties[0].flow_vol)
+    # System costing
+    m.fs.sys_costing = REFLOSystemCosting()
+    m.fs.sys_costing.wacc.unfix()
+    m.fs.sys_costing.cost_process()
+
+    m.fs.sys_costing.initialize()
+    m.fs.sys_costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
 
 def set_inlet_conditions(blk, model_options):
@@ -209,8 +223,7 @@ def set_inlet_conditions(blk, model_options):
 def set_operating_conditions(m):
 
     set_md_op_conditions(m.fs.treatment.md)
-    set_fpc_op_conditions(m.fs.energy)
-    # m.fs.energy.fpc.heat_load.unfix()
+    set_fpc_op_conditions(m.fs.energy.fpc)
 
 
 def init_system(m, blk, model_options, n_time_points, verbose=True, solver=None):
@@ -235,7 +248,7 @@ def init_system(m, blk, model_options, n_time_points, verbose=True, solver=None)
 
     init_DWI(m, blk.treatment.dwi, verbose=True, solver=None)
 
-    init_fpc(blk.energy)
+    init_fpc(blk.energy.fpc)
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
@@ -263,6 +276,34 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
         return results
 
 
+def report_sys_costing(blk):
+
+    print(f"\n\n-------------------- System Costing Report --------------------\n")
+    print("\n")
+
+    print(f'{"LCOW":<30s}{value(blk.LCOW):<20,.2f}{pyunits.get_units(blk.LCOW)}')
+
+    print(
+        f'{"Capital Cost":<30s}{value(blk.total_capital_cost):<20,.2f}{pyunits.get_units(blk.total_capital_cost)}'
+    )
+
+    print(
+        f'{"Total Operating Cost":<30s}{value(blk.total_operating_cost):<20,.2f}{pyunits.get_units(blk.total_operating_cost)}'
+    )
+
+    print(
+        f'{"Agg Variable Operating Cost":<30s}{value(blk.aggregate_variable_operating_cost):<20,.2f}{pyunits.get_units(blk.aggregate_variable_operating_cost)}'
+    )
+
+    print(
+        f'{"Heat flow":<30s}{value(blk.aggregate_flow_heat):<20,.2f}{pyunits.get_units(blk.aggregate_flow_heat)}'
+    )
+
+    print(
+        f'{"Elec Flow":<30s}{value(blk.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity)}'
+    )
+
+
 if __name__ == "__main__":
 
     solver = get_solver()
@@ -275,21 +316,25 @@ if __name__ == "__main__":
 
     overall_recovery = 0.45
 
-    inlet_cond = {'inlet_flow_rate': Qin,
-                  "inlet_salinity": feed_salinity,
-                  "recovery": overall_recovery}
-    
+    inlet_cond = {
+        "inlet_flow_rate": Qin,
+        "inlet_salinity": feed_salinity,
+        "recovery": overall_recovery,
+    }
+
     n_time_points = 2
 
     # Build  MD, DWI and FPC
-    m, model_options, n_time_points = build_system(inlet_cond, n_time_points=n_time_points)
+    m, model_options, n_time_points = build_system(
+        inlet_cond, n_time_points=n_time_points
+    )
     set_inlet_conditions(m.fs, model_options)
 
     init_system(m, m.fs, model_options, n_time_points)
 
     set_operating_conditions(m)
 
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print(f"\n Before Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     results = solver.solve(m)
 
@@ -297,25 +342,58 @@ if __name__ == "__main__":
     m.fs.product.properties[0].flow_vol_phase
     # m.fs.disposal.properties[0].flow_vol_phase
 
-    add_costing(m, treatment_costing_block = m.fs.treatment.costing, 
-                energy_costing_block = m.fs.energy.costing)
+    add_costing(
+        m,
+        treatment_costing_block=m.fs.treatment.costing,
+        energy_costing_block=m.fs.energy.costing,
+    )
     calc_costing(m)
 
     add_energy_constraints(m)
 
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-
+    print(f"\n After Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     results = solver.solve(m)
+
+    print(f"\n After Solve System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     m.fs.obj = Objective(expr=m.fs.energy.costing.LCOW)
     results = solver.solve(m)
 
+    print(f"\n After Optimization System Degrees of Freedom: {degrees_of_freedom(m)}")
+
+    print("\n")
+    print(
+        f'{"Treatment LCOW":<30s}{value(m.fs.treatment.costing.LCOW):<10.2f}{pyunits.get_units(m.fs.treatment.costing.LCOW)}'
+    )
+
+    print("\n")
+    print(
+        f'{"Energy LCOW":<30s}{value(m.fs.energy.costing.LCOW):<10.2f}{pyunits.get_units(m.fs.energy.costing.LCOW)}'
+    )
+
+    print("\n")
+    print(
+        f'{"System LCOW":<30s}{value(m.fs.sys_costing.LCOW):<10.2f}{pyunits.get_units(m.fs.sys_costing.LCOW)}'
+    )
+
     report_MD(m, m.fs.treatment.md)
-    report_md_costing(m,m.fs.treatment)
+    report_md_costing(m, m.fs.treatment)
 
-    print_DWI_costing_breakdown(m, m.fs.treatment.dwi)
+    print_DWI_costing_breakdown(m.fs.treatment, m.fs.treatment.dwi)
 
-    report_fpc(m,m.fs.energy.fpc)
+    report_fpc(m, m.fs.energy.fpc.unit)
     report_fpc_costing(m, m.fs.energy)
+    report_sys_costing(m.fs.sys_costing)
 
+    print("\nTreatment")
+    m.fs.treatment.costing.aggregate_fixed_operating_cost.display()
+    m.fs.treatment.costing.aggregate_variable_operating_cost.display()
+    m.fs.treatment.costing.total_operating_cost.display()
+    m.fs.treatment.costing.total_capital_cost.display()
+
+    print("\nEnergy")
+    m.fs.energy.costing.aggregate_fixed_operating_cost.display()
+    m.fs.energy.costing.aggregate_variable_operating_cost.display()
+    m.fs.energy.costing.total_capital_cost.display()
+    m.fs.energy.costing.total_operating_cost.display()

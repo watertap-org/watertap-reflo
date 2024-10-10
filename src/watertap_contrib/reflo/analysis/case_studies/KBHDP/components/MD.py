@@ -103,14 +103,14 @@ def add_connections(m):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def set_md_model_options(
-    inlet_cond, n_time_points=None
-):
+def set_md_model_options(inlet_cond, n_time_points=None):
 
-    system_capacity = inlet_cond['recovery'] * pyunits.convert(
-        inlet_cond['inlet_flow_rate'], to_units=pyunits.m**3 / pyunits.day
+    system_capacity = inlet_cond["recovery"] * pyunits.convert(
+        inlet_cond["inlet_flow_rate"], to_units=pyunits.m**3 / pyunits.day
     )
-    feed_salinity = pyunits.convert(inlet_cond['inlet_salinity'], to_units=pyunits.g / pyunits.L)
+    feed_salinity = pyunits.convert(
+        inlet_cond["inlet_salinity"], to_units=pyunits.g / pyunits.L
+    )
 
     model_options = {
         "dt": None,
@@ -135,7 +135,7 @@ def set_md_model_options(
             cond_inlet_temp=model_options["cond_inlet_temp"],
             feed_temp=model_options["feed_temp"],
             feed_salinity=model_options["feed_salinity"],
-            recovery_ratio=inlet_cond['recovery'],
+            recovery_ratio=inlet_cond["recovery"],
             initial_batch_volume=model_options["initial_batch_volume"],
             module_type=model_options["module_type"],
             cooling_system_type=model_options["cooling_system_type"],
@@ -155,9 +155,7 @@ def build_md(m, blk, inlet_cond, n_time_points=None) -> None:
     blk.permeate = StateJunction(property_package=m.fs.params)
     blk.concentrate = StateJunction(property_package=m.fs.params)
 
-    model_options, n_time_points = set_md_model_options(
-        inlet_cond, n_time_points
-    )
+    model_options, n_time_points = set_md_model_options(inlet_cond, n_time_points)
 
     # Build the multiperiod object for MD
     blk.unit = MultiPeriodModel(
@@ -337,7 +335,7 @@ def set_md_op_conditions(blk):
     # feed_salinity = model_options["feed_salinity"]
     # feed_temp = model_options["feed_temp"]
     feed_flow_rate = pyunits.convert(
-       blk.feed.properties[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
+        blk.feed.properties[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
     )()
 
     feed_salinity = blk.feed.properties[0].conc_mass_phase_comp["Liq", "TDS"]()
@@ -548,10 +546,10 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         return results
 
 
-def report_MD(m,blk):
+def report_MD(m, blk):
 
     # blk = m.fs.md
-    active_blks =blk.unit.get_active_process_blocks()
+    active_blks = blk.unit.get_active_process_blocks()
 
     print(f"\n\n-------------------- MD Operations Report --------------------\n")
     print("\n")
@@ -635,20 +633,32 @@ def report_MD(m,blk):
     )
 
 
-def report_md_costing(m,blk):
+def report_md_costing(m, blk):
 
-    active_blks =blk.md.unit.get_active_process_blocks()
+    active_blks = blk.md.unit.get_active_process_blocks()
 
     print(f"\n\n-------------------- MD Costing Report --------------------\n")
     print("\n")
 
     print(
-        f'{"Capital Cost":<30s}{value(blk.costing.aggregate_capital_cost):<20,.2f}{pyunits.get_units(blk.costing.LCOW)}'
+        f'{"Capital Cost":<30s}{value(active_blks[-1].fs.vagmd.costing.capital_cost):<20,.2f}{pyunits.get_units(active_blks[-1].fs.vagmd.costing.capital_cost)}'
     )
 
     print(
-        f'{"Fixed Operating Cost":<30s}{value(blk.costing.aggregate_fixed_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.LCOW)}'
+        f'{"Fixed Operating Cost":<30s}{value(active_blks[-1].fs.vagmd.costing.fixed_operating_cost):<20,.2f}{pyunits.get_units(active_blks[-1].fs.vagmd.costing.fixed_operating_cost)}'
     )
+
+    # print(
+    #     f'{"Variable Operating Cost":<30s}{value(blk.costing.variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.variable_operating_cost)}'
+    # )
+
+    # print(
+    #     f'{"Aggregated Variable Operating Cost":<30s}{value(blk.costing.aggregate_variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.aggregate_variable_operating_cost)}'
+    # )
+
+    # print(
+    #     f'{"Total Operating Cost":<30s}{value(blk.costing.total_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_operating_cost)}'
+    # )
 
     print(
         f'{"Membrane Cost":<30s}{value(active_blks[-1].fs.vagmd.costing.module_cost):<20,.2f}{pyunits.get_units(active_blks[-1].fs.vagmd.costing.module_cost)}'
@@ -657,7 +667,7 @@ def report_md_costing(m,blk):
     print(
         f'{"Heat flow":<30s}{value(blk.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_heat)}'
     )
-    
+
     print(
         f'{"Aggregated Heat Cost":<30s}{value(blk.costing.aggregate_flow_costs["heat"]):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_costs["heat"])}'
     )
@@ -682,12 +692,13 @@ if __name__ == "__main__":
 
     overall_recovery = 0.45
 
-    inlet_cond = {'inlet_flow_rate': Qin,
-                  "inlet_salinity": feed_salinity,
-                  "recovery": overall_recovery}
+    inlet_cond = {
+        "inlet_flow_rate": Qin,
+        "inlet_salinity": feed_salinity,
+        "recovery": overall_recovery,
+    }
 
-
-    n_time_points = 2 #None
+    n_time_points = 2  # None
     m, model_options, n_time_points = build_system(
         inlet_cond, n_time_points=n_time_points
     )
@@ -706,7 +717,7 @@ if __name__ == "__main__":
 
     # results = solver.solve(m)
 
-    add_md_costing(m.fs.md.unit,costing_block=m.fs.costing)
+    add_md_costing(m.fs.md.unit, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
@@ -715,14 +726,8 @@ if __name__ == "__main__":
 
     results = solver.solve(m)
 
-    print(
-        f'{"LCOW":<30s}{value(m.fs.md.unit.costing.LCOW):<20.5f}{pyunits.get_units(m.fs.md.unit.costing.LCOW)}'
-    )
-    
     report_MD(m, m.fs.md)
-    report_md_costing(m,m.fs)
-
-
+    report_md_costing(m, m.fs)
 
     # try:
     #     results = solver.solve(m.fs.md)
@@ -757,3 +762,5 @@ if __name__ == "__main__":
     # print("Number of batches in 24h:", value(no_of_batches))
 
     # m.fs.md.permeate.properties[0].flow_vol_phase.display()
+    # vagmd = m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd
+    # vagmd.costing.display()

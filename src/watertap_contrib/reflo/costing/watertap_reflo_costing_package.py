@@ -72,16 +72,16 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         self.base_currency = pyo.units.USD_2021
 
-        self.del_component(self.electricity_cost)
+        # self.del_component(self.electricity_cost)
 
-        self.electricity_cost = pyo.Param(
-            mutable=True,
-            initialize=0.0718,  # From EIA for 2021
-            doc="Electricity cost",
-            units=pyo.units.USD_2021 / pyo.units.kWh,
-        )
+        # self.electricity_cost = pyo.Param(
+        #     mutable=True,
+        #     initialize=0.0718,  # From EIA for 2021
+        #     doc="Electricity cost",
+        #     units=pyo.units.USD_2021 / pyo.units.kWh,
+        # )
 
-        self.register_flow_type("electricity", self.electricity_cost)
+        # self.register_flow_type("electricity", self.electricity_cost)
 
         # Fix the parameters
         self.fix_all_vars()
