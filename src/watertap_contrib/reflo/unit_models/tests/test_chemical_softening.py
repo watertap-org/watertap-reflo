@@ -165,7 +165,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 96
+        assert number_variables(m) == 95
         assert number_total_constraints(m) == 62
         assert number_unused_variables(m) == 17
 
@@ -206,7 +206,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         soft_results = {
             "ca_eff_target": 0.008,
             "mg_eff_target": 0.002427,
-            "removal_efficiency": {"SiO2": 0.7, "Alkalinity_2-": 0.7},
+            # "removal_efficiency": {"SiO2": 0.7, "Alkalinity_2-": 0.7},
             "volume_mixer": 1.0535825,
             "volume_floc": 65.8489,
             "volume_sed": 342.4143,
@@ -412,7 +412,7 @@ class TestChemSoft_SingleStageLime:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 86
+        assert number_variables(m) == 85
         assert number_total_constraints(m) == 51
         assert number_unused_variables(m) == 18
 
@@ -454,7 +454,7 @@ class TestChemSoft_SingleStageLime:
         soft_results = {
             "ca_eff_target": 0.008,
             "mg_eff_target": 0.002427,
-            "removal_efficiency": {"Alkalinity_2-": 0.7},
+            # "removal_efficiency": {"Alkalinity_2-": 0.7},
             "volume_mixer": 13.89,
             "volume_floc": 868.29,
             "volume_sed": 4515.12,
@@ -665,7 +665,7 @@ class TestChemSoft_ExcessLime:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 86
+        assert number_variables(m) == 85
         assert number_total_constraints(m) == 52
         assert number_unused_variables(m) == 18
 
@@ -707,7 +707,7 @@ class TestChemSoft_ExcessLime:
         soft_results = {
             "ca_eff_target": 0.012,
             "mg_eff_target": 0.000728,
-            "removal_efficiency": {"Alkalinity_2-": 0.7},
+            # "removal_efficiency": {"Alkalinity_2-": 0.7},
             "volume_mixer": 13.89,
             "volume_floc": 868.29,
             "volume_sed": 4515.12,
@@ -920,7 +920,7 @@ class TestChemSoft_ExcessLime_2:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 86
+        assert number_variables(m) == 85
         assert number_total_constraints(m) == 52
         assert number_unused_variables(m) == 18
 
@@ -962,7 +962,7 @@ class TestChemSoft_ExcessLime_2:
         soft_results = {
             "ca_eff_target": 0.012,
             "mg_eff_target": 0.000728,
-            "removal_efficiency": {"Alkalinity_2-": 0.7},
+            # "removal_efficiency": {"Alkalinity_2-": 0.7},
             "volume_mixer": 13.89,
             "volume_floc": 868.29,
             "volume_sed": 4515.12,
@@ -1177,7 +1177,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 96
+        assert number_variables(m) == 95
         assert number_total_constraints(m) == 62
         assert number_unused_variables(m) == 17
 
