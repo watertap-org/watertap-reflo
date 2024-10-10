@@ -72,21 +72,11 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         self.base_currency = pyo.units.USD_2021
 
-        self.del_component(self.electricity_cost)
-
-        self.electricity_cost = pyo.Param(
-            mutable=True,
-            initialize=0.0718,  # From EIA for 2021
-            doc="Electricity cost",
-            units=pyo.units.USD_2021 / pyo.units.kWh,
-        )
-
-        self.register_flow_type("electricity", self.electricity_cost)
-
         # Fix the parameters
         self.fix_all_vars()
         self.plant_lifetime.fix(20)
         self.utilization_factor.fix(1)
+        self.electricity_cost.fix(0.0718)
 
         # Build the integrated system costs
         self.build_integrated_costs()
@@ -195,7 +185,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             pysam = self._get_pysam()
 
             if not pysam._has_been_run:
-                raise Exception(
+                raise RuntimeError(
                     f"PySAM model {pysam._pysam_model_name} has not yet been run, so there is no annual_energy data available."
                     "You must run the PySAM model before adding LCOE metric."
                 )
@@ -220,7 +210,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
             self.add_component("LCOE", LCOE_expr)
 
-        if e_model == "surrogate":
+        else:
             raise NotImplementedError(
                 "add_LCOE for surrogate models not available yet."
             )
