@@ -10,3 +10,5 @@ Treatment Models
    med_md_semibatch
    med_tvc_surrogate
    vagmd_surrogate_base
+   forward_osmosis
+   forward_osmosis_trevi_flowsheet
