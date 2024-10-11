@@ -71,6 +71,8 @@ def build_forward_osmosis_cost_param_block(blk):
 def cost_forward_osmosis(blk):
 
     fo_params = blk.costing_package.forward_osmosis
+    base_currency = blk.config.flowsheet_costing_block.base_currency
+    base_period = blk.config.flowsheet_costing_block.base_period
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
@@ -85,17 +87,27 @@ def cost_forward_osmosis(blk):
     )
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
-        == fo_params.base_unit_cost * fo_fs.system_capacity**fo_params.unit_cost_index
+        == pyo.units.convert(
+            fo_params.base_unit_cost
+            * (pyo.units.m**3 / pyo.units.day)
+            * (fo_fs.system_capacity * pyo.units.day / pyo.units.m**3)
+            ** fo_params.unit_cost_index,
+            to_units=base_currency,
+        )
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=(
             blk.fixed_operating_cost
-            == blk.annual_dist_production * fo_params.cost_durable_goods
-            + pyo.units.convert(
-                brine.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.year
+            == pyo.units.convert(
+                blk.annual_dist_production * fo_params.cost_durable_goods
+                + pyo.units.convert(
+                    brine.flow_vol_phase["Liq"],
+                    to_units=pyo.units.m**3 / pyo.units.year,
+                )
+                * fo_params.cost_disposal,
+                to_units=base_currency / base_period,
             )
-            * fo_params.cost_disposal
         )
     )
 
