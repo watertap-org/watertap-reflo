@@ -75,9 +75,10 @@ def build_DWI(m, blk, prop_package) -> None:
     blk.unit = DeepWellInjection(property_package=prop_package)
 
     blk.feed_to_unit = Arc(
-            source=blk.feed.outlet,
-            destination=blk.unit.inlet,
-        )   
+        source=blk.feed.outlet,
+        destination=blk.unit.inlet,
+    )
+
 
 def set_DWI_op_conditions(blk):
     inlet_conc = {
@@ -149,6 +150,7 @@ def print_DWI_costing_breakdown(blk):
         f'{"DWI Operating Cost":<35s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
     )
     print("\n")
+
 
 def build_system():
     m = ConcreteModel()
