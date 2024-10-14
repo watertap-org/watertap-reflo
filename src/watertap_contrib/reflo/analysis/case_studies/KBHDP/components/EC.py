@@ -40,9 +40,21 @@ import numpy as np
 from watertap.costing import WaterTAPCosting
 import math
 
+__all__ = [
+    "build_ec",
+    "set_ec_operating_conditions",
+    "init_ec",
+    "report_EC",
+]
 
-def propagate_state(arc):
+def propagate_state(arc, detailed=True):
     _prop_state(arc)
+    if detailed:
+        print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+        arc.source.display()
+        print(arc.destination.name)
+        arc.destination.display()
+        print("\n")
 
 
 def build_ec(m, blk, prop_package=None):
@@ -136,23 +148,22 @@ def set_system_operating_conditions(m):
 def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
-
+    print(f"EC Degrees of Freedom: {degrees_of_freedom(m.fs.EC.ec)}")
     input = {
-        "gap (cm)": 0.32,
-        "thickness (cm)": 0.32,
-        "ret_time (s)": 23,
-        "dose (mg/L)": 2.95,
+        "gap (cm)": 0.5,
+        "thickness (cm)": 0.1,
+        "ret_time (min)": 25,
+        "dose (mg/L)": 100,
         "anode_area (cm2)": 184,
-        "cd (A/m2)": 218,
+        "cd (A/m2)": 500,
     }
 
     gap = pyunits.convert(input["gap (cm)"] * pyunits.cm, to_units=pyunits.m)()
     e_thick = pyunits.convert(
         input["thickness (cm)"] * pyunits.cm, to_units=pyunits.m
     )()
-    time = pyunits.convert(
-        input["ret_time (s)"] * pyunits.seconds, to_units=pyunits.minutes
-    )()
+
+    time = input["ret_time (min)"] * pyunits.minutes
 
     conv = 5e3 * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
     tds = blk.feed.properties[0].flow_mass_comp["tds"] / (
@@ -164,6 +175,7 @@ def set_ec_operating_conditions(m, blk):
         pyunits.convert(tds, to_units=pyunits.mg / pyunits.liter) / conv,
         to_units=pyunits.S / pyunits.m,
     )
+
     blk.ec.conductivity.fix(cond)
 
     ec_dose = input["dose (mg/L)"] * pyunits.mg / pyunits.liter
@@ -183,26 +195,67 @@ def set_ec_operating_conditions(m, blk):
 
     blk.ec.current_density.fix(input["cd (A/m2)"])
     blk.ec.metal_dose.fix(ec_dose)
+    # blk.ec.metal_dose.unfix()
 
     if blk.ec.config.electrode_material == "aluminum":
-        blk.ec.current_efficiency.fix(1)
+        blk.ec.current_efficiency.fix(1.2)
 
-    blk.ec.overpotential_k1.fix(430)
-    blk.ec.overpotential_k2.fix(1000)
+    blk.ec.overpotential.fix(2)
+    blk.ec.floc_retention_time.fix(time)
+    blk.ec.overpotential_k1.unfix()
+    blk.ec.overpotential_k2.unfix()
+
+    fixed_vars = [(v.name, v.value) for v in blk.ec.component_data_objects(ctype=Var, active=True, descend_into=False) if v.fixed]
+    unfixed_vars = [(v.name, v.value) for v in blk.ec.component_data_objects(ctype=Var, active=True, descend_into=False) if v.fixed is False]
+    print(f"Fixed Vars: ({len(fixed_vars)})")
+    for v in fixed_vars:
+        print(f"   {v[0]}: {v[1]}")
+
+    print(f"Unfixed Vars: ({len(unfixed_vars)})")
+    for v in unfixed_vars:
+        print(f"   {v[0]}: {v[1]}")
+
 
 
 def set_scaling(m, blk):
 
+    def calc_scale(value):
+        return math.floor(math.log(value, 10))
+    # calculate_scaling_factors(m)
+    # model.fs.params.set_default_scaling("flow_mass_comp", 1e-3, index=("H2O"))
+    # model.fs.params.set_default_scaling("flow_mass_comp", 1e-3, index=("tds"))
+    # model.fs.params.set_default_scaling("flow_mass_comp", 1e-3, index=("tss"))
+
+    # set_scaling_factor(blk.ec.properties_in[0].flow_vol, 1e7)
+    # set_scaling_factor(blk.ec.properties_in[0].flow_mass_comp["H2O"], 1e-4)
+    # set_scaling_factor(blk.ec.properties_in[0].conc_mass_comp["tds"], 1e5)
+    # set_scaling_factor(blk.ec.charge_loading_rate, 1e3)
+    # # set_scaling_factor(m.fs.ec.cell_voltage,1)
+    # set_scaling_factor(blk.ec.anode_area, 1e4)
+    # set_scaling_factor(blk.ec.current_density, 1e-1)
+    # # set_scaling_factor(m.fs.ec.applied_current,1e2)
+    # set_scaling_factor(blk.ec.metal_dose, 1e4)
+
+    scale_flow = calc_scale(m.fs.feed.flow_mass_comp[0, "H2O"].value)
+    scale_tds = calc_scale(m.fs.feed.flow_mass_comp[0, "tds"].value)
+
+    m.fs.properties.set_default_scaling(
+        "flow_mass_comp", 10**-scale_flow, index=("H2O")
+    )
+    m.fs.properties.set_default_scaling(
+        "flow_mass_comp", 10**-scale_tds, index=("tds")
+    )
     calculate_scaling_factors(m)
 
-    set_scaling_factor(blk.ec.properties_in[0].flow_vol, 1e7)
-    set_scaling_factor(blk.ec.properties_in[0].conc_mass_comp["tds"], 1e5)
-    set_scaling_factor(blk.ec.charge_loading_rate, 1e3)
-    # set_scaling_factor(m.fs.ec.cell_voltage,1)
-    set_scaling_factor(blk.ec.anode_area, 1e4)
-    set_scaling_factor(blk.ec.current_density, 1e-1)
-    # set_scaling_factor(m.fs.ec.applied_current,1e2)
-    set_scaling_factor(blk.ec.metal_dose, 1e4)
+    badly_scaled_var_list = list_badly_scaled_variables(m)
+    if len(badly_scaled_var_list) > 0:
+        [print(i[0].name, i[1]) for i in badly_scaled_var_list]
+    else:
+        print("Variables are scaled well")
+
+
+
+    # assert False
 
 
 def init_system(m, solver=None):
@@ -235,9 +288,13 @@ def init_ec(m, blk, solver=None):
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_ec)
 
-    blk.ec.initialize(optarg=optarg)
-    propagate_state(blk.ec_to_product)
-    propagate_state(blk.ec_to_disposal)
+    try:
+        blk.ec.initialize(optarg=optarg)
+    except:
+        blk.ec.display()
+        assert False
+    # propagate_state(blk.ec_to_product)
+    # propagate_state(blk.ec_to_disposal)
 
 
 def add_system_costing(m):
