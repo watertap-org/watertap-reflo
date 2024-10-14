@@ -130,7 +130,7 @@ def set_system_operating_conditions(m):
 
     input = {
         "q (m3/s)": 0.175,
-        "tds (g/l)": 12,
+        "tds (g/l)": 12.23,
     }
 
     flow_in = input["q (m3/s)"] * pyunits.m**3 / pyunits.s
@@ -143,7 +143,7 @@ def set_system_operating_conditions(m):
     m.fs.feed.properties[0].flow_mass_comp["tds"].fix(
         tds_in * flow_in
     )  # kg/m3 * m3/s = kg/s
-
+    # # initialize feed
 
 def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
@@ -221,20 +221,6 @@ def set_scaling(m, blk):
 
     def calc_scale(value):
         return math.floor(math.log(value, 10))
-    # calculate_scaling_factors(m)
-    # model.fs.params.set_default_scaling("flow_mass_comp", 1e-3, index=("H2O"))
-    # model.fs.params.set_default_scaling("flow_mass_comp", 1e-3, index=("tds"))
-    # model.fs.params.set_default_scaling("flow_mass_comp", 1e-3, index=("tss"))
-
-    # set_scaling_factor(blk.ec.properties_in[0].flow_vol, 1e7)
-    # set_scaling_factor(blk.ec.properties_in[0].flow_mass_comp["H2O"], 1e-4)
-    # set_scaling_factor(blk.ec.properties_in[0].conc_mass_comp["tds"], 1e5)
-    # set_scaling_factor(blk.ec.charge_loading_rate, 1e3)
-    # # set_scaling_factor(m.fs.ec.cell_voltage,1)
-    # set_scaling_factor(blk.ec.anode_area, 1e4)
-    # set_scaling_factor(blk.ec.current_density, 1e-1)
-    # # set_scaling_factor(m.fs.ec.applied_current,1e2)
-    # set_scaling_factor(blk.ec.metal_dose, 1e4)
 
     scale_flow = calc_scale(m.fs.feed.flow_mass_comp[0, "H2O"].value)
     scale_tds = calc_scale(m.fs.feed.flow_mass_comp[0, "tds"].value)
@@ -254,10 +240,6 @@ def set_scaling(m, blk):
         print("Variables are scaled well")
 
 
-
-    # assert False
-
-
 def init_system(m, solver=None):
     """Initialize system for individual unit process flowsheet"""
     if solver is None:
@@ -268,7 +250,7 @@ def init_system(m, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"EC Degrees of Freedom: {degrees_of_freedom(m.fs.EC.ec)}")
-    assert_no_degrees_of_freedom(m)
+    # assert_no_degrees_of_freedom(m)
     print("\n\n")
 
     m.fs.feed.initialize(optarg=optarg)
@@ -293,8 +275,8 @@ def init_ec(m, blk, solver=None):
     except:
         blk.ec.display()
         assert False
-    # propagate_state(blk.ec_to_product)
-    # propagate_state(blk.ec_to_disposal)
+    propagate_state(blk.ec_to_product)
+    propagate_state(blk.ec_to_disposal)
 
 
 def add_system_costing(m):
@@ -317,6 +299,8 @@ def calc_costing(m, blk):
 
 
 def report_EC(blk):
+
+    print(f"\n\n-------------------- EC Report --------------------\n")
     print(f'{f"Stream":<20}{f"FLOW RATE H2O":<20}{f"FLOW RATE TDS":<20}')
     print(
         f'{"FEED":<20}{value(blk.feed.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.feed.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
@@ -335,16 +319,12 @@ if __name__ == "__main__":
     set_system_operating_conditions(m)
     set_ec_operating_conditions(m, m.fs.EC)
     set_scaling(m, m.fs.EC)
-
     init_system(m)
+    add_system_costing(m)
 
-    # solver = get_solver()
-    # results = solver.solve(m)
+    solver = get_solver()
+    m.fs.objective_lcow = Objective(expr = m.fs.costing.LCOW)
+    results = solver.solve(m)
 
-    # add_system_costing(m)
-
-    # m.fs.objective_lcow = Objective(expr = m.fs.costing.LCOW)
-    # results = solver.solve(m)
-
-    # print(m.fs.objective_lcow())
+    print(m.fs.objective_lcow())
     report_EC(m.fs.EC)

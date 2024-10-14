@@ -44,7 +44,7 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
 
 def propagate_state(arc):
     _prop_state(arc)
-    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    print(f"\nPropogation of {arc.source.name} to {arc.destination.name} successful.")
     arc.source.display()
     print(arc.destination.name)
     arc.destination.display()
@@ -65,7 +65,7 @@ def main():
     solve(m)
     display_system_stream_table(m)
     display_costing_breakdown(m)
-    report_softener(m)
+    report_EC(m.fs.EC)
     report_UF(m, m.fs.UF)
     report_RO(m, m.fs.RO)
 
@@ -281,7 +281,6 @@ def set_inlet_conditions(
     Cin=None,
     water_recovery=None,
     supply_pressure=1e5,
-    primary_pump_pressure=15e5,
 ):
     """Sets operating condition for the PV-RO system
 
@@ -303,22 +302,11 @@ def set_inlet_conditions(
         "Mg_2+": 0.161 * pyunits.kg / pyunits.m**3,
         "Alkalinity_2-": 0.0821 * pyunits.kg / pyunits.m**3,
         "SiO2": 0.13 * pyunits.kg / pyunits.m**3,
-        "Cl_-": 1.18 * pyunits.kg / pyunits.m**3,
-        "Na_+": 0.77 * pyunits.kg / pyunits.m**3,
+        "Cl_-": 5.5 * pyunits.kg / pyunits.m**3,
+        "Na_+": 5.5 * pyunits.kg / pyunits.m**3,
         "K_+": 0.016 * pyunits.kg / pyunits.m**3,
         "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,
     }
-
-    # inlet_dict = {
-    #     "Ca_2+": 0.13 * pyunits.kg / pyunits.m**3,
-    #     "Mg_2+": 0.03 * pyunits.kg / pyunits.m**3,
-    #     "Alkalinity_2-": 0.08 * pyunits.kg / pyunits.m**3,
-    #     "SiO2": 0.031 * pyunits.kg / pyunits.m**3,
-    #     "Cl_-": 1.18 * pyunits.kg / pyunits.m**3,
-    #     "Na_+": 0.77 * pyunits.kg / pyunits.m**3,
-    #     "K_+": 0.016 * pyunits.kg / pyunits.m**3,
-    #     "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,
-    # }
 
     for solute, solute_conc in inlet_dict.items():
         m.fs.feed.properties[0].flow_mass_phase_comp["Liq", solute].fix(
@@ -415,7 +403,7 @@ def display_unfixed_vars(blk, report=True):
 def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1.1e5):
     pump_efi = 0.8  # pump efficiency [-]
     # Set inlet conditions and operating conditions for each unit
-    set_inlet_conditions(m, Qin=1000, supply_pressure=1e5, primary_pump_pressure=10e5)
+    set_inlet_conditions(m, Qin=1000, supply_pressure=1e5)
     set_ec_operating_conditions(m, m.fs.EC)
     set_UF_op_conditions(m.fs.UF)
     m.fs.pump.efficiency_pump.fix(pump_efi)
@@ -454,19 +442,20 @@ def init_system(m, verbose=True, solver=None):
     m.fs.pump.initialize(optarg=optarg)
     propagate_state(m.fs.pump_to_ro)
 
-    # init_ro_system(m, m.fs.RO)
-    # propagate_state(m.fs.ro_to_product)
-    # propagate_state(m.fs.ro_to_disposal)
+    init_ro_system(m, m.fs.RO)
+    propagate_state(m.fs.ro_to_product)
+    propagate_state(m.fs.ro_to_disposal)
 
-    # m.fs.product.initialize(optarg=optarg)
-    # m.fs.disposal.initialize(optarg=optarg)
-    # display_system_stream_table(m)
+    m.fs.product.initialize(optarg=optarg)
+    m.fs.disposal.initialize(optarg=optarg)
+    display_system_stream_table(m)
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
     # ---solving---
     if solver is None:
         solver = get_solver()
+        solver.options["max_iter"] = 1000
 
     print("\n--------- SOLVING ---------\n")
 
