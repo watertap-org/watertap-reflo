@@ -150,7 +150,7 @@ def set_system_operating_conditions(m):
 def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
-    print(f"EC Degrees of Freedom: {degrees_of_freedom(m.fs.EC.ec)}")
+    print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
     input = {
         "gap (cm)": 0.5,
         "thickness (cm)": 0.1,
@@ -288,9 +288,12 @@ def add_system_costing(m):
     calc_costing(m, m.fs.EC)
 
 
-def add_ec_costing(m, blk):
+def add_ec_costing(m, blk, costing_blk=None):
     """Add EC model costing components"""
-    blk.ec.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    if costing_blk is None:
+        costing_blk = m.fs.costing
+
+    blk.ec.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
 
 
 def calc_costing(m, blk):

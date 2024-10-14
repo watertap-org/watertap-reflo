@@ -124,9 +124,12 @@ def set_system_conditions(blk):
     blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
 
 
-def add_UF_costing(m, blk):
+def add_UF_costing(m, blk, costing_blk=None):
+    if costing_blk is None:
+        costing_blk = m.fs.costing
+
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
+        flowsheet_costing_block=costing_blk,
     )
 
     # m.fs.costing.cost_process()
@@ -225,23 +228,23 @@ def report_UF(m, blk, stream_table=False):
     print(f"\n\n-------------------- UF Report --------------------\n")
     print("\n")
     print(
-        f'{"Inlet Flow Volume":<30s}{value(m.fs.UF.feed.properties[0.0].flow_vol):<10.3f}{pyunits.get_units(m.fs.UF.feed.properties[0.0].flow_vol)}'
+        f'{"Inlet Flow Volume":<30s}{value(blk.feed.properties[0.0].flow_vol):<10.3f}{pyunits.get_units(blk.feed.properties[0.0].flow_vol)}'
     )
     print(f'{"UF Performance:":<30s}')
     print(
-        f'{"    Recovery":<30s}{100*m.fs.UF.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}'
+        f'{"    Recovery":<30s}{100*blk.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}'
     )
     print(
-        f'{"    TDS Removal":<30s}{100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}'
+        f'{"    TDS Removal":<30s}{100*blk.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}'
     )
     print(
-        f'{"    TSS Removal":<30s}{100*m.fs.UF.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}'
+        f'{"    TSS Removal":<30s}{100*blk.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}'
     )
     print(
-        f'{"    Energy Consumption":<30s}{m.fs.UF.unit.electricity[0.0].value:<10.3f}{pyunits.get_units(m.fs.UF.unit.electricity[0.0])}'
+        f'{"    Energy Consumption":<30s}{blk.unit.electricity[0.0].value:<10.3f}{pyunits.get_units(blk.unit.electricity[0.0])}'
     )
     print(
-        f'{"    Specific Energy Cons.":<30s}{value(m.fs.UF.unit.energy_electric_flow_vol_inlet):<10.3f}{pyunits.get_units(m.fs.UF.unit.energy_electric_flow_vol_inlet)}'
+        f'{"    Specific Energy Cons.":<30s}{value(blk.unit.energy_electric_flow_vol_inlet):<10.3f}{pyunits.get_units(blk.unit.energy_electric_flow_vol_inlet)}'
     )
 
 

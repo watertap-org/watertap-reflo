@@ -238,9 +238,9 @@ def build_ro_stage(m, blk, booster_pump=False):
         has_full_reporting=True,
     )
 
-    blk.module.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
-    )
+    # blk.module.costing = UnitModelCostingBlock(
+    #     flowsheet_costing_block=m.fs.costing,
+    # )
 
     if booster_pump:
         blk.stage_feed_to_booster_pump = Arc(
@@ -548,12 +548,14 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
     print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
 
 
-def add_ro_costing(m, blk):
+def add_ro_costing(m, blk, costing_blk=None):
     # unit equipment capital and operating costs
+    if costing_blk is None:
+        costing_blk = m.fs.costing
 
     for stage in blk.stage.values():
         stage.module.costing = UnitModelCostingBlock(
-            flowsheet_costing_block=m.fs.costing
+            flowsheet_costing_block=costing_blk
         )
 
     # system costing - total investment and operating costs
