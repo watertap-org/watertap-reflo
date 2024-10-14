@@ -62,6 +62,7 @@ def main():
     set_operating_conditions(m)
     init_system(m)
     add_costing(m)
+    optimize(m, ro_mem_area=None, water_recovery=0.5)
     solve(m)
     display_system_stream_table(m)
     display_costing_breakdown(m)
@@ -231,9 +232,25 @@ def add_costing(m):
         flowsheet_costing_block=m.fs.costing,
     )
 
+    add_ec_costing(m, m.fs.EC)
+    add_UF_costing(m, m.fs.UF)
+    add_ro_costing(m, m.fs.RO)
+
+    m.fs.costing.ultra_filtration.capital_a_parameter.fix(500000)
+
     m.fs.costing.cost_process()
     m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
+
+    m.fs.costing.initialize()
+
+    m.fs.costing.total_annualized_cost = Expression(
+        expr=(
+            m.fs.costing.total_capital_cost * m.fs.costing.capital_recovery_factor
+            + m.fs.costing.total_operating_cost
+        ),
+        doc="Total annualized cost of operation",
+    )
 
 
 def relax_constaints(m, blk):
@@ -476,6 +493,42 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
         print(msg)
         return results
 
+def optimize(
+    m,
+    water_recovery=0.5,
+    fixed_pressure=None,
+    ro_mem_area=None,
+    objective="LCOW",
+):
+    
+    print("\n\nDOF before optimization: ", degrees_of_freedom(m))
+
+    if objective == "LCOW":
+        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
+
+    if water_recovery is not None:
+        print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
+        m.fs.water_recovery.fix(water_recovery)
+    else:
+        m.fs.water_recovery.unfix()
+        m.fs.water_recovery.setlb(0.01)
+        m.fs.water_recovery.setub(0.99)
+
+    if fixed_pressure is not None:
+        print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
+        m.fs.pump.control_volume.properties_out[0].pressure.fix(fixed_pressure)
+    else:
+        print(f"------- Unfixed RO Pump Pressure -------")
+        m.fs.pump.control_volume.properties_out[0].pressure.unfix()
+
+    if ro_mem_area is not None:
+        print(f"\n------- Fixed RO Membrane Area at {ro_mem_area} -------\n")
+        for idx, stage in m.fs.RO.stage.items():
+            stage.module.area.fix(ro_mem_area)
+    else:
+        print(f"\n------- Unfixed RO Membrane Area -------\n")
+        for idx, stage in m.fs.RO.stage.items():
+            stage.module.area.unfix()
 
 def report_MCAS_stream_conc(m, stream):
     solute_set = m.fs.MCAS_properties.solute_set
@@ -526,6 +579,10 @@ def display_costing_breakdown(m):
         f'{"Product Flow":<25s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
     print(f'{"LCOW":<24s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
+
+    print_RO_costing_breakdown(m.fs.RO)
+    print_EC_costing_breakdown(m.fs.EC)
+    print_UF_costing_breakdown(m.fs.UF)
 
 
 if __name__ == "__main__":

@@ -44,7 +44,9 @@ __all__ = [
     "build_ec",
     "set_ec_operating_conditions",
     "init_ec",
+    "add_ec_costing",
     "report_EC",
+    "print_EC_costing_breakdown",
 ]
 
 def propagate_state(arc, detailed=True):
@@ -312,6 +314,9 @@ def report_EC(blk):
         f'{"DISPOSAL":<20}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
     )
 
+def print_EC_costing_breakdown(blk):
+    print(f'{"EC Capital Cost":<35s}{f"${blk.ec.costing.capital_cost():<25,.0f}"}')
+    print(f'{"EC Operating Cost":<35s}{f"${blk.ec.costing.fixed_operating_cost():<25,.0f}"}')
 
 if __name__ == "__main__":
 
@@ -328,3 +333,4 @@ if __name__ == "__main__":
 
     print(m.fs.objective_lcow())
     report_EC(m.fs.EC)
+    print_EC_costing_breakdown(m.fs.EC)
