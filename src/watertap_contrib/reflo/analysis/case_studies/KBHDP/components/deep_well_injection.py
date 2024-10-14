@@ -71,8 +71,13 @@ def propagate_state(arc):
 def build_DWI(m, blk, prop_package) -> None:
     print(f'\n{"=======> BUILDING DEEP WELL INJECTION SYSTEM <=======":^60}\n')
 
-    blk.unit = DeepWellInjection(property_package=m.fs.properties)
+    blk.feed = StateJunction(property_package=prop_package)
+    blk.unit = DeepWellInjection(property_package=prop_package)
 
+    blk.feed_to_unit = Arc(
+            source=blk.feed.outlet,
+            destination=blk.unit.inlet,
+        )   
 
 def set_DWI_op_conditions(blk):
     inlet_conc = {
@@ -130,25 +135,20 @@ def add_DWI_costing(m, blk):
     )
 
 
-def report_DWI(m, blk):
-    print(f"\n\n-------------------- UF Report --------------------\n")
+def report_DWI(blk):
+    print(f"\n\n-------------------- DWI Report --------------------\n")
     print("\n")
     print(
         f'{"Injection Well Depth":<30s}{value(blk.unit.config.injection_well_depth):<10.3f}{pyunits.get_units(blk.unit.config.injection_well_depth)}'
     )
 
 
-def print_DWI_costing_breakdown(m, blk):
-    print(f"\n\n-------------------- UF Costing Breakdown --------------------\n")
-    print("\n")
-    print(f'{"Capital Cost":<30s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
-    # print(
-    #     f'{"Capital Cost":<30s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
-    # )
+def print_DWI_costing_breakdown(blk):
+    print(f'{"DWI Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
     print(
-        f'{"Capital Cost":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
+        f'{"DWI Operating Cost":<35s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
     )
-
+    print("\n")
 
 def build_system():
     m = ConcreteModel()
@@ -204,5 +204,5 @@ if __name__ == "__main__":
     m.fs.costing.cost_process()
     solve(m)
 
-    report_DWI(m, m.fs.DWI)
-    print_DWI_costing_breakdown(m, m.fs.DWI)
+    report_DWI(m.fs.DWI)
+    print_DWI_costing_breakdown(m.fs.DWI)
