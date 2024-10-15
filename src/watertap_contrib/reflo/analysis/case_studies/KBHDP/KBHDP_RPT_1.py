@@ -131,7 +131,6 @@ def build_system():
     energy.pv = PVSurrogate(
         surrogate_model_file="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
         dataset_filename="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
-    
         input_variables={
             "labels": ["design_size"],
             "bounds": {"design_size": [1, 200000]},
@@ -139,7 +138,7 @@ def build_system():
         },
         output_variables={
             "labels": ["annual_energy", "land_req"],
-            "units": {"annual_energy": "kWh", 'land_req': 'acre'},
+            "units": {"annual_energy": "kWh", "land_req": "acre"},
         },
     )
 
@@ -267,6 +266,7 @@ def add_treatment_costing(m):
     treatment.costing.cost_process()
     treatment.costing.initialize()
 
+
 def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
@@ -276,7 +276,8 @@ def add_energy_costing(m):
     )
 
     energy.pv_design_constraint = Constraint(
-        expr=m.fs.energy.pv.design_size == m.fs.treatment.costing.aggregate_flow_electricity
+        expr=m.fs.energy.pv.design_size
+        == m.fs.treatment.costing.aggregate_flow_electricity
     )
 
     energy.costing.cost_process()
@@ -480,8 +481,10 @@ def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1.1e5):
     set_ro_system_operating_conditions(m, treatment.RO, mem_area=10000)
     # # set__ED_op_conditions
 
+
 def initialize_energy(m):
     m.fs.energy.pv.load_surrogate()
+
 
 def init_treatment(m, verbose=True, solver=None):
     if solver is None:
@@ -518,6 +521,7 @@ def init_treatment(m, verbose=True, solver=None):
     treatment.product.initialize(optarg=optarg)
     treatment.disposal.initialize(optarg=optarg)
     display_system_stream_table(m)
+
 
 def init_system(m, verbose=True, solver=None):
     print(f'\n{"=======> SYSTEM INITIALIZATION <=======":^60}\n')
