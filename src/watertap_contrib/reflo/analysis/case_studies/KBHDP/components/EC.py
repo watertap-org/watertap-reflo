@@ -49,6 +49,7 @@ __all__ = [
     "print_EC_costing_breakdown",
 ]
 
+
 def propagate_state(arc, detailed=True):
     _prop_state(arc)
     if detailed:
@@ -147,6 +148,7 @@ def set_system_operating_conditions(m):
     )  # kg/m3 * m3/s = kg/s
     # # initialize feed
 
+
 def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
@@ -207,8 +209,20 @@ def set_ec_operating_conditions(m, blk):
     blk.ec.overpotential_k1.unfix()
     blk.ec.overpotential_k2.unfix()
 
-    fixed_vars = [(v.name, v.value) for v in blk.ec.component_data_objects(ctype=Var, active=True, descend_into=False) if v.fixed]
-    unfixed_vars = [(v.name, v.value) for v in blk.ec.component_data_objects(ctype=Var, active=True, descend_into=False) if v.fixed is False]
+    fixed_vars = [
+        (v.name, v.value)
+        for v in blk.ec.component_data_objects(
+            ctype=Var, active=True, descend_into=False
+        )
+        if v.fixed
+    ]
+    unfixed_vars = [
+        (v.name, v.value)
+        for v in blk.ec.component_data_objects(
+            ctype=Var, active=True, descend_into=False
+        )
+        if v.fixed is False
+    ]
     print(f"Fixed Vars: ({len(fixed_vars)})")
     for v in fixed_vars:
         print(f"   {v[0]}: {v[1]}")
@@ -216,7 +230,6 @@ def set_ec_operating_conditions(m, blk):
     print(f"Unfixed Vars: ({len(unfixed_vars)})")
     for v in unfixed_vars:
         print(f"   {v[0]}: {v[1]}")
-
 
 
 def set_scaling(m, blk):
@@ -230,9 +243,7 @@ def set_scaling(m, blk):
     m.fs.properties.set_default_scaling(
         "flow_mass_comp", 10**-scale_flow, index=("H2O")
     )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_comp", 10**-scale_tds, index=("tds")
-    )
+    m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tds, index=("tds"))
     calculate_scaling_factors(m)
 
     badly_scaled_var_list = list_badly_scaled_variables(m)
@@ -317,9 +328,13 @@ def report_EC(blk):
         f'{"DISPOSAL":<20}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
     )
 
+
 def print_EC_costing_breakdown(blk):
     print(f'{"EC Capital Cost":<35s}{f"${blk.ec.costing.capital_cost():<25,.0f}"}')
-    print(f'{"EC Operating Cost":<35s}{f"${blk.ec.costing.fixed_operating_cost():<25,.0f}"}')
+    print(
+        f'{"EC Operating Cost":<35s}{f"${blk.ec.costing.fixed_operating_cost():<25,.0f}"}'
+    )
+
 
 if __name__ == "__main__":
 
@@ -331,7 +346,7 @@ if __name__ == "__main__":
     add_system_costing(m)
 
     solver = get_solver()
-    m.fs.objective_lcow = Objective(expr = m.fs.costing.LCOW)
+    m.fs.objective_lcow = Objective(expr=m.fs.costing.LCOW)
     results = solver.solve(m)
 
     print(m.fs.objective_lcow())

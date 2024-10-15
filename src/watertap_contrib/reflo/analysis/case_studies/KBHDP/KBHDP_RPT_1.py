@@ -35,12 +35,15 @@ from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
     REFLOCosting,
+    REFLOSystemCosting,
 )
 from watertap.unit_models.pressure_changer import Pump
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
+from watertap_contrib.reflo.solar_models.surrogate.pv import PVSurrogate
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -69,6 +72,8 @@ def main():
     report_EC(m.fs.treatment.EC)
     report_UF(m, m.fs.treatment.UF)
     report_RO(m, m.fs.treatment.RO)
+    m.fs.treatment.costing.display()
+    m.fs.costing.display()
 
 
 def build_system():
@@ -122,6 +127,21 @@ def build_system():
     build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
     build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
     build_ro(m, treatment.RO, prop_package=m.fs.RO_properties)
+
+    energy.pv = PVSurrogate(
+        surrogate_model_file="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
+        dataset_filename="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
+    
+        input_variables={
+            "labels": ["design_size"],
+            "bounds": {"design_size": [1, 200000]},
+            "units": {"design_size": "kW"},
+        },
+        output_variables={
+            "labels": ["annual_energy", "land_req"],
+            "units": {"annual_energy": "kWh", 'land_req': 'acre'},
+        },
+    )
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -231,14 +251,10 @@ def add_constraints(m):
     # m.fs.disposal.properties[0].conc_mass_phase_comp
 
 
-def add_costing(m):
+def add_treatment_costing(m):
     treatment = m.fs.treatment
-    energy = m.fs.energy
     treatment.costing = TreatmentCosting()
-    energy.costing = EnergyCosting()
-    m.fs.costing = REFLOCosting()
-    m.fs.costing.base_currency = pyunits.USD_2020
-    
+
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
     )
@@ -249,14 +265,39 @@ def add_costing(m):
     treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
 
     treatment.costing.cost_process()
+    treatment.costing.initialize()
+
+def add_energy_costing(m):
+    energy = m.fs.energy
+    energy.costing = EnergyCosting()
+
+    energy.pv.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=energy.costing,
+    )
+
+    energy.pv_design_constraint = Constraint(
+        expr=m.fs.energy.pv.design_size == m.fs.treatment.costing.aggregate_flow_electricity
+    )
+
     energy.costing.cost_process()
+    energy.costing.initialize()
+
+
+def add_costing(m):
+    treatment = m.fs.treatment
+    energy = m.fs.energy
+
+    add_treatment_costing(m)
+    add_energy_costing(m)
+
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.base_currency = pyunits.USD_2020
+
     m.fs.costing.cost_process()
-    
+
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
 
-    treatment.costing.initialize()
-    energy.costing.initialize()
     m.fs.costing.initialize()
 
 
@@ -317,7 +358,6 @@ def set_inlet_conditions(
     print(f'\n{"=======> SETTING OPERATING CONDITIONS <=======":^60}\n')
 
     treatment = m.fs.treatment
-
 
     if Qin is None:
         treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(1)
@@ -437,13 +477,13 @@ def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1.1e5):
     treatment.pump.efficiency_pump.fix(pump_efi)
     treatment.pump.control_volume.properties_in[0].pressure.fix(supply_pressure)
     treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
-    set_ro_system_operating_conditions(
-        m, treatment.RO, mem_area=10000
-    )
+    set_ro_system_operating_conditions(m, treatment.RO, mem_area=10000)
     # # set__ED_op_conditions
 
+def initialize_energy(m):
+    m.fs.energy.pv.load_surrogate()
 
-def init_system(m, verbose=True, solver=None):
+def init_treatment(m, verbose=True, solver=None):
     if solver is None:
         solver = get_solver()
 
@@ -479,6 +519,11 @@ def init_system(m, verbose=True, solver=None):
     treatment.disposal.initialize(optarg=optarg)
     display_system_stream_table(m)
 
+def init_system(m, verbose=True, solver=None):
+    print(f'\n{"=======> SYSTEM INITIALIZATION <=======":^60}\n')
+    initialize_energy(m)
+    init_treatment(m)
+
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
     # ---solving---
@@ -504,6 +549,7 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
     else:
         print(msg)
         return results
+
 
 def optimize(
     m,
@@ -541,6 +587,7 @@ def optimize(
         print(f"\n------- Unfixed RO Membrane Area -------\n")
         for idx, stage in treatment.RO.stage.items():
             stage.module.area.unfix()
+
 
 def report_MCAS_stream_conc(m, stream):
     solute_set = m.fs.MCAS_properties.solute_set
