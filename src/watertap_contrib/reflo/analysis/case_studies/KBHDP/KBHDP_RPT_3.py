@@ -147,6 +147,7 @@ def add_constraints(m):
     # m.fs.disposal.properties[0].conc_mass_phase_comp
 
 
+# TODO: Add fraction of heat as solar
 def add_energy_constraints(m):
 
     @m.Constraint()
@@ -223,7 +224,7 @@ def set_inlet_conditions(blk, model_options):
 def set_operating_conditions(m):
 
     set_md_op_conditions(m.fs.treatment.md)
-    set_fpc_op_conditions(m.fs.energy.fpc)
+    set_fpc_op_conditions(m.fs.energy.fpc, hours_storage=8, temperature_hot=80)
 
 
 def init_system(m, blk, model_options, n_time_points, verbose=True, solver=None):
@@ -292,6 +293,10 @@ def report_sys_costing(blk):
     )
 
     print(
+        f'{"Agg Fixed Operating Cost":<30s}{value(blk.aggregate_fixed_operating_cost):<20,.2f}{pyunits.get_units(blk.aggregate_fixed_operating_cost)}'
+    )
+
+    print(
         f'{"Agg Variable Operating Cost":<30s}{value(blk.aggregate_variable_operating_cost):<20,.2f}{pyunits.get_units(blk.aggregate_variable_operating_cost)}'
     )
 
@@ -314,7 +319,7 @@ if __name__ == "__main__":
 
     feed_salinity = 12 * pyunits.g / pyunits.L
 
-    overall_recovery = 0.45
+    overall_recovery = 0.5
 
     inlet_cond = {
         "inlet_flow_rate": Qin,
@@ -322,7 +327,7 @@ if __name__ == "__main__":
         "recovery": overall_recovery,
     }
 
-    n_time_points = 2
+    n_time_points = None
 
     # Build  MD, DWI and FPC
     m, model_options, n_time_points = build_system(
@@ -334,7 +339,7 @@ if __name__ == "__main__":
 
     set_operating_conditions(m)
 
-    print(f"\n Before Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print(f"\nBefore Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     results = solver.solve(m)
 
@@ -351,13 +356,13 @@ if __name__ == "__main__":
 
     add_energy_constraints(m)
 
-    print(f"\n After Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print(f"\nAfter Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     results = solver.solve(m)
 
-    print(f"\n After Solve System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print(f"\nAfter Solve System Degrees of Freedom: {degrees_of_freedom(m)}")
 
-    m.fs.obj = Objective(expr=m.fs.energy.costing.LCOW)
+    m.fs.obj = Objective(expr=m.fs.sys_costing.LCOW)
     results = solver.solve(m)
 
     print(f"\n After Optimization System Degrees of Freedom: {degrees_of_freedom(m)}")
@@ -386,14 +391,16 @@ if __name__ == "__main__":
     report_fpc_costing(m, m.fs.energy)
     report_sys_costing(m.fs.sys_costing)
 
-    print("\nTreatment")
-    m.fs.treatment.costing.aggregate_fixed_operating_cost.display()
-    m.fs.treatment.costing.aggregate_variable_operating_cost.display()
-    m.fs.treatment.costing.total_operating_cost.display()
-    m.fs.treatment.costing.total_capital_cost.display()
+    # print("\nTreatment")
+    # m.fs.treatment.costing.aggregate_fixed_operating_cost.display()
+    # m.fs.treatment.costing.aggregate_variable_operating_cost.display()
+    # m.fs.treatment.costing.total_operating_cost.display()
+    # m.fs.treatment.costing.total_capital_cost.display()
 
-    print("\nEnergy")
-    m.fs.energy.costing.aggregate_fixed_operating_cost.display()
-    m.fs.energy.costing.aggregate_variable_operating_cost.display()
-    m.fs.energy.costing.total_capital_cost.display()
-    m.fs.energy.costing.total_operating_cost.display()
+    # print("\nEnergy")
+    # m.fs.energy.costing.aggregate_fixed_operating_cost.display()
+    # m.fs.energy.costing.aggregate_variable_operating_cost.display()
+    # m.fs.energy.costing.total_capital_cost.display()
+    # m.fs.energy.costing.total_operating_cost.display()
+
+    # m.fs.sys_costing.display()

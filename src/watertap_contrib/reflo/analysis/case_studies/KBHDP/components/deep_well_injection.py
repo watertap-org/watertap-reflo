@@ -144,6 +144,12 @@ def print_DWI_costing_breakdown(cost_blk, blk):
     print(
         f'{"Variable Operating":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
     )
+    try:
+        print(
+            f'{"Elec Cost":<30s}{value(blk.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_costs["electricity"])}'
+        )
+    except AttributeError:
+        print(f'{"Elec Cost":<30s}{"NA"}')
 
 
 def build_system():
@@ -203,8 +209,9 @@ if __name__ == "__main__":
     print("Degrees of Freedom:", degrees_of_freedom(m))
 
     # report_DWI(m, m.fs.DWI)
-    # print_DWI_costing_breakdown(m.fs, m.fs.DWI)
+    print_DWI_costing_breakdown(m.fs, m.fs.DWI)
+    print(degrees_of_freedom(m))
 
-    m.fs.costing.display()
+    # m.fs.costing.display()
 
     # m.fs.DWI.unit.costing.display()

@@ -90,13 +90,13 @@ def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_fpc_op_conditions(blk):
+def set_fpc_op_conditions(blk, hours_storage=4, temperature_hot=80):
 
-    blk.unit.hours_storage.fix(4)
+    blk.unit.hours_storage.fix(hours_storage)
     # Assumes the hot temperature to the inlet of a 'MD HX'
-    blk.unit.temperature_hot.fix(77)
+    blk.unit.temperature_hot.fix(temperature_hot)
     # Assumes the cold temperature from the outlet temperature of a 'MD HX'
-    blk.unit.temperature_cold.set_value(75)
+    blk.unit.temperature_cold.set_value(20)
 
 
 def add_fpc_costing(blk, costing_block):
