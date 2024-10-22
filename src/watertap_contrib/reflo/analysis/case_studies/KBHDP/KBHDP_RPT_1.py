@@ -80,6 +80,7 @@ def main():
     # display_costing_breakdown(m)
     # print(m.fs.energy.pv.display())
 
+
 def build_system():
     m = ConcreteModel()
     m.db = Database()
@@ -163,12 +164,14 @@ def build_system():
 
     return m
 
+
 def train_pv_surrogate(m):
     energy = m.fs.energy
-    
+
     energy.pv.create_rbf_surrogate()
 
     assert False
+
 
 def add_connections(m):
     treatment = m.fs.treatment
@@ -500,9 +503,6 @@ def initialize_energy(m, train=False):
 
     m.fs.energy.pv.load_surrogate()
 
-    
-
-
 
 def init_treatment(m, verbose=True, solver=None):
     if solver is None:
@@ -643,31 +643,53 @@ def report_stream_ion_conc(m, stream):
 
 def report_pump(m, pump):
     print(f"\n\n-------------------- SYSTEM PUMP --------------------\n\n")
-    print(f'{"Pump Pressure":<30s}{value(pyunits.convert(pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}')
-    print(f'{"Pump Work":<30s}{value(pyunits.convert(pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}')
+    print(
+        f'{"Pump Pressure":<30s}{value(pyunits.convert(pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+    )
+    print(
+        f'{"Pump Work":<30s}{value(pyunits.convert(pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}'
+    )
 
 
 def report_PV(m):
     elec = "electricity"
     print(f"\n\n-------------------- PHOTOVOLTAIC SYSTEM --------------------\n\n")
-    print(f'{"System Agg. Flow Electricity":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}')
-    print(f'{"PV Agg. Flow Elec.":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}')
-    print(f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}')
-    print(f'{"Land Requirement":<30s}{value(m.fs.energy.pv.land_req):<10.1f}{pyunits.get_units(m.fs.energy.pv.land_req)}')
-    print(f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.1f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}')
-    print(f'{"Treatment Annual Energy":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}')
-    print('\n')
-    print(f'{"PV Annual Generation":<25s}{f"{pyunits.convert(-1*m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}')
-    print(f'{"Treatment Annual Demand":<25s}{f"{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}')
+    print(
+        f'{"System Agg. Flow Electricity":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
+    )
+    print(
+        f'{"PV Agg. Flow Elec.":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}'
+    )
+    print(
+        f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
+    )
+    print(
+        f'{"Land Requirement":<30s}{value(m.fs.energy.pv.land_req):<10.1f}{pyunits.get_units(m.fs.energy.pv.land_req)}'
+    )
+    print(
+        f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.1f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}'
+    )
+    print(
+        f'{"Treatment Annual Energy":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
+    )
+    print("\n")
+    print(
+        f'{"PV Annual Generation":<25s}{f"{pyunits.convert(-1*m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
+    )
+    print(
+        f'{"Treatment Annual Demand":<25s}{f"{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
+    )
 
-    print(f'{"Treatment Elec Cost":<25s}{f"${value(m.fs.treatment.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}')
-    print(f'{"Energy Elec Cost":<25s}{f"${value(m.fs.energy.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}')
+    print(
+        f'{"Treatment Elec Cost":<25s}{f"${value(m.fs.treatment.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
+    )
+    print(
+        f'{"Energy Elec Cost":<25s}{f"${value(m.fs.energy.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
+    )
 
 
 def print_PV_costing_breakdown(pv):
-    print(
-        f'{"PV Capital Cost":<35s}{f"${value(pv.costing.capital_cost):<25,.0f}"}'
-    )
+    print(f'{"PV Capital Cost":<35s}{f"${value(pv.costing.capital_cost):<25,.0f}"}')
     print(
         f'{"PV Operating Cost":<35s}{f"${value(pv.costing.fixed_operating_cost):<25,.0f}"}'
     )
