@@ -143,18 +143,26 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         # energy producer's electricity flow is negative
         self.aggregate_electricity_balance = pyo.Constraint(
-            expr=(self.aggregate_flow_electricity_purchased + -1 * en_cost.aggregate_flow_electricity 
-                  == treat_cost.aggregate_flow_electricity + self.aggregate_flow_electricity_sold)
+            expr=(
+                self.aggregate_flow_electricity_purchased
+                + -1 * en_cost.aggregate_flow_electricity
+                == treat_cost.aggregate_flow_electricity
+                + self.aggregate_flow_electricity_sold
+            )
         )
 
         self.aggregate_electricity_complement = pyo.Constraint(
-            expr=self.aggregate_flow_electricity_purchased * self.aggregate_flow_electricity_sold == 0
+            expr=self.aggregate_flow_electricity_purchased
+            * self.aggregate_flow_electricity_sold
+            == 0
         )
 
         # energy producer's heat flow is negative
         self.aggregate_heat_balance = pyo.Constraint(
-            expr=(self.aggregate_flow_heat_purchased + -1 * en_cost.aggregate_flow_heat
-                  == treat_cost.aggregate_flow_heat + self.aggregate_flow_heat_sold)
+            expr=(
+                self.aggregate_flow_heat_purchased + -1 * en_cost.aggregate_flow_heat
+                == treat_cost.aggregate_flow_heat + self.aggregate_flow_heat_sold
+            )
         )
 
         self.aggregate_heat_complement = pyo.Constraint(
@@ -214,17 +222,39 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 to_units=self.base_currency / self.base_period,
             )
         )
-        
+
         # positive is for cost and negative for revenue
         self.total_electric_operating_cost = pyo.Expression(
-            expr=(pyo.units.convert(self.aggregate_flow_electricity_purchased, to_units=pyo.units.kWh/pyo.units.year) * self.electricity_cost_buy 
-                  - pyo.units.convert(self.aggregate_flow_electricity_sold, to_units=pyo.units.kWh/pyo.units.year) * self.electricity_cost_sell) * self.utilization_factor
+            expr=(
+                pyo.units.convert(
+                    self.aggregate_flow_electricity_purchased,
+                    to_units=pyo.units.kWh / pyo.units.year,
+                )
+                * self.electricity_cost_buy
+                - pyo.units.convert(
+                    self.aggregate_flow_electricity_sold,
+                    to_units=pyo.units.kWh / pyo.units.year,
+                )
+                * self.electricity_cost_sell
+            )
+            * self.utilization_factor
         )
 
         # positive is for cost and negative for revenue
         self.total_heat_operating_cost = pyo.Expression(
-            expr=(pyo.units.convert(self.aggregate_flow_heat_purchased, to_units=pyo.units.kWh/pyo.units.year) * self.heat_cost_buy 
-                  - pyo.units.convert(self.aggregate_flow_heat_sold, to_units=pyo.units.kWh/pyo.units.year) * self.heat_cost_sell) * self.utilization_factor
+            expr=(
+                pyo.units.convert(
+                    self.aggregate_flow_heat_purchased,
+                    to_units=pyo.units.kWh / pyo.units.year,
+                )
+                * self.heat_cost_buy
+                - pyo.units.convert(
+                    self.aggregate_flow_heat_sold,
+                    to_units=pyo.units.kWh / pyo.units.year,
+                )
+                * self.heat_cost_sell
+            )
+            * self.utilization_factor
         )
 
         # self.aggregate_flow_electricity_constraint = pyo.Constraint(
@@ -235,19 +265,20 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         # positive is for consumption
         self.aggregate_flow_electricity = pyo.Expression(
-            expr=self.aggregate_flow_electricity_purchased - self.aggregate_flow_electricity_sold
+            expr=self.aggregate_flow_electricity_purchased
+            - self.aggregate_flow_electricity_sold
         )
 
         # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
             self.aggregate_flow_heat_constraint = pyo.Constraint(
                 expr=self.aggregate_flow_heat
-                == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold  # treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat
+                == self.aggregate_flow_heat_purchased
+                - self.aggregate_flow_heat_sold  # treat_cost.aggregate_flow_heat + en_cost.aggregate_flow_heat
             )
             # self.aggregate_flow_heat = pyo.Expression(
-            #     expr=self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold 
+            #     expr=self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
             # )
-
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
