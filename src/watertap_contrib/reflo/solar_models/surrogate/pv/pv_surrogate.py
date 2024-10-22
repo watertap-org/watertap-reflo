@@ -50,10 +50,12 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
-            == 1
-            * self.electricity
-            * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
+            == pyunits.convert(self.electricity, to_units=pyunits.kWh / pyunits.year)
         )
+        # self.electricity_constraint = Constraint(
+        #     expr= -1 * self.electricity
+        #     == pyunits.convert(self.annual_energy * (pyunits.kW / pyunits.kWh), to_units=pyunits.kW)
+        # )
 
     def calculate_scaling_factors(self):
 

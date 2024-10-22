@@ -65,6 +65,8 @@ def main():
     set_operating_conditions(m)
     init_system(m)
     add_costing(m)
+    solve(m)
+
     optimize(m, ro_mem_area=None, water_recovery=0.5)
     solve(m)
     display_system_stream_table(m)
@@ -293,6 +295,10 @@ def add_energy_costing(m):
     energy.pv_design_constraint = Constraint(
         expr=m.fs.energy.pv.design_size
         == m.fs.treatment.costing.aggregate_flow_electricity
+    )
+
+    m.fs.energy.pv.costing.land_constraint = Constraint(
+        expr=m.fs.energy.pv.costing.land_area == m.fs.energy.pv.land_req
     )
 
     energy.costing.cost_process()
@@ -685,6 +691,22 @@ def report_PV(m):
     )
     print(
         f'{"Energy Elec Cost":<25s}{f"${value(m.fs.energy.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
+    )
+    print("\nEnergy Balance")
+    print(
+        f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
+    )
+    print(
+        f'{"PV Agg. Flow Elec.":<30s}{value(m.fs.energy.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
+    )
+    print(
+        f'{"Electricity Buy":<30s}{f"{value(m.fs.costing.aggregate_flow_electricity_purchased):<10,.0f}"}{"kW":<10s}'
+    )
+    print(
+        f'{"Electricity Sold":<30s}{f"{value(m.fs.costing.aggregate_flow_electricity_sold):<10,.0f}"}{"kW":<10s}'
+    )
+    print(
+        f'{"Electricity Cost":<29s}{f"${value(m.fs.costing.total_electric_operating_cost):<10,.0f}"}{"$/yr":<10s}'
     )
 
 
