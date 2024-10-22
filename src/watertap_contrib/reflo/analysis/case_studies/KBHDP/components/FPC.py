@@ -106,6 +106,7 @@ def add_fpc_costing(blk, costing_block):
 def calc_costing(m, blk):
     blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.total_investment_factor.fix(1)
+    blk.costing.heat_cost.set_value(0)
     blk.costing.cost_process()
     blk.costing.initialize()
 
@@ -167,9 +168,9 @@ def report_fpc_costing(m, blk):
         f'{"Total Operating Cost":<30s}{value(blk.costing.total_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_operating_cost)}'
     )
 
-    print(
-        f'{"Aggregated Variable Operating Cost":<30s}{value(blk.costing.aggregate_variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.aggregate_variable_operating_cost)}'
-    )
+    # print(
+    #     f'{"Aggregated Variable Operating Cost":<30s}{value(blk.costing.aggregate_variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.aggregate_variable_operating_cost)}'
+    # )
 
     print(
         f'{"Heat flow":<30s}{value(blk.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_heat)}'
@@ -214,3 +215,6 @@ if __name__ == "__main__":
 
     report_fpc(m, m.fs.fpc.unit)
     report_fpc_costing(m, m.fs)
+
+    # m.fs.costing.display()
+    # m.fs.costing.used_flows.display()

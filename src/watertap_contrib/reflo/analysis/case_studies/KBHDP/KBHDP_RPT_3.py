@@ -154,7 +154,7 @@ def add_energy_constraints(m):
     def eq_thermal_req(b):
         return (
             b.fs.energy.costing.aggregate_flow_heat
-            <= -1 * b.fs.treatment.costing.aggregate_flow_heat
+            >=  b.fs.treatment.costing.aggregate_flow_heat
         )
 
 
@@ -172,6 +172,7 @@ def calc_costing(m):
     m.fs.treatment.costing.maintenance_labor_chemical_factor.fix(0)
     m.fs.treatment.costing.capital_recovery_factor.fix(0.08764)
     m.fs.treatment.costing.wacc.unfix()
+    # m.fs.treatment.costing.heat_cost.set_value(0)
     m.fs.treatment.costing.cost_process()
 
     m.fs.treatment.costing.initialize()
@@ -184,6 +185,7 @@ def calc_costing(m):
     # Energy costing
     m.fs.energy.costing.maintenance_labor_chemical_factor.fix(0)
     m.fs.energy.costing.total_investment_factor.fix(1)
+    # m.fs.energy.costing.heat_cost.set_value(0)
     m.fs.energy.costing.cost_process()
 
     m.fs.energy.costing.initialize()
@@ -193,7 +195,9 @@ def calc_costing(m):
 
     # System costing
     m.fs.sys_costing = REFLOSystemCosting()
-    m.fs.sys_costing.wacc.unfix()
+    # m.fs.sys_costing.wacc.unfix()
+    # m.fs.sys_costing.heat_cost_buy.set_value(0.5)
+    m.fs.sys_costing.heat_cost_sell.set_value(0)
     m.fs.sys_costing.cost_process()
 
     m.fs.sys_costing.initialize()
@@ -305,7 +309,34 @@ def report_sys_costing(blk):
     )
 
     print(
+        f'{"Total heat cost":<30s}{value(blk.total_heat_operating_cost):<20,.2f}{pyunits.get_units(blk.total_heat_operating_cost)}'
+    )
+
+
+    print(
+        f'{"Heat purchased":<30s}{value(blk.aggregate_flow_heat_purchased):<20,.2f}{pyunits.get_units(blk.aggregate_flow_heat_purchased)}'
+    )
+
+    print(
+        f'{"Heat sold":<30s}{value(blk.aggregate_flow_heat_sold):<20,.2f}{pyunits.get_units(blk.aggregate_flow_heat_sold)}'
+    )
+
+    print(
         f'{"Elec Flow":<30s}{value(blk.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity)}'
+    )
+
+
+    print(
+        f'{"Total elec cost":<30s}{value(blk.total_electric_operating_cost):<20,.2f}{pyunits.get_units(blk.total_electric_operating_cost)}'
+    )
+
+
+    print(
+        f'{"Elec purchased":<30s}{value(blk.aggregate_flow_electricity_purchased):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity_purchased)}'
+    )
+
+    print(
+        f'{"Elec sold":<30s}{value(blk.aggregate_flow_electricity_sold):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity_sold)}'
     )
 
 
@@ -353,8 +384,9 @@ if __name__ == "__main__":
         energy_costing_block=m.fs.energy.costing,
     )
     calc_costing(m)
+    # m.fs.energy.fpc.unit.heat_load.fix(10)
 
-    add_energy_constraints(m)
+    # add_energy_constraints(m)
 
     print(f"\nAfter Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 
@@ -403,4 +435,4 @@ if __name__ == "__main__":
     # m.fs.energy.costing.total_capital_cost.display()
     # m.fs.energy.costing.total_operating_cost.display()
 
-    # m.fs.sys_costing.display()
+    # m.fs.sys_costing.used_flows.display()
