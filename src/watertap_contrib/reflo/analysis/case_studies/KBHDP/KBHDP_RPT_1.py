@@ -65,22 +65,23 @@ def main():
     set_operating_conditions(m)
     init_system(m)
     add_costing(m)
+    scale_costing(m)
     solve(m)
 
     optimize(m, ro_mem_area=None, water_recovery=0.5)
-    solve(m)
-    display_system_stream_table(m)
-    # display_costing_breakdown(m)
-    report_EC(m.fs.treatment.EC)
-    report_UF(m, m.fs.treatment.UF)
-    report_RO(m, m.fs.treatment.RO)
-    report_pump(m, m.fs.treatment.pump)
+    solve(m, debug=True)
+    # display_system_stream_table(m)
+    # # display_costing_breakdown(m)
+    # report_EC(m.fs.treatment.EC)
+    # report_UF(m, m.fs.treatment.UF)
+    # report_RO(m, m.fs.treatment.RO)
+    # report_pump(m, m.fs.treatment.pump)
     report_PV(m)
     # m.fs.treatment.costing.display()
-    # m.fs.energy.costing.display()
+    # m.fs.energy.costing.display()""
     # m.fs.costing.display()
     # display_costing_breakdown(m)
-    # print(m.fs.energy.pv.display())
+    print(m.fs.energy.pv.display())
 
 
 def build_system():
@@ -134,21 +135,7 @@ def build_system():
     build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
     build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
     build_ro(m, treatment.RO, prop_package=m.fs.RO_properties)
-
-    energy.pv = PVSurrogate(
-        surrogate_model_file="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
-        dataset_filename="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
-        input_variables={
-            "labels": ["design_size"],
-            "bounds": {"design_size": [1, 200000]},
-            "units": {"design_size": "kW"},
-        },
-        output_variables={
-            "labels": ["annual_energy", "land_req"],
-            "units": {"annual_energy": "kWh", "land_req": "acre"},
-        },
-        scale_training_data=False,
-    )
+    build_pv(m)
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -165,14 +152,6 @@ def build_system():
     )
 
     return m
-
-
-def train_pv_surrogate(m):
-    energy = m.fs.energy
-
-    energy.pv.create_rbf_surrogate()
-
-    assert False
 
 
 def add_connections(m):
@@ -262,10 +241,6 @@ def add_constraints(m):
         == treatment.product.properties[0].flow_vol
     )
 
-    # m.fs.feed.properties[0].conc_mass_phase_comp
-    # m.fs.product.properties[0].conc_mass_phase_comp
-    # m.fs.disposal.properties[0].conc_mass_phase_comp
-
 
 def add_treatment_costing(m):
     treatment = m.fs.treatment
@@ -292,17 +267,12 @@ def add_energy_costing(m):
         flowsheet_costing_block=energy.costing,
     )
 
-    energy.pv_design_constraint = Constraint(
-        expr=m.fs.energy.pv.design_size
-        == m.fs.treatment.costing.aggregate_flow_electricity
-    )
-
-    m.fs.energy.pv.costing.land_constraint = Constraint(
-        expr=m.fs.energy.pv.costing.land_area == m.fs.energy.pv.land_req
-    )
+    set_pv_constraints(m)
 
     energy.costing.cost_process()
     energy.costing.initialize()
+
+    # set_pv_constraints(m)
 
 
 def add_costing(m):
@@ -321,6 +291,19 @@ def add_costing(m):
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
 
     m.fs.costing.initialize()
+
+
+def scale_costing(m):
+    treatment = m.fs.treatment
+    energy = m.fs.energy
+
+    iscale.set_scaling_factor(m.fs.energy.pv.electricity, 1e-8)
+    iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1e-8)
+    iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-8)
+
+    iscale.constraint_scaling_transform(m.fs.energy.pv.costing.annual_generation_constraint, 1e-8)
+    # for e in m.fs.treatment.RO.stage[1].module.feed_side.eq_K:
+    #     iscale.constraint_scaling_transform(m.fs.treatment.RO.stage[1].module.feed_side.eq_K[e], 1e6)
 
 
 def relax_constaints(m, blk):
@@ -553,7 +536,7 @@ def init_system(m, verbose=True, solver=None):
     init_treatment(m)
 
 
-def solve(m, solver=None, tee=True, raise_on_failure=True):
+def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
     # ---solving---
     if solver is None:
         solver = get_solver()
@@ -565,6 +548,12 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
 
     if check_optimal_termination(results):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            check_jac(m)
+
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(m)
         return results
     msg = (
         "The current configuration is infeasible. Please adjust the decision variables."
@@ -617,11 +606,6 @@ def optimize(
         for idx, stage in treatment.RO.stage.items():
             stage.module.area.unfix()
 
-    # energy.pv_design_constraint = Constraint(
-    #     expr=energy.pv.design_size
-    #     == treatment.costing.aggregate_flow_electricity
-    # )
-
 
 def report_MCAS_stream_conc(m, stream):
     solute_set = m.fs.MCAS_properties.solute_set
@@ -654,66 +638,6 @@ def report_pump(m, pump):
     )
     print(
         f'{"Pump Work":<30s}{value(pyunits.convert(pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}'
-    )
-
-
-def report_PV(m):
-    elec = "electricity"
-    print(f"\n\n-------------------- PHOTOVOLTAIC SYSTEM --------------------\n\n")
-    print(
-        f'{"System Agg. Flow Electricity":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
-    )
-    print(
-        f'{"PV Agg. Flow Elec.":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}'
-    )
-    print(
-        f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
-    )
-    print(
-        f'{"Land Requirement":<30s}{value(m.fs.energy.pv.land_req):<10.1f}{pyunits.get_units(m.fs.energy.pv.land_req)}'
-    )
-    print(
-        f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.1f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}'
-    )
-    print(
-        f'{"Treatment Annual Energy":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
-    )
-    print("\n")
-    print(
-        f'{"PV Annual Generation":<25s}{f"{pyunits.convert(-1*m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
-    )
-    print(
-        f'{"Treatment Annual Demand":<25s}{f"{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
-    )
-
-    print(
-        f'{"Treatment Elec Cost":<25s}{f"${value(m.fs.treatment.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
-    )
-    print(
-        f'{"Energy Elec Cost":<25s}{f"${value(m.fs.energy.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
-    )
-    print("\nEnergy Balance")
-    print(
-        f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
-    )
-    print(
-        f'{"PV Agg. Flow Elec.":<30s}{value(m.fs.energy.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
-    )
-    print(
-        f'{"Electricity Buy":<30s}{f"{value(m.fs.costing.aggregate_flow_electricity_purchased):<10,.0f}"}{"kW":<10s}'
-    )
-    print(
-        f'{"Electricity Sold":<30s}{f"{value(m.fs.costing.aggregate_flow_electricity_sold):<10,.0f}"}{"kW":<10s}'
-    )
-    print(
-        f'{"Electricity Cost":<29s}{f"${value(m.fs.costing.total_electric_operating_cost):<10,.0f}"}{"$/yr":<10s}'
-    )
-
-
-def print_PV_costing_breakdown(pv):
-    print(f'{"PV Capital Cost":<35s}{f"${value(pv.costing.capital_cost):<25,.0f}"}')
-    print(
-        f'{"PV Operating Cost":<35s}{f"${value(pv.costing.fixed_operating_cost):<25,.0f}"}'
     )
 
 
