@@ -376,10 +376,12 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self.add_component(output_var_name, v_out)
 
     def load_surrogate(self):
-
         stream = StringIO()
         oldstdout = sys.stdout
         sys.stdout = stream
+
+        if self.config.surrogate_model_file is not None:
+            self.surrogate_file = self.config.surrogate_model_file
 
         self.surrogate_blk = SurrogateBlock(concrete=True)
         self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
