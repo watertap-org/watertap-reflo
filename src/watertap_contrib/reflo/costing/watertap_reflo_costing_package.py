@@ -10,6 +10,7 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
+from pyomo.common.config import ConfigValue
 import pyomo.environ as pyo
 
 from idaes.core import declare_process_block_class
@@ -19,13 +20,48 @@ from watertap.costing.watertap_costing_package import (
     WaterTAPCostingBlockData,
 )
 from watertap_contrib.reflo.core import PySAMWaterTAP
-
+from watertap.costing.zero_order_costing import _load_case_study_definition
 
 @declare_process_block_class("REFLOCosting")
 class REFLOCostingData(WaterTAPCostingData):
+
+    CONFIG = WaterTAPCostingData.CONFIG()
+    CONFIG.declare(
+        "case_study_definition",
+        ConfigValue(
+            default=None,
+            doc="Path to YAML file defining global parameters for case study. If "
+            "not provided, default values from the WaterTap database are used.",
+        ),
+    )
+
     def build_global_params(self):
+        if self.config.case_study_definition is not None:
+            self.case_study = _load_case_study_definition(self)
+
+
+            # Define expected flows
+            for f, v in self.case_study["defined_flows"].items():
+                value = v["value"]
+                units = getattr(pyo.units, v["units"])
+                if self.component(f + "_cost") is not None:
+                    self.component(f + "_cost").fix(value * units)
+                else:
+                    self.defined_flows[f] = value * units
+        
         super().build_global_params()
 
+        # Fix all Vars from database
+        # for v in global_params:
+        #     try:
+        #         value = self._cs_def["global_parameters"][v]["value"]
+        #         units = self._cs_def["global_parameters"][v]["units"]
+        #         getattr(self, v).fix(value * getattr(pyo.units, units))
+        #     except KeyError:
+        #         raise KeyError(
+        #             f"Invalid case study definition file - no entry found "
+        #             f"for {v}, or entry lacks value and units."
+        #         )
         self.base_currency = pyo.units.USD_2021
 
         self.sales_tax_frac = pyo.Param(
