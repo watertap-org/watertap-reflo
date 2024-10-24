@@ -154,7 +154,7 @@ def add_energy_constraints(m):
     def eq_thermal_req(b):
         return (
             b.fs.energy.costing.aggregate_flow_heat
-            ==  -1*b.fs.treatment.costing.aggregate_flow_heat*0.5
+            == -1 * b.fs.treatment.costing.aggregate_flow_heat * 0.5
         )
 
 
@@ -195,7 +195,7 @@ def add_system_costing(m):
     m.fs.sys_costing.cost_process()
 
     m.fs.sys_costing.initialize()
-    
+
     m.fs.sys_costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
 
@@ -307,7 +307,6 @@ def report_sys_costing(blk):
     #     f'{"Total heat cost":<30s}{value(blk.total_heat_operating_cost):<20,.2f}{pyunits.get_units(blk.total_heat_operating_cost)}'
     # )
 
-
     print(
         f'{"Heat purchased":<30s}{value(blk.aggregate_flow_heat_purchased):<20,.2f}{pyunits.get_units(blk.aggregate_flow_heat_purchased)}'
     )
@@ -320,11 +319,9 @@ def report_sys_costing(blk):
         f'{"Elec Flow":<30s}{value(blk.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity)}'
     )
 
-
     # print(
     #     f'{"Total elec cost":<30s}{value(blk.total_electric_operating_cost):<20,.2f}{pyunits.get_units(blk.total_electric_operating_cost)}'
     # )
-
 
     print(
         f'{"Elec purchased":<30s}{value(blk.aggregate_flow_electricity_purchased):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity_purchased)}'
@@ -381,24 +378,26 @@ if __name__ == "__main__":
 
     calc_costing(m)
     add_system_costing(m)
-    iscale.set_scaling_factor(m.fs.sys_costing.aggregate_flow_electricity_purchased , 1e4)
+    iscale.set_scaling_factor(
+        m.fs.sys_costing.aggregate_flow_electricity_purchased, 1e4
+    )
     # add_energy_constraints(m)
 
     print(f"\nAfter Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print('Treatment block:',degrees_of_freedom(m.fs.treatment))
-    print('Treatment costing block:',degrees_of_freedom(m.fs.treatment.costing))
-    print('Energy block:',degrees_of_freedom(m.fs.energy))
-    print('Energy costing block:',degrees_of_freedom(m.fs.energy.costing))
+    print("Treatment block:", degrees_of_freedom(m.fs.treatment))
+    print("Treatment costing block:", degrees_of_freedom(m.fs.treatment.costing))
+    print("Energy block:", degrees_of_freedom(m.fs.energy))
+    print("Energy costing block:", degrees_of_freedom(m.fs.energy.costing))
 
     results = solver.solve(m)
 
     print_infeasible_constraints(m)
 
     print(f"\nAfter Solve System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print('Treatment block:',degrees_of_freedom(m.fs.treatment))
-    print('Treatment costing block:',degrees_of_freedom(m.fs.treatment.costing))
-    print('Energy block:',degrees_of_freedom(m.fs.energy))
-    print('Energy costing block:',degrees_of_freedom(m.fs.energy.costing))
+    print("Treatment block:", degrees_of_freedom(m.fs.treatment))
+    print("Treatment costing block:", degrees_of_freedom(m.fs.treatment.costing))
+    print("Energy block:", degrees_of_freedom(m.fs.energy))
+    print("Energy costing block:", degrees_of_freedom(m.fs.energy.costing))
 
     m.fs.sys_costing.frac_from_grid.unfix()
 
