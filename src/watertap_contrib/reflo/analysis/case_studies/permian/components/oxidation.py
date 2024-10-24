@@ -63,7 +63,9 @@ def build_system():
     m = ConcreteModel()
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.costing = TreatmentCosting(case_study_definition="/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/data/technoeconomic/permian_case_study.yaml")
+    m.fs.costing = TreatmentCosting(
+        case_study_definition="/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/data/technoeconomic/permian_case_study.yaml"
+    )
     m.fs.properties = ZO(solute_list=["tds"])
     m.fs.feed = Feed(property_package=m.fs.properties)
     m.fs.product = Product(property_package=m.fs.properties)
@@ -147,6 +149,7 @@ def set_chem_addition_op_conditions(m, chem_addition):
 def add_chem_addition_costing(m, blk):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
+
 def init_system(blk, solver=None, flow_out=None):
     if solver is None:
         solver = get_solver()
@@ -163,10 +166,10 @@ def init_system(blk, solver=None, flow_out=None):
     _prop_state(m.fs.chem_to_product)
     m.fs.product.initialize()
 
-
     m.fs.costing.cost_process()
     m.fs.costing.initialize()
     m.fs.costing.add_LCOW(flow_out)
+
 
 def print_chem_addition_costing_breakdown(blk):
     # pass
@@ -180,6 +183,7 @@ def print_chem_addition_costing_breakdown(blk):
     # print(
     #     f'{"Chem Addition Operating Cost":<35s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
     # )
+
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
     # ---solving---
@@ -201,7 +205,7 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
     else:
         return results
 
-    
+
 if __name__ == "__main__":
     m = build_system()
     set_system_operating_conditions(m)

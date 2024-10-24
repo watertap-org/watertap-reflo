@@ -47,6 +47,7 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOCosting,
 )
+
 rho = 1000 * pyunits.kg / pyunits.m**3
 
 
@@ -131,7 +132,7 @@ def set_system_operating_conditions(m, Qin=5, tds=130):
     }
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
-    m.tds = tds 
+    m.tds = tds
 
     flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
     inlet_dict = {"tds": tds * pyunits.kg / pyunits.m**3}
@@ -188,7 +189,8 @@ def set_ec_operating_conditions(m, blk):
     #     blk.feed.properties[0].flow_mass_comp["H2O"] / rho
     # )
     # kg/s / (kg/s*m3/kg)
-    cond = pyunits.convert(m.tds * pyunits.gram/pyunits.liter / conv,
+    cond = pyunits.convert(
+        m.tds * pyunits.gram / pyunits.liter / conv,
         to_units=pyunits.S / pyunits.m,
     )
     print(f"cond = {cond()}")
@@ -320,7 +322,6 @@ if __name__ == "__main__":
     m.fs.EC.unit.power_required.display()
     m.fs.EC.unit.metal_dose.display()
     # m.fs.costing.display()
-
 
     # report_EC(m.fs.EC)
     # m.fs.EC.unit.display()
