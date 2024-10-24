@@ -190,13 +190,15 @@ def add_system_costing(m):
     # System costing
     m.fs.sys_costing = REFLOSystemCosting()
     # m.fs.sys_costing.wacc.unfix()
-    m.fs.sys_costing.frac_from_grid.fix(0.01)
-    m.fs.sys_costing.heat_cost_sell.set_value(0)
+    m.fs.sys_costing.frac_heat_from_grid.fix(0.01)
+    # m.fs.sys_costing.frac_elec_from_grid.fix(0.1)
+    m.fs.sys_costing.heat_cost_buy.set_value(1)
     m.fs.sys_costing.cost_process()
 
     m.fs.sys_costing.initialize()
 
     m.fs.sys_costing.add_LCOW(m.fs.product.properties[0].flow_vol)
+
 
 
 def set_inlet_conditions(blk, model_options):
@@ -378,9 +380,7 @@ if __name__ == "__main__":
 
     calc_costing(m)
     add_system_costing(m)
-    iscale.set_scaling_factor(
-        m.fs.sys_costing.aggregate_flow_electricity_purchased, 1e4
-    )
+
     # add_energy_constraints(m)
 
     print(f"\nAfter Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
@@ -399,7 +399,7 @@ if __name__ == "__main__":
     print("Energy block:", degrees_of_freedom(m.fs.energy))
     print("Energy costing block:", degrees_of_freedom(m.fs.energy.costing))
 
-    m.fs.sys_costing.frac_from_grid.unfix()
+    m.fs.sys_costing.frac_heat_from_grid.unfix()
 
     m.fs.obj = Objective(expr=m.fs.sys_costing.LCOW)
     results = solver.solve(m)
