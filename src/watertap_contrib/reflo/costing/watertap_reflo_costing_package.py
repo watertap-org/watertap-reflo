@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -10,6 +10,7 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
+from pyomo.common.config import ConfigValue
 import pyomo.environ as pyo
 
 from idaes.core import declare_process_block_class
@@ -18,14 +19,29 @@ from watertap.costing.watertap_costing_package import (
     WaterTAPCostingData,
     WaterTAPCostingBlockData,
 )
+from watertap.costing.zero_order_costing import _load_case_study_definition
+
 from watertap_contrib.reflo.core import PySAMWaterTAP
 
 
 @declare_process_block_class("REFLOCosting")
 class REFLOCostingData(WaterTAPCostingData):
+
+    CONFIG = WaterTAPCostingData.CONFIG()
+    CONFIG.declare(
+        "case_study_definition",
+        ConfigValue(
+            default=None,
+            doc="Path to YAML file defining global parameters for case study. If "
+            "not provided, WaterTAP-REFLO values are used.",
+        ),
+    )
+
     def build_global_params(self):
+
         super().build_global_params()
 
+        # Override WaterTAP default value of USD_2018
         self.base_currency = pyo.units.USD_2021
 
         self.sales_tax_frac = pyo.Param(
@@ -42,12 +58,34 @@ class REFLOCostingData(WaterTAPCostingData):
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
 
-        self.electricity_cost.fix(0.0)
-
         self.register_flow_type("heat", self.heat_cost)
 
+        self.electricity_cost.fix(0.0)
         self.plant_lifetime.fix(20)
         self.utilization_factor.fix(1)
+
+        # This should override default values
+        if self.config.case_study_definition is not None:
+            self.case_study_def = _load_case_study_definition(self)
+            # Register currency and conversion rates
+            if "currency_definitions" in self.case_study_def:
+                pyo.units.load_definitions_from_strings(
+                    self._cs_def["currency_definitions"]
+                )
+            # If currency definition is defined in case study yaml,
+            # we should be able to set it here.
+            if "base_currency" in self.case_study_def:
+                self.base_currency = getattr(pyo.units, self._cs_def["base_currency"])
+            if "base_period" in self.case_study_def:
+                self.base_period = getattr(pyo.units, self._cs_def["base_period"])
+            # Define expected flows
+            for f, v in self.case_study_def["defined_flows"].items():
+                value = v["value"]
+                units = getattr(pyo.units, v["units"])
+                if self.component(f + "_cost") is not None:
+                    self.component(f + "_cost").fix(value * units)
+                else:
+                    self.defined_flows[f] = value * units
 
 
 @declare_process_block_class("TreatmentCosting")
