@@ -503,9 +503,6 @@ def add_md_costing(blk, costing_block):
 
 
 def calc_costing(m, blk):
-
-    m.fs.costing.total_investment_factor.fix(1)
-    m.fs.costing.maintenance_labor_chemical_factor.fix(0)
     m.fs.costing.capital_recovery_factor.fix(0.08764)
     m.fs.costing.wacc.unfix()
 

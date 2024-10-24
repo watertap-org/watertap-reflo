@@ -154,7 +154,7 @@ def add_energy_constraints(m):
     def eq_thermal_req(b):
         return (
             b.fs.energy.costing.aggregate_flow_heat
-            >=  b.fs.treatment.costing.aggregate_flow_heat
+            ==  -1*b.fs.treatment.costing.aggregate_flow_heat*0.5
         )
 
 
@@ -167,12 +167,8 @@ def add_costing(m, treatment_costing_block, energy_costing_block):
 def calc_costing(m):
 
     # Treatment costing
-
-    m.fs.treatment.costing.total_investment_factor.fix(1)
-    m.fs.treatment.costing.maintenance_labor_chemical_factor.fix(0)
     m.fs.treatment.costing.capital_recovery_factor.fix(0.08764)
     m.fs.treatment.costing.wacc.unfix()
-    # m.fs.treatment.costing.heat_cost.set_value(0)
     m.fs.treatment.costing.cost_process()
 
     m.fs.treatment.costing.initialize()
@@ -183,24 +179,23 @@ def calc_costing(m):
     m.fs.treatment.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
     # Energy costing
-    m.fs.energy.costing.maintenance_labor_chemical_factor.fix(0)
-    m.fs.energy.costing.total_investment_factor.fix(1)
-    # m.fs.energy.costing.heat_cost.set_value(0)
     m.fs.energy.costing.cost_process()
 
     m.fs.energy.costing.initialize()
-
     m.fs.energy.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
     m.fs.energy.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
+
+def add_system_costing(m):
     # System costing
     m.fs.sys_costing = REFLOSystemCosting()
     # m.fs.sys_costing.wacc.unfix()
-    # m.fs.sys_costing.heat_cost_buy.set_value(0.5)
+    m.fs.sys_costing.frac_from_grid.fix(0.01)
     m.fs.sys_costing.heat_cost_sell.set_value(0)
     m.fs.sys_costing.cost_process()
 
     m.fs.sys_costing.initialize()
+    
     m.fs.sys_costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
 
@@ -308,9 +303,9 @@ def report_sys_costing(blk):
         f'{"Heat flow":<30s}{value(blk.aggregate_flow_heat):<20,.2f}{pyunits.get_units(blk.aggregate_flow_heat)}'
     )
 
-    print(
-        f'{"Total heat cost":<30s}{value(blk.total_heat_operating_cost):<20,.2f}{pyunits.get_units(blk.total_heat_operating_cost)}'
-    )
+    # print(
+    #     f'{"Total heat cost":<30s}{value(blk.total_heat_operating_cost):<20,.2f}{pyunits.get_units(blk.total_heat_operating_cost)}'
+    # )
 
 
     print(
@@ -326,9 +321,9 @@ def report_sys_costing(blk):
     )
 
 
-    print(
-        f'{"Total elec cost":<30s}{value(blk.total_electric_operating_cost):<20,.2f}{pyunits.get_units(blk.total_electric_operating_cost)}'
-    )
+    # print(
+    #     f'{"Total elec cost":<30s}{value(blk.total_electric_operating_cost):<20,.2f}{pyunits.get_units(blk.total_electric_operating_cost)}'
+    # )
 
 
     print(
@@ -383,21 +378,34 @@ if __name__ == "__main__":
         treatment_costing_block=m.fs.treatment.costing,
         energy_costing_block=m.fs.energy.costing,
     )
-    calc_costing(m)
-    # m.fs.energy.fpc.unit.heat_load.fix(10)
 
+    calc_costing(m)
+    add_system_costing(m)
+    iscale.set_scaling_factor(m.fs.sys_costing.aggregate_flow_electricity_purchased , 1e4)
     # add_energy_constraints(m)
 
     print(f"\nAfter Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print('Treatment block:',degrees_of_freedom(m.fs.treatment))
+    print('Treatment costing block:',degrees_of_freedom(m.fs.treatment.costing))
+    print('Energy block:',degrees_of_freedom(m.fs.energy))
+    print('Energy costing block:',degrees_of_freedom(m.fs.energy.costing))
 
     results = solver.solve(m)
 
+    print_infeasible_constraints(m)
+
     print(f"\nAfter Solve System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print('Treatment block:',degrees_of_freedom(m.fs.treatment))
+    print('Treatment costing block:',degrees_of_freedom(m.fs.treatment.costing))
+    print('Energy block:',degrees_of_freedom(m.fs.energy))
+    print('Energy costing block:',degrees_of_freedom(m.fs.energy.costing))
+
+    m.fs.sys_costing.frac_from_grid.unfix()
 
     m.fs.obj = Objective(expr=m.fs.sys_costing.LCOW)
     results = solver.solve(m)
 
-    print(f"\n After Optimization System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print(f"\nAfter Optimization System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     print("\n")
     print(
@@ -435,4 +443,6 @@ if __name__ == "__main__":
     # m.fs.energy.costing.total_capital_cost.display()
     # m.fs.energy.costing.total_operating_cost.display()
 
-    # m.fs.sys_costing.used_flows.display()
+    # m.fs.sys_costing.display()
+    # m.fs.energy.costing.display()
+    # m.fs.energy.display()

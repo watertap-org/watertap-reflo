@@ -104,8 +104,6 @@ def add_fpc_costing(blk, costing_block):
 
 
 def calc_costing(m, blk):
-    blk.costing.maintenance_labor_chemical_factor.fix(0)
-    blk.costing.total_investment_factor.fix(1)
     blk.costing.heat_cost.set_value(0)
     blk.costing.cost_process()
     blk.costing.initialize()
@@ -201,20 +199,21 @@ if __name__ == "__main__":
     set_fpc_op_conditions(m.fs.fpc)
 
     # TODO: Connect to overall_thermal_requirement
-    m.fs.fpc.unit.heat_load.fix(10)
+    # m.fs.fpc.unit.heat_load.fix(10)
 
     print("Degrees of Freedom:", degrees_of_freedom(m))
 
-    results = solver.solve(m)
+    # results = solver.solve(m)
     add_fpc_costing(m.fs.fpc, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-
+    m.fs.costing.aggregate_flow_heat.fix(-4000)
     results = solver.solve(m)
 
     # print("LCOW:", m.fs.costing.LCOW())
-
+    print(degrees_of_freedom(m))
     report_fpc(m, m.fs.fpc.unit)
     report_fpc_costing(m, m.fs)
 
-    # m.fs.costing.display()
+    m.fs.costing.display()
+    m.fs.fpc.unit.display()
     # m.fs.costing.used_flows.display()
