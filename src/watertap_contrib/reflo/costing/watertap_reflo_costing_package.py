@@ -70,14 +70,14 @@ class REFLOCostingData(WaterTAPCostingData):
             # Register currency and conversion rates
             if "currency_definitions" in self.case_study_def:
                 pyo.units.load_definitions_from_strings(
-                    self._cs_def["currency_definitions"]
+                    self.case_study_def["currency_definitions"]
                 )
             # If currency definition is defined in case study yaml,
             # we should be able to set it here.
             if "base_currency" in self.case_study_def:
-                self.base_currency = getattr(pyo.units, self._cs_def["base_currency"])
+                self.base_currency = getattr(pyo.units, self.case_study_def["base_currency"])
             if "base_period" in self.case_study_def:
-                self.base_period = getattr(pyo.units, self._cs_def["base_period"])
+                self.base_period = getattr(pyo.units, self.case_study_def["base_period"])
             # Define expected flows
             for f, v in self.case_study_def["defined_flows"].items():
                 value = v["value"]
