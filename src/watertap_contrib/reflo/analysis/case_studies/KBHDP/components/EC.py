@@ -1,3 +1,4 @@
+import pathlib
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -40,6 +41,14 @@ import numpy as np
 from watertap.costing import WaterTAPCosting
 import math
 
+from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
+
+from watertap_contrib.reflo.core import REFLODatabase
+
+rho = 1000 * pyunits.kg / pyunits.m**3
+reflo_dir = pathlib.Path(__file__).resolve().parents[4]
+
+case_study_yaml = f"{reflo_dir}/data/technoeconomic/kbhdp_case_study.yaml"
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -62,6 +71,7 @@ def build_ec(m, blk, prop_package=None):
         electrode_material="aluminum",
         reactor_material="pvc",
         overpotential_calculation="calculated",
+        process_subtype="kbhdp"
     )
 
     # print(blk.ec.display())
@@ -92,7 +102,7 @@ def build_ec(m, blk, prop_package=None):
 def build_system():
     """Function to create concrete model for individual unit model flowsheet"""
     m = ConcreteModel()
-    m.db = Database()
+    m.db = REFLODatabase()
 
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = WaterParameterBlockZO(solute_list=["tds"])
@@ -125,70 +135,69 @@ def set_system_operating_conditions(m):
     flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3)  # kg/s
 
     tds = input["tds (g/l)"] * pyunits.g / pyunits.liter
-    tds_in = pyunits.convert(tds, to_units=pyunits.kg / pyunits.m**3)
+    m.tds = pyunits.convert(tds, to_units=pyunits.kg / pyunits.m**3)
 
     m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(flow_in_mass)
     m.fs.feed.properties[0].flow_mass_comp["tds"].fix(
-        tds_in * flow_in
+        m.tds * flow_in
     )  # kg/m3 * m3/s = kg/s
 
 
 def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
+    
+    blk.ec.load_parameters_from_database(use_default_removal=True)
 
-    input = {
-        "gap (cm)": 0.32,
-        "thickness (cm)": 0.32,
-        "ret_time (s)": 23,
-        "dose (mg/L)": 2.95,
-        "anode_area (cm2)": 184,
-        "cd (A/m2)": 218,
-    }
+    # input = {
+    #     "gap (cm)": 0.5,
+    #     "thickness (cm)": 0.1,
+    #     "ret_time (s)": 25,
+    #     "dose (mg/L)": 2.95,
+    #     "anode_area (cm2)": 184,
+    #     "cd (A/m2)": 500,
+    # }
 
-    gap = pyunits.convert(input["gap (cm)"] * pyunits.cm, to_units=pyunits.m)()
-    e_thick = pyunits.convert(
-        input["thickness (cm)"] * pyunits.cm, to_units=pyunits.m
-    )()
-    time = pyunits.convert(
-        input["ret_time (s)"] * pyunits.seconds, to_units=pyunits.minutes
-    )()
+
+    # gap = pyunits.convert(input["gap (cm)"] * pyunits.cm, to_units=pyunits.m)()
+    # e_thick = pyunits.convert(
+    #     input["thickness (cm)"] * pyunits.cm, to_units=pyunits.m
+    # )()
+    # time = pyunits.convert(
+    #     input["ret_time (s)"] * pyunits.seconds, to_units=pyunits.minutes
+    # )()
 
     conv = 5e3 * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
-    tds = blk.feed.properties[0].flow_mass_comp["tds"] / (
-        blk.feed.properties[0].flow_mass_comp["H2O"]
-        / (1000 * pyunits.kg / pyunits.m**3)
-    )
-    # kg/s / (kg/s*m3/kg)
+
     cond = pyunits.convert(
-        pyunits.convert(tds, to_units=pyunits.mg / pyunits.liter) / conv,
+        pyunits.convert(m.tds, to_units=pyunits.mg / pyunits.liter) / conv,
         to_units=pyunits.S / pyunits.m,
     )
     blk.ec.conductivity.fix(cond)
 
-    ec_dose = input["dose (mg/L)"] * pyunits.mg / pyunits.liter
-    ec_dose = pyunits.convert(
-        input["dose (mg/L)"] * pyunits.mg / pyunits.liter,
-        to_units=pyunits.kg / pyunits.liter,
-    )
+    # ec_dose = input["dose (mg/L)"] * pyunits.mg / pyunits.liter
+    # ec_dose = pyunits.convert(
+    #     input["dose (mg/L)"] * pyunits.mg / pyunits.liter,
+    #     to_units=pyunits.kg / pyunits.liter,
+    # )
 
-    anode_area = pyunits.convert(
-        input["anode_area (cm2)"] * pyunits.cm**2, to_units=pyunits.m**2
-    )
+    # anode_area = pyunits.convert(
+    #     input["anode_area (cm2)"] * pyunits.cm**2, to_units=pyunits.m**2
+    # )
 
-    blk.ec.load_parameters_from_database(use_default_removal=True)
+    
 
-    blk.ec.electrode_thick.fix(e_thick)
-    blk.ec.electrode_gap.fix(gap)
+    # blk.ec.electrode_thick.fix(e_thick)
+    # blk.ec.electrode_gap.fix(gap)
 
-    blk.ec.current_density.fix(input["cd (A/m2)"])
-    blk.ec.metal_dose.fix(ec_dose)
+    # blk.ec.current_density.fix(input["cd (A/m2)"])
+    # blk.ec.metal_dose.fix(ec_dose)
 
-    if blk.ec.config.electrode_material == "aluminum":
-        blk.ec.current_efficiency.fix(1)
+    # if blk.ec.config.electrode_material == "aluminum":
+    #     blk.ec.current_efficiency.fix(1)
 
-    blk.ec.overpotential_k1.fix(430)
-    blk.ec.overpotential_k2.fix(1000)
+    # blk.ec.overpotential_k1.fix(430)
+    # blk.ec.overpotential_k2.fix(1000)
 
 
 def set_scaling(m, blk):
@@ -234,6 +243,11 @@ def init_ec(m, blk, solver=None):
 
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_ec)
+
+    cvc(blk.ec.overpotential, blk.ec.eq_overpotential)
+    cvc(blk.ec.applied_current, blk.ec.eq_applied_current)
+    cvc(blk.ec.anode_area, blk.ec.eq_electrode_area_total)
+    cvc(blk.ec.ohmic_resistance, blk.ec.eq_ohmic_resistance)
 
     blk.ec.initialize(optarg=optarg)
     propagate_state(blk.ec_to_product)
@@ -284,10 +298,16 @@ if __name__ == "__main__":
     # solver = get_solver()
     # results = solver.solve(m)
 
-    # add_system_costing(m)
+    add_system_costing(m)
+
+    solver = get_solver()
+    results = solver.solve(m)
 
     # m.fs.objective_lcow = Objective(expr = m.fs.costing.LCOW)
     # results = solver.solve(m)
 
     # print(m.fs.objective_lcow())
-    report_EC(m.fs.EC)
+    # report_EC(m.fs.EC)
+    # m.fs.EC.ec.display()
+    # m.fs.costing.display()
+    print(f"LCOW = {m.fs.costing.LCOW()}")
