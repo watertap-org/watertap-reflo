@@ -48,11 +48,13 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOCosting,
 )
+from watertap_contrib.reflo.core import REFLODatabase
 
 rho = 1000 * pyunits.kg / pyunits.m**3
 reflo_dir = pathlib.Path(__file__).resolve().parents[4]
 
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -75,6 +77,7 @@ def build_ec(m, blk, prop_package=None):
         electrode_material="aluminum",
         reactor_material="pvc",
         overpotential_calculation="calculated",
+        process_subtype="permian", 
     )
 
     # print(blk.ec.display())
@@ -105,7 +108,7 @@ def build_ec(m, blk, prop_package=None):
 def build_system():
     """Function to create concrete model for individual unit model flowsheet"""
     m = ConcreteModel()
-    m.db = Database()
+    m.db = REFLODatabase()
 
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = WaterParameterBlockZO(solute_list=["tds"])
@@ -129,14 +132,12 @@ def build_system():
 def set_system_operating_conditions(m, Qin=5, tds=130):
     """This function sets the system operating conditions for individual unit model flowsheet"""
 
-    ec_input = {
-        "q (m3/s)": 0.175,
-        "tds (g/l)": 130,
-    }
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3/pyunits.s)
     m.tds = tds
 
+    # TODO: rho should probably be higher for 130 g/L
     flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
     inlet_dict = {"tds": tds * pyunits.kg / pyunits.m**3}
     m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(flow_mass_water)
@@ -172,26 +173,10 @@ def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
 
-    ec_input = {
-        "gap (cm)": 0.5,
-        "thickness (cm)": 0.1,
-        "ret_time (s)": 25,
-        "dose (mg/L)": 2.95,
-        "anode_area (cm2)": 184,
-        "cd (A/m2)": 500,
-    }
-
     blk.unit.load_parameters_from_database(use_default_removal=True)
-    gap = pyunits.convert(ec_input["gap (cm)"] * pyunits.cm, to_units=pyunits.m)()
-    e_thick = pyunits.convert(
-        ec_input["thickness (cm)"] * pyunits.cm, to_units=pyunits.m
-    )()
 
     conv = 5e3 * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
-    # tds = blk.feed.properties[0].flow_mass_comp["tds"] / (
-    #     blk.feed.properties[0].flow_mass_comp["H2O"] / rho
-    # )
-    # kg/s / (kg/s*m3/kg)
+
     cond = pyunits.convert(
         m.tds * pyunits.gram / pyunits.liter / conv,
         to_units=pyunits.S / pyunits.m,
@@ -199,23 +184,7 @@ def set_ec_operating_conditions(m, blk):
     print(f"cond = {cond()}")
     blk.unit.conductivity.fix(cond)
 
-    ec_dose = ec_input["dose (mg/L)"] * pyunits.mg / pyunits.liter
-    ec_dose = pyunits.convert(
-        ec_input["dose (mg/L)"] * pyunits.mg / pyunits.liter,
-        to_units=pyunits.kg / pyunits.liter,
-    )
 
-    blk.unit.electrode_thick.fix(e_thick)
-    blk.unit.electrode_gap.fix(gap)
-
-    blk.unit.current_density.fix(ec_input["cd (A/m2)"])
-    blk.unit.metal_dose.fix(ec_dose)
-
-    if blk.unit.config.electrode_material == "aluminum":
-        blk.unit.current_efficiency.fix(1)
-
-    blk.unit.overpotential_k1.fix(430)
-    blk.unit.overpotential_k2.fix(1000)
 
 
 def set_scaling(m, blk):
@@ -275,7 +244,7 @@ def init_ec(m, blk, solver=None):
 def add_system_costing(m):
     """Add system level costing components"""
     m.fs.costing = TreatmentCosting(case_study_definition=case_study_yaml)
-    m.fs.costing.electricity_cost.fix(0.07)
+    # m.fs.costing.electricity_cost.fix(0.07)
     add_ec_costing(m, m.fs.EC)
     calc_costing(m, m.fs.EC)
 
@@ -319,15 +288,9 @@ if __name__ == "__main__":
     assert_optimal_termination(results)
     print(f"LCOW = {m.fs.costing.LCOW()}")
     # m.fs.EC.unit.display()
-    # print(f"dof = {degrees_of_freedom(m)}")
-    # m.fs.EC.unit.overpotential.display()
-    # m.fs.EC.unit.ohmic_resistance.display()
-    # m.fs.EC.unit.cell_voltage.display()
-    # m.fs.EC.unit.power_required.display()
-    # m.fs.EC.unit.metal_dose.display()
-    # m.fs.costing.aggregate_flow_costs.display()
-    # m.fs.costing.display()
+    # ec = m.fs.EC.unit
+    # ec.display()
+    # ec.properties_in[0].display()
+    # ec.electrolysis_time.display()
 
-    # report_EC(m.fs.EC)
-    # m.fs.EC.unit.display()
-    # m.fs.feed.properties[0].conc_mass_comp.display()
+
