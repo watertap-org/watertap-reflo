@@ -59,13 +59,12 @@ case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 
 rho = 1000 * pyunits.kg / pyunits.m**3
 
+
 def build_system():
     m = ConcreteModel()
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.costing = TreatmentCosting(
-        case_study_definition=case_study_yaml
-    )
+    m.fs.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     m.fs.properties = ZO(solute_list=["tds"])
     m.fs.feed = Feed(property_package=m.fs.properties)
     m.fs.product = Product(property_package=m.fs.properties)

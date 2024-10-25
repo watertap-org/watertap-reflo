@@ -311,7 +311,6 @@ if __name__ == "__main__":
     init_system(m)
     add_system_costing(m)
 
-
     solver = get_solver()
     results = solver.solve(m)
     assert_optimal_termination(results)
