@@ -1,4 +1,5 @@
 import os
+import pathlib
 import math
 import numpy as np
 from pyomo.environ import (
@@ -56,6 +57,9 @@ from watertap_contrib.reflo.costing import (
 )
 from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
+reflo_dir = pathlib.Path(__file__).resolve().parents[4]
+
+case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 rho = 1000 * pyunits.kg / pyunits.m**3
 
 
@@ -64,7 +68,7 @@ def build_system():
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting(
-        case_study_definition="/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/data/technoeconomic/permian_case_study.yaml"
+        case_study_definition=case_study_yaml
     )
     m.fs.properties = ZO(solute_list=["tds"])
     m.fs.feed = Feed(property_package=m.fs.properties)
@@ -214,7 +218,5 @@ if __name__ == "__main__":
     add_chem_addition_costing(m, m.fs.chem_addition)
     init_system(m)
     solve(m)
-    # print(f"LCOW = {m.fs.costing.LCOW()}")
     print_chem_addition_costing_breakdown(m.fs.chem_addition)
-    m.fs.costing.display()
-    print(f"\n\n\n\n\nDOF = {degrees_of_freedom(m)}\n\n\n\n")
+    print(f"LCOW = {m.fs.costing.LCOW()}")

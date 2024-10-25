@@ -1,3 +1,4 @@
+import pathlib
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -49,7 +50,9 @@ from watertap_contrib.reflo.costing import (
 )
 
 rho = 1000 * pyunits.kg / pyunits.m**3
+reflo_dir = pathlib.Path(__file__).resolve().parents[4]
 
+case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -271,7 +274,7 @@ def init_ec(m, blk, solver=None):
 
 def add_system_costing(m):
     """Add system level costing components"""
-    m.fs.costing = TreatmentCosting()
+    m.fs.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     m.fs.costing.electricity_cost.fix(0.07)
     add_ec_costing(m, m.fs.EC)
     calc_costing(m, m.fs.EC)
