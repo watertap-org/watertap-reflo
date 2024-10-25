@@ -75,9 +75,13 @@ class REFLOCostingData(WaterTAPCostingData):
             # If currency definition is defined in case study yaml,
             # we should be able to set it here.
             if "base_currency" in self.case_study_def:
-                self.base_currency = getattr(pyo.units, self.case_study_def["base_currency"])
+                self.base_currency = getattr(
+                    pyo.units, self.case_study_def["base_currency"]
+                )
             if "base_period" in self.case_study_def:
-                self.base_period = getattr(pyo.units, self.case_study_def["base_period"])
+                self.base_period = getattr(
+                    pyo.units, self.case_study_def["base_period"]
+                )
             # Define expected flows
             for f, v in self.case_study_def["defined_flows"].items():
                 value = v["value"]
@@ -207,7 +211,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         self.frac_elec_from_grid_constraint = pyo.Constraint(
             expr=(
                 self.frac_elec_from_grid
-                == self.aggregate_flow_electricity_purchased / treat_cost.aggregate_flow_electricity
+                == self.aggregate_flow_electricity_purchased
+                / treat_cost.aggregate_flow_electricity
             )
         )
 
@@ -216,25 +221,28 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             * self.aggregate_flow_electricity_sold
             == 0
         )
-        
+
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
-        # energy producer's heat flow is negative
+            # energy producer's heat flow is negative
             self.aggregate_heat_balance = pyo.Constraint(
                 expr=(
-                    self.aggregate_flow_heat_purchased + -1 * en_cost.aggregate_flow_heat
+                    self.aggregate_flow_heat_purchased
+                    + -1 * en_cost.aggregate_flow_heat
                     == treat_cost.aggregate_flow_heat + self.aggregate_flow_heat_sold
                 )
             )
-            
+
             self.frac_heat_from_grid_constraint = pyo.Constraint(
-            expr=(
-                self.frac_heat_from_grid
-                == self.aggregate_flow_heat_purchased / treat_cost.aggregate_flow_heat
+                expr=(
+                    self.frac_heat_from_grid
+                    == self.aggregate_flow_heat_purchased
+                    / treat_cost.aggregate_flow_heat
+                )
             )
-        )
 
             self.aggregate_heat_complement = pyo.Constraint(
-                expr=self.aggregate_flow_heat_purchased * self.aggregate_flow_heat_sold == 0
+                expr=self.aggregate_flow_heat_purchased * self.aggregate_flow_heat_sold
+                == 0
             )
 
         # Build the integrated system costs
@@ -286,7 +294,10 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         self.total_operating_cost_constraint = pyo.Constraint(
             expr=self.total_operating_cost
             == pyo.units.convert(
-                treat_cost.total_operating_cost + en_cost.total_operating_cost + self.total_heat_operating_cost + self.total_electric_operating_cost,
+                treat_cost.total_operating_cost
+                + en_cost.total_operating_cost
+                + self.total_heat_operating_cost
+                + self.total_electric_operating_cost,
                 to_units=self.base_currency / self.base_period,
             )
         )
@@ -335,10 +346,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
             self.aggregate_flow_heat_constraint = pyo.Constraint(
                 expr=self.aggregate_flow_heat
-                == self.aggregate_flow_heat_purchased
-                - self.aggregate_flow_heat_sold  
+                == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
             )
-
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
