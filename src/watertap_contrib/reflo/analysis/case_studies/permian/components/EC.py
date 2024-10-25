@@ -272,6 +272,7 @@ def init_ec(m, blk, solver=None):
 def add_system_costing(m):
     """Add system level costing components"""
     m.fs.costing = TreatmentCosting()
+    m.fs.costing.electricity_cost.fix(0.07)
     add_ec_costing(m, m.fs.EC)
     calc_costing(m, m.fs.EC)
 
@@ -310,17 +311,19 @@ if __name__ == "__main__":
     init_system(m)
     add_system_costing(m)
 
+
     solver = get_solver()
     results = solver.solve(m)
     assert_optimal_termination(results)
     print(f"LCOW = {m.fs.costing.LCOW()}")
     # m.fs.EC.unit.display()
-    print(f"dof = {degrees_of_freedom(m)}")
-    m.fs.EC.unit.overpotential.display()
-    m.fs.EC.unit.ohmic_resistance.display()
-    m.fs.EC.unit.cell_voltage.display()
-    m.fs.EC.unit.power_required.display()
-    m.fs.EC.unit.metal_dose.display()
+    # print(f"dof = {degrees_of_freedom(m)}")
+    # m.fs.EC.unit.overpotential.display()
+    # m.fs.EC.unit.ohmic_resistance.display()
+    # m.fs.EC.unit.cell_voltage.display()
+    # m.fs.EC.unit.power_required.display()
+    # m.fs.EC.unit.metal_dose.display()
+    # m.fs.costing.aggregate_flow_costs.display()
     # m.fs.costing.display()
 
     # report_EC(m.fs.EC)
