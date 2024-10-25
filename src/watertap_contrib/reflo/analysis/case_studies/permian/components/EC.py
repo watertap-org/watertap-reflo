@@ -55,6 +55,15 @@ reflo_dir = pathlib.Path(__file__).resolve().parents[4]
 
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 
+__all__ = [
+    "build_ec",
+    "set_ec_operating_conditions", 
+    "set_ec_scaling",
+    "init_ec",
+    "add_ec_costing",
+
+]
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -187,7 +196,7 @@ def set_ec_operating_conditions(m, blk):
 
 
 
-def set_scaling(m, blk):
+def set_ec_scaling(m, blk):
 
     calculate_scaling_factors(m)
 
@@ -279,7 +288,7 @@ if __name__ == "__main__":
     m = build_system()
     set_system_operating_conditions(m, tds=130)
     set_ec_operating_conditions(m, m.fs.EC)
-    set_scaling(m, m.fs.EC)
+    set_ec_scaling(m, m.fs.EC)
     init_system(m)
     add_system_costing(m)
 

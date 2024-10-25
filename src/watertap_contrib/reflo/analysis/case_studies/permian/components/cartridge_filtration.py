@@ -60,6 +60,13 @@ case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 rho = 1000 * pyunits.kg / pyunits.m**3
 
 
+__all__ = [
+    "build_cartridge_filtration", 
+    "set_cart_filt_op_conditions",
+    "add_cartridge_filtration_costing"
+
+]
+
 def build_system():
     m = ConcreteModel()
     m.db = REFLODatabase()
@@ -68,18 +75,24 @@ def build_system():
     m.fs.properties = ZO(solute_list=["tds"])
     m.fs.feed = Feed(property_package=m.fs.properties)
     m.fs.product = Product(property_package=m.fs.properties)
+    m.fs.disposal = Product(property_package=m.fs.properties)
 
     m.fs.cart_filt = FlowsheetBlock(dynamic=False)
-    build_cartridge_filtration(m, m.fs.cart_filt, m.fs.properties)
+    build_cartridge_filtration(m, m.fs.cart_filt, prop_package=m.fs.properties)
 
-    m.fs.feed_to_chem = Arc(
+    m.fs.feed_to_cart = Arc(
         source=m.fs.feed.outlet,
-        destination=m.fs.cart_filt.unit.inlet,
+        destination=m.fs.cart_filt.feed.inlet,
     )
 
-    m.fs.chem_to_product = Arc(
-        source=m.fs.cart_filt.unit.treated,
+    m.fs.cart_to_product = Arc(
+        source=m.fs.cart_filt.product.outlet,
         destination=m.fs.product.inlet,
+    )
+
+    m.fs.cart_to_disposal = Arc(
+        source=m.fs.cart_filt.disposal.outlet,
+        destination=m.fs.disposal.inlet,
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -91,10 +104,31 @@ def build_cartridge_filtration(m, blk, prop_package=None) -> None:
     if prop_package is None:
         prop_package = m.fs.properties
 
+    blk.feed = StateJunction(property_package=prop_package)
+    blk.product = StateJunction(property_package=prop_package)
+    blk.disposal = StateJunction(property_package=prop_package)
+
     blk.unit = CartridgeFiltrationZO(
         property_package=prop_package,
         database=m.db,
     )
+
+    blk.feed_to_unit = Arc(
+        source=blk.feed.outlet,
+        destination=blk.unit.inlet,
+    )
+
+    blk.unit_to_product = Arc(
+        source=blk.unit.treated,
+        destination=blk.product.inlet,
+    )
+
+    blk.unit_to_disposal = Arc(
+        source=blk.unit.byproduct,
+        destination=blk.disposal.inlet,
+    )
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
 
 
 def set_system_operating_conditions(m, Qin=5):
@@ -156,14 +190,19 @@ def init_system(blk, solver=None, flow_out=None):
     print(f"Cartridge Filt Degrees of Freedom: {degrees_of_freedom(m.fs.cart_filt)}")
 
     m.fs.feed.initialize()
-    _prop_state(m.fs.feed_to_chem)
-    m.fs.cart_filt.unit.initialize()
-    _prop_state(m.fs.chem_to_product)
+    _prop_state(m.fs.feed_to_cart)
+    # m.fs.cart_filt.unit.initialize()
+    init_cart_filt(m, m.fs.cart_filt)
+    _prop_state(m.fs.cart_to_product)
     m.fs.product.initialize()
 
     m.fs.costing.cost_process()
     m.fs.costing.initialize()
     m.fs.costing.add_LCOW(flow_out)
+
+
+def init_cart_filt(m, blk):
+    blk.unit.initialize()
 
 
 def print_cart_filt_costing_breakdown(blk):

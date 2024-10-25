@@ -75,15 +75,16 @@ def build_system():
     m.fs.product = Product(property_package=m.fs.properties)
 
     m.fs.chem_addition = FlowsheetBlock(dynamic=False)
+    
     build_chem_addition(m, m.fs.chem_addition, m.fs.properties)
 
     m.fs.feed_to_chem = Arc(
         source=m.fs.feed.outlet,
-        destination=m.fs.chem_addition.unit.inlet,
+        destination=m.fs.chem_addition.feed.inlet,
     )
 
     m.fs.chem_to_product = Arc(
-        source=m.fs.chem_addition.unit.outlet,
+        source=m.fs.chem_addition.product.outlet,
         destination=m.fs.product.inlet,
     )
 
@@ -99,12 +100,25 @@ def build_chem_addition(m, blk, prop_package=None) -> None:
     if prop_package is None:
         prop_package = m.fs.properties
 
+    blk.feed = StateJunction(property_package=prop_package)
+    blk.product = StateJunction(property_package=prop_package)
+
     blk.unit = ChemicalAdditionZO(
         property_package=prop_package,
         database=m.db,
         process_subtype="hydrogen_peroxide",
     )
+    blk.feed_to_unit = Arc(
+        source=blk.feed.outlet,
+        destination=blk.unit.inlet,
+    )
 
+    blk.unit_to_product = Arc(
+        source=blk.unit.outlet,
+        destination=blk.product.inlet,
+    )
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
 
 def set_system_operating_conditions(m, Qin=5):
     print(
