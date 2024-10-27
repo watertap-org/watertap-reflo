@@ -50,6 +50,7 @@ reflo_dir = pathlib.Path(__file__).resolve().parents[4]
 
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/kbhdp_case_study.yaml"
 
+
 def propagate_state(arc):
     _prop_state(arc)
 
@@ -71,7 +72,7 @@ def build_ec(m, blk, prop_package=None):
         electrode_material="aluminum",
         reactor_material="pvc",
         overpotential_calculation="calculated",
-        process_subtype="kbhdp"
+        process_subtype="kbhdp",
     )
 
     # print(blk.ec.display())
@@ -146,7 +147,7 @@ def set_system_operating_conditions(m):
 def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
-    
+
     blk.ec.load_parameters_from_database(use_default_removal=True)
 
     # input = {
@@ -157,7 +158,6 @@ def set_ec_operating_conditions(m, blk):
     #     "anode_area (cm2)": 184,
     #     "cd (A/m2)": 500,
     # }
-
 
     # gap = pyunits.convert(input["gap (cm)"] * pyunits.cm, to_units=pyunits.m)()
     # e_thick = pyunits.convert(
@@ -184,8 +184,6 @@ def set_ec_operating_conditions(m, blk):
     # anode_area = pyunits.convert(
     #     input["anode_area (cm2)"] * pyunits.cm**2, to_units=pyunits.m**2
     # )
-
-    
 
     # blk.ec.electrode_thick.fix(e_thick)
     # blk.ec.electrode_gap.fix(gap)
