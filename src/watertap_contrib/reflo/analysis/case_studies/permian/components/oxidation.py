@@ -1,7 +1,4 @@
-import os
 import pathlib
-import math
-import numpy as np
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -21,61 +18,57 @@ from pyomo.environ import (
 )
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
-# from idaes.core.solvers import get_solver
-from watertap.core.solvers import get_solver
-from idaes.core.util.initialization import propagate_state as _prop_state
-import idaes.core.util.scaling as iscale
-from idaes.core import MaterialFlowBasis
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from idaes.core.util.initialization import propagate_state
 from idaes.core.util.scaling import (
     constraint_scaling_transform,
     calculate_scaling_factors,
     set_scaling_factor,
 )
-import idaes.logger as idaeslogger
-from idaes.core.util.exceptions import InitializationError
 from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
+
+from watertap.core.solvers import get_solver
 from watertap.core import Database
 from watertap_contrib.reflo.core.wt_reflo_database import REFLODatabase
 from watertap.unit_models.zero_order import ChemicalAdditionZO
 from watertap.core.wt_database import Database
 from watertap.core.zero_order_properties import WaterParameterBlock as ZO
-
-# from watertap.costing.zero_order_costing import ZeroOrderCosting
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 from watertap.core.util.initialization import *
-from watertap_contrib.reflo.unit_models.chemical_softening import (
-    ChemicalSoftening,
-)
+
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
     REFLOCosting,
 )
-from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[4]
-
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 rho = 1000 * pyunits.kg / pyunits.m**3
+
+
+__all__ = [
+    "build_chem_addition",
+    "set_chem_addition_op_conditions",
+    "add_chem_addition_costing",
+]
 
 
 def build_system():
     m = ConcreteModel()
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.costing = TreatmentCosting(
-        case_study_definition=case_study_yaml
-    )
+    m.fs.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     m.fs.properties = ZO(solute_list=["tds"])
     m.fs.feed = Feed(property_package=m.fs.properties)
     m.fs.product = Product(property_package=m.fs.properties)
 
     m.fs.chem_addition = FlowsheetBlock(dynamic=False)
-    
+
     build_chem_addition(m, m.fs.chem_addition, m.fs.properties)
 
     m.fs.feed_to_chem = Arc(
@@ -89,9 +82,6 @@ def build_system():
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
-
-    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    # print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
     return m
 
@@ -119,6 +109,7 @@ def build_chem_addition(m, blk, prop_package=None) -> None:
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
+
 
 def set_system_operating_conditions(m, Qin=5):
     print(
@@ -160,7 +151,6 @@ def set_system_operating_conditions(m, Qin=5):
 
 def set_chem_addition_op_conditions(m, chem_addition):
 
-    # data = m.db.get_unit_operation_parameters("chemical_addition")
     chem_addition.load_parameters_from_database()
 
 
@@ -179,9 +169,9 @@ def init_system(blk, solver=None, flow_out=None):
     print(f"Chem Addition Degrees of Freedom: {degrees_of_freedom(m.fs.chem_addition)}")
 
     m.fs.feed.initialize()
-    _prop_state(m.fs.feed_to_chem)
-    m.fs.chem_addition.unit.initialize()
-    _prop_state(m.fs.chem_to_product)
+    propagate_state(m.fs.feed_to_chem)
+    init_chem_addition(m, m.fs.chem_addition)
+    propagate_state(m.fs.chem_to_product)
     m.fs.product.initialize()
 
     m.fs.costing.cost_process()
@@ -189,22 +179,24 @@ def init_system(blk, solver=None, flow_out=None):
     m.fs.costing.add_LCOW(flow_out)
 
 
-def print_chem_addition_costing_breakdown(blk):
-    # pass
+def init_chem_addition(m, blk):
+    blk.feed.initialize()
+    propagate_state(blk.feed_to_unit)
+    blk.unit.initialize()
+    propagate_state(blk.unit_to_product)
 
+
+def print_chem_addition_costing_breakdown(blk):
     print(
         f'{"Hydrogen Peroxide Dose":<35s}{f"{blk.unit.chemical_dosage[0]():<25,.0f} mg/L"}'
     )
     print(
         f'{"Chem Addition Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}'
     )
-    # print(
-    #     f'{"Chem Addition Operating Cost":<35s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
-    # )
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
-    # ---solving---
+
     if solver is None:
         solver = get_solver()
 

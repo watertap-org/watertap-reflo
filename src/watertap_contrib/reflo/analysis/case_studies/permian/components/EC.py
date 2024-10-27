@@ -9,64 +9,76 @@ from pyomo.environ import (
     Set,
     Expression,
     Objective,
-    NonNegativeReals,
     Block,
     RangeSet,
     check_optimal_termination,
     assert_optimal_termination,
     units as pyunits,
 )
+from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from idaes.core.util.initialization import propagate_state
+from idaes.core.util.model_statistics import *
+from idaes.core.util.scaling import *
+from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 
-
+from watertap.costing import WaterTAPCosting
+from watertap.costing.zero_order_costing import ZeroOrderCosting
+from watertap.core.util.model_diagnostics import *
+from watertap.core.util.model_diagnostics.infeasible import *
+from watertap.core.util.initialization import *
+from watertap.core.solvers import get_solver
 from watertap.core.wt_database import Database
 from watertap.core.zero_order_properties import (
     WaterParameterBlock as WaterParameterBlockZO,
 )
-
-from idaes.core.util.initialization import propagate_state as _prop_state
 from watertap.unit_models.zero_order import ElectrocoagulationZO
-from idaes.models.unit_models import Product, Feed, StateJunction, Separator
-from watertap.costing.zero_order_costing import ZeroOrderCosting
-from watertap.core.util.model_diagnostics import *
-from idaes.core.util.model_statistics import *
-from idaes.core.util.scaling import *
-from watertap.core.util.model_diagnostics.infeasible import *
-from watertap.core.util.initialization import *
-from idaes.core.util.constants import Constants
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-from watertap.costing import WaterTAPCosting
-from watertap.core.solvers import get_solver
 
-from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
-import math
+from watertap_contrib.reflo.core import REFLODatabase
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
     REFLOCosting,
 )
-from watertap_contrib.reflo.core import REFLODatabase
+
 
 rho = 1000 * pyunits.kg / pyunits.m**3
 reflo_dir = pathlib.Path(__file__).resolve().parents[4]
-
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 
 __all__ = [
     "build_ec",
-    "set_ec_operating_conditions", 
+    "set_ec_operating_conditions",
     "set_ec_scaling",
     "init_ec",
     "add_ec_costing",
-
 ]
 
 
-def propagate_state(arc):
-    _prop_state(arc)
+def build_system():
+    """Function to create concrete model for individual unit model flowsheet"""
+    m = ConcreteModel()
+    m.db = REFLODatabase()
+
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = WaterParameterBlockZO(solute_list=["tds"])
+    m.fs.costing = TreatmentCosting(case_study_definition=case_study_yaml)
+
+    m.fs.feed = Feed(property_package=m.fs.properties)
+
+    m.fs.EC = FlowsheetBlock(dynamic=False)
+
+    build_ec(m, m.fs.EC)
+
+    m.fs.feed_to_unit = Arc(
+        source=m.fs.feed.outlet,
+        destination=m.fs.EC.feed.inlet,
+    )
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
+
+    return m
 
 
 def build_ec(m, blk, prop_package=None):
@@ -86,7 +98,7 @@ def build_ec(m, blk, prop_package=None):
         electrode_material="aluminum",
         reactor_material="pvc",
         overpotential_calculation="calculated",
-        process_subtype="permian", 
+        process_subtype="permian",
     )
 
     # print(blk.ec.display())
@@ -114,36 +126,11 @@ def build_ec(m, blk, prop_package=None):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def build_system():
-    """Function to create concrete model for individual unit model flowsheet"""
-    m = ConcreteModel()
-    m.db = REFLODatabase()
-
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = WaterParameterBlockZO(solute_list=["tds"])
-
-    m.fs.feed = Feed(property_package=m.fs.properties)
-
-    m.fs.EC = FlowsheetBlock(dynamic=False)
-
-    build_ec(m, m.fs.EC)
-
-    m.fs.feed_to_unit = Arc(
-        source=m.fs.feed.outlet,
-        destination=m.fs.EC.feed.inlet,
-    )
-
-    TransformationFactory("network.expand_arcs").apply_to(m)
-
-    return m
-
-
 def set_system_operating_conditions(m, Qin=5, tds=130):
     """This function sets the system operating conditions for individual unit model flowsheet"""
 
-
     Qin = Qin * pyunits.Mgallons / pyunits.day
-    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3/pyunits.s)
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
     m.tds = tds
 
     # TODO: rho should probably be higher for 130 g/L
@@ -192,8 +179,6 @@ def set_ec_operating_conditions(m, blk):
     )
     print(f"cond = {cond()}")
     blk.unit.conductivity.fix(cond)
-
-
 
 
 def set_ec_scaling(m, blk):
@@ -252,7 +237,7 @@ def init_ec(m, blk, solver=None):
 
 def add_system_costing(m):
     """Add system level costing components"""
-    m.fs.costing = TreatmentCosting(case_study_definition=case_study_yaml)
+
     # m.fs.costing.electricity_cost.fix(0.07)
     add_ec_costing(m, m.fs.EC)
     calc_costing(m, m.fs.EC)
@@ -296,10 +281,3 @@ if __name__ == "__main__":
     results = solver.solve(m)
     assert_optimal_termination(results)
     print(f"LCOW = {m.fs.costing.LCOW()}")
-    # m.fs.EC.unit.display()
-    # ec = m.fs.EC.unit
-    # ec.display()
-    # ec.properties_in[0].display()
-    # ec.electrolysis_time.display()
-
-

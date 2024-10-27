@@ -1,7 +1,4 @@
 import pathlib
-import os
-import math
-import numpy as np
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -21,10 +18,9 @@ from pyomo.environ import (
 )
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
-# from idaes.core.solvers import get_solver
-from watertap.core.solvers import get_solver
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state as _prop_state
 import idaes.core.util.scaling as iscale
 from idaes.core import MaterialFlowBasis
@@ -33,16 +29,14 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     set_scaling_factor,
 )
-import idaes.logger as idaeslogger
-from idaes.core.util.exceptions import InitializationError
 from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
+
+from watertap.core.solvers import get_solver
 from watertap.core import Database
 from watertap_contrib.reflo.core.wt_reflo_database import REFLODatabase
 from watertap.unit_models.zero_order import CartridgeFiltrationZO
 from watertap.core.zero_order_properties import WaterParameterBlock as ZO
-
-# from watertap.costing.zero_order_costing import ZeroOrderCosting
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 
@@ -51,7 +45,6 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOCosting,
 )
-from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[4]
 
@@ -61,11 +54,11 @@ rho = 1000 * pyunits.kg / pyunits.m**3
 
 
 __all__ = [
-    "build_cartridge_filtration", 
+    "build_cartridge_filtration",
     "set_cart_filt_op_conditions",
-    "add_cartridge_filtration_costing"
-
+    "add_cartridge_filtration_costing",
 ]
+
 
 def build_system():
     m = ConcreteModel()

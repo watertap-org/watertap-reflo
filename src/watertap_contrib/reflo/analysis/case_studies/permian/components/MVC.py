@@ -1,7 +1,6 @@
 import os
 import pathlib
 import math
-import numpy as np
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -12,19 +11,15 @@ from pyomo.environ import (
     Set,
     Expression,
     Objective,
-    NonNegativeReals,
-    Block,
     RangeSet,
     check_optimal_termination,
     assert_optimal_termination,
     units as pyunits,
 )
+from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-
-# from idaes.core.solvers import get_solver
-from watertap.core.solvers import get_solver
 from idaes.core.util.initialization import propagate_state
 import idaes.core.util.scaling as iscale
 from idaes.core import MaterialFlowBasis
@@ -34,39 +29,34 @@ from idaes.core.util.scaling import (
     set_scaling_factor,
 )
 import idaes.logger as idaeslogger
-from idaes.core.util.exceptions import InitializationError
 from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
-from watertap.core import Database
-from watertap_contrib.reflo.core.wt_reflo_database import REFLODatabase
-from watertap.unit_models.zero_order import ChemicalAdditionZO
-from watertap.core.wt_database import Database
-from watertap.core.zero_order_properties import WaterParameterBlock as ZO
 
-# from watertap.costing.zero_order_costing import ZeroOrderCosting
+from watertap.core.solvers import get_solver
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 from watertap.core.util.initialization import *
 
-# Import components
 from watertap.unit_models.mvc.components import Evaporator
 from watertap.unit_models.mvc.components import Compressor
 from watertap.unit_models.mvc.components import Condenser
 
-# Import property packages
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import (
     WaterParameterBlock as SteamParameterBlock,
 )
-from watertap_contrib.reflo.costing import (
-    TreatmentCosting,
-    EnergyCosting,
-    REFLOCosting,
-)
-from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
+from watertap_contrib.reflo.costing import TreatmentCosting
+
+__all__ = [
+    "build_mvc",
+    "set_mvc_operating_conditions",
+    "set_mvc_scaling",
+    "init_mvc",
+    "add_mvc_costing",
+]
+
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[4]
-
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 rho = 1000 * pyunits.kg / pyunits.m**3
 
