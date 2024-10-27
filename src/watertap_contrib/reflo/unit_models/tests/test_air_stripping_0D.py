@@ -745,7 +745,7 @@ class TestAirStripping0D:
         # set heat and electricity costs to be non-zero
         m.fs.costing.heat_cost.set_value(0.01)
         m.fs.costing.electricity_cost.fix(0.07)
-        
+
         ax.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_out.flow_vol_phase["Liq"])
