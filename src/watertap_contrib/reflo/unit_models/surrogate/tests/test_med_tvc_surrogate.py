@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -41,7 +41,7 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
-from watertap_contrib.reflo.costing import REFLOCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 
 # -----------------------------------------------------------------------------
 # Get default solver for testing
@@ -311,7 +311,11 @@ class TestMEDTVC:
         m = MED_TVC_frame
         med_tvc = m.fs.med_tvc
         dist = med_tvc.distillate_props[0]
-        m.fs.costing = REFLOCosting()
+        m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
+
         med_tvc.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         m.fs.costing.total_investment_factor.fix(1)
