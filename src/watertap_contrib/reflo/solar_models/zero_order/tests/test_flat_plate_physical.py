@@ -197,6 +197,7 @@ class TestFlatPlatePhysical:
         m.fs.test_flow = 0.01 * pyunits.Mgallons / pyunits.day
 
         m.fs.costing = EnergyCosting()
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.costing.heat_cost.set_value(0)
         m.fs.flatplate.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
