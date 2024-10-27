@@ -340,6 +340,9 @@ class TestDeepWellInjection_BLMCosting:
     def test_costing(self, dwi_frame):
         m = dwi_frame
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         # m.fs.costing.base_currency = pyunits.kUSD_2001 # for comparison to original BLM reference
         m.fs.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
@@ -413,6 +416,9 @@ class TestDeepWellInjection_SimpleCosting:
         m = dwi_frame
 
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
             costing_method_arguments={"cost_method": "as_capex"},
@@ -449,6 +455,9 @@ class TestDeepWellInjection_SimpleCosting:
         m = dwi_frame
 
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
             costing_method_arguments={"cost_method": "as_opex"},
@@ -561,6 +570,9 @@ class TestDeepWellInjection_10000ft:
     def test_costing(self, dwi_10000_frame):
         m = dwi_10000_frame
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         # m.fs.costing.base_currency = pyunits.kUSD_2001 # for comparison to original BLM reference
         m.fs.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
