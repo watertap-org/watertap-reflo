@@ -101,13 +101,6 @@ def build_ec(m, blk, prop_package=None):
         process_subtype="permian",
     )
 
-    # print(blk.ec.display())
-    # print(blk.ec.report())
-    # print(blk.ec.inlet)
-    # print(blk.ec.treated)
-    # print(blk.ec.byproduct)
-    # assert False
-
     blk.feed_to_ec = Arc(
         source=blk.feed.outlet,
         destination=blk.unit.inlet,
@@ -165,20 +158,29 @@ def set_system_operating_conditions(m, Qin=5, tds=130):
     calculate_scaling_factors(m)
 
 
-def set_ec_operating_conditions(m, blk):
+def set_ec_operating_conditions(m, blk, conv=5e3):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
 
     blk.unit.load_parameters_from_database(use_default_removal=True)
+    blk.unit.conductivity.unfix()
+    tds_ec_conversion = conv * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
+    
 
-    conv = 5e3 * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
+    # cond = pyunits.convert(
+    #     m.tds * pyunits.gram / pyunits.liter / conv,
+    #     to_units=pyunits.S / pyunits.m,
+    # )
+    # print(f"cond = {cond()}")
+    # blk.unit.conductivity.fix(cond)
 
-    cond = pyunits.convert(
-        m.tds * pyunits.gram / pyunits.liter / conv,
-        to_units=pyunits.S / pyunits.m,
+    blk.unit.conductivity_constr = Constraint(
+        expr=blk.unit.conductivity
+        == pyunits.convert(
+            blk.feed.properties[0].conc_mass_comp["tds"] / tds_ec_conversion,
+            to_units=pyunits.S / pyunits.m,
+        )
     )
-    print(f"cond = {cond()}")
-    blk.unit.conductivity.fix(cond)
 
 
 def set_ec_scaling(m, blk):
