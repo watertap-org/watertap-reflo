@@ -62,7 +62,9 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOCosting,
 )
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.translator_4 import Translator_ZO_TDS_to_TDS
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.translator_4 import (
+    Translator_ZO_TDS_to_TDS,
+)
 from watertap_contrib.reflo.analysis.case_studies.permian import *
 from watertap_contrib.reflo.unit_models.deep_well_injection import DeepWellInjection
 
@@ -88,20 +90,20 @@ def build_permian():
     treat.feed = Feed(property_package=m.fs.properties)
     treat.product = Product(property_package=m.fs.properties_vapor)
     # treat.disposal = Product(property_package=m.fs.properties)
-    
+
     # Add translator blocks
     treat.zo_to_sw_feed = Translator_ZO_to_SW(
         inlet_property_package=m.fs.properties,
-        outlet_property_package=m.fs.properties_feed
+        outlet_property_package=m.fs.properties_feed,
     )
     treat.zo_to_sw_disposal = Translator_ZO_to_SW(
         inlet_property_package=m.fs.properties,
-        outlet_property_package=m.fs.properties_feed
+        outlet_property_package=m.fs.properties_feed,
     )
 
     treat.sw_to_zo = Translator_SW_to_ZO(
         inlet_property_package=m.fs.properties_feed,
-        outlet_property_package=m.fs.properties
+        outlet_property_package=m.fs.properties,
     )
 
     treat.disposal_ZO_mixer = Mixer(
@@ -147,18 +149,15 @@ def build_permian():
 
     # from ZO to SW - feed
     treat.cart_filt_to_translator = Arc(
-        source=treat.cart_filt.product.outlet,
-        destination=treat.zo_to_sw_feed.inlet
+        source=treat.cart_filt.product.outlet, destination=treat.zo_to_sw_feed.inlet
     )
 
     treat.cart_filt_translated_to_mvc = Arc(
-        source=treat.zo_to_sw_feed.outlet,
-        destination=treat.MVC.feed.inlet
+        source=treat.zo_to_sw_feed.outlet, destination=treat.MVC.feed.inlet
     )
 
     treat.mvc_to_product = Arc(
-        source=treat.MVC.product.outlet,
-        destination=treat.product.inlet
+        source=treat.MVC.product.outlet, destination=treat.product.inlet
     )
 
     # BUILD DISPOSAL STREAM
@@ -176,46 +175,59 @@ def build_permian():
     )
 
     treat.disposal_ZO_mix_to_translator = Arc(
-        source=treat.disposal_ZO_mixer.outlet,
-        destination=treat.zo_to_sw_disposal.inlet
+        source=treat.disposal_ZO_mixer.outlet, destination=treat.zo_to_sw_disposal.inlet
     )
 
     treat.disposal_ZO_mix_translated_to_disposal_SW_mixer = Arc(
         source=treat.zo_to_sw_disposal.outlet,
-        destination=treat.disposal_SW_mixer.zo_mixer
+        destination=treat.disposal_SW_mixer.zo_mixer,
     )
 
     treat.mvc_disposal_to_translator = Arc(
         source=treat.MVC.disposal.outlet,
-        destination=treat.disposal_SW_mixer.mvc_disposal
+        destination=treat.disposal_SW_mixer.mvc_disposal,
     )
 
     treat.disposal_SW_mixer_to_dwi = Arc(
-        source=treat.disposal_SW_mixer.outlet,
-        destination=treat.DWI.feed.inlet
+        source=treat.disposal_SW_mixer.outlet, destination=treat.DWI.feed.inlet
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
+    add_treatment_costing(m)
+
     return m
 
-def set_operating_conditions(m):
 
-    set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition.unit)
+def set_operating_conditions(m, Qin=5, tds=130):
+
+    set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition)
     set_ec_operating_conditions(m, m.fs.treatment.EC)
-    set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt.unit)
+    set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
     set_mvc_operating_conditions(m, m.fs.treatment.MVC)
 
 
 def add_treatment_costing(m):
     m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
-
+    add_chem_addition_costing(
+        m, m.fs.treatment.chem_addition, flowsheet_costing_block=m.fs.treatment.costing
+    )
+    add_ec_costing(m, m.fs.treatment.EC, flowsheet_costing_block=m.fs.treatment.costing)
+    add_cartridge_filtration_costing(
+        m, m.fs.treatment.cart_filt, flowsheet_costing_block=m.fs.treatment.costing
+    )
+    add_mvc_costing(
+        m, m.fs.treatment.MVC, flowsheet_costing_block=m.fs.treatment.costing
+    )
+    add_dwi_costing(
+        m, m.fs.treatment.DWI, flowsheet_costing_block=m.fs.treatment.costing
+    )
 
 
 if __name__ == "__main__":
     m = build_permian()
+    set_operating_conditions(m)
 
     # add_treatment_costing(m)
-    set_operating_conditions(m)
 
     print(f"dof = {degrees_of_freedom(m)}")

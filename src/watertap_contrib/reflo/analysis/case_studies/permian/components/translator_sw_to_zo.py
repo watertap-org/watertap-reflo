@@ -48,6 +48,7 @@ class Translator_ZO_to_SW_Data(TranslatorData):
     """
     Translator block for ZO to Seawater property packages
     """
+
     CONFIG = TranslatorData.CONFIG()
 
     def build(self):
