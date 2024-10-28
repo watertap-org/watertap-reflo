@@ -143,7 +143,7 @@ def add_dwi_costing(m, blk):
 
 
 def report_DWI(m, blk):
-    print(f"\n\n-------------------- UF Report --------------------\n")
+    print(f"\n\n-------------------- DWI Report --------------------\n")
     print("\n")
     print(
         f'{"Injection Well Depth":<30s}{value(blk.unit.config.injection_well_depth):<10.3f}{pyunits.get_units(blk.unit.config.injection_well_depth)}'
@@ -151,12 +151,9 @@ def report_DWI(m, blk):
 
 
 def print_DWI_costing_breakdown(m, blk):
-    print(f"\n\n-------------------- UF Costing Breakdown --------------------\n")
+    print(f"\n\n-------------------- DWI Costing Breakdown --------------------\n")
     print("\n")
     print(f'{"Capital Cost":<30s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
-    # print(
-    #     f'{"Capital Cost":<30s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
-    # )
     print(
         f'{"Capital Cost":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
     )

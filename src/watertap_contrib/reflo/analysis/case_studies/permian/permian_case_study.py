@@ -202,10 +202,10 @@ def build_permian():
 def set_operating_conditions(m):
 
     set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition.unit)
-    set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt.unit)
     set_ec_operating_conditions(m, m.fs.treatment.EC)
+    set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt.unit)
+    set_mvc_operating_conditions(m, m.fs.treatment.MVC)
 
-    pass
 
 def add_treatment_costing(m):
     m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
