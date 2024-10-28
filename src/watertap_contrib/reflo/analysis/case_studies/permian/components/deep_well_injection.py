@@ -135,11 +135,15 @@ def init_dwi(m, blk, solver=None):
     blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
 
 
-def add_dwi_costing(m, blk):
+def add_dwi_costing(m, blk, flowsheet_costing_block=None):
+    if flowsheet_costing_block is None:
+        flowsheet_costing_block = m.fs.costing
     """
     Add DWI costing using BLM approach
     """
-    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    blk.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=flowsheet_costing_block
+    )
 
 
 def report_DWI(m, blk):

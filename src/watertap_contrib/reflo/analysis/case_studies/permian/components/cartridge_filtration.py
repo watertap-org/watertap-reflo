@@ -162,14 +162,18 @@ def set_system_operating_conditions(m, Qin=5):
     calculate_scaling_factors(m)
 
 
-def set_cart_filt_op_conditions(m, cart_filt):
+def set_cart_filt_op_conditions(m, blk):
 
     # data = m.db.get_unit_operation_parameters("chemical_addition")
-    cart_filt.load_parameters_from_database()
+    blk.unit.load_parameters_from_database()
 
 
-def add_cartridge_filtration_costing(m, blk):
-    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+def add_cartridge_filtration_costing(m, blk, flowsheet_costing_block=None):
+    if flowsheet_costing_block is None:
+        flowsheet_costing_block = m.fs.costing
+    blk.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=flowsheet_costing_block
+    )
 
 
 def init_system(blk, solver=None, flow_out=None):

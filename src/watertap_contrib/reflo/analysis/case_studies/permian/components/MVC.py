@@ -271,17 +271,16 @@ def init_mvc(m, blk, solver=None, delta_temperature_in=30, delta_temperature_out
     blk.disposal.initialize()
 
 
-def add_mvc_costing(m, blk, flow_vol=None):
+def add_mvc_costing(m, blk, flowsheet_costing_block=None):
+    if flowsheet_costing_block is None:
+        flowsheet_costing_block = m.fs.costing
 
-    if flow_vol is None:
-        flow_vol = blk.product.properties[0].flow_vol_phase["Liq"]
-
-    blk.evaporator.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-    blk.compressor.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-
-    m.fs.costing.cost_process()
-    m.fs.costing.add_LCOW(flow_vol)
-    m.fs.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+    blk.evaporator.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=flowsheet_costing_block
+    )
+    blk.compressor.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=flowsheet_costing_block
+    )
 
 
 if __name__ == "__main__":
@@ -295,6 +294,11 @@ if __name__ == "__main__":
     set_mvc_scaling(m, mvc)
 
     add_mvc_costing(m, mvc)
+
+    flow_vol = mvc.product.properties[0].flow_vol_phase["Liq"]
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(flow_vol)
+    m.fs.costing.add_specific_energy_consumption(flow_vol, name="SEC")
 
     init_system(m, mvc)
 

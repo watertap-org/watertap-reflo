@@ -165,7 +165,6 @@ def set_ec_operating_conditions(m, blk, conv=5e3):
     blk.unit.load_parameters_from_database(use_default_removal=True)
     blk.unit.conductivity.unfix()
     tds_ec_conversion = conv * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
-    
 
     # cond = pyunits.convert(
     #     m.tds * pyunits.gram / pyunits.liter / conv,
@@ -245,9 +244,13 @@ def add_system_costing(m):
     calc_costing(m, m.fs.EC)
 
 
-def add_ec_costing(m, blk):
+def add_ec_costing(m, blk, flowsheet_costing_block=None):
     """Add EC model costing components"""
-    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    if flowsheet_costing_block is None:
+        flowsheet_costing_block = m.fs.costing
+    blk.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=flowsheet_costing_block
+    )
 
 
 def calc_costing(m, blk):
