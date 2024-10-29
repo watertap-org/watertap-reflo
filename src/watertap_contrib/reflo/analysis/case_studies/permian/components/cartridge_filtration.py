@@ -21,7 +21,7 @@ from pyomo.util.check_units import assert_units_consistent
 from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.util.initialization import propagate_state as _prop_state
+from idaes.core.util.initialization import propagate_state as propagate_state
 import idaes.core.util.scaling as iscale
 from idaes.core import MaterialFlowBasis
 from idaes.core.util.scaling import (
@@ -57,6 +57,7 @@ __all__ = [
     "build_cartridge_filtration",
     "set_cart_filt_op_conditions",
     "add_cartridge_filtration_costing",
+    "init_cart_filt"
 ]
 
 
@@ -187,10 +188,10 @@ def init_system(blk, solver=None, flow_out=None):
     print(f"Cartridge Filt Degrees of Freedom: {degrees_of_freedom(m.fs.cart_filt)}")
 
     m.fs.feed.initialize()
-    _prop_state(m.fs.feed_to_cart)
+    propagate_state(m.fs.feed_to_cart)
     # m.fs.cart_filt.unit.initialize()
     init_cart_filt(m, m.fs.cart_filt)
-    _prop_state(m.fs.cart_to_product)
+    propagate_state(m.fs.cart_to_product)
     m.fs.product.initialize()
 
     m.fs.costing.cost_process()
@@ -199,7 +200,13 @@ def init_system(blk, solver=None, flow_out=None):
 
 
 def init_cart_filt(m, blk):
+    blk.feed.initialize()
+    propagate_state(blk.feed_to_unit)
     blk.unit.initialize()
+    propagate_state(blk.unit_to_product)
+    blk.product.initialize()
+    propagate_state(blk.unit_to_disposal)
+    blk.disposal.initialize()
 
 
 def print_cart_filt_costing_breakdown(blk):
@@ -237,7 +244,7 @@ if __name__ == "__main__":
 
     m = build_system()
     set_system_operating_conditions(m)
-    set_cart_filt_op_conditions(m, m.fs.cart_filt.unit)
+    set_cart_filt_op_conditions(m, m.fs.cart_filt)
 
     add_cartridge_filtration_costing(m, m.fs.cart_filt)
     init_system(m)

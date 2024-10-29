@@ -251,7 +251,7 @@ def init_mvc(m, blk, solver=None, delta_temperature_in=30, delta_temperature_out
         solver = get_solver()
 
     blk.feed.initialize()
-    propagate_state(mvc.feed_to_evaporator)
+    propagate_state(blk.feed_to_evaporator)
 
     blk.evaporator.initialize(
         delta_temperature_in=delta_temperature_in,
