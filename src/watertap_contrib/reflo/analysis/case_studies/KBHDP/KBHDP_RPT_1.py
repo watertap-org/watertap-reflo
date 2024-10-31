@@ -67,10 +67,10 @@ def main():
     solve(m)
     add_costing(m)
     get_scaling_factors(m)
-    set_pv_constraints(m, focus="Size")
+    set_pv_constraints(m, focus="Energy")
     scale_costing(m)
-    
-    optimize(m, ro_mem_area=35000, water_recovery=0.5)
+
+    optimize(m, ro_mem_area=None, water_recovery=0.5)
     solve(m, debug=True)
     # display_system_stream_table(m)
     # # display_costing_breakdown(m)
@@ -300,7 +300,6 @@ def add_energy_costing(m):
     # set_pv_constraints(m)
 
 
-
 def add_costing(m):
     treatment = m.fs.treatment
     energy = m.fs.energy
@@ -317,7 +316,6 @@ def add_costing(m):
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
 
     m.fs.costing.initialize()
-
 
 
 def get_scaling_factors(m):
@@ -563,7 +561,6 @@ def init_system(m, verbose=True, solver=None):
     # assert_no_degrees_of_freedom(m)
     initialize_energy(m)
     init_treatment(m)
-    
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
@@ -598,6 +595,7 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
 
         raise RuntimeError(msg)
     else:
+        print("\n--------- FAILED SOLVE!!! ---------\n")
         print(msg)
         assert False
 
@@ -648,14 +646,14 @@ def optimize(
             stage.module.area.fix(ro_mem_area)
     else:
         lower_bound = 1e3
-        upper_bound = 1e5
+        upper_bound = 2e5
         print(f"\n------- Unfixed RO Membrane Area -------")
         print(f"Lower Bound: {lower_bound} m2")
         print(f"Upper Bound: {upper_bound} m2")
-        print('\n')
+        print("\n")
         for idx, stage in treatment.RO.stage.items():
             stage.module.area.unfix()
-            stage.module.area.setub(1e5)
+            stage.module.area.setub(1e6)
 
 
 def report_MCAS_stream_conc(m, stream):
@@ -729,4 +727,4 @@ if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     main()
 
-#BUG: RO pressure and membrane area are changing based on the pv energy!!!
+# BUG: RO pressure and membrane area are changing based on the pv energy!!!

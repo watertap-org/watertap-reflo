@@ -59,7 +59,7 @@ def set_pv_constraints(m, focus="Size"):
         # energy.pv_design_constraint = Constraint(
         #     expr= m.fs.energy.pv.annual_energy == 43000000
         # )
-        m.fs.energy.pv.annual_energy.fix(41000000)
+        m.fs.energy.pv.annual_energy.fix(30000000)
 
         # == pyunits.convert(
         #         m.fs.treatment.costing.aggregate_flow_electricity,
@@ -71,7 +71,7 @@ def set_pv_constraints(m, focus="Size"):
     )
 
     m.fs.energy.pv.costing.annual_generation = Expression(
-        expr = m.fs.energy.pv.annual_energy
+        expr=m.fs.energy.pv.annual_energy
     )
 
     # m.fs.energy.pv_design_constraint = Constraint(
@@ -80,11 +80,14 @@ def set_pv_constraints(m, focus="Size"):
     # m.fs.energy.pv.costing.annual_generation_constraint = Constraint(
     #     expr=m.fs.energy.pv.costing.annual_generation == m.fs.energy.pv.annual_energy
     # )
-    # m.fs.energy.pv.costing.system_capacity_constraint = Constraint(
-    #     expr=m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
-    # )
+    m.fs.energy.pv.costing.system_capacity_constraint = Constraint(
+        expr=m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
+    )
+
+    # m.fs.energy.pv.costing.system_capacity.fix(m.fs.energy.pv.design_size)
 
     # m.fs.energy.pv.costing.annual_generation.fix(m.fs.energy.pv.annual_energy)
+
 
 def add_pv_scaling(m, blk):
     pv = blk
