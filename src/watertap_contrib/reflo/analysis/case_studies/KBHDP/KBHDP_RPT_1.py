@@ -88,7 +88,7 @@ def main():
 
 def build_system():
     m = ConcreteModel()
-    m.db = REFLODatabase()
+    m.db = Database()
     m.fs = FlowsheetBlock(dynamic=False)
 
     treatment = m.fs.treatment = Block()
