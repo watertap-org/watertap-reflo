@@ -191,6 +191,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Total operating cost for integrated system",
             units=self.base_currency / self.base_period,
         )
+        self.total_electric_operating_cost = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Total operating cost for electricity",
+            units=self.base_currency / self.base_period,
+        )
         self.aggregate_flow_electricity = pyo.Var(
             initialize=1e3,
             # domain=pyo.NonNegativeReals,
@@ -231,6 +237,21 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
             * self.utilization_factor
         )
+        # self.total_electric_operating_cost_constraint = pyo.Constraint(
+        #     expr= self.total_electric_operating_cost == (
+        #         pyo.units.convert(
+        #             self.aggregate_flow_electricity_purchased,
+        #             to_units=pyo.units.kWh / pyo.units.year,
+        #         )
+        #         * self.electricity_cost_buy
+        #         - pyo.units.convert(
+        #             self.aggregate_flow_electricity_sold,
+        #             to_units=pyo.units.kWh / pyo.units.year,
+        #         )
+        #         * self.electricity_cost_sell
+        #     )
+        #     * self.utilization_factor
+        # )
 
         self.total_operating_cost_constraint = pyo.Constraint(
             expr=self.total_operating_cost

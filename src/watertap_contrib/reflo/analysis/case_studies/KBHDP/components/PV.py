@@ -5,7 +5,7 @@ from pyomo.environ import (
 )
 
 from idaes.core.util.model_statistics import *
-
+import idaes.core.util.scaling as iscale
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap_contrib.reflo.solar_models.surrogate.pv import PVSurrogate
@@ -14,9 +14,11 @@ __all__ = [
     "build_pv",
     "train_pv_surrogate",
     "set_pv_constraints",
+    "add_pv_scaling",
     "print_PV_costing_breakdown",
     "report_PV",
 ]
+
 
 def build_pv(m):
     energy = m.fs.energy
@@ -36,6 +38,7 @@ def build_pv(m):
         scale_training_data=False,
     )
 
+
 def train_pv_surrogate(m):
     energy = m.fs.energy
 
@@ -44,24 +47,50 @@ def train_pv_surrogate(m):
     assert False
 
 
-def set_pv_constraints(m):
+def set_pv_constraints(m, focus="Size"):
     energy = m.fs.energy
 
-    energy.pv_design_constraint = Constraint(
-        expr=m.fs.energy.pv.design_size
-        == m.fs.treatment.costing.aggregate_flow_electricity
-    )
+    if focus == "Size":
+        energy.pv_design_constraint = Constraint(
+            expr=m.fs.energy.pv.design_size
+            == m.fs.treatment.costing.aggregate_flow_electricity
+        )
+    elif focus == "Energy":
+        # energy.pv_design_constraint = Constraint(
+        #     expr= m.fs.energy.pv.annual_energy == 43000000
+        # )
+        m.fs.energy.pv.annual_energy.fix(41000000)
+
+        # == pyunits.convert(
+        #         m.fs.treatment.costing.aggregate_flow_electricity,
+        #         to_units=pyunits.kWh / pyunits.year,
+        #     )
 
     m.fs.energy.pv.costing.land_constraint = Constraint(
         expr=m.fs.energy.pv.costing.land_area == m.fs.energy.pv.land_req
     )
 
-    m.fs.energy.pv.costing.annual_generation_constraint = Constraint(
-        expr=m.fs.energy.pv.costing.annual_generation
-        == m.fs.energy.pv.annual_energy
+    m.fs.energy.pv.costing.annual_generation = Expression(
+        expr = m.fs.energy.pv.annual_energy
     )
 
+    # m.fs.energy.pv_design_constraint = Constraint(
+    #     expr=m.fs.energy.pv.design_size >= m.fs.treatment.costing.aggregate_flow_electricity
+    # )
+    # m.fs.energy.pv.costing.annual_generation_constraint = Constraint(
+    #     expr=m.fs.energy.pv.costing.annual_generation == m.fs.energy.pv.annual_energy
+    # )
+    # m.fs.energy.pv.costing.system_capacity_constraint = Constraint(
+    #     expr=m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
+    # )
+
     # m.fs.energy.pv.costing.annual_generation.fix(m.fs.energy.pv.annual_energy)
+
+def add_pv_scaling(m, blk):
+    pv = blk
+
+    iscale.set_scaling_factor(pv.design_size, 1e-4)
+
 
 def print_PV_costing_breakdown(pv):
     print(f'{"PV Capital Cost":<35s}{f"${value(pv.costing.capital_cost):<25,.0f}"}')
@@ -86,10 +115,10 @@ def report_PV(m):
         f'{"Land Requirement":<30s}{value(m.fs.energy.pv.land_req):<10.1f}{pyunits.get_units(m.fs.energy.pv.land_req)}'
     )
     print(
-        f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.1f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}'
+        f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.0f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}'
     )
     print(
-        f'{"Treatment Annual Energy":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
+        f'{"Treatment Annual Energy":<30s}{value(m.fs.annual_treatment_energy):<10,.0f}{"kWh/yr"}'
     )
     print("\n")
     print(
@@ -122,4 +151,6 @@ def report_PV(m):
         f'{"Electricity Cost":<29s}{f"${value(m.fs.costing.total_electric_operating_cost):<10,.0f}"}{"$/yr":<10s}'
     )
 
-    print(m.fs.energy.pv.display())
+    print(m.fs.energy.pv.annual_energy.display())
+    print(m.fs.energy.pv.costing.annual_generation.display())
+    print(m.fs.costing.total_electric_operating_cost.display())

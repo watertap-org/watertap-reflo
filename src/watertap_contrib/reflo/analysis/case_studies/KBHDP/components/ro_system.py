@@ -80,6 +80,7 @@ __all__ = [
     "set_operating_conditions",
     "set_ro_system_operating_conditions",
     "add_ro_costing",
+    "add_ro_scaling",
     "display_ro_system_build",
     "display_dof_breakdown",
     "display_flow_table",
@@ -500,6 +501,31 @@ def calc_scale(value):
     return math.floor(math.log(value, 10))
 
 
+def add_ro_scaling(m, blk):
+    for idx, stage in blk.stage.items():
+        module = stage.module
+        iscale.set_scaling_factor(module.area, 1e-2)
+        iscale.set_scaling_factor(module.feed_side.area, 1e-2)
+        iscale.set_scaling_factor(module.width, 1e-2)
+
+        set_scaling_factor(module.feed_side.dh, 1e4)
+        constraint_scaling_transform(module.feed_side.eq_dh, 100)
+        constraint_scaling_transform(module.eq_permeate_production[0.0, "Liq", "NaCl"], 1e2)
+        for e in module.feed_side.eq_K:
+            # constraint_scaling_transform(stage.feed_side.eq_K[e], 100)
+            constraint_scaling_transform(module.feed_side.eq_K[e], 1e6)
+
+        for e in module.eq_flux_mass:
+            if e[-1] == "NaCl":
+                constraint_scaling_transform(module.eq_flux_mass[e], 1e6)
+
+        for e in module.mass_transfer_phase_comp:
+            if e[-1] == 'NaCl':
+                set_scaling_factor(module.mass_transfer_phase_comp[e], 1e-2)
+            else:
+                set_scaling_factor(module.mass_transfer_phase_comp[e], 1e-2)
+
+
 def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
     print(
         "\n\n-------------------- SETTING RO OPERATING CONDITIONS --------------------\n\n"
@@ -526,6 +552,7 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
         stage.module.B_comp.fix(mem_B)
         stage.module.area.fix(area / idx)
         stage.module.length.fix(length)
+        stage.module.width.setub(10000)
         stage.module.mixed_permeate[0].pressure.fix(pressure_atm)
 
         # if stage.has_booster_pump:
@@ -536,11 +563,17 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
         stage.module.feed_side.channel_height.fix(height)
         stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
 
-        iscale.set_scaling_factor(stage.module.area, 1e-2)
-        iscale.set_scaling_factor(stage.module.feed_side.area, 1e-2)
-        iscale.set_scaling_factor(stage.module.width, 1e-2)
+        # ro.area.setub(10**(ro_area_scale+1))
+        # ro.width.setub(10**(ro_area_scale))
+        # ro.area.fix(10**ro_area_scale)
+        # for e in stage.module.flux_mass_phase_comp:
+        #     if e[-1] == "H2O":
+        #         stage.module.flux_mass_phase_comp[e].setlb(1e-5)
+        #         stage.module.flux_mass_phase_comp[e].setub(0.99)
 
-    iscale.calculate_scaling_factors(m)
+    #     add_ro_scaling(m, stage)
+
+    # iscale.calculate_scaling_factors(m)
 
     # ---checking model---
     # assert_units_consistent(m)
