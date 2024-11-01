@@ -55,7 +55,7 @@ __all__ = [
     "build_chem_addition",
     "set_chem_addition_op_conditions",
     "add_chem_addition_costing",
-    "init_chem_addition"
+    "init_chem_addition",
 ]
 
 

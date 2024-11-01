@@ -57,7 +57,7 @@ __all__ = [
     "build_cartridge_filtration",
     "set_cart_filt_op_conditions",
     "add_cartridge_filtration_costing",
-    "init_cart_filt"
+    "init_cart_filt",
 ]
 
 

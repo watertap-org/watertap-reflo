@@ -41,6 +41,7 @@ from idaes.models.unit_models import (
     MomentumMixingType,
 )
 from idaes.core.util.model_statistics import *
+from idaes.core.util.initialization import propagate_state
 
 from watertap.core.solvers import get_solver
 from watertap.core import Database
@@ -89,7 +90,6 @@ def build_permian():
 
     treat.feed = Feed(property_package=m.fs.properties)
     treat.product = Product(property_package=m.fs.properties_vapor)
-    # treat.disposal = Product(property_package=m.fs.properties)
 
     # Add translator blocks
     treat.zo_to_sw_feed = Translator_ZO_to_SW(
@@ -201,6 +201,19 @@ def build_permian():
 
 def set_operating_conditions(m, Qin=5, tds=130):
 
+    Qin = Qin * pyunits.Mgallons / pyunits.day
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
+    flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
+    flow_mass_tds = pyunits.convert(
+        Qin * tds * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.s
+    )
+
+    m.fs.treatment.feed.properties[0].flow_mass_comp["H2O"].fix(flow_mass_water)
+    m.fs.treatment.feed.properties[0].flow_mass_comp["tds"].fix(flow_mass_tds)
+    # m.fs.treatment.feed.properties[0].temperature.fix(273.15 + 50.52)  # K
+    # m.fs.treatment.feed.properties[0].pressure.fix(1e5)  # Pa
+    m.fs.treatment.feed.properties[0].conc_mass_comp[...]
+
     set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition)
     set_ec_operating_conditions(m, m.fs.treatment.EC)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
@@ -224,10 +237,27 @@ def add_treatment_costing(m):
     )
 
 
+def init_system(m, **kwargs):
+
+    treat = m.fs.treatment
+
+    treat.feed.initialize()
+    propagate_state(treat.feed_to_chem_addition)
+    init_chem_addition(m, treat.chem_addition)
+    propagate_state(treat.chem_addition_to_ec)
+    init_ec(m, treat.EC)
+    propagate_state(treat.ec_to_cart_filt)
+    init_cart_filt(m, treat.cart_filt)
+    propagate_state(treat.cart_filt_to_translator)
+    treat.zo_to_sw_feed.initialize()
+    propagate_state(treat.cart_filt_translated_to_mvc)
+    init_mvc(m, treat.MVC)
+
+
 if __name__ == "__main__":
     m = build_permian()
     set_operating_conditions(m)
 
-    # add_treatment_costing(m)
+    init_system(m)
 
     print(f"dof = {degrees_of_freedom(m)}")
