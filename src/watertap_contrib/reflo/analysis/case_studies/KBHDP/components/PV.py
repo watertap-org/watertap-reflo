@@ -59,7 +59,7 @@ def set_pv_constraints(m, focus="Size"):
         # energy.pv_design_constraint = Constraint(
         #     expr= m.fs.energy.pv.annual_energy == 43000000
         # )
-        m.fs.energy.pv.annual_energy.fix(30000000)
+        m.fs.energy.pv.annual_energy.fix(10000000)
 
         # == pyunits.convert(
         #         m.fs.treatment.costing.aggregate_flow_electricity,
@@ -74,25 +74,20 @@ def set_pv_constraints(m, focus="Size"):
         expr=m.fs.energy.pv.annual_energy
     )
 
-    # m.fs.energy.pv_design_constraint = Constraint(
-    #     expr=m.fs.energy.pv.design_size >= m.fs.treatment.costing.aggregate_flow_electricity
-    # )
-    # m.fs.energy.pv.costing.annual_generation_constraint = Constraint(
-    #     expr=m.fs.energy.pv.costing.annual_generation == m.fs.energy.pv.annual_energy
-    # )
     m.fs.energy.pv.costing.system_capacity_constraint = Constraint(
-        expr=m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
+        expr= m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
     )
 
-    # m.fs.energy.pv.costing.system_capacity.fix(m.fs.energy.pv.design_size)
-
-    # m.fs.energy.pv.costing.annual_generation.fix(m.fs.energy.pv.annual_energy)
+    m.fs.energy_balance = Expression(
+        expr= 100 * (m.fs.energy.pv.annual_energy) / (m.fs.annual_treatment_energy)
+    )
 
 
 def add_pv_scaling(m, blk):
     pv = blk
 
     iscale.set_scaling_factor(pv.design_size, 1e-4)
+    # iscale.set_scaling_factor(pv.costing.system_capacity, 1e-9)
 
 
 def print_PV_costing_breakdown(pv):
@@ -130,7 +125,9 @@ def report_PV(m):
     print(
         f'{"Treatment Annual Demand":<25s}{f"{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
     )
-
+    print(
+        f'{"Energy Balance":<25s}{f"{value(m.fs.energy_balance):<25,.2f}"}'
+    )
     print(
         f'{"Treatment Elec Cost":<25s}{f"${value(m.fs.treatment.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
     )
