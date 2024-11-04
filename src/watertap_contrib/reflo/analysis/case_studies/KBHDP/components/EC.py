@@ -45,6 +45,7 @@ __all__ = [
     "set_ec_operating_conditions",
     "init_ec",
     "add_ec_costing",
+    "add_ec_scaling",
     "report_EC",
     "print_EC_costing_breakdown",
 ]
@@ -252,6 +253,10 @@ def set_scaling(m, blk):
     else:
         print("Variables are scaled well")
 
+def add_ec_scaling(m, blk):
+    set_scaling_factor(blk.ec.charge_loading_rate, 1)
+    set_scaling_factor(blk.ec.reactor_volume, 100)
+    set_scaling_factor(blk.ec.power_required, 100)
 
 def init_system(m, solver=None):
     """Initialize system for individual unit process flowsheet"""

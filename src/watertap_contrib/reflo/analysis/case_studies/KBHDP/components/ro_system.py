@@ -506,28 +506,135 @@ def calc_scale(value):
 def add_ro_scaling(m, blk):
     for idx, stage in blk.stage.items():
         module = stage.module
-        iscale.set_scaling_factor(module.area, 1e-2)
-        iscale.set_scaling_factor(module.feed_side.area, 1e-2)
-        iscale.set_scaling_factor(module.width, 1e-2)
+        iscale.set_scaling_factor(module.area, 1e-5)
+        iscale.set_scaling_factor(module.feed_side.area, 1)
+        iscale.set_scaling_factor(module.width, 1e-4)
+        set_scaling_factor(module.length, 1e1)
 
-        set_scaling_factor(module.feed_side.dh, 1e4)
-        constraint_scaling_transform(module.feed_side.eq_dh, 100)
-        constraint_scaling_transform(
-            module.eq_permeate_production[0.0, "Liq", "NaCl"], 1e2
-        )
-        for e in module.feed_side.eq_K:
-            # constraint_scaling_transform(stage.feed_side.eq_K[e], 100)
-            constraint_scaling_transform(module.feed_side.eq_K[e], 1e6)
+        # set_scaling_factor(module.feed_side.dh, 1e4)
+        # constraint_scaling_transform(module.feed_side.eq_dh, 100)
+        
+        # set_scaling_factor(module.feed_side.N_Re, 1e-1)
+        # # set_scaling_factor(module.feed_side.deltaP, 1e-5)
+        # # set_scaling_factor(module.deltaP, 1e-8)
+        set_scaling_factor(module.feed_side.velocity, 10)
 
-        for e in module.eq_flux_mass:
+        set_scaling_factor(module.feed_side.N_Sh_comp, 1e-4)
+
+        # for e in module.feed_side.K:
+        #     if e[-1] == "NaCl":
+        #         set_scaling_factor(module.feed_side.K, 1e1)
+
+        # for e in module.feed_side.eq_K:
+        #     constraint_scaling_transform(module.feed_side.eq_K[e], 1e3)
+
+        # # for e in module.feed_side.mass_transfer_term:
+        # #     if e[-1] == "H2O":
+        # #         set_scaling_factor(module.feed_side.mass_transfer_term[e], 1)
+
+        for e in module.feed_side.properties:
+            set_scaling_factor(
+                module.feed_side.properties[e].flow_mass_phase_comp["Liq", "NaCl"], 1
+            )
+        #     set_scaling_factor(
+        #         module.feed_side.properties[e].flow_mass_phase_comp["Liq", "H2O"], 1e-3
+        #     )
+        #     set_scaling_factor(
+        #         module.feed_side.properties[e].diffus_phase_comp["Liq", "NaCl"], 1e9
+        #     )
+            set_scaling_factor(
+                module.feed_side.properties[e].dens_mass_phase["Liq"], 1
+            )
+        #     set_scaling_factor(
+        #         module.feed_side.properties[e].flow_vol_phase["Liq"], 1e-2
+        #     )
+            # constraint_scaling_transform(module.feed_side.properties[e].eq_flow_vol_phase['Liq'], 100)
+
+        # for e in module.feed_side.properties_interface:
+        #     set_scaling_factor(
+        #         module.feed_side.properties_interface[e].flow_mass_phase_comp["Liq", "NaCl"],
+        #         1e2,
+        #     )
+        #     set_scaling_factor(
+        #         module.feed_side.properties_interface[e].flow_mass_phase_comp["Liq", "H2O"],
+        #         1e-3,
+        #     )
+            # set_scaling_factor(
+            #     module.feed_side.properties_interface[e].dens_mass_phase["Liq"], 1
+            # )
+
+        # for e in module.permeate_side:
+        #     set_scaling_factor(
+        #         module.permeate_side[e].flow_mass_phase_comp["Liq", "NaCl"], 1e2
+        #     )
+        #     set_scaling_factor(
+        #         module.permeate_side[e].flow_mass_phase_comp["Liq", "H2O"], 10
+        #     )
+
+        # set_scaling_factor(module.mixed_permeate[0.0].flow_vol_phase['Liq'], 100)
+        
+        # constraint_scaling_transform(module.eq_recovery_mass_phase_comp[0.0, "NaCl"], 1e2)
+
+        # constraint_scaling_transform(
+        #     module.eq_permeate_production[0.0, "Liq", "NaCl"], 1e2
+        # )
+
+        # set_scaling_factor(module.mixed_permeate[0.0].dens_mass_phase['Liq'], 1e1)
+        # set_scaling_factor(module.mixed_permeate[0.0].dens_mass_phase['Liq'], 1e1)
+        
+        # constraint_scaling_transform(module.mixed_permeate[0.0].eq_flow_vol_phase['Liq'], 100)
+        
+
+
+
+        # for e in module.eq_flux_mass:
+        #     if e[-1] == "NaCl":
+        #         constraint_scaling_transform(module.eq_flux_mass[e], 1e6)
+
+        # for e in module.mass_transfer_phase_comp:
+        #     if e[-1] == "NaCl":
+        #         set_scaling_factor(module.mass_transfer_phase_comp[e], 1e-2)
+        #     else:
+        #         set_scaling_factor(module.mass_transfer_phase_comp[e], 1e-2)
+
+        for temp_stream in [
+            module.eq_permeate_isothermal,
+            module.feed_side.eq_equal_temp_interface,
+            module.feed_side.eq_feed_isothermal,
+            module.eq_permeate_outlet_isothermal,
+            ]:
+            for e in temp_stream:
+                constraint_scaling_transform(temp_stream[e], 1e-2)
+            for pressure_stream in [
+                module.eq_permeate_outlet_isobaric,
+                module.feed_side.eq_equal_pressure_interface,
+            ]:
+                for e in pressure_stream:
+                    constraint_scaling_transform(pressure_stream[e], 1e-5)
+            for e in module.eq_pressure_drop:
+                constraint_scaling_transform(module.eq_pressure_drop[e], 1e-7)
+
+
+        # for e in module.eq_flux_mass:
+        #     if e[-1] == "NaCl":
+        #         constraint_scaling_transform(module.eq_flux_mass[e], 1e6)      
+
+        for e in module.feed_side.eq_N_Sh_comp:
             if e[-1] == "NaCl":
-                constraint_scaling_transform(module.eq_flux_mass[e], 1e6)
+                constraint_scaling_transform(module.feed_side.eq_N_Sh_comp[e], 1e-3)
 
-        for e in module.mass_transfer_phase_comp:
-            if e[-1] == "NaCl":
-                set_scaling_factor(module.mass_transfer_phase_comp[e], 1e-2)
-            else:
-                set_scaling_factor(module.mass_transfer_phase_comp[e], 1e-2)
+        for e in module.feed_side.eq_friction_factor:
+            constraint_scaling_transform(module.feed_side.eq_friction_factor[e], 1e-2)
+        for e in module.feed_side.eq_dP_dx:
+            constraint_scaling_transform(module.feed_side.eq_dP_dx[e], 1e-2)
+
+        set_scaling_factor(module.mixed_permeate[0.0].dens_mass_phase['Liq'], 1)
+        set_scaling_factor(module.mixed_permeate[0.0].flow_vol_phase['Liq'], 100)
+        constraint_scaling_transform(module.mixed_permeate[0.0].eq_flow_vol_phase['Liq'], 100)
+
+        for e in module.recovery_mass_phase_comp:
+            if e[-1] == 'H2O':
+                set_scaling_factor(module.recovery_mass_phase_comp, 1e1)
 
 
 def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
@@ -567,8 +674,8 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
         stage.module.feed_side.channel_height.fix(height)
         stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
 
-        # stage.module.flux_vol_phase_avg[0, "Liq"].setlb(5)
-        # stage.module.flux_vol_phase_avg[0, "Liq"].setub(30)
+        stage.module.flux_vol_phase_avg[0, "Liq"].setlb(5)
+        stage.module.flux_vol_phase_avg[0, "Liq"].setub(60)
         # stage.eq_max_water_flux = Constraint(
         #     expr= stage.module.flux_vol_phase_avg[0] <= 40 
         # )
@@ -785,7 +892,7 @@ if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
     display_ro_system_build(m)
-    set_operating_conditions(m, Qin=169.663, Cin=17.367, ro_pressure=25e5)
+    set_operating_conditions(m, Qin=169.663, Cin=3.717, ro_pressure=25e5)
     set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10000)
     init_system(m)
     solve(m)

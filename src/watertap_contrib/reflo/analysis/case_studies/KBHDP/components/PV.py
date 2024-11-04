@@ -15,6 +15,7 @@ __all__ = [
     "train_pv_surrogate",
     "set_pv_constraints",
     "add_pv_scaling",
+    "add_pv_costing_scaling",
     "print_PV_costing_breakdown",
     "report_PV",
 ]
@@ -87,7 +88,13 @@ def add_pv_scaling(m, blk):
     pv = blk
 
     iscale.set_scaling_factor(pv.design_size, 1e-4)
-    # iscale.set_scaling_factor(pv.costing.system_capacity, 1e-9)
+    iscale.set_scaling_factor(pv.annual_energy, 1e-8)
+    iscale.set_scaling_factor(pv.electricity, 1e-6)
+
+def add_pv_costing_scaling(m, blk):
+    pv = blk
+
+    iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-5)
 
 
 def print_PV_costing_breakdown(pv):

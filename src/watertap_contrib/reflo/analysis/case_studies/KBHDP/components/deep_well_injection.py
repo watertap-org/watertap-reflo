@@ -71,7 +71,13 @@ def propagate_state(arc):
 def build_DWI(m, blk, prop_package) -> None:
     print(f'\n{"=======> BUILDING DEEP WELL INJECTION SYSTEM <=======":^60}\n')
 
-    blk.unit = DeepWellInjection(property_package=m.fs.properties)
+    blk.feed = StateJunction(property_package=prop_package)
+    blk.unit = DeepWellInjection(property_package=prop_package)
+
+    blk.feed_to_unit = Arc(
+        source=blk.feed.outlet,
+        destination=blk.unit.inlet,
+    )
 
 
 def set_DWI_op_conditions(blk):
@@ -121,9 +127,9 @@ def init_DWI(m, blk, verbose=True, solver=None):
     blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
 
 
-def add_DWI_costing(m, blk):
+def add_DWI_costing(m, blk, costing_blk=None):
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
+        flowsheet_costing_block=costing_blk,
         costing_method_arguments={
             "cost_method": "as_opex"
         },  # could be "as_capex" or "blm"
@@ -138,16 +144,17 @@ def report_DWI(m, blk):
     )
 
 
-def print_DWI_costing_breakdown(m, blk):
-    print(f"\n\n-------------------- UF Costing Breakdown --------------------\n")
+def print_DWI_costing_breakdown(blk):
+    print(f"\n\n-------------------- DWI Costing Breakdown --------------------\n")
     print("\n")
     print(f'{"Capital Cost":<30s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
     # print(
     #     f'{"Capital Cost":<30s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
     # )
     print(
-        f'{"Capital Cost":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
+        f'{"Operating Cost":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
     )
+    print("\n")
 
 
 def build_system():
