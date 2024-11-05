@@ -101,11 +101,7 @@ class PVSurrogateData(SolarEnergyBaseData):
             }
         )
         self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
-        # self.annual_energy.set_value(self.init_output.annual_energy.values[0])
-        # self.electricity_annual_scaled.set_value(
-        #     self.init_output.electricity_annual_scaled.values[0]
-        # )
-        # self.heat.set_value(value(self.heat_annual) / 8766)
+
         self.electricity.set_value(value(self.electricity_annual) / 8766)
         # Create solver
         res = opt.solve(self)

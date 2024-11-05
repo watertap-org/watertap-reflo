@@ -74,8 +74,6 @@ def main():
     optimize(m, ro_mem_area=None, water_recovery=0.8, objective=None)
     solve(m, debug=True)
 
-
-
     report_RO(m, m.fs.treatment.RO)
     # # report_pump(m, m.fs.treatment.pump)
     # report_PV(m)
@@ -355,10 +353,16 @@ def scale_costing(m):
     # for e in m.fs.treatment.RO.stage[1].module.feed_side.eq_K:
     #     iscale.constraint_scaling_transform(m.fs.treatment.RO.stage[1].module.feed_side.eq_K[e], 1e6)
 
+
 def apply_system_scaling(m):
-    iscale.set_scaling_factor(m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3)
-    iscale.constraint_scaling_transform(m.fs.treatment.product.properties[0.0].eq_flow_vol_phase["Liq"], 1e-6)
+    iscale.set_scaling_factor(
+        m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3
+    )
+    iscale.constraint_scaling_transform(
+        m.fs.treatment.product.properties[0.0].eq_flow_vol_phase["Liq"], 1e-6
+    )
     iscale.set_scaling_factor(m.fs.treatment.pump.control_volume.work, 1e-6)
+
 
 def apply_scaling(m):
 
@@ -402,7 +406,9 @@ def set_inlet_conditions(
     treatment = m.fs.treatment
 
     # Convert Q_in from MGD to kg/s
-    Qin = pyunits.convert(Qin*pyunits.Mgallon * pyunits.day ** -1, to_units=pyunits.L / pyunits.s)
+    Qin = pyunits.convert(
+        Qin * pyunits.Mgallon * pyunits.day**-1, to_units=pyunits.L / pyunits.s
+    )
     feed_density = 1000 * pyunits.kg / pyunits.m**3
     print('\n=======> SETTING FEED CONDITIONS <======="\n')
     print(f"Flow Rate: {value(Qin):<10.2f}{pyunits.get_units(Qin)}")
@@ -410,7 +416,9 @@ def set_inlet_conditions(
     if Qin is None:
         treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(1)
     else:
-        treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(Qin * feed_density)
+        treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(
+            Qin * feed_density
+        )
 
     inlet_dict = {
         "Ca_2+": 0.61 * pyunits.kg / pyunits.m**3,
@@ -478,7 +486,6 @@ def set_inlet_conditions(
     # m.fs.disposal.temperature[0].fix(feed_temperature)
 
     # m.fs.primary_pump.efficiency_pump.fix(0.85)
-    
 
     # m.fs.feed.properties[0].flow_vol_phase["Liq"]
     # m.fs.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]

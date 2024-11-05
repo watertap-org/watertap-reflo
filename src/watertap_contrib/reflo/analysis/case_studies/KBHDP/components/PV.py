@@ -76,11 +76,11 @@ def set_pv_constraints(m, focus="Size"):
     )
 
     m.fs.energy.pv.costing.system_capacity_constraint = Constraint(
-        expr= m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
+        expr=m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
     )
 
     m.fs.energy_balance = Expression(
-        expr= 100 * (m.fs.energy.pv.annual_energy) / (m.fs.annual_treatment_energy)
+        expr=100 * (m.fs.energy.pv.annual_energy) / (m.fs.annual_treatment_energy)
     )
 
 
@@ -90,6 +90,7 @@ def add_pv_scaling(m, blk):
     iscale.set_scaling_factor(pv.design_size, 1e-4)
     iscale.set_scaling_factor(pv.annual_energy, 1e-8)
     iscale.set_scaling_factor(pv.electricity, 1e-6)
+
 
 def add_pv_costing_scaling(m, blk):
     pv = blk
@@ -132,9 +133,7 @@ def report_PV(m):
     print(
         f'{"Treatment Annual Demand":<25s}{f"{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
     )
-    print(
-        f'{"Energy Balance":<25s}{f"{value(m.fs.energy_balance):<25,.2f}"}'
-    )
+    print(f'{"Energy Balance":<25s}{f"{value(m.fs.energy_balance):<25,.2f}"}')
     print(
         f'{"Treatment Elec Cost":<25s}{f"${value(m.fs.treatment.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
     )

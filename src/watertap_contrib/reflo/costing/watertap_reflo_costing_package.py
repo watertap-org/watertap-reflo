@@ -237,21 +237,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
             * self.utilization_factor
         )
-        # self.total_electric_operating_cost_constraint = pyo.Constraint(
-        #     expr= self.total_electric_operating_cost == (
-        #         pyo.units.convert(
-        #             self.aggregate_flow_electricity_purchased,
-        #             to_units=pyo.units.kWh / pyo.units.year,
-        #         )
-        #         * self.electricity_cost_buy
-        #         - pyo.units.convert(
-        #             self.aggregate_flow_electricity_sold,
-        #             to_units=pyo.units.kWh / pyo.units.year,
-        #         )
-        #         * self.electricity_cost_sell
-        #     )
-        #     * self.utilization_factor
-        # )
 
         self.total_operating_cost_constraint = pyo.Constraint(
             expr=self.total_operating_cost
