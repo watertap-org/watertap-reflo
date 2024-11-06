@@ -411,7 +411,7 @@ if __name__ == "__main__":
     run_parametrics = True
     use_multiprocessing = True
 
-    heat_loads = np.arange(5, 200, 10)  # [MWt]
+    heat_loads = np.arange(1, 100, 10)  # [MWt]
     # heat_loads = np.arange(100, 1100, 25)  # [MWt]
     hours_storages = np.arange(0, 27, 1)  # [hr]
     temperature_hots = np.arange(50, 102, 2)  # [C]
@@ -426,7 +426,7 @@ if __name__ == "__main__":
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "flat_plate_data_heat_load_5_200.pkl"
+        dirname(__file__), "flat_plate_data_heat_load_1_100.pkl"
     )  # output dataset for surrogate training
 
     config_data = read_module_datafile(param_file)

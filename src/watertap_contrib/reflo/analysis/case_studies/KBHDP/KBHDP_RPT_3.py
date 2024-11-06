@@ -16,6 +16,7 @@ from pyomo.environ import (
     RangeSet,
     check_optimal_termination,
     units as pyunits,
+    SolverFactory,
 )
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
@@ -46,6 +47,7 @@ from watertap_contrib.reflo.costing import (
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.MD import *
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.FPC import *
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.deep_well_injection import *
+import pandas as pd
 
 
 def propagate_state(arc):
@@ -70,8 +72,12 @@ def build_system(inlet_cond, n_time_points):
     m.fs.product = Product(property_package=m.fs.params)
     # m.fs.disposal = Product(property_package=m.fs.params)
 
+    add_constraints(m)
+    m.fs.water_recovery.fix(inlet_cond["water_recovery"])
+
     # Create MD unit model at flowsheet level
     m.fs.treatment.md = FlowsheetBlock(dynamic=False)
+
     model_options, n_time_points = build_md(
         m, m.fs.treatment.md, inlet_cond, n_time_points
     )
@@ -103,47 +109,46 @@ def add_connections(m):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-# TODO: Should the recovery be a constraint of a variable thats fixed?
 def add_constraints(m):
     m.fs.water_recovery = Var(
-        initialize=0.5,
+        initialize=0.3,
         bounds=(0, 0.99),
         domain=NonNegativeReals,
         units=pyunits.dimensionless,
         doc="System Water Recovery",
     )
 
-    m.fs.feed_flow_mass = Var(
-        initialize=1,
-        bounds=(0.00001, 1e6),
-        domain=NonNegativeReals,
-        units=pyunits.kg / pyunits.s,
-        doc="System Feed Flowrate",
-    )
+    # m.fs.feed_flow_mass = Var(
+    #     initialize=1,
+    #     bounds=(0.00001, 1e6),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.kg / pyunits.s,
+    #     doc="System Feed Flowrate",
+    # )
 
-    m.fs.feed_flow_vol = Var(
-        initialize=1,
-        bounds=(0.00001, 1e6),
-        domain=NonNegativeReals,
-        units=pyunits.L / pyunits.s,
-        doc="System Feed Flowrate",
-    )
+    # m.fs.feed_flow_vol = Var(
+    #     initialize=1,
+    #     bounds=(0.00001, 1e6),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.L / pyunits.s,
+    #     doc="System Feed Flowrate",
+    # )
 
-    m.fs.perm_flow_mass = Var(
-        initialize=1,
-        bounds=(0.00001, 1e6),
-        domain=NonNegativeReals,
-        units=pyunits.kg / pyunits.s,
-        doc="System Produce Flowrate",
-    )
+    # m.fs.perm_flow_mass = Var(
+    #     initialize=1,
+    #     bounds=(0.00001, 1e6),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.kg / pyunits.s,
+    #     doc="System Produce Flowrate",
+    # )
 
-    m.fs.eq_water_recovery = Constraint(
-        expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
-        == m.fs.product.properties[0].flow_vol
-    )
+    # m.fs.eq_water_recovery = Constraint(
+    #     expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
+    #     == m.fs.product.properties[0].flow_vol
+    # )
 
-    m.fs.feed.properties[0].conc_mass_phase_comp
-    m.fs.product.properties[0].conc_mass_phase_comp
+    # m.fs.feed.properties[0].conc_mass_phase_comp
+    # m.fs.product.properties[0].conc_mass_phase_comp
     # m.fs.disposal.properties[0].conc_mass_phase_comp
 
 
@@ -159,16 +164,21 @@ def add_energy_constraints(m):
 
 
 def add_costing(m, treatment_costing_block, energy_costing_block):
+    # Solving the system before adding costing
+    solver = SolverFactory("ipopt")
+    solve(m, solver=solver, tee=False)
     add_fpc_costing(m.fs.energy.fpc, energy_costing_block)
     add_md_costing(m.fs.treatment.md.unit, treatment_costing_block)
     add_DWI_costing(m.fs.treatment, m.fs.treatment.dwi, treatment_costing_block)
 
 
 def calc_costing(m):
+    # Touching variables to solve for volumetric flow rate
+    m.fs.product.properties[0].flow_vol_phase
 
     # Treatment costing
-    m.fs.treatment.costing.capital_recovery_factor.fix(0.08764)
-    m.fs.treatment.costing.wacc.unfix()
+    # m.fs.treatment.costing.capital_recovery_factor.fix(0.08764)
+    # m.fs.treatment.costing.wacc.unfix()
     m.fs.treatment.costing.cost_process()
 
     m.fs.treatment.costing.initialize()
@@ -186,19 +196,16 @@ def calc_costing(m):
     m.fs.energy.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
 
 
-def add_system_costing(m):
+def add_system_costing(m, heat_price=0.01, frac_heat_from_grid=0.01):
     # System costing
     m.fs.sys_costing = REFLOSystemCosting()
-    # m.fs.sys_costing.wacc.unfix()
-    m.fs.sys_costing.frac_heat_from_grid.fix(0.01)
-    # m.fs.sys_costing.frac_elec_from_grid.fix(0.1)
-    m.fs.sys_costing.heat_cost_buy.set_value(1)
+    m.fs.sys_costing.frac_heat_from_grid.fix(frac_heat_from_grid)
+    m.fs.sys_costing.heat_cost_buy.set_value(heat_price)
     m.fs.sys_costing.cost_process()
 
     m.fs.sys_costing.initialize()
-
+    m.fs.sys_costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
     m.fs.sys_costing.add_LCOW(m.fs.product.properties[0].flow_vol)
-
 
 
 def set_inlet_conditions(blk, model_options):
@@ -278,6 +285,11 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
         return results
 
 
+def optimize(m):
+    m.fs.sys_costing.frac_heat_from_grid.unfix()
+    m.fs.obj = Objective(expr=m.fs.sys_costing.LCOW)
+
+
 def report_sys_costing(blk):
 
     print(f"\n\n-------------------- System Costing Report --------------------\n")
@@ -334,23 +346,29 @@ def report_sys_costing(blk):
     )
 
 
-if __name__ == "__main__":
-
-    solver = get_solver()
-    solver = SolverFactory("ipopt")
-
-    Qin = 4 * pyunits.Mgal / pyunits.day  # KBHDP flow rate
+def set_inlet_stream_conditions(Qinput=4, feed_salinity_input=12, water_recovery=0.5):
+    Qin = Qinput * pyunits.Mgal / pyunits.day  # KBHDP flow rate
     Qin = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.day)
 
-    feed_salinity = 12 * pyunits.g / pyunits.L
-
-    overall_recovery = 0.5
+    feed_salinity = feed_salinity_input * pyunits.g / pyunits.L
+    # water_recovery = 0.5
 
     inlet_cond = {
         "inlet_flow_rate": Qin,
         "inlet_salinity": feed_salinity,
-        "recovery": overall_recovery,
+        "water_recovery": water_recovery,
     }
+
+    return inlet_cond
+
+
+def main(water_recovery=0.5, heat_price=0.07, frac_heat_from_grid=0.01):
+    solver = get_solver()
+    solver = SolverFactory("ipopt")
+
+    inlet_cond = set_inlet_stream_conditions(
+        Qinput=4, feed_salinity_input=12, water_recovery=water_recovery
+    )
 
     n_time_points = None
 
@@ -358,6 +376,7 @@ if __name__ == "__main__":
     m, model_options, n_time_points = build_system(
         inlet_cond, n_time_points=n_time_points
     )
+
     set_inlet_conditions(m.fs, model_options)
 
     init_system(m, m.fs, model_options, n_time_points)
@@ -366,10 +385,6 @@ if __name__ == "__main__":
 
     print(f"\nBefore Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 
-    results = solver.solve(m)
-
-    # Touching variables to solve for volumetric flow rate
-    m.fs.product.properties[0].flow_vol_phase
     # m.fs.disposal.properties[0].flow_vol_phase
 
     add_costing(
@@ -379,30 +394,26 @@ if __name__ == "__main__":
     )
 
     calc_costing(m)
-    add_system_costing(m)
+    add_system_costing(m, heat_price, frac_heat_from_grid)
 
     # add_energy_constraints(m)
 
     print(f"\nAfter Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print("Treatment block:", degrees_of_freedom(m.fs.treatment))
-    print("Treatment costing block:", degrees_of_freedom(m.fs.treatment.costing))
-    print("Energy block:", degrees_of_freedom(m.fs.energy))
-    print("Energy costing block:", degrees_of_freedom(m.fs.energy.costing))
 
-    results = solver.solve(m)
+    # results = solver.solve(m)
+    solve(m, solver=solver, tee=False)
 
     print_infeasible_constraints(m)
 
     print(f"\nAfter Solve System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print("Treatment block:", degrees_of_freedom(m.fs.treatment))
-    print("Treatment costing block:", degrees_of_freedom(m.fs.treatment.costing))
-    print("Energy block:", degrees_of_freedom(m.fs.energy))
-    print("Energy costing block:", degrees_of_freedom(m.fs.energy.costing))
 
-    m.fs.sys_costing.frac_heat_from_grid.unfix()
+    optimize(m)
+    solve(m, solver=solver, tee=False)
 
-    m.fs.obj = Objective(expr=m.fs.sys_costing.LCOW)
-    results = solver.solve(m)
+    return m
+
+
+def print_results_summary(m):
 
     print(f"\nAfter Optimization System Degrees of Freedom: {degrees_of_freedom(m)}")
 
@@ -421,6 +432,11 @@ if __name__ == "__main__":
         f'{"System LCOW":<30s}{value(m.fs.sys_costing.LCOW):<10.2f}{pyunits.get_units(m.fs.sys_costing.LCOW)}'
     )
 
+    print("\n")
+    print(
+        f'{"Percent from the grid":<30s}{value(m.fs.sys_costing.frac_heat_from_grid):<10.2f}{pyunits.get_units(m.fs.sys_costing.frac_heat_from_grid)}'
+    )
+
     report_MD(m, m.fs.treatment.md)
     report_md_costing(m, m.fs.treatment)
 
@@ -430,18 +446,162 @@ if __name__ == "__main__":
     report_fpc_costing(m, m.fs.energy)
     report_sys_costing(m.fs.sys_costing)
 
-    # print("\nTreatment")
-    # m.fs.treatment.costing.aggregate_fixed_operating_cost.display()
-    # m.fs.treatment.costing.aggregate_variable_operating_cost.display()
-    # m.fs.treatment.costing.total_operating_cost.display()
-    # m.fs.treatment.costing.total_capital_cost.display()
 
-    # print("\nEnergy")
-    # m.fs.energy.costing.aggregate_fixed_operating_cost.display()
-    # m.fs.energy.costing.aggregate_variable_operating_cost.display()
-    # m.fs.energy.costing.total_capital_cost.display()
-    # m.fs.energy.costing.total_operating_cost.display()
+def save_results(m, sweep_type=None):
 
-    # m.fs.sys_costing.display()
-    # m.fs.energy.costing.display()
-    # m.fs.energy.display()
+    results_df = pd.DataFrame(
+        columns=[
+            "water_recovery",
+            "heat_price",
+            "frac_heat_from_grid",
+            "product_annual_production",
+            "utilization_factor",
+            "capital_recovery_factor",
+            "unit",
+            "cost_component",
+            "cost",
+            "norm_cost_component",
+        ]
+    )
+
+    capex_output = {
+        "FPC": value(m.fs.energy.fpc.unit.costing.capital_cost)
+        * value(m.fs.sys_costing.capital_recovery_factor),
+        "MD": value(
+            m.fs.treatment.md.unit.get_active_process_blocks()[
+                -1
+            ].fs.vagmd.costing.capital_cost
+        )
+        * value(m.fs.sys_costing.capital_recovery_factor),
+        "DWI": 0,
+        "Heat": 0,
+        "Electricity": 0,
+    }
+
+    fixed_opex_output = {
+        "FPC": value(m.fs.energy.fpc.unit.costing.fixed_operating_cost)
+        + value(m.fs.energy.fpc.unit.costing.capital_cost)
+        * value(m.fs.energy.costing.maintenance_labor_chemical_factor),
+        "MD": value(
+            m.fs.treatment.md.unit.get_active_process_blocks()[
+                -1
+            ].fs.vagmd.costing.fixed_operating_cost
+        )
+        + value(
+            m.fs.treatment.md.unit.get_active_process_blocks()[
+                -1
+            ].fs.vagmd.costing.capital_cost
+        )
+        * value(m.fs.treatment.costing.maintenance_labor_chemical_factor),
+        "DWI": 0,
+        "Heat": 0,
+        "Electricity": 0,
+    }
+    variable_opex_output = {
+        "FPC": 0,
+        "MD": 0,
+        "DWI": value(m.fs.treatment.dwi.unit.costing.variable_operating_cost),
+        "Heat": value(m.fs.sys_costing.total_heat_operating_cost),
+        "Electricity": value(m.fs.sys_costing.total_electric_operating_cost),
+    }
+
+    for unit in ["FPC", "MD", "DWI", "Heat", "Electricity"]:
+        # Add fixed_opex
+        temp = plot_results = {
+            "water_recovery": value(m.fs.water_recovery),
+            "heat_price": value(m.fs.sys_costing.heat_cost_buy),
+            "frac_heat_from_grid": value(m.fs.sys_costing.frac_heat_from_grid),
+            "product_annual_production": value(
+                m.fs.sys_costing.annual_water_production
+            ),
+            "utilization_factor": value(m.fs.sys_costing.utilization_factor),
+            "capital_recovery_factor": value(m.fs.sys_costing.capital_recovery_factor),
+            "unit": unit,
+            "cost_component": "fixed_opex",
+            "cost": fixed_opex_output[unit],
+        }
+        results_df = results_df.append(temp, ignore_index=True)
+        # Add variable opex
+        temp = plot_results = {
+            "water_recovery": value(m.fs.water_recovery),
+            "heat_price": value(m.fs.sys_costing.heat_cost_buy),
+            "frac_heat_from_grid": value(m.fs.sys_costing.frac_heat_from_grid),
+            "product_annual_production": value(
+                m.fs.sys_costing.annual_water_production
+            ),
+            "utilization_factor": value(m.fs.sys_costing.utilization_factor),
+            "capital_recovery_factor": value(m.fs.sys_costing.capital_recovery_factor),
+            "unit": unit,
+            "cost_component": "variable_opex",
+            "cost": variable_opex_output[unit],
+        }
+        results_df = results_df.append(temp, ignore_index=True)
+
+        # Add opex
+        temp = plot_results = {
+            "water_recovery": value(m.fs.water_recovery),
+            "heat_price": value(m.fs.sys_costing.heat_cost_buy),
+            "frac_heat_from_grid": value(m.fs.sys_costing.frac_heat_from_grid),
+            "product_annual_production": value(
+                m.fs.sys_costing.annual_water_production
+            ),
+            "utilization_factor": value(m.fs.sys_costing.utilization_factor),
+            "capital_recovery_factor": value(m.fs.sys_costing.capital_recovery_factor),
+            "unit": unit,
+            "cost_component": "opex",
+            "cost": variable_opex_output[unit] + fixed_opex_output[unit],
+        }
+        results_df = results_df.append(temp, ignore_index=True)
+
+        # Add capex
+        temp = plot_results = {
+            "water_recovery": value(m.fs.water_recovery),
+            "heat_price": value(m.fs.sys_costing.heat_cost_buy),
+            "frac_heat_from_grid": value(m.fs.sys_costing.frac_heat_from_grid),
+            "product_annual_production": value(
+                m.fs.sys_costing.annual_water_production
+            ),
+            "utilization_factor": value(m.fs.sys_costing.utilization_factor),
+            "capital_recovery_factor": value(m.fs.sys_costing.capital_recovery_factor),
+            "unit": unit,
+            "cost_component": "capex",
+            "cost": capex_output[unit],
+        }
+        results_df = results_df.append(temp, ignore_index=True)
+
+    results_df["norm_cost_component"] = (
+        results_df["cost"]
+        / results_df["product_annual_production"]
+        / results_df["utilization_factor"]
+    )
+
+    file_name = (
+        "RPT3_water_recovery_"
+        + str(value(m.fs.water_recovery))
+        + "_heat_price_"
+        + str(value(m.fs.sys_costing.heat_cost_buy))
+    )
+
+    if sweep_type != None:
+        results_df.to_csv(
+            r"C:\Users\mhardika\Documents\SETO\Case Studies\RPT3\RPT3_results\\"
+            + sweep_type
+            + "\\"
+            + file_name
+            + ".csv"
+        )
+    else:
+        results_df.to_csv(
+            r"C:\Users\mhardika\Documents\SETO\Case Studies\RPT3\RPT3_results\\"
+            + file_name
+            + ".csv"
+        )
+        # Flow cost
+
+
+if __name__ == "__main__":
+
+    m = main(water_recovery=0.2, heat_price=0.08, frac_heat_from_grid=0.01)
+
+    save_results(m)
+    print_results_summary(m)

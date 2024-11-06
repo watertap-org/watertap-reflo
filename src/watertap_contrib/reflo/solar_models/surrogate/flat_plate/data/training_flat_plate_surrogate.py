@@ -217,8 +217,12 @@ def plot_3d(surrogate):
 #########################################################################################################
 if __name__ == "__main__":
     create_plots = True
-    dataset_filename = join(dirname(__file__), "../data/test_flat_plate_data.pkl")
-    surrogate_filename = join(dirname(__file__), "../flat_plate_surrogate.json")
+    dataset_filename = join(
+        dirname(__file__), "../data/flat_plate_data_heat_load_1_100.pkl"
+    )
+    surrogate_filename = join(
+        dirname(__file__), "../flat_plate_surrogate_heat_load_1_100.json"
+    )
     n_samples = 100  # number of points to use from overall dataset
     training_fraction = 0.8
     input_labels = ["heat_load", "hours_storage", "temperature_hot"]

@@ -30,6 +30,15 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
 )
 
+__all__ = [
+    "build_fpc",
+    "init_fpc",
+    "set_fpc_op_conditions",
+    "add_fpc_costing",
+    "report_fpc",
+    "report_fpc_costing",
+]
+
 
 def build_system():
     m = ConcreteModel()
@@ -214,6 +223,4 @@ if __name__ == "__main__":
     report_fpc(m, m.fs.fpc.unit)
     report_fpc_costing(m, m.fs)
 
-    m.fs.costing.display()
-    m.fs.fpc.unit.display()
     # m.fs.costing.used_flows.display()

@@ -16,6 +16,7 @@ from pyomo.environ import (
     RangeSet,
     check_optimal_termination,
     units as pyunits,
+    SolverFactory,
 )
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
@@ -62,6 +63,17 @@ from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
 import matplotlib.pyplot as plt
 
+__all__ = [
+    "build_md",
+    "set_md_model_options",
+    "init_md",
+    "set_md_op_conditions",
+    "md_output",
+    "add_md_costing",
+    "report_MD",
+    "report_md_costing",
+]
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -79,6 +91,14 @@ def build_system(inlet_cond, n_time_points=None):
     m.fs.feed = Feed(property_package=m.fs.params)
     m.fs.product = Product(property_package=m.fs.params)
     m.fs.disposal = Product(property_package=m.fs.params)
+
+    m.fs.water_recovery = Var(
+        initialize=0.45,
+        bounds=(0, 0.99),
+        domain=NonNegativeReals,
+        units=pyunits.dimensionless,
+        doc="System Water Recovery",
+    )
 
     # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
@@ -103,9 +123,9 @@ def add_connections(m):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def set_md_model_options(inlet_cond, n_time_points=None):
+def set_md_model_options(m, inlet_cond, n_time_points=None):
 
-    system_capacity = inlet_cond["recovery"] * pyunits.convert(
+    system_capacity = m.fs.water_recovery * pyunits.convert(
         inlet_cond["inlet_flow_rate"], to_units=pyunits.m**3 / pyunits.day
     )
     feed_salinity = pyunits.convert(
@@ -135,7 +155,7 @@ def set_md_model_options(inlet_cond, n_time_points=None):
             cond_inlet_temp=model_options["cond_inlet_temp"],
             feed_temp=model_options["feed_temp"],
             feed_salinity=model_options["feed_salinity"],
-            recovery_ratio=inlet_cond["recovery"],
+            recovery_ratio=m.fs.water_recovery(),  # inlet_cond["recovery"],
             initial_batch_volume=model_options["initial_batch_volume"],
             module_type=model_options["module_type"],
             cooling_system_type=model_options["cooling_system_type"],
@@ -155,7 +175,7 @@ def build_md(m, blk, inlet_cond, n_time_points=None) -> None:
     blk.permeate = StateJunction(property_package=m.fs.params)
     blk.concentrate = StateJunction(property_package=m.fs.params)
 
-    model_options, n_time_points = set_md_model_options(inlet_cond, n_time_points)
+    model_options, n_time_points = set_md_model_options(m, inlet_cond, n_time_points)
 
     # Build the multiperiod object for MD
     blk.unit = MultiPeriodModel(
@@ -681,13 +701,14 @@ def report_md_costing(m, blk):
 if __name__ == "__main__":
 
     solver = get_solver()
+    solver = SolverFactory("ipopt")
 
     Qin = 4 * pyunits.Mgal / pyunits.day  # KBHDP flow rate
     Qin = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.day)
 
     feed_salinity = 12 * pyunits.g / pyunits.L
 
-    overall_recovery = 0.45
+    overall_recovery = 0.8
 
     inlet_cond = {
         "inlet_flow_rate": Qin,
@@ -743,21 +764,4 @@ if __name__ == "__main__":
 
     heat_in = [value(active_blks[i].fs.pre_thermal_power) for i in range(n_time_points)]
 
-    # plt.plot(t_minutes,heat_in)
-    # plt.show()
-
-    # print("\nCalculate n_time points", n_time_points)
-    # print(
-    #     "Time step duration:",
-    #     value(active_blks[0].fs.dt),
-    #     pyunits.get_units(active_blks[0].fs.dt),
-    # )
-
-    # batch_duration = n_time_points * active_blks[0].fs.dt
-    # print("Batch duration:", value(batch_duration), pyunits.get_units(batch_duration))
-    # no_of_batches = 24 * pyunits.h / pyunits.convert(batch_duration, to_units=pyunits.h)
-    # print("Number of batches in 24h:", value(no_of_batches))
-
-    # m.fs.md.permeate.properties[0].flow_vol_phase.display()
-    # vagmd = m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd
-    # vagmd.costing.display()
+    m.fs.water_recovery.display()
