@@ -235,8 +235,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             self.frac_heat_from_grid_constraint = pyo.Constraint(
                 expr=(
                     self.frac_heat_from_grid
-                    == self.aggregate_flow_heat_purchased
-                    / treat_cost.aggregate_flow_heat
+                    == 1
+                    - (
+                        -1
+                        * en_cost.aggregate_flow_heat
+                        / treat_cost.aggregate_flow_heat
+                    )
                 )
             )
 
@@ -274,6 +278,20 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             units=pyo.units.kW,
         )
 
+        self.total_electric_operating_cost = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Total electricity related operating cost",
+            units=self.base_currency / self.base_period,
+        )
+
+        self.total_heat_operating_cost = pyo.Var(
+            initialize=1e3,
+            # domain=pyo.NonNegativeReals,
+            doc="Total heat related operating cost",
+            units=self.base_currency / self.base_period,
+        )
+
         # if all("heat" in b.defined_flows for b in [treat_cost, en_cost]):
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
             self.aggregate_flow_heat = pyo.Var(
@@ -296,15 +314,16 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             == pyo.units.convert(
                 treat_cost.total_operating_cost
                 + en_cost.total_operating_cost
-                + self.total_heat_operating_cost
-                + self.total_electric_operating_cost,
+                + self.total_electric_operating_cost
+                + self.total_heat_operating_cost,
                 to_units=self.base_currency / self.base_period,
             )
         )
 
         # positive is for cost and negative for revenue
-        self.total_electric_operating_cost = pyo.Expression(
-            expr=(
+        self.total_electric_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_electric_operating_cost
+            == (
                 pyo.units.convert(
                     self.aggregate_flow_electricity_purchased,
                     to_units=pyo.units.kWh / pyo.units.year,
@@ -320,8 +339,9 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         # positive is for cost and negative for revenue
-        self.total_heat_operating_cost = pyo.Expression(
-            expr=(
+        self.total_heat_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_heat_operating_cost
+            == (
                 pyo.units.convert(
                     self.aggregate_flow_heat_purchased,
                     to_units=pyo.units.kWh / pyo.units.year,
@@ -337,8 +357,9 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         # positive is for consumption
-        self.aggregate_flow_electricity_constraint = pyo.Expression(
-            expr=self.aggregate_flow_electricity_purchased
+        self.aggregate_flow_electricity_constraint = pyo.Constraint(
+            expr=self.aggregate_flow_electricity
+            == self.aggregate_flow_electricity_purchased
             - self.aggregate_flow_electricity_sold
         )
 
