@@ -211,8 +211,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         self.frac_elec_from_grid_constraint = pyo.Constraint(
             expr=(
                 self.frac_elec_from_grid
-                == self.aggregate_flow_electricity_purchased
-                / treat_cost.aggregate_flow_electricity
+                == 1
+                - (
+                    -1
+                    * en_cost.aggregate_flow_electricity
+                    / treat_cost.aggregate_flow_electricity
+                )
             )
         )
 
