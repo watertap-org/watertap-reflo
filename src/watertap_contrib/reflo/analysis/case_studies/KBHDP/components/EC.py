@@ -60,11 +60,14 @@ def propagate_state(arc, detailed=True):
         arc.destination.display()
         print("\n")
 
+
 def _initialize(blk, verbose=False):
     if verbose:
-        print('\n')
-        print(f"{blk.name:<30s}{f'Degrees of Freedom at Initialization = {degrees_of_freedom(blk):<10.0f}'}")
-        print('\n')
+        print("\n")
+        print(
+            f"{blk.name:<30s}{f'Degrees of Freedom at Initialization = {degrees_of_freedom(blk):<10.0f}'}"
+        )
+        print("\n")
     try:
         blk.initialize()
     except:
@@ -76,6 +79,7 @@ def _initialize(blk, verbose=False):
         print_infeasible_bounds(blk)
         print_close_to_bounds(blk)
         assert False
+
 
 def build_system():
     """Function to create concrete model for individual unit model flowsheet"""
@@ -279,13 +283,14 @@ def print_EC_costing_breakdown(blk):
         f'{"EC Operating Cost":<35s}{f"${blk.ec.costing.fixed_operating_cost():<25,.0f}"}'
     )
 
+
 def breakdown_dof(blk):
     equalities = [c for c in activated_equalities_generator(blk)]
     active_vars = variables_in_activated_equalities_set(blk)
     fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
     unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
     print("\n ===============DOF Breakdown================\n")
-    print(f'Degrees of Freedom: {degrees_of_freedom(blk)}')
+    print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
     print(f"Activated Variables: ({len(active_vars)})")
     for v in active_vars:
         print(f"   {v}")
@@ -293,25 +298,27 @@ def breakdown_dof(blk):
     for c in equalities:
         print(f"   {c}")
 
-    print(f'Fixed Active Vars: ({len(fixed_active_vars)})')
+    print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
     for v in fixed_active_vars:
-        print(f'   {v}')
+        print(f"   {v}")
 
-    print(f'Unfixed Active Vars: ({len(unfixed_active_vars)})')
+    print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
     for v in unfixed_active_vars:
-        print(f'   {v}')
-    print('\n')
+        print(f"   {v}")
+    print("\n")
     print(f" {f' Active Vars':<30s}{len(active_vars)}")
     print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
     print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
     print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
-    print('\nSuggested Variables to Fix:')
+    print("\nSuggested Variables to Fix:")
 
     if degrees_of_freedom != 0:
-        unfixed_vars_without_constraint = [v for v in active_vars if v not in unfixed_active_vars]
+        unfixed_vars_without_constraint = [
+            v for v in active_vars if v not in unfixed_active_vars
+        ]
         for v in unfixed_vars_without_constraint:
             if v.fixed is False:
-                print(f'   {v}')
+                print(f"   {v}")
 
 
 if __name__ == "__main__":

@@ -49,7 +49,9 @@ def propagate_state(arc, detailed=True):
     _prop_state(arc)
 
     if detailed:
-        print(f"\nPropogation of {arc.source.name} to {arc.destination.name} successful.")
+        print(
+            f"\nPropogation of {arc.source.name} to {arc.destination.name} successful."
+        )
         arc.source.display()
         print(arc.destination.name)
         arc.destination.display()
@@ -73,7 +75,7 @@ def main():
 
     # scale_costing(m)
 
-    optimize(m, ro_mem_area=None, water_recovery=0.8, objective='LCOW')
+    optimize(m, ro_mem_area=None, water_recovery=0.8, objective="LCOW")
     solve(m, debug=True)
 
     # report_RO(m, m.fs.treatment.RO)
@@ -143,7 +145,17 @@ def build_system():
     build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
     build_pv(m)
 
-    m.fs.units = [treatment.feed, treatment.EC, treatment.UF, treatment.pump, treatment.RO, treatment.DWI, energy.pv, treatment.product, treatment.sludge]
+    m.fs.units = [
+        treatment.feed,
+        treatment.EC,
+        treatment.UF,
+        treatment.pump,
+        treatment.RO,
+        treatment.DWI,
+        energy.pv,
+        treatment.product,
+        treatment.sludge,
+    ]
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -209,7 +221,7 @@ def add_connections(m):
         source=treatment.RO.disposal.outlet,
         destination=treatment.DWI.feed.inlet,
     )
-    
+
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
@@ -536,7 +548,6 @@ def init_system(m, verbose=True, solver=None):
     assert_no_degrees_of_freedom(m)
     init_treatment(m)
     # initialize_energy(m)
-    
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
@@ -684,7 +695,9 @@ def print_system_scaling_report(m):
     badly_scaled_var_list = iscale.list_badly_scaled_variables(m)
     if len(badly_scaled_var_list) > 0:
         print("Variables are not scaled well")
-        print(f'{"Variable":<83s}{"Val":<15s}{"Val Scale":<10s}{"SF":<10s}{"Diff":<10s}')
+        print(
+            f'{"Variable":<83s}{"Val":<15s}{"Val Scale":<10s}{"SF":<10s}{"Diff":<10s}'
+        )
         print("Treatment:")
         [
             print(

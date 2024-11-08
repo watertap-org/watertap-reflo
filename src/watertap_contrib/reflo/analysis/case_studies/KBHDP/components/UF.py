@@ -261,7 +261,7 @@ def breakdown_dof(blk):
     fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
     unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
     print("\n ===============DOF Breakdown================\n")
-    print(f'Degrees of Freedom: {degrees_of_freedom(blk)}')
+    print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
     print(f"Activated Variables: ({len(active_vars)})")
     for v in active_vars:
         print(f"   {v}")
@@ -269,25 +269,28 @@ def breakdown_dof(blk):
     for c in equalities:
         print(f"   {c}")
 
-    print(f'Fixed Active Vars: ({len(fixed_active_vars)})')
+    print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
     for v in fixed_active_vars:
-        print(f'   {v}')
+        print(f"   {v}")
 
-    print(f'Unfixed Active Vars: ({len(unfixed_active_vars)})')
+    print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
     for v in unfixed_active_vars:
-        print(f'   {v}')
-    print('\n')
+        print(f"   {v}")
+    print("\n")
     print(f" {f' Active Vars':<30s}{len(active_vars)}")
     print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
     print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
     print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
-    print('\nSuggested Variables to Fix:')
+    print("\nSuggested Variables to Fix:")
 
     if degrees_of_freedom != 0:
-        unfixed_vars_without_constraint = [v for v in active_vars if v not in unfixed_active_vars]
+        unfixed_vars_without_constraint = [
+            v for v in active_vars if v not in unfixed_active_vars
+        ]
         for v in unfixed_vars_without_constraint:
             if v.fixed is False:
-                print(f'   {v}')
+                print(f"   {v}")
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))

@@ -168,8 +168,7 @@ def cost_pv_surrogate(blk):
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == pv_params.fixed_operating_by_capacity
-        * blk.unit_model.design_size
+        == pv_params.fixed_operating_by_capacity * blk.unit_model.design_size
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
@@ -177,4 +176,4 @@ def cost_pv_surrogate(blk):
         == pv_params.variable_operating_by_generation * blk.unit_model.annual_energy
     )
 
-    blk.costing_package.cost_flow(-1*blk.unit_model.electricity, "electricity")
+    blk.costing_package.cost_flow(-1 * blk.unit_model.electricity, "electricity")

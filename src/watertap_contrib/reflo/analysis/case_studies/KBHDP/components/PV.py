@@ -28,12 +28,13 @@ __all__ = [
     "report_PV",
 ]
 
+
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     energy = m.fs.energy = Block()
 
-    print(f'Degrees of Freedom: {degrees_of_freedom(m)}')
+    print(f"Degrees of Freedom: {degrees_of_freedom(m)}")
     return m
 
 
@@ -78,7 +79,6 @@ def set_pv_constraints(m, focus="Size"):
     elif focus == "Energy":
         m.fs.energy.pv.annual_energy.fix(40000000)
 
-    
     m.fs.energy.pv.load_surrogate()
 
 
@@ -91,6 +91,7 @@ def add_pv_costing(m, blk):
     )
 
     breakdown_dof(m)
+
 
 def add_pv_scaling(m, blk):
     pv = blk
@@ -169,13 +170,14 @@ def report_PV(m):
     print(m.fs.energy.pv.costing.annual_generation.display())
     print(m.fs.costing.total_electric_operating_cost.display())
 
+
 def breakdown_dof(blk):
     equalities = [c for c in activated_equalities_generator(blk)]
     active_vars = variables_in_activated_equalities_set(blk)
     fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
     unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
     print("\n ===============DOF Breakdown================\n")
-    print(f'Degrees of Freedom: {degrees_of_freedom(blk)}')
+    print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
     print(f"Activated Variables: ({len(active_vars)})")
     for v in active_vars:
         print(f"   {v}")
@@ -183,25 +185,27 @@ def breakdown_dof(blk):
     for c in equalities:
         print(f"   {c}")
 
-    print(f'Fixed Active Vars: ({len(fixed_active_vars)})')
+    print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
     for v in fixed_active_vars:
-        print(f'   {v}')
+        print(f"   {v}")
 
-    print(f'Unfixed Active Vars: ({len(unfixed_active_vars)})')
+    print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
     for v in unfixed_active_vars:
-        print(f'   {v}')
-    print('\n')
+        print(f"   {v}")
+    print("\n")
     print(f" {f' Active Vars':<30s}{len(active_vars)}")
     print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
     print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
     print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
-    print('\nSuggested Variables to Fix:')
+    print("\nSuggested Variables to Fix:")
 
     if degrees_of_freedom != 0:
-        unfixed_vars_without_constraint = [v for v in active_vars if v not in unfixed_active_vars]
+        unfixed_vars_without_constraint = [
+            v for v in active_vars if v not in unfixed_active_vars
+        ]
         for v in unfixed_vars_without_constraint:
             if v.fixed is False:
-                print(f'   {v}')
+                print(f"   {v}")
 
 
 if __name__ == "__main__":
@@ -209,5 +213,3 @@ if __name__ == "__main__":
     build_pv(m)
     set_pv_constraints(m, focus="Size")
     add_pv_costing(m, m.fs.energy.pv)
-
-    
