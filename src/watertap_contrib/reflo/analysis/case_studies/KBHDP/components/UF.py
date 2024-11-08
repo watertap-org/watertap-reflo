@@ -32,7 +32,7 @@ import idaes.logger as idaeslogger
 from idaes.core.util.exceptions import InitializationError
 from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
-
+from watertap.core.util.initialization import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
@@ -94,12 +94,12 @@ def init_UF(m, blk, verbose=True, solver=None):
         solver = get_solver()
 
     optarg = solver.options
-
+    breakdown_dof(blk)
     print(
         "\n\n-------------------- INITIALIZING ULTRAFILTRATION --------------------\n\n"
     )
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"UF Degrees of Freedom: {degrees_of_freedom(blk)}")
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"UF Degrees of Freedom: {degrees_of_freedom(blk)}")
     print("\n\n")
 
     blk.feed.initialize(optarg=optarg)
@@ -112,6 +112,7 @@ def init_UF(m, blk, verbose=True, solver=None):
 
 
 def set_UF_op_conditions(blk):
+    # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
     blk.unit.recovery_frac_mass_H2O.fix(0.99)
     blk.unit.removal_frac_mass_comp[0, "tds"].fix(1e-3)
     blk.unit.removal_frac_mass_comp[0, "tss"].fix(0.9)
@@ -121,7 +122,6 @@ def set_UF_op_conditions(blk):
 def set_system_conditions(blk):
     blk.feed.properties[0.0].flow_mass_comp["H2O"].fix(171.37)
     blk.feed.properties[0.0].flow_mass_comp["tds"].fix(1.96)
-    blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
 
 
 def add_UF_costing(m, blk, costing_blk=None):
@@ -255,6 +255,40 @@ def print_UF_costing_breakdown(blk, debug=False):
         print(blk.unit.costing.display())
 
 
+def breakdown_dof(blk):
+    equalities = [c for c in activated_equalities_generator(blk)]
+    active_vars = variables_in_activated_equalities_set(blk)
+    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
+    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
+    print("\n ===============DOF Breakdown================\n")
+    print(f'Degrees of Freedom: {degrees_of_freedom(blk)}')
+    print(f"Activated Variables: ({len(active_vars)})")
+    for v in active_vars:
+        print(f"   {v}")
+    print(f"Activated Equalities: ({len(equalities)})")
+    for c in equalities:
+        print(f"   {c}")
+
+    print(f'Fixed Active Vars: ({len(fixed_active_vars)})')
+    for v in fixed_active_vars:
+        print(f'   {v}')
+
+    print(f'Unfixed Active Vars: ({len(unfixed_active_vars)})')
+    for v in unfixed_active_vars:
+        print(f'   {v}')
+    print('\n')
+    print(f" {f' Active Vars':<30s}{len(active_vars)}")
+    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
+    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
+    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+    print('\nSuggested Variables to Fix:')
+
+    if degrees_of_freedom != 0:
+        unfixed_vars_without_constraint = [v for v in active_vars if v not in unfixed_active_vars]
+        for v in unfixed_vars_without_constraint:
+            if v.fixed is False:
+                print(f'   {v}')
+
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
@@ -272,3 +306,4 @@ if __name__ == "__main__":
     m.fs.costing.display()
     print_UF_costing_breakdown(m.fs.UF, debug=False)
     # # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print_stream_table(m.fs.UF)

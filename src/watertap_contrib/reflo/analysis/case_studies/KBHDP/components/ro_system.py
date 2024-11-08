@@ -98,7 +98,11 @@ def propagate_state(arc):
     # print('\n')
 
 
-def _initialize(m, blk, optarg):
+def _initialize(blk, verbose=False):
+    if verbose:
+        print('\n')
+        print(f"{blk.name:<30s}{f'Degrees of Freedom at Initialization = {degrees_of_freedom(blk):<10.0f}'}")
+        print('\n')
     try:
         blk.initialize()
     except:
@@ -110,8 +114,6 @@ def _initialize(m, blk, optarg):
         print_infeasible_bounds(blk)
         print_close_to_bounds(blk)
         assert False
-
-        print("\n")
 
 
 def print_RO_op_pressure_est(blk):
@@ -264,11 +266,9 @@ def init_system(m, verbose=True, solver=None):
     optarg = solver.options
 
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"RO Degrees of Freedom: {degrees_of_freedom(m.fs.ro)}")
-    display_dof_breakdown(m)
 
-    m.fs.feed.initialize()
+    assert_no_degrees_of_freedom(m)
+    _initialize(m.fs.feed)
     print(m.fs.feed.report())
     propagate_state(m.fs.feed_to_ro)
 
@@ -276,8 +276,8 @@ def init_system(m, verbose=True, solver=None):
     propagate_state(m.fs.ro_to_product)
     propagate_state(m.fs.ro_to_disposal)
 
-    m.fs.product.initialize()
-    m.fs.disposal.initialize()
+    _initialize(m.fs.product)
+    _initialize(m.fs.disposal)
 
 
 def init_ro_system(m, blk, verbose=True, solver=None):
@@ -288,13 +288,12 @@ def init_ro_system(m, blk, verbose=True, solver=None):
 
     print("\n\n-------------------- INITIALIZING RO SYSTEM --------------------\n\n")
 
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
-    for stage in blk.stage.values():
-        print(f"RO Stage {stage} Degrees of Freedom: {degrees_of_freedom(stage)}")
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
+
     print("\n\n")
 
-    blk.feed.initialize()
+    _initialize(blk.feed)
     propagate_state(blk.ro_feed_to_ro)
 
     for stage in blk.stage.values():
@@ -306,17 +305,17 @@ def init_ro_system(m, blk, verbose=True, solver=None):
             propagate_state(blk.last_stage_retentate_to_ro_retentate)
             propagate_state(blk.stage_permeate_to_mixer[stage.index()])
 
-    blk.disposal.initialize()
-    blk.primary_mixer.initialize()
+    _initialize(blk.disposal)
+    _initialize(blk.primary_mixer)
     propagate_state(blk.primary_mixer_to_product)
-    blk.product.initialize()
+    _initialize(blk.product)
     print(
         "\n\n-------------------- RO INITIALIZATION COMPLETE --------------------\n\n"
     )
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
-    for stage in blk.stage.values():
-        print(f"RO Stage {stage} Degrees of Freedom: {degrees_of_freedom(stage)}")
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
+    # for stage in blk.stage.values():
+    #     print(f"RO Stage {stage} Degrees of Freedom: {degrees_of_freedom(stage)}")
     print("\n\n")
     display_flow_table(blk)
     print(blk.report())
@@ -335,23 +334,23 @@ def init_ro_stage(m, stage, solver=None):
     optarg = solver.options
 
     if stage.has_booster_pump:
-        stage.feed.initialize()
+        _initialize(stage.feed)
         propagate_state(stage.stage_feed_to_booster_pump)
-        stage.booster_pump.initialize()
+        _initialize(stage.booster_pump)
         propagate_state(stage.stage_booster_pump_to_module)
     else:
-        stage.feed.initialize()
+        _initialize(stage.feed)
         propagate_state(stage.stage_feed_to_module)
 
-    display_inlet_conditions(stage)
+    # display_inlet_conditions(stage)
 
-    stage.module.initialize()
+    _initialize(stage.module)
 
     propagate_state(stage.stage_module_to_retentate)
     propagate_state(stage.stage_module_to_permeate)
 
-    stage.permeate.initialize()
-    stage.retentate.initialize()
+    _initialize(stage.permeate)
+    _initialize(stage.retentate)
 
 
 def set_operating_conditions(
@@ -464,6 +463,7 @@ def calc_scale(value):
 
 
 def add_ro_scaling(m, blk):
+    print("Setting RO scaling")
     for idx, stage in blk.stage.items():
         module = stage.module
         iscale.set_scaling_factor(module.area, 1e-5)
@@ -710,7 +710,7 @@ def build_system():
     m.fs.disposal = Product(property_package=m.fs.RO_properties)
 
     m.fs.ro = FlowsheetBlock(dynamic=False)
-    build_ro(m, m.fs.ro, number_of_stages=1)
+    build_ro(m, m.fs.ro,prop_package= m.fs.RO_properties)
 
     m.fs.feed_to_ro = Arc(
         source=m.fs.feed.outlet,
@@ -740,16 +740,51 @@ def print_RO_costing_breakdown(blk):
         f'{"RO Operating Cost":<35s}{f"${value(blk.stage[1].module.costing.fixed_operating_cost):<25,.0f}"}'
     )
 
+def breakdown_dof(blk):
+    equalities = [c for c in activated_equalities_generator(blk)]
+    active_vars = variables_in_activated_equalities_set(blk)
+    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
+    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
+    print("\n ===============DOF Breakdown================\n")
+    print(f'Degrees of Freedom: {degrees_of_freedom(blk)}')
+    print(f"Activated Variables: ({len(active_vars)})")
+    for v in active_vars:
+        print(f"   {v}")
+    print(f"Activated Equalities: ({len(equalities)})")
+    for c in equalities:
+        print(f"   {c}")
+
+    print(f'Fixed Active Vars: ({len(fixed_active_vars)})')
+    for v in fixed_active_vars:
+        print(f'   {v}')
+
+    print(f'Unfixed Active Vars: ({len(unfixed_active_vars)})')
+    for v in unfixed_active_vars:
+        print(f'   {v}')
+    print('\n')
+    print(f" {f' Active Vars':<30s}{len(active_vars)}")
+    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
+    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
+    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+    print('\nSuggested Variables to Fix:')
+
+    if degrees_of_freedom != 0:
+        unfixed_vars_without_constraint = [v for v in active_vars if v not in unfixed_active_vars]
+        for v in unfixed_vars_without_constraint:
+            if v.fixed is False:
+                print(f'   {v}')
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
     display_ro_system_build(m)
-    set_operating_conditions(m, Qin=169.663, Cin=3.717, ro_pressure=25e5)
+    set_operating_conditions(m, Qin=171.763, Cin=20, ro_pressure=30e5)
     set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10000)
+    add_ro_scaling(m, m.fs.ro)
     init_system(m)
     solve(m)
 
     display_flow_table(m.fs.ro)
     report_RO(m, m.fs.ro)
-    print_RO_costing_breakdown(m.fs.ro)
+    # print_RO_costing_breakdown(m.fs.ro)

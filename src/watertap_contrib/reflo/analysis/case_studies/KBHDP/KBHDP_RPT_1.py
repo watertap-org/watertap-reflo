@@ -22,7 +22,7 @@ from idaes.core import FlowsheetBlock, MaterialFlowBasis
 from idaes.core.util.initialization import propagate_state as _prop_state
 from idaes.core.solvers import get_solver
 import idaes.core.util.scaling as iscale
-from watertap.core.wt_database import Database
+from watertap_contrib.reflo.core import REFLODatabase
 
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
@@ -45,13 +45,15 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
 from watertap_contrib.reflo.solar_models.surrogate.pv import PVSurrogate
 
 
-def propagate_state(arc):
+def propagate_state(arc, detailed=True):
     _prop_state(arc)
-    print(f"\nPropogation of {arc.source.name} to {arc.destination.name} successful.")
-    arc.source.display()
-    print(arc.destination.name)
-    arc.destination.display()
-    print("\n")
+
+    if detailed:
+        print(f"\nPropogation of {arc.source.name} to {arc.destination.name} successful.")
+        arc.source.display()
+        print(arc.destination.name)
+        arc.destination.display()
+        print("\n")
 
 
 def main():
@@ -63,30 +65,31 @@ def main():
     add_constraints(m)
     set_operating_conditions(m)
     apply_scaling(m)
+    set_pv_constraints(m, focus="Energy")
     init_system(m)
-    solve(m, debug=True)
-
     add_costing(m)
-    # # get_scaling_factors(m)
-    # # set_pv_constraints(m, focus="Energy")
     scale_costing(m)
-
-    optimize(m, ro_mem_area=None, water_recovery=0.8, objective=None)
     solve(m, debug=True)
 
-    report_RO(m, m.fs.treatment.RO)
-    # # report_pump(m, m.fs.treatment.pump)
+    # scale_costing(m)
+
+    optimize(m, ro_mem_area=None, water_recovery=0.8, objective='LCOW')
+    solve(m, debug=True)
+
+    # report_RO(m, m.fs.treatment.RO)
+    # # # # report_pump(m, m.fs.treatment.pump)
     # report_PV(m)
-    # # m.fs.treatment.costing.display()
-    # # m.fs.energy.costing.display()""
-    # # m.fs.costing.display()
-    # display_costing_breakdown(m)
-    # # print(m.fs.energy.pv.display())
+    # # # # m.fs.treatment.costing.display()
+    # # # # m.fs.energy.costing.display()""
+    # # # # m.fs.costing.display()
+    # # # display_costing_breakdown(m)
+    # # # # print(m.fs.energy.pv.display())
+    # # print_system_scaling_report(m)
 
 
 def build_system():
     m = ConcreteModel()
-    m.db = Database()
+    m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
 
     treatment = m.fs.treatment = Block()
@@ -111,11 +114,12 @@ def build_system():
 
     treatment.feed = Feed(property_package=m.fs.MCAS_properties)
     treatment.product = Product(property_package=m.fs.RO_properties)
-    treatment.disposal = Product(property_package=m.fs.RO_properties)
+    # treatment.disposal = Product(property_package=m.fs.RO_properties)
+    treatment.sludge = Product(property_package=m.fs.UF_properties)
 
-    treatment.pump = Pump(property_package=m.fs.RO_properties)
     treatment.EC = FlowsheetBlock(dynamic=False)
     treatment.UF = FlowsheetBlock(dynamic=False)
+    treatment.pump = Pump(property_package=m.fs.RO_properties)
     treatment.RO = FlowsheetBlock(dynamic=False)
     treatment.DWI = FlowsheetBlock(dynamic=False)
 
@@ -138,6 +142,8 @@ def build_system():
     build_ro(m, treatment.RO, prop_package=m.fs.RO_properties)
     build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
     build_pv(m)
+
+    m.fs.units = [treatment.feed, treatment.EC, treatment.UF, treatment.pump, treatment.RO, treatment.DWI, energy.pv, treatment.product, treatment.sludge]
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -174,6 +180,11 @@ def add_connections(m):
         destination=treatment.UF.feed.inlet,
     )
 
+    treatment.EC_to_sludge = Arc(
+        source=treatment.EC.disposal.outlet,
+        destination=treatment.sludge.inlet,
+    )
+
     treatment.UF_to_translator3 = Arc(
         source=treatment.UF.product.outlet,
         destination=treatment.TDS_to_NaCl_translator.inlet,
@@ -194,11 +205,11 @@ def add_connections(m):
         destination=treatment.product.inlet,
     )
 
-    treatment.ro_to_disposal = Arc(
+    treatment.ro_to_dwi = Arc(
         source=treatment.RO.disposal.outlet,
         destination=treatment.DWI.feed.inlet,
     )
-
+    
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
@@ -214,36 +225,36 @@ def add_constraints(m):
         doc="System Water Recovery",
     )
 
-    m.fs.feed_flow_mass = Var(
-        initialize=1,
-        bounds=(0.00001, 1e6),
-        domain=NonNegativeReals,
-        units=pyunits.kg / pyunits.s,
-        doc="System Feed Flowrate",
-    )
+    # m.fs.feed_flow_mass = Var(
+    #     initialize=1,
+    #     bounds=(0.00001, 1e6),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.kg / pyunits.s,
+    #     doc="System Feed Flowrate",
+    # )
 
-    m.fs.feed_flow_vol = Var(
-        initialize=1,
-        bounds=(0.00001, 1e6),
-        domain=NonNegativeReals,
-        units=pyunits.L / pyunits.s,
-        doc="System Feed Flowrate",
-    )
+    # m.fs.feed_flow_vol = Var(
+    #     initialize=1,
+    #     bounds=(0.00001, 1e6),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.L / pyunits.s,
+    #     doc="System Feed Flowrate",
+    # )
 
-    m.fs.perm_flow_mass = Var(
-        initialize=1,
-        bounds=(0.00001, 1e6),
-        domain=NonNegativeReals,
-        units=pyunits.kg / pyunits.s,
-        doc="System Produce Flowrate",
-    )
+    # m.fs.perm_flow_mass = Var(
+    #     initialize=1,
+    #     bounds=(0.00001, 1e6),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.kg / pyunits.s,
+    #     doc="System Produce Flowrate",
+    # )
 
-    m.fs.annual_treatment_energy = Var(
-        initialize=10000000,
-        domain=NonNegativeReals,
-        units=pyunits.kWh / pyunits.year,
-        doc="Annual Energy Consumption of Treatment System",
-    )
+    # m.fs.annual_treatment_energy = Var(
+    #     initialize=10000000,
+    #     domain=NonNegativeReals,
+    #     units=pyunits.kWh / pyunits.year,
+    #     doc="Annual Energy Consumption of Treatment System",
+    # )
 
     m.fs.eq_water_recovery = Constraint(
         expr=treatment.feed.properties[0].flow_vol * m.fs.water_recovery
@@ -272,12 +283,12 @@ def add_treatment_costing(m):
     treatment.costing.cost_process()
     treatment.costing.initialize()
 
-    m.fs.annual_treatment_energy = Expression(
-        expr=pyunits.convert(
-            m.fs.treatment.costing.aggregate_flow_electricity,
-            to_units=pyunits.kWh / pyunits.year,
-        )
-    )
+    # m.fs.annual_treatment_energy = Expression(
+    #     expr=pyunits.convert(
+    #         m.fs.treatment.costing.aggregate_flow_electricity,
+    #         to_units=pyunits.kWh / pyunits.year,
+    #     )
+    # )
 
     # print_fixed_and_unfixed_vars(treatment.costing)
 
@@ -293,7 +304,7 @@ def add_energy_costing(m):
     # energy.costing.total_investment_factor.fix(1)
     # energy.costing.maintenance_labor_chemical_factor.fix(0)
 
-    # set_pv_constraints(m, focus="Energy")
+    set_pv_constraints(m, focus="Energy")
 
     energy.costing.cost_process()
     energy.costing.initialize()
@@ -337,8 +348,8 @@ def scale_costing(m):
 
     iscale.set_scaling_factor(m.fs.energy.pv.electricity, 1e-10)
     iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1e-10)
-    iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-10)
-    iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-6)
+    # iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-10)
+    # iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-6)
 
     # iscale.constraint_scaling_transform(
     #     m.fs.energy.pv.costing.annual_generation_constraint, 1e-8
@@ -371,19 +382,6 @@ def apply_scaling(m):
     add_pv_scaling(m, m.fs.energy.pv)
     apply_system_scaling(m)
     iscale.calculate_scaling_factors(m)
-
-
-def define_inlet_composition(m):
-    import watertap.core.zero_order_properties as prop_ZO
-
-    m.fs.prop = prop_ZO.WaterParameterBlock(
-        solute_list=[
-            "cod",
-            "nonbiodegradable_cod",
-            "ammonium_as_nitrogen",
-            "phosphates",
-        ]
-    )
 
 
 def set_inlet_conditions(
@@ -453,63 +451,17 @@ def set_inlet_conditions(
         index=("Liq", "H2O"),
     )
 
-    # if Cin is None:
-    #     m.fs.feed_salinity.fix(10)
-    # else:
-    #     m.fs.feed_salinity.fix(Cin)
-
-    # if water_recovery is not None:
-    #     m.fs.water_recovery.fix(water_recovery)
-    #     m.fs.primary_pump.control_volume.properties_out[0].pressure.unfix()
-    # else:
-    #     m.fs.water_recovery.unfix()
-    #     m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
-
-    # m.fs.pump.control_volume.properties_out[0].pressure.fix(primary_pump_pressure)
-
-    # # iscale.set_scaling_factor(m.fs.perm_flow_mass, 1)
-    # iscale.set_scaling_factor(m.fs.feed_flow_mass, 1)
-    # iscale.set_scaling_factor(m.fs.feed_salinity, 1)
-
-    # m.fs.feed_flow_constraint = Constraint(
-    #         expr=m.fs.feed_flow_mass == m.fs.perm_flow_mass / m.fs.water_recovery
-    #     )
-    # iscale.set_scaling_factor(m.fs.perm_flow_mass, 1)
-
     feed_temperature = 273.15 + 20
     pressure_atm = 101325
 
     # # initialize feed
     treatment.feed.pressure[0].fix(supply_pressure)
     treatment.feed.temperature[0].fix(feed_temperature)
-    # m.fs.disposal.pressure[0].fix(101356)
-    # m.fs.disposal.temperature[0].fix(feed_temperature)
 
-    # m.fs.primary_pump.efficiency_pump.fix(0.85)
+    # treatment.product.properties[0.0].pressure.fix(101356)
+    # treatment.product.properties[0.0].temperature.fix(feed_temperature)
 
-    # m.fs.feed.properties[0].flow_vol_phase["Liq"]
-    # m.fs.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
-
-    # m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value = (
-    #     m.fs.feed_flow_mass.value * m.fs.feed_salinity.value / 1000
-    # )
-    # m.fs.feed.flow_mass_phase_comp[
-    #     0, "Liq", "H2O"
-    # ].value = m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
-
-    # scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
-    # scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)
-
-    # m.fs.properties.set_default_scaling(
-    #     "flow_mass_phase_comp", 10**-scale_flow, index=("Liq", "H2O")
-    # )
-    # m.fs.properties.set_default_scaling(
-    #     "flow_mass_phase_comp", 10**-scale_tds, index=("Liq", "NaCl")
-    # )
-
-    # assert_units_consistent(m)
-    # m.fs.feed.properties[0].display()
-    # report_MCAS_stream_conc(m)
+    assert_units_consistent(m)
 
 
 def display_unfixed_vars(blk, report=True):
@@ -534,13 +486,6 @@ def set_operating_conditions(m, RO_pressure=30e5, supply_pressure=1.1e5):
     treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
     set_ro_system_operating_conditions(m, treatment.RO, mem_area=10000)
     # # set__ED_op_conditions
-
-
-def initialize_energy(m, train=False):
-    if train:
-        train_pv_surrogate(m)
-
-    m.fs.energy.pv.load_surrogate()
 
 
 def init_treatment(m, verbose=True, solver=None):
@@ -573,18 +518,25 @@ def init_treatment(m, verbose=True, solver=None):
 
     init_ro_system(m, treatment.RO)
     propagate_state(treatment.ro_to_product)
-    propagate_state(treatment.ro_to_disposal)
+    propagate_state(treatment.ro_to_dwi)
 
     treatment.product.initialize(optarg=optarg)
-    treatment.disposal.initialize(optarg=optarg)
+    init_DWI(m, treatment.DWI)
     display_system_stream_table(m)
 
 
 def init_system(m, verbose=True, solver=None):
     print(f'\n{"=======> SYSTEM INITIALIZATION <=======":^60}\n')
-    # assert_no_degrees_of_freedom(m)
-    initialize_energy(m)
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    if degrees_of_freedom(m) != 0:
+        breakdown_dof(m, detailed=True)
+    #     for unit in m.fs.units:
+    #         print(f"Unit: {unit.name}")
+    #         breakdown_dof(unit, detailed=True)
+    assert_no_degrees_of_freedom(m)
     init_treatment(m)
+    # initialize_energy(m)
+    
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
@@ -726,6 +678,49 @@ def report_pump(m, pump):
     print(
         f'{"Pump Work":<30s}{value(pyunits.convert(pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}'
     )
+
+
+def print_system_scaling_report(m):
+    badly_scaled_var_list = iscale.list_badly_scaled_variables(m)
+    if len(badly_scaled_var_list) > 0:
+        print("Variables are not scaled well")
+        print(f'{"Variable":<83s}{"Val":<15s}{"Val Scale":<10s}{"SF":<10s}{"Diff":<10s}')
+        print("Treatment:")
+        [
+            print(
+                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+            )
+            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+            if var.name.split(".")[1] == "treatment"
+        ]
+        print("Energy:")
+        [
+            print(
+                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+            )
+            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+            if var.name.split(".")[1] == "energy"
+        ]
+        print("Costing:")
+        [
+            print(
+                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+            )
+            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+            if var.name.split(".")[1] == "costing"
+        ]
+
+        # for var in badly_scaled_var_list:
+        #     keys = var[0].name.split(".")
+        #     val_scale = -1 * calc_scale(var[1])
+        #     sf_scale = -1 * calc_scale(iscale.get_scaling_factor(var[0]))
+        #     scale_diff = val_scale - sf_scale
+        #     print(f"{var[0].name:<80s}{val_scale:<10.1f}{sf_scale:<10.1f}{scale_diff:<10.1f}")
+        #     print(f"{var[0].name:<80s}{var[1]}")
+        # [print(i[0].name, i[1]) for i in badly_scaled_var_list]
+        # [print(f'Variable: {var.name:<80s} Value Scale:{-1*calc_scale(val):<5.1f} Scale Factor:{-1*calc_scale(iscale.get_scaling_factor(var))}') for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)]
+    else:
+        print("Variables are scaled well")
 
 
 def display_system_stream_table(m):

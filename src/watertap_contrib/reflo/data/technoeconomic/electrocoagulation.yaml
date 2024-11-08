@@ -81,17 +81,17 @@ kbhdp:
     value: 26
     units: S/m
   electrode_thick:
-    value: 0.001
-    units: m
+    value: 0.1
+    units: cm
   current_density:
     value: 500
     units: A / m^2
   metal_dose:
-    value: 0.0010
+    value: 0.0001
     units: kg/L
   electrode_gap:
-    value: 0.005
-    units: m
+    value: 0.5
+    units: cm
   current_efficiency:
     value: 1.2
     units: dimensionless

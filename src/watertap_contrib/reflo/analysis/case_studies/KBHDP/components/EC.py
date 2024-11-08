@@ -19,11 +19,11 @@ from pyomo.environ import (
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.solvers import get_solver
 
-from watertap.core.wt_database import Database
+from watertap_contrib.reflo.core import REFLODatabase
 from watertap.core.zero_order_properties import (
     WaterParameterBlock as WaterParameterBlockZO,
 )
-
+from watertap.core.zero_order_properties import WaterParameterBlock
 from idaes.core.util.initialization import propagate_state as _prop_state
 from watertap.unit_models.zero_order import ElectrocoagulationZO
 from idaes.models.unit_models import Product, Feed, StateJunction, Separator
@@ -60,6 +60,51 @@ def propagate_state(arc, detailed=True):
         arc.destination.display()
         print("\n")
 
+def _initialize(blk, verbose=False):
+    if verbose:
+        print('\n')
+        print(f"{blk.name:<30s}{f'Degrees of Freedom at Initialization = {degrees_of_freedom(blk):<10.0f}'}")
+        print('\n')
+    try:
+        blk.initialize()
+    except:
+        print("----------------------------------\n")
+        print(f"Initialization of {blk.name} failed.")
+        print("\n----------------------------------\n")
+
+        blk.report()
+        print_infeasible_bounds(blk)
+        print_close_to_bounds(blk)
+        assert False
+
+def build_system():
+    """Function to create concrete model for individual unit model flowsheet"""
+    m = ConcreteModel()
+    m.db = REFLODatabase()
+
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = WaterParameterBlock(solute_list=["tds", "tss"])
+
+    m.fs.feed = Feed(property_package=m.fs.properties)
+    m.fs.sludge = Product(property_package=m.fs.properties)
+
+    m.fs.EC = FlowsheetBlock(dynamic=False)
+
+    build_ec(m, m.fs.EC)
+
+    m.fs.feed_to_unit = Arc(
+        source=m.fs.feed.outlet,
+        destination=m.fs.EC.feed.inlet,
+    )
+    m.fs.ec_to_sludge = Arc(
+        source=m.fs.EC.disposal.outlet,
+        destination=m.fs.sludge.inlet,
+    )
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
+
+    return m
+
 
 def build_ec(m, blk, prop_package=None):
     """Function to build EC unit model"""
@@ -78,14 +123,8 @@ def build_ec(m, blk, prop_package=None):
         electrode_material="aluminum",
         reactor_material="pvc",
         overpotential_calculation="calculated",
+        process_subtype="kbhdp",
     )
-
-    # print(blk.ec.display())
-    # print(blk.ec.report())
-    # print(blk.ec.inlet)
-    # print(blk.ec.treated)
-    # print(blk.ec.byproduct)
-    # assert False
 
     blk.feed_to_ec = Arc(
         source=blk.feed.outlet,
@@ -105,48 +144,22 @@ def build_ec(m, blk, prop_package=None):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def build_system():
-    """Function to create concrete model for individual unit model flowsheet"""
-    m = ConcreteModel()
-    m.db = Database()
-
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = WaterParameterBlockZO(solute_list=["tds"])
-
-    m.fs.feed = Feed(property_package=m.fs.properties)
-
-    m.fs.EC = FlowsheetBlock(dynamic=False)
-
-    build_ec(m, m.fs.EC)
-
-    m.fs.feed_to_unit = Arc(
-        source=m.fs.feed.outlet,
-        destination=m.fs.EC.feed.inlet,
-    )
-
-    TransformationFactory("network.expand_arcs").apply_to(m)
-
-    return m
-
-
 def set_system_operating_conditions(m):
     """This function sets the system operating conditions for individual unit model flowsheet"""
 
-    input = {
-        "q (m3/s)": 0.175,
-        "tds (g/l)": 12.23,
-    }
+    # input = {
+    #     "q (m3/s)": 0.175,
+    #     "tds (g/l)": 12.23,
+    # }
 
-    flow_in = input["q (m3/s)"] * pyunits.m**3 / pyunits.s
-    flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3)  # kg/s
+    # flow_in = input["q (m3/s)"] * pyunits.m**3 / pyunits.s
+    # flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3)  # kg/s
 
-    tds = input["tds (g/l)"] * pyunits.g / pyunits.liter
-    tds_in = pyunits.convert(tds, to_units=pyunits.kg / pyunits.m**3)
+    # tds = input["tds (g/l)"] * pyunits.g / pyunits.liter
+    # tds_in = pyunits.convert(tds, to_units=pyunits.kg / pyunits.m**3)
 
-    m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(flow_in_mass)
-    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(
-        tds_in * flow_in
-    )  # kg/m3 * m3/s = kg/s
+    m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(175.25054)
+    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(2.143156)  # kg/m3 * m3/s = kg/s
     # # initialize feed
 
 
@@ -154,83 +167,9 @@ def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
     print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
-    input = {
-        "gap (cm)": 0.5,
-        "thickness (cm)": 0.1,
-        "ret_time (min)": 25,
-        "dose (mg/L)": 100,
-        "anode_area (cm2)": 184,
-        "cd (A/m2)": 500,
-    }
-
-    gap = pyunits.convert(input["gap (cm)"] * pyunits.cm, to_units=pyunits.m)()
-    e_thick = pyunits.convert(
-        input["thickness (cm)"] * pyunits.cm, to_units=pyunits.m
-    )()
-
-    time = input["ret_time (min)"] * pyunits.minutes
-
-    conv = 5e3 * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
-    tds = blk.feed.properties[0].flow_mass_comp["tds"] / (
-        blk.feed.properties[0].flow_mass_comp["H2O"]
-        / (1000 * pyunits.kg / pyunits.m**3)
-    )
-    # kg/s / (kg/s*m3/kg)
-    cond = pyunits.convert(
-        pyunits.convert(tds, to_units=pyunits.mg / pyunits.liter) / conv,
-        to_units=pyunits.S / pyunits.m,
-    )
-
-    blk.ec.conductivity.fix(cond)
-
-    ec_dose = input["dose (mg/L)"] * pyunits.mg / pyunits.liter
-    ec_dose = pyunits.convert(
-        input["dose (mg/L)"] * pyunits.mg / pyunits.liter,
-        to_units=pyunits.kg / pyunits.liter,
-    )
-
-    anode_area = pyunits.convert(
-        input["anode_area (cm2)"] * pyunits.cm**2, to_units=pyunits.m**2
-    )
 
     blk.ec.load_parameters_from_database(use_default_removal=True)
-
-    blk.ec.electrode_thick.fix(e_thick)
-    blk.ec.electrode_gap.fix(gap)
-
-    blk.ec.current_density.fix(input["cd (A/m2)"])
-    blk.ec.metal_dose.fix(ec_dose)
-    # blk.ec.metal_dose.unfix()
-
-    if blk.ec.config.electrode_material == "aluminum":
-        blk.ec.current_efficiency.fix(1.2)
-
-    blk.ec.overpotential.fix(2)
-    blk.ec.floc_retention_time.fix(time)
-    blk.ec.overpotential_k1.unfix()
-    blk.ec.overpotential_k2.unfix()
-
-    fixed_vars = [
-        (v.name, v.value)
-        for v in blk.ec.component_data_objects(
-            ctype=Var, active=True, descend_into=False
-        )
-        if v.fixed
-    ]
-    unfixed_vars = [
-        (v.name, v.value)
-        for v in blk.ec.component_data_objects(
-            ctype=Var, active=True, descend_into=False
-        )
-        if v.fixed is False
-    ]
-    print(f"Fixed Vars: ({len(fixed_vars)})")
-    for v in fixed_vars:
-        print(f"   {v[0]}: {v[1]}")
-
-    print(f"Unfixed Vars: ({len(unfixed_vars)})")
-    for v in unfixed_vars:
-        print(f"   {v[0]}: {v[1]}")
+    blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
 
 
 def set_scaling(m, blk):
@@ -255,9 +194,9 @@ def set_scaling(m, blk):
 
 
 def add_ec_scaling(m, blk):
-    set_scaling_factor(blk.ec.charge_loading_rate, 1)
-    set_scaling_factor(blk.ec.reactor_volume, 100)
-    set_scaling_factor(blk.ec.power_required, 100)
+    set_scaling_factor(blk.ec.charge_loading_rate, 1e-3)
+    set_scaling_factor(blk.ec.reactor_volume, 1e-1)
+    set_scaling_factor(blk.ec.power_required, 1e-6)
 
 
 def init_system(m, solver=None):
@@ -270,7 +209,8 @@ def init_system(m, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"EC Degrees of Freedom: {degrees_of_freedom(m.fs.EC.ec)}")
-    # assert_no_degrees_of_freedom(m)
+
+    assert_no_degrees_of_freedom(m)
     print("\n\n")
 
     m.fs.feed.initialize(optarg=optarg)
@@ -287,14 +227,11 @@ def init_ec(m, blk, solver=None):
 
     optarg = solver.options
 
-    blk.feed.initialize(optarg=optarg)
+    _initialize(blk.feed)
     propagate_state(blk.feed_to_ec)
 
-    try:
-        blk.ec.initialize(optarg=optarg)
-    except:
-        blk.ec.display()
-        assert False
+    _initialize(blk.ec)
+
     propagate_state(blk.ec_to_product)
     propagate_state(blk.ec_to_disposal)
 
@@ -342,6 +279,40 @@ def print_EC_costing_breakdown(blk):
         f'{"EC Operating Cost":<35s}{f"${blk.ec.costing.fixed_operating_cost():<25,.0f}"}'
     )
 
+def breakdown_dof(blk):
+    equalities = [c for c in activated_equalities_generator(blk)]
+    active_vars = variables_in_activated_equalities_set(blk)
+    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
+    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
+    print("\n ===============DOF Breakdown================\n")
+    print(f'Degrees of Freedom: {degrees_of_freedom(blk)}')
+    print(f"Activated Variables: ({len(active_vars)})")
+    for v in active_vars:
+        print(f"   {v}")
+    print(f"Activated Equalities: ({len(equalities)})")
+    for c in equalities:
+        print(f"   {c}")
+
+    print(f'Fixed Active Vars: ({len(fixed_active_vars)})')
+    for v in fixed_active_vars:
+        print(f'   {v}')
+
+    print(f'Unfixed Active Vars: ({len(unfixed_active_vars)})')
+    for v in unfixed_active_vars:
+        print(f'   {v}')
+    print('\n')
+    print(f" {f' Active Vars':<30s}{len(active_vars)}")
+    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
+    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
+    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+    print('\nSuggested Variables to Fix:')
+
+    if degrees_of_freedom != 0:
+        unfixed_vars_without_constraint = [v for v in active_vars if v not in unfixed_active_vars]
+        for v in unfixed_vars_without_constraint:
+            if v.fixed is False:
+                print(f'   {v}')
+
 
 if __name__ == "__main__":
 
@@ -349,6 +320,7 @@ if __name__ == "__main__":
     set_system_operating_conditions(m)
     set_ec_operating_conditions(m, m.fs.EC)
     set_scaling(m, m.fs.EC)
+    add_ec_scaling(m, m.fs.EC)
     init_system(m)
     add_system_costing(m)
 
@@ -359,3 +331,4 @@ if __name__ == "__main__":
     print(m.fs.objective_lcow())
     report_EC(m.fs.EC)
     print_EC_costing_breakdown(m.fs.EC)
+    # print(m.fs.EC.ec.display())

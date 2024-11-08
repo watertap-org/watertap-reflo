@@ -21,6 +21,7 @@ from pyomo.environ import (
     check_optimal_termination,
     units as pyunits,
 )
+from pyomo.util.check_units import assert_units_consistent
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
 from idaes.core.util.exceptions import InitializationError
@@ -50,12 +51,10 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
-            == pyunits.convert(self.electricity, to_units=pyunits.kWh / pyunits.year)
+            == self.electricity * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
         )
-        # self.electricity_constraint = Constraint(
-        #     expr= -1 * self.electricity
-        #     == pyunits.convert(self.annual_energy * (pyunits.kW / pyunits.kWh), to_units=pyunits.kW)
-        # )
+
+        assert_units_consistent(self)
 
     def calculate_scaling_factors(self):
 

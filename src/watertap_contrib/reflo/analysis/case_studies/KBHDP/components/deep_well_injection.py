@@ -32,7 +32,7 @@ import idaes.logger as idaeslogger
 from idaes.core.util.exceptions import InitializationError
 from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
-
+from watertap.core.util.initialization import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
@@ -43,7 +43,6 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOCosting,
 )
-
 from watertap_contrib.reflo.unit_models.deep_well_injection import DeepWellInjection
 from watertap_contrib.reflo.costing.units.deep_well_injection import (
     blm_costing_params_dict,
@@ -123,11 +122,13 @@ def init_DWI(m, blk, verbose=True, solver=None):
         solver = get_solver()
 
     optarg = solver.options
-
     blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
 
 
 def add_DWI_costing(m, blk, costing_blk=None):
+    if costing_blk is None:
+        costing_blk = TreatmentCosting()
+
     blk.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=costing_blk,
         costing_method_arguments={
@@ -207,9 +208,9 @@ if __name__ == "__main__":
     set_DWI_op_conditions(m.fs.DWI)
 
     init_DWI(m, m.fs.DWI)
-    add_DWI_costing(m, m.fs.DWI)
-    m.fs.costing.cost_process()
-    solve(m)
+    # add_DWI_costing(m, m.fs.DWI)
+    # m.fs.costing.cost_process()
+    # solve(m)
 
-    report_DWI(m, m.fs.DWI)
-    print_DWI_costing_breakdown(m, m.fs.DWI)
+    # report_DWI(m, m.fs.DWI)
+    # print_DWI_costing_breakdown(m, m.fs.DWI)

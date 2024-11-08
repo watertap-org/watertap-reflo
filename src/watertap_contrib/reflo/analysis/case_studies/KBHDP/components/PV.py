@@ -1,14 +1,22 @@
 from pyomo.environ import (
+    ConcreteModel,
     value,
     Constraint,
     units as pyunits,
 )
-
+from pyomo.util.check_units import assert_units_consistent
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import *
 import idaes.core.util.scaling as iscale
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap_contrib.reflo.solar_models.surrogate.pv import PVSurrogate
+from watertap_contrib.reflo.costing import (
+    TreatmentCosting,
+    EnergyCosting,
+    REFLOCosting,
+    REFLOSystemCosting,
+)
 
 __all__ = [
     "build_pv",
@@ -19,6 +27,14 @@ __all__ = [
     "print_PV_costing_breakdown",
     "report_PV",
 ]
+
+def build_system():
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    energy = m.fs.energy = Block()
+
+    print(f'Degrees of Freedom: {degrees_of_freedom(m)}')
+    return m
 
 
 def build_pv(m):
@@ -51,45 +67,37 @@ def train_pv_surrogate(m):
 def set_pv_constraints(m, focus="Size"):
     energy = m.fs.energy
 
+    # m.fs.energy.pv.heat.fix(0)
+
     if focus == "Size":
-        energy.pv_design_constraint = Constraint(
-            expr=m.fs.energy.pv.design_size
-            == m.fs.treatment.costing.aggregate_flow_electricity
-        )
-    elif focus == "Energy":
         # energy.pv_design_constraint = Constraint(
-        #     expr= m.fs.energy.pv.annual_energy == 43000000
+        #     expr=m.fs.energy.pv.design_size
+        #     == m.fs.treatment.costing.aggregate_flow_electricity
         # )
-        m.fs.energy.pv.annual_energy.fix(10000000)
+        m.fs.energy.pv.design_size.fix(1000)
+    elif focus == "Energy":
+        m.fs.energy.pv.annual_energy.fix(40000000)
 
-        # == pyunits.convert(
-        #         m.fs.treatment.costing.aggregate_flow_electricity,
-        #         to_units=pyunits.kWh / pyunits.year,
-        #     )
+    
+    m.fs.energy.pv.load_surrogate()
 
-    m.fs.energy.pv.costing.land_constraint = Constraint(
-        expr=m.fs.energy.pv.costing.land_area == m.fs.energy.pv.land_req
+
+def add_pv_costing(m, blk):
+    energy = m.fs.energy
+    energy.costing = EnergyCosting()
+
+    energy.pv.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=energy.costing,
     )
 
-    m.fs.energy.pv.costing.annual_generation = Expression(
-        expr=m.fs.energy.pv.annual_energy
-    )
-
-    m.fs.energy.pv.costing.system_capacity_constraint = Constraint(
-        expr=m.fs.energy.pv.costing.system_capacity == m.fs.energy.pv.design_size * 1000
-    )
-
-    m.fs.energy_balance = Expression(
-        expr=100 * (m.fs.energy.pv.annual_energy) / (m.fs.annual_treatment_energy)
-    )
-
+    breakdown_dof(m)
 
 def add_pv_scaling(m, blk):
     pv = blk
 
     iscale.set_scaling_factor(pv.design_size, 1e-4)
     iscale.set_scaling_factor(pv.annual_energy, 1e-8)
-    iscale.set_scaling_factor(pv.electricity, 1e-6)
+    iscale.set_scaling_factor(pv.electricity, 1e-7)
 
 
 def add_pv_costing_scaling(m, blk):
@@ -133,7 +141,7 @@ def report_PV(m):
     print(
         f'{"Treatment Annual Demand":<25s}{f"{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
     )
-    print(f'{"Energy Balance":<25s}{f"{value(m.fs.energy_balance):<25,.2f}"}')
+    # print(f'{"Energy Balance":<25s}{f"{value(m.fs.energy_balance):<25,.2f}"}')
     print(
         f'{"Treatment Elec Cost":<25s}{f"${value(m.fs.treatment.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
     )
@@ -160,3 +168,46 @@ def report_PV(m):
     print(m.fs.energy.pv.annual_energy.display())
     print(m.fs.energy.pv.costing.annual_generation.display())
     print(m.fs.costing.total_electric_operating_cost.display())
+
+def breakdown_dof(blk):
+    equalities = [c for c in activated_equalities_generator(blk)]
+    active_vars = variables_in_activated_equalities_set(blk)
+    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
+    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
+    print("\n ===============DOF Breakdown================\n")
+    print(f'Degrees of Freedom: {degrees_of_freedom(blk)}')
+    print(f"Activated Variables: ({len(active_vars)})")
+    for v in active_vars:
+        print(f"   {v}")
+    print(f"Activated Equalities: ({len(equalities)})")
+    for c in equalities:
+        print(f"   {c}")
+
+    print(f'Fixed Active Vars: ({len(fixed_active_vars)})')
+    for v in fixed_active_vars:
+        print(f'   {v}')
+
+    print(f'Unfixed Active Vars: ({len(unfixed_active_vars)})')
+    for v in unfixed_active_vars:
+        print(f'   {v}')
+    print('\n')
+    print(f" {f' Active Vars':<30s}{len(active_vars)}")
+    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
+    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
+    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+    print('\nSuggested Variables to Fix:')
+
+    if degrees_of_freedom != 0:
+        unfixed_vars_without_constraint = [v for v in active_vars if v not in unfixed_active_vars]
+        for v in unfixed_vars_without_constraint:
+            if v.fixed is False:
+                print(f'   {v}')
+
+
+if __name__ == "__main__":
+    m = build_system()
+    build_pv(m)
+    set_pv_constraints(m, focus="Size")
+    add_pv_costing(m, m.fs.energy.pv)
+
+    
