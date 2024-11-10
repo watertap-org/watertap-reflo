@@ -72,14 +72,14 @@ class Translator_ZO_to_SW_Data(TranslatorData):
                 == b.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]
             )
 
-        @self.Constraint(
-            doc="Equality mass flow TDS equation",
-        )
-        def eq_flow_mass_tds(b):
-            return (
-                b.properties_in[0].flow_mass_phase_comp["Liq", "TDS"]
-                == b.properties_out[0].flow_mass_phase_comp["Liq", "TDS"]
-            )
+        # @self.Constraint(
+        #     doc="Equality mass flow TDS equation",
+        # )
+        # def eq_flow_mass_tds(b):
+        #     return (
+        #         b.properties_in[0].flow_mass_phase_comp["Liq", "TDS"]
+        #         == b.properties_out[0].flow_mass_phase_comp["Liq", "TDS"]
+        #     )
 
     def initialize_build(
         self,

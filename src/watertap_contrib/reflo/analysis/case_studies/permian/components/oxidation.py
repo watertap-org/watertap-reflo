@@ -153,6 +153,9 @@ def set_system_operating_conditions(m, Qin=5):
 def set_chem_addition_op_conditions(m, blk):
 
     blk.unit.load_parameters_from_database()
+    print(f"Chem Addition")
+    print(f"\tblock DOF = {degrees_of_freedom(blk)}\n")
+    print(f"\tunit DOF = {degrees_of_freedom(blk.unit)}\n")
 
 
 def add_chem_addition_costing(m, blk, flowsheet_costing_block=None):
@@ -189,6 +192,9 @@ def init_chem_addition(m, blk):
     propagate_state(blk.feed_to_unit)
     blk.unit.initialize()
     propagate_state(blk.unit_to_product)
+    print(f"Chem Addition")
+    print(f"\tblock DOF after init = {degrees_of_freedom(blk)}\n")
+    print(f"\tunit DOF after init = {degrees_of_freedom(blk.unit)}\n")
 
 
 def print_chem_addition_costing_breakdown(blk):

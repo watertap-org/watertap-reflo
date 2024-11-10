@@ -168,6 +168,10 @@ def set_cart_filt_op_conditions(m, blk):
     # data = m.db.get_unit_operation_parameters("chemical_addition")
     blk.unit.load_parameters_from_database()
 
+    print(f"Cartridge Filtration")
+    print(f"\tblock DOF = {degrees_of_freedom(blk)}\n")
+    print(f"\tunit DOF = {degrees_of_freedom(blk.unit)}\n")
+
 
 def add_cartridge_filtration_costing(m, blk, flowsheet_costing_block=None):
     if flowsheet_costing_block is None:
@@ -207,6 +211,9 @@ def init_cart_filt(m, blk):
     blk.product.initialize()
     propagate_state(blk.unit_to_disposal)
     blk.disposal.initialize()
+    print("Cartridge Filtration")
+    print(f"\tblock DOF after init = {degrees_of_freedom(blk)}\n")
+    print(f"\tunit DOF after init = {degrees_of_freedom(blk.unit)}\n")
 
 
 def print_cart_filt_costing_breakdown(blk):

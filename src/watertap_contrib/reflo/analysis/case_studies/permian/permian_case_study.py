@@ -89,7 +89,7 @@ def build_permian():
     m.fs.treatment = treat = Block()
 
     treat.feed = Feed(property_package=m.fs.properties)
-    treat.product = Product(property_package=m.fs.properties_vapor)
+    treat.product = Product(property_package=m.fs.properties_feed)
 
     # Add translator blocks
     treat.zo_to_sw_feed = Translator_ZO_to_SW(
@@ -124,12 +124,16 @@ def build_permian():
 
     treat.chem_addition = FlowsheetBlock(dynamic=False)
     build_chem_addition(m, treat.chem_addition)
+
     treat.EC = FlowsheetBlock(dynamic=False)
     build_ec(m, treat.EC)
+
     treat.cart_filt = FlowsheetBlock(dynamic=False)
     build_cartridge_filtration(m, treat.cart_filt)
+
     treat.MVC = FlowsheetBlock(dynamic=False)
     build_mvc(m, treat.MVC)
+
     treat.DWI = FlowsheetBlock(dynamic=False)
     build_dwi(m, treat.DWI, m.fs.properties_feed)
 
@@ -201,6 +205,8 @@ def build_permian():
 
 def set_operating_conditions(m, Qin=5, tds=130):
 
+    global flow_mass_water, flow_mass_tds
+
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
     flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
@@ -237,27 +243,101 @@ def add_treatment_costing(m):
     )
 
 
+def set_permian_scaling(m, **kwargs):
+
+    m.fs.properties.set_default_scaling(
+        "flow_mass_comp",
+        1 / value(flow_mass_water),
+        index=("H2O"),
+    )
+
+    m.fs.properties.set_default_scaling(
+        "flow_mass_comp",
+        1 / value(flow_mass_tds),
+        index=("tds"),
+    )
+
+    set_ec_scaling(m, m.fs.treatment.EC, calc_blk_scaling_factors=True)
+
+    set_mvc_scaling(m, m.fs.treatment.MVC, calc_blk_scaling_factors=True)
+
+    calculate_scaling_factors(m)
+
+
 def init_system(m, **kwargs):
 
     treat = m.fs.treatment
 
     treat.feed.initialize()
     propagate_state(treat.feed_to_chem_addition)
+
     init_chem_addition(m, treat.chem_addition)
     propagate_state(treat.chem_addition_to_ec)
+    # treat.EC.unit.properties.display()
+    print(f"dof chem_addition = {degrees_of_freedom(treat.chem_addition.unit)}")
+
     init_ec(m, treat.EC)
+    # treat.EC.unit.display()
+    print(f"dof EC = {degrees_of_freedom(treat.EC.unit)}")
+    # assert False
     propagate_state(treat.ec_to_cart_filt)
+    propagate_state(treat.ec_to_disposal_mix)
+
     init_cart_filt(m, treat.cart_filt)
     propagate_state(treat.cart_filt_to_translator)
+    propagate_state(treat.cart_filt_to_disposal_mix)
+
+    treat.disposal_ZO_mixer.initialize()
+    propagate_state(treat.disposal_ZO_mix_to_translator)
+
+    treat.zo_to_sw_disposal.outlet.temperature[0].fix(293.15)
+    treat.zo_to_sw_disposal.outlet.pressure[0].fix(101325)
+    treat.zo_to_sw_disposal.initialize()
+
+    treat.zo_to_sw_feed.properties_out[0].temperature.fix(273.15 + 50.52)  # K
+    treat.zo_to_sw_feed.properties_out[0].pressure.fix(101325)
     treat.zo_to_sw_feed.initialize()
+
     propagate_state(treat.cart_filt_translated_to_mvc)
+
     init_mvc(m, treat.MVC)
+    propagate_state(treat.mvc_to_product)
+    propagate_state(treat.mvc_disposal_to_translator)
+
+    # treat.MVC.feed.display()
+    # assert False
+
+    propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
+    treat.disposal_SW_mixer.initialize()
+    propagate_state(treat.disposal_SW_mixer_to_dwi)
+    # treat.disposal_SW_mixer.mixed_state[0].display()
+    # assert False
+
+    init_dwi(m, treat.DWI)
+
+    treat.product.initialize()
+
+    # m.fs.treatment.costing.initialize()
 
 
 if __name__ == "__main__":
     m = build_permian()
     set_operating_conditions(m)
+    set_permian_scaling(m)
+    print(f"dof = {degrees_of_freedom(m)}")
 
     init_system(m)
+    # print(f"dof = {degrees_of_freedom(m)}")
 
-    print(f"dof = {degrees_of_freedom(m)}")
+    # m.fs.treatment.DWI.display()
+
+    # for b in m.fs.component_objects(Block, descend_into=True):
+        
+    #     if "_expanded" in b.name:
+    #         continue
+    #     if "costing" in b.name:
+    #         continue
+    
+    #     print(b.name, degrees_of_freedom(b))
+
+

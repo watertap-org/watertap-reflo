@@ -160,18 +160,10 @@ def set_system_operating_conditions(m, Qin=5, tds=130):
 
 def set_ec_operating_conditions(m, blk, conv=5e3):
     """Set EC operating conditions"""
-    # Check if the set up of the ec inputs is correct
 
     blk.unit.load_parameters_from_database(use_default_removal=True)
     blk.unit.conductivity.unfix()
     tds_ec_conversion = conv * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
-
-    # cond = pyunits.convert(
-    #     m.tds * pyunits.gram / pyunits.liter / conv,
-    #     to_units=pyunits.S / pyunits.m,
-    # )
-    # print(f"cond = {cond()}")
-    # blk.unit.conductivity.fix(cond)
 
     blk.unit.conductivity_constr = Constraint(
         expr=blk.unit.conductivity
@@ -180,11 +172,12 @@ def set_ec_operating_conditions(m, blk, conv=5e3):
             to_units=pyunits.S / pyunits.m,
         )
     )
+    print(f"Electrocoagulation")
+    print(f"\tblock DOF = {degrees_of_freedom(blk)}\n")
+    print(f"\tunit DOF = {degrees_of_freedom(blk.unit)}\n")
 
 
-def set_ec_scaling(m, blk):
-
-    calculate_scaling_factors(m)
+def set_ec_scaling(m, blk, calc_blk_scaling_factors=False):
 
     set_scaling_factor(blk.unit.properties_in[0].flow_vol, 1e7)
     set_scaling_factor(blk.unit.properties_in[0].conc_mass_comp["tds"], 1e5)
@@ -194,6 +187,15 @@ def set_ec_scaling(m, blk):
     set_scaling_factor(blk.unit.current_density, 1e-1)
     # set_scaling_factor(m.fs.ec.applied_current,1e2)
     set_scaling_factor(blk.unit.metal_dose, 1e4)
+
+    # Calculate scaling factors only for EC block if in full case study flowsheet
+    # so we don't prematurely set scaling factors
+    if calc_blk_scaling_factors:
+        calculate_scaling_factors(blk)
+
+    # otherwise calculate all scaling factors
+    else:
+        calculate_scaling_factors(m)
 
 
 def init_system(m, solver=None):
@@ -226,6 +228,7 @@ def init_ec(m, blk, solver=None):
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_ec)
 
+    # cvc(blk.unit.conductivity_constr, blk.unit.conductivity)
     cvc(blk.unit.overpotential, blk.unit.eq_overpotential)
     cvc(blk.unit.applied_current, blk.unit.eq_applied_current)
     cvc(blk.unit.anode_area, blk.unit.eq_electrode_area_total)
@@ -234,6 +237,12 @@ def init_ec(m, blk, solver=None):
     blk.unit.initialize(optarg=optarg)
     propagate_state(blk.ec_to_product)
     propagate_state(blk.ec_to_disposal)
+
+    blk.product.initialize()
+    blk.disposal.initialize()
+    print(f"Electrocoagulation")
+    print(f"\tblock DOF after init = {degrees_of_freedom(blk)}\n")
+    print(f"\tunit DOF after init = {degrees_of_freedom(blk.unit)}\n")
 
 
 def add_system_costing(m):

@@ -122,6 +122,9 @@ def init_system(m, blk):
     m.fs.feed.initialize()
     propagate_state(m.fs.feed_to_dwi)
     init_dwi(m, blk)
+    print("DWI")
+    print(f"\tblock DOF after init = {degrees_of_freedom(blk)}\n")
+    print(f"\tunit DOF after init = {degrees_of_freedom(blk.unit)}\n")
 
 
 def init_dwi(m, blk, solver=None):
