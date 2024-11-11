@@ -99,9 +99,9 @@ def init_UF(m, blk, verbose=True, solver=None):
         "\n\n-------------------- INITIALIZING ULTRAFILTRATION --------------------\n\n"
     )
     # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    # print(f"UF Degrees of Freedom: {degrees_of_freedom(blk)}")
+    print(f"UF Degrees of Freedom: {degrees_of_freedom(blk)}")
     print("\n\n")
-
+    # assert_no_degrees_of_freedom(m)
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_unit)
     blk.unit.initialize(optarg=optarg)
@@ -113,6 +113,7 @@ def init_UF(m, blk, verbose=True, solver=None):
 
 def set_UF_op_conditions(blk):
     # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
+    print(f"UF Degrees of Freedom: {degrees_of_freedom(blk)}")
     blk.unit.recovery_frac_mass_H2O.fix(0.99)
     blk.unit.removal_frac_mass_comp[0, "tds"].fix(1e-3)
     blk.unit.removal_frac_mass_comp[0, "tss"].fix(0.9)
@@ -122,6 +123,7 @@ def set_UF_op_conditions(blk):
 def set_system_conditions(blk):
     blk.feed.properties[0.0].flow_mass_comp["H2O"].fix(171.37)
     blk.feed.properties[0.0].flow_mass_comp["tds"].fix(1.96)
+    blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
 
 
 def add_UF_costing(m, blk, costing_blk=None):

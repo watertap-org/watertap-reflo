@@ -151,19 +151,9 @@ def build_ec(m, blk, prop_package=None):
 def set_system_operating_conditions(m):
     """This function sets the system operating conditions for individual unit model flowsheet"""
 
-    # input = {
-    #     "q (m3/s)": 0.175,
-    #     "tds (g/l)": 12.23,
-    # }
-
-    # flow_in = input["q (m3/s)"] * pyunits.m**3 / pyunits.s
-    # flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3)  # kg/s
-
-    # tds = input["tds (g/l)"] * pyunits.g / pyunits.liter
-    # tds_in = pyunits.convert(tds, to_units=pyunits.kg / pyunits.m**3)
-
     m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(175.25054)
     m.fs.feed.properties[0].flow_mass_comp["tds"].fix(2.143156)  # kg/m3 * m3/s = kg/s
+    m.fs.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
     # # initialize feed
 
 
@@ -173,7 +163,9 @@ def set_ec_operating_conditions(m, blk):
     print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
 
     blk.ec.load_parameters_from_database(use_default_removal=True)
-    blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
+    # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
+    # blk.ec.overpotential.fix(2)
+    print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
 
 
 def set_scaling(m, blk):
@@ -230,7 +222,7 @@ def init_ec(m, blk, solver=None):
         solver = get_solver()
 
     optarg = solver.options
-
+    # assert_no_degrees_of_freedom(m)
     _initialize(blk.feed)
     propagate_state(blk.feed_to_ec)
 

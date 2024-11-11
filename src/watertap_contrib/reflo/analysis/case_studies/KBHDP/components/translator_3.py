@@ -171,10 +171,17 @@ see property package for documentation.}""",
 
         # @self.Constraint(
         #     self.flowsheet().time,
-        #     doc="Equality volumetric flow equation",
+        #     doc="Equality temperature equation",
         # )
-        # def eq_flow_vol_rule(blk, t):
-        #     return blk.properties_out[t].flow_vol == blk.properties_in[t].flow_vol
+        # def eq_temperature_rule(blk, t):
+        #     return blk.properties_out[t].temperature == blk.properties_in[t].temperature
+        
+        # @self.Constraint(
+        #     self.flowsheet().time,
+        #     doc="Equality pressure equation",
+        # )
+        # def eq_pressure_rule(blk, t):
+        #     return blk.properties_out[t].pressure == blk.properties_in[t].pressure
 
         @self.Constraint(
             self.flowsheet().time,
@@ -189,13 +196,6 @@ see property package for documentation.}""",
         solute_set = self.config.inlet_property_package.solute_set
         solvent_set = self.config.inlet_property_package.solvent_set
 
-        # @self.Constraint(
-        #     self.flowsheet().config.time,
-        #     solute_set,
-        # )
-        # def eq_solute_mass_flow(blk, t, j):
-        #     return blk.properties_out[t].flow_mass_phase_comp['Liq', 'NaCl'] == sum(blk.properties_in[t].flow_mass_phase_comp['Liq', j] for j in solute_set)
-
         @self.Constraint(
             self.flowsheet().time,
             doc="Equality solute equation",
@@ -204,6 +204,26 @@ see property package for documentation.}""",
             return (
                 blk.properties_out[t].flow_mass_phase_comp["Liq", "NaCl"]
                 == blk.properties_in[t].flow_mass_comp["tds"]
+            )
+        
+        @self.Constraint(
+            self.flowsheet().time,
+            doc="Outlet Pressure",
+        )
+        def eq_outlet_pressure(blk, t):
+            return (
+                blk.properties_out[t].pressure
+                == 101325 * pyunits.Pa
+            )
+        
+        @self.Constraint(
+            self.flowsheet().time,
+            doc="Outlet Pressure",
+        )
+        def eq_outlet_temperature(blk, t):
+            return (
+                blk.properties_out[t].temperature
+                == 298.15 * pyunits.K
             )
 
     def initialize_build(

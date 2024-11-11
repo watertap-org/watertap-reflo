@@ -169,13 +169,6 @@ see property package for documentation.}""",
         # Call UnitModel.build to setup dynamics
         super(Translator_MCAS_to_TDS_Data, self).build()
 
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Equality volumetric flow equation",
-        # )
-        # def eq_flow_vol_rule(blk, t):
-        #     return blk.properties_out[t].flow_vol == blk.properties_in[t].flow_vol
-
         @self.Constraint(
             self.flowsheet().time,
             doc="Equality volumetric flow equation",
@@ -189,13 +182,6 @@ see property package for documentation.}""",
         solute_set = self.config.inlet_property_package.solute_set
         solvent_set = self.config.inlet_property_package.solvent_set
 
-        # @self.Constraint(
-        #     self.flowsheet().config.time,
-        #     solute_set,
-        # )
-        # def eq_solute_mass_flow(blk, t, j):
-        #     return blk.properties_out[t].flow_mass_phase_comp['Liq', 'NaCl'] == sum(blk.properties_in[t].flow_mass_phase_comp['Liq', j] for j in solute_set)
-
         @self.Constraint(
             self.flowsheet().time,
             doc="Equality solute equation",
@@ -203,6 +189,30 @@ see property package for documentation.}""",
         def eq_solute_mass_flow(blk, t):
             return blk.properties_out[t].flow_mass_comp["tds"] == sum(
                 blk.properties_in[t].flow_mass_phase_comp["Liq", i] for i in solute_set
+            )
+        
+        # @self.Constraint(
+        #     self.flowsheet().time,
+        #     doc="Equality temperature equation",
+        # )
+        # def eq_temperature_rule(blk, t):
+        #     return blk.properties_out[t].temperature == blk.properties_in[t].temperature
+        
+        # @self.Constraint(
+        #     self.flowsheet().time,
+        #     doc="Equality pressure equation",
+        # )
+        # def eq_pressure_rule(blk, t):
+        #     return blk.properties_out[t].pressure == blk.properties_in[t].pressure
+        
+        @self.Constraint(
+            self.flowsheet().time,
+            doc="TSS",
+        )
+        def return_tss_flow_comp(blk, t):
+            return (
+                blk.properties_out[t].flow_mass_comp["tss"]
+                == 5.22e-6 * pyunits.kg / pyunits.second
             )
 
     def initialize_build(

@@ -160,6 +160,7 @@ def build_ro(m, blk, number_of_stages=1, prop_package=None) -> None:
         property_package=m.fs.RO_properties,
         has_holdup=False,
         num_inlets=number_of_stages,
+        momentum_mixing_type=MomentumMixingType.minimize_and_equality,
     )
 
     blk.stage = FlowsheetBlock(RangeSet(number_of_stages), dynamic=False)
@@ -291,7 +292,7 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n-------------------- INITIALIZING RO SYSTEM --------------------\n\n")
 
     # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    # print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
+    
 
     print("\n\n")
 
@@ -315,7 +316,7 @@ def init_ro_system(m, blk, verbose=True, solver=None):
         "\n\n-------------------- RO INITIALIZATION COMPLETE --------------------\n\n"
     )
     # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    # print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
+    print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
     # for stage in blk.stage.values():
     #     print(f"RO Stage {stage} Degrees of Freedom: {degrees_of_freedom(stage)}")
     print("\n\n")
@@ -456,8 +457,8 @@ def set_operating_conditions(
         "flow_mass_phase_comp", 10**-scale_tds, index=("Liq", "NaCl")
     )
 
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"RO Degrees of Freedom: {degrees_of_freedom(m.fs.ro)}")
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"RO Degrees of Freedom: {degrees_of_freedom(m.fs.ro)}")
 
 
 def calc_scale(value):
@@ -522,6 +523,7 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
     print(
         "\n\n-------------------- SETTING RO OPERATING CONDITIONS --------------------\n\n"
     )
+    print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
     solver = get_solver()
     mem_A = 2.75 / 3.6e11  # membrane water permeability coefficient [m/s-Pa]
     mem_B = 0.23 / 1000.0 / 3600.0  # membrane salt permeability coefficient [m/s]
@@ -580,7 +582,7 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
 
     # ---checking model---
     # assert_units_consistent(m)
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
 
 
