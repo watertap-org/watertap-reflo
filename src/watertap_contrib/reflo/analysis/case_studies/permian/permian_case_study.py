@@ -63,9 +63,6 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOCosting,
 )
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.translator_4 import (
-    Translator_ZO_TDS_to_TDS,
-)
 from watertap_contrib.reflo.analysis.case_studies.permian import *
 from watertap_contrib.reflo.unit_models.deep_well_injection import DeepWellInjection
 
@@ -73,8 +70,22 @@ reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 rho = 1000 * pyunits.kg / pyunits.m**3
 
+solver = get_solver()
 
-def build_permian():
+__all__ = [
+    "build_permian_SOA",
+    "set_operating_conditions",
+    "add_treatment_costing",
+    "set_permian_scaling",
+    "init_system",
+    "run_permian_SOA",
+]
+
+
+def build_permian_SOA():
+    """
+    Build Permian state-of-the-art flowsheet
+    """
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -85,7 +96,7 @@ def build_permian():
     m.fs.properties_feed = SeawaterParameterBlock()
     m.fs.properties_vapor = SteamParameterBlock()
 
-    # Begin building Treatent Block
+    # Begin building Treatment Block
     m.fs.treatment = treat = Block()
 
     treat.feed = Feed(property_package=m.fs.properties)
@@ -96,6 +107,7 @@ def build_permian():
         inlet_property_package=m.fs.properties,
         outlet_property_package=m.fs.properties_feed,
     )
+
     treat.zo_to_sw_disposal = Translator_ZO_to_SW(
         inlet_property_package=m.fs.properties,
         outlet_property_package=m.fs.properties_feed,
@@ -198,6 +210,18 @@ def build_permian():
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
+    treat.recovery = Var(
+        initialize=0.5,
+        bounds=(0, 1.0001),
+        units=pyunits.dimensionless,
+        doc="Overall system recovery",
+    )
+
+    # m.fs.treatment.eq_recovery = Constraint(
+    #     expr=m.fs.treatment.recovery * m.fs.treatment.feed.properties[0].flow_vol
+    #     == m.fs.treatment.product.properties[0].flow_vol_phase["Liq"]
+    # )
+
     add_treatment_costing(m)
 
     return m
@@ -205,7 +229,7 @@ def build_permian():
 
 def set_operating_conditions(m, Qin=5, tds=130):
 
-    global flow_mass_water, flow_mass_tds
+    global flow_mass_water, flow_mass_tds, flow_in
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
@@ -216,8 +240,6 @@ def set_operating_conditions(m, Qin=5, tds=130):
 
     m.fs.treatment.feed.properties[0].flow_mass_comp["H2O"].fix(flow_mass_water)
     m.fs.treatment.feed.properties[0].flow_mass_comp["tds"].fix(flow_mass_tds)
-    # m.fs.treatment.feed.properties[0].temperature.fix(273.15 + 50.52)  # K
-    # m.fs.treatment.feed.properties[0].pressure.fix(1e5)  # Pa
     m.fs.treatment.feed.properties[0].conc_mass_comp[...]
 
     set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition)
@@ -227,6 +249,7 @@ def set_operating_conditions(m, Qin=5, tds=130):
 
 
 def add_treatment_costing(m):
+
     m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     add_chem_addition_costing(
         m, m.fs.treatment.chem_addition, flowsheet_costing_block=m.fs.treatment.costing
@@ -241,6 +264,8 @@ def add_treatment_costing(m):
     add_dwi_costing(
         m, m.fs.treatment.DWI, flowsheet_costing_block=m.fs.treatment.costing
     )
+
+    m.fs.treatment.costing.cost_process()
 
 
 def set_permian_scaling(m, **kwargs):
@@ -264,7 +289,7 @@ def set_permian_scaling(m, **kwargs):
     calculate_scaling_factors(m)
 
 
-def init_system(m, **kwargs):
+def init_system(m, mvc_inlet_temp=50.5, **kwargs):
 
     treat = m.fs.treatment
 
@@ -273,13 +298,8 @@ def init_system(m, **kwargs):
 
     init_chem_addition(m, treat.chem_addition)
     propagate_state(treat.chem_addition_to_ec)
-    # treat.EC.unit.properties.display()
-    print(f"dof chem_addition = {degrees_of_freedom(treat.chem_addition.unit)}")
 
     init_ec(m, treat.EC)
-    # treat.EC.unit.display()
-    print(f"dof EC = {degrees_of_freedom(treat.EC.unit)}")
-    # assert False
     propagate_state(treat.ec_to_cart_filt)
     propagate_state(treat.ec_to_disposal_mix)
 
@@ -294,7 +314,8 @@ def init_system(m, **kwargs):
     treat.zo_to_sw_disposal.outlet.pressure[0].fix(101325)
     treat.zo_to_sw_disposal.initialize()
 
-    treat.zo_to_sw_feed.properties_out[0].temperature.fix(273.15 + 50.52)  # K
+    treat.zo_to_sw_feed.properties_out[0].temperature.fix(273.15 + mvc_inlet_temp)
+    # treat.zo_to_sw_feed.properties_out[0].temperature.set_value(273.15 + mvc_inlet_temp)  # K
     treat.zo_to_sw_feed.properties_out[0].pressure.fix(101325)
     treat.zo_to_sw_feed.initialize()
 
@@ -304,40 +325,121 @@ def init_system(m, **kwargs):
     propagate_state(treat.mvc_to_product)
     propagate_state(treat.mvc_disposal_to_translator)
 
-    # treat.MVC.feed.display()
-    # assert False
-
     propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
     treat.disposal_SW_mixer.initialize()
+    treat.disposal_SW_mixer.mixed_state[0].pressure.fix(101325)
+    # treat.disposal_SW_mixer.mixed_state[0].temperature.fix()
+
     propagate_state(treat.disposal_SW_mixer_to_dwi)
-    # treat.disposal_SW_mixer.mixed_state[0].display()
-    # assert False
 
     init_dwi(m, treat.DWI)
 
     treat.product.initialize()
 
-    # m.fs.treatment.costing.initialize()
+
+def run_permian_SOA(recovery=0.5):
+    """
+    Run Permian state-of-the-art case study
+    """
+
+    m = build_permian_SOA()
+    treat = m.fs.treatment
+    mvc = treat.MVC
+
+    set_operating_conditions(m)
+    set_permian_scaling(m)
+
+    treat.feed.properties[0].flow_vol
+
+    init_system(m)
+
+    flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
+    treat.product.properties[0].flow_vol_phase["Liq"] = value(recovery * flow_in)
+
+    treat.costing.add_LCOW(flow_vol)
+    treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+    treat.costing.initialize()
+
+    # First, minimize external heating
+    mvc.external_heating_obj = Objective(expr=mvc.external_heating)
+
+    try:
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+    except:
+        print_infeasible_constraints(m)
+        print_variables_close_to_bounds(m)
+        print("SOLVE FAILED")
+        return m
+
+    # Next, minimize LCOW for MVC design
+    mvc.del_component(mvc.external_heating_obj)
+    treat.LCOW_obj = Objective(expr=treat.costing.LCOW)
+
+    treat.costing.electricity_cost.fix(0.07)
+
+    try:
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+    except:
+        print_infeasible_constraints(m)
+        print_variables_close_to_bounds(m)
+        print("SOLVE FAILED")
+        return m
+
+    # Optimize design
+    mvc.external_heating.fix(0)  # Remove external heating
+    mvc.evaporator.area.unfix()
+    mvc.evaporator.outlet_brine.temperature[0].unfix()
+    mvc.compressor.pressure_ratio.unfix()
+    mvc.hx_distillate.area.unfix()
+    mvc.hx_brine.area.unfix()
+    # treat.zo_to_sw_feed.properties_out[0].temperature.unfix()
+
+    # Add flowsheet level recovery
+    treat.eq_recovery = Constraint(
+        expr=treat.recovery * treat.feed.properties[0].flow_vol
+        == treat.product.properties[0].flow_vol_phase["Liq"]
+    )
+    treat.recovery.fix(recovery)
+
+    # Unfix MVC recovery
+    mvc.recovery.unfix()
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+    print(f"DOF = {degrees_of_freedom(m)}")
+
+    mvc.evaporator.area.fix()
+    mvc.evaporator.outlet_brine.temperature[0].fix()
+    mvc.compressor.pressure_ratio.fix()
+    mvc.hx_distillate.area.fix()
+    mvc.hx_brine.area.fix()
+    mvc.recovery.fix()  # effectively fixes split_fraction on separator
+
+    # TODO: This results in 1 DOF
+    # Possible additional DOF are
+    # EC conductivity
+    # temperature/pressure on dispoal mixer
+    # mvc.pump_brine.control_volume.deltaP[0].fix()
+    # treat.zo_to_sw_feed.properties_out[0].temperature.fix()
+    # treat.EC.unit.conductivity.fix()
+
+    mvc.compressor.control_volume.properties_out[0.0].temperature.setub(500)
+
+    try:
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+        print(f"termination {results.solver.termination_condition}")
+        print(f"DOF = {degrees_of_freedom(m)}")
+    except:
+        print_infeasible_constraints(m)
+        print_variables_close_to_bounds(m)
+        print("SOLVE FAILED")
+
+    return m
 
 
 if __name__ == "__main__":
-    m = build_permian()
-    set_operating_conditions(m)
-    set_permian_scaling(m)
-    print(f"dof = {degrees_of_freedom(m)}")
 
-    init_system(m)
-    # print(f"dof = {degrees_of_freedom(m)}")
-
-    # m.fs.treatment.DWI.display()
-
-    # for b in m.fs.component_objects(Block, descend_into=True):
-        
-    #     if "_expanded" in b.name:
-    #         continue
-    #     if "costing" in b.name:
-    #         continue
-    
-    #     print(b.name, degrees_of_freedom(b))
-
-
+    m = run_permian_SOA()

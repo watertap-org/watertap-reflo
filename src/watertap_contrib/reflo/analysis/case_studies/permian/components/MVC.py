@@ -74,6 +74,9 @@ __all__ = [
     "init_mvc",
     "add_mvc_costing",
     "scale_mvc_costs",
+    "display_metrics",
+    "display_costing",
+    "display_design",
 ]
 
 solver = get_solver()
@@ -220,7 +223,7 @@ def build_mvc(m, blk, external_heating=True):
     blk.evaporator_to_brine_pump = Arc(
         source=blk.evaporator.outlet_brine, destination=blk.pump_brine.inlet
     )
-    # TODO: Not propagated
+
     blk.brine_pump_to_hx_brine_hot = Arc(
         source=blk.pump_brine.outlet, destination=blk.hx_brine.hot_inlet
     )
@@ -233,7 +236,7 @@ def build_mvc(m, blk, external_heating=True):
     blk.translated_to_dist_pump = Arc(
         source=blk.tb_sw_to_water.outlet, destination=blk.pump_distillate.inlet
     )
-    # TODO: Not propagated
+
     blk.dist_pump_to_hx_dist_hot = Arc(
         source=blk.pump_distillate.outlet, destination=blk.hx_distillate.hot_inlet
     )
@@ -368,6 +371,7 @@ def set_mvc_scaling(
     properties_vapor.set_default_scaling(
         "flow_mass_phase_comp", 1, index=("Liq", "H2O")
     )
+
     # Evaporator
     set_scaling_factor(blk.evaporator.area, 1e-3)
     set_scaling_factor(blk.evaporator.U, 1e-3)
@@ -395,8 +399,6 @@ def set_system_operating_conditions(m, Qin=5, tds=130, feed_temp=25):
     Qin = Qin * pyunits.Mgallons / pyunits.day
     tds = tds * pyunits.g / pyunits.liter
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
-    flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
-    flow_mass_tds = pyunits.convert(Qin * tds, to_units=pyunits.kg / pyunits.s)
 
     m.fs.feed.properties.calculate_state(
         var_args={
@@ -407,12 +409,6 @@ def set_system_operating_conditions(m, Qin=5, tds=130, feed_temp=25):
         },
         hold_state=True,
     )
-
-    # m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_water)
-    # m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"].fix(flow_mass_tds)
-    # m.fs.feed.properties[0].temperature.fix(273.15 + 50.52)  # K
-    # m.fs.feed.properties[0].pressure.fix(1e5)  # Pa
-    # m.fs.feed.properties[0].conc_mass_phase_comp[...]
 
 
 def init_system(m, blk, **kwargs):
@@ -529,7 +525,7 @@ def init_mvc(
     blk.mixer_feed.initialize(solver="ipopt-watertap")
     blk.mixer_feed.pressure_equality_constraints[0, 2].deactivate()
     _log.info(f"{blk.name} Mixer initialization complete.")
-    print(f"\ndof @ 1 = {degrees_of_freedom(blk)}\n")
+    # print(f"\ndof @ 1 = {degrees_of_freedom(blk)}\n")
 
     # Initialize evaporator
     propagate_state(blk.mixer_feed_to_evaporator)
@@ -579,7 +575,7 @@ def init_mvc(
     propagate_state(blk.hx_brine_hot_to_disposal)
     propagate_state(blk.hx_dist_hot_to_product)
 
-    print(f"\ndof @ 2 = {degrees_of_freedom(blk)}\n")
+    # print(f"\ndof @ 2 = {degrees_of_freedom(blk)}\n")
 
     blk.product.initialize()
     _log.info(f"{blk.name} Product initialization complete.")
@@ -591,7 +587,7 @@ def init_mvc(
 
     blk.pump_brine.control_volume.deltaP[0].unfix()
     blk.disposal.properties[0].pressure.fix(101325)
-    print(f"\ndof @ 3 = {degrees_of_freedom(blk)}\n")
+    # print(f"\ndof @ 3 = {degrees_of_freedom(blk)}\n")
 
     print(f"termination {results.solver.termination_condition}")
     # _log.info_high(f"terminatinon {results.solver.termination_condition}")
@@ -718,6 +714,71 @@ def add_mvc_costing(m, blk, flowsheet_costing_block=None):
     flowsheet_costing_block.compressor.unit_cost.fix(1 * 7364)
 
 
+def set_up_optimization(m, blk):
+    """
+    Add objective and unfix design variables
+    """
+    if hasattr(blk, "LCOW_obj"):
+        blk.del_component(blk.LCOW_obj)
+    blk.LCOW_obj = Objective(expr=m.fs.costing.LCOW)
+    blk.external_heating.fix(0)
+    blk.evaporator.area.unfix()
+    blk.evaporator.outlet_brine.temperature[0].unfix()
+    blk.compressor.pressure_ratio.unfix()
+    blk.hx_distillate.area.unfix()
+    blk.hx_brine.area.unfix()
+
+
+def design_mvc(m, blk):
+    """
+    After system is initialized, full design routine.
+    """
+    # First minimize external heating required
+    # blk.external_heating.unfix()
+    blk.external_heating_obj = Objective(expr=blk.external_heating)
+    print(f"MVC DOF @ A = {degrees_of_freedom(blk)}")
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+    print(f"MVC first solve {results.solver.termination_condition}")
+
+    print(f"\n~~~~~FIRST SOLVE~~~~")
+    display_metrics(m, mvc)
+    display_design(m, mvc)
+
+    blk.del_component(blk.external_heating_obj)
+
+    # Add LCOW objective; unfix design variables
+    set_up_optimization(m, blk)
+    blk.evaporator.eq_energy_balance.activate()
+    blk.evaporator.eq_energy_balance_with_external_heat.deactivate()
+
+    print(f"MVC DOF @ B = {degrees_of_freedom(m)}")
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+    print(f"MVC second solve {results.solver.termination_condition}")
+
+    print(f"\n~~~~~SECOND SOLVE~~~~")
+    display_metrics(m, mvc)
+    display_design(m, mvc)
+
+    print(f"MVC DOF @ C = {degrees_of_freedom(m)}")
+
+    # blk.evaporator.eq_energy_balance.activate()
+    blk.evaporator.area.fix()
+    blk.evaporator.outlet_brine.temperature[0].fix()
+    blk.hx_distillate.area.fix()
+    blk.hx_brine.area.fix()
+
+    print(f"MVC DOF final = {degrees_of_freedom(m)}")
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+    print(f"MVC final solve {results.solver.termination_condition}")
+    print(f"\n~~~~~FINAL SOLVE~~~~")
+    display_metrics(m, mvc)
+    display_design(m, mvc)
+
+
 def display_metrics(m, blk):
     print("\nSystem metrics")
     print(
@@ -800,71 +861,6 @@ def display_design(m, blk):
     print(
         "Evaporator LMTD:                          %.2f K" % blk.evaporator.lmtd.value
     )
-
-
-def set_up_optimization(m, blk):
-    """
-    Add objective and unfix design variables
-    """
-    if hasattr(blk, "LCOW_obj"):
-        blk.del_component(blk.LCOW_obj)
-    blk.LCOW_obj = Objective(expr=m.fs.costing.LCOW)
-    blk.external_heating.fix(0)
-    blk.evaporator.area.unfix()
-    blk.evaporator.outlet_brine.temperature[0].unfix()
-    blk.compressor.pressure_ratio.unfix()
-    blk.hx_distillate.area.unfix()
-    blk.hx_brine.area.unfix()
-
-
-def design_mvc(m, blk):
-    """
-    After system is initialized, full design routine.
-    """
-    # First minimize external heating required
-    # blk.external_heating.unfix()
-    blk.external_heating_obj = Objective(expr=blk.external_heating)
-    print(f"MVC DOF @ A = {degrees_of_freedom(blk)}")
-
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-    print(f"MVC first solve {results.solver.termination_condition}")
-
-    print(f"\n~~~~~FIRST SOLVE~~~~")
-    display_metrics(m, mvc)
-    display_design(m, mvc)
-
-    blk.del_component(blk.external_heating_obj)
-
-    # Add LCOW objective; unfix design variables
-    set_up_optimization(m, blk)
-    blk.evaporator.eq_energy_balance.activate()
-    blk.evaporator.eq_energy_balance_with_external_heat.deactivate()
-
-    print(f"MVC DOF @ B = {degrees_of_freedom(m)}")
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-    print(f"MVC second solve {results.solver.termination_condition}")
-
-    print(f"\n~~~~~SECOND SOLVE~~~~")
-    display_metrics(m, mvc)
-    display_design(m, mvc)
-
-    print(f"MVC DOF @ C = {degrees_of_freedom(m)}")
-
-    # blk.evaporator.eq_energy_balance.activate()
-    blk.evaporator.area.fix()
-    blk.evaporator.outlet_brine.temperature[0].fix()
-    blk.hx_distillate.area.fix()
-    blk.hx_brine.area.fix()
-
-    print(f"MVC DOF final = {degrees_of_freedom(m)}")
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-    print(f"MVC final solve {results.solver.termination_condition}")
-    print(f"\n~~~~~FINAL SOLVE~~~~")
-    display_metrics(m, mvc)
-    display_design(m, mvc)
 
 
 def display_costing(m, mvc):
