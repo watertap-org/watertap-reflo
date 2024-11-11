@@ -208,18 +208,22 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
         )
 
+        # Calculate fraction of electricity from grid when PV is included
         for b in self.model().component_objects(pyo.Block):
             if str(b) == "fs.energy.pv":
                 self.frac_elec_from_grid_constraint = pyo.Constraint(
                     expr=(
                         self.frac_elec_from_grid
-                        == 1 - (
+                        == 1
+                        - (
                             b.electricity
-                            / (b.electricity + self.aggregate_flow_electricity_purchased)
+                            / (
+                                b.electricity
+                                + self.aggregate_flow_electricity_purchased
+                            )
                         )
                     )
                 )
-                
 
         self.aggregate_electricity_complement = pyo.Constraint(
             expr=self.aggregate_flow_electricity_purchased
@@ -340,7 +344,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 )
                 * self.electricity_cost_sell
             )
-            # * self.utilization_factor
         )
 
         # positive is for cost and negative for revenue
@@ -358,7 +361,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 )
                 * self.heat_cost_sell
             )
-            # * self.utilization_factor
         )
 
         # positive is for consumption
