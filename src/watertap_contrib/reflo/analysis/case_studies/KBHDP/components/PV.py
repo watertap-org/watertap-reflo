@@ -68,13 +68,9 @@ def train_pv_surrogate(m):
 def set_pv_constraints(m, focus="Size"):
     energy = m.fs.energy
 
-    # m.fs.energy.pv.heat.fix(0)
+    m.fs.energy.pv.heat.fix(0)
 
     if focus == "Size":
-        # energy.pv_design_constraint = Constraint(
-        #     expr=m.fs.energy.pv.design_size
-        #     == m.fs.treatment.costing.aggregate_flow_electricity
-        # )
         m.fs.energy.pv.design_size.fix(1000)
     elif focus == "Energy":
         m.fs.energy.pv.annual_energy.fix(40000000)
@@ -90,7 +86,6 @@ def add_pv_costing(m, blk):
         flowsheet_costing_block=energy.costing,
     )
 
-    breakdown_dof(m)
 
 
 def add_pv_scaling(m, blk):

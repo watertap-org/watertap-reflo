@@ -205,15 +205,17 @@ see property package for documentation.}""",
         # def eq_pressure_rule(blk, t):
         #     return blk.properties_out[t].pressure == blk.properties_in[t].pressure
         
-        @self.Constraint(
-            self.flowsheet().time,
-            doc="TSS",
-        )
-        def return_tss_flow_comp(blk, t):
-            return (
-                blk.properties_out[t].flow_mass_comp["tss"]
-                == 5.22e-6 * pyunits.kg / pyunits.second
-            )
+        # @self.Constraint(
+        #     self.flowsheet().time,
+        #     doc="TSS",
+        # )
+        # def return_tss_flow_comp(blk, t):
+        #     return (
+        #         blk.properties_out[t].flow_mass_comp["tss"]
+        #         == 5.22e-6 * pyunits.kg / pyunits.second
+        #     )
+        
+        self.properties_out[0].flow_mass_comp["tss"].fix(5.22e-6 * pyunits.kg / pyunits.second)
 
     def initialize_build(
         self,

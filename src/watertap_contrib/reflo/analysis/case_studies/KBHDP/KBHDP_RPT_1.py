@@ -59,24 +59,25 @@ def main():
     add_constraints(m)
     set_operating_conditions(m)
     apply_scaling(m)
-    # set_pv_constraints(m, focus="Energy")
+    set_pv_constraints(m, focus="Energy")
     init_system(m)
-    # add_costing(m)
+    add_costing(m)
+    scale_costing(m)
+    solve(m, debug=True)
+
     # scale_costing(m)
+
+    # optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=0.5, objective="LCOW")
     # solve(m, debug=True)
-
-    # # scale_costing(m)
-
-    # optimize(m, ro_mem_area=None, water_recovery=0.8, objective="LCOW")
-    # solve(m, debug=True)
-
-    # report_RO(m, m.fs.treatment.RO)
+    # display_flow_table(m)
+    display_system_stream_table(m)
+    report_RO(m, m.fs.treatment.RO)
     # # # # report_pump(m, m.fs.treatment.pump)
     # report_PV(m)
     # # # # m.fs.treatment.costing.display()
     # # # # m.fs.energy.costing.display()""
     # # # # m.fs.costing.display()
-    # # # display_costing_breakdown(m)
+    display_costing_breakdown(m)
     # # # # print(m.fs.energy.pv.display())
     # # print_system_scaling_report(m)
 
@@ -104,7 +105,7 @@ def build_system():
     m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
 
     build_treatment(m)
-    # build_energy(m)
+    build_energy(m)
 
     return m
 
@@ -230,18 +231,18 @@ def add_connections(m):
 def add_constraints(m):
     treatment = m.fs.treatment
 
-    # m.fs.water_recovery = Var(
-    #     initialize=0.5,
-    #     bounds=(0, 0.99),
-    #     domain=NonNegativeReals,
-    #     units=pyunits.dimensionless,
-    #     doc="System Water Recovery",
-    # )
+    m.fs.water_recovery = Var(
+        initialize=0.5,
+        bounds=(0, 0.99),
+        domain=NonNegativeReals,
+        units=pyunits.dimensionless,
+        doc="System Water Recovery",
+    )
 
-    # m.fs.eq_water_recovery = Constraint(
-    #     expr=treatment.feed.properties[0].flow_vol * m.fs.water_recovery
-    #     == treatment.product.properties[0].flow_vol
-    # )
+    m.fs.eq_water_recovery = Constraint(
+        expr=treatment.feed.properties[0].flow_vol * m.fs.water_recovery
+        == treatment.product.properties[0].flow_vol
+    )
 
 
 def add_treatment_costing(m):
@@ -280,7 +281,7 @@ def add_energy_costing(m):
 
 def add_costing(m):
     treatment = m.fs.treatment
-    energy = m.fs.energy
+    # energy = m.fs.energy
 
     add_treatment_costing(m)
     add_energy_costing(m)
@@ -344,9 +345,9 @@ def apply_system_scaling(m):
 def apply_scaling(m):
 
     add_ec_scaling(m, m.fs.treatment.EC)
-    # add_ro_scaling(m, m.fs.treatment.RO)
-    # add_pv_scaling(m, m.fs.energy.pv)
-    # apply_system_scaling(m)
+    add_ro_scaling(m, m.fs.treatment.RO)
+    add_pv_scaling(m, m.fs.energy.pv)
+    apply_system_scaling(m)
     iscale.calculate_scaling_factors(m)
 
 
@@ -355,7 +356,7 @@ def set_inlet_conditions(
     Qin=None,
     Cin=None,
     water_recovery=None,
-    supply_pressure=1e5,
+    supply_pressure=101325,
 ):
     """Sets operating condition for the PV-RO system
 
@@ -418,7 +419,6 @@ def set_inlet_conditions(
     )
 
     feed_temperature = 273.15 + 20
-    pressure_atm = 101325
 
     # # initialize feed
     treatment.feed.pressure[0].fix(supply_pressure)
@@ -444,7 +444,7 @@ def set_operating_conditions(m, RO_pressure=30e5, supply_pressure=1.1e5):
     treatment = m.fs.treatment
     pump_efi = 0.8  # pump efficiency [-]
     # Set inlet conditions and operating conditions for each unit
-    set_inlet_conditions(m, Qin=4, supply_pressure=1e5)
+    set_inlet_conditions(m, Qin=4)
     set_ec_operating_conditions(m, treatment.EC)
     set_UF_op_conditions(treatment.UF)
     treatment.pump.efficiency_pump.fix(pump_efi)
@@ -495,9 +495,6 @@ def init_system(m, verbose=True, solver=None):
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     if degrees_of_freedom(m) != 0:
         breakdown_dof(m, detailed=True)
-    #     for unit in m.fs.units:
-    #         print(f"Unit: {unit.name}")
-    #         breakdown_dof(unit, detailed=True)
     
     init_treatment(m)
     # initialize_energy(m)
@@ -557,6 +554,7 @@ def optimize(
     water_recovery=0.5,
     fixed_pressure=None,
     ro_mem_area=None,
+    grid_frac = None,
     objective="LCOW",
 ):
     treatment = m.fs.treatment
@@ -608,6 +606,11 @@ def optimize(
         for idx, stage in treatment.RO.stage.items():
             stage.module.area.unfix()
             stage.module.area.setub(1e6)
+
+    if grid_frac is not None:
+        m.fs.costing.frac_elec_from_grid.fix(grid_frac)
+        m.fs.energy.pv.design_size.unfix()
+        m.fs.energy.pv.annual_energy.unfix()
 
 
 def report_MCAS_stream_conc(m, stream):

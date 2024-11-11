@@ -206,25 +206,28 @@ see property package for documentation.}""",
                 == blk.properties_in[t].flow_mass_comp["tds"]
             )
         
-        @self.Constraint(
-            self.flowsheet().time,
-            doc="Outlet Pressure",
-        )
-        def eq_outlet_pressure(blk, t):
-            return (
-                blk.properties_out[t].pressure
-                == 101325 * pyunits.Pa
-            )
+        # @self.Constraint(
+        #     self.flowsheet().time,
+        #     doc="Outlet Pressure",
+        # )
+        # def eq_outlet_pressure(blk, t):
+        #     return (
+        #         blk.properties_out[t].pressure
+        #         == 101325 * pyunits.Pa
+        #     )
         
-        @self.Constraint(
-            self.flowsheet().time,
-            doc="Outlet Pressure",
-        )
-        def eq_outlet_temperature(blk, t):
-            return (
-                blk.properties_out[t].temperature
-                == 298.15 * pyunits.K
-            )
+        # @self.Constraint(
+        #     self.flowsheet().time,
+        #     doc="Outlet Pressure",
+        # )
+        # def eq_outlet_temperature(blk, t):
+        #     return (
+        #         blk.properties_out[t].temperature
+        #         == 298.15 * pyunits.K
+        #     )
+
+        self.properties_out[0].pressure.fix(101325)
+        self.properties_out[0].temperature.fix(298.15)
 
     def initialize_build(
         self,

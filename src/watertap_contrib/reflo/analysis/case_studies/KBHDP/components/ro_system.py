@@ -786,9 +786,10 @@ if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
     display_ro_system_build(m)
-    set_operating_conditions(m, Qin=171.763, Cin=20, ro_pressure=30e5)
+    set_operating_conditions(m, Qin=171.763, Cin=3.717, ro_pressure=30e5)
     set_ro_system_operating_conditions(m, m.fs.ro, mem_area=10000)
     add_ro_scaling(m, m.fs.ro)
+    iscale.calculate_scaling_factors(m)
     init_system(m)
     solve(m)
 

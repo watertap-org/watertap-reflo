@@ -94,7 +94,6 @@ def init_UF(m, blk, verbose=True, solver=None):
         solver = get_solver()
 
     optarg = solver.options
-    breakdown_dof(blk)
     print(
         "\n\n-------------------- INITIALIZING ULTRAFILTRATION --------------------\n\n"
     )
