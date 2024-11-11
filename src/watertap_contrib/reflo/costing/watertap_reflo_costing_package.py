@@ -39,7 +39,6 @@ class REFLOCostingData(WaterTAPCostingData):
 
     def build_global_params(self):
 
-
         super().build_global_params()
 
         # Override WaterTAP default value of USD_2018
