@@ -196,7 +196,7 @@ permian:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-      value: 0.7
+      value: 0.
       units: dimensionless
     silica:
       value: 0.7
