@@ -166,6 +166,10 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         treat_cost = self._get_treatment_cost_block()
         energy_cost = self._get_energy_cost_block()
 
+        for b in [treat_cost, energy_cost]:
+            for u in b._registered_unit_costing:
+                self._registered_unit_costing.append(u)
+
         self.total_capital_cost = pyo.Var(
             initialize=1e3,
             domain=pyo.NonNegativeReals,
