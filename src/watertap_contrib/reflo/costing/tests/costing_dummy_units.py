@@ -2,12 +2,14 @@ from pyomo.environ import (
     Var,
     Constraint,
     Param,
+    value,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
 import idaes.logger as idaeslog
 from idaes.core import UnitModelBlockData, useDefault, declare_process_block_class
+from idaes.core.util.scaling import calculate_scaling_factors, set_scaling_factor
 from idaes.core.util.config import is_physical_parameter_block
 
 from watertap.costing.util import register_costing_parameter_block
@@ -96,21 +98,21 @@ class DummyTreatmentUnitData(InitializationMixin, UnitModelBlockData):
         )
 
         self.capital_var = Var(
-            initialize=99,
+            initialize=1,
             bounds=(0, None),
             units=pyunits.dimensionless,
             doc="Test treatment unit capital variable",
         )
 
         self.fixed_operating_var = Var(
-            initialize=202,
+            initialize=1,
             bounds=(0, None),
             units=pyunits.dimensionless,
             doc="Test treatment unit fixed operating variable",
         )
 
         self.variable_operating_var = Var(
-            initialize=1003,
+            initialize=1,
             bounds=(0, None),
             units=pyunits.dimensionless,
             doc="Test treatment unit variable operating variable",
@@ -161,6 +163,22 @@ class DummyTreatmentUnitData(InitializationMixin, UnitModelBlockData):
             res = opt.solve(self, tee=slc.tee)
 
         self.properties.release_state(flags)
+
+    def calculate_scaling_factors(self):
+
+        set_scaling_factor(self.design_var_a, 1 / value(self.design_var_a))
+        set_scaling_factor(self.design_var_b, 1 / value(self.design_var_b))
+        set_scaling_factor(self.capital_var, 1 / value(self.capital_var))
+        set_scaling_factor(
+            self.fixed_operating_var, 1 / value(self.fixed_operating_var)
+        )
+        set_scaling_factor(
+            self.variable_operating_var, 1 / value(self.variable_operating_var)
+        )
+        set_scaling_factor(
+            self.electricity_consumption, 1 / value(self.electricity_consumption)
+        )
+        set_scaling_factor(self.heat_consumption, 1 / value(self.heat_consumption))
 
     @property
     def default_costing_method(self):
@@ -435,11 +453,9 @@ if __name__ == "__main__":
     from watertap_contrib.reflo.costing import (
         TreatmentCosting,
         EnergyCosting,
-        REFLOCosting,
         REFLOSystemCosting,
     )
-    
-        
+
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = SeawaterParameterBlock()
@@ -447,8 +463,6 @@ if __name__ == "__main__":
     #### TREATMENT BLOCK
     m.fs.treatment = Block()
     m.fs.treatment.costing = TreatmentCosting()
-    m.fs.treatment.costing.electricity_cost.fix(0.06)
-    m.fs.treatment.costing.heat_cost.set_value(0.01)
 
     m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
     m.fs.treatment.unit.costing = UnitModelCostingBlock(
@@ -464,8 +478,6 @@ if __name__ == "__main__":
     m.fs.energy = Block()
     m.fs.energy.costing = EnergyCosting()
     m.fs.energy.pv = DummyElectricityUnit()
-    # m.fs.energy.pv.electricity.set_value(14000)
-    # m.fs.energy.pv.electricity.fix(14000)
     m.fs.energy.pv.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.energy.costing
     )
@@ -475,16 +487,20 @@ if __name__ == "__main__":
     m.fs.costing = REFLOSystemCosting()
     # m.fs.costing.aggregate_flow_electricity_purchased.fix(1)
     # m.fs.costing.aggregate_flow_electricity_sold.fix(1)
-    m.fs.costing.frac_elec_from_grid.fix(0.5)
-    # m.fs.costing.frac_heat_from_grid.fix(0)
+    m.fs.costing.frac_elec_from_grid.fix(0.9)
     m.fs.costing.cost_process()
-    m.fs.treatment.costing.add_LCOW(m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"])
+    m.fs.treatment.costing.add_LCOW(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
 
-    #### SCALING 
-    m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1e-1, index=("Liq", "H2O"))
-    m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1e-1, index=("Liq", "TDS"))
+    #### SCALING
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
+    )
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
+    )
     calculate_scaling_factors(m)
-
 
     # #### INITIALIZE
 
