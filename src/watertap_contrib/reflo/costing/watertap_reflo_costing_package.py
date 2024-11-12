@@ -321,7 +321,11 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 expr=(
                     self.frac_heat_from_grid
                     == 1
-                    - energy_cost.aggregate_flow_heat / treat_cost.aggregate_flow_heat
+                    - (
+                        -1
+                        * energy_cost.aggregate_flow_heat
+                        / treat_cost.aggregate_flow_heat
+                    )
                 )
             )
 
@@ -388,7 +392,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             == self.aggregate_flow_electricity_purchased
             - self.aggregate_flow_electricity_sold
         )
-
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
