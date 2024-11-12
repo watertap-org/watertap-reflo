@@ -92,13 +92,13 @@ def build_system(inlet_cond, n_time_points=None):
     m.fs.product = Product(property_package=m.fs.params)
     m.fs.disposal = Product(property_package=m.fs.params)
 
-    m.fs.water_recovery = Var(
-        initialize=0.45,
-        bounds=(0, 0.99),
-        domain=NonNegativeReals,
-        units=pyunits.dimensionless,
-        doc="System Water Recovery",
-    )
+    # m.fs.water_recovery = Var(
+    #     initialize=0.5,
+    #     bounds=(0, 0.99),
+    #     domain=NonNegativeReals,
+    #     units=pyunits.dimensionless,
+    #     doc="System Water Recovery",
+    # )
 
     # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
@@ -125,7 +125,7 @@ def add_connections(m):
 
 def set_md_model_options(m, inlet_cond, n_time_points=None):
 
-    system_capacity = m.fs.water_recovery * pyunits.convert(
+    system_capacity = inlet_cond["recovery"] * pyunits.convert(
         inlet_cond["inlet_flow_rate"], to_units=pyunits.m**3 / pyunits.day
     )
     feed_salinity = pyunits.convert(
@@ -134,7 +134,7 @@ def set_md_model_options(m, inlet_cond, n_time_points=None):
 
     model_options = {
         "dt": None,
-        "system_capacity": system_capacity,  # m3/day
+        "system_capacity": system_capacity(),  # m3/day
         "feed_flow_rate": 750,  # L/h
         "evap_inlet_temp": 80,
         "cond_inlet_temp": 30,
@@ -155,7 +155,7 @@ def set_md_model_options(m, inlet_cond, n_time_points=None):
             cond_inlet_temp=model_options["cond_inlet_temp"],
             feed_temp=model_options["feed_temp"],
             feed_salinity=model_options["feed_salinity"],
-            recovery_ratio=m.fs.water_recovery(),  # inlet_cond["recovery"],
+            recovery_ratio= inlet_cond["recovery"],
             initial_batch_volume=model_options["initial_batch_volume"],
             module_type=model_options["module_type"],
             cooling_system_type=model_options["cooling_system_type"],
@@ -532,6 +532,9 @@ def calc_costing(m, blk):
     # active_blks = m.fs.md.unit.get_active_process_blocks()
     # m.fs.costing.add_annual_water_production(active_blks[-1].fs.vagmd.system_capacity)
     # m.fs.costing.add_LCOW(active_blks[-1].fs.vagmd.system_capacity)
+    
+    # Touching variables to solve for volumetric flow rate
+    m.fs.product.properties[0].flow_vol_phase
 
     prod_flow = pyunits.convert(
         m.fs.product.properties[0].flow_vol_phase["Liq"],
@@ -708,7 +711,7 @@ if __name__ == "__main__":
 
     feed_salinity = 12 * pyunits.g / pyunits.L
 
-    overall_recovery = 0.8
+    overall_recovery = 0.9
 
     inlet_cond = {
         "inlet_flow_rate": Qin,
@@ -716,7 +719,7 @@ if __name__ == "__main__":
         "recovery": overall_recovery,
     }
 
-    n_time_points = 2  # None
+    n_time_points = 32#None
     m, model_options, n_time_points = build_system(
         inlet_cond, n_time_points=n_time_points
     )
@@ -727,41 +730,63 @@ if __name__ == "__main__":
 
     set_md_op_conditions(m.fs.md)
 
-    results = solver.solve(m)
+    results = solve(m, solver=solver, tee=False)
+    # results= solver.solve(m)
+    print("\n--------- Solve 1 Completed ---------\n")
+    # m.fs.md.unit.get_active_process_blocks()[0].fs.dt.display()
+    # m.fs.md.unit.get_active_process_blocks()[0].fs.vagmd.permeate_flux.display()
+    m.fs.md.unit.get_active_process_blocks()[0].fs.pre_permeate_flow_rate.display()
+    m.fs.md.unit.get_active_process_blocks()[0].fs.pre_acc_distillate_volume.display()
+    m.fs.md.unit.get_active_process_blocks()[0].fs.acc_distillate_volume.display()
+    m.fs.md.unit.get_active_process_blocks()[0].fs.pre_evap_out_temp.display()
+    # m.fs.md.unit.get_active_process_blocks()[0].fs.vagmd.thermal_power.display()
+    # m.fs.md.unit.get_active_process_blocks()[0].fs.specific_energy_consumption_thermal.display()
 
-    # Touching variables to solve for volumetric flow rate
-    m.fs.product.properties[0].flow_vol_phase
-    m.fs.disposal.properties[0].flow_vol_phase
+    # m.fs.md.unit.get_active_process_blocks()[1].fs.vagmd.permeate_flux.display()
+    m.fs.md.unit.get_active_process_blocks()[1].fs.pre_permeate_flow_rate.display()
+    m.fs.md.unit.get_active_process_blocks()[1].fs.pre_acc_distillate_volume.display()
+    m.fs.md.unit.get_active_process_blocks()[1].fs.acc_distillate_volume.display()
+    m.fs.md.unit.get_active_process_blocks()[1].fs.pre_evap_out_temp.display()
+    # m.fs.md.unit.get_active_process_blocks()[1].fs.vagmd.thermal_power.display()
+    # m.fs.md.unit.get_active_process_blocks()[1].fs.specific_energy_consumption_thermal.display()
 
-    # results = solver.solve(m)
+    # m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd.permeate_flux.display()
+    m.fs.md.unit.get_active_process_blocks()[-1].fs.pre_permeate_flow_rate.display()
+    m.fs.md.unit.get_active_process_blocks()[-1].fs.pre_acc_distillate_volume.display()
+    m.fs.md.unit.get_active_process_blocks()[-1].fs.acc_distillate_volume.display()
+    m.fs.md.unit.get_active_process_blocks()[-1].fs.pre_evap_out_temp.display()
+    # m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd.thermal_power.display()
+    # m.fs.md.unit.get_active_process_blocks()[-1].fs.specific_energy_consumption_thermal.display()
+
+    # m.fs.disposal.properties[0].flow_vol_phase
 
     add_md_costing(m.fs.md.unit, costing_block=m.fs.costing)
+
+    # results = solve(m, solver=solver, tee=False)
+    # print("\n--------- Solve 2 Completed ---------\n")
+
     calc_costing(m, m.fs)
 
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    print("\nSystem Degrees of Freedom:", degrees_of_freedom(m),"\n")
 
     assert degrees_of_freedom(m) == 0
 
-    results = solver.solve(m)
+    results = solve(m, solver=solver, tee=False)
+    print("\n--------- Cost solve Completed ---------\n")
 
+    print("Inlet flow rate in m3/day:", Qin())
     report_MD(m, m.fs.md)
     report_md_costing(m, m.fs)
 
-    # try:
-    #     results = solver.solve(m.fs.md)
-    # except ValueError:
-    #     # m.fs.md.unit.active_blocks[0].fs.vagmd.display()
-    #     print_infeasible_constraints(m)
+    # active_blks = m.fs.md.unit.get_active_process_blocks()
 
-    active_blks = m.fs.md.unit.get_active_process_blocks()
+    # permeate_flow_rate, brine_flow_rate, brine_salinity = md_output(
+    #     m.fs, n_time_points, model_options
+    # )
 
-    permeate_flow_rate, brine_flow_rate, brine_salinity = md_output(
-        m.fs, n_time_points, model_options
-    )
+    # time_period = [i for i in range(n_time_points)]
+    # t_minutes = [value(active_blks[i].fs.dt) * i / 60 for i in range(n_time_points)]
 
-    time_period = [i for i in range(n_time_points)]
-    t_minutes = [value(active_blks[i].fs.dt) * i / 60 for i in range(n_time_points)]
+    # heat_in = [value(active_blks[i].fs.pre_thermal_power) for i in range(n_time_points)]
 
-    heat_in = [value(active_blks[i].fs.pre_thermal_power) for i in range(n_time_points)]
-
-    m.fs.water_recovery.display()
+    # m.fs.water_recovery.display()

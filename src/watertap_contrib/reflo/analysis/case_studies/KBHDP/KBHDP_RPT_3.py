@@ -601,7 +601,7 @@ def save_results(m, sweep_type=None):
 
 if __name__ == "__main__":
 
-    m = main(water_recovery=0.2, heat_price=0.08, frac_heat_from_grid=0.01)
+    m = main(water_recovery=0.8, heat_price=0.08, frac_heat_from_grid=0.01)
 
     save_results(m)
     print_results_summary(m)
