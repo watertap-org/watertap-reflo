@@ -129,7 +129,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Electricity cost to buy",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
-        self.defined_flows["electricity_buy"] = self.electricity_cost_buy
 
         self.electricity_cost_sell = pyo.Param(
             mutable=True,
@@ -137,7 +136,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Electricity cost to sell",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
-        self.defined_flows["electricity_sell"] = self.electricity_cost_sell
 
         self.heat_cost_buy = pyo.Param(
             mutable=True,
@@ -145,7 +143,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Heat cost to buy",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
-        self.defined_flows["heat_buy"] = self.heat_cost_buy
 
         self.heat_cost_sell = pyo.Param(
             mutable=True,
@@ -153,7 +150,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Heat cost to sell",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
-        self.defined_flows["heat_sell"] = self.heat_cost_sell
 
         # Build the integrated system costs
         self.build_integrated_costs()
