@@ -302,7 +302,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
-            
+
             self.aggregate_flow_heat_constraint = pyo.Constraint(
                 expr=self.aggregate_flow_heat
                 == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
@@ -333,6 +333,24 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 expr=self.aggregate_flow_heat_purchased * self.aggregate_flow_heat_sold
                 == 0
             )
+
+        elif all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost]):
+
+            self.aggregate_heat_balance = pyo.Constraint(
+                expr=(
+                    self.aggregate_flow_heat_purchased
+                    == treat_cost.aggregate_flow_heat + self.aggregate_flow_heat_sold
+                )
+            )
+
+            self.aggregate_heat_complement = pyo.Constraint(
+                expr=self.aggregate_flow_heat_purchased * self.aggregate_flow_heat_sold
+                == 0
+            )
+
+        else:
+            self.aggregate_flow_heat_purchased.fix(0)
+            self.aggregate_flow_heat_sold.fix(0)
 
         # positive is for cost and negative for revenue
         self.total_electric_operating_cost_constraint = pyo.Constraint(
@@ -375,18 +393,11 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             - self.aggregate_flow_electricity_sold
         )
 
-        if not all(
-            "heat" in uf for uf in [treat_cost.used_flows, energy_cost.used_flows]
-        ):
-            self.aggregate_flow_heat_purchased.fix(0)
-            self.aggregate_flow_heat_sold.fix(0)
-
-        if not all(
-            "electricity" in uf
-            for uf in [treat_cost.used_flows, energy_cost.used_flows]
-        ):
-            self.aggregate_flow_electricity_purchased.fix(0)
-            self.aggregate_flow_electricity_sold.fix(0)
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
+            self.aggregate_flow_heat_constraint = pyo.Constraint(
+                expr=self.aggregate_flow_heat
+                == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
+            )
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
