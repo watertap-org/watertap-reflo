@@ -51,15 +51,15 @@ class REFLOCostingData(WaterTAPCostingData):
             units=pyo.units.dimensionless,
         )
 
-        self.heat_cost = pyo.Param(
-            mutable=True,
+        self.heat_cost = pyo.Var(
             initialize=0.0,
             doc="Heat cost",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
 
-        self.register_flow_type("heat", self.heat_cost)
+        self.defined_flows["heat"] = self.heat_cost
 
+        self.heat_cost.fix(0.0)
         self.electricity_cost.fix(0.0)
         self.plant_lifetime.fix(20)
         self.utilization_factor.fix(1)
@@ -112,15 +112,16 @@ class EnergyCostingData(REFLOCostingData):
 
 @declare_process_block_class("REFLOSystemCosting")
 class REFLOSystemCostingData(WaterTAPCostingBlockData):
+
     def build_global_params(self):
         super().build_global_params()
 
         self.base_currency = pyo.units.USD_2021
 
         # Fix the parameters
+        self.electricity_cost.fix(0.0)
         self.plant_lifetime.fix(20)
         self.utilization_factor.fix(1)
-        self.electricity_cost.fix(0.0)
 
         self.electricity_cost_buy = pyo.Param(
             mutable=True,
@@ -128,6 +129,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Electricity cost to buy",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
+        self.defined_flows["electricity_buy"] = self.electricity_cost_buy
 
         self.electricity_cost_sell = pyo.Param(
             mutable=True,
@@ -135,6 +137,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Electricity cost to sell",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
+        self.defined_flows["electricity_sell"] = self.electricity_cost_sell
 
         self.heat_cost_buy = pyo.Param(
             mutable=True,
@@ -142,6 +145,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Heat cost to buy",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
+        self.defined_flows["heat_buy"] = self.heat_cost_buy
 
         self.heat_cost_sell = pyo.Param(
             mutable=True,
@@ -149,6 +153,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Heat cost to sell",
             units=pyo.units.USD_2018 / pyo.units.kWh,
         )
+        self.defined_flows["heat_sell"] = self.heat_cost_sell
 
         # Build the integrated system costs
         self.build_integrated_costs()
@@ -157,46 +162,44 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         pass
 
     def build_integrated_costs(self):
+
         treat_cost = self._get_treatment_cost_block()
-        en_cost = self._get_energy_cost_block()
+        energy_cost = self._get_energy_cost_block()
 
         self.total_capital_cost = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
+            domain=pyo.NonNegativeReals,
             doc="Total capital cost for integrated system",
             units=self.base_currency,
         )
+
         self.total_operating_cost = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
             doc="Total operating cost for integrated system",
             units=self.base_currency / self.base_period,
         )
+
         self.aggregate_flow_electricity = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
             doc="Aggregated electricity flow",
             units=pyo.units.kW,
         )
 
         self.total_electric_operating_cost = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
             doc="Total electricity related operating cost",
             units=self.base_currency / self.base_period,
         )
 
         self.total_heat_operating_cost = pyo.Var(
             initialize=1e3,
-            # domain=pyo.NonNegativeReals,
             doc="Total heat related operating cost",
             units=self.base_currency / self.base_period,
         )
 
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
             self.aggregate_flow_heat = pyo.Var(
                 initialize=1e3,
-                # domain=pyo.NonNegativeReals,
                 doc="Aggregated heat flow",
                 units=pyo.units.kW,
             )
@@ -204,7 +207,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
             == pyo.units.convert(
-                treat_cost.total_capital_cost + en_cost.total_capital_cost,
+                treat_cost.total_capital_cost + energy_cost.total_capital_cost,
                 to_units=self.base_currency,
             )
         )
@@ -213,14 +216,14 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             expr=self.total_operating_cost
             == pyo.units.convert(
                 treat_cost.total_operating_cost
-                + en_cost.total_operating_cost
+                + energy_cost.total_operating_cost
                 + self.total_electric_operating_cost
                 + self.total_heat_operating_cost,
                 to_units=self.base_currency / self.base_period,
             )
         )
 
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
             self.frac_heat_from_grid = pyo.Var(
                 initialize=0,
                 domain=pyo.NonNegativeReals,
@@ -269,7 +272,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         self.aggregate_electricity_balance = pyo.Constraint(
             expr=(
                 self.aggregate_flow_electricity_purchased
-                + -1 * en_cost.aggregate_flow_electricity
+                + -1 * energy_cost.aggregate_flow_electricity
                 == treat_cost.aggregate_flow_electricity
                 + self.aggregate_flow_electricity_sold
             )
@@ -298,12 +301,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             == 0
         )
 
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
             # energy producer's heat flow is negative
             self.aggregate_heat_balance = pyo.Constraint(
                 expr=(
                     self.aggregate_flow_heat_purchased
-                    + -1 * en_cost.aggregate_flow_heat
+                    + -1 * energy_cost.aggregate_flow_heat
                     == treat_cost.aggregate_flow_heat + self.aggregate_flow_heat_sold
                 )
             )
@@ -314,7 +317,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                     == 1
                     - (
                         -1
-                        * en_cost.aggregate_flow_heat
+                        * energy_cost.aggregate_flow_heat
                         / treat_cost.aggregate_flow_heat
                     )
                 )
@@ -366,11 +369,24 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             - self.aggregate_flow_electricity_sold
         )
 
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, en_cost]):
+        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
             self.aggregate_flow_heat_constraint = pyo.Constraint(
                 expr=self.aggregate_flow_heat
                 == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
             )
+
+        if not all(
+            "heat" in uf for uf in [treat_cost.used_flows, energy_cost.used_flows]
+        ):
+            self.aggregate_flow_heat_purchased.fix(0)
+            self.aggregate_flow_heat_sold.fix(0)
+
+        if not all(
+            "electricity" in uf
+            for uf in [treat_cost.used_flows, energy_cost.used_flows]
+        ):
+            self.aggregate_flow_electricity_purchased.fix(0)
+            self.aggregate_flow_electricity_sold.fix(0)
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
@@ -417,7 +433,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                     "You must run the PySAM model before adding LCOE metric."
                 )
 
-            en_cost = self._get_energy_cost_block()
+            energy_cost = self._get_energy_cost_block()
 
             self.annual_energy_generated = pyo.Param(
                 initialize=pysam.annual_energy,
@@ -426,10 +442,10 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
             LCOE_expr = pyo.Expression(
                 expr=(
-                    en_cost.total_capital_cost * self.capital_recovery_factor
+                    energy_cost.total_capital_cost * self.capital_recovery_factor
                     + (
-                        en_cost.aggregate_fixed_operating_cost
-                        + en_cost.aggregate_variable_operating_cost
+                        energy_cost.aggregate_fixed_operating_cost
+                        + energy_cost.aggregate_variable_operating_cost
                     )
                 )
                 / self.annual_energy_generated
@@ -498,35 +514,35 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             specific_thermal_energy_consumption_constraint,
         )
 
-    def add_defined_flow(self, flow_name, flow_cost):
-        """
-        This method adds a defined flow to the costing block.
+    # def add_defined_flow(self, flow_name, flow_cost):
+    #     """
+    #     This method adds a defined flow to the costing block.
 
-        NOTE: Use this method to add `defined_flows` to the costing block
-              to ensure updates to `flow_cost` get propagated in the model.
-              See https://github.com/IDAES/idaes-pse/pull/1014 for details.
+    #     NOTE: Use this method to add `defined_flows` to the costing block
+    #           to ensure updates to `flow_cost` get propagated in the model.
+    #           See https://github.com/IDAES/idaes-pse/pull/1014 for details.
 
-        Args:
-            flow_name: string containing the name of the flow to register
-            flow_cost: Pyomo expression that represents the flow unit cost
+    #     Args:
+    #         flow_name: string containing the name of the flow to register
+    #         flow_cost: Pyomo expression that represents the flow unit cost
 
-        Returns:
-            None
-        """
-        flow_cost_name = flow_name + "_cost"
-        current_flow_cost = self.component(flow_cost_name)
-        if current_flow_cost is None:
-            self.add_component(flow_cost_name, pyo.Expression(expr=flow_cost))
-            self.defined_flows._setitem(flow_name, self.component(flow_cost_name))
-        elif current_flow_cost is flow_cost:
-            self.defined_flows._setitem(flow_name, current_flow_cost)
-        else:
-            # if we get here then there's an attribute named
-            # flow_cost_name on the block, which is an error
-            raise RuntimeError(
-                f"Attribute {flow_cost_name} already exists "
-                f"on the costing block, but is not {flow_cost}"
-            )
+    #     Returns:
+    #         None
+    #     """
+    #     flow_cost_name = flow_name + "_cost"
+    #     current_flow_cost = self.component(flow_cost_name)
+    #     if current_flow_cost is None:
+    #         self.add_component(flow_cost_name, pyo.Expression(expr=flow_cost))
+    #         self.defined_flows._setitem(flow_name, self.component(flow_cost_name))
+    #     elif current_flow_cost is flow_cost:
+    #         self.defined_flows._setitem(flow_name, current_flow_cost)
+    #     else:
+    #         # if we get here then there's an attribute named
+    #         # flow_cost_name on the block, which is an error
+    #         raise RuntimeError(
+    #             f"Attribute {flow_cost_name} already exists "
+    #             f"on the costing block, but is not {flow_cost}"
+    #         )
 
     def _get_treatment_cost_block(self):
         for b in self.model().component_objects(pyo.Block):
