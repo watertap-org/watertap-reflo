@@ -321,11 +321,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 expr=(
                     self.frac_heat_from_grid
                     == 1
-                    - (
-                        -1
-                        * energy_cost.aggregate_flow_heat
-                        / treat_cost.aggregate_flow_heat
-                    )
+                    - energy_cost.aggregate_flow_heat / treat_cost.aggregate_flow_heat
                 )
             )
 
@@ -393,11 +389,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             - self.aggregate_flow_electricity_sold
         )
 
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
-            self.aggregate_flow_heat_constraint = pyo.Constraint(
-                expr=self.aggregate_flow_heat
-                == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
-            )
 
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
