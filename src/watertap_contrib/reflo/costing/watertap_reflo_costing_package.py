@@ -295,6 +295,18 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                     )
                 )
 
+                # self.frac_elec_from_grid_constraint = pyo.Constraint(
+                #     expr=(
+                #         self.frac_elec_from_grid
+                #         == 1
+                #         - (
+                #             -1
+                #             * energy_cost.aggregate_flow_electricity
+                #             / treat_cost.aggregate_flow_electricity
+                #         )
+                #     )
+                # )
+
         self.aggregate_electricity_complement = pyo.Constraint(
             expr=self.aggregate_flow_electricity_purchased
             * self.aggregate_flow_electricity_sold
@@ -302,6 +314,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
+
+            # treatment block is consuming heat and energy block is generating it
 
             self.aggregate_flow_heat_constraint = pyo.Constraint(
                 expr=self.aggregate_flow_heat
@@ -334,21 +348,21 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 == 0
             )
 
-        elif all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost]):
+        elif hasattr(treat_cost, "aggregate_flow_heat"):
+
+            # treatment block is consuming heat but energy block isn't generating
+            # we still want to cost the heat consumption
+
+            self.aggregate_flow_heat_sold.fix(0)
 
             self.aggregate_heat_balance = pyo.Constraint(
                 expr=(
-                    self.aggregate_flow_heat_purchased
-                    == treat_cost.aggregate_flow_heat + self.aggregate_flow_heat_sold
+                    self.aggregate_flow_heat_purchased == treat_cost.aggregate_flow_heat
                 )
             )
 
-            self.aggregate_heat_complement = pyo.Constraint(
-                expr=self.aggregate_flow_heat_purchased * self.aggregate_flow_heat_sold
-                == 0
-            )
-
         else:
+            # treatment block isn't consuming heat and energy block isn't generating
             self.aggregate_flow_heat_purchased.fix(0)
             self.aggregate_flow_heat_sold.fix(0)
 
