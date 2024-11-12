@@ -302,6 +302,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
+            
+            self.aggregate_flow_heat_constraint = pyo.Constraint(
+                expr=self.aggregate_flow_heat
+                == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
+            )
+
             # energy producer's heat flow is negative
             self.aggregate_heat_balance = pyo.Constraint(
                 expr=(
@@ -368,12 +374,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             == self.aggregate_flow_electricity_purchased
             - self.aggregate_flow_electricity_sold
         )
-
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
-            self.aggregate_flow_heat_constraint = pyo.Constraint(
-                expr=self.aggregate_flow_heat
-                == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
-            )
 
         if not all(
             "heat" in uf for uf in [treat_cost.used_flows, energy_cost.used_flows]
@@ -513,36 +513,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             "specific_thermal_energy_consumption_constraint",
             specific_thermal_energy_consumption_constraint,
         )
-
-    # def add_defined_flow(self, flow_name, flow_cost):
-    #     """
-    #     This method adds a defined flow to the costing block.
-
-    #     NOTE: Use this method to add `defined_flows` to the costing block
-    #           to ensure updates to `flow_cost` get propagated in the model.
-    #           See https://github.com/IDAES/idaes-pse/pull/1014 for details.
-
-    #     Args:
-    #         flow_name: string containing the name of the flow to register
-    #         flow_cost: Pyomo expression that represents the flow unit cost
-
-    #     Returns:
-    #         None
-    #     """
-    #     flow_cost_name = flow_name + "_cost"
-    #     current_flow_cost = self.component(flow_cost_name)
-    #     if current_flow_cost is None:
-    #         self.add_component(flow_cost_name, pyo.Expression(expr=flow_cost))
-    #         self.defined_flows._setitem(flow_name, self.component(flow_cost_name))
-    #     elif current_flow_cost is flow_cost:
-    #         self.defined_flows._setitem(flow_name, current_flow_cost)
-    #     else:
-    #         # if we get here then there's an attribute named
-    #         # flow_cost_name on the block, which is an error
-    #         raise RuntimeError(
-    #             f"Attribute {flow_cost_name} already exists "
-    #             f"on the costing block, but is not {flow_cost}"
-    #         )
 
     def _get_treatment_cost_block(self):
         for b in self.model().component_objects(pyo.Block):
