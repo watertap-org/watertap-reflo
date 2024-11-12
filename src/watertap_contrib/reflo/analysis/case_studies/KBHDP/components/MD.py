@@ -92,13 +92,13 @@ def build_system(inlet_cond, n_time_points=None):
     m.fs.product = Product(property_package=m.fs.params)
     m.fs.disposal = Product(property_package=m.fs.params)
 
-    # m.fs.water_recovery = Var(
-    #     initialize=0.5,
-    #     bounds=(0, 0.99),
-    #     domain=NonNegativeReals,
-    #     units=pyunits.dimensionless,
-    #     doc="System Water Recovery",
-    # )
+    m.fs.water_recovery = Var(
+        initialize=0.8,
+        bounds=(0, 0.99),
+        domain=NonNegativeReals,
+        units=pyunits.dimensionless,
+        doc="System Water Recovery",
+    )
 
     # Create MD unit model at flowsheet level
     m.fs.md = FlowsheetBlock(dynamic=False)
@@ -125,7 +125,7 @@ def add_connections(m):
 
 def set_md_model_options(m, inlet_cond, n_time_points=None):
 
-    system_capacity = inlet_cond["recovery"] * pyunits.convert(
+    system_capacity = m.fs.water_recovery * pyunits.convert(
         inlet_cond["inlet_flow_rate"], to_units=pyunits.m**3 / pyunits.day
     )
     feed_salinity = pyunits.convert(
@@ -155,7 +155,7 @@ def set_md_model_options(m, inlet_cond, n_time_points=None):
             cond_inlet_temp=model_options["cond_inlet_temp"],
             feed_temp=model_options["feed_temp"],
             feed_salinity=model_options["feed_salinity"],
-            recovery_ratio= inlet_cond["recovery"],
+            recovery_ratio= m.fs.water_recovery(),
             initial_batch_volume=model_options["initial_batch_volume"],
             module_type=model_options["module_type"],
             cooling_system_type=model_options["cooling_system_type"],
@@ -249,8 +249,6 @@ def init_md(blk, model_options, n_time_points, verbose=True, solver=None):
                 ),
                 to_units=pyunits.m**3 / pyunits.s,
             )
-            #     *1000*pyunits.kg/pyunits.m**3
-            #    , to_units = pyunits.kg/pyunits.s)
         )
 
     blk.permeate.properties[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
@@ -309,12 +307,6 @@ def init_system(m, blk, model_options, n_time_points, verbose=True, solver=None)
     print(f"MD Degrees of Freedom: {degrees_of_freedom(blk)}")
     print("\n\n")
 
-    # # Converting to units L/h and supplying value only
-    # feed_flow_rate = model_options["feed_flow_rate"]
-    # feed_salinity = model_options["feed_salinity"]
-    # # Converting temperature to C units
-    # feed_temp = model_options["feed_temp"]
-
     m.fs.feed.initialize()
     propagate_state(m.fs.feed_to_md)
 
@@ -351,9 +343,7 @@ def set_md_op_conditions(blk):
 
     active_blks = blk.unit.get_active_process_blocks()
 
-    # # Set-up for the first time period
-    # feed_salinity = model_options["feed_salinity"]
-    # feed_temp = model_options["feed_temp"]
+    # Set-up for the first time period
     feed_flow_rate = pyunits.convert(
         blk.feed.properties[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
     )()
@@ -528,10 +518,6 @@ def calc_costing(m, blk):
 
     m.fs.costing.cost_process()
     m.fs.costing.initialize()
-
-    # active_blks = m.fs.md.unit.get_active_process_blocks()
-    # m.fs.costing.add_annual_water_production(active_blks[-1].fs.vagmd.system_capacity)
-    # m.fs.costing.add_LCOW(active_blks[-1].fs.vagmd.system_capacity)
     
     # Touching variables to solve for volumetric flow rate
     m.fs.product.properties[0].flow_vol_phase
@@ -711,15 +697,15 @@ if __name__ == "__main__":
 
     feed_salinity = 12 * pyunits.g / pyunits.L
 
-    overall_recovery = 0.9
+    # overall_recovery = 0.9
 
     inlet_cond = {
         "inlet_flow_rate": Qin,
         "inlet_salinity": feed_salinity,
-        "recovery": overall_recovery,
+        # "recovery": overall_recovery,
     }
 
-    n_time_points = 32#None
+    n_time_points = None
     m, model_options, n_time_points = build_system(
         inlet_cond, n_time_points=n_time_points
     )
