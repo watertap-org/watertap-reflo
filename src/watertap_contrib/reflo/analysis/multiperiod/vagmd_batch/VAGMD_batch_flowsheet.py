@@ -135,7 +135,7 @@ def build_vagmd_flowsheet(
     )
     m.fs.pre_permeate_flow_rate = Var(
         initialize=1e-5,
-        bounds=(0,None),
+        bounds=(0, None),
         units=pyunits.m**3 / pyunits.s,
         doc="Permeate flow rate from previous time step",
     )
@@ -196,7 +196,7 @@ def build_vagmd_flowsheet(
     """
     m.fs.acc_distillate_volume = Var(
         initialize=0,
-        bounds=(0,None),
+        bounds=(0, None),
         units=pyunits.L,
         doc="Accumulated volume of distillate",
     )
@@ -227,7 +227,7 @@ def build_vagmd_flowsheet(
 
     m.fs.specific_energy_consumption_thermal = Var(
         initialize=100,
-        bounds=(0,None),
+        bounds=(0, None),
         units=pyunits.kWh / pyunits.m**3,
         doc="Specific thermal power consumption (kWh/m3)",
     )

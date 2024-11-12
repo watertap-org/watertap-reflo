@@ -155,7 +155,7 @@ def set_md_model_options(m, inlet_cond, n_time_points=None):
             cond_inlet_temp=model_options["cond_inlet_temp"],
             feed_temp=model_options["feed_temp"],
             feed_salinity=model_options["feed_salinity"],
-            recovery_ratio= m.fs.water_recovery(),
+            recovery_ratio=m.fs.water_recovery(),
             initial_batch_volume=model_options["initial_batch_volume"],
             module_type=model_options["module_type"],
             cooling_system_type=model_options["cooling_system_type"],
@@ -518,7 +518,7 @@ def calc_costing(m, blk):
 
     m.fs.costing.cost_process()
     m.fs.costing.initialize()
-    
+
     # Touching variables to solve for volumetric flow rate
     m.fs.product.properties[0].flow_vol_phase
 
@@ -753,7 +753,7 @@ if __name__ == "__main__":
 
     calc_costing(m, m.fs)
 
-    print("\nSystem Degrees of Freedom:", degrees_of_freedom(m),"\n")
+    print("\nSystem Degrees of Freedom:", degrees_of_freedom(m), "\n")
 
     assert degrees_of_freedom(m) == 0
 
