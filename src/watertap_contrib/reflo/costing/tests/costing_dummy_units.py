@@ -321,12 +321,15 @@ class DummyTreatmentNoHeatUnitData(DummyTreatmentUnitData):
             self.electricity_consumption, 1 / value(self.electricity_consumption)
         )
 
+    @property
+    def default_costing_method(self):
+        return cost_dummy_treatment_no_heat_unit
 
 @register_costing_parameter_block(
     build_rule=build_dummy_treatment_unit_param_block,
     parameter_block_name="dummy_treatment_no_heat_unit",
 )
-def cost_dummy_treatment_unit(blk):
+def cost_dummy_treatment_no_heat_unit(blk):
 
     make_capital_cost_var(blk)
 
@@ -377,14 +380,14 @@ def build_dummy_electricity_unit_param_block(blk):
         initialize=0.3,
         units=pyunits.USD_2019 / pyunits.watt,
         bounds=(0, None),
-        doc="Cost per watt",
+        doc="Capital cost per watt",
     )
 
     blk.fixed_operating_per_watt = Var(
         initialize=0.042,
         units=pyunits.USD_2019 / (pyunits.watt * pyunits.year),
         bounds=(0, None),
-        doc="Cost per watt",
+        doc="Operating cost per watt",
     )
 
 
