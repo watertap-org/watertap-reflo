@@ -15,6 +15,7 @@ import pyomo.environ as pyo
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 from idaes.core import declare_process_block_class
+from idaes.core.util.scaling import get_scaling_factor, set_scaling_factor
 
 from watertap.costing.watertap_costing_package import (
     WaterTAPCostingData,
@@ -198,6 +199,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             units=pyo.units.kW,
         )
 
+        self.aggregate_flow_heat = pyo.Var(
+            initialize=1e3,
+            doc="Aggregated heat flow",
+            units=pyo.units.kW,
+        )
+
         self.total_electric_operating_cost = pyo.Var(
             initialize=1e3,
             doc="Total electricity related operating cost",
@@ -208,31 +215,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             initialize=1e3,
             doc="Total heat related operating cost",
             units=self.base_currency / self.base_period,
-        )
-
-        self.aggregate_flow_heat = pyo.Var(
-            initialize=1e3,
-            doc="Aggregated heat flow",
-            units=pyo.units.kW,
-        )
-
-        self.total_capital_cost_constraint = pyo.Constraint(
-            expr=self.total_capital_cost
-            == pyo.units.convert(
-                treat_cost.total_capital_cost + energy_cost.total_capital_cost,
-                to_units=self.base_currency,
-            )
-        )
-
-        self.total_operating_cost_constraint = pyo.Constraint(
-            expr=self.total_operating_cost
-            == pyo.units.convert(
-                treat_cost.total_operating_cost
-                + energy_cost.total_operating_cost
-                + self.total_electric_operating_cost
-                + self.total_heat_operating_cost,
-                to_units=self.base_currency / self.base_period,
-            )
         )
 
         self.frac_elec_from_grid = pyo.Var(
@@ -271,6 +253,25 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             units=pyo.units.kW,
         )
 
+
+        self.total_capital_cost_constraint = pyo.Constraint(
+            expr=self.total_capital_cost
+            == pyo.units.convert(
+                treat_cost.total_capital_cost + energy_cost.total_capital_cost,
+                to_units=self.base_currency,
+            )
+        )
+
+        self.total_operating_cost_constraint = pyo.Constraint(
+            expr=self.total_operating_cost
+            == pyo.units.convert(
+                treat_cost.total_operating_cost
+                + energy_cost.total_operating_cost
+                + self.total_electric_operating_cost
+                + self.total_heat_operating_cost,
+                to_units=self.base_currency / self.base_period,
+            )
+        )
         # energy producer's electricity flow is negative
         self.aggregate_electricity_balance = pyo.Constraint(
             expr=(
@@ -350,9 +351,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             # we still want to cost the heat consumption
 
             self.has_heat_flows = True
-
             self.aggregate_flow_heat_sold.fix(0)
-
+            
             self.aggregate_heat_balance = pyo.Constraint(
                 expr=(
                     self.aggregate_flow_heat_purchased == treat_cost.aggregate_flow_heat
@@ -472,6 +472,49 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
 
         super().initialize_build()
+    
+    def calculate_scaling_factors(self):
+
+        if get_scaling_factor(self.total_capital_cost) is None:
+            set_scaling_factor(self.total_capital_cost, 1e-3)
+        
+        if get_scaling_factor(self.total_operating_cost) is None:
+            set_scaling_factor(self.total_operating_cost, 1e-3)
+        
+        if get_scaling_factor(self.total_electric_operating_cost) is None:
+            set_scaling_factor(self.total_electric_operating_cost, 1e-2)
+        
+        if get_scaling_factor(self.total_heat_operating_cost) is None:
+            set_scaling_factor(self.total_heat_operating_cost, 1)
+        
+        if get_scaling_factor(self.aggregate_flow_electricity) is None:
+            set_scaling_factor(self.aggregate_flow_electricity, 0.1)
+        
+        if get_scaling_factor(self.aggregate_flow_heat) is None:
+            set_scaling_factor(self.aggregate_flow_heat, 0.1)
+        
+        if get_scaling_factor(self.aggregate_flow_electricity_purchased) is None:
+            sf = get_scaling_factor(self.aggregate_flow_electricity)
+            set_scaling_factor(self.aggregate_flow_electricity_purchased, sf)
+        
+        if get_scaling_factor(self.aggregate_flow_electricity_sold) is None:
+            set_scaling_factor(self.aggregate_flow_electricity_sold, 1)
+        
+        if get_scaling_factor(self.aggregate_flow_heat_purchased) is None:
+            sf = get_scaling_factor(self.aggregate_flow_heat)
+            set_scaling_factor(self.aggregate_flow_heat_purchased, sf)
+        
+        if get_scaling_factor(self.aggregate_flow_electricity_sold) is None:
+            set_scaling_factor(self.aggregate_flow_electricity_sold, 1)
+        
+        if get_scaling_factor(self.frac_elec_from_grid) is None:
+            set_scaling_factor(self.frac_elec_from_grid, 1)
+        
+        if hasattr(self, "frac_heat_from_grid"):
+            if get_scaling_factor(self.frac_heat_from_grid) is None:
+                set_scaling_factor(self.frac_heat_from_grid, 1)
+        
+        
 
     def build_process_costs(self):
         """
