@@ -325,6 +325,7 @@ class DummyTreatmentNoHeatUnitData(DummyTreatmentUnitData):
     def default_costing_method(self):
         return cost_dummy_treatment_no_heat_unit
 
+
 @register_costing_parameter_block(
     build_rule=build_dummy_treatment_unit_param_block,
     parameter_block_name="dummy_treatment_no_heat_unit",

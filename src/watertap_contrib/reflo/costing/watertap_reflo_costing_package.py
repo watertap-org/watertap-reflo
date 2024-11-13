@@ -27,7 +27,7 @@ from watertap_contrib.reflo.core import PySAMWaterTAP
 from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import (
     PVSurrogateData,
 )
-from watertap_contrib.reflo.costing.tests.costing_dummy_units import (
+from watertap_contrib.reflo.costing.tests.dummy_costing_units import (
     DummyElectricityUnit,
 )
 
@@ -151,16 +151,16 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         self.heat_cost_buy = pyo.Param(
             mutable=True,
-            initialize=0.07,
+            initialize=0.01,
             doc="Heat cost to buy",
-            units=pyo.units.USD_2018 / pyo.units.kWh,
+            units=pyo.units.USD_2021 / pyo.units.kWh,
         )
 
         self.heat_cost_sell = pyo.Param(
             mutable=True,
-            initialize=0.05,
+            initialize=0.01,
             doc="Heat cost to sell",
-            units=pyo.units.USD_2018 / pyo.units.kWh,
+            units=pyo.units.USD_2021 / pyo.units.kWh,
         )
 
         # Build the integrated system costs
@@ -252,7 +252,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             doc="Aggregated heat produced",
             units=pyo.units.kW,
         )
-
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
@@ -352,7 +351,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
             self.has_heat_flows = True
             self.aggregate_flow_heat_sold.fix(0)
-            
+
             self.aggregate_heat_balance = pyo.Constraint(
                 expr=(
                     self.aggregate_flow_heat_purchased == treat_cost.aggregate_flow_heat
@@ -421,10 +420,14 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             self.aggregate_electricity_balance,
         )
 
-        if hasattr(self, "frac_elec_from_grid_constraint"):
-            calculate_variable_from_constraint(
-                self.frac_elec_from_grid, self.frac_elec_from_grid_constraint
-            )
+        # Commented code remains as a PSA:
+        # If you send a fixed variable to calculate_variable_from_constraint,
+        # the variable will come out a different value but still be fixed!
+
+        # if hasattr(self, "frac_elec_from_grid_constraint"):
+        #     calculate_variable_from_constraint(
+        #         self.frac_elec_from_grid, self.frac_elec_from_grid_constraint
+        #     )
 
         calculate_variable_from_constraint(
             self.total_electric_operating_cost,
@@ -451,11 +454,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 self.aggregate_flow_heat_sold.fix(0)
                 self.aggregate_heat_complement.deactivate()
 
-                calculate_variable_from_constraint(
-                    self.frac_heat_from_grid,
-                    self.frac_heat_from_grid_constraint,
-                )
-
                 if not self.aggregate_flow_heat_purchased.is_fixed():
                     calculate_variable_from_constraint(
                         self.aggregate_flow_heat_purchased,
@@ -471,50 +469,53 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 self.aggregate_flow_heat_constraint,
             )
 
+            if hasattr(self, "aggregate_heat_complement"):
+
+                self.aggregate_flow_heat_sold.unfix()
+                self.aggregate_heat_complement.activate()
+
         super().initialize_build()
-    
+
     def calculate_scaling_factors(self):
 
         if get_scaling_factor(self.total_capital_cost) is None:
             set_scaling_factor(self.total_capital_cost, 1e-3)
-        
+
         if get_scaling_factor(self.total_operating_cost) is None:
             set_scaling_factor(self.total_operating_cost, 1e-3)
-        
+
         if get_scaling_factor(self.total_electric_operating_cost) is None:
             set_scaling_factor(self.total_electric_operating_cost, 1e-2)
-        
+
         if get_scaling_factor(self.total_heat_operating_cost) is None:
             set_scaling_factor(self.total_heat_operating_cost, 1)
-        
+
         if get_scaling_factor(self.aggregate_flow_electricity) is None:
             set_scaling_factor(self.aggregate_flow_electricity, 0.1)
-        
+
         if get_scaling_factor(self.aggregate_flow_heat) is None:
             set_scaling_factor(self.aggregate_flow_heat, 0.1)
-        
+
         if get_scaling_factor(self.aggregate_flow_electricity_purchased) is None:
             sf = get_scaling_factor(self.aggregate_flow_electricity)
             set_scaling_factor(self.aggregate_flow_electricity_purchased, sf)
-        
+
         if get_scaling_factor(self.aggregate_flow_electricity_sold) is None:
             set_scaling_factor(self.aggregate_flow_electricity_sold, 1)
-        
+
         if get_scaling_factor(self.aggregate_flow_heat_purchased) is None:
             sf = get_scaling_factor(self.aggregate_flow_heat)
             set_scaling_factor(self.aggregate_flow_heat_purchased, sf)
-        
+
         if get_scaling_factor(self.aggregate_flow_electricity_sold) is None:
             set_scaling_factor(self.aggregate_flow_electricity_sold, 1)
-        
+
         if get_scaling_factor(self.frac_elec_from_grid) is None:
             set_scaling_factor(self.frac_elec_from_grid, 1)
-        
+
         if hasattr(self, "frac_heat_from_grid"):
             if get_scaling_factor(self.frac_heat_from_grid) is None:
                 set_scaling_factor(self.frac_heat_from_grid, 1)
-        
-        
 
     def build_process_costs(self):
         """
