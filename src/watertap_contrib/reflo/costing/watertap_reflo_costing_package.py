@@ -22,8 +22,12 @@ from watertap.costing.watertap_costing_package import (
 from watertap.costing.zero_order_costing import _load_case_study_definition
 
 from watertap_contrib.reflo.core import PySAMWaterTAP
-from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import PVSurrogateData
-from watertap_contrib.reflo.costing.tests.costing_dummy_units import DummyElectricityUnitData
+from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import (
+    PVSurrogateData,
+)
+from watertap_contrib.reflo.costing.tests.costing_dummy_units import (
+    DummyElectricityUnitData,
+)
 
 
 @declare_process_block_class("REFLOCosting")
@@ -160,14 +164,16 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         # Build the integrated system costs
         self.build_integrated_costs()
 
-    def build_process_costs(self):
-        pass
-
     def build_integrated_costs(self):
 
         treat_cost = self._get_treatment_cost_block()
         energy_cost = self._get_energy_cost_block()
 
+        # Check if all parameters are equivalent
+        self._check_common_param_equivalence(treat_cost, energy_cost)
+
+        # Add all treatment and energy units to _registered_unit_costing
+        # so aggregated costs can be calculated at system level.
         for b in [treat_cost, energy_cost]:
             for u in b._registered_unit_costing:
                 self._registered_unit_costing.append(u)
@@ -403,6 +409,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             - self.aggregate_flow_electricity_sold
         )
 
+    def build_process_costs(self):
+        """
+        Not used in place of build_integrated_costs
+        """
+        pass
+
     def add_LCOW(self, flow_rate, name="LCOW"):
         """
         Add Levelized Cost of Water (LCOW) to costing block.
@@ -529,6 +541,44 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             specific_thermal_energy_consumption_constraint,
         )
 
+    def _check_common_param_equivalence(self, treat_cost, energy_cost):
+        """
+        Check if the common costing parameters across all three costing packages
+        (treatment, energy, and system) have the same value.
+        """
+
+        common_params = [
+            "electricity_cost",
+            "heat_cost",
+            "electrical_carbon_intensity",
+            "maintenance_labor_chemical_factor",
+            "plant_lifetime",
+            "utilization_factor",
+            "base_currency",
+            "base_period",
+            "sales_tax_frac",
+            "TIC",
+            "TPEC",
+        ]
+
+        for cp in common_params:
+            tp = getattr(treat_cost, cp)
+            ep = getattr(energy_cost, cp)
+            if not pyo.value(tp) == pyo.value(ep):
+                err_msg = f"The common costing parameter {cp} was found to have a different value "
+                err_msg += f"on the energy ({pyo.value(ep)}) and treatment ({pyo.value(tp)}) costing blocks. "
+                err_msg += "Common costing parameters must be equivalent across all costing blocks "
+                err_msg += "to use REFLOSystemCosting."
+                raise ValueError(err_msg)
+            if hasattr(self, cp):
+                # if REFLOSystemCosting has this parameter,
+                # we fix it to the treatment costing block value
+                p = getattr(self, cp)
+                if isinstance(p, pyo.Var):
+                    p.fix(pyo.value(tp))
+                elif isinstance(p, pyo.Param):
+                    p.set_value(pyo.value(tp))
+
     def _get_treatment_cost_block(self):
         tb = None
         for b in self.model().component_objects(pyo.Block):
@@ -552,16 +602,20 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             raise ValueError(err_msg)
         else:
             return eb
-    
+
     def _get_electricity_generation_unit(self):
         elec_gen_unit = None
         for b in self.model().component_objects(pyo.Block):
-            if isinstance(b, PVSurrogateData): # PV is only electricity generation model currently
+            if isinstance(
+                b, PVSurrogateData
+            ):  # PV is only electricity generation model currently
                 elec_gen_unit = b
-            if isinstance(b, DummyElectricityUnitData): # only used for testing
+            if isinstance(b, DummyElectricityUnitData):  # only used for testing
                 elec_gen_unit = b
         if elec_gen_unit is None:
-            err_msg = f"{self.name} indicated an electricity generation model was present "
+            err_msg = (
+                f"{self.name} indicated an electricity generation model was present "
+            )
             err_msg += "on the flowsheet, but none was found."
             raise ValueError(err_msg)
         else:
