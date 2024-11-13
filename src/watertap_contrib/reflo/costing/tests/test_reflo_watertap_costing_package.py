@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -12,12 +12,208 @@
 import re
 
 import pytest
+from pyomo.environ import (
+    ConcreteModel,
+    Var,
+    Param,
+    Expression,
+    Block,
+    assert_optimal_termination,
+    value,
+    units as pyunits,
+)
 
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from idaes.core.util.scaling import calculate_scaling_factors
+from idaes.core.util.model_statistics import degrees_of_freedom
+
+from watertap.core.util.model_diagnostics.infeasible import *
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+
+from watertap_contrib.reflo.costing import (
+    TreatmentCosting,
+    EnergyCosting,
+    REFLOCosting,
+    REFLOSystemCosting,
+)
 from pyomo.environ import ConcreteModel, Var, Param, Expression, value, units as pyunits
 
 from idaes.core import FlowsheetBlock
 
-from watertap_contrib.reflo.costing import REFLOCosting
+from watertap.core.solvers import get_solver
+
+from watertap_contrib.reflo.costing.tests.costing_dummy_units import (
+    DummyTreatmentUnit,
+    DummyElectricityUnit,
+    DummyHeatUnit,
+)
+from watertap_contrib.reflo.costing import (
+    REFLOCosting,
+    TreatmentCosting,
+    EnergyCosting,
+    REFLOSystemCosting,
+)
+
+solver = get_solver()
+
+
+def build_electricity_gen_only():
+    """
+    Test flowsheet with only electricity generation units on energy block.
+    The treatment unit consumes both heat and electricity.
+    """
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = SeawaterParameterBlock()
+
+    #### TREATMENT BLOCK
+    m.fs.treatment = Block()
+    m.fs.treatment.costing = TreatmentCosting()
+
+    m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
+    m.fs.treatment.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.treatment.costing
+    )
+
+    m.fs.treatment.unit.design_var_a.fix()
+    m.fs.treatment.unit.design_var_b.fix()
+    m.fs.treatment.unit.electricity_consumption.fix(100)
+    m.fs.treatment.unit.heat_consumption.fix()
+    m.fs.treatment.costing.cost_process()
+
+    #### ENERGY BLOCK
+    m.fs.energy = Block()
+    m.fs.energy.costing = EnergyCosting()
+    m.fs.energy.unit = DummyElectricityUnit()
+    m.fs.energy.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.energy.costing
+    )
+    m.fs.energy.unit.electricity.fix()
+    m.fs.energy.costing.cost_process()
+
+    #### SYSTEM COSTING
+    m.fs.costing = REFLOSystemCosting()
+
+    m.fs.costing.cost_process()
+    m.fs.treatment.costing.add_LCOW(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
+
+    #### SCALING
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
+    )
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
+    )
+    calculate_scaling_factors(m)
+
+    #### INITIALIZE
+
+    m.fs.treatment.unit.properties.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): 0.04381,
+            ("conc_mass_phase_comp", ("Liq", "TDS")): 35,
+            ("temperature", None): 293,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    return m
+
+
+class TestElectricityGenOnly:
+
+    @pytest.fixture(scope="class")
+    def energy_gen_only(self):
+
+        m = build_electricity_gen_only()
+
+        return m
+
+    @pytest.mark.unit
+    def test_build(slef, energy_gen_only):
+
+        m = energy_gen_only
+
+        assert degrees_of_freedom(m) == 0
+
+        assert m.fs.energy.costing.has_electricity_generation
+
+        m.fs.treatment.unit.initialize()
+        m.fs.treatment.costing.initialize()
+        m.fs.energy.costing.initialize()
+        m.fs.costing.initialize()
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+
+@pytest.mark.component
+def test_no_energy_treatment_block():
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = SeawaterParameterBlock()
+
+    m.fs.treatment = Block()
+    m.fs.treatment.costing = TreatmentCosting()
+    m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
+
+    with pytest.raises(
+        ValueError,
+        match="REFLOSystemCosting package requires a EnergyCosting block but one was not found\\.",
+    ):
+        m.fs.costing = REFLOSystemCosting()
+
+
+@pytest.mark.component
+def test_common_params_not_equivalent():
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = SeawaterParameterBlock()
+
+    m.fs.treatment = Block()
+    m.fs.treatment.costing = TreatmentCosting()
+    m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
+
+    m.fs.energy = Block()
+    m.fs.energy.costing = EnergyCosting()
+    m.fs.energy.unit = DummyElectricityUnit()
+
+    m.fs.energy.costing.electricity_cost.fix(0.02)
+
+    with pytest.raises(
+        ValueError,
+        match="The common costing parameter electricity_cost was found to "
+        "have a different value on the energy \\(0\\.02\\) and treatment \\(0\\.0\\) costing "
+        "blocks\\. Common costing parameters must be equivalent across all"
+        " costing blocks to use REFLOSystemCosting\\.",
+    ):
+        m.fs.costing = REFLOSystemCosting()
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = SeawaterParameterBlock()
+
+    m.fs.treatment = Block()
+    m.fs.treatment.costing = TreatmentCosting()
+    m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
+
+    m.fs.energy = Block()
+    m.fs.energy.costing = EnergyCosting()
+    m.fs.energy.unit = DummyElectricityUnit()
+
+    m.fs.energy.costing.electricity_cost.fix(0.02)
+    m.fs.treatment.costing.electricity_cost.fix(0.02)
+
+    m.fs.costing = REFLOSystemCosting()
+
+    # assert value(m.fs.costing.electricity_cost) == value(m.fs.treatment.electricity_cost)
+    # assert value(m.fs.costing.electricity_cost) == value(m.fs.energy.electricity_cost)
 
 
 @pytest.mark.component
