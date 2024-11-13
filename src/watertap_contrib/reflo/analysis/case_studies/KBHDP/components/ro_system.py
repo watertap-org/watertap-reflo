@@ -294,7 +294,6 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print("\n\n-------------------- INITIALIZING RO SYSTEM --------------------\n\n")
 
     # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    
 
     print("\n\n")
 
@@ -473,22 +472,22 @@ def relax_bounds_for_low_salinity_waters(m, blk):
         blk.feed_side.cp_modulus[e].setlb(1e-5)
 
     for e in blk.recovery_mass_phase_comp:
-        if e[-1] == 'NaCl':
+        if e[-1] == "NaCl":
             blk.recovery_mass_phase_comp[e].setlb(1e-9)
             blk.recovery_mass_phase_comp[e].setub(1e-1)
-    
+
     for e in blk.flux_mass_phase_comp:
-        if e[-1] == 'NaCl':
+        if e[-1] == "NaCl":
             blk.flux_mass_phase_comp[e].setlb(1e-9)
             blk.flux_mass_phase_comp[e].setub(1e-1)
-    
+
     for e in blk.recovery_mass_phase_comp:
-        if e[-1] == 'H2O':
+        if e[-1] == "H2O":
             blk.recovery_mass_phase_comp[e].setlb(1e-4)
             blk.recovery_mass_phase_comp[e].setub(0.999)
-    
+
     for e in blk.flux_mass_phase_comp:
-        if e[-1] == 'H2O':
+        if e[-1] == "H2O":
             blk.flux_mass_phase_comp[e].setlb(1e-5)
             blk.flux_mass_phase_comp[e].setub(0.999)
 

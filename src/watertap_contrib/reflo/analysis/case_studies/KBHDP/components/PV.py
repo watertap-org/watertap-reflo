@@ -18,7 +18,11 @@ from watertap_contrib.reflo.costing import (
     REFLOCosting,
     REFLOSystemCosting,
 )
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import check_jac, calc_scale
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
+    check_jac,
+    calc_scale,
+)
+
 __all__ = [
     "build_pv",
     "train_pv_surrogate",
@@ -89,7 +93,6 @@ def add_pv_costing(m, blk):
     )
 
 
-
 def add_pv_scaling(m, blk):
     pv = blk
 
@@ -130,7 +133,7 @@ def report_PV(m):
     print(
         f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
     )
-    
+
     print(
         f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.0f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}'
     )
@@ -144,7 +147,9 @@ def report_PV(m):
     print(
         f'{"Treatment Annual Demand":<25s}{f"{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
     )
-    print(f'{"Grid Electricity Frac":<25s}{f"{100*value(m.fs.costing.frac_elec_from_grid):<25,.3f} %"}')
+    print(
+        f'{"Grid Electricity Frac":<25s}{f"{100*value(m.fs.costing.frac_elec_from_grid):<25,.3f} %"}'
+    )
     print(
         f'{"Treatment Elec Cost":<25s}{f"${value(m.fs.treatment.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
     )
@@ -209,11 +214,13 @@ def breakdown_dof(blk):
             if v.fixed is False:
                 print(f"   {v}")
 
+
 def initialize(m):
     energy = m.fs.energy
 
     energy.costing.cost_process()
     energy.costing.initialize()
+
 
 def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
     # ---solving---
@@ -250,6 +257,7 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
         print("\n--------- FAILED SOLVE!!! ---------\n")
         print(msg)
         assert False
+
 
 if __name__ == "__main__":
     m = build_system()

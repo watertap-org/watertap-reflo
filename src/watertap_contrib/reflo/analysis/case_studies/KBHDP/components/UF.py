@@ -136,6 +136,7 @@ def add_UF_costing(m, blk, costing_blk=None):
 
     # m.fs.costing.cost_process()
 
+
 def add_UF_scaling(blk):
     # set_scaling_factor(blk.feed.properties[0.0].flow_mass_comp["H2O"], -2)
     # set_scaling_factor(blk.feed.properties[0.0].flow_mass_comp["tds"], 1)
@@ -144,8 +145,6 @@ def add_UF_scaling(blk):
     set_scaling_factor(blk.disposal.properties[0.0].flow_mass_comp["tds"], 1e3)
     # set_scaling_factor(blk.unit.properties_in[0.0].flow_mass_comp["H2O"], -2)
     set_scaling_factor(blk.unit.properties_byproduct[0.0].flow_mass_comp["tds"], 1e3)
-
-
 
 
 def load_parameters(m, blk):

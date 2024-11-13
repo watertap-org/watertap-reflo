@@ -190,21 +190,21 @@ see property package for documentation.}""",
             return blk.properties_out[t].flow_mass_comp["tds"] == sum(
                 blk.properties_in[t].flow_mass_phase_comp["Liq", i] for i in solute_set
             )
-        
+
         # @self.Constraint(
         #     self.flowsheet().time,
         #     doc="Equality temperature equation",
         # )
         # def eq_temperature_rule(blk, t):
         #     return blk.properties_out[t].temperature == blk.properties_in[t].temperature
-        
+
         # @self.Constraint(
         #     self.flowsheet().time,
         #     doc="Equality pressure equation",
         # )
         # def eq_pressure_rule(blk, t):
         #     return blk.properties_out[t].pressure == blk.properties_in[t].pressure
-        
+
         # @self.Constraint(
         #     self.flowsheet().time,
         #     doc="TSS",
@@ -214,8 +214,10 @@ see property package for documentation.}""",
         #         blk.properties_out[t].flow_mass_comp["tss"]
         #         == 5.22e-6 * pyunits.kg / pyunits.second
         #     )
-        
-        self.properties_out[0].flow_mass_comp["tss"].fix(5.22e-6 * pyunits.kg / pyunits.second)
+
+        self.properties_out[0].flow_mass_comp["tss"].fix(
+            5.22e-6 * pyunits.kg / pyunits.second
+        )
 
     def initialize_build(
         self,

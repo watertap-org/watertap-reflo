@@ -175,7 +175,7 @@ see property package for documentation.}""",
         # )
         # def eq_temperature_rule(blk, t):
         #     return blk.properties_out[t].temperature == blk.properties_in[t].temperature
-        
+
         # @self.Constraint(
         #     self.flowsheet().time,
         #     doc="Equality pressure equation",
@@ -205,7 +205,7 @@ see property package for documentation.}""",
                 blk.properties_out[t].flow_mass_phase_comp["Liq", "NaCl"]
                 == blk.properties_in[t].flow_mass_comp["tds"]
             )
-        
+
         # @self.Constraint(
         #     self.flowsheet().time,
         #     doc="Outlet Pressure",
@@ -215,7 +215,7 @@ see property package for documentation.}""",
         #         blk.properties_out[t].pressure
         #         == 101325 * pyunits.Pa
         #     )
-        
+
         # @self.Constraint(
         #     self.flowsheet().time,
         #     doc="Outlet Pressure",

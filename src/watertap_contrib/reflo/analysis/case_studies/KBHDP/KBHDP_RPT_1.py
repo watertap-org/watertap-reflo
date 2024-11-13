@@ -39,6 +39,7 @@ from watertap.core.zero_order_properties import WaterParameterBlock
 
 _log = idaeslog.getLogger(__name__)
 
+
 def propagate_state(arc, detailed=True):
     _prop_state(arc)
 
@@ -55,7 +56,7 @@ def propagate_state(arc, detailed=True):
 def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
-    m = build_system(RE = True)
+    m = build_system(RE=True)
     display_system_build(m)
     add_connections(m)
     add_constraints(m)
@@ -88,7 +89,7 @@ def main():
     return m
 
 
-def build_system(RE = True):
+def build_system(RE=True):
     m = ConcreteModel()
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -173,16 +174,10 @@ def build_treatment(m):
         "flow_mass_phase_comp", 10**-1, index=("Liq", "NaCl")
     )
 
-    m.fs.UF_properties.set_default_scaling(
-        "flow_mass_comp", 1e-2, index=("H2O")
-    )
-    m.fs.UF_properties.set_default_scaling(
-        "flow_mass_comp", 1, index=("tds")
-    )
-    m.fs.UF_properties.set_default_scaling(
-        "flow_mass_comp", 1e5, index=("tss")
-    )
-    
+    m.fs.UF_properties.set_default_scaling("flow_mass_comp", 1e-2, index=("H2O"))
+    m.fs.UF_properties.set_default_scaling("flow_mass_comp", 1, index=("tds"))
+    m.fs.UF_properties.set_default_scaling("flow_mass_comp", 1e5, index=("tss"))
+
     m.fs.RO_properties.set_default_scaling(
         "flow_mass_phase_comp", 1, index=("Liq", "H2O")
     )
@@ -223,7 +218,7 @@ def add_connections(m):
         source=treatment.UF.product.outlet,
         destination=treatment.TDS_to_NaCl_translator.inlet,
     )
-    
+
     treatment.UF_to_waste = Arc(
         source=treatment.UF.disposal.outlet,
         destination=treatment.UF_waste.inlet,
@@ -357,7 +352,9 @@ def scale_costing(m):
 def apply_system_scaling(m):
     # iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["H2O"], 1)
     # iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["tds"], 1)
-    iscale.set_scaling_factor(m.fs.treatment.UF_waste.properties[0.0].flow_mass_comp["tds"], 1e3)
+    iscale.set_scaling_factor(
+        m.fs.treatment.UF_waste.properties[0.0].flow_mass_comp["tds"], 1e3
+    )
 
     # iscale.set_scaling_factor(
     #     m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3
@@ -496,7 +493,7 @@ def init_treatment(m, verbose=True, solver=None):
 
     treatment.MCAS_to_TDS_translator.initialize(optarg=optarg)
     propagate_state(treatment.translator_to_EC)
-    
+
     init_ec(m, treatment.EC)
     propagate_state(treatment.EC_to_UF)
 
@@ -508,7 +505,7 @@ def init_treatment(m, verbose=True, solver=None):
     propagate_state(treatment.translator_to_pump)
 
     treatment.pump.initialize(optarg=optarg)
-    
+
     propagate_state(treatment.pump_to_ro)
 
     init_ro_system(m, treatment.RO)
@@ -568,6 +565,7 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
         print(msg)
         assert False
 
+
 def set_prob_for_box_solve(m):
     treatment = m.fs.treatment
     # m.fs.water_recovery.unfix()
@@ -575,6 +573,7 @@ def set_prob_for_box_solve(m):
     treatment.pump.control_volume.properties_out[0].pressure.unfix()
     for idx, stage in treatment.RO.stage.items():
         stage.module.recovery_vol_phase[0.0, "Liq"].fix(0.5)
+
 
 def box_solve_problem(m):
     set_prob_for_box_solve(m)
@@ -588,12 +587,13 @@ def box_solve_problem(m):
         expected_DOFs=0,
     )
 
+
 def optimize(
     m,
     water_recovery=0.5,
     fixed_pressure=None,
     ro_mem_area=None,
-    grid_frac = None,
+    grid_frac=None,
     objective="LCOW",
 ):
     treatment = m.fs.treatment

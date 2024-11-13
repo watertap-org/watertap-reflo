@@ -116,6 +116,7 @@ def set_system_op_conditions(blk):
         index=("Liq", "H2O"),
     )
 
+
 def set_DWI_op_conditions(blk):
     pass
 
@@ -202,6 +203,7 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         raise RuntimeError(msg)
     else:
         return results
+
 
 def breakdown_dof(blk):
     equalities = [c for c in activated_equalities_generator(blk)]
