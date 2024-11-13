@@ -22,6 +22,8 @@ from watertap.costing.watertap_costing_package import (
 from watertap.costing.zero_order_costing import _load_case_study_definition
 
 from watertap_contrib.reflo.core import PySAMWaterTAP
+from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import PVSurrogateData
+from watertap_contrib.reflo.costing.tests.costing_dummy_units import DummyElectricityUnitData
 
 
 @declare_process_block_class("REFLOCosting")
@@ -104,6 +106,10 @@ class TreatmentCostingData(REFLOCostingData):
 @declare_process_block_class("EnergyCosting")
 class EnergyCostingData(REFLOCostingData):
     def build_global_params(self):
+        # If creating an energy unit that generates electricity,
+        # set this flag to True in costing package.
+        # See PV costing package for example.
+        self.has_electricity_generation = False
         super().build_global_params()
 
     def build_process_costs(self):
@@ -278,22 +284,24 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
         )
 
-        # Calculate fraction of electricity from grid when PV is included
-        for b in self.model().component_objects(pyo.Block):
-            if str(b) == "fs.energy.pv":
-                self.frac_elec_from_grid_constraint = pyo.Constraint(
-                    expr=(
-                        self.frac_elec_from_grid
-                        == 1
-                        - (
-                            b.electricity
-                            / (
-                                b.electricity
-                                + self.aggregate_flow_electricity_purchased
-                            )
+        # Calculate fraction of electricity from grid when an electricity generating unit is present
+        if energy_cost.has_electricity_generation:
+            elec_gen_unit = self._get_electricity_generation_unit()
+            self.frac_elec_from_grid_constraint = pyo.Constraint(
+                expr=(
+                    self.frac_elec_from_grid
+                    == 1
+                    - (
+                        elec_gen_unit.electricity
+                        / (
+                            elec_gen_unit.electricity
+                            + self.aggregate_flow_electricity_purchased
                         )
                     )
                 )
+            )
+        else:
+            self.frac_elec_from_grid.fix(1)
 
         self.aggregate_electricity_complement = pyo.Constraint(
             expr=self.aggregate_flow_electricity_purchased
@@ -544,6 +552,20 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             raise ValueError(err_msg)
         else:
             return eb
+    
+    def _get_electricity_generation_unit(self):
+        elec_gen_unit = None
+        for b in self.model().component_objects(pyo.Block):
+            if isinstance(b, PVSurrogateData): # PV is only electricity generation model currently
+                elec_gen_unit = b
+            if isinstance(b, DummyElectricityUnitData): # only used for testing
+                elec_gen_unit = b
+        if elec_gen_unit is None:
+            err_msg = f"{self.name} indicated an electricity generation model was present "
+            err_msg += "on the flowsheet, but none was found."
+            raise ValueError(err_msg)
+        else:
+            return elec_gen_unit
 
     def _get_pysam(self):
         pysam_block_test_lst = []

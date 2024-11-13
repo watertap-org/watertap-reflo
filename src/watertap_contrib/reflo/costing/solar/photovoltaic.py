@@ -92,6 +92,7 @@ def build_photovoltaic_cost_param_block(blk):
 )
 def cost_pv(blk):
 
+    blk.costing_package.has_electricity_generation = True
     global_params = blk.costing_package
     pv_params = blk.costing_package.photovoltaic
     make_capital_cost_var(blk)
