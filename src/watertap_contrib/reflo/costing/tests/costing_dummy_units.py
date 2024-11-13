@@ -342,6 +342,8 @@ def build_dummy_electricity_unit_param_block(blk):
 )
 def cost_dummy_electricity_unit(blk):
 
+    blk.costing_package.has_electricity_generation = True
+
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
