@@ -295,18 +295,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                     )
                 )
 
-                # self.frac_elec_from_grid_constraint = pyo.Constraint(
-                #     expr=(
-                #         self.frac_elec_from_grid
-                #         == 1
-                #         - (
-                #             -1
-                #             * energy_cost.aggregate_flow_electricity
-                #             / treat_cost.aggregate_flow_electricity
-                #         )
-                #     )
-                # )
-
         self.aggregate_electricity_complement = pyo.Constraint(
             expr=self.aggregate_flow_electricity_purchased
             * self.aggregate_flow_electricity_sold
@@ -534,14 +522,28 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
     def _get_treatment_cost_block(self):
+        tb = None
         for b in self.model().component_objects(pyo.Block):
             if isinstance(b, TreatmentCostingData):
-                return b
+                tb = b
+        if tb is None:
+            err_msg = "REFLOSystemCosting package requires a TreatmentCosting block"
+            err_msg += " but one was not found."
+            raise ValueError(err_msg)
+        else:
+            return tb
 
     def _get_energy_cost_block(self):
+        eb = None
         for b in self.model().component_objects(pyo.Block):
             if isinstance(b, EnergyCostingData):
-                return b
+                eb = b
+        if eb is None:
+            err_msg = "REFLOSystemCosting package requires a EnergyCosting block"
+            err_msg += " but one was not found."
+            raise ValueError(err_msg)
+        else:
+            return eb
 
     def _get_pysam(self):
         pysam_block_test_lst = []
