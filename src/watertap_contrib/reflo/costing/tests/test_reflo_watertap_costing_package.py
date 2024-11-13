@@ -187,6 +187,72 @@ def build_electricity_gen_only_no_heat():
     return m
 
 
+def build_heat_gen_only():
+    """
+    Test flowsheet with only heat generation unit on energy block.
+    The treatment unit consumes both heat and electricity.
+    """
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = SeawaterParameterBlock()
+
+    #### TREATMENT BLOCK
+    m.fs.treatment = Block()
+    m.fs.treatment.costing = TreatmentCosting()
+
+    m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
+    m.fs.treatment.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.treatment.costing
+    )
+
+    m.fs.treatment.unit.design_var_a.fix()
+    m.fs.treatment.unit.design_var_b.fix()
+    m.fs.treatment.unit.electricity_consumption.fix(1000)
+    m.fs.treatment.unit.heat_consumption.fix(25000)
+    m.fs.treatment.costing.cost_process()
+
+    #### ENERGY BLOCK
+    m.fs.energy = Block()
+    m.fs.energy.costing = EnergyCosting()
+    m.fs.energy.unit = DummyHeatUnit()
+    m.fs.energy.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.energy.costing
+    )
+    m.fs.energy.unit.heat.fix(70)
+    m.fs.energy.costing.cost_process()
+
+    #### SYSTEM COSTING
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.cost_process()
+    m.fs.treatment.costing.add_LCOW(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
+
+    #### SCALING
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
+    )
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
+    )
+    calculate_scaling_factors(m)
+
+    #### INITIALIZE
+
+    m.fs.treatment.unit.properties.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): 0.4381,
+            ("conc_mass_phase_comp", ("Liq", "TDS")): 20,
+            ("temperature", None): 293,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    return m
+
+
 def build_default():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -201,7 +267,7 @@ def build_default():
 
     m.fs.energy = Block()
     m.fs.energy.costing = EnergyCosting()
-    m.fs.energy.unit = DummyElectricityUnit()
+    m.fs.energy.unit = DummyHeatUnit()
     m.fs.energy.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.energy.costing
     )
@@ -234,6 +300,10 @@ class TestCostingPackagesDefault:
         assert m.fs.energy.costing.config.case_study_definition is None
         assert not hasattr(m.fs.treatment.costing, "case_study_def")
         assert not hasattr(m.fs.energy.costing, "case_study_def")
+
+        assert hasattr(m.fs.energy.costing, "has_electricity_generation")
+        assert not m.fs.energy.costing.has_electricity_generation
+        assert not hasattr(m.fs.treatment.costing, "has_electricity_generation")
 
         assert m.fs.treatment.costing.base_currency is pyunits.USD_2021
         assert m.fs.energy.costing.base_currency is pyunits.USD_2021
@@ -293,13 +363,16 @@ class TestElectricityGenOnlyWithHeat:
 
         assert degrees_of_freedom(m) == 0
 
-        # still have heat flows
+        # have heat flows
         assert m.fs.costing.has_heat_flows
         assert not m.fs.costing.aggregate_flow_heat.is_fixed()
+        assert not m.fs.costing.aggregate_flow_heat_purchased.is_fixed()
+        # no heat generated so nothing to sell
+        assert m.fs.costing.aggregate_flow_heat_sold.is_fixed()
         assert m.fs.energy.costing.has_electricity_generation
         assert hasattr(m.fs.costing, "frac_elec_from_grid_constraint")
-
         assert not hasattr(m.fs.costing, "frac_heat_from_grid")
+        assert not hasattr(m.fs.costing, "aggregate_heat_complement")
 
     @pytest.mark.component
     def test_init_and_solve(self, energy_gen_only_with_heat):
@@ -309,6 +382,13 @@ class TestElectricityGenOnlyWithHeat:
         m.fs.treatment.costing.initialize()
         m.fs.energy.costing.initialize()
         m.fs.costing.initialize()
+
+        # check state after initialization
+        assert degrees_of_freedom(m) == 0
+
+        assert (m.fs.costing.aggregate_flow_heat_sold.is_fixed()) and (
+            value(m.fs.costing.aggregate_flow_heat_sold) == 0
+        )
 
         results = solver.solve(m)
         assert_optimal_termination(results)
@@ -364,6 +444,8 @@ class TestElectricityGenOnlyWithHeat:
         m.fs.energy.costing.initialize()
         m.fs.costing.initialize()
 
+        assert degrees_of_freedom(m) == 0
+
         results = solver.solve(m)
         assert_optimal_termination(results)
 
@@ -409,17 +491,32 @@ class TestElectricityGenOnlyNoHeat:
         assert m.fs.costing.aggregate_flow_heat_sold.is_fixed()
         assert m.fs.energy.costing.has_electricity_generation
         assert hasattr(m.fs.costing, "frac_elec_from_grid_constraint")
-
         assert not hasattr(m.fs.costing, "frac_heat_from_grid")
 
     @pytest.mark.component
     def test_init_and_solve(self, energy_gen_only_no_heat):
         m = energy_gen_only_no_heat
 
+        # constraints are active before initialization
+        assert m.fs.costing.total_heat_operating_cost_constraint.active
+        assert m.fs.costing.aggregate_flow_heat_constraint.active
+
         m.fs.treatment.unit.initialize()
         m.fs.treatment.costing.initialize()
         m.fs.energy.costing.initialize()
         m.fs.costing.initialize()
+
+        # check state after initialization
+        assert degrees_of_freedom(m) == 0
+
+        assert (m.fs.costing.total_heat_operating_cost.is_fixed()) and (
+            value(m.fs.costing.total_heat_operating_cost) == 0
+        )
+        assert (m.fs.costing.aggregate_flow_heat.is_fixed()) and (
+            value(m.fs.costing.aggregate_flow_heat) == 0
+        )
+        assert not m.fs.costing.total_heat_operating_cost_constraint.active
+        assert not m.fs.costing.aggregate_flow_heat_constraint.active
 
         results = solver.solve(m)
         assert_optimal_termination(results)
@@ -496,39 +593,45 @@ class TestElectricityGenOnlyNoHeat:
         )
 
 
-class TestElectricityHeatGen:
-
+class TestHeatGenOnly:
     @pytest.fixture(scope="class")
-    def energy_gen_only_no_heat(self):
+    def heat_gen_only(self):
 
-        m = build_electricity_gen_only_no_heat()
+        m = build_heat_gen_only()
 
         return m
 
     @pytest.mark.unit
-    def test_build(slef, energy_gen_only_no_heat):
+    def test_build(self, heat_gen_only):
 
-        m = energy_gen_only_no_heat
+        m = heat_gen_only
 
         assert degrees_of_freedom(m) == 0
 
-        # no heat flows
-        assert not m.fs.costing.has_heat_flows
-        assert m.fs.costing.aggregate_flow_heat_purchased.is_fixed()
-        assert m.fs.costing.aggregate_flow_heat_sold.is_fixed()
-        assert m.fs.energy.costing.has_electricity_generation
-        assert hasattr(m.fs.costing, "frac_elec_from_grid_constraint")
-
-        assert not hasattr(m.fs.costing, "frac_heat_from_grid")
+        # has heat flows, no electricity generation
+        assert m.fs.costing.has_heat_flows
+        assert not m.fs.costing.aggregate_flow_heat_purchased.is_fixed()
+        assert not m.fs.costing.aggregate_flow_heat_sold.is_fixed()
+        assert not m.fs.energy.costing.has_electricity_generation
+        assert not hasattr(m.fs.costing, "frac_elec_from_grid_constraint")
+        assert m.fs.costing.frac_elec_from_grid.is_fixed()
+        assert hasattr(m.fs.costing, "frac_heat_from_grid")
+        assert hasattr(m.fs.costing, "frac_heat_from_grid_constraint")
+        assert hasattr(m.fs.costing, "aggregate_heat_complement")
 
     @pytest.mark.component
-    def test_init_and_solve(self, energy_gen_only_no_heat):
-        m = energy_gen_only_no_heat
+    def test_init_and_solve(self, heat_gen_only):
+
+        m = heat_gen_only
 
         m.fs.treatment.unit.initialize()
         m.fs.treatment.costing.initialize()
         m.fs.energy.costing.initialize()
         m.fs.costing.initialize()
+
+        assert degrees_of_freedom(m) == 0
+        assert not m.fs.costing.aggregate_flow_heat_sold.is_fixed()
+        assert not m.fs.costing.aggregate_flow_heat_purchased.is_fixed()
 
         results = solver.solve(m)
         assert_optimal_termination(results)
@@ -538,42 +641,45 @@ class TestElectricityHeatGen:
             pytest.approx(value(m.fs.costing.aggregate_flow_electricity_sold), rel=1e-3)
             == 1e-12
         )
-
-        assert pytest.approx(value(m.fs.costing.frac_elec_from_grid), rel=1e-3) == 0.25
+        # no heat is sold
         assert (
-            pytest.approx(
-                value(m.fs.costing.aggregate_flow_electricity_purchased), rel=1e-3
-            )
-            == 2500
+            pytest.approx(value(m.fs.costing.aggregate_flow_heat_sold), rel=1e-3)
+            == 1e-12
         )
+        # all electricity comes from grid, none is generated
+        assert pytest.approx(value(m.fs.costing.frac_elec_from_grid), rel=1e-3) == 1
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_flow_electricity_purchased), rel=1e-3
+        ) == value(
+            m.fs.treatment.unit.electricity_consumption + m.fs.energy.unit.electricity
+        )
+        # both energy and treatment processes are consuming electricity
         assert pytest.approx(
             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
         ) == value(
-            m.fs.costing.aggregate_flow_electricity_purchased
-            - m.fs.costing.aggregate_flow_electricity_sold
+            m.fs.treatment.unit.electricity_consumption + m.fs.energy.unit.electricity
         )
         assert pytest.approx(
             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
-        ) == value(
-            m.fs.treatment.costing.aggregate_flow_electricity
-            + m.fs.energy.costing.aggregate_flow_electricity
-        )
+        ) == value(m.fs.costing.aggregate_flow_electricity_purchased)
         assert pytest.approx(
-            value(m.fs.costing.frac_elec_from_grid), rel=1e-3
-        ) == 1 - value(m.fs.energy.unit.electricity) / value(
-            m.fs.treatment.unit.electricity_consumption
+            value(m.fs.costing.frac_heat_from_grid), rel=1e-3
+        ) == 1 - value(m.fs.energy.unit.heat / m.fs.treatment.unit.heat_consumption)
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_flow_heat), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_flow_heat
+            * m.fs.costing.frac_heat_from_grid
         )
 
-        # no heat is generated or consumed
-        assert pytest.approx(value(m.fs.costing.aggregate_flow_heat), rel=1e-3) == 0
 
     @pytest.mark.component
     def test_optimize_frac_from_grid(self):
 
-        m = build_electricity_gen_only_no_heat()
+        m = build_heat_gen_only()
 
-        m.fs.energy.unit.electricity.unfix()
-        m.fs.costing.frac_elec_from_grid.fix(0.33)
+        m.fs.energy.unit.heat.unfix()
+        m.fs.costing.frac_heat_from_grid.fix(0.02)
 
         assert degrees_of_freedom(m) == 0
 
@@ -587,9 +693,15 @@ class TestElectricityHeatGen:
 
         assert (
             pytest.approx(
-                value(m.fs.costing.aggregate_flow_electricity_purchased), rel=1e-3
+                value(m.fs.costing.aggregate_flow_heat_purchased), rel=1e-3
             )
-            == 3300
+            == 500
+        )
+        assert (
+            pytest.approx(
+                value(m.fs.costing.aggregate_flow_heat), rel=1e-3
+            )
+            == 500
         )
         assert pytest.approx(
             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
@@ -597,12 +709,115 @@ class TestElectricityHeatGen:
             m.fs.costing.aggregate_flow_electricity_purchased
             - m.fs.costing.aggregate_flow_electricity_sold
         )
-        assert pytest.approx(
-            value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
-        ) == value(
-            m.fs.treatment.costing.aggregate_flow_electricity
-            + m.fs.energy.costing.aggregate_flow_electricity
-        )
+
+
+# class TestElectricityHeatGen:
+
+#     @pytest.fixture(scope="class")
+#     def energy_gen_only_no_heat(self):
+
+#         m = build_electricity_gen_only_no_heat()
+
+#         return m
+
+#     @pytest.mark.unit
+#     def test_build(slef, energy_gen_only_no_heat):
+
+#         m = energy_gen_only_no_heat
+
+#         assert degrees_of_freedom(m) == 0
+
+#         # no heat flows
+#         assert not m.fs.costing.has_heat_flows
+#         assert m.fs.costing.aggregate_flow_heat_purchased.is_fixed()
+#         assert m.fs.costing.aggregate_flow_heat_sold.is_fixed()
+#         assert m.fs.energy.costing.has_electricity_generation
+#         assert hasattr(m.fs.costing, "frac_elec_from_grid_constraint")
+
+#         assert not hasattr(m.fs.costing, "frac_heat_from_grid")
+
+#     @pytest.mark.component
+#     def test_init_and_solve(self, energy_gen_only_no_heat):
+#         m = energy_gen_only_no_heat
+
+#         m.fs.treatment.unit.initialize()
+#         m.fs.treatment.costing.initialize()
+#         m.fs.energy.costing.initialize()
+#         m.fs.costing.initialize()
+
+#         results = solver.solve(m)
+#         assert_optimal_termination(results)
+
+#         # no electricity is sold
+#         assert (
+#             pytest.approx(value(m.fs.costing.aggregate_flow_electricity_sold), rel=1e-3)
+#             == 1e-12
+#         )
+
+#         assert pytest.approx(value(m.fs.costing.frac_elec_from_grid), rel=1e-3) == 0.25
+#         assert (
+#             pytest.approx(
+#                 value(m.fs.costing.aggregate_flow_electricity_purchased), rel=1e-3
+#             )
+#             == 2500
+#         )
+#         assert pytest.approx(
+#             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
+#         ) == value(
+#             m.fs.costing.aggregate_flow_electricity_purchased
+#             - m.fs.costing.aggregate_flow_electricity_sold
+#         )
+#         assert pytest.approx(
+#             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
+#         ) == value(
+#             m.fs.treatment.costing.aggregate_flow_electricity
+#             + m.fs.energy.costing.aggregate_flow_electricity
+#         )
+#         assert pytest.approx(
+#             value(m.fs.costing.frac_elec_from_grid), rel=1e-3
+#         ) == 1 - value(m.fs.energy.unit.electricity) / value(
+#             m.fs.treatment.unit.electricity_consumption
+#         )
+
+#         # no heat is generated or consumed
+#         assert pytest.approx(value(m.fs.costing.aggregate_flow_heat), rel=1e-3) == 0
+
+#     @pytest.mark.component
+#     def test_optimize_frac_from_grid(self):
+
+#         m = build_electricity_gen_only_no_heat()
+
+#         m.fs.energy.unit.electricity.unfix()
+#         m.fs.costing.frac_elec_from_grid.fix(0.33)
+
+#         assert degrees_of_freedom(m) == 0
+
+#         m.fs.treatment.unit.initialize()
+#         m.fs.treatment.costing.initialize()
+#         m.fs.energy.costing.initialize()
+#         m.fs.costing.initialize()
+
+#         results = solver.solve(m)
+#         assert_optimal_termination(results)
+
+#         assert (
+#             pytest.approx(
+#                 value(m.fs.costing.aggregate_flow_electricity_purchased), rel=1e-3
+#             )
+#             == 3300
+#         )
+#         assert pytest.approx(
+#             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
+#         ) == value(
+#             m.fs.costing.aggregate_flow_electricity_purchased
+#             - m.fs.costing.aggregate_flow_electricity_sold
+#         )
+#         assert pytest.approx(
+#             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
+#         ) == value(
+#             m.fs.treatment.costing.aggregate_flow_electricity
+#             + m.fs.energy.costing.aggregate_flow_electricity
+#         )
 
 
 @pytest.mark.component

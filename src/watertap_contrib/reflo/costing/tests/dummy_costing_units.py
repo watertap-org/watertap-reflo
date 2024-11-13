@@ -449,7 +449,7 @@ class DummyHeatUnitData(SolarEnergyBaseData):
 def build_dummy_heat_unit_param_block(blk):
 
     blk.capital_per_watt = Var(
-        initialize=0.6,
+        initialize=0.15,
         units=pyunits.USD_2019 / pyunits.watt,
         bounds=(0, None),
         doc="Cost per watt",
