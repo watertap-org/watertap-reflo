@@ -12,6 +12,7 @@
 
 from pyomo.common.config import ConfigValue
 import pyomo.environ as pyo
+from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 from idaes.core import declare_process_block_class
 
@@ -26,7 +27,7 @@ from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import (
     PVSurrogateData,
 )
 from watertap_contrib.reflo.costing.tests.costing_dummy_units import (
-    DummyElectricityUnitData,
+    DummyElectricityUnit,
 )
 
 
@@ -235,7 +236,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         self.frac_elec_from_grid = pyo.Var(
-            initialize=0,
+            initialize=0.1,
             domain=pyo.NonNegativeReals,
             bounds=(0, 1.00001),
             doc="Fraction of electricity from grid",
@@ -243,7 +244,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         self.aggregate_flow_electricity_purchased = pyo.Var(
-            initialize=0,
+            initialize=100,
             domain=pyo.NonNegativeReals,
             doc="Aggregated electricity consumed",
             units=pyo.units.kW,
@@ -257,7 +258,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         self.aggregate_flow_heat_purchased = pyo.Var(
-            initialize=0,
+            initialize=100,
             domain=pyo.NonNegativeReals,
             doc="Aggregated heat consumed",
             units=pyo.units.kW,
@@ -308,7 +309,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
 
             # treatment block is consuming heat and energy block is generating it
-
+            self.has_heat_flows = True
             self.frac_heat_from_grid = pyo.Var(
                 initialize=0,
                 domain=pyo.NonNegativeReals,
@@ -348,6 +349,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             # treatment block is consuming heat but energy block isn't generating
             # we still want to cost the heat consumption
 
+            self.has_heat_flows = True
+
             self.aggregate_flow_heat_sold.fix(0)
 
             self.aggregate_heat_balance = pyo.Constraint(
@@ -358,6 +361,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         else:
             # treatment block isn't consuming heat and energy block isn't generating
+            self.has_heat_flows = False
             self.aggregate_flow_heat_purchased.fix(0)
             self.aggregate_flow_heat_sold.fix(0)
 
@@ -406,6 +410,71 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             expr=self.aggregate_flow_heat
             == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
         )
+
+    def initialize_build(self):
+
+        self.aggregate_flow_electricity_sold.fix(0)
+        self.aggregate_electricity_complement.deactivate()
+
+        calculate_variable_from_constraint(
+            self.aggregate_flow_electricity_purchased,
+            self.aggregate_electricity_balance,
+        )
+
+        if hasattr(self, "frac_elec_from_grid_constraint"):
+            calculate_variable_from_constraint(
+                self.frac_elec_from_grid, self.frac_elec_from_grid_constraint
+            )
+
+        calculate_variable_from_constraint(
+            self.total_electric_operating_cost,
+            self.total_electric_operating_cost_constraint,
+        )
+
+        calculate_variable_from_constraint(
+            self.aggregate_flow_electricity,
+            self.aggregate_flow_electricity_constraint,
+        )
+
+        self.aggregate_flow_electricity_sold.unfix()
+        self.aggregate_electricity_complement.activate()
+        
+        if not self.has_heat_flows:
+            self.total_heat_operating_cost.fix(0)
+            self.total_heat_operating_cost_constraint.deactivate()
+            self.aggregate_flow_heat.fix(0)
+            self.aggregate_flow_heat_constraint.deactivate()
+        
+        else:
+            if hasattr(self, "aggregate_heat_complement"):
+                
+                self.aggregate_flow_heat_sold.fix(0)
+                self.aggregate_heat_complement.deactivate()
+
+                calculate_variable_from_constraint(
+                    self.frac_heat_from_grid,
+                    self.frac_heat_from_grid_constraint,
+                )
+
+                if not self.aggregate_flow_heat_purchased.is_fixed(): 
+                    calculate_variable_from_constraint(
+                        self.aggregate_flow_heat_purchased,
+                        self.aggregate_heat_balance,
+                    )
+
+            calculate_variable_from_constraint(
+                self.total_heat_operating_cost,
+                self.total_heat_operating_cost_constraint,
+            )
+            calculate_variable_from_constraint(
+                self.aggregate_flow_heat,
+                self.aggregate_flow_heat_constraint,
+            )
+        
+        super().initialize_build()
+
+
+
 
     def build_process_costs(self):
         """
@@ -557,25 +626,37 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             "sales_tax_frac",
             "TIC",
             "TPEC",
+            "wacc",
         ]
 
         for cp in common_params:
             tp = getattr(treat_cost, cp)
             ep = getattr(energy_cost, cp)
-            if not pyo.value(tp) == pyo.value(ep):
+            if (isinstance(tp, pyo.Var)) or isinstance(tp, pyo.Param):
+                param_is_equivalent = pyo.value(tp) == pyo.value(ep)
+            else:
+                param_is_equivalent = tp == ep
+            if not param_is_equivalent:
                 err_msg = f"The common costing parameter {cp} was found to have a different value "
-                err_msg += f"on the energy ({pyo.value(ep)}) and treatment ({pyo.value(tp)}) costing blocks. "
+                err_msg += f"on the energy and treatment costing blocks. "
                 err_msg += "Common costing parameters must be equivalent across all costing blocks "
                 err_msg += "to use REFLOSystemCosting."
                 raise ValueError(err_msg)
+
             if hasattr(self, cp):
                 # if REFLOSystemCosting has this parameter,
                 # we fix it to the treatment costing block value
                 p = getattr(self, cp)
+                # print(p.to_string())
                 if isinstance(p, pyo.Var):
                     p.fix(pyo.value(tp))
                 elif isinstance(p, pyo.Param):
                     p.set_value(pyo.value(tp))
+
+            if cp == "base_currency":
+                self.base_currency = treat_cost.base_currency
+            if cp == "base_period":
+                self.base_period = treat_cost.base_period
 
     def _get_treatment_cost_block(self):
         tb = None
@@ -608,7 +689,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 b, PVSurrogateData
             ):  # PV is only electricity generation model currently
                 elec_gen_unit = b
-            if isinstance(b, DummyElectricityUnitData):  # only used for testing
+            if isinstance(b, DummyElectricityUnit):  # only used for testing
                 elec_gen_unit = b
         if elec_gen_unit is None:
             err_msg = (
