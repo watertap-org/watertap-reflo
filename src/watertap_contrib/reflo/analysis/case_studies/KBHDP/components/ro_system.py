@@ -232,6 +232,8 @@ def build_ro_stage(m, blk, booster_pump=False):
         has_full_reporting=True,
     )
 
+    relax_bounds_for_low_salinity_waters(m, blk.module)
+
     if booster_pump:
         blk.stage_feed_to_booster_pump = Arc(
             source=blk.feed.outlet,
@@ -461,6 +463,36 @@ def set_operating_conditions(
     # print(f"RO Degrees of Freedom: {degrees_of_freedom(m.fs.ro)}")
 
 
+def relax_bounds_for_low_salinity_waters(m, blk):
+    blk.feed_side.cp_modulus.setub(5)
+    for e in blk.feed_side.K:
+        blk.feed_side.K[e].setub(0.01)
+        # blk.feed_side.K[e].setlb(1e-7)
+
+    for e in blk.feed_side.cp_modulus:
+        blk.feed_side.cp_modulus[e].setlb(1e-5)
+
+    for e in blk.recovery_mass_phase_comp:
+        if e[-1] == 'NaCl':
+            blk.recovery_mass_phase_comp[e].setlb(1e-9)
+            blk.recovery_mass_phase_comp[e].setub(1e-1)
+    
+    for e in blk.flux_mass_phase_comp:
+        if e[-1] == 'NaCl':
+            blk.flux_mass_phase_comp[e].setlb(1e-9)
+            blk.flux_mass_phase_comp[e].setub(1e-1)
+    
+    for e in blk.recovery_mass_phase_comp:
+        if e[-1] == 'H2O':
+            blk.recovery_mass_phase_comp[e].setlb(1e-4)
+            blk.recovery_mass_phase_comp[e].setub(0.999)
+    
+    for e in blk.flux_mass_phase_comp:
+        if e[-1] == 'H2O':
+            blk.flux_mass_phase_comp[e].setlb(1e-5)
+            blk.flux_mass_phase_comp[e].setub(0.999)
+
+
 def calc_scale(value):
     return math.floor(math.log(value, 10))
 
@@ -473,7 +505,7 @@ def add_ro_scaling(m, blk):
         iscale.set_scaling_factor(module.feed_side.area, 1)
         iscale.set_scaling_factor(module.width, 1e-4)
         set_scaling_factor(module.length, 1e1)
-        set_scaling_factor(module.feed_side.velocity, 10)
+        # set_scaling_factor(module.feed_side.velocity, 10)
         set_scaling_factor(module.feed_side.N_Sh_comp, 1e-4)
 
         for e in module.feed_side.properties:
@@ -525,8 +557,10 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
     )
     print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
     solver = get_solver()
-    mem_A = 2.75 / 3.6e11  # membrane water permeability coefficient [m/s-Pa]
-    mem_B = 0.23 / 1000.0 / 3600.0  # membrane salt permeability coefficient [m/s]
+    # mem_A = 2.75 / 3.6e11  # membrane water permeability coefficient [m/s-Pa]
+    # mem_B = 0.23 / 1000.0 / 3600.0  # membrane salt permeability coefficient [m/s]
+    mem_A = 4.2e-12  # membrane water permeability coefficient [m/s-Pa]
+    mem_B = 3.5e-8  # membrane salt permeability coefficient [m/s]
     height = 1e-3  # channel height in membrane stage [m]
     spacer_porosity = 0.95  # spacer porosity in membrane stage [-]
     area = mem_area  # membrane area [m^2]
@@ -538,8 +572,9 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
         stage.module.A_comp.fix(mem_A)
         stage.module.B_comp.fix(mem_B)
         stage.module.area.fix(area / idx)
-        stage.module.length.fix(length)
-        stage.module.width.setub(20000)
+        stage.module.feed_side.velocity[0, 0].fix(0.25)
+        # stage.module.length.fix(length)
+        # stage.module.width.setub(20000)
         stage.module.mixed_permeate[0].pressure.fix(pressure_atm)
 
         stage.module.feed_side.channel_height.fix(height)
@@ -701,6 +736,7 @@ def report_RO(m, blk):
     print(
         f'{"Average Flux":<30s}{value(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"]):<10.2f}{pyunits.get_units(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"])}'
     )
+    print(blk.stage[1].module.report())
 
 
 def build_system():
@@ -737,6 +773,7 @@ def build_system():
 
 
 def print_RO_costing_breakdown(blk):
+    print(f"\n\n-------------------- RO Costing Breakdown --------------------\n")
     print(
         f'{"RO Capital Cost":<35s}{f"${value(blk.stage[1].module.costing.capital_cost):<25,.0f}"}'
     )

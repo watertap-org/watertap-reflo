@@ -51,6 +51,7 @@ __all__ = [
     "init_UF",
     "set_UF_op_conditions",
     "add_UF_costing",
+    "add_UF_scaling",
     "report_UF",
     "print_UF_costing_breakdown",
 ]
@@ -134,6 +135,17 @@ def add_UF_costing(m, blk, costing_blk=None):
     )
 
     # m.fs.costing.cost_process()
+
+def add_UF_scaling(blk):
+    # set_scaling_factor(blk.feed.properties[0.0].flow_mass_comp["H2O"], -2)
+    # set_scaling_factor(blk.feed.properties[0.0].flow_mass_comp["tds"], 1)
+    # set_scaling_factor(blk.product.properties[0.0].flow_mass_comp["H2O"], -2)
+    # set_scaling_factor(blk.product.properties[0.0].flow_mass_comp["tds"], 1)
+    set_scaling_factor(blk.disposal.properties[0.0].flow_mass_comp["tds"], 1e3)
+    # set_scaling_factor(blk.unit.properties_in[0.0].flow_mass_comp["H2O"], -2)
+    set_scaling_factor(blk.unit.properties_byproduct[0.0].flow_mass_comp["tds"], 1e3)
+
+
 
 
 def load_parameters(m, blk):
@@ -250,6 +262,7 @@ def report_UF(m, blk, stream_table=False):
 
 
 def print_UF_costing_breakdown(blk, debug=False):
+    print(f"\n\n-------------------- Ud Costing Breakdown --------------------\n")
     print(f'{"UF Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
 
     if debug:

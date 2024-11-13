@@ -151,7 +151,6 @@ def report_DWI(m, blk):
 
 def print_DWI_costing_breakdown(blk):
     print(f"\n\n-------------------- DWI Costing Breakdown --------------------\n")
-    print("\n")
     print(f'{"Capital Cost":<30s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
     # print(
     #     f'{"Capital Cost":<30s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
@@ -159,7 +158,6 @@ def print_DWI_costing_breakdown(blk):
     print(
         f'{"Operating Cost":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
     )
-    print("\n")
 
 
 def build_system():

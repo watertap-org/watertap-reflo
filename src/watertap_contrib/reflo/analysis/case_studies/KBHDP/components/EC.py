@@ -270,6 +270,7 @@ def report_EC(blk):
 
 
 def print_EC_costing_breakdown(blk):
+    print(f"\n\n-------------------- EC Costing Breakdown --------------------\n")
     print(f'{"EC Capital Cost":<35s}{f"${blk.ec.costing.capital_cost():<25,.0f}"}')
     print(
         f'{"EC Operating Cost":<35s}{f"${blk.ec.costing.fixed_operating_cost():<25,.0f}"}'

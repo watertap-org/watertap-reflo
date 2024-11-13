@@ -8,6 +8,7 @@ from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import *
 import idaes.core.util.scaling as iscale
+from idaes.core.solvers import get_solver
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap_contrib.reflo.solar_models.surrogate.pv import PVSurrogate
@@ -17,7 +18,7 @@ from watertap_contrib.reflo.costing import (
     REFLOCosting,
     REFLOSystemCosting,
 )
-
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import check_jac, calc_scale
 __all__ = [
     "build_pv",
     "train_pv_surrogate",
@@ -67,15 +68,16 @@ def train_pv_surrogate(m):
 
 def set_pv_constraints(m, focus="Size"):
     energy = m.fs.energy
+    m.fs.energy.pv.load_surrogate()
 
     m.fs.energy.pv.heat.fix(0)
 
     if focus == "Size":
-        m.fs.energy.pv.design_size.fix(1000)
+        m.fs.energy.pv.design_size.fix(500)
     elif focus == "Energy":
-        m.fs.energy.pv.annual_energy.fix(40000000)
+        m.fs.energy.pv.annual_energy.fix(10000000)
 
-    m.fs.energy.pv.load_surrogate()
+    m.fs.energy.pv.initialize()
 
 
 def add_pv_costing(m, blk):
@@ -91,9 +93,12 @@ def add_pv_costing(m, blk):
 def add_pv_scaling(m, blk):
     pv = blk
 
-    iscale.set_scaling_factor(pv.design_size, 1e-4)
-    iscale.set_scaling_factor(pv.annual_energy, 1e-8)
-    iscale.set_scaling_factor(pv.electricity, 1e-7)
+    # print(calc_scale(value(pv.annual_energy)))
+
+    iscale.set_scaling_factor(pv.design_size, 1000)
+    # iscale.set_scaling_factor(pv.annual_energy, 1)
+    iscale.set_scaling_factor(pv.electricity, 1000)
+    iscale.set_scaling_factor(pv.land_req, 100)
 
 
 def add_pv_costing_scaling(m, blk):
@@ -103,6 +108,7 @@ def add_pv_costing_scaling(m, blk):
 
 
 def print_PV_costing_breakdown(pv):
+    print(f"\n\n-------------------- PV Costing Breakdown --------------------\n")
     print(f'{"PV Capital Cost":<35s}{f"${value(pv.costing.capital_cost):<25,.0f}"}')
     print(
         f'{"PV Operating Cost":<35s}{f"${value(pv.costing.fixed_operating_cost):<25,.0f}"}'
@@ -113,6 +119,9 @@ def report_PV(m):
     elec = "electricity"
     print(f"\n\n-------------------- PHOTOVOLTAIC SYSTEM --------------------\n\n")
     print(
+        f'{"Land Requirement":<30s}{value(m.fs.energy.pv.land_req):<10.1f}{pyunits.get_units(m.fs.energy.pv.land_req)}'
+    )
+    print(
         f'{"System Agg. Flow Electricity":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
     )
     print(
@@ -121,23 +130,21 @@ def report_PV(m):
     print(
         f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
     )
-    print(
-        f'{"Land Requirement":<30s}{value(m.fs.energy.pv.land_req):<10.1f}{pyunits.get_units(m.fs.energy.pv.land_req)}'
-    )
+    
     print(
         f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.0f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}'
     )
-    print(
-        f'{"Treatment Annual Energy":<30s}{value(m.fs.annual_treatment_energy):<10,.0f}{"kWh/yr"}'
-    )
+    # print(
+    #     f'{"Treatment Annual Energy":<30s}{value(m.fs.annual_treatment_energy):<10,.0f}{"kWh/yr"}'
+    # )
     print("\n")
     print(
-        f'{"PV Annual Generation":<25s}{f"{pyunits.convert(-1*m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
+        f'{"PV Annual Generation":<25s}{f"{pyunits.convert(m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
     )
     print(
         f'{"Treatment Annual Demand":<25s}{f"{pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
     )
-    # print(f'{"Energy Balance":<25s}{f"{value(m.fs.energy_balance):<25,.2f}"}')
+    print(f'{"Grid Electricity Frac":<25s}{f"{100*value(m.fs.costing.frac_elec_from_grid):<25,.3f} %"}')
     print(
         f'{"Treatment Elec Cost":<25s}{f"${value(m.fs.treatment.costing.aggregate_flow_costs[elec]):<25,.0f}"}{"$/yr":<10s}'
     )
@@ -161,9 +168,9 @@ def report_PV(m):
         f'{"Electricity Cost":<29s}{f"${value(m.fs.costing.total_electric_operating_cost):<10,.0f}"}{"$/yr":<10s}'
     )
 
-    print(m.fs.energy.pv.annual_energy.display())
-    print(m.fs.energy.pv.costing.annual_generation.display())
-    print(m.fs.costing.total_electric_operating_cost.display())
+    # print(m.fs.energy.pv.annual_energy.display())
+    # # print(m.fs.energy.pv.costing.annual_generation.display())
+    # print(m.fs.costing.total_electric_operating_cost.display())
 
 
 def breakdown_dof(blk):
@@ -202,9 +209,56 @@ def breakdown_dof(blk):
             if v.fixed is False:
                 print(f"   {v}")
 
+def initialize(m):
+    energy = m.fs.energy
+
+    energy.costing.cost_process()
+    energy.costing.initialize()
+
+def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
+    # ---solving---
+    if solver is None:
+        solver = get_solver()
+        solver.options["max_iter"] = 2000
+
+    print("\n--------- SOLVING ---------\n")
+
+    results = solver.solve(m, tee=tee)
+
+    if check_optimal_termination(results):
+        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            check_jac(m)
+
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(m)
+        return results
+    msg = (
+        "The current configuration is infeasible. Please adjust the decision variables."
+    )
+    if raise_on_failure:
+        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
+        print_infeasible_bounds(m)
+        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
+        print_infeasible_constraints(m)
+        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
+        print_close_to_bounds(m)
+
+        raise RuntimeError(msg)
+    else:
+        print("\n--------- FAILED SOLVE!!! ---------\n")
+        print(msg)
+        assert False
 
 if __name__ == "__main__":
     m = build_system()
     build_pv(m)
-    set_pv_constraints(m, focus="Size")
+    set_pv_constraints(m, focus="Energy")
+    solve(m, debug=True)
     add_pv_costing(m, m.fs.energy.pv)
+    add_pv_scaling(m, m.fs.energy.pv)
+    iscale.calculate_scaling_factors(m)
+    initialize(m)
+    solve(m, debug=True)
+    print(m.fs.energy.pv.display())
