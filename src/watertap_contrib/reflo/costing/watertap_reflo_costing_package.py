@@ -209,12 +209,11 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             units=self.base_currency / self.base_period,
         )
 
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
-            self.aggregate_flow_heat = pyo.Var(
-                initialize=1e3,
-                doc="Aggregated heat flow",
-                units=pyo.units.kW,
-            )
+        self.aggregate_flow_heat = pyo.Var(
+            initialize=1e3,
+            doc="Aggregated heat flow",
+            units=pyo.units.kW,
+        )
 
         self.total_capital_cost_constraint = pyo.Constraint(
             expr=self.total_capital_cost
@@ -234,15 +233,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 to_units=self.base_currency / self.base_period,
             )
         )
-
-        if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
-            self.frac_heat_from_grid = pyo.Var(
-                initialize=0,
-                domain=pyo.NonNegativeReals,
-                bounds=(0, 1.00001),
-                doc="Fraction of heat from grid",
-                units=pyo.units.dimensionless,
-            )
 
         self.frac_elec_from_grid = pyo.Var(
             initialize=0,
@@ -319,9 +309,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
             # treatment block is consuming heat and energy block is generating it
 
-            self.aggregate_flow_heat_constraint = pyo.Constraint(
-                expr=self.aggregate_flow_heat
-                == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
+            self.frac_heat_from_grid = pyo.Var(
+                initialize=0,
+                domain=pyo.NonNegativeReals,
+                bounds=(0, 1.00001),
+                doc="Fraction of heat from grid",
+                units=pyo.units.dimensionless,
             )
 
             # energy producer's heat flow is negative
@@ -407,6 +400,11 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             expr=self.aggregate_flow_electricity
             == self.aggregate_flow_electricity_purchased
             - self.aggregate_flow_electricity_sold
+        )
+
+        self.aggregate_flow_heat_constraint = pyo.Constraint(
+            expr=self.aggregate_flow_heat
+            == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
         )
 
     def build_process_costs(self):
