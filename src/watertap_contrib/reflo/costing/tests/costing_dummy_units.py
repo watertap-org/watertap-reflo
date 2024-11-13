@@ -3,6 +3,7 @@ from pyomo.environ import (
     Constraint,
     Param,
     value,
+    check_optimal_termination,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
@@ -161,6 +162,8 @@ class DummyTreatmentUnitData(InitializationMixin, UnitModelBlockData):
         flags = self.properties.initialize(hold_state=True)
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
+            if not check_optimal_termination(res):
+                res = opt.solve(self, tee=slc.tee)  # just try again!
 
         self.properties.release_state(flags)
 
@@ -292,6 +295,55 @@ def cost_dummy_treatment_unit(blk):
             to_units=pyunits.kg / blk.costing_package.base_period,
         ),
         "chemical",
+    )
+
+
+############################################################################
+############################################################################
+
+
+@declare_process_block_class("DummyTreatmentNoHeatUnit")
+class DummyTreatmentNoHeatUnitData(DummyTreatmentUnitData):
+    CONFIG = DummyTreatmentUnitData.CONFIG()
+
+    def build(self):
+        super().build()
+        self.del_component(self.heat_consumption)
+        self.del_component(self.fixed_operating_var)
+        self.del_component(self.variable_operating_var)
+
+    def calculate_scaling_factors(self):
+
+        set_scaling_factor(self.design_var_a, 1 / value(self.design_var_a))
+        set_scaling_factor(self.design_var_b, 1 / value(self.design_var_b))
+        set_scaling_factor(self.capital_var, 1 / value(self.capital_var))
+        set_scaling_factor(
+            self.electricity_consumption, 1 / value(self.electricity_consumption)
+        )
+
+
+@register_costing_parameter_block(
+    build_rule=build_dummy_treatment_unit_param_block,
+    parameter_block_name="dummy_treatment_no_heat_unit",
+)
+def cost_dummy_treatment_unit(blk):
+
+    make_capital_cost_var(blk)
+
+    blk.costing_package.add_cost_factor(blk, None)
+
+    blk.capital_cost_constraint = Constraint(
+        expr=blk.capital_cost
+        == pyunits.convert(
+            blk.costing_package.dummy_treatment_no_heat_unit.capital_cost_param
+            * blk.unit_model.capital_var,
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    blk.costing_package.cost_flow(
+        blk.unit_model.electricity_consumption,
+        "electricity",
     )
 
 

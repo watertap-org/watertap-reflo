@@ -438,16 +438,16 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         self.aggregate_flow_electricity_sold.unfix()
         self.aggregate_electricity_complement.activate()
-        
+
         if not self.has_heat_flows:
             self.total_heat_operating_cost.fix(0)
             self.total_heat_operating_cost_constraint.deactivate()
             self.aggregate_flow_heat.fix(0)
             self.aggregate_flow_heat_constraint.deactivate()
-        
+
         else:
             if hasattr(self, "aggregate_heat_complement"):
-                
+
                 self.aggregate_flow_heat_sold.fix(0)
                 self.aggregate_heat_complement.deactivate()
 
@@ -456,7 +456,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                     self.frac_heat_from_grid_constraint,
                 )
 
-                if not self.aggregate_flow_heat_purchased.is_fixed(): 
+                if not self.aggregate_flow_heat_purchased.is_fixed():
                     calculate_variable_from_constraint(
                         self.aggregate_flow_heat_purchased,
                         self.aggregate_heat_balance,
@@ -470,11 +470,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 self.aggregate_flow_heat,
                 self.aggregate_flow_heat_constraint,
             )
-        
+
         super().initialize_build()
-
-
-
 
     def build_process_costs(self):
         """
