@@ -45,6 +45,31 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
 
+__all__ = [
+    "build_LTMED",
+    "set_LTMED_operating_conditions",
+    "init_LTMED",
+    "add_LTMED_costing",
+]
+
+def _initialize(blk, verbose=False):
+    if verbose:
+        print("\n")
+        print(
+            f"{blk.name:<30s}{f'Degrees of Freedom at Initialization = {degrees_of_freedom(blk):<10.0f}'}"
+        )
+        print("\n")
+    try:
+        blk.initialize()
+    except:
+        print("----------------------------------\n")
+        print(f"Initialization of {blk.name} failed.")
+        print("\n----------------------------------\n")
+
+        blk.report()
+        print_infeasible_bounds(blk)
+        print_close_to_bounds(blk)
+        assert False
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -88,13 +113,21 @@ def build_LTMED(m, blk, liquid_prop, vapor_prop, number_effects=12):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def set_LTMED_operating_conditions(m, blk):
+def set_LTMED_operating_conditions(blk):
     steam_temperature = 80
     recovery_ratio = 0.5
 
     blk.unit.steam_props[0].temperature.fix(steam_temperature + 273.15)
     blk.unit.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
     pass
+
+
+def add_LTMED_costing(m, blk, costing_blk=None):
+    """Add LTMED model costing components"""
+    if costing_blk is None:
+        costing_blk = m.fs.costing
+
+    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
 
 
 def init_LTMED(m, blk, solver=None):
@@ -105,14 +138,12 @@ def init_LTMED(m, blk, solver=None):
     optarg = solver.options
 
     print("\n\n-------------------- INITIALIZING LTMED --------------------\n\n")
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"LTMED Degrees of Freedom: {degrees_of_freedom(blk)}")
     # assert_no_degrees_of_freedom(m)
-
+    
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_LTMED)
 
-    blk.unit.initialize(optarg=optarg)
+    _initialize(blk.unit, verbose=True)
     propagate_state(blk.LTMED_to_product)
     propagate_state(blk.LTMED_to_disposal)
 
@@ -156,6 +187,7 @@ def init_system(m, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"LTMED Degrees of Freedom: {degrees_of_freedom(m.fs.LTMED.unit)}")
+    breakdown_dof(m.fs.LTMED)
     assert_no_degrees_of_freedom(m)
     print("\n\n")
 
@@ -189,12 +221,47 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
         print(msg)
         return results
 
+def breakdown_dof(blk):
+    equalities = [c for c in activated_equalities_generator(blk)]
+    active_vars = variables_in_activated_equalities_set(blk)
+    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
+    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
+    print("\n ===============DOF Breakdown================\n")
+    print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
+    print(f"Activated Variables: ({len(active_vars)})")
+    for v in active_vars:
+        print(f"   {v}")
+    print(f"Activated Equalities: ({len(equalities)})")
+    for c in equalities:
+        print(f"   {c}")
+
+    print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
+    for v in fixed_active_vars:
+        print(f"   {v}")
+
+    print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
+    for v in unfixed_active_vars:
+        print(f"   {v}")
+    print("\n")
+    print(f" {f' Active Vars':<30s}{len(active_vars)}")
+    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
+    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
+    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+    print("\nSuggested Variables to Fix:")
+
+    if degrees_of_freedom != 0:
+        unfixed_vars_without_constraint = [
+            v for v in active_vars if v not in unfixed_active_vars
+        ]
+        for v in unfixed_vars_without_constraint:
+            if v.fixed is False:
+                print(f"   {v}")
 
 if __name__ == "__main__":
 
     m = build_system()
     set_system_operating_conditions(m)
-    set_LTMED_operating_conditions(m, m.fs.LTMED)
+    set_LTMED_operating_conditions(m.fs.LTMED)
 
     init_system(m)
     solver = get_solver()

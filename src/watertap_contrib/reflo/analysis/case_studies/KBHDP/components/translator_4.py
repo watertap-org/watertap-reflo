@@ -54,8 +54,8 @@ __author__ = "Zachary Binger"
 _log = idaeslog.getLogger(__name__)
 
 
-@declare_process_block_class("Translator_ZO_TDS_to_TDS")
-class Translator_ZO_TDS_to_TDS_Data(TranslatorData):
+@declare_process_block_class("Translator_TDS_to_TDS")
+class Translator_TDS_to_TDS_Data(TranslatorData):
     """
     Translator block representing the
     """

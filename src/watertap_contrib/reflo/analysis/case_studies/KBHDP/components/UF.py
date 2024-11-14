@@ -113,7 +113,7 @@ def init_UF(m, blk, verbose=True, solver=None):
 
 def set_UF_op_conditions(blk):
     # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
-    print(f"UF Degrees of Freedom: {degrees_of_freedom(blk)}")
+    # print(f"UF Degrees of Freedom: {degrees_of_freedom(blk)}")
     blk.unit.recovery_frac_mass_H2O.fix(0.99)
     blk.unit.removal_frac_mass_comp[0, "tds"].fix(1e-3)
     blk.unit.removal_frac_mass_comp[0, "tss"].fix(0.9)
