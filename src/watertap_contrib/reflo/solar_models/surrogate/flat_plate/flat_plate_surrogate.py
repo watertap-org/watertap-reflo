@@ -104,6 +104,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
 
         if self.config.surrogate_model_file is not None:
             self.surrogate_file = self.config.surrogate_model_file
+            self.load_surrogate()
         else:
             self.create_rbf_surrogate()
 
