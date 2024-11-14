@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -86,7 +86,7 @@ def build_pv_surrogate_cost_param_block(blk):
         doc="Annual operating cost of PV system per MWh generated",
     )
 
-    # blk.fix_all_vars()
+    blk.fix_all_vars()
 
 
 @register_costing_parameter_block(
@@ -114,20 +114,6 @@ def cost_pv_surrogate(blk):
         doc="Indirect costs of PV system",
     )
 
-    # blk.direct_capital_cost = pyo.Var(
-    #     initialize=0,
-    #     units=blk.config.flowsheet_costing_block.base_currency,
-    #     bounds=(0, None),
-    #     doc="Direct costs of PV system",
-    # )
-
-    # blk.indirect_capital_cost = pyo.Var(
-    #     initialize=0,
-    #     units=blk.config.flowsheet_costing_block.base_currency,
-    #     bounds=(0, None),
-    #     doc="Indirect costs of PV system",
-    # )
-
     blk.land_cost = pyo.Var(
         initialize=0,
         units=blk.config.flowsheet_costing_block.base_currency,
@@ -142,37 +128,16 @@ def cost_pv_surrogate(blk):
         doc="Sales tax for PV system",
     )
 
-    blk.system_capacity = pyo.Var(
-        initialize=0,
-        units=pyo.units.watt,
-        bounds=(0, None),
-        doc="DC system capacity for PV system",
-    )
-
-    blk.land_area = pyo.Var(
-        initialize=0,
-        units=pyo.units.acre,
-        bounds=(0, None),
-        doc="Land area required for PV system",
-    )
-
-    blk.annual_generation = pyo.Var(
-        initialize=0,
-        units=pyo.units.kWh,
-        bounds=(0, None),
-        doc="Annual electricity generation of PV system",
-    )
-
     blk.direct_capital_cost_constraint = pyo.Constraint(
         expr=blk.direct_capital_cost
-        == blk.system_capacity
+        == blk.unit_model.design_size
         * (
             pv_params.cost_per_watt_module
             + pv_params.cost_per_watt_inverter
             + pv_params.cost_per_watt_other
         )
         + (
-            blk.system_capacity
+            blk.unit_model.design_size
             * (
                 pv_params.cost_per_watt_module
                 + pv_params.cost_per_watt_inverter
@@ -184,12 +149,12 @@ def cost_pv_surrogate(blk):
 
     blk.indirect_capital_cost_constraint = pyo.Constraint(
         expr=blk.indirect_capital_cost
-        == (blk.system_capacity * pv_params.cost_per_watt_indirect)
-        + (blk.land_area * pv_params.land_cost_per_acre)
+        == (blk.unit_model.design_size * pv_params.cost_per_watt_indirect)
+        + (blk.unit_model.land_req * pv_params.land_cost_per_acre)
     )
 
     blk.land_cost_constraint = pyo.Constraint(
-        expr=blk.land_cost == (blk.land_area * pv_params.land_cost_per_acre)
+        expr=blk.land_cost == (blk.unit_model.land_req * pv_params.land_cost_per_acre)
     )
 
     blk.sales_tax_constraint = pyo.Constraint(
@@ -203,13 +168,12 @@ def cost_pv_surrogate(blk):
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == pv_params.fixed_operating_by_capacity
-        * pyo.units.convert(blk.system_capacity, to_units=pyo.units.kW)
+        == pv_params.fixed_operating_by_capacity * blk.unit_model.design_size
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
-        == pv_params.variable_operating_by_generation * blk.annual_generation
+        == pv_params.variable_operating_by_generation * blk.unit_model.annual_energy
     )
 
     blk.costing_package.cost_flow(-1 * blk.unit_model.electricity, "electricity")
