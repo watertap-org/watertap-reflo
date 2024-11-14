@@ -109,6 +109,68 @@ class TreatmentCostingData(REFLOCostingData):
     def build_process_costs(self):
         super().build_process_costs()
 
+    def add_specific_electric_energy_consumption(
+        self, flow_rate, name="specific_electric_energy_consumption"
+    ):
+        """
+        Add specific electric energy consumption (kWh/m**3) to costing block.
+        Args:
+            flow_rate - flow rate of water (volumetric) to be used in
+                        calculating specific electric energy consumption
+        """
+
+        specific_electric_energy_consumption = pyo.Var(
+            initialize=1,
+            units=pyo.units.kilowatt * pyo.units.hr * pyo.units.m**-3,
+            doc=f"Specific electric energy consumption based on flow {flow_rate.name}",
+        )
+
+        self.add_component(name, specific_electric_energy_consumption)
+
+        specific_electric_energy_consumption_constraint = pyo.Constraint(
+            expr=specific_electric_energy_consumption
+            == pyo.units.convert(
+                self.aggregate_flow_electricity / flow_rate,
+                to_units=pyo.units.kilowatt * pyo.units.hr * pyo.units.m**-3,
+            )
+        )
+
+        self.add_component(
+            "specific_electric_energy_consumption_constraint",
+            specific_electric_energy_consumption_constraint,
+        )
+
+    def add_specific_thermal_energy_consumption(
+        self, flow_rate, name="specific_thermal_energy_consumption"
+    ):
+        """
+        Add specific thermal energy consumption (kWh/m**3) to costing block.
+        Args:
+            flow_rate - flow rate of water (volumetric) to be used in
+                        calculating specific thermal energy consumption
+        """
+
+        specific_thermal_energy_consumption = pyo.Var(
+            initialize=1,
+            units=pyo.units.kilowatt * pyo.units.hr * pyo.units.m**-3,
+            doc=f"Specific thermal energy consumption based on flow {flow_rate.name}",
+        )
+
+        self.add_component(name, specific_thermal_energy_consumption)
+
+        specific_thermal_energy_consumption_constraint = pyo.Constraint(
+            expr=specific_thermal_energy_consumption
+            == pyo.units.convert(
+                self.aggregate_flow_heat / flow_rate,
+                to_units=pyo.units.kilowatt * pyo.units.hr * pyo.units.m**-3,
+            )
+        )
+
+        self.add_component(
+            "specific_thermal_energy_consumption_constraint",
+            specific_thermal_energy_consumption_constraint,
+        )
+
 
 @declare_process_block_class("EnergyCosting")
 class EnergyCostingData(REFLOCostingData):
@@ -122,7 +184,14 @@ class EnergyCostingData(REFLOCostingData):
 
         self.base_energy_units = pyo.units.kilowatt * pyo.units.hour
 
-        self.annual_system_degradation = pyo.Param(
+        self.annual_electrical_system_degradation = pyo.Param(
+            initialize=0.005,
+            mutable=True,
+            units=pyo.units.dimensionless,
+            doc="Yearly performance degradation of electric energy system",
+        )
+
+        self.annual_heat_system_degradation = pyo.Param(
             initialize=0.005,
             mutable=True,
             units=pyo.units.dimensionless,
@@ -146,6 +215,19 @@ class EnergyCostingData(REFLOCostingData):
             units=pyo.units.kilowatt * pyo.units.hour,
         )
 
+        self.yearly_heat_production = pyo.Var(
+            self.plant_lifetime_set,
+            initialize=1e4,
+            domain=pyo.NonNegativeReals,
+            units=pyo.units.kilowatt * pyo.units.hour,
+        )
+
+        self.lifetime_heat_production = pyo.Var(
+            initialize=1e6,
+            domain=pyo.NonNegativeReals,
+            units=pyo.units.kilowatt * pyo.units.hour,
+        )
+
     def build_process_costs(self):
         super().build_process_costs()
 
@@ -161,7 +243,7 @@ class EnergyCostingData(REFLOCostingData):
                 return b.yearly_electricity_production[
                     y
                 ] == b.yearly_electricity_production[y - 1] * (
-                    1 - b.annual_system_degradation
+                    1 - b.annual_electrical_system_degradation
                 )
 
         self.yearly_electricity_production_constraint = pyo.Constraint(
@@ -178,6 +260,46 @@ class EnergyCostingData(REFLOCostingData):
         self.lifetime_electricity_production_constraint = pyo.Constraint(
             rule=rule_lifetime_electricity_production
         )
+
+        if get_scaling_factor(self.yearly_electricity_production) is None:
+            set_scaling_factor(self.yearly_electricity_production, 1e-4)
+
+        if get_scaling_factor(self.lifetime_electricity_production) is None:
+            set_scaling_factor(self.lifetime_electricity_production, 1e-4)
+
+    def build_LCOH_params(self):
+
+        def rule_yearly_heat_production(b, y):
+            if y == 0:
+                return b.yearly_heat_production[y] == pyo.units.convert(
+                    self.aggregate_flow_heat * -1 * pyo.units.year,
+                    to_units=pyo.units.kilowatt * pyo.units.hour,
+                )
+            else:
+                return b.yearly_heat_production[y] == b.yearly_heat_production[
+                    y - 1
+                ] * (1 - b.annual_heat_system_degradation)
+
+        self.yearly_heat_production_constraint = pyo.Constraint(
+            self.plant_lifetime_set, rule=rule_yearly_heat_production
+        )
+
+        def rule_lifetime_heat_production(b):
+            return (
+                b.lifetime_heat_production
+                == sum(b.yearly_heat_production[y] for y in b.plant_lifetime_set)
+                * b.utilization_factor
+            )
+
+        self.lifetime_heat_production_constraint = pyo.Constraint(
+            rule=rule_lifetime_heat_production
+        )
+
+        if get_scaling_factor(self.yearly_heat_production) is None:
+            set_scaling_factor(self.yearly_heat_production, 1e-4)
+
+        if get_scaling_factor(self.lifetime_heat_production) is None:
+            set_scaling_factor(self.lifetime_heat_production, 1e-4)
 
     def add_LCOE(self):
         """
@@ -205,6 +327,33 @@ class EnergyCostingData(REFLOCostingData):
         )
 
         self.add_component("LCOE", LCOE_expr)
+
+    def add_LCOH(self):
+        """
+        Add Levelized Cost of Heat (LCOH) to costing block.
+        """
+
+        # https://www.nrel.gov/analysis/tech-lcoe-documentation.html
+
+        self.build_LCOH_params()
+
+        numerator = pyo.units.convert(
+            (
+                self.total_capital_cost * self.capital_recovery_factor
+                + self.aggregate_fixed_operating_cost
+            )
+            * self.plant_lifetime,
+            to_units=self.base_currency,
+        )
+
+        LCOH_expr = pyo.Expression(
+            expr=pyo.units.convert(
+                numerator / self.lifetime_heat_production,
+                to_units=self.base_currency / self.base_energy_units,
+            )
+        )
+
+        self.add_component("LCOH", LCOH_expr)
 
 
 @declare_process_block_class("REFLOSystemCosting")
@@ -648,61 +797,44 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         add_object_reference(self, "LCOE", energy_cost.LCOE)
 
-    def add_specific_electric_energy_consumption(self, flow_rate):
+    def add_LCOH(self):
+        """
+        Add Levelized Cost of Heat (LCOH) to costing block.
+        """
+
+        energy_cost = self._get_energy_cost_block()
+        if not hasattr(energy_cost, "LCOH"):
+            energy_cost.add_LCOH()
+
+        add_object_reference(self, "LCOH", energy_cost.LCOH)
+
+    def add_specific_electric_energy_consumption(self, *args, **kwargs):
         """
         Add specific electric energy consumption (kWh/m**3) to costing block.
         Args:
             flow_rate - flow rate of water (volumetric) to be used in
-                        calculating specific energy consumption
+                        calculating specific electric energy consumption
         """
+        treat_cost = self._get_treatment_cost_block()
 
-        specific_electric_energy_consumption = pyo.Var(
-            initialize=100,
-            doc=f"Specific electric energy consumption based on flow {flow_rate.name}",
-        )
+        if not hasattr(treat_cost, "specific_electric_energy_consumption_constraint"):
+            treat_cost.add_specific_electric_energy_consumption(*args, **kwargs)
 
-        self.add_component(
-            "specific_electric_energy_consumption", specific_electric_energy_consumption
-        )
+        add_object_reference(self, kwargs["name"], getattr(treat_cost, kwargs["name"]))
 
-        specific_electric_energy_consumption_constraint = pyo.Constraint(
-            expr=specific_electric_energy_consumption
-            == self.aggregate_flow_electricity
-            / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr)
-        )
-
-        self.add_component(
-            "specific_electric_energy_consumption_constraint",
-            specific_electric_energy_consumption_constraint,
-        )
-
-    def add_specific_thermal_energy_consumption(self, flow_rate):
+    def add_specific_thermal_energy_consumption(self, *args, **kwargs):
         """
         Add specific thermal energy consumption (kWh/m**3) to costing block.
         Args:
             flow_rate - flow rate of water (volumetric) to be used in
-                        calculating specific energy consumption
+                        calculating specific thermal energy consumption
         """
+        treat_cost = self._get_treatment_cost_block()
 
-        specific_thermal_energy_consumption = pyo.Var(
-            initialize=100,
-            doc=f"Specific thermal energy consumption based on flow {flow_rate.name}",
-        )
+        if not hasattr(treat_cost, "specific_thermal_energy_consumption_constraint"):
+            treat_cost.add_specific_thermal_energy_consumption(*args, **kwargs)
 
-        self.add_component(
-            "specific_thermal_energy_consumption", specific_thermal_energy_consumption
-        )
-
-        specific_thermal_energy_consumption_constraint = pyo.Constraint(
-            expr=specific_thermal_energy_consumption
-            == self.aggregate_flow_heat
-            / pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / pyo.units.hr)
-        )
-
-        self.add_component(
-            "specific_thermal_energy_consumption_constraint",
-            specific_thermal_energy_consumption_constraint,
-        )
+        add_object_reference(self, kwargs["name"], getattr(treat_cost, kwargs["name"]))
 
     def _check_common_param_equivalence(self, treat_cost, energy_cost):
         """
