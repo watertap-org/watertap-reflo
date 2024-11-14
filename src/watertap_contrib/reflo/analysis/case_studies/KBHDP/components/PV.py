@@ -19,9 +19,10 @@ from watertap_contrib.reflo.costing import (
     REFLOCosting,
     REFLOSystemCosting,
 )
+
 # from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
-    # check_jac,
-    # calc_scale,
+# check_jac,
+# calc_scale,
 # )
 
 __all__ = [
@@ -50,8 +51,10 @@ def build_pv(m):
     # Get directory path
     cwd = os.getcwd()
     energy.pv = PVSurrogate(
-        surrogate_model_file= cwd + "/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
-        dataset_filename=cwd + "/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
+        surrogate_model_file=cwd
+        + "/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
+        dataset_filename=cwd
+        + "/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
         input_variables={
             "labels": ["design_size"],
             "bounds": {"design_size": [1, 200000]},

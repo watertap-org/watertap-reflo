@@ -58,13 +58,16 @@ def build_fpc(blk, __file__=None):
 
     if __file__ == None:
         cwd = os.getcwd()
-        __file__ = cwd + r'\src\watertap_contrib\reflo\solar_models\surrogate\flat_plate\\'
+        __file__ = (
+            cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\flat_plate\\"
+        )
 
     dataset_filename = os.path.join(
         os.path.dirname(__file__), r"data\flat_plate_data_heat_load_1_400.pkl"
     )
     surrogate_filename = os.path.join(
-        os.path.dirname(__file__), r"data\flat_plate_data_heat_load_1_400_heat_load_1_400_hours_storage_0_27_temperature_hot_50_102.json"
+        os.path.dirname(__file__),
+        r"data\flat_plate_data_heat_load_1_400_heat_load_1_400_hours_storage_0_27_temperature_hot_50_102.json",
     )
 
     input_bounds = dict(
@@ -84,7 +87,7 @@ def build_fpc(blk, __file__=None):
     }
 
     blk.unit = FlatPlateSurrogate(
-        surrogate_model_file = surrogate_filename,
+        surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,

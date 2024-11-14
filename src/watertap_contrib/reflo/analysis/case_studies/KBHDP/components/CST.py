@@ -58,18 +58,17 @@ def build_cst(blk, __file__=None):
 
     if __file__ == None:
         cwd = os.getcwd()
-        __file__ = cwd + r'\src\watertap_contrib\reflo\solar_models\surrogate\trough\\'
-        
+        __file__ = cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\trough\\"
+
     dataset_filename = os.path.join(
         os.path.dirname(__file__), r"data\test_trough_data.pkl"
     )
     surrogate_filename = os.path.join(
-        os.path.dirname(__file__), r"data\test_trough_data_heat_load_100_500_hours_storage_0_26.json"
+        os.path.dirname(__file__),
+        r"data\test_trough_data_heat_load_100_500_hours_storage_0_26.json",
     )
 
-    input_bounds = dict(
-        heat_load=[100, 500], hours_storage=[0, 26]
-    )
+    input_bounds = dict(heat_load=[100, 500], hours_storage=[0, 26])
     input_units = dict(heat_load="MW", hours_storage="hour")
     input_variables = {
         "labels": ["heat_load", "hours_storage"],
@@ -83,14 +82,13 @@ def build_cst(blk, __file__=None):
         "units": output_units,
     }
 
-
     blk.unit = TroughSurrogate(
-        surrogate_model_file = surrogate_filename,
+        surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
-        scale_training_data=True
-        )
+        scale_training_data=True,
+    )
 
 
 def init_cst(blk):
@@ -127,7 +125,6 @@ def report_cst(m, blk):
     # blk = m.fs.cst
     print(f"\n\n-------------------- CST Report --------------------\n")
     print("\n")
-
 
     print(
         f'{"Heat load":<30s}{value(blk.heat_load):<20,.2f}{pyunits.get_units(blk.heat_load)}'
@@ -201,7 +198,7 @@ if __name__ == "__main__":
     m = build_system()
 
     build_cst(m.fs.cst)
-    
+
     init_cst(m.fs.cst)
 
     set_cst_op_conditions(m.fs.cst)
