@@ -29,11 +29,8 @@ from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.scaling import calculate_scaling_factors
 from idaes.core.util.model_statistics import degrees_of_freedom
 
-from watertap.costing.watertap_costing_package import (
-    WaterTAPCostingData,
-    WaterTAPCostingBlockData,
-)
 from watertap.core.solvers import get_solver
+from watertap.costing.watertap_costing_package import WaterTAPCostingBlockData
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 
 from watertap_contrib.reflo.costing import (
@@ -43,7 +40,6 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOSystemCosting,
 )
-
 from watertap_contrib.reflo.costing.tests.dummy_costing_units import (
     DummyTreatmentUnit,
     DummyTreatmentNoHeatUnit,
@@ -274,8 +270,8 @@ def build_heat_and_elec_gen():
 
     m.fs.treatment.unit.design_var_a.fix()
     m.fs.treatment.unit.design_var_b.fix()
-    m.fs.treatment.unit.electricity_consumption.fix(11000)
-    m.fs.treatment.unit.heat_consumption.fix(25000)
+    m.fs.treatment.unit.electricity_consumption.fix(110)
+    m.fs.treatment.unit.heat_consumption.fix(250)
     m.fs.treatment.costing.cost_process()
 
     #### ENERGY BLOCK
@@ -289,8 +285,8 @@ def build_heat_and_elec_gen():
     m.fs.energy.elec_unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.energy.costing
     )
-    m.fs.energy.heat_unit.heat.fix(5000)
-    m.fs.energy.elec_unit.electricity.fix(10000)
+    m.fs.energy.heat_unit.heat.fix(50)
+    m.fs.energy.elec_unit.electricity.fix(100)
     m.fs.energy.costing.cost_process()
 
     #### SYSTEM COSTING
@@ -362,6 +358,7 @@ class TestCostingPackagesDefault:
     def test_default_build(self, default_build):
         m = default_build
 
+        # check inheritance
         assert isinstance(m.fs.treatment.costing, REFLOCostingData)
         assert isinstance(m.fs.energy.costing, REFLOCostingData)
         assert isinstance(m.fs.costing, WaterTAPCostingBlockData)
@@ -372,8 +369,17 @@ class TestCostingPackagesDefault:
         assert not hasattr(m.fs.treatment.costing, "case_study_def")
         assert not hasattr(m.fs.energy.costing, "case_study_def")
 
+        # check unique properties of each
         assert hasattr(m.fs.energy.costing, "has_electricity_generation")
-        assert not m.fs.energy.costing.has_electricity_generation
+        assert not m.fs.energy.costing.has_electricity_generation  # default is False
+        assert hasattr(m.fs.energy.costing, "base_energy_units")
+        assert hasattr(m.fs.energy.costing, "plant_lifetime_set")
+        assert hasattr(m.fs.energy.costing, "annual_electrical_system_degradation")
+        assert hasattr(m.fs.energy.costing, "annual_heat_system_degradation")
+        assert hasattr(m.fs.energy.costing, "yearly_electricity_production")
+        assert hasattr(m.fs.energy.costing, "lifetime_electricity_production")
+        assert hasattr(m.fs.energy.costing, "yearly_heat_production")
+        assert hasattr(m.fs.energy.costing, "lifetime_heat_production")
         assert not hasattr(m.fs.treatment.costing, "has_electricity_generation")
 
         assert m.fs.treatment.costing.base_currency is pyunits.USD_2021
@@ -781,6 +787,16 @@ class TestElectricityAndHeatGen:
 
         m = build_heat_and_elec_gen()
 
+        m.fs.costing.add_LCOE()
+        m.fs.costing.add_LCOH()
+        m.fs.costing.add_LCOT(m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"])
+        m.fs.costing.add_specific_electric_energy_consumption(
+            m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+        )
+        m.fs.costing.add_specific_thermal_energy_consumption(
+            m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+        )
+
         return m
 
     @pytest.mark.unit
@@ -802,6 +818,20 @@ class TestElectricityAndHeatGen:
         assert hasattr(m.fs.costing, "frac_heat_from_grid")
         assert hasattr(m.fs.costing, "frac_heat_from_grid_constraint")
         assert hasattr(m.fs.costing, "aggregate_heat_complement")
+
+        # all metrics end up as references on REFLOSystemCosting
+        assert hasattr(m.fs.costing, "LCOT")
+        assert hasattr(m.fs.costing, "LCOE")
+        assert hasattr(m.fs.costing, "LCOH")
+        assert hasattr(m.fs.costing, "SEEC")
+        assert hasattr(m.fs.costing, "STEC")
+        # energy metrics on EnergyCosting
+        assert hasattr(m.fs.energy.costing, "LCOE")
+        assert hasattr(m.fs.energy.costing, "LCOH")
+        # treatment metrics on TreatmentCosting
+        assert not hasattr(m.fs.treatment.costing, "LCOT")
+        assert hasattr(m.fs.treatment.costing, "SEEC")
+        assert hasattr(m.fs.treatment.costing, "STEC")
 
     @pytest.mark.component
     def test_init_and_solve(self, heat_and_elec_gen):
@@ -1004,6 +1034,21 @@ def test_common_params_equivalent():
     assert m.fs.costing.base_currency is pyunits.USD_2011
     assert m.fs.treatment.costing.base_currency is pyunits.USD_2011
     assert m.fs.energy.costing.base_currency is pyunits.USD_2011
+
+
+@pytest.mark.component
+def test_add_LCOW_to_energy_costing():
+
+    m = build_default()
+
+    m.fs.energy.costing.cost_process()
+    m.fs.treatment.costing.cost_process()
+
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.cost_process()
+
+    with pytest.raises(ValueError, match="Can't add LCOW to EnergyCosting package\\."):
+        m.fs.energy.costing.add_LCOW()
 
 
 @pytest.mark.component
