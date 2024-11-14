@@ -112,14 +112,98 @@ class TreatmentCostingData(REFLOCostingData):
 @declare_process_block_class("EnergyCosting")
 class EnergyCostingData(REFLOCostingData):
     def build_global_params(self):
+        super().build_global_params()
+
         # If creating an energy unit that generates electricity,
         # set this flag to True in costing package.
         # See PV costing package for example.
         self.has_electricity_generation = False
-        super().build_global_params()
+
+        self.base_energy_units = pyo.units.kilowatt * pyo.units.hour
+
+        self.annual_system_degradation = pyo.Param(
+            initialize=0.005,
+            mutable=True,
+            units=pyo.units.dimensionless,
+            doc="Yearly performance degradation of electric energy system",
+        )
+
+        self.plant_lifetime_set = pyo.Set(
+            initialize=range(pyo.value(self.plant_lifetime) + 1)
+        )
+
+        self.yearly_electricity_production = pyo.Var(
+            self.plant_lifetime_set,
+            initialize=1e4,
+            domain=pyo.NonNegativeReals,
+            units=pyo.units.kilowatt * pyo.units.hour,
+        )
+
+        self.lifetime_electricity_production = pyo.Var(
+            initialize=1e6,
+            domain=pyo.NonNegativeReals,
+            units=pyo.units.kilowatt * pyo.units.hour,
+        )
 
     def build_process_costs(self):
         super().build_process_costs()
+
+    def build_LCOE_params(self):
+
+        def rule_yearly_electricity_production(b, y):
+            if y == 0:
+                return b.yearly_electricity_production[y] == pyo.units.convert(
+                    self.aggregate_flow_electricity * -1 * pyo.units.year,
+                    to_units=pyo.units.kilowatt * pyo.units.hour,
+                )
+            else:
+                return b.yearly_electricity_production[
+                    y
+                ] == b.yearly_electricity_production[y - 1] * (
+                    1 - b.annual_system_degradation
+                )
+
+        self.yearly_electricity_production_constraint = pyo.Constraint(
+            self.plant_lifetime_set, rule=rule_yearly_electricity_production
+        )
+
+        def rule_lifetime_electricity_production(b):
+            return (
+                b.lifetime_electricity_production
+                == sum(b.yearly_electricity_production[y] for y in b.plant_lifetime_set)
+                * b.utilization_factor
+            )
+
+        self.lifetime_electricity_production_constraint = pyo.Constraint(
+            rule=rule_lifetime_electricity_production
+        )
+
+    def add_LCOE(self, name="LCOE"):
+        """
+        Add Levelized Cost of Energy (LCOE) to costing block.
+        """
+
+        # https://www.nrel.gov/analysis/tech-lcoe-documentation.html
+
+        self.build_LCOE_params()
+
+        numerator = pyo.units.convert(
+            (
+                self.total_capital_cost * self.capital_recovery_factor
+                + self.aggregate_fixed_operating_cost
+            )
+            * self.plant_lifetime,
+            to_units=self.base_currency,
+        )
+
+        LCOE_expr = pyo.Expression(
+            expr=pyo.units.convert(
+                numerator / self.lifetime_electricity_production,
+                to_units=self.base_currency / self.base_energy_units,
+            )
+        )
+
+        self.add_component(name, LCOE_expr)
 
 
 @declare_process_block_class("REFLOSystemCosting")
