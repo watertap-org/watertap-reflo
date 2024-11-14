@@ -48,6 +48,12 @@ class PVSurrogateData(SolarEnergyBaseData):
         self.add_surrogate_variables()
         self.get_surrogate_data()
 
+        if self.config.surrogate_model_file is not None:
+            self.surrogate_file = self.config.surrogate_model_file
+            self.load_surrogate()
+        else:
+            self.create_rbf_surrogate()
+
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
             == pyunits.convert(self.electricity, to_units=pyunits.kWh / pyunits.year)
@@ -98,7 +104,7 @@ class PVSurrogateData(SolarEnergyBaseData):
         )
         self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
 
-        self.electricity.set_value(value(self.electricity_annual) / 8766)
+        self.electricity.set_value(value(self.annual_energy) / 8766)
         # Create solver
         res = opt.solve(self)
 
