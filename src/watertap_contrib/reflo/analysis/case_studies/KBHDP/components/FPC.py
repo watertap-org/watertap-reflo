@@ -72,7 +72,6 @@ def build_fpc(blk, __file__=None):
 
     input_bounds = dict(
         heat_load=[1, 400], hours_storage=[0, 27], temperature_hot=[50, 102]
-
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -105,7 +104,6 @@ def set_system_op_conditions(m):
 
 
 def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
-
 
     blk.unit.hours_storage.fix(hours_storage)
     # Assumes the hot temperature to the inlet of a 'MD HX'

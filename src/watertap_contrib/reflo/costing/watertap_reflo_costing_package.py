@@ -60,7 +60,6 @@ class REFLOCostingData(WaterTAPCostingData):
             units=pyo.units.dimensionless,
         )
 
-
         self.heat_cost = pyo.Var(
             initialize=0.0,
             doc="Heat cost",
@@ -380,7 +379,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         self.plant_lifetime.fix(20)
         self.utilization_factor.fix(1)
 
-
         self.electricity_cost_buy = pyo.Param(
             mutable=True,
             initialize=0.07,
@@ -651,7 +649,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
         )
 
-
         # positive is for cost and negative for revenue
         self.total_electric_operating_cost_constraint = pyo.Constraint(
             expr=self.total_electric_operating_cost
@@ -686,12 +683,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
         )
 
-
         # positive is for consumption
         self.aggregate_flow_electricity_constraint = pyo.Constraint(
             expr=self.aggregate_flow_electricity
             == self.aggregate_flow_electricity_purchased
             - self.aggregate_flow_electricity_sold
+        )
 
         self.aggregate_flow_heat_constraint = pyo.Constraint(
             expr=self.aggregate_flow_heat
