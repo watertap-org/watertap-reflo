@@ -102,7 +102,11 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             doc="Annual electricity consumed by flat plate collector in kWh",
         )
 
-        self.create_rbf_surrogate()
+        if self.config.surrogate_model_file is not None:
+            self.surrogate_file = self.config.surrogate_model_file
+            self.load_surrogate()
+        else:
+            self.create_rbf_surrogate()
 
         self.heat_constraint = Constraint(
             expr=self.heat_annual

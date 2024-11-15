@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -199,6 +199,9 @@ class TestVAGMD_unit_model:
         vagmd = m.fs.vagmd
 
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.costing.base_currency = pyunits.USD_2020
         vagmd.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
@@ -226,4 +229,4 @@ class TestVAGMD_unit_model:
         assert pytest.approx(294352.922, rel=1e-3) == value(
             vagmd.costing.fixed_operating_cost
         )
-        assert pytest.approx(2.648, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(2.37915, rel=1e-3) == value(m.fs.costing.LCOW)
