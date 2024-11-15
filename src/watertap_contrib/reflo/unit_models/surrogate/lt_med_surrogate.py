@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -328,7 +328,7 @@ class LTMEDData(UnitModelBlockData):
         self.specific_area_per_kg_s = Var(
             initialize=400,
             bounds=(0, None),
-            units=pyunits.m**2 / (pyunits.k / pyunits.s),
+            units=pyunits.m**2 / (pyunits.kg / pyunits.s),
             doc="Specific area (m2/kg/s))",
         )
 
