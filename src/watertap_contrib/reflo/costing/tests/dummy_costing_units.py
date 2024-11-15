@@ -133,25 +133,36 @@ class DummyTreatmentUnitData(InitializationMixin, UnitModelBlockData):
             doc="Constant heat consumption",
         )
 
+        dimensionless_flow_vol = pyunits.convert(
+            self.properties[0].flow_vol_phase["Liq"] * pyunits.m**-3 * pyunits.s,
+            to_units=pyunits.dimensionless,
+        )
+        dimensionless_flow_mass = pyunits.convert(
+            self.properties[0].flow_mass_phase_comp["Liq", "TDS"]
+            * pyunits.s
+            * pyunits.kg**-1,
+            to_units=pyunits.dimensionless,
+        )
+        dimensionless_conc = pyunits.convert(
+            self.properties[0].conc_mass_phase_comp["Liq", "TDS"]
+            * pyunits.m**3
+            * pyunits.kg**-1,
+            to_units=pyunits.dimensionless,
+        )
+
         @self.Constraint(doc="Capital variable calculation")
         def eq_capital_var(b):
-            return (
-                b.capital_var == b.design_var_a * b.properties[0].flow_vol_phase["Liq"]
-            )
+            return b.capital_var == b.design_var_a * dimensionless_flow_vol
 
         @self.Constraint(doc="Fixed operating variable calculation")
         def eq_fixed_operating_var(b):
-            return (
-                b.fixed_operating_var
-                == b.design_var_b * b.properties[0].conc_mass_phase_comp["Liq", "TDS"]
-            )
+            return b.fixed_operating_var == b.design_var_b * dimensionless_conc
 
         @self.Constraint(doc="Variable operating variable calculation")
         def eq_variable_operating_var(b):
             return (
                 b.variable_operating_var
-                == (b.design_var_a * b.design_var_b)
-                * b.properties[0].flow_mass_phase_comp["Liq", "TDS"]
+                == (b.design_var_a * b.design_var_b) * dimensionless_flow_mass
             )
 
     def initialize_build(self):
