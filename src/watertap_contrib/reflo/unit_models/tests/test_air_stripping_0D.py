@@ -46,7 +46,7 @@ from watertap.core import ControlVolume0DBlock
 from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.property_models import AirWaterEq
-from watertap_contrib.reflo.costing import REFLOCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.unit_models.air_stripping_0D import (
     AirStripping0D,
     PackingMaterial,
@@ -368,7 +368,11 @@ class TestAirStripping0D:
         ax = m.fs.ax
         prop_out = ax.process_flow.properties_out[0]
 
-        m.fs.costing = REFLOCosting()
+        m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
+
         ax.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_out.flow_vol_phase["Liq"])
@@ -737,7 +741,11 @@ class TestAirStripping0D:
         ax = m.fs.ax
         prop_out = ax.process_flow.properties_out[0]
 
-        m.fs.costing = REFLOCosting()
+        m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
+
         ax.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_out.flow_vol_phase["Liq"])

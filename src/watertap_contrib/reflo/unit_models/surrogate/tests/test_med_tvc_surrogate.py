@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -41,7 +41,7 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 from watertap_contrib.reflo.unit_models.surrogate import MEDTVCSurrogate
-from watertap_contrib.reflo.costing import REFLOCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 
 # -----------------------------------------------------------------------------
 # Get default solver for testing
@@ -183,7 +183,6 @@ class TestMEDTVC:
     @pytest.mark.unit
     def test_build(self, MED_TVC_frame):
         m = MED_TVC_frame
-
         # test ports
         port_lst = ["feed", "distillate", "brine", "steam", "motive"]
         for port_str in port_lst:
@@ -311,7 +310,11 @@ class TestMEDTVC:
         m = MED_TVC_frame
         med_tvc = m.fs.med_tvc
         dist = med_tvc.distillate_props[0]
-        m.fs.costing = REFLOCosting()
+        m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
+
         med_tvc.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
         m.fs.costing.total_investment_factor.fix(1)
@@ -331,25 +334,25 @@ class TestMEDTVC:
         assert pytest.approx(2254.658, rel=1e-3) == value(
             m.fs.med_tvc.costing.med_specific_cost
         )
-        assert pytest.approx(5126761.859, rel=1e-3) == value(
+        assert pytest.approx(6018483.49, rel=1e-3) == value(
             m.fs.med_tvc.costing.capital_cost
         )
-        assert pytest.approx(2705589.357, rel=1e-3) == value(
+        assert pytest.approx(3176185.15, rel=1e-3) == value(
             m.fs.med_tvc.costing.membrane_system_cost
         )
-        assert pytest.approx(2421172.502, rel=1e-3) == value(
+        assert pytest.approx(2842298.34, rel=1e-3) == value(
             m.fs.med_tvc.costing.evaporator_system_cost
         )
-        assert pytest.approx(239692.046, rel=1e-3) == value(
+        assert pytest.approx(261985.08, rel=1e-3) == value(
             m.fs.med_tvc.costing.fixed_operating_cost
         )
 
-        assert pytest.approx(1.6905, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(1.7355, rel=1e-3) == value(m.fs.costing.LCOW)
 
-        assert pytest.approx(785633.993, rel=1e-3) == value(
+        assert pytest.approx(740379.40, rel=1e-3) == value(
             m.fs.costing.total_operating_cost
         )
-        assert pytest.approx(5126761.859, rel=1e-3) == value(
+        assert pytest.approx(6018483.5, rel=1e-3) == value(
             m.fs.costing.total_capital_cost
         )
 

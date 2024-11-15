@@ -250,6 +250,9 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_in.flow_vol)
@@ -502,6 +505,9 @@ class TestChemSoft_SingleStageLime:
 
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_in.flow_vol)
@@ -754,6 +760,9 @@ class TestChemSoft_ExcessLime:
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_in.flow_vol)
@@ -1009,6 +1018,9 @@ class TestChemSoft_ExcessLime_2:
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_in.flow_vol)
@@ -1265,6 +1277,9 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.soft.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(prop_in.flow_vol)

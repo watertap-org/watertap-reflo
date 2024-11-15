@@ -772,6 +772,9 @@ class TestMultiEffectCrystallizer_2Effects:
     def test_costing(self, MEC2_frame):
         m = MEC2_frame
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         # m.fs.costing.base_currency = pyunits.USD_2018
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
@@ -1311,6 +1314,9 @@ class TestMultiEffectCrystallizer_3Effects:
     def test_costing(self, MEC3_frame):
         m = MEC3_frame
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         # m.fs.costing.base_currency = pyunits.USD_2018
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
@@ -1899,6 +1905,9 @@ class TestMultiEffectCrystallizer_4Effects:
     def test_costing(self, MEC4_frame):
         m = MEC4_frame
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
         )
@@ -1986,6 +1995,9 @@ class TestMultiEffectCrystallizer_4Effects:
         assert_optimal_termination(results)
 
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
             costing_method_arguments={"cost_type": "volume_basis"},
