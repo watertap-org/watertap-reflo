@@ -381,6 +381,9 @@ class TestCrystallizerEffect:
     def test_costing(self, effect_frame):
         m = effect_frame
         m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
         )
