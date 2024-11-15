@@ -216,8 +216,6 @@ def test_smooth_bound_lower():
 
     assert pytest.approx(value(m.fs.unit.pipe_diameter), rel=1e-3) == 2
 
-    return m
-
 
 @pytest.mark.component()
 def test_smooth_bound_upper():
@@ -261,8 +259,6 @@ def test_smooth_bound_upper():
     assert_optimal_termination(results)
 
     assert pytest.approx(value(m.fs.unit.pipe_diameter), rel=1e-3) == 24
-
-    return m
 
 
 class TestDeepWellInjection_BLMCosting:
