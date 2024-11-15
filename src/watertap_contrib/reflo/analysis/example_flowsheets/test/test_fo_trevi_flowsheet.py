@@ -86,6 +86,8 @@ class TestTreviFO:
         m.fs.costing = TreatmentCosting()
         m.fs.costing.base_currency = pyunits.USD_2021
 
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         # Create cost block for FO
         m.fs.fo.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
@@ -119,7 +121,7 @@ class TestTreviFO:
         assert overall_performance["Thermal power requirement (kW)"] == pytest.approx(
             101038.77, rel=1e-3
         )
-        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.511, rel=1e-3)
+        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.462, rel=1e-3)
 
         assert operational_parameters["HX1 cold in temp"] == pytest.approx(
             21.49, rel=1e-3
