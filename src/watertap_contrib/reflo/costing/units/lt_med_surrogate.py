@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -17,11 +17,13 @@ from watertap_contrib.reflo.costing.util import (
     make_fixed_operating_cost_var,
 )
 
-# Costing equations from:
-# Kosmadakis G, Papapetrou M, Ortega-Delgado B, Cipollina A, Alarcón-Padilla D-C.
-# "Correlations for estimating the specific capital cost of multi-effect distillation plants
-#    considering the main design trends and operating conditions"
-# doi: 10.1016/j.desal.2018.09.011
+"""
+Costing equations from:
+Kosmadakis G, Papapetrou M, Ortega-Delgado B, Cipollina A, Alarcón-Padilla D-C.
+"Correlations for estimating the specific capital cost of multi-effect distillation plants
+   considering the main design trends and operating conditions"
+doi: 10.1016/j.desal.2018.09.011
+"""
 
 
 def build_lt_med_surrogate_cost_param_block(blk):
@@ -150,7 +152,6 @@ def cost_lt_med_surrogate(blk):
         initialize=100,
         bounds=(0, None),
         units=pyo.units.USD_2018 / (pyo.units.m**3 / pyo.units.day),
-        # units=pyo.units.USD_2018,
         doc="MED system cost per m3/day distillate",
     )
 
