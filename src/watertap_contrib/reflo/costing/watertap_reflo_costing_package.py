@@ -63,7 +63,7 @@ class REFLOCostingData(WaterTAPCostingData):
         self.heat_cost = pyo.Var(
             initialize=0.0,
             doc="Heat cost",
-            units=pyo.units.USD_2018 / pyo.units.kWh,
+            units=self.base_currency / pyo.units.kWh,
         )
 
         self.defined_flows["heat"] = self.heat_cost
@@ -377,14 +377,14 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             mutable=True,
             initialize=0.07,
             doc="Electricity cost to buy",
-            units=pyo.units.USD_2018 / pyo.units.kWh,
+            units=self.base_currency / pyo.units.kWh,
         )
 
         self.electricity_cost_sell = pyo.Param(
             mutable=True,
             initialize=0.05,
             doc="Electricity cost to sell",
-            units=pyo.units.USD_2018 / pyo.units.kWh,
+            units=self.base_currency / pyo.units.kWh,
         )
 
         self.heat_cost_buy = pyo.Param(
