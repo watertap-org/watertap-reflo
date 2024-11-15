@@ -15,8 +15,8 @@ from idaes.core.solvers import get_solver
 from watertap.core.util.model_diagnostics.infeasible import *
 from idaes.core.util.scaling import *
 
-from watertap_contrib.reflo.solar_models.surrogate.flat_plate.flat_plate_surrogate import (
-    FlatPlateSurrogate,
+from watertap_contrib.reflo.solar_models.surrogate.trough.trough_surrogate import (
+    TroughSurrogate,
 )
 
 from idaes.core.util.model_statistics import (
@@ -31,12 +31,12 @@ from watertap_contrib.reflo.costing import (
 )
 
 __all__ = [
-    "build_fpc",
-    "init_fpc",
-    "set_fpc_op_conditions",
-    "add_fpc_costing",
-    "report_fpc",
-    "report_fpc_costing",
+    "build_cst",
+    "init_cst",
+    "set_cst_op_conditions",
+    "add_cst_costing",
+    "report_cst",
+    "report_cst_costing",
 ]
 
 
@@ -47,36 +47,31 @@ def build_system():
 
     m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
 
-    m.fs.fpc = FlowsheetBlock(dynamic=False)
+    m.fs.cst = FlowsheetBlock(dynamic=False)
 
     return m
 
 
-def build_fpc(blk, __file__=None):
+def build_cst(blk, __file__=None):
 
-    print(f'\n{"=======> BUILDING FPC SYSTEM <=======":^60}\n')
+    print(f'\n{"=======> BUILDING CST SYSTEM <=======":^60}\n')
 
     if __file__ == None:
         cwd = os.getcwd()
-        __file__ = (
-            cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\flat_plate\\"
-        )
+        __file__ = cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\trough\\"
 
     dataset_filename = os.path.join(
-        os.path.dirname(__file__), r"data\flat_plate_data_heat_load_1_400.pkl"
+        os.path.dirname(__file__), r"data\test_trough_data.pkl"
     )
     surrogate_filename = os.path.join(
         os.path.dirname(__file__),
-        r"data\flat_plate_data_heat_load_1_400_heat_load_1_400_hours_storage_0_27_temperature_hot_50_102.json",
+        r"data\test_trough_data_heat_load_100_500_hours_storage_0_26.json",
     )
 
-    input_bounds = dict(
-        heat_load=[1, 400], hours_storage=[0, 27], temperature_hot=[50, 102]
-
-    )
-    input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+    input_bounds = dict(heat_load=[100, 500], hours_storage=[0, 26])
+    input_units = dict(heat_load="MW", hours_storage="hour")
     input_variables = {
-        "labels": ["heat_load", "hours_storage", "temperature_hot"],
+        "labels": ["heat_load", "hours_storage"],
         "bounds": input_bounds,
         "units": input_units,
     }
@@ -87,7 +82,7 @@ def build_fpc(blk, __file__=None):
         "units": output_units,
     }
 
-    blk.unit = FlatPlateSurrogate(
+    blk.unit = TroughSurrogate(
         surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
@@ -96,25 +91,24 @@ def build_fpc(blk, __file__=None):
     )
 
 
-def init_fpc(blk):
+def init_cst(blk):
+    # Fix input variables for initialization
+    blk.unit.hours_storage.fix()
+    blk.unit.heat_load.fix()
     blk.unit.initialize()
+
+    blk.unit.heat_load.unfix()
 
 
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
-
-
+def set_cst_op_conditions(blk, hours_storage=6):
     blk.unit.hours_storage.fix(hours_storage)
-    # Assumes the hot temperature to the inlet of a 'MD HX'
-    blk.unit.temperature_hot.fix(temperature_hot)
-    # Assumes the cold temperature from the outlet temperature of a 'MD HX'
-    blk.unit.temperature_cold.set_value(20)
 
 
-def add_fpc_costing(blk, costing_block):
+def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
 
 
@@ -127,22 +121,10 @@ def calc_costing(m, blk):
     blk.costing.add_LCOW(m.fs.system_capacity)
 
 
-def report_fpc(m, blk):
-    # blk = m.fs.fpc
-    print(f"\n\n-------------------- FPC Report --------------------\n")
+def report_cst(m, blk):
+    # blk = m.fs.cst
+    print(f"\n\n-------------------- CST Report --------------------\n")
     print("\n")
-
-    print(
-        f'{"Number of collectors":<30s}{value(blk.number_collectors):<20,.2f}{pyunits.get_units(blk.number_collectors)}'
-    )
-
-    print(
-        f'{"Collector area":<30s}{value(blk.collector_area_total):<20,.2f}{pyunits.get_units(blk.collector_area_total)}'
-    )
-
-    print(
-        f'{"Storage volume":<30s}{value(blk.storage_volume):<20,.2f}{pyunits.get_units(blk.storage_volume)}'
-    )
 
     print(
         f'{"Heat load":<30s}{value(blk.heat_load):<20,.2f}{pyunits.get_units(blk.heat_load)}'
@@ -163,8 +145,8 @@ def report_fpc(m, blk):
     )
 
 
-def report_fpc_costing(m, blk):
-    print(f"\n\n-------------------- FPC Costing Report --------------------\n")
+def report_cst_costing(m, blk):
+    print(f"\n\n-------------------- CST Costing Report --------------------\n")
     print("\n")
 
     print(
@@ -215,19 +197,19 @@ if __name__ == "__main__":
 
     m = build_system()
 
-    build_fpc(m.fs.fpc)
-    init_fpc(m.fs.fpc)
-    set_fpc_op_conditions(m.fs.fpc)
+    build_cst(m.fs.cst)
 
-    print("Degrees of Freedom:", degrees_of_freedom(m))
+    init_cst(m.fs.cst)
 
-    add_fpc_costing(m.fs.fpc, costing_block=m.fs.costing)
+    set_cst_op_conditions(m.fs.cst)
+
+    add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-    m.fs.costing.aggregate_flow_heat.fix(-4000)
+    m.fs.costing.aggregate_flow_heat.fix(-70000)
     results = solver.solve(m)
 
     print(degrees_of_freedom(m))
-    report_fpc(m, m.fs.fpc.unit)
-    report_fpc_costing(m, m.fs)
+    report_cst(m, m.fs.cst.unit)
+    report_cst_costing(m, m.fs)
 
     # m.fs.costing.used_flows.display()

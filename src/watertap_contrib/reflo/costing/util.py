@@ -16,7 +16,7 @@ import pyomo.environ as pyo
 def make_capital_cost_var(blk):
     blk.capital_cost = pyo.Var(
         initialize=1e5,
-        # domain=pyo.NonNegativeReals,
+        domain=pyo.NonNegativeReals,
         units=blk.costing_package.base_currency,
         doc="Unit capital cost",
     )
