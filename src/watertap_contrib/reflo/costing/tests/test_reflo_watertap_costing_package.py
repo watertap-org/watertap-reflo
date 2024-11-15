@@ -24,9 +24,10 @@ from pyomo.environ import (
     value,
     units as pyunits,
 )
+from pyomo.util.check_units import assert_units_consistent
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.util.scaling import calculate_scaling_factors
+from idaes.core.util.scaling import calculate_scaling_factors, set_scaling_factor
 from idaes.core.util.model_statistics import degrees_of_freedom
 
 from watertap.core.solvers import get_solver
@@ -74,6 +75,9 @@ def build_electricity_gen_only_with_heat():
     m.fs.treatment.unit.electricity_consumption.fix(100)
     m.fs.treatment.unit.heat_consumption.fix()
     m.fs.treatment.costing.cost_process()
+    m.fs.treatment.costing.add_LCOW(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
 
     #### ENERGY BLOCK
     m.fs.energy = Block()
@@ -88,10 +92,7 @@ def build_electricity_gen_only_with_heat():
     #### SYSTEM COSTING
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.cost_process()
-
-    m.fs.treatment.costing.add_LCOW(
-        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
-    )
+    m.fs.costing.add_LCOE()
 
     #### SCALING
     m.fs.properties.set_default_scaling(
@@ -101,8 +102,6 @@ def build_electricity_gen_only_with_heat():
         "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
     )
     calculate_scaling_factors(m)
-
-    #### INITIALIZE
 
     m.fs.treatment.unit.properties.calculate_state(
         var_args={
@@ -140,10 +139,14 @@ def build_electricity_gen_only_no_heat():
     m.fs.treatment.unit.design_var_b.fix()
     m.fs.treatment.unit.electricity_consumption.fix(10000)
     m.fs.treatment.costing.cost_process()
+    m.fs.treatment.costing.add_LCOW(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
 
     #### ENERGY BLOCK
     m.fs.energy = Block()
     m.fs.energy.costing = EnergyCosting()
+
     m.fs.energy.unit = DummyElectricityUnit()
     m.fs.energy.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.energy.costing
@@ -154,10 +157,8 @@ def build_electricity_gen_only_no_heat():
     #### SYSTEM COSTING
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.cost_process()
-
-    m.fs.treatment.costing.add_LCOW(
-        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
-    )
+    m.fs.costing.add_LCOE()
+    m.fs.costing.add_LCOT(m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"])
 
     #### SCALING
     m.fs.properties.set_default_scaling(
@@ -168,7 +169,8 @@ def build_electricity_gen_only_no_heat():
     )
     calculate_scaling_factors(m)
 
-    #### INITIALIZE
+    set_scaling_factor(m.fs.energy.costing.yearly_electricity_production, 1e-7)
+    set_scaling_factor(m.fs.energy.costing.lifetime_electricity_production, 1e-9)
 
     m.fs.treatment.unit.properties.calculate_state(
         var_args={
@@ -205,8 +207,11 @@ def build_heat_gen_only():
     m.fs.treatment.unit.design_var_a.fix()
     m.fs.treatment.unit.design_var_b.fix()
     m.fs.treatment.unit.electricity_consumption.fix(1000)
-    m.fs.treatment.unit.heat_consumption.fix(25000)
+    m.fs.treatment.unit.heat_consumption.fix(2500)
     m.fs.treatment.costing.cost_process()
+    m.fs.treatment.costing.add_LCOW(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
 
     #### ENERGY BLOCK
     m.fs.energy = Block()
@@ -221,9 +226,11 @@ def build_heat_gen_only():
     #### SYSTEM COSTING
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.cost_process()
-    m.fs.treatment.costing.add_LCOW(
+    m.fs.costing.add_specific_thermal_energy_consumption(
         m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
     )
+    m.fs.costing.add_LCOH()
+    m.fs.costing.add_LCOT(m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"])
 
     #### SCALING
     m.fs.properties.set_default_scaling(
@@ -233,8 +240,6 @@ def build_heat_gen_only():
         "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
     )
     calculate_scaling_factors(m)
-
-    #### INITIALIZE
 
     m.fs.treatment.unit.properties.calculate_state(
         var_args={
@@ -262,6 +267,7 @@ def build_heat_and_elec_gen():
     #### TREATMENT BLOCK
     m.fs.treatment = Block()
     m.fs.treatment.costing = TreatmentCosting()
+    m.fs.treatment.costing.base_currency = pyunits.USD_2002
 
     m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
     m.fs.treatment.unit.costing = UnitModelCostingBlock(
@@ -277,6 +283,8 @@ def build_heat_and_elec_gen():
     #### ENERGY BLOCK
     m.fs.energy = Block()
     m.fs.energy.costing = EnergyCosting()
+    m.fs.energy.costing.base_currency = pyunits.USD_2002
+
     m.fs.energy.heat_unit = DummyHeatUnit()
     m.fs.energy.elec_unit = DummyElectricityUnit()
     m.fs.energy.heat_unit.costing = UnitModelCostingBlock(
@@ -304,8 +312,6 @@ def build_heat_and_elec_gen():
         "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
     )
     calculate_scaling_factors(m)
-
-    #### INITIALIZE
 
     m.fs.treatment.unit.properties.calculate_state(
         var_args={
@@ -357,6 +363,8 @@ class TestCostingPackagesDefault:
 
     def test_default_build(self, default_build):
         m = default_build
+
+        assert_units_consistent(m)
 
         # check inheritance
         assert isinstance(m.fs.treatment.costing, REFLOCostingData)
@@ -437,6 +445,8 @@ class TestElectricityGenOnlyWithHeat:
     def test_build(slef, energy_gen_only_with_heat):
 
         m = energy_gen_only_with_heat
+
+        assert_units_consistent(m)
 
         assert degrees_of_freedom(m) == 0
 
@@ -545,6 +555,26 @@ class TestElectricityGenOnlyWithHeat:
             + m.fs.energy.costing.aggregate_flow_electricity
         )
 
+        # test aggregation
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_capital_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_capital_cost
+            + m.fs.energy.costing.aggregate_capital_cost
+        )
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_fixed_operating_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_fixed_operating_cost
+            + m.fs.energy.costing.aggregate_fixed_operating_cost
+        )
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_variable_operating_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_variable_operating_cost
+            + m.fs.energy.costing.aggregate_variable_operating_cost
+        )
+
 
 class TestElectricityGenOnlyNoHeat:
 
@@ -559,6 +589,8 @@ class TestElectricityGenOnlyNoHeat:
     def test_build(slef, energy_gen_only_no_heat):
 
         m = energy_gen_only_no_heat
+
+        assert_units_consistent(m)
 
         assert degrees_of_freedom(m) == 0
 
@@ -632,6 +664,26 @@ class TestElectricityGenOnlyNoHeat:
         # no heat is generated or consumed
         assert pytest.approx(value(m.fs.costing.aggregate_flow_heat), rel=1e-3) == 0
 
+        # test aggregation
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_capital_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_capital_cost
+            + m.fs.energy.costing.aggregate_capital_cost
+        )
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_fixed_operating_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_fixed_operating_cost
+            + m.fs.energy.costing.aggregate_fixed_operating_cost
+        )
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_variable_operating_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_variable_operating_cost
+            + m.fs.energy.costing.aggregate_variable_operating_cost
+        )
+
     @pytest.mark.component
     def test_optimize_frac_from_grid(self):
 
@@ -682,6 +734,8 @@ class TestHeatGenOnly:
     def test_build(self, heat_gen_only):
 
         m = heat_gen_only
+
+        assert_units_consistent(m)
 
         assert degrees_of_freedom(m) == 0
 
@@ -755,7 +809,7 @@ class TestHeatGenOnly:
         m = build_heat_gen_only()
 
         m.fs.energy.unit.heat.unfix()
-        m.fs.costing.frac_heat_from_grid.fix(0.02)
+        m.fs.costing.frac_heat_from_grid.fix(0.002)
 
         assert degrees_of_freedom(m) == 0
 
@@ -769,14 +823,33 @@ class TestHeatGenOnly:
 
         assert (
             pytest.approx(value(m.fs.costing.aggregate_flow_heat_purchased), rel=1e-3)
-            == 500
+            == 5
         )
-        assert pytest.approx(value(m.fs.costing.aggregate_flow_heat), rel=1e-3) == 500
+        assert pytest.approx(value(m.fs.costing.aggregate_flow_heat), rel=1e-3) == 5
         assert pytest.approx(
             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
         ) == value(
             m.fs.costing.aggregate_flow_electricity_purchased
             - m.fs.costing.aggregate_flow_electricity_sold
+        )
+        # test aggregation
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_capital_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_capital_cost
+            + m.fs.energy.costing.aggregate_capital_cost
+        )
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_fixed_operating_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_fixed_operating_cost
+            + m.fs.energy.costing.aggregate_fixed_operating_cost
+        )
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_variable_operating_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_variable_operating_cost
+            + m.fs.energy.costing.aggregate_variable_operating_cost
         )
 
 
@@ -786,6 +859,8 @@ class TestElectricityAndHeatGen:
     def heat_and_elec_gen(self):
 
         m = build_heat_and_elec_gen()
+
+        assert_units_consistent(m)
 
         m.fs.costing.add_LCOE()
         m.fs.costing.add_LCOH()
@@ -803,6 +878,8 @@ class TestElectricityAndHeatGen:
     def test_build(slef, heat_and_elec_gen):
 
         m = heat_and_elec_gen
+
+        assert_units_consistent(m)
 
         assert degrees_of_freedom(m) == 0
 
@@ -939,6 +1016,25 @@ class TestElectricityAndHeatGen:
             * m.fs.energy.costing.aggregate_flow_heat
             / m.fs.treatment.costing.aggregate_flow_heat
         )
+        # test aggregation
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_capital_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_capital_cost
+            + m.fs.energy.costing.aggregate_capital_cost
+        )
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_fixed_operating_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_fixed_operating_cost
+            + m.fs.energy.costing.aggregate_fixed_operating_cost
+        )
+        assert pytest.approx(
+            value(m.fs.costing.aggregate_variable_operating_cost), rel=1e-3
+        ) == value(
+            m.fs.treatment.costing.aggregate_variable_operating_cost
+            + m.fs.energy.costing.aggregate_variable_operating_cost
+        )
 
 
 @pytest.mark.component
@@ -991,6 +1087,8 @@ def test_common_params_equivalent():
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.cost_process()
 
+    assert_units_consistent(m)
+
     # when they are equivalent, assert equivalency across all three costing packages
 
     assert value(m.fs.costing.electricity_cost) == value(
@@ -1006,6 +1104,8 @@ def test_common_params_equivalent():
 
     m.fs.energy.costing.cost_process()
     m.fs.treatment.costing.cost_process()
+
+    assert_units_consistent(m)
 
     # raise error when base currency isn't equivalent
 
@@ -1028,6 +1128,8 @@ def test_common_params_equivalent():
 
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.cost_process()
+
+    assert_units_consistent(m)
 
     # when they are equivalent, assert equivalency across all three costing packages
 
