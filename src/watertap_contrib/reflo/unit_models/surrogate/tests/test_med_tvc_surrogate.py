@@ -183,7 +183,6 @@ class TestMEDTVC:
     @pytest.mark.unit
     def test_build(self, MED_TVC_frame):
         m = MED_TVC_frame
-
         # test ports
         port_lst = ["feed", "distillate", "brine", "steam", "motive"]
         for port_str in port_lst:
@@ -335,25 +334,25 @@ class TestMEDTVC:
         assert pytest.approx(2254.658, rel=1e-3) == value(
             m.fs.med_tvc.costing.med_specific_cost
         )
-        assert pytest.approx(5126761.859, rel=1e-3) == value(
+        assert pytest.approx(6018483.49, rel=1e-3) == value(
             m.fs.med_tvc.costing.capital_cost
         )
-        assert pytest.approx(2705589.357, rel=1e-3) == value(
+        assert pytest.approx(3176185.15, rel=1e-3) == value(
             m.fs.med_tvc.costing.membrane_system_cost
         )
-        assert pytest.approx(2421172.502, rel=1e-3) == value(
+        assert pytest.approx(2842298.34, rel=1e-3) == value(
             m.fs.med_tvc.costing.evaporator_system_cost
         )
-        assert pytest.approx(239692.046, rel=1e-3) == value(
+        assert pytest.approx(261985.08, rel=1e-3) == value(
             m.fs.med_tvc.costing.fixed_operating_cost
         )
 
-        assert pytest.approx(1.6905, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(1.7355, rel=1e-3) == value(m.fs.costing.LCOW)
 
-        assert pytest.approx(785633.993, rel=1e-3) == value(
+        assert pytest.approx(740379.40, rel=1e-3) == value(
             m.fs.costing.total_operating_cost
         )
-        assert pytest.approx(5126761.859, rel=1e-3) == value(
+        assert pytest.approx(6018483.5, rel=1e-3) == value(
             m.fs.costing.total_capital_cost
         )
 

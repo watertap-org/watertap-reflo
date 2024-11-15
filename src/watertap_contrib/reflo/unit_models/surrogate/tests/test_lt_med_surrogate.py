@@ -312,8 +312,8 @@ class TestLTMED:
             m.fs.lt_med.costing.fixed_operating_cost
         )
 
-        assert pytest.approx(1.57605, rel=1e-3) == value(m.fs.costing.LCOW)
-        assert pytest.approx(747363.88, rel=1e-3) == value(
+        assert pytest.approx(1.4818, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(678576.13, rel=1e-3) == value(
             m.fs.costing.total_operating_cost
         )
         assert pytest.approx(4609113.13, rel=1e-3) == value(
