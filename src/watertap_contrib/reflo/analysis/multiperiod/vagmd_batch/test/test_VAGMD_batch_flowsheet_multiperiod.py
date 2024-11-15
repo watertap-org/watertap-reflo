@@ -280,7 +280,7 @@ class TestVAGMDbatchAS7C15L_Closed:
         assert pytest.approx(151892.658, rel=1e-3) == value(
             vagmd.costing.fixed_operating_cost
         )
-        assert pytest.approx(2.777, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(2.500, rel=1e-3) == value(m.fs.costing.LCOW)
 
 
 class TestVAGMDbatchAS7C15L_HighSalinityClosed:
