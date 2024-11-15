@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -17,11 +17,13 @@ from watertap_contrib.reflo.costing.util import (
     make_fixed_operating_cost_var,
 )
 
-# Costing equations from:
-# Kosmadakis G, Papapetrou M, Ortega-Delgado B, Cipollina A, Alarcón-Padilla D-C.
-# "Correlations for estimating the specific capital cost of multi-effect distillation plants
-#    considering the main design trends and operating conditions"
-# doi: 10.1016/j.desal.2018.09.011
+"""
+Costing equations from:
+Kosmadakis G, Papapetrou M, Ortega-Delgado B, Cipollina A, Alarcón-Padilla D-C.
+"Correlations for estimating the specific capital cost of multi-effect distillation plants
+   considering the main design trends and operating conditions"
+doi: 10.1016/j.desal.2018.09.011
+"""
 
 
 def build_med_tvc_surrogate_cost_param_block(blk):
@@ -37,14 +39,14 @@ def build_med_tvc_surrogate_cost_param_block(blk):
 
     blk.cost_fraction_maintenance = pyo.Var(
         initialize=0.02,
-        units=pyo.units.dimensionless,
+        units=pyo.units.year**-1,
         bounds=(0, None),
         doc="Fraction of capital cost for maintenance",
     )
 
     blk.cost_fraction_insurance = pyo.Var(
         initialize=0.005,
-        units=pyo.units.dimensionless,
+        units=pyo.units.year**-1,
         bounds=(0, None),
         doc="Fraction of capital cost for insurance",
     )
@@ -86,7 +88,7 @@ def build_med_tvc_surrogate_cost_param_block(blk):
 
     blk.med_sys_A_coeff = pyo.Var(
         initialize=6291,
-        units=pyo.units.dimensionless,
+        units=pyo.units.USD_2018 / (pyo.units.m**3 / pyo.units.day),
         doc="MED system specific capital A coeff",
     )
 
@@ -124,6 +126,7 @@ def cost_med_tvc_surrogate(blk):
     dist = med_tvc.distillate_props[0]
     brine = med_tvc.brine_props[0]
     base_currency = blk.config.flowsheet_costing_block.base_currency
+    base_period = blk.config.flowsheet_costing_block.base_period
 
     blk.membrane_system_cost = pyo.Var(
         initialize=100,
@@ -146,64 +149,82 @@ def cost_med_tvc_surrogate(blk):
     blk.capacity = pyo.units.convert(
         dist.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.day
     )
+    blk.capacity_dimensionless = pyo.units.convert(
+        blk.capacity * pyo.units.day * pyo.units.m**-3, to_units=pyo.units.dimensionless
+    )
 
     blk.annual_dist_production = pyo.units.convert(
         dist.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.year
     )
     blk.med_specific_cost_constraint = pyo.Constraint(
         expr=blk.med_specific_cost
-        == (
-            med_tvc_params.med_sys_A_coeff
-            * blk.capacity**med_tvc_params.med_sys_B_coeff
+        == pyo.units.convert(
+            (
+                med_tvc_params.med_sys_A_coeff
+                * blk.capacity_dimensionless**med_tvc_params.med_sys_B_coeff
+            ),
+            to_units=pyo.units.USD_2018 / (pyo.units.m**3 / pyo.units.day),
         )
     )
     blk.membrane_system_cost_constraint = pyo.Constraint(
         expr=blk.membrane_system_cost
-        == blk.capacity
-        * (blk.med_specific_cost * (1 - med_tvc_params.cost_fraction_evaporator))
+        == pyo.units.convert(
+            blk.capacity
+            * (blk.med_specific_cost * (1 - med_tvc_params.cost_fraction_evaporator)),
+            to_units=base_currency,
+        )
     )
 
     blk.evaporator_system_cost_constraint = pyo.Constraint(
         expr=blk.evaporator_system_cost
-        == blk.capacity
-        * (
-            blk.med_specific_cost
+        == pyo.units.convert(
+            blk.capacity
             * (
-                med_tvc_params.cost_fraction_evaporator
+                blk.med_specific_cost
                 * (
-                    (
-                        med_tvc.specific_area_per_kg_s
-                        / med_tvc_params.heat_exchanger_ref_area
+                    med_tvc_params.cost_fraction_evaporator
+                    * (
+                        (
+                            med_tvc.specific_area_per_kg_s
+                            / med_tvc_params.heat_exchanger_ref_area
+                        )
+                        ** med_tvc_params.heat_exchanger_exp
                     )
-                    ** med_tvc_params.heat_exchanger_exp
                 )
-            )
+            ),
+            to_units=base_currency,
         )
     )
     blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost == blk.membrane_system_cost + blk.evaporator_system_cost
+        expr=blk.capital_cost
+        == pyo.units.convert(
+            blk.membrane_system_cost + blk.evaporator_system_cost,
+            to_units=base_currency,
+        )
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == blk.annual_dist_production
-        * (
-            med_tvc_params.cost_chemicals_per_vol_dist
-            + med_tvc_params.cost_labor_per_vol_dist
-            + med_tvc_params.cost_misc_per_vol_dist
+        == pyo.units.convert(
+            blk.annual_dist_production
+            * (
+                med_tvc_params.cost_chemicals_per_vol_dist
+                + med_tvc_params.cost_labor_per_vol_dist
+                + med_tvc_params.cost_misc_per_vol_dist
+            )
+            + blk.capital_cost
+            * (
+                med_tvc_params.cost_fraction_maintenance
+                + med_tvc_params.cost_fraction_insurance
+            )
+            + pyo.units.convert(
+                brine.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.year
+            )
+            * med_tvc_params.cost_disposal_per_vol_brine,
+            to_units=base_currency / base_period,
         )
-        + blk.capital_cost
-        * (
-            med_tvc_params.cost_fraction_maintenance
-            + med_tvc_params.cost_fraction_insurance
-        )
-        + pyo.units.convert(
-            brine.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.year
-        )
-        * med_tvc_params.cost_disposal_per_vol_brine
     )
-
     blk.heat_flow = pyo.Expression(
         expr=med_tvc.specific_energy_consumption_thermal
         * pyo.units.convert(blk.capacity, to_units=pyo.units.m**3 / pyo.units.hr)

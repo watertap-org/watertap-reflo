@@ -500,6 +500,9 @@ class MEDVAGMDsemibatchData(UnitModelBlockData):
         """
         self.costing = TreatmentCosting()
         self.costing.base_currency = pyunits.USD_2020
+        # set heat and electricity costs to be non-zero
+        self.costing.heat_cost.set_value(0.01)
+        self.costing.electricity_cost.fix(0.07)
 
         # The costing model is built upon the last time step
         blk = self.mp.get_active_process_blocks()[-1].fs

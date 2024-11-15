@@ -11,21 +11,24 @@
 #
 ###############################################################################
 
-import os
-import sys
-import time
 import pandas as pd
-from io import StringIO
-
-from pyomo.environ import ConcreteModel, Var, Constraint, units as pyunits
-
-from idaes.core import FlowsheetBlock
+from pyomo.environ import (
+    Var,
+    Param,
+    Constraint,
+    Expression,
+    value,
+    check_optimal_termination,
+    units as pyunits,
+)
 from idaes.core import declare_process_block_class
-from idaes.core.surrogate.surrogate_block import SurrogateBlock
-from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
-from idaes.core.surrogate.sampling.data_utils import split_training_validation
+import idaes.core.util.scaling as iscale
+from idaes.core.util.exceptions import InitializationError
+import idaes.logger as idaeslog
 
+from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.core import SolarEnergyBaseData
+from watertap_contrib.reflo.costing.solar.pv_surrogate import cost_pv_surrogate
 
 __author__ = "Zachary Binger, Matthew Boyd, Kurban Sitterley"
 
@@ -42,147 +45,76 @@ class PVSurrogateData(SolarEnergyBaseData):
         super().build()
 
         self._tech_type = "PV"
-        self.surrogate_file = os.path.join(
-            os.path.dirname(__file__), "pv_surrogate.json"
-        )
+        self.add_surrogate_variables()
+        self.get_surrogate_data()
 
-        self.design_size = Var(
-            initialize=1000,
-            bounds=[1, 200000],
-            units=pyunits.kW,
-            doc="PV design size in kW",
-        )
-
-        self.annual_energy = Var(
-            initialize=1,
-            units=pyunits.kWh,
-            doc="Annual energy produced by the plant in kWh",
-        )
-
-        self.land_req = Var(
-            initialize=7e7,
-            units=pyunits.acre,
-            doc="Land area required by the plant in acres",
-        )
-
-        self.surrogate_inputs = [self.design_size]
-        self.surrogate_outputs = [self.annual_energy, self.land_req]
-
-        self.input_labels = ["design_size"]
-        self.output_labels = ["annual_energy", "land_req"]
+        if self.config.surrogate_model_file is not None:
+            self.surrogate_file = self.config.surrogate_model_file
+            self.load_surrogate()
+        else:
+            self.create_rbf_surrogate()
 
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
-            == -1
-            * self.electricity
-            * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
+            == pyunits.convert(self.electricity, to_units=pyunits.kWh / pyunits.year)
         )
 
-    def load_surrogate(self):
-        print("Loading surrogate file...")
-        self.surrogate_file = os.path.join(
-            os.path.dirname(__file__), "pv_surrogate.json"
-        )
+    def calculate_scaling_factors(self):
 
-        if os.path.exists(self.surrogate_file):
-            stream = StringIO()
-            oldstdout = sys.stdout
-            sys.stdout = stream
+        if iscale.get_scaling_factor(self.design_size) is None:
+            sf = iscale.get_scaling_factor(self.design_size, default=1)
+            iscale.set_scaling_factor(self.design_size, sf)
 
-            self.surrogate_blk = SurrogateBlock(concrete=True)
-            self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
-            self.surrogate_blk.build_model(
-                self.surrogate,
-                input_vars=self.surrogate_inputs,
-                output_vars=self.surrogate_outputs,
-            )
+        if iscale.get_scaling_factor(self.annual_energy) is None:
+            sf = iscale.get_scaling_factor(self.annual_energy, default=1, warning=True)
+            iscale.set_scaling_factor(self.annual_energy, sf)
 
-            # Revert back to standard output
-            sys.stdout = oldstdout
+        if iscale.get_scaling_factor(self.electricity) is None:
+            sf = iscale.get_scaling_factor(self.electricity, default=1, warning=True)
+            iscale.set_scaling_factor(self.electricity, sf)
 
-    def get_training_validation(self):
-        self.dataset_filename = os.path.join(
-            os.path.dirname(__file__), "data/dataset.pkl"
-        )
-        print("Loading Training Data...\n")
-        time_start = time.process_time()
-        pkl_data = pd.read_pickle(self.dataset_filename)
-        data = pkl_data.sample(n=int(len(pkl_data)))  # FIX default this to 100% of data
-        self.data_training, self.data_validation = split_training_validation(
-            data, self.training_fraction, seed=len(data)
-        )
-        time_stop = time.process_time()
-        print("Data Loading Time:", time_stop - time_start, "\n")
-
-    def create_surrogate(
+    def initialize(
         self,
-        save=False,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
     ):
-        self.sample_fraction = 0.1  # fraction of the generated data to train with. More flexible than n_samples.
-        self.training_fraction = 0.8
+        """
+        General wrapper for initialization routines
 
-        self.get_training_validation()
-        time_start = time.process_time()
-        # Capture long output
-        stream = StringIO()
-        oldstdout = sys.stdout
-        sys.stdout = stream
+        Keyword Arguments:
+            outlvl : sets output level of initialization routine
+            optarg : solver options dictionary object (default=None)
+            solver : str indicating which solver to use during
+                     initialization (default = None)
 
-        # Create PySMO trainer object
-        trainer = PysmoRBFTrainer(
-            input_labels=self.input_labels,
-            output_labels=self.output_labels,
-            training_dataframe=self.data_training,
+        Returns: None
+        """
+        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
+
+        if solver is None:
+            opt = get_solver(optarg)
+
+        self.init_data = pd.DataFrame(
+            {
+                "design_size": [value(self.design_size)],
+                "annual_energy": [value(self.annual_energy)],
+                "land_req": [value(self.land_req)],
+            }
         )
+        self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
 
-        # Set PySMO options
-        trainer.config.basis_function = "gaussian"  # default = gaussian
-        trainer.config.solution_method = "algebraic"  # default = algebraic
-        trainer.config.regularization = True  # default = True
+        self.electricity.set_value(value(self.annual_energy) / 8766)
+        # Create solver
+        res = opt.solve(self)
 
-        # Train surrogate
-        rbf_train = trainer.train_surrogate()
+        init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
 
-        # Remove autogenerated 'solution.pickle' file
-        try:
-            os.remove("solution.pickle")
-        except FileNotFoundError:
-            pass
-        except Exception as e:
-            raise e
-        # Create callable surrogate object
-        xmin, xmax = [self.design_size.bounds[0]], [self.design_size.bounds[1]]
-        input_bounds = {
-            self.input_labels[i]: (xmin[i], xmax[i])
-            for i in range(len(self.input_labels))
-        }
-        rbf_surr = PysmoSurrogate(
-            rbf_train, self.input_labels, self.output_labels, input_bounds
-        )
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {self.name} failed to initialize")
 
-        # Save model to JSON
-        if (self.surrogate_file is not None) and (save is True):
-            print(f"Writing surrogate model to {self.surrogate_file}")
-            model = rbf_surr.save_to_file(self.surrogate_file, overwrite=True)
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
-        # Revert back to standard output
-        sys.stdout = oldstdout
-
-        time_stop = time.process_time()
-        print("Model Training Time:", time_stop - time_start, "\n")
-
-        return rbf_surr
-
-
-if __name__ == "__main__":
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.pv = PVSurrogate()
-    m.fs.pv.create_surrogate(save=False)
-
-    m.fs.pv.load_surrogate()
-
-    results = m.fs.pv.surrogate.evaluate_surrogate(
-        m.fs.pv.data_validation[m.fs.pv.input_labels]
-    )
-    print(results)
+    @property
+    def default_costing_method(self):
+        return cost_pv_surrogate
