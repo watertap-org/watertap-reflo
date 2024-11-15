@@ -661,6 +661,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
     def initialize_build(self):
 
+        energy_cost = self._get_energy_cost_block()
+
         self.aggregate_flow_electricity_sold.fix(0)
         self.aggregate_electricity_complement.deactivate()
 
@@ -725,6 +727,47 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         super().initialize_build()
 
+        if hasattr(self, "LCOT"):
+            calculate_variable_from_constraint(
+                self.LCOT,
+                self.LCOT_constraint,
+            )
+
+        if hasattr(self, "LCOE"):
+            for y, c in energy_cost.yearly_electricity_production_constraint.items():
+
+                calculate_variable_from_constraint(
+                    energy_cost.yearly_electricity_production[y],
+                    c,
+                )
+
+            calculate_variable_from_constraint(
+                energy_cost.lifetime_electricity_production,
+                energy_cost.lifetime_electricity_production_constraint,
+            )
+            calculate_variable_from_constraint(
+                energy_cost.LCOE,
+                energy_cost.LCOE_constraint,
+            )
+
+        if hasattr(self, "LCOH"):
+
+            for y, c in energy_cost.yearly_heat_production_constraint.items():
+
+                calculate_variable_from_constraint(
+                    energy_cost.yearly_heat_production[y],
+                    c,
+                )
+
+            calculate_variable_from_constraint(
+                energy_cost.lifetime_heat_production,
+                energy_cost.lifetime_heat_production_constraint,
+            )
+            calculate_variable_from_constraint(
+                energy_cost.LCOH,
+                energy_cost.LCOH_constraint,
+            )
+
     def calculate_scaling_factors(self):
 
         if get_scaling_factor(self.total_capital_cost) is None:
@@ -772,20 +815,19 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         """
         pass
 
-    def add_LCOT(self, flow_rate, name="LCOT"):
+    def add_LCOT(self, flow_rate):
         """
         Add Levelized Cost of Treatment (LCOT) to costing block.
         Args:
             flow_rate - flow rate of water (volumetric) to be used in
                         calculating LCOT
-            name (optional) - name for the LCOT variable (default: LCOT)
         """
 
         LCOT = pyo.Var(
             doc=f"Levelized Cost of Treatment based on flow {flow_rate.name}",
             units=self.base_currency / pyo.units.m**3,
         )
-        self.add_component(name, LCOT)
+        self.add_component("LCOT", LCOT)
 
         LCOT_constraint = pyo.Constraint(
             expr=LCOT
@@ -799,7 +841,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             ),
             doc=f"Constraint for Levelized Cost of Treatment based on flow {flow_rate.name}",
         )
-        self.add_component(name + "_constraint", LCOT_constraint)
+        self.add_component("LCOT_constraint", LCOT_constraint)
 
     def add_LCOE(self):
         """
