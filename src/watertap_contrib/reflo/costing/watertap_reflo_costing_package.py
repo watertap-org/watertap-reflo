@@ -364,8 +364,6 @@ class EnergyCostingData(REFLOCostingData):
         raise ValueError("Can't add LCOW to EnergyCosting package.")
 
 
-# TODO: Add heat terms only when heat flow type exists
-# Define frac elec flow only when electricity is generated?
 @declare_process_block_class("REFLOSystemCosting")
 class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
@@ -646,40 +644,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                     * self.heat_cost_sell
                 ),
                 to_units=self.base_currency / self.base_period,
-            )
-        )
-
-        # positive is for cost and negative for revenue
-        self.total_electric_operating_cost_constraint = pyo.Constraint(
-            expr=self.total_electric_operating_cost
-            == (
-                pyo.units.convert(
-                    self.aggregate_flow_electricity_purchased,
-                    to_units=pyo.units.kWh / pyo.units.year,
-                )
-                * self.electricity_cost_buy
-                - pyo.units.convert(
-                    self.aggregate_flow_electricity_sold,
-                    to_units=pyo.units.kWh / pyo.units.year,
-                )
-                * self.electricity_cost_sell
-            )
-        )
-
-        # positive is for cost and negative for revenue
-        self.total_heat_operating_cost_constraint = pyo.Constraint(
-            expr=self.total_heat_operating_cost
-            == (
-                pyo.units.convert(
-                    self.aggregate_flow_heat_purchased,
-                    to_units=pyo.units.kWh / pyo.units.year,
-                )
-                * self.heat_cost_buy
-                - pyo.units.convert(
-                    self.aggregate_flow_heat_sold,
-                    to_units=pyo.units.kWh / pyo.units.year,
-                )
-                * self.heat_cost_sell
             )
         )
 
