@@ -191,6 +191,8 @@ class TestSolarStill:
     def test_costing(self, ss_frame):
         m = ss_frame
         m.fs.costing = TreatmentCosting()
+        m.fs.costing.electricity_cost.fix(0.07)
+        m.fs.costing.heat_cost.fix(0.01)
         m.fs.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(
