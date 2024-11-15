@@ -407,12 +407,12 @@ def debug_t_hot(tech_model):
 #########################################################################################################
 if __name__ == "__main__":
     debug = False
-    plot_saved_dataset = True  # plot previously run, saved data?
-    run_parametrics = False
+    plot_saved_dataset = False  # plot previously run, saved data?
+    run_parametrics = True
     use_multiprocessing = True
 
     # heat_loads = np.arange(5, 115, 10)          # [MWt]
-    heat_loads = np.arange(100, 1100, 25)  # [MWt]
+    heat_loads = np.arange(1, 400, 25)  # [MWt]
     hours_storages = np.arange(0, 27, 1)  # [hr]
     temperature_hots = np.arange(50, 102, 2)  # [C]
     temperatures = {
@@ -426,7 +426,7 @@ if __name__ == "__main__":
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "test_flat_plate_data.pkl"
+        dirname(__file__), "flat_plate_data_heat_load_1_400.pkl"
     )  # output dataset for surrogate training
 
     config_data = read_module_datafile(param_file)
@@ -455,7 +455,7 @@ if __name__ == "__main__":
 
     # Run model for single parameter set
     result = run_model(
-        tech_model, heat_load_mwt=1000, hours_storage=1, temperature_hot=70
+        tech_model, heat_load_mwt=200, hours_storage=1, temperature_hot=70
     )
 
     # Run parametrics

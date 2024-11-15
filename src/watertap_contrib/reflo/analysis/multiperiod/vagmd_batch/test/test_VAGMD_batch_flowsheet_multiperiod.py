@@ -28,7 +28,7 @@ from idaes.core.util.model_statistics import (
 
 from watertap.core.solvers import get_solver
 
-from watertap_contrib.reflo.costing import REFLOCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_multiperiod_unit_model import (
     VAGMDbatchSurrogate,
 )
@@ -248,7 +248,10 @@ class TestVAGMDbatchAS7C15L_Closed:
         # The costing model is built upon the last time step
         vagmd = m.fs.VAGMD.mp.get_active_process_blocks()[-1].fs.vagmd
 
-        m.fs.costing = REFLOCosting()
+        m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.costing.base_currency = pyunits.USD_2020
 
         m.fs.VAGMD.add_costing_module(m.fs.costing)
@@ -277,7 +280,7 @@ class TestVAGMDbatchAS7C15L_Closed:
         assert pytest.approx(151892.658, rel=1e-3) == value(
             vagmd.costing.fixed_operating_cost
         )
-        assert pytest.approx(2.777, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(2.500, rel=1e-3) == value(m.fs.costing.LCOW)
 
 
 class TestVAGMDbatchAS7C15L_HighSalinityClosed:

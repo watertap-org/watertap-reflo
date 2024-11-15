@@ -26,10 +26,6 @@ from pyomo.environ import (
 )
 from pyomo.network import Port
 
-from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
-from watertap_contrib.reflo.core import SolarEnergyBaseData
-from watertap_contrib.reflo.costing import EnergyCosting
-
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import (
@@ -42,6 +38,10 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     unscaled_variables_generator,
 )
+
+from watertap_contrib.reflo.solar_models.surrogate.trough import TroughSurrogate
+from watertap_contrib.reflo.core import SolarEnergyBaseData
+from watertap_contrib.reflo.costing import EnergyCosting
 
 from watertap.core.solvers import get_solver
 
@@ -282,6 +282,9 @@ class TestTroughLarge:
         calculate_scaling_factors(m)
         m.fs.trough.initialize()
         m.fs.costing = EnergyCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.trough.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
         )
@@ -312,10 +315,10 @@ class TestTroughLarge:
             "aggregate_variable_operating_cost": 1313013.020,
             "aggregate_flow_heat": -149784.738,
             "aggregate_flow_electricity": 1843.139,
-            "aggregate_flow_costs": {"heat": -15413915.083, "electricity": 1327705.190},
+            "aggregate_flow_costs": {"heat": -13130130.20, "electricity": 1327705.190},
             "total_capital_cost": 249933275.0,
             "maintenance_labor_chemical_operating_cost": 0.0,
-            "total_operating_cost": -10773196.871,
+            "total_operating_cost": -8489411.99,
             "capital_recovery_factor": 0.11955949,
             "aggregate_direct_capital_cost": 249933275.0,
         }
