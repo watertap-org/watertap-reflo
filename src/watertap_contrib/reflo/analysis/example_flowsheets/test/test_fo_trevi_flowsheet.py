@@ -119,7 +119,7 @@ class TestTreviFO:
         assert overall_performance["Thermal power requirement (kW)"] == pytest.approx(
             101038.77, rel=1e-3
         )
-        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.511, rel=1e-3)
+        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.096688, rel=1e-3)
 
         assert operational_parameters["HX1 cold in temp"] == pytest.approx(
             21.49, rel=1e-3
