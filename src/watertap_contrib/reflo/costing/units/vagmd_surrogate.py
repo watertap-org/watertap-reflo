@@ -185,14 +185,14 @@ def build_vagmd_surrogate_cost_param_block(blk):
 
     blk.cost_fraction_maintenance = pyo.Var(
         initialize=0.013,
-        units=pyo.units.dimensionless,
+        units=pyo.units.year**-1,
         bounds=(0, None),
         doc="Fraction of capital cost for maintenance",
     )
 
     blk.cost_fraction_insurance = pyo.Var(
         initialize=0.005,
-        units=pyo.units.dimensionless,
+        units=pyo.units.year**-1,
         bounds=(0, None),
         doc="Fraction of capital cost for insurance",
     )
@@ -224,6 +224,7 @@ def cost_vagmd_surrogate(blk):
 
     vagmd = blk.unit_model
     base_currency = blk.config.flowsheet_costing_block.base_currency
+    base_period = blk.config.flowsheet_costing_block.base_period
 
     blk.module_cost = pyo.Var(
         initialize=100000,
@@ -246,44 +247,54 @@ def cost_vagmd_surrogate(blk):
 
     blk.module_cost_constraint = pyo.Constraint(
         expr=blk.module_cost
-        == vagmd_params.base_module_cost
-        * vagmd_params.base_module_capacity
-        * (vagmd.num_modules / vagmd_params.base_module_capacity)
-        ** vagmd_params.module_cost_index
-        + vagmd_params.membrane_cost * vagmd.module_area * vagmd.num_modules
+        == pyo.units.convert(
+            vagmd_params.base_module_cost
+            * vagmd_params.base_module_capacity
+            * (vagmd.num_modules / vagmd_params.base_module_capacity)
+            ** vagmd_params.module_cost_index
+            + vagmd_params.membrane_cost * vagmd.module_area * vagmd.num_modules,
+            to_units=base_currency,
+        )
     )
 
     blk.other_capital_cost_constraint = pyo.Constraint(
         expr=blk.other_capital_cost
-        == vagmd_params.base_housing_rack_cost
-        * (vagmd.num_modules / vagmd_params.base_housing_rack_capacity)
-        ** vagmd_params.housing_rack_cost_index
-        + vagmd_params.base_tank_cost
-        * (vagmd.num_modules / vagmd_params.base_tank_capacity)
-        ** vagmd_params.tank_cost_index
-        + vagmd_params.base_other_cost
-        * (vagmd.num_modules / vagmd_params.base_other_capacity)
-        ** vagmd_params.other_cost_index
+        == pyo.units.convert(
+            vagmd_params.base_housing_rack_cost
+            * (vagmd.num_modules / vagmd_params.base_housing_rack_capacity)
+            ** vagmd_params.housing_rack_cost_index
+            + vagmd_params.base_tank_cost
+            * (vagmd.num_modules / vagmd_params.base_tank_capacity)
+            ** vagmd_params.tank_cost_index
+            + vagmd_params.base_other_cost
+            * (vagmd.num_modules / vagmd_params.base_other_capacity)
+            ** vagmd_params.other_cost_index,
+            to_units=base_currency,
+        )
     )
 
     blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost == blk.module_cost + blk.other_capital_cost
+        expr=blk.capital_cost
+        == pyo.units.convert(
+            blk.module_cost + blk.other_capital_cost, to_units=base_currency
+        )
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
         == pyo.units.convert(
-            vagmd.system_capacity, to_units=pyo.units.m**3 / pyo.units.year
-        )
-        * (
-            vagmd_params.membrane_replacement_cost
-            + vagmd_params.specific_operational_cost
-        )
-        + blk.capital_cost
-        * (
-            vagmd_params.cost_fraction_maintenance
-            + vagmd_params.cost_fraction_insurance
+            blk.annual_dist_production
+            * (
+                vagmd_params.membrane_replacement_cost
+                + vagmd_params.specific_operational_cost
+            )
+            + blk.capital_cost
+            * (
+                vagmd_params.cost_fraction_maintenance
+                + vagmd_params.cost_fraction_insurance
+            ),
+            to_units=base_currency / base_period,
         )
     )
 

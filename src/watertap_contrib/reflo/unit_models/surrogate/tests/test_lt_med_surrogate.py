@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -40,7 +40,7 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
-from watertap_contrib.reflo.costing import REFLOCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 
 # Get default solver for testing
 solver = get_solver()
@@ -271,7 +271,12 @@ class TestLTMED:
         m = LT_MED_frame
         lt_med = m.fs.lt_med
         dist = lt_med.distillate_props[0]
-        m.fs.costing = REFLOCosting()
+
+        m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
+
         m.fs.costing.base_currency = pyunits.USD_2020
         lt_med.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
@@ -294,24 +299,24 @@ class TestLTMED:
         assert pytest.approx(2254.658, rel=1e-3) == value(
             m.fs.lt_med.costing.med_specific_cost
         )
-        assert pytest.approx(4662455.768, rel=1e-3) == value(
+        assert pytest.approx(4609113.13, rel=1e-3) == value(
             m.fs.lt_med.costing.capital_cost
         )
-        assert pytest.approx(2705589.357, rel=1e-3) == value(
+        assert pytest.approx(2674635.00, rel=1e-3) == value(
             m.fs.lt_med.costing.membrane_system_cost
         )
-        assert pytest.approx(1956866.411, rel=1e-3) == value(
+        assert pytest.approx(1934478.12, rel=1e-3) == value(
             m.fs.lt_med.costing.evaporator_system_cost
         )
-        assert pytest.approx(208604.394, rel=1e-3) == value(
+        assert pytest.approx(207270.82, rel=1e-3) == value(
             m.fs.lt_med.costing.fixed_operating_cost
         )
 
-        assert pytest.approx(1.58295, rel=1e-3) == value(m.fs.costing.LCOW)
-        assert pytest.approx(748697.447, rel=1e-3) == value(
+        assert pytest.approx(1.4818, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(678576.13, rel=1e-3) == value(
             m.fs.costing.total_operating_cost
         )
-        assert pytest.approx(4662455.768, rel=1e-3) == value(
+        assert pytest.approx(4609113.13, rel=1e-3) == value(
             m.fs.costing.total_capital_cost
         )
 
