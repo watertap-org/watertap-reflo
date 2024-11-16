@@ -118,12 +118,21 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         unit_log = idaeslog.getModelLogger(self.name, tag="unit")
 
         if len(self.config.water_yield_calculation_args) > 0:
-            required_args = ["input_weather_file_path", "interval_day", "salinity", "water_depth_basin", "length_basin"]
-            if not all(a in self.config.water_yield_calculation_args.keys() for a in required_args):
+            required_args = [
+                "input_weather_file_path",
+                "interval_day",
+                "salinity",
+                "water_depth_basin",
+                "length_basin",
+            ]
+            if not all(
+                a in self.config.water_yield_calculation_args.keys()
+                for a in required_args
+            ):
                 raise ConfigurationError(
                     f'Water yield calculation dict must contain values for "input_weather_file_path", "interval_day", '
                     f'"salinity", "water_depth_basin", and "length_basin", but only '
-                    f'{[*self.config.water_yield_calculation_args.keys()]}  were found.'
+                    f"{[*self.config.water_yield_calculation_args.keys()]}  were found."
                 )
 
         tmp_dict = dict(**self.config.property_package_args)
