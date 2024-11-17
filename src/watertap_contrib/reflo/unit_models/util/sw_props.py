@@ -50,12 +50,14 @@ def calculate_density(salinity, temperature):
     dens_coeff_11 = dens_coeff_9
     dens_coeff_12 = (2 * (dens_coeff_9**2)) - 1
     dens_coeff_13 = (4 * dens_coeff_9**3) - 3 * dens_coeff_9
+
+    # saltwater density (kg/m^3)
     density = 1e3 * (
         (dens_coeff_5 * dens_coeff_10)
         + (dens_coeff_6 * dens_coeff_11)
         + (dens_coeff_7 * dens_coeff_12)
         + (dens_coeff_8 * dens_coeff_13)
-    )  # saltwater density (kg/m^3)
+    )  
 
     return density
 
