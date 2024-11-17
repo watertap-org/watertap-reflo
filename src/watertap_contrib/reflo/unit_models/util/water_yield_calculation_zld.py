@@ -11,7 +11,7 @@
 #################################################################################
 
 import math
-import pandas as pd
+from pandas import read_csv
 import numpy as np
 
 from watertap_contrib.reflo.unit_models.util.sw_props import (
@@ -48,22 +48,23 @@ emissivity_water = 0.95 * 1.0  # Water Emissivity (-)
 emissivity_effective = 1 / ((1 / emissivity_water) + (1 / emissivity_glass) - 1)
 
 # No Attenuation factor considered
+# Fraction of solar radiation absorbed by water (-)
 absorp_effective_water = (
     (absorp_water)
     * (1 - absorp_glass)
     * (1 - reflectivity_glass)
     * (1 - reflectivity_water)
-)  # Fraction of solar radiation absorbed by water (-)
+)
+# Fraction of solar radiation absorbed by basin liner (-)
 absorp_effective_basin = (
     (absorp_basin)
     * (1 - absorp_glass)
     * (1 - reflectivity_glass)
     * (1 - absorp_water)
     * (1 - reflectivity_water)
-)  # Fraction of solar radiation absorbed by basin liner (-)
-absorp_effective_glass = (
-    1 - reflectivity_glass
-) * absorp_glass  # Fraction of solar radiation absorbed by grouping_term glass cover (-)
+)
+# Fraction of solar radiation absorbed by a glass cover (-)
+absorp_effective_glass = (1 - reflectivity_glass) * absorp_glass
 
 # Adaptive coeff heat transfer coeff with buoyancy
 AA = 0.54
@@ -71,10 +72,10 @@ AA = 0.54
 BB = 0.25
 
 
-def create_input_arrays(weather_data):
+def create_input_arrays(weather_data, irradiance_threshold=20):
 
     def generate_continuous_day_series():
-        # Days in each month for grouping_term non-leap year
+        # Days in each month for non-leap year
         days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
         continuous_day_series = []
@@ -99,20 +100,19 @@ def create_input_arrays(weather_data):
         if day == 365:
             day = 364
         start_row = day * 24
-        # end_row = start_row + 24
         for kk in range(24):
-            temp = float(weather_data.iloc[start_row + kk, 7])
             irr = float(weather_data.iloc[start_row + kk, 4]) + 10
+            temp = float(weather_data.iloc[start_row + kk, 7])
             wind = float(weather_data.iloc[start_row + kk, 11])
 
-            if irr > 20:
+            if irr > irradiance_threshold:
                 ambient_temp_by_hr.append(temp)
                 irradiance_by_hr.append(irr)
                 wind_vel_by_hr.append(wind)
 
-    ambient_temp_by_hr = pd.Series(ambient_temp_by_hr)
-    irradiance_by_hr = pd.Series(irradiance_by_hr)
-    wind_vel_by_hr = pd.Series(wind_vel_by_hr)
+    ambient_temp_by_hr = np.array(ambient_temp_by_hr)
+    irradiance_by_hr = np.array(irradiance_by_hr)
+    wind_vel_by_hr = np.array(wind_vel_by_hr)
 
     return ambient_temp_by_hr, irradiance_by_hr, wind_vel_by_hr
 
@@ -122,41 +122,46 @@ def get_solar_still_daily_water_yield_zld(
     initial_salinity=200,  # initial salinity of influent water; g/L
     initial_water_depth=0.01,  # initial depth of water in solar still basin; m
     length_basin=0.6,  # length of each side of basin (length=width); m
+    irradiance_threshold=20,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
 ):
-    weather_data = pd.read_csv(input_weather_file_path, skiprows=2)
     area_bottom_basin = length_basin**2  # Area of square basin (m^2)
 
+    weather_data = read_csv(input_weather_file_path, skiprows=2)
+
     ambient_temp_by_hr, irradiance_by_hr, wind_vel_by_hr = create_input_arrays(
-        weather_data
+        weather_data,
+        irradiance_threshold=irradiance_threshold,
     )
 
-    # Allocating the variables
+    len_data_hr = len(irradiance_by_hr)
+
+    # Create arrays
     # Second variables
-    depth = np.zeros(len(irradiance_by_hr) * 3600)
-    salinity = np.zeros(len(irradiance_by_hr) * 3600)
-    excess_salinity = np.zeros(len(irradiance_by_hr) * 3600)
-    volume_scale_formation = np.zeros(len(irradiance_by_hr) * 3600)
-    thickness_scale_formation = np.zeros(len(irradiance_by_hr) * 3600)
-    evap_sw_mass = np.zeros(len(irradiance_by_hr) * 3600)
-    evap_sw_mass2 = np.zeros(len(irradiance_by_hr) * 3600)
-    irradiance = np.zeros(len(irradiance_by_hr) * 3600)
-    salt_precipitated = np.zeros(len(irradiance_by_hr) * 3600)
-    sw_mass = np.zeros(len(irradiance_by_hr) * 3600)
-    fw_mass = np.zeros(len(irradiance_by_hr) * 3600)
-    time = np.zeros(len(irradiance_by_hr) * 3600)
-    wind_velocity = np.zeros(len(irradiance_by_hr) * 3600)
-    ambient_temp = np.zeros(len(irradiance_by_hr) * 3600)
-    basin_temp = np.zeros(len(irradiance_by_hr) * 3600)
-    glass_temp = np.zeros(len(irradiance_by_hr) * 3600)
-    sky_temp = np.zeros(len(irradiance_by_hr) * 3600)
-    saltwater_temp = np.zeros(len(irradiance_by_hr) * 3600)
+    depth = np.zeros(len_data_hr * 3600)
+    salinity = np.zeros(len_data_hr * 3600)
+    excess_salinity = np.zeros(len_data_hr * 3600)
+    volume_scale_formation = np.zeros(len_data_hr * 3600)
+    thickness_scale_formation = np.zeros(len_data_hr * 3600)
+    evap_sw_mass = np.zeros(len_data_hr * 3600)
+    evap_sw_mass2 = np.zeros(len_data_hr * 3600)
+    irradiance = np.zeros(len_data_hr * 3600)
+    salt_precipitated = np.zeros(len_data_hr * 3600)
+    sw_mass = np.zeros(len_data_hr * 3600)
+    fw_mass = np.zeros(len_data_hr * 3600)
+    time = np.zeros(len_data_hr * 3600)
+    wind_velocity = np.zeros(len_data_hr * 3600)
+    ambient_temp = np.zeros(len_data_hr * 3600)
+    basin_temp = np.zeros(len_data_hr * 3600)
+    glass_temp = np.zeros(len_data_hr * 3600)
+    sky_temp = np.zeros(len_data_hr * 3600)
+    saltwater_temp = np.zeros(len_data_hr * 3600)
 
     # Converting hourly data into per second
-    for hour in range(len(irradiance_by_hr)):
+    for hour in range(len_data_hr):
         start_idx = 3600 * hour
         end_idx = start_idx + 3600
         irradiance[start_idx:end_idx] = irradiance_by_hr[hour]
-        wind_velocity[start_idx:end_idx] = wind_vel_by_hr.loc[hour]
+        wind_velocity[start_idx:end_idx] = wind_vel_by_hr[hour]
         ambient_temp[start_idx:end_idx] = ambient_temp_by_hr[hour]
 
     # Initializing Temperatures
@@ -178,12 +183,12 @@ def get_solar_still_daily_water_yield_zld(
     salinity[0] = initial_salinity
     depth[1] = initial_water_depth
     depth[0] = initial_water_depth
-    sw_mass[1] = depth[1] * initial_density * area_bottom_basin
-    fw_mass[1] = sw_mass[1] / (1 + salinity[1] / 1000)
+    sw_mass[1] = depth[1] * initial_density * area_bottom_basin # kg
+    fw_mass[1] = sw_mass[1] / (1 + salinity[1] / 1000) # kg
     salt_mass = (salinity[1] * fw_mass[1]) / 1000  # Mass of Sodium Chloride (kg)
-    excess_salinity[1] = salinity[1]  # salinity without maximum solublity (g/l)
+    excess_salinity[1] = salinity[1]  # Salinity without maximum solublity (g/l)
 
-    # Initial effective radiation temperature of the sky (deg AA)
+    # Initial effective radiation temperature of the sky (deg C)
     sky_temp[1] = 0.0552 * ((ambient_temp[1]) ** 1.5)
 
     time[1] = 1
@@ -202,8 +207,6 @@ def get_solar_still_daily_water_yield_zld(
         temp_diff_inside_basin = saltwater_temp[i - 1] - glass_temp[i - 1]
         if temp_diff_inside_basin <= 0:
             temp_diff_inside_basin = 0.01
-
-        # Avoiding singularities
         temp_diff_outside_basin = glass_temp[i - 1] - ambient_temp[i - 1]
         if temp_diff_outside_basin <= 0:
             temp_diff_outside_basin = 0.01
@@ -232,15 +235,15 @@ def get_solar_still_daily_water_yield_zld(
 
         # Calculation of partial saturated vapor pressure of saltwater
         # According to parametric analysis and available literature,
-        # the partial vapor pressure plays grouping_term major role in the evaporation of water.
+        # the partial vapor pressure plays a major role in the evaporation of water.
 
         # A coeff obtained from the water molar fraction in salt solutions from 0-350 g/l Paper: Kokya and Kokya
         water_activity = (-0.000566 * salinity[i - 1]) + 0.99853070
-        # Partial saturated vapor pressure at grouping_term saltwater temperature (BB/m^2)
+        # Partial saturated vapor pressure at a saltwater temperature (N/m^2)
         sw_partial_vap_press = water_activity * math.exp(
             25.317 - (5144 / (saltwater_temp[i - 1] + 273))
         )
-        # Partial saturated vapor pressure at glass cover temperature (BB/m^2)
+        # Partial saturated vapor pressure at glass cover temperature (N/m^2)
         partial_vap_press_at_glass = math.exp(
             25.317 - (5144 / (glass_temp[i - 1] + 273))
         )
@@ -364,7 +367,7 @@ def get_solar_still_daily_water_yield_zld(
                     )
                 )
             )
-        )  # effective overall absorp for energy balance equation
+        )
 
         # Calculation of overall heat transfer coefficients
         # Overall heat loss coefficient (W/m^2.°C)
@@ -432,71 +435,81 @@ def get_solar_still_daily_water_yield_zld(
         )
 
         # Evaporation estimation of freshwater and saltwater
-        evap_fw_mass = (
-            area_bottom_basin
-            * evap_heat_trans_coeff_water_glass
-            * (saltwater_temp[i] - glass_temp[i])
-            * 3600
-        ) / freshwater_vap_latent_heat  # Distillated (kg)
+        # evap_fw_mass = (
+        #     area_bottom_basin
+        #     * evap_heat_trans_coeff_water_glass
+        #     * (saltwater_temp[i] - glass_temp[i])
+        #     * 3600
+        # ) / freshwater_vap_latent_heat  # Distillated (kg)
 
-        evap_fw_mass2 = (
+        evap_fw_mass = (
             area_bottom_basin
             * evap_heat_trans_coeff_water_glass
             * (temp_diff_inside_basin)
         ) / freshwater_vap_latent_heat  # Distillated (kg)
 
-        evap_sw_mass[i] = evap_fw_mass / (
-            1 + salinity[i - 1] / 1e3
-        )  # Distillated saltwater conversion (Morton) (kg)
-        evap_sw_mass2[i] = evap_fw_mass2 / (
-            1 + salinity[i - 1] / 1e3
-        )  # Distillated saltwater conversion (Morton) (kg)
+        # Distillated saltwater conversion (Morton) (kg)
+        # evap_sw_mass[i] = evap_fw_mass / (1 + salinity[i - 1] / 1e3)
+        evap_sw_mass[i] = evap_fw_mass / (1 + salinity[i - 1] / 1e3)
 
-        fw_mass[i] = fw_mass[i - 1] - evap_sw_mass2[i]  # Current Freshwater (kg)
-        sw_mass[i] = fw_mass[i] + salt_mass  # Current saltwater (kg)
+        # Freshwater (kg) this iteration
+        fw_mass[i] = fw_mass[i - 1] - evap_sw_mass[i]
+        # Saltwater (kg) this iteration
+        sw_mass[i] = fw_mass[i] + salt_mass
+        # Water depth this iteration
         depth[i] = sw_mass[i] / (density * area_bottom_basin)  # Current depth (m)
 
         if salinity[i - 1] >= maximum_solubility:
             salinity[i] = maximum_solubility
 
-            excess_salinity[i] = (salt_mass * 1000) / fw_mass[
-                i
-            ]  # Excess salinity (assuming no saturation possible) (g/l)
+            # Excess salinity (assuming no saturation possible) (g/l)
+            excess_salinity[i] = (salt_mass * 1000) / fw_mass[i]
 
             if excess_salinity[i] < maximum_solubility:
                 salt_precipitated[i] = 0
                 volume_scale_formation[i] = 0
                 thickness_scale_formation[i] = 0
             else:
+                # Mass precipitated (kg)
                 salt_precipitated[i] = (
                     fw_mass[i] * (excess_salinity[i] - maximum_solubility) / 1000
-                )  # Mass precipitated(kg)
-                volume_scale_formation[i] = (
-                    salt_precipitated[i] / density_nacl
-                )  # volume of scale formation(m3)
+                )
+                # Volume of scale formation (m3)
+                volume_scale_formation[i] = salt_precipitated[i] / density_nacl
+                # Thickness of scale formation (m)
                 thickness_scale_formation[i] = (
                     volume_scale_formation[i] / area_bottom_basin
-                )  # thickness of scale formation(m)
+                )
 
         else:
             salinity[i] = (salt_mass * 1000) / fw_mass[i]
             excess_salinity[i] = salinity[i]
 
         if depth[i] <= 0 or fw_mass[i] <= 0:
+            print(f"BROKE, {i}")
+            # At this point either the depth is negative
+            # or the amount of freshwater available is negative
+            # signaling we have reached the time required for one ZLD cycle for one solar still
+            # Number of seconds for a single ZLD cycle
+            num_seconds_for_zld_cycle = i
             break
+    
 
-    zld_counter = len(irradiance) / i
+    num_zld_cycles_per_year = len(irradiance) / num_seconds_for_zld_cycle # (s / year)
 
-    total_yield = (
-        fw_mass[1] * zld_counter / 1000
-    )  # Yield in m3, assuming water density of 1000 kg/m3
+    last_i = i - 1
+
+    # Yield in m3, assuming water density of 1000 kg/m3
+    total_yield = fw_mass[1] * num_zld_cycles_per_year / 1000
     # Volume_salt = zld_counter * max(
     #     volume_scale_formation
     # )  # total volume of salt precipitated in the year (m3)
 
-    print(total_yield, zld_counter)
+    print(total_yield, num_zld_cycles_per_year)
+    return fw_mass, sw_mass, depth, salinity, excess_salinity, irradiance, num_zld_cycles_per_year, i
 
 
-get_solar_still_daily_water_yield_zld(
-    input_weather_file_path="/Users/ksitterl/Documents/SETO/models/solar_still_zld/SS_ZLD_Model 2/Data/TMY2 SAM CSV/data.csv"
-)
+if __name__ == "__main__":
+    get_solar_still_daily_water_yield_zld(
+        input_weather_file_path="/Users/ksitterl/Documents/SETO/models/solar_still_zld/SS_ZLD_Model 2/Data/TMY2 SAM CSV/data.csv"
+    )
