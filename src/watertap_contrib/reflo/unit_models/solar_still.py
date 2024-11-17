@@ -120,9 +120,8 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         if len(self.config.water_yield_calculation_args) > 0:
             required_args = [
                 "input_weather_file_path",
-                "interval_day",
-                "salinity",
-                "water_depth_basin",
+                "initial_salinity",
+                "initial_water_depth",
                 "length_basin",
             ]
             if not all(
@@ -130,8 +129,8 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
                 for a in required_args
             ):
                 raise ConfigurationError(
-                    f'Water yield calculation dict must contain values for "input_weather_file_path", "interval_day", '
-                    f'"salinity", "water_depth_basin", and "length_basin", but only '
+                    f'Water yield calculation dict must contain values for "input_weather_file_path", "initial_salinity", '
+                    f'"initial_water_depth", and "length_basin", but only '
                     f"{[*self.config.water_yield_calculation_args.keys()]}  were found."
                 )
 
@@ -178,22 +177,15 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             doc="Dimension of one side of solar still",
         )
 
-        self.water_depth_basin = Param(
-            initialize=0.02,
-            mutable=True,
-            units=pyunits.m,
-            doc="Depth of water in solar solar still",
-        )
-
         if self.config.water_yield_calculation_args != {}:
 
             unit_log.info(
-                f"Found water yield calculation arguments in {self.name} configuration."
-                f" Calculating daily water yield assuming {self.config.water_yield_calculation_args['salinity']}"
-                f" g/L TDS with {self.config.water_yield_calculation_args['interval_day']} day intervals..."
+                f"Found water yield calculation arguments in {self.name} configuration.")
+            unit_log.info(f" Calculating daily water yield assuming {self.config.water_yield_calculation_args['initial_salinity']}"
+                f" g/L TDS with {self.config.water_yield_calculation_args['initial_water_depth']} initial water depth..."
             )
 
-            daily_water_yield_mass = get_solar_still_daily_water_yield(
+            daily_water_yield_mass = self.calculate_daily_water_yield(
                 **self.config.water_yield_calculation_args
             )
 
@@ -202,9 +194,6 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             self.water_yield.set_value(daily_water_yield_mass)
             self.length_basin.set_value(
                 self.config.water_yield_calculation_args["length_basin"]
-            )
-            self.water_depth_basin.set_value(
-                self.config.water_yield_calculation_args["water_depth_basin"]
             )
 
         else:
@@ -305,13 +294,16 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(comps, doc="Mass balance")
         def eq_mass_balance(b, j):
             if j == "H2O":
-                # return prop_in.flow_mass_phase_comp["Liq", j] == prop_out.flow_mass_phase_comp["Liq", j]
                 return Constraint.Skip
             else:
                 return (
                     prop_in.flow_mass_phase_comp["Liq", j]
                     == prop_waste.flow_mass_phase_comp["Liq", j]
                 )
+
+    def calculate_daily_water_yield(self, **kwargs):
+        daily_water_yield = get_solar_still_daily_water_yield(self, **kwargs)
+        return daily_water_yield
 
     def initialize_build(
         self,
