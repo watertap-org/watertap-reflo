@@ -49,34 +49,46 @@ solver = get_solver()
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 test_data_path = f"{__location__}/solar_still_test_data_phoenix_az.csv"
+test_data_path_too_short = (
+    f"{__location__}/solar_still_test_data_phoenix_az_too_short.csv"
+)
+
+rho = 1000 * pyunits.kg / pyunits.m**3
+inlet_dict = {
+    "solute_list": ["TDS"],
+    "mw_data": {"TDS": 31.4038218e-3},
+    "material_flow_basis": MaterialFlowBasis.mass,
+}
+
+# water_yield_calc_dict = dict(
+#     input_weather_file_path=test_data_path,  # path to input weather file
+#     irradiance_threshold=0,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
+#     salinity=200,  # salinity of influent water; g/L
+#     water_depth_basin=0.01,  # depth of water in solar still basin; m
+#     length_basin=0.6,  # length of each side of basin (length=width); m
+# )
+
+water_yield_calc_dict = dict(
+    input_weather_file_path="/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/unit_models/tests/solar_still_test_data_phoenix_az.csv",  # path to input weather file
+    initial_salinity=200,  # initial salinity of influent water; g/L
+    initial_water_depth=0.01,  # initial depth of water in solar still basin; m
+    length_basin=0.6,  # length of each side of basin (length=width); m
+    irradiance_threshold=20,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
+)
+
+tds_conc = 200 * pyunits.g / pyunits.liter
+daily_water_production = 100 * pyunits.m**3 / pyunits.day
+
+flow_mass_in = pyunits.convert(
+    daily_water_production * rho, to_units=pyunits.kg / pyunits.s
+)
+flow_mass_tds = pyunits.convert(
+    daily_water_production * tds_conc, to_units=pyunits.kg / pyunits.s
+)
 
 
 def build_ss():
 
-    rho = 1000 * pyunits.kg / pyunits.m**3
-    inlet_dict = {
-        "solute_list": ["TDS"],
-        "mw_data": {"TDS": 31.4038218e-3},
-        "material_flow_basis": MaterialFlowBasis.mass,
-    }
-
-    water_yield_calc_dict = dict(
-        input_weather_file_path=test_data_path,  # path to input weather file
-        interval_day=15,  # interval at which to calculate water yield (e.g., every 15 days)
-        salinity=20,  # salinity of influent water; g/L
-        water_depth_basin=0.02,  # depth of water in solar still basin; m
-        length_basin=0.6,  # length of each side of basin (length=width); m
-    )
-
-    tds_conc = 20 * pyunits.g / pyunits.liter
-    daily_water_production = 100 * pyunits.m**3 / pyunits.day
-
-    flow_mass_in = pyunits.convert(
-        daily_water_production * rho, to_units=pyunits.kg / pyunits.s
-    )
-    flow_mass_tds = pyunits.convert(
-        daily_water_production * tds_conc, to_units=pyunits.kg / pyunits.s
-    )
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = MCASParameterBlock(**inlet_dict)
@@ -166,18 +178,17 @@ class TestSolarStill:
         m = ss_frame
 
         results_dict = {
-            "water_yield": 2.449865,
+            "water_yield": 1.701793,
             "length_basin": 0.6,
-            "water_depth_basin": 0.02,
             "dens_mass_salt": 2.16,
-            "number_stills": 113384.931,
-            "total_area": 40818.575,
-            "annual_water_yield": 0.894200731,
-            "flow_vol_salt": 1.0716e-05,
-            "deposition_rate": 0.002268393,
+            "number_stills": 163226.45,
+            "total_area": 58761.522,
+            "annual_water_yield": 0.621154772,
+            "flow_vol_salt": 0.000107167,
+            "deposition_rate": 0.01575735,
             "area_single_still": 0.36,
-            "yield_per_still": 1.0207e-05,
-            "evaporation_rate": 2.449865,
+            "yield_per_still": 7.09e-06,
+            "evaporation_rate": 1.701793,
         }
         for v, r in results_dict.items():
             ssv = getattr(m.fs.unit, v)
@@ -202,18 +213,19 @@ class TestSolarStill:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 2541149.586,
-            "aggregate_fixed_operating_cost": 88940.235,
-            "aggregate_flow_electricity": 2.624999,
-            "aggregate_flow_costs": {"electricity": 1890.918},
-            "aggregate_direct_capital_cost": 1270574.793,
-            "total_capital_cost": 2541149.586,
-            "total_operating_cost": 167065.641,
-            "maintenance_labor_chemical_operating_cost": 76234.487,
-            "total_fixed_operating_cost": 165174.723,
-            "total_variable_operating_cost": 1890.918,
-            "total_annualized_cost": 451562.455,
-            "LCOW": 12.363,
+            "aggregate_capital_cost": 3654601.821,
+            "aggregate_fixed_operating_cost": 127911.063,
+            # "aggregate_variable_operating_cost": 0.0,
+            "aggregate_flow_electricity": 2.625,
+            # "aggregate_flow_costs": {"electricity": 0.0},
+            "aggregate_direct_capital_cost": 1827300.91,
+            "total_capital_cost": 3654601.821,
+            "total_operating_cost": 237549.118,
+            "maintenance_labor_chemical_operating_cost": 109638.054,
+            "total_fixed_operating_cost": 237549.118,
+            # "total_variable_operating_cost": 0.0,
+            "total_annualized_cost": 646703.534,
+            "LCOW": 17.705,
         }
 
         for v, r in sys_cost_results.items():
@@ -225,19 +237,21 @@ class TestSolarStill:
                 assert pytest.approx(value(sc), rel=1e-3) == r
 
         ss_cost_results = {
-            "capital_cost": 2541149.586,
-            "fixed_operating_cost": 88940.235,
+            "capital_cost": 3654601.821,
+            "fixed_operating_cost": 127911.063,
+            "max_sw_flow": 1728.0,
+            "max_fw_flow": 86.4,
             "pumping_power_required": 2.625,
-            "length_piping": 334798.026,
-            "capital_cost_solar_still": 1938916.564,
+            "length_piping": 481967.866,
+            "capital_cost_solar_still": 2791221.587,
             "capital_cost_sw_pumps": 890.64,
             "capital_cost_fw_pumps": 178.128,
-            "capital_cost_feed_tank": 1770.554,
-            "capital_cost_distillate_tank": 1864.685,
-            "capital_cost_underground_tank": 443.699,
-            "capital_cost_excavation": 715.798,
-            "capital_cost_piping": 596369.514,
-            "direct_capital_cost": 1270574.793,
+            "capital_cost_feed_tank": 1403.673,
+            "capital_cost_distillate_tank": 1493.892,
+            "capital_cost_underground_tank": 323.247,
+            "capital_cost_excavation": 570.232,
+            "capital_cost_piping": 858520.419,
+            "direct_capital_cost": 1827300.91,
         }
 
         for v, r in ss_cost_results.items():
@@ -247,3 +261,21 @@ class TestSolarStill:
                     assert pytest.approx(value(ssv[i]), rel=1e-3) == s
             else:
                 assert pytest.approx(value(ssv), rel=1e-3) == r
+
+
+@pytest.mark.unit
+def test_input_data_too_short():
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = MCASParameterBlock(**inlet_dict)
+
+    water_yield_calc_dict["input_weather_file_path"] = test_data_path_too_short
+
+    with pytest.raises(ValueError):
+        err_msg = f"Water yield calculation for fs\\.unit requires at least "
+        err_msg += f"one year of hourly weather data, but the input dataset is "
+        err_msg += f"1720 hours long\\."
+        m.fs.unit = SolarStill(
+            property_package=m.fs.properties,
+            water_yield_calculation_args=water_yield_calc_dict,
+        )
