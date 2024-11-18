@@ -67,17 +67,17 @@ def main():
     init_system(m)
     # display_system_stream_table(m)
 
-    # add_costing(m)
+    add_costing(m)
     scale_costing(m)
-    box_solve_problem(m)
-    solve(m, debug=True)
+    # box_solve_problem(m)
+    # solve(m, debug=True)
 
     # # # scale_costing(m)
 
-    # # optimize(m, objective="LCOW")
-    # # solve(m, debug=True)
+    optimize(m, objective="LCOW")
+    solve(m, debug=True)
     # # # # display_flow_table(m)
-    # display_system_stream_table(m)
+    display_system_stream_table(m)
     # # # report_RO(m, m.fs.treatment.RO)
     # # # # # # # report_pump(m, m.fs.treatment.pump)
     # # # # report_PV(m)
@@ -89,7 +89,7 @@ def main():
     # # # # # print_system_scaling_report(m)
     # # report_PV(m)
     # # # print(m.fs.energy.pv.display())
-    # display_costing_breakdown(m)
+    display_costing_breakdown(m)
 
     return m
 
@@ -279,7 +279,7 @@ def add_treatment_costing(m):
     add_ec_costing(m, treatment.EC, treatment.costing)
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_LTMED_costing(m, treatment.LTMED, treatment.costing)
-    # add_DWI_costing(m, treatment.DWI, treatment.costing)
+    add_DWI_costing(m, treatment.DWI, treatment.costing)
 
     treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
     treatment.costing.total_investment_factor.fix(1)
@@ -649,13 +649,13 @@ def optimize(
     #         stage.module.area.unfix()
     #         stage.module.area.setub(1e6)
     m.fs.energy.FPC.heat_load.unfix()
-    if grid_frac is not None:
-        m.fs.costing.frac_elec_from_grid.fix(grid_frac)
-        m.fs.energy.FPC.heat_load.unfix()
-        # m.fs.energy.pv.annual_energy.unfix()
-    else:
-        m.fs.costing.frac_elec_from_grid.unfix()
-        m.fs.energy.FPC.heat_load.fix(150)
+    # if grid_frac is not None:
+    #     m.fs.costing.frac_elec_from_grid.fix(grid_frac)
+    #     m.fs.energy.FPC.heat_load.unfix()
+    #     # m.fs.energy.pv.annual_energy.unfix()
+    # else:
+    #     m.fs.costing.frac_elec_from_grid.unfix()
+    #     m.fs.energy.FPC.heat_load.fix(150)
         # m.fs.energy.pv.annual_energy.fix(1e6)
 
 

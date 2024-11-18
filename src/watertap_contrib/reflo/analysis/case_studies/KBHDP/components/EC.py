@@ -160,12 +160,12 @@ def set_system_operating_conditions(m):
 def set_ec_operating_conditions(m, blk):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
-    # print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
+    print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
 
     blk.ec.load_parameters_from_database(use_default_removal=True)
     # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
     # blk.ec.overpotential.fix(2)
-    # print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
+    print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
 
 
 def set_scaling(m, blk):
@@ -226,7 +226,7 @@ def init_ec(m, blk, solver=None):
     _initialize(blk.feed)
     propagate_state(blk.feed_to_ec)
 
-    _initialize(blk.ec, verbose=True)
+    _initialize(blk.ec)
 
     propagate_state(blk.ec_to_product)
     propagate_state(blk.ec_to_disposal)
