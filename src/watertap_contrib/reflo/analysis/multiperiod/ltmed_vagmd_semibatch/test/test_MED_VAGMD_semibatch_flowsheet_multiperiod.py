@@ -260,11 +260,11 @@ class TestVAGMDbatch:
             68657.789, rel=1e-3
         )
         assert cost_performance["Annual heat cost ($)"] == pytest.approx(
-            150540.917, rel=1e-3
+            128236.19, rel=1e-3
         )
         assert cost_performance["Annual electricity cost ($)"] == pytest.approx(
             4064.964, rel=1e-3
         )
         assert cost_performance["Overall LCOW ($/m3)"] == pytest.approx(
-            1.76369, rel=1e-3
+            1.70261, rel=1e-3
         )

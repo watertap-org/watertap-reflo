@@ -92,8 +92,10 @@ def build_photovoltaic_cost_param_block(blk):
 )
 def cost_pv(blk):
 
+    blk.costing_package.has_electricity_generation = True
     global_params = blk.costing_package
     pv_params = blk.costing_package.photovoltaic
+    pv = blk.unit_model
     make_capital_cost_var(blk)
     make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
@@ -119,37 +121,37 @@ def cost_pv(blk):
         doc="Sales tax for PV system",
     )
 
-    blk.system_capacity = pyo.Var(
-        initialize=0,
-        units=pyo.units.watt,
-        bounds=(0, None),
-        doc="DC system capacity for PV system",
-    )
+    # pv.design_size = pyo.Var(
+    #     initialize=0,
+    #     units=pyo.units.watt,
+    #     bounds=(0, None),
+    #     doc="DC system capacity for PV system",
+    # )
 
-    blk.land_area = pyo.Var(
-        initialize=0,
-        units=pyo.units.acre,
-        bounds=(0, None),
-        doc="Land area required for PV system",
-    )
+    # blk.land_area = pyo.Var(
+    #     initialize=0,
+    #     units=pyo.units.acre,
+    #     bounds=(0, None),
+    #     doc="Land area required for PV system",
+    # )
 
-    blk.annual_generation = pyo.Var(
-        initialize=0,
-        units=pyo.units.MWh,
-        bounds=(0, None),
-        doc="Annual electricity generation of PV system",
-    )
+    # blk.annual_generation = pyo.Var(
+    #     initialize=0,
+    #     units=pyo.units.MWh,
+    #     bounds=(0, None),
+    #     doc="Annual electricity generation of PV system",
+    # )
 
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
-        == blk.system_capacity
+        == pv.design_size
         * (
             pv_params.cost_per_watt_module
             + pv_params.cost_per_watt_inverter
             + pv_params.cost_per_watt_other
         )
         + (
-            blk.system_capacity
+            pv.design_size
             * (
                 pv_params.cost_per_watt_module
                 + pv_params.cost_per_watt_inverter
@@ -161,8 +163,8 @@ def cost_pv(blk):
 
     blk.indirect_cost_constraint = pyo.Constraint(
         expr=blk.indirect_cost
-        == (blk.system_capacity * pv_params.cost_per_watt_indirect)
-        + (blk.land_area * pv_params.land_cost_per_acre)
+        == (pv.design_size * pv_params.cost_per_watt_indirect)
+        + (pv.land_req * pv_params.land_cost_per_acre)
     )
 
     blk.sales_tax_constraint = pyo.Constraint(
@@ -177,12 +179,12 @@ def cost_pv(blk):
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
         == pv_params.fixed_operating_by_capacity
-        * pyo.units.convert(blk.system_capacity, to_units=pyo.units.kW)
+        * pyo.units.convert(pv.design_size, to_units=pyo.units.kW)
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
-        == pv_params.variable_operating_by_generation * blk.annual_generation
+        == pv_params.variable_operating_by_generation * pv.annual_energy
     )
 
     blk.costing_package.cost_flow(blk.unit_model.electricity, "electricity")
