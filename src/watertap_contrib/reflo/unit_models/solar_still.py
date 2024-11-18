@@ -130,7 +130,7 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             ):
                 raise ConfigurationError(
                     f'Water yield calculation dict must contain values for "input_weather_file_path", "initial_salinity", '
-                    f'"initial_water_depth", and "length_basin", but only '
+                    f'"initial_water_depth", and "length_basin", but '
                     f"{[*self.config.water_yield_calculation_args.keys()]}  were found."
                 )
 
@@ -160,8 +160,15 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         prop_in = self.properties_in[0]
         prop_out = self.properties_out[0]
         prop_waste = self.properties_waste[0]
-        prop_waste.flow_mass_phase_comp["Liq", "H2O"].fix(0)
+
         comps = self.config.property_package.component_list
+
+        self.number_zld_cycles = Param(
+            initialize=40,
+            mutable=True,
+            units=pyunits.year**-1,
+            doc="Number of times all influent water can be evaporated per year",
+        )
 
         self.water_yield = Param(
             initialize=2.5,
@@ -180,18 +187,25 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         if self.config.water_yield_calculation_args != {}:
 
             unit_log.info(
-                f"Found water yield calculation arguments in {self.name} configuration.")
-            unit_log.info(f" Calculating daily water yield assuming {self.config.water_yield_calculation_args['initial_salinity']}"
-                f" g/L TDS with {self.config.water_yield_calculation_args['initial_water_depth']} initial water depth..."
+                f"Found water yield calculation arguments in {self.name} configuration."
+            )
+            unit_log.info(
+                f" Calculating daily water yield assuming initial salinity {self.config.water_yield_calculation_args['initial_salinity']}"
+                f" g/L TDS with {self.config.water_yield_calculation_args['initial_water_depth']} initial water depth."
             )
 
-            daily_water_yield_mass = self.calculate_daily_water_yield(
-                **self.config.water_yield_calculation_args
+            daily_water_yield_mass, num_zld_cycles_per_year = (
+                self.calculate_daily_water_yield(
+                    **self.config.water_yield_calculation_args
+                )
             )
 
-            unit_log.info(f"Water yield calculation complete.")
+            unit_log.info(
+                f"Water yield calculation complete: {daily_water_yield_mass:.2f} kg/m2/day with {num_zld_cycles_per_year:.2f} ZLD cycles per year."
+            )
 
             self.water_yield.set_value(daily_water_yield_mass)
+            self.number_zld_cycles.set_value(num_zld_cycles_per_year)
             self.length_basin.set_value(
                 self.config.water_yield_calculation_args["length_basin"]
             )
@@ -280,30 +294,30 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.m**2,
             )
 
-        @self.Constraint(comps, doc="Mass flow out")
-        def eq_flow_mass_out(b, j):
+        @self.Constraint(comps, doc="Mass balance")
+        def eq_mass_balance(b, j):
             if j == "H2O":
+                # All water is recovered, no waste flow
+                prop_waste.flow_mass_phase_comp["Liq", j].fix(0)
                 return (
                     prop_out.flow_mass_phase_comp["Liq", j]
                     == prop_in.flow_mass_phase_comp["Liq", j]
                 )
             else:
+                # All other components in waste stream
                 prop_out.flow_mass_phase_comp["Liq", j].fix(0)
-                return Constraint.Skip
-
-        @self.Constraint(comps, doc="Mass balance")
-        def eq_mass_balance(b, j):
-            if j == "H2O":
-                return Constraint.Skip
-            else:
                 return (
                     prop_in.flow_mass_phase_comp["Liq", j]
                     == prop_waste.flow_mass_phase_comp["Liq", j]
                 )
 
     def calculate_daily_water_yield(self, **kwargs):
-        daily_water_yield = get_solar_still_daily_water_yield(self, **kwargs)
-        return daily_water_yield
+
+        daily_water_yield, num_zld_cycles_per_year = get_solar_still_daily_water_yield(
+            self, **kwargs
+        )
+
+        return daily_water_yield, num_zld_cycles_per_year
 
     def initialize_build(
         self,
@@ -356,27 +370,34 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
                 else:
                     state_args[k] = state_dict[k].value
 
-        state_args_out = deepcopy(state_args)
+        self.state_args_out = deepcopy(state_args)
+        for k in self.state_args_out.keys():
+            if k == "flow_mass_phase_comp":
+                for i in self.state_args_out[k].keys():
+                    if i == ("Liq", "TDS"):
+                        self.state_args_out[k][i] = 0
 
         self.properties_out.initialize(
             outlvl=outlvl,
             optarg=optarg,
             solver=solver,
-            state_args=state_args_out,
+            state_args=self.state_args_out,
         )
         init_log.info("Initialization Step 1b Complete.")
 
-        state_args_waste = deepcopy(state_args)
+        self.state_args_waste = deepcopy(state_args)
+        for k in self.state_args_waste.keys():
+            if k == "flow_mass_phase_comp":
+                for i in self.state_args_waste[k].keys():
+                    if i == ("Liq", "H2O"):
+                        self.state_args_waste[k][i] = 0
 
         self.properties_waste.initialize(
             outlvl=outlvl,
             optarg=optarg,
             solver=solver,
-            state_args=state_args_waste,
+            state_args=self.state_args_waste,
         )
-
-        self.state_args_out = state_args_out
-        self.state_args_waste = state_args_waste
 
         init_log.info("Initialization Step 1c Complete.")
 
@@ -397,13 +418,13 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         super().calculate_scaling_factors()
 
         if iscale.get_scaling_factor(self.number_stills) is None:
-            iscale.set_scaling_factor(self.number_stills, 0.1)
+            iscale.set_scaling_factor(self.number_stills, 1e-3)
 
         if iscale.get_scaling_factor(self.total_area) is None:
-            iscale.set_scaling_factor(self.total_area, 0.1)
+            iscale.set_scaling_factor(self.total_area, 1e-3)
 
         if iscale.get_scaling_factor(self.water_yield) is None:
-            iscale.set_scaling_factor(self.water_yield, 1e-2)
+            iscale.set_scaling_factor(self.water_yield, 1)
 
     def _get_stream_table_contents(self, time_point=0):
         return create_stream_table_dataframe(
