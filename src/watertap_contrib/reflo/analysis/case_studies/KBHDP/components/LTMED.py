@@ -133,6 +133,7 @@ def add_LTMED_costing(m, blk, costing_blk=None):
 
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
 
+
 def add_system_costing(m):
     """Add system level costing components"""
     m.fs.costing = ZeroOrderCosting()
@@ -153,6 +154,7 @@ def calc_costing(m, blk):
     m.fs.costing.cost_process()
     # m.fs.costing.add_LCOW(blk.ec.properties_treated[0].flow_vol)
     # m.fs.costing.add_electricity_intensity(blk.ec.properties_treated[0].flow_vol)
+
 
 def init_LTMED(m, blk, solver=None):
     """Initialize system for individual unit process flowsheet"""
@@ -298,7 +300,7 @@ def report_LTMED(m):
     print(
         f'{"DISPOSAL":<20}{value(blk.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"]):<20.2f}{value(blk.disposal.properties[0].flow_mass_phase_comp["Liq", "TDS"]):<20.2f} kg/s'
     )
-    print('')
+    print("")
     # print(f'Water Recovery: {value(blk.unit.water_recovery[0]):.2f}')
     print(
         f'{"STEC":<20}{value(blk.unit.specific_energy_consumption_thermal):<20.2f}kWh/m3'

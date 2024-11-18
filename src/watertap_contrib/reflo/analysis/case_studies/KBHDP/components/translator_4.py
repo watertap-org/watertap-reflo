@@ -210,7 +210,7 @@ see property package for documentation.}""",
                 blk.properties_out[t].flow_mass_phase_comp["Liq", "TDS"]
                 == blk.properties_in[t].flow_mass_comp["tds"]
             )
-        
+
         self.properties_out[0].pressure.fix(101325)
         self.properties_out[0].temperature.fix(298.15)
 

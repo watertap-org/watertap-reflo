@@ -56,14 +56,10 @@ def build_system():
 def build_fpc(m):
     energy = m.fs.energy
 
-    
-
     print(f'\n{"=======> BUILDING FPC SYSTEM <=======":^60}\n')
     cwd = os.getcwd()
 
-    file = (
-        cwd + "/src/watertap_contrib/reflo/solar_models/surrogate/flat_plate/"
-    )
+    file = cwd + "/src/watertap_contrib/reflo/solar_models/surrogate/flat_plate/"
 
     dataset_filename = os.path.join(
         os.path.dirname(file), "data/flat_plate_data_heat_load_1_400.pkl"
@@ -212,7 +208,7 @@ def report_fpc(m):
 def print_FPC_costing_breakdown(m, blk):
     print(f"\n\n-------------------- FPC Costing Report --------------------\n")
     energy = m.fs.energy
-    
+
     print(
         f'{"Capital Cost":<30s}{value(blk.costing.capital_cost):<20,.2f}{pyunits.get_units(blk.costing.capital_cost)}'
     )
@@ -220,7 +216,7 @@ def print_FPC_costing_breakdown(m, blk):
     print(
         f'{"Fixed Operating Cost":<30s}{value(blk.costing.fixed_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.fixed_operating_cost)}'
     )
-    print('')
+    print("")
     print(
         f'{"Fixed Op. Cost by Capacity":<30s}{value(energy.costing.flat_plate.fixed_operating_by_capacity):<20,.2f}{pyunits.get_units(energy.costing.flat_plate.fixed_operating_by_capacity)}'
     )
@@ -236,8 +232,7 @@ def print_FPC_costing_breakdown(m, blk):
     print(
         f'{"Land Req.":<30s}{value(blk.costing.land_area):<20,.2f}{pyunits.get_units(blk.costing.land_area)}'
     )
-    print('')
-    
+    print("")
 
     # print(
     #     f'{"Aggregated Variable Operating Cost":<30s}{value(blk.costing.aggregate_variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.aggregate_variable_operating_cost)}'

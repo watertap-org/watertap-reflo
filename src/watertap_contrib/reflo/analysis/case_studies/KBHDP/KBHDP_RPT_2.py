@@ -66,14 +66,14 @@ def main():
     apply_scaling(m)
     init_system(m)
     add_costing(m)
-    # scale_costing(m)
-    # box_solve_problem(m)
-    # solve(m, debug=True)
+    scale_costing(m)
+    box_solve_problem(m)
+    solve(m, debug=True)
 
     # # scale_costing(m)
 
-    optimize(m, objective="LCOW")
-    solve(m, debug=True)
+    # optimize(m, objective="LCOW")
+    # solve(m, debug=True)
     # # # display_flow_table(m)
     display_system_stream_table(m)
     # # report_RO(m, m.fs.treatment.RO)
@@ -82,7 +82,7 @@ def main():
     # # # # # # m.fs.treatment.costing.display()
     # # # # # # m.fs.energy.costing.display()""
     # # # # # # m.fs.costing.display()
-    
+
     # # # # # # print(m.fs.energy.pv.display())
     # # # # print_system_scaling_report(m)
     # report_PV(m)
@@ -787,7 +787,7 @@ def display_costing_breakdown(m):
     print(
         f'{"Agg. Flow Heat Purchased":<30s}{value(m.fs.costing.aggregate_flow_heat_purchased):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_heat_purchased)}'
     )
-    print('')
+    print("")
     print(
         f'{"Treatment Agg. Flow Elec.":<30s}{value(treatment.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(treatment.costing.aggregate_flow_electricity)}'
     )
@@ -796,15 +796,15 @@ def display_costing_breakdown(m):
     )
     print(
         f'{"Agg. Flow Elec. Purchased":<30s}{value(m.fs.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_electricity)}'
-        )
-    print('')
+    )
+    print("")
     print(
         f'{"Grid Frac Elec.":<30s}{value(m.fs.costing.frac_elec_from_grid):<20,.2f}{pyunits.get_units(m.fs.costing.frac_elec_from_grid)}'
     )
     print(
         f'{"Grid Frac Heat":<30s}{value(m.fs.costing.frac_heat_from_grid):<20,.2f}{pyunits.get_units(m.fs.costing.frac_heat_from_grid)}'
     )
-    
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
