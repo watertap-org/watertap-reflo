@@ -39,7 +39,7 @@ from idaes.core.util.model_statistics import *
 from idaes.core.util.scaling import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
-
+from watertap.costing.zero_order_costing import ZeroOrderCosting
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
@@ -50,6 +50,7 @@ __all__ = [
     "set_LTMED_operating_conditions",
     "init_LTMED",
     "add_LTMED_costing",
+    "report_LTMED",
 ]
 
 
@@ -116,6 +117,7 @@ def build_LTMED(m, blk, liquid_prop, vapor_prop, number_effects=12):
 
 
 def set_LTMED_operating_conditions(blk):
+
     steam_temperature = 80
     recovery_ratio = 0.5
 
@@ -131,6 +133,26 @@ def add_LTMED_costing(m, blk, costing_blk=None):
 
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
 
+def add_system_costing(m):
+    """Add system level costing components"""
+    m.fs.costing = ZeroOrderCosting()
+    add_LTMED_costing(m, m.fs.treatment.LTMED)
+    calc_costing(m, m.fs.treatment.LTMED)
+
+
+def add_LTMED_costing(m, blk, costing_blk=None):
+    """Add LTMED model costing components"""
+    if costing_blk is None:
+        costing_blk = m.fs.costing
+
+    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
+
+
+def calc_costing(m, blk):
+    """Add system level solve for costing"""
+    m.fs.costing.cost_process()
+    # m.fs.costing.add_LCOW(blk.ec.properties_treated[0].flow_vol)
+    # m.fs.costing.add_electricity_intensity(blk.ec.properties_treated[0].flow_vol)
 
 def init_LTMED(m, blk, solver=None):
     """Initialize system for individual unit process flowsheet"""
@@ -161,17 +183,19 @@ def set_system_operating_conditions(m):
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
+    treatment = m.fs.treatment = Block()
+
     m.fs.liquid_prop = SeawaterParameterBlock()
     m.fs.vapor_prop = WaterParameterBlock()
 
     m.fs.feed = Feed(property_package=m.fs.liquid_prop)
 
-    m.fs.LTMED = FlowsheetBlock(dynamic=False)
-    build_LTMED(m, m.fs.LTMED, m.fs.liquid_prop, m.fs.vapor_prop)
+    treatment.LTMED = FlowsheetBlock(dynamic=False)
+    build_LTMED(m, treatment.LTMED, m.fs.liquid_prop, m.fs.vapor_prop)
 
     m.fs.feed_to_unit = Arc(
         source=m.fs.feed.outlet,
-        destination=m.fs.LTMED.feed.inlet,
+        destination=treatment.LTMED.feed.inlet,
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -188,15 +212,15 @@ def init_system(m, solver=None):
 
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"LTMED Degrees of Freedom: {degrees_of_freedom(m.fs.LTMED.unit)}")
-    breakdown_dof(m.fs.LTMED)
+
+    breakdown_dof(m.fs.treatment.LTMED)
     assert_no_degrees_of_freedom(m)
     print("\n\n")
 
     m.fs.feed.initialize(optarg=optarg)
     propagate_state(m.fs.feed_to_unit)
 
-    init_LTMED(m, m.fs.LTMED)
+    init_LTMED(m, m.fs.treatment.LTMED)
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
@@ -261,12 +285,44 @@ def breakdown_dof(blk):
                 print(f"   {v}")
 
 
+def report_LTMED(m):
+    blk = m.fs.treatment.LTMED
+    print(f"\n\n-------------------- EC Report --------------------\n")
+    print(f'{f"Stream":<20}{f"FLOW RATE H2O":<20}{f"FLOW RATE TDS":<20}')
+    print(
+        f'{"FEED":<20}{value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]):<20.2f}{value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"]):<20.2f} kg/s'
+    )
+    print(
+        f'{"PRODUCT":<20}{value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]):<20.2f}{value(blk.product.properties[0].flow_mass_phase_comp["Liq", "TDS"]):<20.2f} kg/s'
+    )
+    print(
+        f'{"DISPOSAL":<20}{value(blk.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"]):<20.2f}{value(blk.disposal.properties[0].flow_mass_phase_comp["Liq", "TDS"]):<20.2f} kg/s'
+    )
+    print('')
+    # print(f'Water Recovery: {value(blk.unit.water_recovery[0]):.2f}')
+    print(
+        f'{"STEC":<20}{value(blk.unit.specific_energy_consumption_thermal):<20.2f}kWh/m3'
+    )
+    print(
+        f'{"GOR":<20}{value(blk.unit.gain_output_ratio):<20.2f}{pyunits.get_units(blk.unit.gain_output_ratio)}'
+    )
+    print(
+        f'{"Thermal Power Req.":<20}{value(blk.unit.thermal_power_requirement):<20,.2f}{pyunits.get_units(blk.unit.thermal_power_requirement)}'
+    )
+    print(
+        f'{"Water Recovery":<20}{value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]/blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]) * 100:<20.2f}%'
+    )
+
+
 if __name__ == "__main__":
 
     m = build_system()
     set_system_operating_conditions(m)
-    set_LTMED_operating_conditions(m.fs.LTMED)
-
+    set_LTMED_operating_conditions(m.fs.treatment.LTMED)
+    add_system_costing(m)
+    # add_LTMED_costing(m, m.fs.treatment.LTMED)
     init_system(m)
     solver = get_solver()
     results = solve(m)
+
+    report_LTMED(m)
