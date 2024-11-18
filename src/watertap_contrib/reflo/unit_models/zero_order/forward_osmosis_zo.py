@@ -16,6 +16,7 @@ from pyomo.environ import (
     Suffix,
     check_optimal_termination,
     units as pyunits,
+    value,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 from idaes.core import (
@@ -151,10 +152,10 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         )
 
         self.heat_mixing = Var(
-            initialize=105,
+            initialize=75.6,
             bounds=(0, None),
             units=pyunits.MJ / pyunits.m**3,
-            doc="Heat of mixing in membrane (per m3 of product water)",
+            doc="Heat of mixing in membrane (per m3 of separated water)",
         )
 
         """
@@ -246,7 +247,7 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         )
 
         """
-        Add block for the product water from the separator
+        Add block for the product water (contaminated with drawsolution) from the separator
         """
         self.product_props = (
             self.config.property_package_draw_solution.state_block_class(
@@ -272,17 +273,13 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         def eq_brine_vol_flow(b):
             return b.brine_props[0].flow_vol_phase["Liq"] == b.feed_props[
                 0
-            ].flow_vol_phase["Liq"] * (
-                1 - b.recovery_ratio / b.nanofiltration_recovery_ratio
-            )
+            ].flow_vol_phase["Liq"] * (1 - b.recovery_ratio)
 
         @self.Constraint(doc="Brine salinity")
         def eq_brine_salinity(b):
             return b.brine_props[0].conc_mass_phase_comp["Liq", "TDS"] == b.feed_props[
                 0
-            ].conc_mass_phase_comp["Liq", "TDS"] / (
-                1 - b.recovery_ratio / b.nanofiltration_recovery_ratio
-            )
+            ].conc_mass_phase_comp["Liq", "TDS"] / (1 - b.recovery_ratio)
 
         @self.Constraint(doc="Product water flow rate")
         def eq_product_water_mass_flow(b):
@@ -337,8 +334,7 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         def eq_temp_dif_membrane1(b):
             return b.delta_temp_membrane == pyunits.convert(
                 b.heat_transfer_to_weak_draw
-                * pyunits.m**3
-                / pyunits.s
+                * b.product_props[0].flow_vol_phase["Liq"]
                 / b.weak_draw_props[0].dens_mass_phase["Liq"]
                 / b.weak_draw_props[0].flow_vol_phase["Liq"]
                 / b.weak_draw_props[0].cp_mass_phase["Liq"],
@@ -351,8 +347,7 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         def eq_temp_dif_membrane2(b):
             return b.delta_temp_membrane == pyunits.convert(
                 b.heat_transfer_to_brine
-                * pyunits.m**3
-                / pyunits.s
+                * b.product_props[0].flow_vol_phase["Liq"]
                 / b.brine_props[0].dens_mass_phase["Liq"]
                 / b.brine_props[0].flow_vol_phase["Liq"]
                 / b.brine_props[0].cp_mass_phase["Liq"],
@@ -414,6 +409,14 @@ class ForwardOsmosisZOData(UnitModelBlockData):
                 == b.regeneration_temp - b.separator_temp_loss
             )
 
+        # Touch properties that need to be calculated
+        self.reg_draw_props[0].flow_vol_phase["Liq"]
+        self.reg_draw_props[0].mass_frac_phase_comp["Liq", "DrawSolution"]
+        self.reg_draw_props[0].cp_mass_phase["Liq"]
+        self.product_props[0].flow_vol_phase["Liq"]
+        self.product_props[0].mass_frac_phase_comp["Liq", "DrawSolution"]
+        self.product_props[0].cp_mass_phase["Liq"]
+
     def initialize_build(
         blk,
         state_args=None,
@@ -448,7 +451,7 @@ class ForwardOsmosisZOData(UnitModelBlockData):
             state_args=state_args,
             hold_state=True,
         )
-        init_log.info("Initialization Step 1 Complete.")
+        init_log.info("FO Initialization Step 1 Complete.")
         # ---------------------------------------------------------------------
         # Initialize other state blocks
         if state_args is None:
@@ -528,11 +531,11 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         for p, j in blk.strong_draw_props.phase_component_set:
             if p == "Liq" and j == "DrawSolution":
                 state_args_strong_draw["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_weak_draw["flow_mass_phase_comp"][(p, "H2O")]
+                    state_args_weak_draw["flow_mass_phase_comp"][(p, "DrawSolution")]
                 )
             elif p == "Liq" and j == "H2O":
                 state_args_strong_draw["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_strong_draw["flow_mass_phase_comp"][(p, "DrawSolution")]
+                    state_args_weak_draw["flow_mass_phase_comp"][(p, "DrawSolution")]
                     * 0.25  # typical draw : water in strong draw solution
                 )
 
@@ -550,7 +553,7 @@ class ForwardOsmosisZOData(UnitModelBlockData):
                 state_args_reg_draw["flow_mass_phase_comp"][(p, j)] = (
                     state_args_strong_draw["flow_mass_phase_comp"][(p, j)]
                 )
-        state_args_strong_draw["temperature"] = 90 + 273.15
+        state_args_reg_draw["temperature"] = 90 + 273.15
 
         blk.reg_draw_props.initialize(
             outlvl=outlvl,
@@ -571,7 +574,8 @@ class ForwardOsmosisZOData(UnitModelBlockData):
                 )
             elif p == "Liq" and j == "DrawSolution":
                 state_args_product["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_product["flow_mass_phase_comp"][(p, "H2O")]
+                    state_args["flow_mass_phase_comp"][(p, "H2O")]
+                    * (blk.recovery_ratio / blk.nanofiltration_recovery_ratio)
                     * 0.01  # Typical mass fraction of draw in product
                     * pyunits.kg
                     / pyunits.s
@@ -590,11 +594,11 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(blk, tee=slc.tee)
-        init_log.info("Initialization Step 2 {}.".format(idaeslog.condition(res)))
+        init_log.info("FO Initialization Step 2 {}.".format(idaeslog.condition(res)))
         # ---------------------------------------------------------------------
         # Release Inlet state
         blk.feed_props.release_state(flags, outlvl=outlvl)
-        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+        init_log.info("FO Initialization Complete: {}".format(idaeslog.condition(res)))
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {blk.name} failed to initialize")
@@ -611,14 +615,6 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         self.product_props[0].mass_frac_phase_comp["Liq", "DrawSolution"].fix(
             mass_frac_product
         )
-
-        # Touch properties that need to be calculated
-        self.reg_draw_props[0].flow_vol_phase["Liq"]
-        self.reg_draw_props[0].mass_frac_phase_comp["Liq", "DrawSolution"]
-        self.reg_draw_props[0].cp_mass_phase["Liq"]
-        self.product_props[0].flow_vol_phase["Liq"]
-        self.product_props[0].mass_frac_phase_comp["Liq", "DrawSolution"]
-        self.product_props[0].cp_mass_phase["Liq"]
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()

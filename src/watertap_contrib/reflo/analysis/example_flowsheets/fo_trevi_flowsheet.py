@@ -54,7 +54,7 @@ def build_fo_trevi_flowsheet(
     separation_temp=90,  # Separation temperature of the draw solution (C)
     separator_temp_loss=1,  # Temperature loss in the separator (K)
     feed_temperature=13,  # Feed water temperature (C)
-    feed_vol_flow=3.704,  # Feed water volumetric flow rate (m3/s)
+    feed_vol_flow=0.022,  # Feed water volumetric flow rate (m3/s)
     feed_TDS_mass=0.035,  # TDS mass fraction of feed
     strong_draw_temp=20,  # Strong draw solution inlet temperature (C)
     strong_draw_mass=0.8,  # Strong draw solution mass fraction
@@ -287,7 +287,7 @@ def add_fo(
     # Specify strong draw solution properties
     fo.strong_draw_props.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): 1,
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
             ("mass_frac_phase_comp", ("Liq", "DrawSolution")): strong_draw_mass,
             ("temperature", None): strong_draw_temp + 273.15,
             ("pressure", None): 101325,
@@ -300,7 +300,7 @@ def add_fo(
     # Specify product water properties
     fo.product_props.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): 1,
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
             ("mass_frac_phase_comp", ("Liq", "DrawSolution")): product_draw_mass,
             ("temperature", None): separation_temp - separator_temp_loss + 273.15,
             ("pressure", None): 101325,
@@ -327,16 +327,16 @@ def add_fo(
 
     # Set scaling factors for mass flow rates
     fs.seawater_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
+        "flow_mass_phase_comp", 1 / feed_vol_flow / 100, index=("Liq", "H2O")
     )
     fs.seawater_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e1, index=("Liq", "TDS")
+        "flow_mass_phase_comp", 1 / feed_vol_flow / 10, index=("Liq", "TDS")
     )
     fs.draw_solution_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-2, index=("Liq", "H2O")
+        "flow_mass_phase_comp", 1 / feed_vol_flow / 100, index=("Liq", "H2O")
     )
     fs.draw_solution_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-2, index=("Liq", "DrawSolution")
+        "flow_mass_phase_comp", 1 / feed_vol_flow / 10, index=("Liq", "DrawSolution")
     )
 
 

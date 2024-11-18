@@ -40,11 +40,11 @@ class TestTreviFO:
             RO_recovery_ratio=0.9,  # RO recovery ratio
             NF_recovery_ratio=0.8,  # Nanofiltration recovery ratio
             dp_brine=0,  # Required pressure over brine osmotic pressure (Pa)
-            heat_mixing=105,  # Heat of mixing in the membrane (MJ/m3 product)
+            heat_mixing=75.6,  # Heat of mixing in the membrane (MJ/m3 product)
             separation_temp=90,  # Separation temperature of the draw solution (C)
             separator_temp_loss=1,  # Temperature loss in the separator (K)
             feed_temperature=13,  # Feed water temperature (C)
-            feed_vol_flow=3.704,  # Feed water volumetric flow rate (m3/s)
+            feed_vol_flow=0.022,  # Feed water volumetric flow rate (m3/s)
             feed_TDS_mass=0.035,  # TDS mass fraction of feed
             strong_draw_temp=20,  # Strong draw solution inlet temperature (C)
             strong_draw_mass=0.8,  # Strong draw solution mass fraction
@@ -113,25 +113,25 @@ class TestTreviFO:
             rel=1e-3,
         )
         assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
-            85683.32, abs=1e-3
+            508.918, abs=1e-3
         )
         assert overall_performance[
             "Specific thermal energy consumption (kWh/m3)"
-        ] == pytest.approx(28.3, rel=1e-3)
+        ] == pytest.approx(26.84, rel=1e-3)
         assert overall_performance["Thermal power requirement (kW)"] == pytest.approx(
-            101038.77, rel=1e-3
+            569.175, rel=1e-3
         )
-        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.462, rel=1e-3)
+        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.454, rel=1e-3)
 
         assert operational_parameters["HX1 cold in temp"] == pytest.approx(
-            21.49, rel=1e-3
+            21.23, rel=1e-3
         )
         assert operational_parameters["HX2 hot out temp"] == pytest.approx(
-            32.09, rel=1e-3
+            30.636, rel=1e-3
         )
         assert operational_parameters["HX1 cold side heat load (MJ)"] == pytest.approx(
-            353.49, rel=1e-3
+            2.0996, rel=1e-3
         )
         assert operational_parameters["HX2 cold side heat load (MJ)"] == pytest.approx(
-            286.20, rel=1e-3
+            1.5516, rel=1e-3
         )
