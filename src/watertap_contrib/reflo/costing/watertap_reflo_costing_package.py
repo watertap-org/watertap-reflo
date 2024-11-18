@@ -997,7 +997,10 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         """
         Get the electricity generating unit on the flowsheet, if present.
         """
-        from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import PVSurrogate
+        from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import (
+            PVSurrogate,
+        )
+
         elec_gen_unit = None
         for b in self.model().component_objects(pyo.Block):
             if isinstance(
