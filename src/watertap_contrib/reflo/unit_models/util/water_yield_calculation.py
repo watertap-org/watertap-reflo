@@ -22,6 +22,8 @@ from watertap_contrib.reflo.unit_models.util.sw_props import (
     calculate_thermal_conductivity,
 )
 
+__author__ = "Kurban Sitterley, Nikhil Dani, Erick Moreno Resendiz"
+
 days_in_year = 365
 hours_per_day = 24
 seconds_per_day = 86400
@@ -32,7 +34,7 @@ thickness_glass = 0.004  # Thickness of glass m
 conductivity_glass = 1.03  # Conductivity of glass W/m.K
 gravity = 9.81  # Accelaration due to gravity (m/s^2)
 density_nacl = 2165  # density of sodium chloride (kg/m^3)
-maximum_solubility = 365  # maximum solubility of salt in water (g/l)
+maximum_solubility = 365  # maximum solubility of salt in water (g/L)
 
 # Radiative properties
 absorp_glass = 0.047  # Absorptivity of glass (-)
@@ -115,9 +117,6 @@ def create_input_arrays(
             day = 364
         start_row = day * 24
         for kk in range(24):
-            # irr = float(weather_data.iloc[start_row + kk, 4]) + 10
-            # temp = float(weather_data.iloc[start_row + kk, 7])
-            # wind = float(weather_data.iloc[start_row + kk, 11])
             irr = float(weather_data[irradiance_col].loc[start_row + kk]) + 10
             temp = float(weather_data[temperature_col].loc[start_row + kk])
             wind = float(weather_data[wind_velocity_col].loc[start_row + kk])
@@ -154,7 +153,7 @@ def get_solar_still_daily_water_yield(
     if not len(weather_data) >= 8760:
         err_msg = f"Water yield calculation for {blk.name} requires at least "
         err_msg += f"one year of hourly weather data, but the input dataset is "
-        err_msg += f"{len(weather_data)} hours long."
+        err_msg += f"only {len(weather_data)} hours long."
         raise ConfigurationError(err_msg)
 
     if len(weather_data) > 8760:
@@ -167,7 +166,7 @@ def get_solar_still_daily_water_yield(
     len_data_hr = len(irradiance_by_hr)
 
     # Create arrays
-    # Second variables
+    # Values calculated per second
     depth = np.zeros(len_data_hr * 3600)
     salinity = np.zeros(len_data_hr * 3600)
     excess_salinity = np.zeros(len_data_hr * 3600)
@@ -185,14 +184,6 @@ def get_solar_still_daily_water_yield(
     glass_temp = np.zeros(len_data_hr * 3600)
     sky_temp = np.zeros(len_data_hr * 3600)
     saltwater_temp = np.zeros(len_data_hr * 3600)
-
-    # Converting hourly data into per second
-    for hour in range(len_data_hr):
-        start_idx = 3600 * hour
-        end_idx = start_idx + 3600
-        irradiance[start_idx:end_idx] = irradiance_by_hr[hour]
-        wind_velocity[start_idx:end_idx] = wind_vel_by_hr[hour]
-        ambient_temp[start_idx:end_idx] = ambient_temp_by_hr[hour]
 
     # Initializing Temperatures
     # Initial system is assumed to be in thermal equilibrium with ambient
@@ -219,10 +210,18 @@ def get_solar_still_daily_water_yield(
     salt_mass = (salinity[1] * fw_mass[1]) / 1000  # Mass of Sodium Chloride (kg)
     excess_salinity[1] = salinity[1]  # Salinity without maximum solublity (g/l)
 
-    # Initial effective radiation temperature of the sky (deg C)
+    # Initial effective radiation temperature of the sky (°C)
     sky_temp[1] = 0.0552 * ((ambient_temp[1]) ** 1.5)
 
     time[1] = 1
+
+    # Converting hourly data into per second
+    for hour in range(len_data_hr):
+        start_idx = 3600 * hour
+        end_idx = start_idx + 3600
+        irradiance[start_idx:end_idx] = irradiance_by_hr[hour]
+        wind_velocity[start_idx:end_idx] = wind_vel_by_hr[hour]
+        ambient_temp[start_idx:end_idx] = ambient_temp_by_hr[hour]
 
     for i in range(2, len(irradiance), 1):
 
@@ -258,9 +257,12 @@ def get_solar_still_daily_water_yield(
             salinity[i - 1], saltwater_temp[i - 1]
         )
 
+        # Kinemtic viscosity of salt water
         kinem_visc_sw = dynamic_visc / density
+        
         # Prandtl number for water (-)
         Pr = (specific_heat * dynamic_visc) / thermal_conductivity
+        
         # Latent heat of vaporization of pure water J/kg
         freshwater_vap_latent_heat = (2501.67 - 2.389 * saltwater_temp[i - 1]) * 1000
 
@@ -270,14 +272,17 @@ def get_solar_still_daily_water_yield(
 
         # A coeff obtained from the water molar fraction in salt solutions from 0-350 g/l Paper: Kokya and Kokya
         water_activity = (-0.000566 * salinity[i - 1]) + 0.99853070
+        
         # Partial saturated vapor pressure at a saltwater temperature (N/m^2)
         sw_partial_vap_press = water_activity * math.exp(
             25.317 - (5144 / (saltwater_temp[i - 1] + 273))
         )
+        
         # Partial saturated vapor pressure at glass cover temperature (N/m^2)
         partial_vap_press_at_glass = math.exp(
             25.317 - (5144 / (glass_temp[i - 1] + 273))
         )
+        
         # Coefficient of volume expansion (1/°C) correlation gotten from Zhutovsky and Kovler (2015)
         beta = 1e-6 * (
             -0.000006 * saltwater_temp[i - 1] ** 4
@@ -286,6 +291,7 @@ def get_solar_still_daily_water_yield(
             + 16.862446 * saltwater_temp[i - 1]
             - 64.319951
         )
+        
         # Grashof number
         Gr = abs(
             (
@@ -296,10 +302,12 @@ def get_solar_still_daily_water_yield(
             )
             / (kinem_visc_sw**2)
         )
+        
         # Heat transfer coeff of water layer
         water_heat_trans_coeff = abs(
             (thermal_conductivity / depth[i - 1]) * AA * (Gr * Pr) ** BB
         )
+        
         # Convective heat transfer coeff (W/m^2.°C) (Dunkel)
         conv_heat_trans_coeff_water_glass = 0.884 * (
             (
@@ -318,6 +326,7 @@ def get_solar_still_daily_water_yield(
             )
             ** (1 / 3)
         )
+        
         # Radiative heat transfer coeff from basin water to glass cover (W/m^2.°C)
         rad_heat_transf_coeff_water_glass = abs(
             emissivity_water
@@ -330,6 +339,7 @@ def get_solar_still_daily_water_yield(
                 * (saltwater_temp[i - 1] + glass_temp[i - 1] + 546)
             )
         )
+        
         # Evaporative heat transfer coeff from basin water to glass cover (W/m2.°C)
         evap_heat_trans_coeff_water_glass = abs(
             0.01628
@@ -339,12 +349,14 @@ def get_solar_still_daily_water_yield(
                 / (temp_diff_inside_basin)
             )
         )
+        
         # Total heat transfer coeff from basin water to glass cover (W/m2°C)
         tot_heat_trans_coeff_water_glass = (
             conv_heat_trans_coeff_water_glass
             + rad_heat_transf_coeff_water_glass
             + evap_heat_trans_coeff_water_glass
         )
+        
         # Radiative heat transfer coeff from glass cover to ambient (W/m^2.°C)
         rad_heat_trans_coeff_glass_ambient = (
             stefan_boltzmann
@@ -364,10 +376,12 @@ def get_solar_still_daily_water_yield(
             conv_heat_trans_coeff_basin_ambient = 2.8 + (3.8 * wind_velocity[i])
             # Convective heat transfer coefficient from glass cover to ambient (W/m2°C)
             conv_heat_trans_coeff_glass_ambient = 2.8 + (3.8 * wind_velocity[i])
+        
         # Total heat loss coeff from the glass cover to the outer atmosphere
         tot_heat_trans_coeff_glass_ambient = (
             conv_heat_trans_coeff_glass_ambient + rad_heat_trans_coeff_glass_ambient
         )
+        
         # Heat loss coefficient from basin liner to the atmosphere
         tot_heat_trans_coeff_basin_ambient = 1 / (
             (thickness_insulation / conductivity_insulation)
@@ -408,14 +422,17 @@ def get_solar_still_daily_water_yield(
         ) / (
             (conductivity_glass / thickness_glass) + tot_heat_trans_coeff_glass_ambient
         )
+        
         # Overall bottom heat transfer coefficient between the water mass and the surroundings (W/m^2.°C)
         overall_bottom_heat_trans_coeff_water_mass_surr = (
             tot_heat_trans_coeff_water_glass * overall_heat_loss_coeff_glass_surr
         ) / (tot_heat_trans_coeff_water_glass + overall_heat_loss_coeff_glass_surr)
+        
         # Overall bottom heat transfer coefficient from bottom to ambient (W/m^2.°C)
         overall_bottom_heat_loss_coeff_water_mass_surr = (
             water_heat_trans_coeff * tot_heat_trans_coeff_basin_ambient
         ) / (water_heat_trans_coeff + tot_heat_trans_coeff_basin_ambient)
+        
         overall_side_heat_loss_coefficient = (
             area_side_water / area_bottom_basin
         ) * overall_bottom_heat_loss_coeff_water_mass_surr
@@ -466,21 +483,14 @@ def get_solar_still_daily_water_yield(
         )
 
         # Evaporation estimation of freshwater and saltwater
-        # evap_fw_mass = (
-        #     area_bottom_basin
-        #     * evap_heat_trans_coeff_water_glass
-        #     * (saltwater_temp[i] - glass_temp[i])
-        #     * 3600
-        # ) / freshwater_vap_latent_heat  # Distillated (kg)
-
+        # Distilled (kg)
         evap_fw_mass = (
             area_bottom_basin
             * evap_heat_trans_coeff_water_glass
             * (temp_diff_inside_basin)
-        ) / freshwater_vap_latent_heat  # Distillated (kg)
+        ) / freshwater_vap_latent_heat  
 
-        # Distillated saltwater conversion (Morton) (kg)
-        # evap_sw_mass[i] = evap_fw_mass / (1 + salinity[i - 1] / 1e3)
+        # Distilled saltwater conversion (Morton) (kg)
         evap_sw_mass[i] = evap_fw_mass / (1 + salinity[i - 1] / 1e3)
 
         # Freshwater (kg) this iteration
@@ -534,15 +544,6 @@ def get_solar_still_daily_water_yield(
     # Daily water yield [kg water per m2 area per day]
     daily_water_yield = annual_water_yield / days_in_year
 
-    # Volume_salt = zld_counter * max(
-    #     volume_scale_formation
-    # )  # total volume of salt precipitated in the year (m3)
 
-    print(annual_water_yield, daily_water_yield, num_zld_cycles_per_year)
-    return daily_water_yield
-
-
-if __name__ == "__main__":
-    get_solar_still_daily_water_yield_zld(
-        input_weather_file_path="/Users/ksitterl/Documents/SETO/models/solar_still_zld/SS_ZLD_Model 2/Data/TMY2 SAM CSV/data.csv"
-    )
+    # print(annual_water_yield, daily_water_yield, num_zld_cycles_per_year)
+    return daily_water_yield, num_zld_cycles_per_year
