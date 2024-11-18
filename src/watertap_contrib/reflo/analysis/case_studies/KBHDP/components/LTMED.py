@@ -289,7 +289,7 @@ def breakdown_dof(blk):
 
 def report_LTMED(m):
     blk = m.fs.treatment.LTMED
-    print(f"\n\n-------------------- EC Report --------------------\n")
+    print(f"\n\n-------------------- LTMED Report --------------------\n")
     print(f'{f"Stream":<20}{f"FLOW RATE H2O":<20}{f"FLOW RATE TDS":<20}')
     print(
         f'{"FEED":<20}{value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]):<20.2f}{value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"]):<20.2f} kg/s'

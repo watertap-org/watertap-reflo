@@ -65,29 +65,31 @@ def main():
     set_operating_conditions(m)
     apply_scaling(m)
     init_system(m)
-    add_costing(m)
+    # display_system_stream_table(m)
+
+    # add_costing(m)
     scale_costing(m)
     box_solve_problem(m)
     solve(m, debug=True)
 
-    # # scale_costing(m)
+    # # # scale_costing(m)
 
-    # optimize(m, objective="LCOW")
-    # solve(m, debug=True)
-    # # # display_flow_table(m)
-    display_system_stream_table(m)
-    # # report_RO(m, m.fs.treatment.RO)
-    # # # # # # report_pump(m, m.fs.treatment.pump)
-    # # # report_PV(m)
-    # # # # # # m.fs.treatment.costing.display()
-    # # # # # # m.fs.energy.costing.display()""
-    # # # # # # m.fs.costing.display()
+    # # optimize(m, objective="LCOW")
+    # # solve(m, debug=True)
+    # # # # display_flow_table(m)
+    # display_system_stream_table(m)
+    # # # report_RO(m, m.fs.treatment.RO)
+    # # # # # # # report_pump(m, m.fs.treatment.pump)
+    # # # # report_PV(m)
+    # # # # # # # m.fs.treatment.costing.display()
+    # # # # # # # m.fs.energy.costing.display()""
+    # # # # # # # m.fs.costing.display()
 
-    # # # # # # print(m.fs.energy.pv.display())
-    # # # # print_system_scaling_report(m)
-    # report_PV(m)
-    # # print(m.fs.energy.pv.display())
-    display_costing_breakdown(m)
+    # # # # # # # print(m.fs.energy.pv.display())
+    # # # # # print_system_scaling_report(m)
+    # # report_PV(m)
+    # # # print(m.fs.energy.pv.display())
+    # display_costing_breakdown(m)
 
     return m
 
@@ -147,7 +149,7 @@ def build_treatment(m):
         inlet_property_package=m.fs.UF_properties,
         outlet_property_package=m.fs.liquid_prop,
         has_phase_equilibrium=False,
-        outlet_state_defined=True,
+        outlet_state_defined=False,
     )
 
     build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
@@ -183,6 +185,10 @@ def build_treatment(m):
     m.fs.liquid_prop.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
     )
+
+    # treatment.feed.properties[0].conc_mass_phase_comp
+    # treatment.product.properties[0].conc_mass_phase_comp
+    # treatment.disposal.properties[0].conc_mass_phase_comp
 
 
 def build_energy(m):
@@ -273,7 +279,7 @@ def add_treatment_costing(m):
     add_ec_costing(m, treatment.EC, treatment.costing)
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_LTMED_costing(m, treatment.LTMED, treatment.costing)
-    add_DWI_costing(m, treatment.DWI, treatment.costing)
+    # add_DWI_costing(m, treatment.DWI, treatment.costing)
 
     treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
     treatment.costing.total_investment_factor.fix(1)
@@ -484,7 +490,7 @@ def init_treatment(m, verbose=True, solver=None):
 
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    # assert_no_degrees_of_freedom(m)
+    assert_no_degrees_of_freedom(m)
     treatment.feed.initialize(optarg=optarg)
     propagate_state(treatment.feed_to_translator)
 
@@ -510,9 +516,9 @@ def init_treatment(m, verbose=True, solver=None):
 
     propagate_state(treatment.LTMED_to_dwi)
 
-    # treatment.product.initialize(optarg=optarg)
-    # init_DWI(m, treatment.DWI)
-    # display_system_stream_table(m)
+    treatment.product.initialize(optarg=optarg)
+    init_DWI(m, treatment.DWI)
+    display_system_stream_table(m)
 
 
 def init_system(m, verbose=True, solver=None):
@@ -748,7 +754,12 @@ def display_system_stream_table(m):
         f'{"Disposal":<20s}{treatment.DWI.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.1f}{value(pyunits.convert(treatment.DWI.feed.properties[0.0].pressure, to_units=pyunits.bar)):<20.1f}{treatment.DWI.feed.properties[0.0].flow_mass_phase_comp["Liq", "TDS"].value:<30.3f}{treatment.DWI.feed.properties[0.0].conc_mass_phase_comp["Liq", "TDS"].value:<30.3f}'
     )
     print("\n\n")
+    
+    report_EC(treatment.EC)
+    report_UF(m, treatment.UF)
+    report_pump(m, treatment.pump)
     report_LTMED(m)
+    report_DWI(m, treatment.DWI)
     report_fpc(m)
 
 
@@ -768,10 +779,10 @@ def display_costing_breakdown(m):
     # )
     # print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}\n')
 
-    # print_EC_costing_breakdown(m.fs.treatment.EC)
-    # print_UF_costing_breakdown(m.fs.treatment.UF)
+    print_EC_costing_breakdown(m.fs.treatment.EC)
+    print_UF_costing_breakdown(m.fs.treatment.UF)
     # print_RO_costing_breakdown(m.fs.treatment.RO)
-    # print_DWI_costing_breakdown(m.fs.treatment.DWI)
+    # print_DWI_costing_breakdown(m.fs.treatment.DWI)""
 
     print_FPC_costing_breakdown(m, m.fs.energy.FPC)
 
