@@ -40,7 +40,7 @@ from idaes.core.util.scaling import (
 
 from watertap.core.solvers import get_solver
 from watertap.property_models.water_prop_pack import WaterParameterBlock
-from watertap_contrib.reflo.costing import EnergyCosting
+from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.core import SolarModelType
 from watertap_contrib.reflo.solar_models.zero_order.flat_plate_physical import (
     FlatPlatePhysical,
@@ -196,7 +196,8 @@ class TestFlatPlatePhysical:
 
         m.fs.test_flow = 0.01 * pyunits.Mgallons / pyunits.day
 
-        m.fs.costing = EnergyCosting()
+        m.fs.costing = TreatmentCosting()
+        m.fs.costing.electricity_cost.fix(0.07)
         m.fs.costing.heat_cost.set_value(0)
         m.fs.flatplate.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing

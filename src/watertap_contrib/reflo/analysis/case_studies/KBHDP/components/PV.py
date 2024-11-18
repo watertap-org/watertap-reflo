@@ -4,6 +4,7 @@ from pyomo.environ import (
     Constraint,
     units as pyunits,
 )
+import os
 from pyomo.util.check_units import assert_units_consistent
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import *
@@ -11,7 +12,7 @@ import idaes.core.util.scaling as iscale
 from idaes.core.solvers import get_solver
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
-from watertap_contrib.reflo.solar_models.surrogate.pv import PVSurrogate
+from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import PVSurrogate
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
