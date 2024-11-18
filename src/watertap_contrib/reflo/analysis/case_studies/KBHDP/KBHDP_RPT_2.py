@@ -508,7 +508,7 @@ def init_treatment(m, verbose=True, solver=None):
 
     init_LTMED(m, treatment.LTMED)
     propagate_state(treatment.LTMED_to_product)
-    
+
     propagate_state(treatment.LTMED_to_dwi)
 
     # treatment.product.initialize(optarg=optarg)

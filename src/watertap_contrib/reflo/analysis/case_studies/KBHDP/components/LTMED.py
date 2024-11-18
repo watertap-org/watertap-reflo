@@ -52,6 +52,7 @@ __all__ = [
     "add_LTMED_costing",
 ]
 
+
 def _initialize(blk, verbose=False):
     if verbose:
         print("\n")
@@ -70,6 +71,7 @@ def _initialize(blk, verbose=False):
         print_infeasible_bounds(blk)
         print_close_to_bounds(blk)
         assert False
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -139,7 +141,7 @@ def init_LTMED(m, blk, solver=None):
 
     print("\n\n-------------------- INITIALIZING LTMED --------------------\n\n")
     # assert_no_degrees_of_freedom(m)
-    
+
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_LTMED)
 
@@ -221,6 +223,7 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
         print(msg)
         return results
 
+
 def breakdown_dof(blk):
     equalities = [c for c in activated_equalities_generator(blk)]
     active_vars = variables_in_activated_equalities_set(blk)
@@ -256,6 +259,7 @@ def breakdown_dof(blk):
         for v in unfixed_vars_without_constraint:
             if v.fixed is False:
                 print(f"   {v}")
+
 
 if __name__ == "__main__":
 
