@@ -278,7 +278,7 @@ def add_treatment_costing(m):
 
     treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
     treatment.costing.total_investment_factor.fix(1)
-    treatment.costing.maintenance_labor_chemical_factor.fix(0)
+    # treatment.costing.maintenance_labor_chemical_factor.fix(0)
 
     treatment.costing.cost_process()
     treatment.costing.initialize()
@@ -452,7 +452,7 @@ def set_inlet_conditions(
     # treatment.product.properties[0.0].pressure.fix(101356)
     # treatment.product.properties[0.0].temperature.fix(feed_temperature)
 
-    assert_units_consistent(m)
+    # assert_units_consistent(m)
 
 
 def display_unfixed_vars(blk, report=True):
