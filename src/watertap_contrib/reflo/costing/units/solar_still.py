@@ -20,11 +20,21 @@ from watertap_contrib.reflo.costing.util import (
 
 def build_solar_still_cost_param_block(blk):
 
-    blk.cost_solar_still = pyo.Var(
-        initialize=40,
-        units=pyo.units.USD_2020 / pyo.units.m**2,
+    # Capital cost of solar still is function of number of stills
+    # C = A * number_stills **b
+
+    blk.cost_per_still_A_param = pyo.Var(
+        initialize=300.65,
+        units=pyo.units.USD_2020,
         bounds=(0, None),
-        doc="Cost of solar still per unit area",
+        doc="Cost per still equation parameter A",
+    )
+
+    blk.cost_per_still_b_param = pyo.Var(
+        initialize=-0.199,
+        units=pyo.units.dimensionless,
+        bounds=(None, 0),
+        doc="Cost per still equation parameter b",
     )
 
     blk.cost_saltwater_pump = pyo.Var(
@@ -180,6 +190,13 @@ def cost_solar_still(blk):
         doc="Number freshwater pumps",
     )
 
+    blk.capital_cost_per_still = pyo.Var(
+        initialize=1,
+        bounds=(0, None),
+        units=base_currency,
+        doc="Cost per solar still",
+    )
+
     blk.sw_pump_power = pyo.Var(
         initialize=1,
         bounds=(0, None),
@@ -264,6 +281,15 @@ def cost_solar_still(blk):
         doc="Capital cost of piping",
     )
 
+    blk.capital_cost_per_still_constraint = pyo.Constraint(
+        expr=blk.capital_cost_per_still
+        == pyo.units.convert(
+            ss_params.cost_per_still_A_param
+            * ss.number_stills**ss_params.cost_per_still_b_param,
+            to_units=base_currency,
+        )
+    )
+
     blk.sw_pump_power_constraint = pyo.Constraint(
         expr=blk.sw_pump_power
         == pyo.units.convert(
@@ -301,7 +327,7 @@ def cost_solar_still(blk):
     blk.capital_cost_solar_still_constraint = pyo.Constraint(
         expr=blk.capital_cost_solar_still
         == pyo.units.convert(
-            ss.total_area * ss_params.cost_solar_still, to_units=base_currency
+            ss.number_stills * blk.capital_cost_per_still, to_units=base_currency
         )
     )
 
@@ -379,7 +405,7 @@ def cost_solar_still(blk):
 
     capital_cost_expr += blk.capital_cost_piping
 
-    blk.costing_package.add_cost_factor(blk, "TIC")
+    blk.costing_package.add_cost_factor(blk, None)
 
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
