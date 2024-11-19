@@ -57,7 +57,7 @@ def calculate_density(salinity, temperature):
         + (dens_coeff_6 * dens_coeff_11)
         + (dens_coeff_7 * dens_coeff_12)
         + (dens_coeff_8 * dens_coeff_13)
-    )  
+    )
 
     return density
 
