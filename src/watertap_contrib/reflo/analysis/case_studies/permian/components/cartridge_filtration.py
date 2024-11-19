@@ -97,7 +97,7 @@ def build_system():
 def build_cartridge_filtration(m, blk, prop_package=None) -> None:
 
     print(f'\n{"=======> BUILDING CARTRIDGE FILTRATION SYSTEM <=======":^60}\n')
-    
+
     if prop_package is None:
         prop_package = m.fs.properties
 
