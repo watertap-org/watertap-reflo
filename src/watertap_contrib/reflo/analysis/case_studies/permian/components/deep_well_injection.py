@@ -80,6 +80,7 @@ def build_system():
 
 
 def build_dwi(m, blk, prop_package, injection_well_depth=5000) -> None:
+    
     print(f'\n{"=======> BUILDING DEEP WELL INJECTION SYSTEM <=======":^60}\n')
 
     blk.feed = StateJunction(property_package=prop_package)

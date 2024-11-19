@@ -88,6 +88,9 @@ def build_system():
 
 
 def build_chem_addition(m, blk, prop_package=None) -> None:
+
+    print(f'\n{"=======> BUILDING CHEMICAL ADDITION SYSTEM <=======":^60}\n')
+
     if prop_package is None:
         prop_package = m.fs.properties
 

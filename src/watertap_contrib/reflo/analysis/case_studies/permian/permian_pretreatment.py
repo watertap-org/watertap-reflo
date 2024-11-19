@@ -17,11 +17,9 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.network import Arc, SequentialDecomposition
-from pyomo.util.check_units import assert_units_consistent
 from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.util.initialization import propagate_state as _prop_state
 import idaes.core.util.scaling as iscale
 from idaes.core import MaterialFlowBasis
 from idaes.core.util.scaling import (
@@ -44,27 +42,18 @@ from idaes.core.util.model_statistics import *
 from idaes.core.util.initialization import propagate_state
 
 from watertap.core.solvers import get_solver
-from watertap.core import Database
 from watertap_contrib.reflo.core.wt_reflo_database import REFLODatabase
 from watertap.core.zero_order_properties import WaterParameterBlock as ZO
-from watertap.property_models.multicomp_aq_sol_prop_pack import (
-    MCASParameterBlock as MCAS,
-)
 
-# from watertap.costing.zero_order_costing import ZeroOrderCosting
+
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import (
     WaterParameterBlock as SteamParameterBlock,
 )
-from watertap_contrib.reflo.costing import (
-    TreatmentCosting,
-    EnergyCosting,
-    REFLOCosting,
-)
+from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting
 from watertap_contrib.reflo.analysis.case_studies.permian import *
-from watertap_contrib.reflo.unit_models.deep_well_injection import DeepWellInjection
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
@@ -172,7 +161,6 @@ def build_permian_pretreatment():
         source=treat.zo_to_sw_feed.outlet, destination=treat.desal.inlet
     )
 
-
     treat.desal_to_product = Arc(
         source=treat.desal.outlet, destination=treat.product.inlet
     )
@@ -180,7 +168,7 @@ def build_permian_pretreatment():
     # BUILD DISPOSAL STREAM
     #        EC > ZO_mixer > ZO_to_SW_translator > disposal_mixer > disposal_mixer > DWI
     # cart_filt > ZO_mixer
-    #                                        MVC > disposal_mixer
+    #                                desal unit  > disposal_mixer
 
     treat.ec_to_disposal_mix = Arc(
         source=treat.EC.disposal.outlet, destination=treat.disposal_ZO_mixer.ec_disposal
@@ -199,11 +187,6 @@ def build_permian_pretreatment():
         source=treat.zo_to_sw_disposal.outlet,
         destination=treat.disposal_SW_mixer.zo_mixer,
     )
-
-    # treat.mvc_disposal_to_translator = Arc(
-    #     source=treat.MVC.disposal.outlet,
-    #     destination=treat.disposal_SW_mixer.mvc_disposal,
-    # )
 
     treat.disposal_SW_mixer_to_dwi = Arc(
         source=treat.disposal_SW_mixer.outlet, destination=treat.DWI.feed.inlet
@@ -246,7 +229,6 @@ def set_operating_conditions(m, Qin=5, tds=130):
     set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition)
     set_ec_operating_conditions(m, m.fs.treatment.EC)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
-    # set_mvc_operating_conditions(m, m.fs.treatment.MVC)
 
 
 def add_treatment_costing(m):
@@ -259,9 +241,7 @@ def add_treatment_costing(m):
     add_cartridge_filtration_costing(
         m, m.fs.treatment.cart_filt, flowsheet_costing_block=m.fs.treatment.costing
     )
-    # add_mvc_costing(
-    #     m, m.fs.treatment.MVC, flowsheet_costing_block=m.fs.treatment.costing
-    # )
+
     add_dwi_costing(
         m, m.fs.treatment.DWI, flowsheet_costing_block=m.fs.treatment.costing
     )
@@ -285,12 +265,10 @@ def set_permian_scaling(m, **kwargs):
 
     set_ec_scaling(m, m.fs.treatment.EC, calc_blk_scaling_factors=True)
 
-    # set_mvc_scaling(m, m.fs.treatment.MVC, calc_blk_scaling_factors=True)
-
     calculate_scaling_factors(m)
 
 
-def init_system(m, mvc_inlet_temp=50.5, **kwargs):
+def init_system(m, **kwargs):
 
     treat = m.fs.treatment
 
@@ -311,28 +289,29 @@ def init_system(m, mvc_inlet_temp=50.5, **kwargs):
     treat.disposal_ZO_mixer.initialize()
     propagate_state(treat.disposal_ZO_mix_to_translator)
 
-    treat.zo_to_sw_disposal.outlet.temperature[0].fix(293.15)
-    treat.zo_to_sw_disposal.outlet.pressure[0].fix(101325)
+    treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
+    treat.zo_to_sw_disposal.outlet.pressure[0].fix(20000)
     treat.zo_to_sw_disposal.initialize()
 
-    treat.zo_to_sw_feed.properties_out[0].temperature.fix(273.15 + mvc_inlet_temp)
-    # treat.zo_to_sw_feed.properties_out[0].temperature.set_value(273.15 + mvc_inlet_temp)  # K
-    treat.zo_to_sw_feed.properties_out[0].pressure.fix(101325)
+    treat.zo_to_sw_feed.properties_out[0].temperature.fix(304)
+    treat.zo_to_sw_feed.properties_out[0].pressure.fix(40000)
     treat.zo_to_sw_feed.initialize()
 
     propagate_state(treat.cart_filt_translated_to_desal)
+
+    treat.desal.initialize()
+
     propagate_state(treat.desal_to_product)
 
-    # init_mvc(m, treat.MVC)
-    # propagate_state(treat.mvc_to_product)
-    # propagate_state(treat.mvc_disposal_to_translator)
-
     propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
+    # NOTE: variable that affects DOF in unclear way
+    treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
     treat.disposal_SW_mixer.initialize()
-    treat.disposal_SW_mixer.mixed_state[0].pressure.fix(101325)
-    # treat.disposal_SW_mixer.mixed_state[0].temperature.fix()
 
     propagate_state(treat.disposal_SW_mixer_to_dwi)
+    # NOTE: variables that affect DOF in unclear way
+    treat.DWI.unit.properties[0].temperature.fix(305)
+    treat.DWI.unit.properties[0].pressure.fix(50000)
 
     init_dwi(m, treat.DWI)
 
@@ -361,34 +340,54 @@ def run_permian_pretreatment():
     treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
     treat.costing.initialize()
 
-    treat.zo_to_sw_feed.properties_out[0].temperature.fix()
+    # NOTE: variables that affect DOF in unclear way
+    # treat.chem_addition.unit.chemical_dosage.unfix()
+    # treat.EC.unit.conductivity_constr.deactivate()
+    # treat.EC.unit.conductivity.fix()
+
     print(f"DOF = {degrees_of_freedom(m)}")
     results = solver.solve(m)
+    print_infeasible_constraints(m)
     assert_optimal_termination(results)
-    
-    print(f"DOF TREATMENT BLOCK = {degrees_of_freedom(treat)}")
-    print(f"DOF FEED = {degrees_of_freedom(treat.feed)}")
-    print(f"DOF ZO TO SW FEED TB = {degrees_of_freedom(treat.zo_to_sw_feed)}")
-    print(f"DOF ZO TO SW DISPOSAL TB = {degrees_of_freedom(treat.zo_to_sw_disposal)}")
-    print(f"DOF SW TO ZO TB = {degrees_of_freedom(treat.sw_to_zo)}")
-    print(f"DOF CHEM ADDITION = {degrees_of_freedom(treat.chem_addition.unit)}")
-    print(f"DOF EC UNIT = {degrees_of_freedom(treat.EC.unit)}")
-    print(f"DOF EC FEED = {degrees_of_freedom(treat.EC.feed)}")
-    print(f"DOF EC PRODUCT = {degrees_of_freedom(treat.EC.product)}")
-    print(f"DOF EC DISPOSAL = {degrees_of_freedom(treat.EC.disposal)}")
-    print(f"DOF CARTRIDGE FILTRATION = {degrees_of_freedom(treat.cart_filt.unit)}")
+
+    # print(f"DOF TREATMENT BLOCK = {degrees_of_freedom(treat)}")
+    # print(f"DOF FEED = {degrees_of_freedom(treat.feed)}")
+    # print(f"DOF ZO TO SW FEED TB = {degrees_of_freedom(treat.zo_to_sw_feed)}")
+    # print(f"DOF ZO TO SW DISPOSAL TB = {degrees_of_freedom(treat.zo_to_sw_disposal)}")
+    # print(f"DOF SW TO ZO TB = {degrees_of_freedom(treat.sw_to_zo)}")
+
+    # print(f"DOF CHEM ADDITION UNIT = {degrees_of_freedom(treat.chem_addition.unit)}")
+    # print(f"DOF CHEM ADDITION FEED = {degrees_of_freedom(treat.chem_addition.feed)}")
+    # print(f"DOF CHEM ADDITION PRODUCT = {degrees_of_freedom(treat.chem_addition.product)}")
+    # print(f"DOF CHEM ADDITION DISPOSAL = {degrees_of_freedom(treat.chem_addition.disposal)}")
+
+    # print(f"DOF EC UNIT = {degrees_of_freedom(treat.EC.unit)}")
+    # print(f"DOF EC FEED = {degrees_of_freedom(treat.EC.feed)}")
+    # print(f"DOF EC PRODUCT = {degrees_of_freedom(treat.EC.product)}")
+    # print(f"DOF EC DISPOSAL = {degrees_of_freedom(treat.EC.disposal)}")
+
+    # print(f"DOF CARTRIDGE FILTRATION UNIT = {degrees_of_freedom(treat.cart_filt.unit)}")
+    # print(f"DOF CARTRIDGE FILTRATION FEED = {degrees_of_freedom(treat.cart_filt.feed)}")
+    # print(f"DOF CARTRIDGE FILTRATION PRODUCT = {degrees_of_freedom(treat.cart_filt.product)}")
+    # print(f"DOF CARTRIDGE FILTRATION DISPOSAL = {degrees_of_freedom(treat.cart_filt.disposal)}")
+
+    # print(f"DOF DESAL STATE JUNCTION = {degrees_of_freedom(treat.desal)}")
+
+    # print(f"DOF DISPOSAL ZO MIXER = {degrees_of_freedom(treat.disposal_ZO_mixer)}")
+
+    # print(f"DOF DISPOSAL SW MIXER = {degrees_of_freedom(treat.disposal_SW_mixer)}")
+
+    # print(f"DOF DWI UNIT = {degrees_of_freedom(treat.DWI.feed)}")
+    # print(f"DOF DWI UNIT = {degrees_of_freedom(treat.DWI.unit)}")
 
     print(f"LCOW = {m.fs.treatment.costing.LCOW()}")
 
     return m
 
 
-
-
 if __name__ == "__main__":
 
     m = run_permian_pretreatment()
     treat = m.fs.treatment
-    # m.fs.treatment.product.display()
-    # print(value(treat.product.properties[0].flow_vol_phase["Liq"]/ treat.feed.properties[0].flow_vol))
-    treat.EC.pprint()
+
+    print(f"DOF = {degrees_of_freedom(m)}")

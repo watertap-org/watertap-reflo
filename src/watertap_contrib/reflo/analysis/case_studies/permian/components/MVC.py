@@ -120,6 +120,8 @@ def build_system(**kwargs):
 
 def build_mvc(m, blk, external_heating=True):
 
+    print(f'\n{"=======> BUILDING MVC SYSTEM <=======":^60}\n')
+
     blk.feed = StateJunction(property_package=m.fs.properties_feed)
     blk.product = StateJunction(property_package=m.fs.properties_feed)
     blk.disposal = StateJunction(property_package=m.fs.properties_feed)
