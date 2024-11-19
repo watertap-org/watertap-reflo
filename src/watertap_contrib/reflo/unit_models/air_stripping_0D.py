@@ -247,6 +247,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         self.add_inlet_port(name="inlet", block=self.process_flow)
         self.add_outlet_port(name="outlet", block=self.process_flow)
 
+        self.process_flow.mass_transfer_term[0, "Vap", "H2O"].fix(0)
         self.process_flow.mass_transfer_term[0, "Liq", "H2O"].fix(0)
         self.process_flow.mass_transfer_term[0, "Vap", "Air"].fix(0)
 
@@ -524,8 +525,15 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         self.build_oto()
 
-        @self.Constraint(phase_set)
-        def eq_mass_loading_rate(b, p, doc="Mass loading rate equation per phase"):
+        # @self.Constraint(doc="Mass flow of water vapor in from relative humidity")
+        # def eq_flow_mass_phase_H2O_Vap(b):
+        #     return (
+        #         prop_in.flow_mass_phase_comp["Vap", "H2O"]
+        #         == prop_out.flow_mass_phase_comp["Vap", "H2O"]
+        #     )
+
+        @self.Constraint(phase_set, doc="Mass loading rate equation per phase")
+        def eq_mass_loading_rate(b, p):
             if p == "Vap":
                 dens_vap = prop_in.dens_mass_phase[p]
                 dens_liq = prop_in.dens_mass_phase["Liq"]
@@ -548,18 +556,13 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(self.target_set, doc="Stripping factor equation")
         def eq_stripping_factor(b, j):
-            return (
-                b.stripping_factor[j]
-                == b.air_water_ratio_op * prop_in.henry_constant_comp[j]
-            )
+            return b.stripping_factor[j] == b.air_water_ratio_op * prop_in.henry_comp[j]
 
         @self.Constraint(self.target_set, doc="Minimum air-to-water ratio")
         def eq_air_water_ratio_min(b, j):
             c0 = prop_in.conc_mass_phase_comp["Liq", j]
             ce = c0 * b.target_remaining_frac[j]
-            return b.air_water_ratio_min * (c0 * prop_in.henry_constant_comp[j]) == (
-                c0 - ce
-            )
+            return b.air_water_ratio_min * (c0 * prop_in.henry_comp[j]) == (c0 - ce)
 
         @self.Constraint(self.target_set, doc="Overall mass transfer coeff")
         def eq_overall_mass_transfer_coeff(b, j):
@@ -569,7 +572,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             kg_aw_H = (
                 b.oto_mass_transfer_coeff["Vap", j]
                 * b.packing_surface_area_wetted
-                * prop_in.henry_constant_comp[j]
+                * prop_in.henry_comp[j]
             )
             return KLa == (kl_aw * kg_aw_H) / (kl_aw + kg_aw_H) * KLa_sf
 
