@@ -221,35 +221,35 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
-        self.process_flow = ControlVolume0DBlock(
+        self.control_volume = ControlVolume0DBlock(
             dynamic=False,
             has_holdup=False,
             property_package=self.config.property_package,
             property_package_args=self.config.property_package_args,
         )
 
-        self.process_flow.add_state_blocks(has_phase_equilibrium=True)
-        self.process_flow.add_material_balances(
+        self.control_volume.add_state_blocks(has_phase_equilibrium=True)
+        self.control_volume.add_material_balances(
             balance_type=self.config.material_balance_type, has_mass_transfer=True
         )
-        self.process_flow.add_energy_balances(
+        self.control_volume.add_energy_balances(
             balance_type=self.config.energy_balance_type, has_enthalpy_transfer=False
         )
 
-        self.process_flow.add_momentum_balances(
+        self.control_volume.add_momentum_balances(
             balance_type=self.config.momentum_balance_type,
             has_pressure_change=True,
         )
 
-        prop_in = self.process_flow.properties_in[0]
-        prop_out = self.process_flow.properties_out[0]
+        prop_in = self.control_volume.properties_in[0]
+        prop_out = self.control_volume.properties_out[0]
 
-        self.add_inlet_port(name="inlet", block=self.process_flow)
-        self.add_outlet_port(name="outlet", block=self.process_flow)
+        self.add_inlet_port(name="inlet", block=self.control_volume)
+        self.add_outlet_port(name="outlet", block=self.control_volume)
 
-        self.process_flow.mass_transfer_term[0, "Vap", "H2O"].fix(0)
-        self.process_flow.mass_transfer_term[0, "Liq", "H2O"].fix(0)
-        self.process_flow.mass_transfer_term[0, "Vap", "Air"].fix(0)
+        self.control_volume.mass_transfer_term[0, "Vap", "H2O"].fix(0)
+        self.control_volume.mass_transfer_term[0, "Liq", "H2O"].fix(0)
+        self.control_volume.mass_transfer_term[0, "Vap", "Air"].fix(0)
 
         self.air_water_ratio_param = Param(
             initialize=3.5,
@@ -584,19 +584,21 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         def eq_liq_to_vap(b, j):
             return (
                 prop_out.flow_mass_phase_comp["Vap", j]
-                == -b.process_flow.mass_transfer_term[0, "Liq", j]
+                == -b.control_volume.mass_transfer_term[0, "Liq", j]
             )
 
         @self.Constraint(doc="Control volume deltaP")
         def eq_deltaP(b):
-            return b.process_flow.deltaP[0] == (b.pressure_drop + b.pressure_drop_tower)
+            return b.control_volume.deltaP[0] == (
+                b.pressure_drop + b.pressure_drop_tower
+            )
 
         @self.Constraint(["Liq"], self.target_set, doc="Effluent concentration")
         def eq_conc_out(b, p, j):
             return (
-                b.process_flow.properties_in[0].conc_mass_phase_comp[p, j]
+                b.control_volume.properties_in[0].conc_mass_phase_comp[p, j]
                 * b.target_remaining_frac[j]
-                == b.process_flow.properties_out[0].conc_mass_phase_comp[p, j]
+                == b.control_volume.properties_out[0].conc_mass_phase_comp[p, j]
             )
 
         @self.Constraint(self.target_set, doc="Height of transfer unit")
@@ -670,7 +672,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         Journal of Chemical Engineering of Japan, 1(1), 56-62. doi:10.1252/jcej.1.56
 
         """
-        prop_in = self.process_flow.properties_in[0]
+        prop_in = self.control_volume.properties_in[0]
 
         self.oto_E = E = Var(
             initialize=1,
@@ -680,8 +682,8 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="OTO model E calculation")
         def eq_oto_E(b):
-            dens_vap = b.process_flow.properties_in[0].dens_mass_phase["Vap"]
-            dens_liq = b.process_flow.properties_in[0].dens_mass_phase["Liq"]
+            dens_vap = b.control_volume.properties_in[0].dens_mass_phase["Vap"]
+            dens_liq = b.control_volume.properties_in[0].dens_mass_phase["Liq"]
             return E == -1 * (
                 log10(
                     (b.air_water_ratio_op)
@@ -965,7 +967,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         opt = get_solver(solver, optarg)
 
         # ---------------------------------------------------------------------
-        flags = self.process_flow.properties_in.initialize(
+        flags = self.control_volume.properties_in.initialize(
             outlvl=outlvl,
             optarg=optarg,
             solver=solver,
@@ -979,7 +981,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         # Set state_args from inlet state
         if state_args is None:
             self.state_args = state_args = {}
-            state_dict = self.process_flow.properties_in[
+            state_dict = self.control_volume.properties_in[
                 self.flowsheet().config.time.first()
             ].define_port_members()
 
@@ -993,14 +995,14 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
         self.state_args_out = state_args_out = deepcopy(state_args)
 
-        for p, j in self.process_flow.properties_out.phase_component_set:
+        for p, j in self.control_volume.properties_out.phase_component_set:
             if j == self.config.target:
                 if p == "Vap":
                     state_args_out["flow_mass_phase_comp"][(p, j)] = state_args[
                         "flow_mass_phase_comp"
                     ][("Liq", j)] * value(self.target_remaining_frac[j])
 
-        self.process_flow.properties_out.initialize(
+        self.control_volume.properties_out.initialize(
             outlvl=outlvl,
             optarg=optarg,
             solver=solver,
@@ -1047,7 +1049,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
         init_log.info("Initialization Step 2 {}.".format(idaeslog.condition(res)))
 
         # Release Inlet state
-        self.process_flow.properties_in.release_state(flags, outlvl=outlvl)
+        self.control_volume.properties_in.release_state(flags, outlvl=outlvl)
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
         if not check_optimal_termination(res):
@@ -1055,7 +1057,7 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
-        pf = self.process_flow
+        pf = self.control_volume
         prop_in = pf.properties_in[0]
 
         if (
@@ -1197,9 +1199,9 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             self.oto_mass_transfer_coeff["Vap", target]
         )
         var_dict[f"CV mass transfer term [{target}]"] = (
-            self.process_flow.mass_transfer_term[time_point, "Liq", target]
+            self.control_volume.mass_transfer_term[time_point, "Liq", target]
         )
-        var_dict[f"CV delta P"] = self.process_flow.deltaP[time_point]
+        var_dict[f"CV delta P"] = self.control_volume.deltaP[time_point]
         var_dict[f"Blower power required"] = self.blower_power
         var_dict[f"Pump power required"] = self.pump_power
 

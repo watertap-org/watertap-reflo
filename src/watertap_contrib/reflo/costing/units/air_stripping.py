@@ -254,7 +254,7 @@ def cost_air_stripping(blk):
 
     ax = blk.unit_model
     packing_material = ax.config.packing_material
-    prop_in = ax.process_flow.properties_in[0]
+    prop_in = ax.control_volume.properties_in[0]
     ax_params = blk.costing_package.air_stripping
     tower_height_ft = pyo.units.convert(ax.tower_height, to_units=pyo.units.feet)
     tower_diam_in = pyo.units.convert(ax.tower_diam, to_units=pyo.units.inch)
