@@ -397,7 +397,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 b.total_pond_area_acre * b.solids_precipitation_rate * b.dens_solids,
                 to_units=pyunits.kg / pyunits.year,
             )
-        
+
         @self.Expression(doc="Differential pressure required for pumping")
         def differential_pressure(b):
             return pyunits.convert(
@@ -451,9 +451,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(doc="Solids precipitation rate")
         def eq_solids_precipitation_rate(b):
             tds_in_dim = pyunits.convert(
-                prop_in.conc_mass_phase_comp["Liq", "TDS"]
-                * pyunits.g**-1
-                * pyunits.L,
+                prop_in.conc_mass_phase_comp["Liq", "TDS"] * pyunits.g**-1 * pyunits.L,
                 to_units=pyunits.dimensionless,
             )
             return (
@@ -525,10 +523,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 b.psychrometric_constant
                 * (
                     (prop_out.temperature["Liq"] - prop_in.temperature["Vap"])
-                    / (
-                        prop_in.pressure_vap_sat["H2O"]
-                        - prop_in.pressure_vap["H2O"]
-                    )
+                    / (prop_in.pressure_vap_sat["H2O"] - prop_in.pressure_vap["H2O"])
                 ),
                 to_units=pyunits.dimensionless,
             )
@@ -653,7 +648,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         state_args_out = deepcopy(state_args)
         for k, v in state_args_out.items():
             if k == "flow_mass_phase_comp":
-                for (p, j) in v.keys():
+                for p, j in v.keys():
                     if p == "Liq":
                         if j == "H2O":
                             state_args_out[k][(p, j)] = 0
