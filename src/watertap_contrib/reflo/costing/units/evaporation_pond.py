@@ -387,7 +387,7 @@ def cost_evaporation_pond(blk):
             pump_params.cost * b.unit_model.properties_in[0].flow_vol,
             to_units=b.costing_package.base_currency,
         )
-    
+
     capital_cost_expr += blk.pump_capital_cost
 
     @blk.Constraint(doc="Evaporation enhancement technology capital cost")
