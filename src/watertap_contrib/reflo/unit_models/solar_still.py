@@ -13,14 +13,12 @@
 from copy import deepcopy
 from pyomo.environ import (
     Var,
-    Constraint,
-    check_optimal_termination,
     Param,
     Suffix,
+    check_optimal_termination,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 # Import IDAES cores
 from idaes.core import (
@@ -190,7 +188,7 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
                 f"Found water yield calculation arguments in {self.name} configuration."
             )
             unit_log.info(
-                f" Calculating daily water yield assuming initial salinity {self.config.water_yield_calculation_args['initial_salinity']}"
+                f"Calculating daily water yield assuming initial salinity {self.config.water_yield_calculation_args['initial_salinity']}"
                 f" g/L TDS with {self.config.water_yield_calculation_args['initial_water_depth']} initial water depth."
             )
 
