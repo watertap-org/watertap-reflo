@@ -98,6 +98,8 @@ def create_input_arrays(
 
         return continuous_day_series
 
+    # Default column names are those in files as downloaded from https://sam.nrel.gov/weather-data.html
+    # Requires an irradiance column (W/m2), temperature column (°C), and wind velocity column (m/s)
     if irradiance_col is None:
         irradiance_col = "GHI"
     if temperature_col is None:

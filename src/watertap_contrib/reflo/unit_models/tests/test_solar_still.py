@@ -48,9 +48,10 @@ from watertap_contrib.reflo.costing import TreatmentCosting
 solver = get_solver()
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-test_data_path = f"{__location__}/solar_still_test_data_phoenix_az.csv"
-test_data_path_too_short = (
-    f"{__location__}/solar_still_test_data_phoenix_az_too_short.csv"
+test_data_path = f"{__location__}/solar_still_test_data.csv"
+test_data_path_too_short = f"{__location__}/solar_still_test_data_too_short.csv"
+test_data_path_diff_col_names = (
+    f"{__location__}/solar_still_test_data_diff_col_names.csv"
 )
 
 rho = 1000 * pyunits.kg / pyunits.m**3
@@ -170,18 +171,17 @@ class TestSolarStill:
         m = ss_frame
 
         results_dict = {
-            "number_zld_cycles": 65.5,
-            "water_yield": 1.7552,
+            "number_zld_cycles": 65.521,
+            "water_yield": 1.755264,
             "length_basin": 0.6,
             "dens_mass_salt": 2.16,
             "number_stills": 316508.0,
-            "total_area": 113942.0,
-            "annual_water_yield": 0.6406,
+            "total_area": 113942.9,
+            "annual_water_yield": 0.64067,
             "flow_vol_salt": 0.0001286,
-            "deposition_rate": 0.009751471,
+            "deposition_rate": 0.009751,
             "area_single_still": 0.36,
             "yield_per_still": 7.313e-06,
-            "evaporation_rate": 1.7552,
         }
         for v, r in results_dict.items():
             ssv = getattr(m.fs.unit, v)
@@ -206,19 +206,19 @@ class TestSolarStill:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 10758558.1,
-            "aggregate_fixed_operating_cost": 376549.5,
+            "aggregate_capital_cost": 9183991.7,
+            "aggregate_fixed_operating_cost": 456749.3,
             "aggregate_variable_operating_cost": 0.0,
-            "aggregate_flow_electricity": 2.625,
-            "aggregate_flow_costs": {"electricity": 1890.9},
-            "aggregate_direct_capital_cost": 10758558.1,
-            "total_capital_cost": 10758558.1,
-            "total_operating_cost": 701197.1,
-            "maintenance_labor_chemical_operating_cost": 322756.7,
-            "total_fixed_operating_cost": 699306.3,
-            "total_variable_operating_cost": 1890.91,
-            "total_annualized_cost": 1905681.8,
-            "LCOW": 26.087,
+            "aggregate_flow_electricity": 2.5094,
+            "aggregate_flow_costs": {"electricity": 1807.6},
+            "aggregate_direct_capital_cost": 4591995.8,
+            "total_capital_cost": 9183991.7,
+            "total_operating_cost": 734076.7,
+            "maintenance_labor_chemical_operating_cost": 275519.7,
+            "total_fixed_operating_cost": 732269.0,
+            "total_variable_operating_cost": 1807.6,
+            "total_annualized_cost": 1762279.2,
+            "LCOW": 24.124,
         }
 
         for v, r in sys_cost_results.items():
@@ -230,19 +230,24 @@ class TestSolarStill:
                 assert pytest.approx(value(sc), rel=1e-3) == r
 
         ss_cost_results = {
-            "capital_cost": 10758558.1,
-            "fixed_operating_cost": 376549.5,
-            "capital_cost_per_still": 28.716,
-            "length_piping": 934571.157,
+            "capital_cost": 9183991.7,
+            "fixed_operating_cost": 456749.3,
+            "number_sw_pumps": 3.8717,
+            "number_fw_pumps": 3.8717,
+            "capital_cost_per_still": 28.7,
+            "sw_pump_power": 0.32407,
+            "fw_pump_power": 0.32407,
+            "pumping_power_required": 2.509446,
+            "length_piping": 5788.3,
             "capital_cost_solar_still": 9088887.7,
-            "capital_cost_sw_pumps": 890.64,
-            "capital_cost_fw_pumps": 178.128,
-            "capital_cost_feed_tank": 1431.622,
-            "capital_cost_distillate_tank": 1522.2,
-            "capital_cost_underground_tank": 332.05,
-            "capital_cost_excavation": 581.34,
-            "capital_cost_piping": 1664734.26,
-            "direct_capital_cost": 10758558.1,
+            "capital_cost_sw_pumps": 5963.2,
+            "capital_cost_fw_pumps": 4395.4,
+            "capital_cost_feed_tank": 20070.9,
+            "capital_cost_distillate_tank": 21138.3,
+            "capital_cost_excavation": 9717.1,
+            "capital_cost_piping": 33818.7,
+            "operating_cost_labor": 135309.6,
+            "direct_capital_cost": 4591995.8,
         }
 
         for v, r in ss_cost_results.items():
@@ -270,3 +275,50 @@ def test_input_data_too_short():
             property_package=m.fs.properties,
             water_yield_calculation_args=water_yield_calc_dict,
         )
+
+
+@pytest.mark.component
+def test_input_data_different_col_names():
+
+    water_yield_calc_dict = dict(
+        input_weather_file_path=test_data_path_diff_col_names,
+        irradiance_col="GHI_test",
+        temperature_col="Temp",
+        wind_velocity_col="wind speed",
+        initial_salinity=200,  # initial salinity of influent water; g/L
+        initial_water_depth=0.01,  # initial depth of water in solar still basin; m
+        length_basin=0.6,  # length of each side of basin (length=width); m
+        irradiance_threshold=20,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
+    )
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = MCASParameterBlock(**inlet_dict)
+
+    m.fs.unit = SolarStill(
+        property_package=m.fs.properties,
+        water_yield_calculation_args=water_yield_calc_dict,
+    )
+
+    m.fs.unit.properties_in[0].flow_vol_phase[...]
+    m.fs.unit.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
+        value(flow_mass_in)
+    )
+    m.fs.unit.properties_in[0].flow_mass_phase_comp["Liq", "TDS"].fix(
+        value(flow_mass_tds)
+    )
+    m.fs.unit.properties_in[0].pressure.fix(101325)
+    m.fs.unit.properties_in[0].temperature.fix(293.15)
+
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 0.1, index=("Liq", "H2O")
+    )
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 10, index=("Liq", "TDS")
+    )
+
+    calculate_scaling_factors(m)
+
+    initialization_tester(m)
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
