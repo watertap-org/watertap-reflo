@@ -20,6 +20,13 @@ from watertap_contrib.reflo.costing.util import (
 
 def build_solar_still_cost_param_block(blk):
 
+    blk.number_solar_stills_base = pyo.Var(
+        initialize=25000,
+        units=pyo.units.dimensionless,
+        bounds=(0, None),
+        doc="Base number of solar stills to scale cost",
+    )
+
     # Capital cost of solar still is function of number of stills
     # C = A * number_stills **b
 
@@ -37,68 +44,62 @@ def build_solar_still_cost_param_block(blk):
         doc="Cost per still equation parameter b",
     )
 
+    # Number of pumps is function of number of stills
+    # number_pump = A * number_stills ** b
+
+    blk.number_pumps_A_param = pyo.Var(
+        initialize=0.0097,
+        units=pyo.units.dimensionless,
+        bounds=(0, None),
+        doc="Number pumps equation parameter A",
+    )
+
+    blk.number_pumps_b_param = pyo.Var(
+        initialize=0.4729,
+        units=pyo.units.dimensionless,
+        bounds=(0, None),
+        doc="Number pumps equation parameter b",
+    )
+
     blk.cost_saltwater_pump = pyo.Var(
-        initialize=750,
+        initialize=1297,
         units=pyo.units.USD_2020,
         bounds=(0, None),
         doc="Cost of single saltwater pump",
     )
 
     blk.cost_freshwater_pump = pyo.Var(
-        initialize=150,
+        initialize=956,
         units=pyo.units.USD_2020,
         bounds=(0, None),
         doc="Cost of single freshwater pump",
     )
 
     blk.cost_piping = pyo.Var(
-        initialize=1.5,
+        initialize=4.92,
         bounds=(0, None),
-        units=pyo.units.USD_2020 / pyo.units.ft,
+        units=pyo.units.USD_2020 / pyo.units.m,
         doc="CPVC pipe per linear foot",
     )
 
     blk.pipe_length_param = pyo.Var(
-        initialize=1.5,
+        initialize=457.2,
         bounds=(0, None),
-        units=pyo.units.dimensionless,
+        units=pyo.units.m,
         doc="Pipe length equation parameter",
     )
+
     blk.cost_feed_tank_base = pyo.Var(
-        initialize=1601.1,
+        initialize=1335,
         bounds=(0, None),
         units=pyo.units.USD_2020,
         doc="Feed tank capital equation base",
     )
 
-    blk.cost_feed_tank_exp = pyo.Var(
-        initialize=0.6373,
-        units=pyo.units.dimensionless,
-        doc="Feed tank capital equation exponent",
-    )
-
     blk.cost_dist_tank_base = pyo.Var(
-        initialize=1680.8,
+        initialize=1406,
         units=pyo.units.USD_2020,
         doc="Distillate tank capital equation base",
-    )
-
-    blk.cost_dist_tank_exp = pyo.Var(
-        initialize=0.6085,
-        units=pyo.units.dimensionless,
-        doc="Distillate tank capital equation exponent",
-    )
-
-    blk.cost_underground_tank_base = pyo.Var(
-        initialize=411.78,
-        units=pyo.units.USD_2020,
-        doc="Underground tank capital equation base",
-    )
-
-    blk.cost_underground_tank_exp = pyo.Var(
-        initialize=0.8693,
-        units=pyo.units.dimensionless,
-        doc="Underground tank capital equation exponent",
     )
 
     blk.cost_excavation_base = pyo.Var(
@@ -108,18 +109,18 @@ def build_solar_still_cost_param_block(blk):
         doc="Cost excavation base",
     )
 
-    blk.cost_excavation_exp = pyo.Var(
-        initialize=0.624,
-        bounds=(0, None),
-        units=pyo.units.dimensionless,
-        doc="Cost excavation exponent",
-    )
-
     blk.fixed_opex_factor = pyo.Var(
         initialize=0.035,
         bounds=(0, None),
         units=pyo.units.year**-1,
         doc="Factor for calculating fixed operating costs as a fraction of CAPEX",
+    )
+
+    blk.labor_opex_factor = pyo.Var(
+        initialize=1,
+        bounds=(0, None),
+        units=pyo.units.USD_2020 * pyo.units.m**-2 * pyo.units.year**-1,
+        doc="Factor for calculating labor costs as a fraction of total solar still area",
     )
     blk.fix_all_vars()
 
@@ -129,6 +130,7 @@ def build_solar_still_cost_param_block(blk):
     parameter_block_name="solar_still",
 )
 def cost_solar_still(blk):
+
     ss_params = blk.costing_package.solar_still
     ss = blk.unit_model
     base_currency = blk.config.flowsheet_costing_block.base_currency
@@ -136,30 +138,11 @@ def cost_solar_still(blk):
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
-    dimensionless_water_yield = pyo.units.convert(
-        ss.annual_water_yield * pyo.units.m**-1,
-        to_units=pyo.units.dimensionless,
-    )
-
     blk.pressure_drop = pyo.Param(
         initialize=1,
         mutable=True,
         units=pyo.units.bar,
         doc="Pressure drop for pumps",
-    )
-
-    blk.max_sw_flow = pyo.Param(
-        initialize=1728,
-        mutable=True,
-        units=pyo.units.m**3 / pyo.units.day,
-        doc="Saltwater pump flow rate",
-    )
-
-    blk.max_fw_flow = pyo.Param(
-        initialize=86.4,
-        mutable=True,
-        units=pyo.units.m**3 / pyo.units.day,
-        doc="Freshwater pump flow rate",
     )
 
     blk.sw_pump_efficiency = pyo.Param(
@@ -176,16 +159,16 @@ def cost_solar_still(blk):
         doc="Freshwater pump efficiency",
     )
 
-    blk.number_sw_pumps = pyo.Param(
+    blk.number_sw_pumps = pyo.Var(
         initialize=1,
-        mutable=True,
+        bounds=(0, None),
         units=pyo.units.dimensionless,
         doc="Number saltwater pumps",
     )
 
-    blk.number_fw_pumps = pyo.Param(
+    blk.number_fw_pumps = pyo.Var(
         initialize=1,
-        mutable=True,
+        bounds=(0, None),
         units=pyo.units.dimensionless,
         doc="Number freshwater pumps",
     )
@@ -219,9 +202,9 @@ def cost_solar_still(blk):
     )
 
     blk.length_piping = pyo.Var(
-        initialize=1,
+        initialize=1000,
         bounds=(0, None),
-        units=pyo.units.ft,
+        units=pyo.units.m,
         doc="Length of CPVC piping",
     )
 
@@ -260,13 +243,6 @@ def cost_solar_still(blk):
         doc="Capital cost of distillate tank",
     )
 
-    blk.capital_cost_underground_tank = pyo.Var(
-        initialize=1,
-        bounds=(0, None),
-        units=base_currency,
-        doc="Capital cost of underground tank",
-    )
-
     blk.capital_cost_excavation = pyo.Var(
         initialize=1,
         bounds=(0, None),
@@ -281,6 +257,24 @@ def cost_solar_still(blk):
         doc="Capital cost of piping",
     )
 
+    blk.operating_cost_labor = pyo.Var(
+        initialize=1,
+        bounds=(0, None),
+        units=base_currency / base_period,
+        doc="Capital cost of piping",
+    )
+
+    blk.number_sw_pumps_constraint = pyo.Constraint(
+        expr=blk.number_sw_pumps
+        == ss_params.number_pumps_A_param
+        * ss.number_stills**ss_params.number_pumps_b_param
+    )
+
+    # Assume the number of freshwater pumps equals the number saltwater pumps
+    blk.number_fw_pumps_constraint = pyo.Constraint(
+        expr=blk.number_fw_pumps == blk.number_sw_pumps
+    )
+
     blk.capital_cost_per_still_constraint = pyo.Constraint(
         expr=blk.capital_cost_per_still
         == pyo.units.convert(
@@ -293,7 +287,8 @@ def cost_solar_still(blk):
     blk.sw_pump_power_constraint = pyo.Constraint(
         expr=blk.sw_pump_power
         == pyo.units.convert(
-            (blk.pressure_drop * blk.max_sw_flow) / blk.sw_pump_efficiency,
+            (blk.pressure_drop * ss.properties_in[0].flow_vol_phase["Liq"])
+            / blk.sw_pump_efficiency,
             to_units=pyo.units.kilowatt,
         )
     )
@@ -301,7 +296,8 @@ def cost_solar_still(blk):
     blk.fw_pump_power_constraint = pyo.Constraint(
         expr=blk.fw_pump_power
         == pyo.units.convert(
-            (blk.pressure_drop * blk.max_fw_flow) / blk.fw_pump_efficiency,
+            (blk.pressure_drop * ss.properties_in[0].flow_vol_phase["Liq"])
+            / blk.fw_pump_efficiency,
             to_units=pyo.units.kilowatt,
         )
     )
@@ -317,8 +313,10 @@ def cost_solar_still(blk):
     blk.length_piping_constraint = pyo.Constraint(
         expr=blk.length_piping
         == pyo.units.convert(
-            ss_params.pipe_length_param * ss.number_stills * ss.length_basin,
-            to_units=pyo.units.ft,
+            ss_params.pipe_length_param
+            * ss.number_stills
+            / ss_params.number_solar_stills_base,
+            to_units=pyo.units.m,
         )
     )
 
@@ -355,7 +353,8 @@ def cost_solar_still(blk):
         expr=blk.capital_cost_feed_tank
         == pyo.units.convert(
             ss_params.cost_feed_tank_base
-            * dimensionless_water_yield**ss_params.cost_feed_tank_exp,
+            * ss.number_stills
+            / ss_params.number_solar_stills_base,
             to_units=base_currency,
         )
     )
@@ -366,29 +365,20 @@ def cost_solar_still(blk):
         expr=blk.capital_cost_distillate_tank
         == pyo.units.convert(
             ss_params.cost_dist_tank_base
-            * dimensionless_water_yield**ss_params.cost_dist_tank_exp,
+            * ss.number_stills
+            / ss_params.number_solar_stills_base,
             to_units=base_currency,
         )
     )
 
     capital_cost_expr += blk.capital_cost_distillate_tank
 
-    blk.capital_cost_underground_tank_constraint = pyo.Constraint(
-        expr=blk.capital_cost_underground_tank
-        == pyo.units.convert(
-            ss_params.cost_underground_tank_base
-            * dimensionless_water_yield**ss_params.cost_underground_tank_exp,
-            to_units=base_currency,
-        )
-    )
-
-    capital_cost_expr += blk.capital_cost_underground_tank
-
     blk.capital_cost_excavation_constraint = pyo.Constraint(
         expr=blk.capital_cost_excavation
         == pyo.units.convert(
             ss_params.cost_excavation_base
-            * dimensionless_water_yield**ss_params.cost_excavation_exp,
+            * ss.number_stills
+            / ss_params.number_solar_stills_base,
             to_units=base_currency,
         )
     )
@@ -405,17 +395,25 @@ def cost_solar_still(blk):
 
     capital_cost_expr += blk.capital_cost_piping
 
-    blk.costing_package.add_cost_factor(blk, None)
+    blk.costing_package.add_cost_factor(blk, "TIC")
 
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
         == pyo.units.convert(capital_cost_expr, to_units=base_currency)
     )
 
+    blk.labor_cost_constraint = pyo.Constraint(
+        expr=blk.operating_cost_labor
+        == pyo.units.convert(
+            ss_params.labor_opex_factor * ss.total_area,
+            to_units=base_currency / base_period,
+        )
+    )
+
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
         == pyo.units.convert(
-            blk.capital_cost * ss_params.fixed_opex_factor,
+            blk.capital_cost * ss_params.fixed_opex_factor + blk.operating_cost_labor,
             to_units=base_currency / base_period,
         )
     )
