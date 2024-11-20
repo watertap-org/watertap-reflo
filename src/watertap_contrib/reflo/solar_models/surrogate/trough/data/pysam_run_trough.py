@@ -101,15 +101,15 @@ def setup_model(
 
 
 
-def run_model(modules, heat_load=None, hours_storage=None): #, hot_tank_set_point=None):
+def run_model(modules, heat_load=None, hours_storage=None, hot_tank_set_point=None):
     tech_model = modules["tech_model"]
 
     if heat_load is not None:
         tech_model.value("q_pb_design", heat_load)
     if hours_storage is not None:
         tech_model.value("tshours", hours_storage)
-    # if hot_tank_set_point is not None:
-    #     tech_model.value("hot_tank_Thtr", hot_tank_set_point)
+    if hot_tank_set_point is not None:
+        tech_model.value("hot_tank_Thtr", hot_tank_set_point)
     tech_model.execute()
     
 
@@ -197,14 +197,12 @@ if __name__ == "__main__":
     model_name = "PhysicalTroughIPHLCOHCalculator"
     config_files = [
         join(dirname(__file__), "trough_physical_process_heat-reflo.json"),
-        # join(dirname(__file__), "iph_to_lcoefcr-reflo.json"),
-        # join(dirname(__file__), "lcoefcr-reflo.json"),
     ]
     weather_file = join(
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "test_trough_data_2.pkl"
+        dirname(__file__), "test_trough_data_with_hot_tank.pkl"
     )  # output dataset for surrogate training
 
     config_data = [read_module_datafile(config_file) for config_file in config_files]
@@ -221,19 +219,13 @@ if __name__ == "__main__":
     # weather_data = utils.read_weather_data(weather_file)    # passing of weather data not yet enabled
     # result_check = setup_and_run(model_name, weather_file, config_data, heat_load=600, hours_storage=3)
 
-    # # Load and plot saved df
-    # df = pd.read_pickle('pickle_multiproc2.pkl')
-    # plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)      # annual energy
-    # plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)      # capacity factor
-    # plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)      # LCOH
-
     # Run parametrics via multiprocessing
     data = []
-    heat_loads = np.arange(100, 600, 25)  # [MWt]
+    heat_loads = np.arange(1, 500, 25)  # [MWt]
     hours_storages = np.arange(0, 27, 1)  # [hr]
-    # hot_tank_set_point = np.arange(80, 160, 10)  # [C]
-    arguments = list(product(heat_loads, hours_storages)) #, hot_tank_set_point))
-    df = pd.DataFrame(arguments, columns=["heat_load", "hours_storage"])#, "hot_tank_set_point"])
+    hot_tank_set_point = np.arange(80, 150, 10)  # [C]
+    arguments = list(product(heat_loads, hours_storages, hot_tank_set_point))
+    df = pd.DataFrame(arguments, columns=["heat_load", "hours_storage", "hot_tank_set_point"])
     
     time_start = time.process_time()
     with multiprocessing.Pool(processes=6) as pool:
@@ -260,34 +252,6 @@ if __name__ == "__main__":
     )
     df.to_pickle(dataset_filename)
 
-    # # Run parametrics
-    # data = []
-    # # heat_loads =        np.arange(5, 115, 10)       # [MWt]
-    # # heat_loads =        np.arange(100, 1100, 25)   # [MWt]
-    # # hours_storages =    np.arange(0, 27, 1)         # [hr]
-    # heat_loads =        np.arange(100, 1100, 100)   # [MWt]
-    # hours_storages =    np.arange(0, 27, 3)         # [hr]
-    # comb = [(hl, hs) for hl in heat_loads for hs in hours_storages]
-    # for heat_load, hours_storage in comb:
-    #     result = run_model(modules, heat_load, hours_storage)
-    #     total_cost = result['capital_cost'] + result['fixed_operating_cost'] + result['variable_operating_cost']
-    #     data.append([
-    #         heat_load,
-    #         hours_storage,
-    #         result['annual_energy'],
-    #         result['capacity_factor'],
-    #         result['lcoh'],
-    #         total_cost,
-    #     ])
-    # df = pd.DataFrame(data, columns=[
-    #     'heat_load',
-    #     'hours_storage',
-    #     'annual_energy',
-    #     'capacity_factor',
-    #     'lcoh',
-    #     'total_cost'])
-
-    # df.to_pickle('pickle_filename5.pkl')
     plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)  # annual energy
     plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)  # capacity factor
     plot_3d(df, 0, 1, 6, grid=False, countour_lines=False)  # lcoh
