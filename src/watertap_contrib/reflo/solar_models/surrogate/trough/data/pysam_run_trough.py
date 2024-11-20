@@ -194,7 +194,7 @@ def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True)
 
 #########################################################################################################
 if __name__ == "__main__":
-    model_name = "DSGLIPHLCOHCalculator"
+    model_name = "PhysicalTroughIPHLCOHCalculator"
     config_files = [
         join(dirname(__file__), "trough_physical_process_heat-reflo.json"),
         # join(dirname(__file__), "iph_to_lcoefcr-reflo.json"),
@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     # Run parametrics via multiprocessing
     data = []
-    heat_loads = np.arange(100, 1100, 25)  # [MWt]
+    heat_loads = np.arange(100, 600, 25)  # [MWt]
     hours_storages = np.arange(0, 27, 1)  # [hr]
     # hot_tank_set_point = np.arange(80, 160, 10)  # [C]
     arguments = list(product(heat_loads, hours_storages)) #, hot_tank_set_point))

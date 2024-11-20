@@ -12,7 +12,7 @@ setup(
         "watertap==1.0.0rc0",
         "idaes-pse==2.5.0",
         "pyomo==6.7.3",
-        "nrel-pysam == 5.1.0",
+        "nrel-pysam == 3.0.2",
     ],
     extras_require={
         "dev": [
