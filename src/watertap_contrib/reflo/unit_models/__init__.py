@@ -13,3 +13,4 @@
 from .chemical_softening import ChemicalSoftening
 from .air_stripping_0D import AirStripping0D
 from .evaporation_pond import EvaporationPond
+from .zero_order.forward_osmosis_zo import ForwardOsmosisZO
