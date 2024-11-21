@@ -10,10 +10,13 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 import math
+import pandas as pd
+import numpy as np
 from copy import deepcopy
 
 # Import Pyomo libraries
 from pyomo.environ import (
+    Set,
     Var,
     check_optimal_termination,
     Param,
@@ -30,7 +33,7 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
-
+from idaes.core.util.math import smooth_min, smooth_max, smooth_bound
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.constants import Constants
 from idaes.core.util.config import is_physical_parameter_block
@@ -108,6 +111,16 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
     )
 
     CONFIG.declare(
+        "weather_data_path",
+        ConfigValue(
+            default=useDefault,
+            domain=str,
+            description="",
+            doc="""""",
+        ),
+    )
+
+    CONFIG.declare(
         "property_package_args",
         ConfigBlock(
             implicit=True,
@@ -163,10 +176,16 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 "TDS must be present as a component in the influent stream."
             )
 
+        self.weather_data = pd.read_csv(self.config.weather_data_path)
+        self.weather_data["day_group"] = np.arange(len(self.weather_data)) // 24
+
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
         tmp_dict["parameters"] = self.config.property_package
         tmp_dict["defined_state"] = True
+
+        self.days_in_year = Set(initialize=range(0, 365))
+
         self.properties_in = self.config.property_package.state_block_class(
             self.flowsheet().config.time, doc="Material properties of inlet", **tmp_dict
         )
@@ -178,11 +197,41 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             **tmp_dict,
         )
 
+        tmp_dict["defined_state"] = False
+        self.weather = self.config.property_package.state_block_class(
+            self.days_in_year,
+            doc="Daily atmospheric properties",
+            **tmp_dict,
+        )
+
+        for day, pres in enumerate(
+            self.weather_data.groupby("day_group").Pressure.mean()
+        ):
+            pres_Pa = pyunits.convert(pres * pyunits.mbar, to_units=pyunits.Pa)
+            self.weather[day].pressure.fix(pres_Pa)
+
+        # avoid warnings for days with air temp < 0 degC
+        self.weather[:].temperature["Vap"].setlb(200)
+        self.weather[:].temperature["Liq"].setlb(200)
+
+        for day, temp in enumerate(
+            self.weather_data.groupby("day_group").Temperature.mean()
+        ):
+            temp_K = temp + 273.15
+            self.weather[day].temperature["Vap"].fix(temp_K)
+
+        @self.Constraint(self.days_in_year)
+        def eq_water_temp(b, d):
+            air_temp_C = b.weather[d].temperature["Vap"] - 273.15
+            return b.weather[d].temperature["Liq"] == smooth_max(
+                (1.167 * air_temp_C - 0.175) + 273.15, 274.15
+            )
+
         prop_in = self.properties_in[0]
         prop_out = self.properties_out[0]
         prop_out.flow_mass_phase_comp["Liq", "H2O"].set_value(0)
 
-        self.air_temperature_C = prop_in.temperature["Vap"] - 273.15 * pyunits.degK
+        # self.air_temperature_C = prop_in.temperature["Vap"] - 273.15 * pyunits.degK
 
         self.add_inlet_port(name="inlet", block=self.properties_in)
         self.add_outlet_port(name="outlet", block=self.properties_out)
@@ -201,9 +250,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Area correction factor exponent",
         )
 
-        ## solids precipitation rate is a function of TDS concentration [g / L]
-        ## solids_precipitation_rate [ft / yr] = a1 * C**2 + a2 * C + intercept
-        ## solids_precipitation_rate [ft / yr] = 4.12e-6 * C**2 + 1.92e-4 * C + 1.15e-3
+        # ## solids precipitation rate is a function of TDS concentration [g / L]
+        # ## solids_precipitation_rate [ft / yr] = a1 * C**2 + a2 * C + intercept
+        # ## solids_precipitation_rate [ft / yr] = 4.12e-6 * C**2 + 1.92e-4 * C + 1.15e-3
 
         self.solids_precipitation_rate_a1 = Param(
             initialize=4.12e-6,
@@ -233,11 +282,32 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Density of precipitated solids",
         )
 
-        self.pressure_atm = Param(
-            initialize=101325,
+        self.shortwave_radiation = Param(
+            self.days_in_year,
+            initialize=self.weather_data.groupby("day_group").GHI.sum(),
+            units=pyunits.W * pyunits.m**-2,
+            doc="Shortwave radiation at location (GHI)",
+        )
+
+        self.shortwave_albedo = Param(
+            initialize=0.05,
             mutable=True,
-            units=pyunits.Pa,
-            doc="Atmospheric pressure",
+            units=pyunits.dimensionless,
+            doc="Albedo factor for shortwave radiation",
+        )
+
+        self.longwave_albedo = Param(
+            initialize=0.03,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Albedo factor for longwave radiation",
+        )
+
+        self.emissivity_water = Param(
+            initialize=0.97,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Emissivity of water",
         )
 
         self.evaporation_pond_depth = Param(
@@ -261,235 +331,239 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Factor to increase evaporation rate due to enhancement",
         )
 
-        self.water_temperature_calc_slope = Param(
-            initialize=1.04,
-            mutable=True,
-            units=pyunits.dimensionless,
-            doc="Slope of equation to calculate water temperature based on air temperature",
-        )
-
-        self.water_temperature_calc_intercept = Param(
-            initialize=0.22,
-            mutable=True,
-            units=pyunits.degK,
-            doc="Intercept of equation to calculate water temperature based on air temperature",
-        )
-
-        self.net_solar_radiation = Param(
-            initialize=150,
-            mutable=True,
-            units=pyunits.watt / pyunits.m**2,
-            doc="Net incident solar radiation",  # net shortwave radiation - net longwave radiation
-        )
-
-        self.differential_head = Param(
-            initialize=40,
-            mutable=True,
-            units=pyunits.m,
-            doc="Differential head for pumping energy",
-        )
-
-        self.net_heat_flux_out = Var(
-            initialize=100,
-            bounds=(0, None),
-            units=pyunits.watt / pyunits.m**2,
-            doc="Net heat flux out of system (water, soil, ecosystem, etc.)",
-        )
-
-        self.area_correction_factor = Var(
+        self.emissivity_air = Var(
+            self.days_in_year,
             initialize=1,
-            bounds=(0.99, 10),
+            bounds=(0, 1),
             units=pyunits.dimensionless,
-            doc="Area correction factor",
+            doc="Emissivity of air",
         )
 
-        self.bowen_ratio = Var(
-            initialize=0.3,
-            bounds=(0, 2),
-            units=pyunits.dimensionless,
-            doc="Bowen ratio for BREB calculation of evaporation rate",
+        self.longwave_radiation_in = Var(
+            self.days_in_year,
+            initialize=10,
+            bounds=(0, None),
+            units=pyunits.W * pyunits.m**-2,
+            doc="Incident longwave radiation",
+        )
+
+        self.net_shortwave_radiation_in = Var(
+            self.days_in_year,
+            initialize=10,
+            bounds=(0, None),
+            units=pyunits.W * pyunits.m**-2,
+            doc="Net incident shortwave radiation",
+        )
+
+        self.net_longwave_radiation_in = Var(
+            self.days_in_year,
+            initialize=10,
+            bounds=(0, None),
+            units=pyunits.W * pyunits.m**-2,
+            doc="Net incident longwave radiation",
+        )
+
+        self.net_longwave_radiation_out = Var(
+            self.days_in_year,
+            initialize=10,
+            bounds=(0, None),
+            units=pyunits.W * pyunits.m**-2,
+            doc="Net outgoing longwave radiation",
+        )
+
+        self.net_solar_radiation = Var(
+            self.days_in_year,
+            initialize=10,
+            bounds=(0, None),
+            units=pyunits.W * pyunits.m**-2,
+            doc="Net solar radiation for evaporation",
+        )
+
+        self.net_radiation = Var(
+            self.days_in_year,
+            initialize=10,
+            bounds=(0, None),
+            units=pyunits.W * pyunits.m**-2,
+            doc="Net radiation for evaporation",
         )
 
         self.psychrometric_constant = Var(
+            self.days_in_year,
             initialize=0.06,
             bounds=(0, None),
             units=pyunits.kPa * pyunits.degK**-1,
             doc="Psychrometric constant",
         )
 
-        self.mass_flux_water_vapor = Var(
-            initialize=1e-5,
-            bounds=(0, 1e-3),
-            units=pyunits.kg / (pyunits.m**2 * pyunits.s),
-            doc="Mass flux of water vapor evaporated according using BREB method",
+        self.bowen_ratio = Var(
+            self.days_in_year,
+            initialize=0.3,
+            bounds=(0, 2),
+            units=pyunits.dimensionless,
+            doc="Bowen ratio for BREB calculation of evaporation rate",
+        )
+
+        self.water_activity = Var(
+            initialize=10,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Water activity",
         )
 
         self.evaporation_rate = Var(
+            self.days_in_year,
             initialize=0.03,
             bounds=(0, None),
             units=pyunits.m / pyunits.s,
             doc="Evaporation rate",
         )
+        self.mass_flux_water_vapor = Var(
+            self.days_in_year,
+            initialize=1e-5,
+            # bounds=(None, 1e-3),
+            units=pyunits.kg / (pyunits.m**2 * pyunits.s),
+            doc="Mass flux of water vapor evaporated according using BREB method",
+        )
 
-        self.solids_precipitation_rate = Var(
-            initialize=0.01,
+        self.net_heat_flux_out = Var(
+            self.days_in_year,
+            initialize=100,
             bounds=(0, None),
-            units=pyunits.feet / pyunits.year,
-            doc="Rate at which solids precipitate on bottom of pond",
+            units=pyunits.watt / pyunits.m**2,
+            doc="Net heat flux out of system (water, soil, ecosystem, etc.)",
         )
 
-        self.total_evaporative_area_required = Var(
-            initialize=100000,
-            bounds=(0, None),
-            units=pyunits.m**2,
-            doc="Total evaporative area required",
-        )
+        @self.Constraint()
+        def eq_water_activity(b):
+            salinity = pyunits.convert(
+                prop_in.conc_mass_phase_comp["Liq", "TDS"]
+                * pyunits.kg**-1
+                * pyunits.m**3,
+                to_units=pyunits.dimensionless,
+            )
+            return b.water_activity == -0.00056678 * salinity + 0.9985307
 
-        self.evaporative_area_per_pond = Var(
-            initialize=10000,
-            bounds=(0, 405000),
-            units=pyunits.m**2,
-            doc="Evaporative area required per pond",
-        )
+        @self.Constraint(self.days_in_year)
+        def eq_emissivity_air(b, d):
+            p_sat_kPa = pyunits.convert(
+                pyunits.convert(
+                    b.weather[d].pressure_vap_sat["H2O"], to_units=pyunits.kilopascal
+                )
+                * pyunits.kilopascal**-1,
+                to_units=pyunits.dimensionless,
+            )
+            temp_C = pyunits.convert(
+                (b.weather[d].temperature["Vap"] - 273.15 * pyunits.degK)
+                * pyunits.degK**-1,
+                to_units=pyunits.dimensionless,
+            )
+            air_temp_C = smooth_max(temp_C, 0.1)
 
-        self.evaporation_pond_area = Var(
-            initialize=10000,
-            bounds=(0, None),
-            units=pyunits.m**2,
-            doc="Area of single evaporation pond",
-        )
-
-        self.number_evaporation_ponds = Var(
-            initialize=1,
-            bounds=(1, None),
-            units=pyunits.dimensionless,
-            doc="Number of evaporation ponds",
-        )
-
-        @self.Expression()
-        def evap_rate_mm_d(b):
-            return pyunits.convert(
-                b.evaporation_rate, to_units=pyunits.mm / pyunits.day
+            return b.emissivity_air[d] == smooth_min(
+                1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99
             )
 
-        @self.Expression(doc="Total pond area in acres")
-        def total_pond_area_acre(b):
-            return pyunits.convert(
-                b.evaporation_pond_area * b.number_evaporation_ponds,
-                to_units=pyunits.acre,
+        @self.Constraint(self.days_in_year)
+        def eq_longwave_radiation_in(b, d):
+            return b.longwave_radiation_in[d] == pyunits.convert(
+                b.emissivity_air[d]
+                * Constants.stefan_constant
+                * b.weather[d].temperature["Vap"] ** 4,
+                to_units=pyunits.watt * pyunits.m**-2,
             )
 
-        @self.Expression(doc="Evaporative area per pond in acres")
-        def evaporative_area_acre(b):
-            return pyunits.convert(b.evaporative_area_per_pond, to_units=pyunits.acre)
-
-        @self.Expression(doc="Individual pond area in acres")
-        def pond_area_acre(b):
-            return pyunits.convert(b.evaporation_pond_area, to_units=pyunits.acre)
-
-        @self.Expression(doc="Net radiation available for evaporation")
-        def net_radiation(b):
-            return b.net_solar_radiation - b.net_heat_flux_out
-
-        @self.Expression(doc="Mass flow of precipitated solids")
-        def mass_flow_precipitate(b):
-            return pyunits.convert(
-                b.total_pond_area_acre * b.solids_precipitation_rate * b.dens_solids,
-                to_units=pyunits.kg / pyunits.year,
+        @self.Constraint(self.days_in_year)
+        def eq_net_shortwave_radiation_in(b, d):
+            return (
+                b.net_shortwave_radiation_in[d]
+                == (1 - b.shortwave_albedo) * b.shortwave_radiation[d]
             )
 
-        @self.Expression(doc="Differential pressure required for pumping")
-        def differential_pressure(b):
-            return pyunits.convert(
-                prop_in.dens_mass_phase["Liq"]
-                * Constants.acceleration_gravity
-                * b.differential_head,
-                to_units=pyunits.Pa,
+        @self.Constraint(self.days_in_year)
+        def eq_net_longwave_radiation_in(b, d):
+            return (
+                b.net_longwave_radiation_in[d]
+                == (1 - b.longwave_albedo) * b.longwave_radiation_in[d]
             )
 
-        # @self.Constraint(doc="Mass balance of liquid water")
-        # def eq_mass_balance_liquid_water(b):
-        #     return (
-        #         prop_out.flow_mass_phase_comp["Liq", "H2O"]
-        #         == prop_in.flow_mass_phase_comp["Liq", "H2O"]
-        #         - prop_out.flow_mass_phase_comp["Vap", "H2O"]
-        #     )
+        @self.Constraint(self.days_in_year)
+        def eq_net_longwave_radiation_out(b, d):
+            return b.net_longwave_radiation_out[d] == pyunits.convert(
+                b.emissivity_water
+                * Constants.stefan_constant
+                * b.weather[d].temperature["Liq"] ** 4,
+                to_units=pyunits.watt * pyunits.m**-2,
+            )
+
+        @self.Constraint(self.days_in_year)
+        def eq_net_solar_radiation(b, d):
+            return (
+                b.net_solar_radiation[d]
+                == b.net_shortwave_radiation_in[d]
+                + b.net_longwave_radiation_in[d]
+                - b.net_longwave_radiation_out[d]
+            )
+        
+        @self.Constraint(self.days_in_year)
+        def eq_net_radiation(b, d):
+            return (
+                b.net_radiation[d]
+                == b.net_solar_radiation[d] - b.net_heat_flux_out[d]
+            )
+
+        @self.Constraint(self.days_in_year, doc="Psychrometric constant equation")
+        def eq_psychrometric_constant(b, d):
+            mw_ratio = pyunits.convert(
+                prop_in.mw_comp["H2O"] / prop_in.mw_comp["Air"],
+                to_units=pyunits.dimensionless,
+            )
+            return b.psychrometric_constant[d] == pyunits.convert(
+                (prop_in.cp_air * b.weather[d].pressure)
+                / (mw_ratio * b.weather[d].dh_vap_mass_solvent),
+                to_units=pyunits.kPa * pyunits.degK**-1,
+            )
+
+        @self.Constraint(self.days_in_year, doc="Bowen ratio calculation")
+        def eq_bowen_ratio(b, d):
+            return b.bowen_ratio[d] == smooth_max(
+                pyunits.convert(
+                    b.psychrometric_constant[d]
+                    * (
+                        (
+                            b.weather[d].temperature["Liq"]
+                            - b.weather[d].temperature["Vap"]
+                        )
+                        / (
+                            b.water_activity * b.weather[d].pressure_vap_sat["H2O"]
+                            - b.weather[d].pressure_vap["H2O"]
+                        )
+                    ),
+                    to_units=pyunits.dimensionless,
+                ),
+                1e-3,
+            )
 
         @self.Constraint(
-            # non_volatile_comps,
-            doc="Mass transfer term for precipitated solids and non-volatile components",
+            self.days_in_year, doc="Mass flux water vapor using BREB method"
         )
-        def eq_mass_transfer_non_volatile_solutes(b):
-            return prop_out.flow_mass_phase_comp["Liq", "TDS"] == pyunits.convert(
-                b.mass_flow_precipitate,
-                to_units=pyunits.kg / pyunits.s,
+        def eq_mass_flux_water_vapor(b, d):
+            return b.mass_flux_water_vapor[d] == (
+                b.evaporation_rate_salinity_adjustment_factor
+                * b.evaporation_rate_enhancement_adjustment_factor
+            ) * pyunits.convert(
+                b.net_radiation[d]
+                / (b.weather[d].dh_vap_mass_solvent * (1 + b.bowen_ratio[d])),
+                to_units=pyunits.kg / (pyunits.m**2 * pyunits.s),
             )
 
-        @self.Constraint(doc="Mass transfer term for evaporated water")
-        def eq_mass_transfer_evaporated_water(b):
-            return prop_out.flow_mass_phase_comp["Vap", "H2O"] == pyunits.convert(
-                b.mass_flux_water_vapor * b.total_evaporative_area_required,
-                to_units=pyunits.kg / pyunits.s,
-            )
-
-        @self.Constraint(doc="Overall mass balance of water")
-        def eq_mass_balance_water(b):
-            return (
-                prop_in.flow_mass_phase_comp["Liq", "H2O"]
-                + prop_in.flow_mass_phase_comp["Vap", "H2O"]
-                == prop_out.flow_mass_phase_comp["Liq", "H2O"]
-                + prop_out.flow_mass_phase_comp["Vap", "H2O"]
-            )
-
-        @self.Constraint(doc="Mass balance for air")
-        def eq_air_mass_balance(b):
-            return (
-                prop_in.flow_mass_phase_comp["Vap", "Air"]
-                == prop_out.flow_mass_phase_comp["Vap", "Air"]
-            )
-
-        @self.Constraint(doc="Solids precipitation rate")
-        def eq_solids_precipitation_rate(b):
-            tds_in_dim = pyunits.convert(
-                prop_in.conc_mass_phase_comp["Liq", "TDS"] * pyunits.g**-1 * pyunits.L,
-                to_units=pyunits.dimensionless,
-            )
-            return (
-                b.solids_precipitation_rate
-                == b.solids_precipitation_rate_a1 * tds_in_dim**2
-                + b.solids_precipitation_rate_a2 * tds_in_dim
-                + b.solids_precipitation_rate_intercept
-            )
-
-        @self.Constraint(doc="Area correction factor calculation")
-        def eq_area_correction_factor(b):
-            evap_per_pond_acre_dim = pyunits.convert(
-                b.evaporative_area_per_pond * pyunits.acre**-1,
-                to_units=pyunits.dimensionless,
-            )
-            return (
-                b.area_correction_factor
-                == b.area_correction_factor_base
-                * evap_per_pond_acre_dim**b.area_correction_factor_exp
-            )
-
-        @self.Constraint(doc="Water temperature as function of air temperature")
-        def eq_water_temperature_constraint(b):
-            return (
-                prop_out.temperature["Liq"]
-                == (
-                    b.water_temperature_calc_slope * b.air_temperature_C
-                    + b.water_temperature_calc_intercept
-                )
-                + 273.15 * pyunits.degK
-            )
-
-        @self.Constraint(doc="Net heat flux out of surroundings/ecosystem")
-        def eq_net_heat_flux_out(b):
+        @self.Constraint(
+            self.days_in_year, doc="Net heat flux out of surroundings/ecosystem"
+        )
+        def eq_net_heat_flux_out(b, d):
             daily_temperature_change = (
-                prop_out.temperature["Liq"] - prop_in.temperature["Vap"]
+                b.weather[d].temperature["Liq"] - b.weather[d].temperature["Vap"]
             ) / pyunits.day
-            return b.net_heat_flux_out == pyunits.convert(
+            return b.net_heat_flux_out[d] == pyunits.convert(
                 prop_in.dens_mass_phase["Liq"]
                 * prop_in.cp_mass_solvent["Liq"]
                 * b.evaporation_pond_depth
@@ -497,77 +571,320 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.watt / pyunits.m**2,
             )
 
-        @self.Constraint(doc="Air temperature is isothermal")
-        def eq_isothermal(b):
-            return prop_in.temperature["Vap"] == prop_out.temperature["Vap"]
+        # self.pressure_atm = Param(
+        #     initialize=101325,
+        #     mutable=True,
+        #     units=pyunits.Pa,
+        #     doc="Atmospheric pressure",
+        # )
 
-        @self.Constraint()
-        def eq_isobaric(b):
-            return prop_in.pressure == prop_out.pressure
+        # self.evaporation_pond_depth = Param(
+        #     initialize=18,
+        #     mutable=True,
+        #     units=pyunits.inches,
+        #     doc="Depth of evaporation pond",
+        # )
 
-        @self.Constraint(doc="Psychrometric constant equation")
-        def eq_psychrometric_constant(b):
-            mw_ratio = pyunits.convert(
-                prop_in.mw_comp["H2O"] / prop_in.mw_comp["Air"],
-                to_units=pyunits.dimensionless,
-            )
-            return b.psychrometric_constant == pyunits.convert(
-                (prop_in.cp_air * b.pressure_atm)
-                / (mw_ratio * prop_out.dh_vap_mass_solvent),
-                to_units=pyunits.kPa * pyunits.degK**-1,
-            )
+        # self.water_temperature_calc_slope = Param(
+        #     initialize=1.04,
+        #     mutable=True,
+        #     units=pyunits.dimensionless,
+        #     doc="Slope of equation to calculate water temperature based on air temperature",
+        # )
 
-        @self.Constraint(doc="Bowen ratio calculation")
-        def eq_bowen_ratio(b):
-            return b.bowen_ratio == pyunits.convert(
-                b.psychrometric_constant
-                * (
-                    (prop_out.temperature["Liq"] - prop_in.temperature["Vap"])
-                    / (prop_in.pressure_vap_sat["H2O"] - prop_in.pressure_vap["H2O"])
-                ),
-                to_units=pyunits.dimensionless,
-            )
+        # self.water_temperature_calc_intercept = Param(
+        #     initialize=0.22,
+        #     mutable=True,
+        #     units=pyunits.degK,
+        #     doc="Intercept of equation to calculate water temperature based on air temperature",
+        # )
 
-        @self.Constraint(doc="Mass flux water vapor using BREB method")
-        def eq_mass_flux_water_vapor(b):
-            return (
-                b.mass_flux_water_vapor
-                == b.evaporation_rate_salinity_adjustment_factor
-                * b.evaporation_rate_enhancement_adjustment_factor
-                * pyunits.convert(
-                    b.net_radiation
-                    / (prop_out.dh_vap_mass_solvent * (1 + b.bowen_ratio)),
-                    to_units=pyunits.kg / (pyunits.m**2 * pyunits.s),
-                )
-            )
+        # self.net_solar_radiation = Param(
+        #     initialize=150,
+        #     mutable=True,
+        #     units=pyunits.watt / pyunits.m**2,
+        #     doc="Net incident solar radiation",  # net shortwave radiation - net longwave radiation
+        # )
 
-        @self.Constraint(doc="Evaporation rate")
-        def eq_evaporation_rate(b):
-            return b.evaporation_rate == pyunits.convert(
-                b.mass_flux_water_vapor / prop_in.dens_mass_phase["Liq"],
-                to_units=pyunits.m / pyunits.s,
-            )
+        # self.differential_head = Param(
+        #     initialize=40,
+        #     mutable=True,
+        #     units=pyunits.m,
+        #     doc="Differential head for pumping energy",
+        # )
 
-        @self.Constraint(doc="Total evaporative area required")
-        def eq_total_evaporative_area_required(b):
-            return (
-                b.total_evaporative_area_required * b.mass_flux_water_vapor
-                == prop_in.flow_mass_phase_comp["Liq", "H2O"]
-            )
+        # self.net_heat_flux_out = Var(
+        #     initialize=100,
+        #     bounds=(0, None),
+        #     units=pyunits.watt / pyunits.m**2,
+        #     doc="Net heat flux out of system (water, soil, ecosystem, etc.)",
+        # )
 
-        @self.Constraint(doc="Evaporation pond area")
-        def eq_evaporation_pond_area(b):
-            return (
-                b.evaporation_pond_area
-                == b.evaporative_area_per_pond * b.area_correction_factor
-            )
+        # self.area_correction_factor = Var(
+        #     initialize=1,
+        #     bounds=(0.99, 10),
+        #     units=pyunits.dimensionless,
+        #     doc="Area correction factor",
+        # )
 
-        @self.Constraint(doc="Total evaporation pond area")
-        def eq_evaporative_area_per_pond(b):
-            return (
-                b.number_evaporation_ponds * b.evaporative_area_per_pond
-                == b.total_evaporative_area_required
-            )
+        # self.bowen_ratio = Var(
+        #     initialize=0.3,
+        #     bounds=(0, 2),
+        #     units=pyunits.dimensionless,
+        #     doc="Bowen ratio for BREB calculation of evaporation rate",
+        # )
+
+        # self.psychrometric_constant = Var(
+        #     initialize=0.06,
+        #     bounds=(0, None),
+        #     units=pyunits.kPa * pyunits.degK**-1,
+        #     doc="Psychrometric constant",
+        # )
+
+        # self.evaporation_rate = Var(
+        #     initialize=0.03,
+        #     bounds=(0, None),
+        #     units=pyunits.m / pyunits.s,
+        #     doc="Evaporation rate",
+        # )
+
+        # self.solids_precipitation_rate = Var(
+        #     initialize=0.01,
+        #     bounds=(0, None),
+        #     units=pyunits.feet / pyunits.year,
+        #     doc="Rate at which solids precipitate on bottom of pond",
+        # )
+
+        # self.total_evaporative_area_required = Var(
+        #     initialize=100000,
+        #     bounds=(0, None),
+        #     units=pyunits.m**2,
+        #     doc="Total evaporative area required",
+        # )
+
+        # self.evaporative_area_per_pond = Var(
+        #     initialize=10000,
+        #     bounds=(0, 405000),
+        #     units=pyunits.m**2,
+        #     doc="Evaporative area required per pond",
+        # )
+
+        # self.evaporation_pond_area = Var(
+        #     initialize=10000,
+        #     bounds=(0, None),
+        #     units=pyunits.m**2,
+        #     doc="Area of single evaporation pond",
+        # )
+
+        # self.number_evaporation_ponds = Var(
+        #     initialize=1,
+        #     bounds=(1, None),
+        #     units=pyunits.dimensionless,
+        #     doc="Number of evaporation ponds",
+        # )
+
+        # @self.Expression()
+        # def evap_rate_mm_d(b):
+        #     return pyunits.convert(
+        #         b.evaporation_rate, to_units=pyunits.mm / pyunits.day
+        #     )
+
+        # @self.Expression(doc="Total pond area in acres")
+        # def total_pond_area_acre(b):
+        #     return pyunits.convert(
+        #         b.evaporation_pond_area * b.number_evaporation_ponds,
+        #         to_units=pyunits.acre,
+        #     )
+
+        # @self.Expression(doc="Evaporative area per pond in acres")
+        # def evaporative_area_acre(b):
+        #     return pyunits.convert(b.evaporative_area_per_pond, to_units=pyunits.acre)
+
+        # @self.Expression(doc="Individual pond area in acres")
+        # def pond_area_acre(b):
+        #     return pyunits.convert(b.evaporation_pond_area, to_units=pyunits.acre)
+
+        # @self.Expression(doc="Net radiation available for evaporation")
+        # def net_radiation(b):
+        #     return b.net_solar_radiation - b.net_heat_flux_out
+
+        # @self.Expression(doc="Mass flow of precipitated solids")
+        # def mass_flow_precipitate(b):
+        #     return pyunits.convert(
+        #         b.total_pond_area_acre * b.solids_precipitation_rate * b.dens_solids,
+        #         to_units=pyunits.kg / pyunits.year,
+        #     )
+
+        # @self.Expression(doc="Differential pressure required for pumping")
+        # def differential_pressure(b):
+        #     return pyunits.convert(
+        #         prop_in.dens_mass_phase["Liq"]
+        #         * Constants.acceleration_gravity
+        #         * b.differential_head,
+        #         to_units=pyunits.Pa,
+        #     )
+
+        # # @self.Constraint(doc="Mass balance of liquid water")
+        # # def eq_mass_balance_liquid_water(b):
+        # #     return (
+        # #         prop_out.flow_mass_phase_comp["Liq", "H2O"]
+        # #         == prop_in.flow_mass_phase_comp["Liq", "H2O"]
+        # #         - prop_out.flow_mass_phase_comp["Vap", "H2O"]
+        # #     )
+
+        # @self.Constraint(
+        #     # non_volatile_comps,
+        #     doc="Mass transfer term for precipitated solids and non-volatile components",
+        # )
+        # def eq_mass_transfer_non_volatile_solutes(b):
+        #     return prop_out.flow_mass_phase_comp["Liq", "TDS"] == pyunits.convert(
+        #         b.mass_flow_precipitate,
+        #         to_units=pyunits.kg / pyunits.s,
+        #     )
+
+        # @self.Constraint(doc="Mass transfer term for evaporated water")
+        # def eq_mass_transfer_evaporated_water(b):
+        #     return prop_out.flow_mass_phase_comp["Vap", "H2O"] == pyunits.convert(
+        #         b.mass_flux_water_vapor * b.total_evaporative_area_required,
+        #         to_units=pyunits.kg / pyunits.s,
+        #     )
+
+        # @self.Constraint(doc="Overall mass balance of water")
+        # def eq_mass_balance_water(b):
+        #     return (
+        #         prop_in.flow_mass_phase_comp["Liq", "H2O"]
+        #         + prop_in.flow_mass_phase_comp["Vap", "H2O"]
+        #         == prop_out.flow_mass_phase_comp["Liq", "H2O"]
+        #         + prop_out.flow_mass_phase_comp["Vap", "H2O"]
+        #     )
+
+        # @self.Constraint(doc="Mass balance for air")
+        # def eq_air_mass_balance(b):
+        #     return (
+        #         prop_in.flow_mass_phase_comp["Vap", "Air"]
+        #         == prop_out.flow_mass_phase_comp["Vap", "Air"]
+        #     )
+
+        # @self.Constraint(doc="Solids precipitation rate")
+        # def eq_solids_precipitation_rate(b):
+        #     tds_in_dim = pyunits.convert(
+        #         prop_in.conc_mass_phase_comp["Liq", "TDS"] * pyunits.g**-1 * pyunits.L,
+        #         to_units=pyunits.dimensionless,
+        #     )
+        #     return (
+        #         b.solids_precipitation_rate
+        #         == b.solids_precipitation_rate_a1 * tds_in_dim**2
+        #         + b.solids_precipitation_rate_a2 * tds_in_dim
+        #         + b.solids_precipitation_rate_intercept
+        #     )
+
+        # @self.Constraint(doc="Area correction factor calculation")
+        # def eq_area_correction_factor(b):
+        #     evap_per_pond_acre_dim = pyunits.convert(
+        #         b.evaporative_area_per_pond * pyunits.acre**-1,
+        #         to_units=pyunits.dimensionless,
+        #     )
+        #     return (
+        #         b.area_correction_factor
+        #         == b.area_correction_factor_base
+        #         * evap_per_pond_acre_dim**b.area_correction_factor_exp
+        #     )
+
+        # @self.Constraint(doc="Water temperature as function of air temperature")
+        # def eq_water_temperature_constraint(b):
+        #     return (
+        #         prop_out.temperature["Liq"]
+        #         == (
+        #             b.water_temperature_calc_slope * b.air_temperature_C
+        #             + b.water_temperature_calc_intercept
+        #         )
+        #         + 273.15 * pyunits.degK
+        #     )
+
+        # @self.Constraint(doc="Net heat flux out of surroundings/ecosystem")
+        # def eq_net_heat_flux_out(b):
+        #     daily_temperature_change = (
+        #         prop_out.temperature["Liq"] - prop_in.temperature["Vap"]
+        #     ) / pyunits.day
+        #     return b.net_heat_flux_out == pyunits.convert(
+        #         prop_in.dens_mass_phase["Liq"]
+        #         * prop_in.cp_mass_solvent["Liq"]
+        #         * b.evaporation_pond_depth
+        #         * daily_temperature_change,
+        #         to_units=pyunits.watt / pyunits.m**2,
+        #     )
+
+        # @self.Constraint(doc="Air temperature is isothermal")
+        # def eq_isothermal(b):
+        #     return prop_in.temperature["Vap"] == prop_out.temperature["Vap"]
+
+        # @self.Constraint()
+        # def eq_isobaric(b):
+        #     return prop_in.pressure == prop_out.pressure
+
+        # @self.Constraint(doc="Psychrometric constant equation")
+        # def eq_psychrometric_constant(b):
+        #     mw_ratio = pyunits.convert(
+        #         prop_in.mw_comp["H2O"] / prop_in.mw_comp["Air"],
+        #         to_units=pyunits.dimensionless,
+        #     )
+        #     return b.psychrometric_constant == pyunits.convert(
+        #         (prop_in.cp_air * b.pressure_atm)
+        #         / (mw_ratio * prop_out.dh_vap_mass_solvent),
+        #         to_units=pyunits.kPa * pyunits.degK**-1,
+        #     )
+
+        # @self.Constraint(doc="Bowen ratio calculation")
+        # def eq_bowen_ratio(b):
+        #     return b.bowen_ratio == pyunits.convert(
+        #         b.psychrometric_constant
+        #         * (
+        #             (prop_out.temperature["Liq"] - prop_in.temperature["Vap"])
+        #             / (prop_in.pressure_vap_sat["H2O"] - prop_in.pressure_vap["H2O"])
+        #         ),
+        #         to_units=pyunits.dimensionless,
+        #     )
+
+        # @self.Constraint(doc="Mass flux water vapor using BREB method")
+        # def eq_mass_flux_water_vapor(b):
+        #     return (
+        #         b.mass_flux_water_vapor
+        #         == b.evaporation_rate_salinity_adjustment_factor
+        #         * b.evaporation_rate_enhancement_adjustment_factor
+        #         * pyunits.convert(
+        #             b.net_radiation
+        #             / (prop_out.dh_vap_mass_solvent * (1 + b.bowen_ratio)),
+        #             to_units=pyunits.kg / (pyunits.m**2 * pyunits.s),
+        #         )
+        #     )
+
+        # @self.Constraint(doc="Evaporation rate")
+        # def eq_evaporation_rate(b):
+        #     return b.evaporation_rate == pyunits.convert(
+        #         b.mass_flux_water_vapor / prop_in.dens_mass_phase["Liq"],
+        #         to_units=pyunits.m / pyunits.s,
+        #     )
+
+        # @self.Constraint(doc="Total evaporative area required")
+        # def eq_total_evaporative_area_required(b):
+        #     return (
+        #         b.total_evaporative_area_required * b.mass_flux_water_vapor
+        #         == prop_in.flow_mass_phase_comp["Liq", "H2O"]
+        #     )
+
+        # @self.Constraint(doc="Evaporation pond area")
+        # def eq_evaporation_pond_area(b):
+        #     return (
+        #         b.evaporation_pond_area
+        #         == b.evaporative_area_per_pond * b.area_correction_factor
+        #     )
+
+        # @self.Constraint(doc="Total evaporation pond area")
+        # def eq_evaporative_area_per_pond(b):
+        #     return (
+        #         b.number_evaporation_ponds * b.evaporative_area_per_pond
+        #         == b.total_evaporative_area_required
+        #     )
 
     def initialize(
         self,
@@ -700,38 +1017,38 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
-        if iscale.get_scaling_factor(self.net_heat_flux_out) is None:
-            iscale.set_scaling_factor(self.net_heat_flux_out, 0.01)
+        # if iscale.get_scaling_factor(self.net_heat_flux_out) is None:
+        #     iscale.set_scaling_factor(self.net_heat_flux_out, 0.01)
 
-        if iscale.get_scaling_factor(self.area_correction_factor) is None:
-            iscale.set_scaling_factor(self.area_correction_factor, 1)
+        # if iscale.get_scaling_factor(self.area_correction_factor) is None:
+        #     iscale.set_scaling_factor(self.area_correction_factor, 1)
 
-        if iscale.get_scaling_factor(self.bowen_ratio) is None:
-            iscale.set_scaling_factor(self.bowen_ratio, 10)
+        # if iscale.get_scaling_factor(self.bowen_ratio) is None:
+        #     iscale.set_scaling_factor(self.bowen_ratio, 10)
 
-        if iscale.get_scaling_factor(self.psychrometric_constant) is None:
-            iscale.set_scaling_factor(self.psychrometric_constant, 100)
+        # if iscale.get_scaling_factor(self.psychrometric_constant) is None:
+        #     iscale.set_scaling_factor(self.psychrometric_constant, 100)
 
-        if iscale.get_scaling_factor(self.mass_flux_water_vapor) is None:
-            iscale.set_scaling_factor(self.mass_flux_water_vapor, 1e5)
+        # if iscale.get_scaling_factor(self.mass_flux_water_vapor) is None:
+        #     iscale.set_scaling_factor(self.mass_flux_water_vapor, 1e5)
 
-        if iscale.get_scaling_factor(self.evaporation_rate) is None:
-            iscale.set_scaling_factor(self.evaporation_rate, 1e8)
+        # if iscale.get_scaling_factor(self.evaporation_rate) is None:
+        #     iscale.set_scaling_factor(self.evaporation_rate, 1e8)
 
-        if iscale.get_scaling_factor(self.solids_precipitation_rate) is None:
-            iscale.set_scaling_factor(self.solids_precipitation_rate, 1e2)
+        # if iscale.get_scaling_factor(self.solids_precipitation_rate) is None:
+        #     iscale.set_scaling_factor(self.solids_precipitation_rate, 1e2)
 
-        if iscale.get_scaling_factor(self.total_evaporative_area_required) is None:
-            iscale.set_scaling_factor(self.total_evaporative_area_required, 1e-4)
+        # if iscale.get_scaling_factor(self.total_evaporative_area_required) is None:
+        #     iscale.set_scaling_factor(self.total_evaporative_area_required, 1e-4)
 
-        if iscale.get_scaling_factor(self.number_evaporation_ponds) is None:
-            iscale.set_scaling_factor(self.number_evaporation_ponds, 0.1)
+        # if iscale.get_scaling_factor(self.number_evaporation_ponds) is None:
+        #     iscale.set_scaling_factor(self.number_evaporation_ponds, 0.1)
 
-        if iscale.get_scaling_factor(self.evaporative_area_per_pond) is None:
-            iscale.set_scaling_factor(self.evaporative_area_per_pond, 1e-3)
+        # if iscale.get_scaling_factor(self.evaporative_area_per_pond) is None:
+        #     iscale.set_scaling_factor(self.evaporative_area_per_pond, 1e-3)
 
-        if iscale.get_scaling_factor(self.evaporation_pond_area) is None:
-            iscale.set_scaling_factor(self.evaporation_pond_area, 1e-3)
+        # if iscale.get_scaling_factor(self.evaporation_pond_area) is None:
+        #     iscale.set_scaling_factor(self.evaporation_pond_area, 1e-3)
 
     def _get_stream_table_contents(self, time_point=0):
 

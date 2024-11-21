@@ -1,7 +1,3 @@
-def E_EPM():
-    return EP_evaporation_daily, Evap_day_WAIV, rad_net_mean
-
-
 # Libraries
 import math
 import numpy
@@ -25,7 +21,7 @@ specific_heat_capacity = 1.013e-3
 # salinity = int(df.iloc[-1, 0]) #salinity g/l
 # evap_rate_method = int(df.iloc[-1, 1]) #salinity g/l
 salinity = 100
-evap_rate_method = 3
+evap_rate_method = 1
 print(salinity, evap_rate_method)
 # Create a new column to group by every 24 rows
 df["group"] = np.arange(len(df)) // 24
@@ -118,7 +114,7 @@ for i in range(1, days_in_year, 1):
         emissivity_air = 1.24 * ((pressure_sat_actual / air_temp_mean[i]) ** (1 / 7))
         if emissivity_air > 1:
             emissivity_air = 0.99
-
+    # print(air_temp_mean[i], emissivity_air)
 
     rad_net_shortwave = (1 - short_wavelength_albedo) * rad_shortwave[i]
     rad_longwave_in = (
@@ -131,11 +127,11 @@ for i in range(1, days_in_year, 1):
     )
     rad_net[i] = rad_net_shortwave + rad_net_longwave_in - rad_net_longwave_out
 
-
+    # print(rad_shortwave[i], rad_net_shortwave, rad_longwave_in, rad_net_longwave_out, rad_net[i])
     psychometric_constant = (specific_heat_capacity * pressure_atm[i]) / (
         0.622 * (latent_heat_vap_water / 1e6)
     )
-    
+
     # delta is the slope of the saturated vapor pressure-temperature curve at mean water temperature (kPa/degC)
     delta = (
         4098
@@ -166,11 +162,13 @@ for i in range(1, days_in_year, 1):
     area_coeff = 3.719e-9 * wetted_surface_area ** (-0.0459)
     water_activity = -0.00056678 * salinity + 0.9985307
     salinity_conversion = 1 / (1 + salinity / 1000)
+    salinity_conversion = 1 
     # Bowen ratio
     bowen_ratio = psychometric_constant * (
         (water_temp_mean[i] - air_temp_mean[i])
         / (water_activity * pressure_sat_water_temp - pressure_sat_actual)
     )
+    print(i, bowen_ratio)
     # Daily evaporation Harbeck/WAIV model (mm/day)
     evap_rate_harbeck_waiv[i] = (
         area_coeff
@@ -192,9 +190,11 @@ for i in range(1, days_in_year, 1):
     elif evap_rate_method == 1:
         # Daily evaporation BREB model (mm/day)
 
+        
         evap_rate_breb[i] = salinity_conversion * (
             (rad_net[i]) / ((latent_heat_vap_water / 1e6) * (1 + bowen_ratio))
-        )  
+        ) 
+        # print(evap_rate_breb[i])
         evap_rate_penman[i] = 0
         evap_rate[i] = evap_rate_breb[i]
         area_pond = 10 * 4046.86
@@ -222,6 +222,8 @@ for i in range(1, days_in_year, 1):
         area_pond = 10 * 4046.86
 
     elif evap_rate_method == 3:
+        # Average daily evaporation rate of BREB and Penman (mm/day)
+
         # Daily evaporation BREB model (mm/day)
         evap_rate_breb[i] = salinity_conversion * (
             (rad_net[i]) / ((latent_heat_vap_water / 1e6) * (1 + bowen_ratio))
@@ -260,7 +262,7 @@ Evap_day_WAIV = wetted_surface_area * (
 )  # Daily evaporation Harbeck/WAIV model (m^3/day)
 
 
-rad_net_mean = np.mean(rad_net)
+rad_net_mean = np.mean(rad_shortwave)
 
 
 #   Literature
@@ -273,4 +275,9 @@ rad_net_mean = np.mean(rad_net)
 [6] Modeltaling historial lake levels and recent climate change at three closed lakes, Western Victoria, Australia (c. 1840-1990)
 """
 
-print(E_EPM())
+def E_EPM():
+    return EP_evaporation_daily, Evap_day_WAIV, rad_net_mean 
+
+
+
+print(E_EPM(), salinity_conversion, Tot_Evaporation)
