@@ -529,9 +529,6 @@ def get_solar_still_daily_water_yield(
         else:
             blk.salinity[i] = (blk.salt_mass * 1000) / blk.fw_mass[i]
             blk.excess_salinity[i] = blk.salinity[i]
-        print(i, blk.depth[i], blk.salinity[i], blk.sw_mass[i], blk.fw_mass[i], blk.time[i], blk.temp_diff_inside_basin, blk.sky_temp[i], blk.ambient_temp[i])
-        # if i > 10: 
-        #     break
         if blk.depth[i] <= 0 or blk.fw_mass[i] <= 0:
             # At this point either the blk.depth is negative
             # or the amount of freshwater available is negative
@@ -550,5 +547,4 @@ def get_solar_still_daily_water_yield(
     # Daily water yield [kg water per m2 area per day]
     daily_water_yield = annual_water_yield / days_in_year
 
-    # print(annual_water_yield, daily_water_yield, num_zld_cycles_per_year)
     return daily_water_yield, num_zld_cycles_per_year
