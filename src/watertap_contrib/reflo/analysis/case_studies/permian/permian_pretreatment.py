@@ -71,7 +71,7 @@ __all__ = [
 ]
 
 
-def build_permian_pretreatment():
+def build_permian_pretreatment(**kwargs):
     """
     Build Permian pretreatment flowsheet
     """
@@ -211,7 +211,7 @@ def build_permian_pretreatment():
     return m
 
 
-def set_operating_conditions(m, Qin=5, tds=130):
+def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
 
     global flow_mass_water, flow_mass_tds, flow_in
 
@@ -226,8 +226,8 @@ def set_operating_conditions(m, Qin=5, tds=130):
     m.fs.treatment.feed.properties[0].flow_mass_comp["tds"].fix(flow_mass_tds)
     m.fs.treatment.feed.properties[0].conc_mass_comp[...]
 
-    set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition)
-    set_ec_operating_conditions(m, m.fs.treatment.EC)
+    set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition, **kwargs)
+    set_ec_operating_conditions(m, m.fs.treatment.EC, **kwargs)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
 
 

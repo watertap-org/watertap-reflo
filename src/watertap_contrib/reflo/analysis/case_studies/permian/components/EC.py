@@ -158,7 +158,7 @@ def set_system_operating_conditions(m, Qin=5, tds=130):
     calculate_scaling_factors(m)
 
 
-def set_ec_operating_conditions(m, blk, conv=5e3):
+def set_ec_operating_conditions(m, blk, conv=5e3, **kwargs):
     """Set EC operating conditions"""
 
     blk.unit.load_parameters_from_database(use_default_removal=True)
@@ -172,6 +172,17 @@ def set_ec_operating_conditions(m, blk, conv=5e3):
             to_units=pyunits.S / pyunits.m,
         )
     )
+    for k, v in kwargs.items():
+        try:
+            vv = getattr(blk.unit, k)
+        except:
+            continue
+        print(f"{blk.name} {vv.name} {v}")
+        if isinstance(vv, Var):
+            vv.fix(v)
+        if isinstance(vv, Param):
+            vv.set_value(v)
+            
     print(f"Electrocoagulation")
     print(f"\tblock DOF = {degrees_of_freedom(blk)}\n")
     print(f"\tunit DOF = {degrees_of_freedom(blk.unit)}\n")

@@ -153,9 +153,21 @@ def set_system_operating_conditions(m, Qin=5):
     calculate_scaling_factors(m)
 
 
-def set_chem_addition_op_conditions(m, blk):
+def set_chem_addition_op_conditions(m, blk, **kwargs):
 
     blk.unit.load_parameters_from_database()
+    for k, v in kwargs.items():
+        print(blk.name, k)
+        try:
+            vv = getattr(blk.unit, k)
+        except:
+            continue
+        print(f"{blk.name} {vv.name} {v}")
+        if isinstance(vv, Var):
+            vv.fix(v)
+        if isinstance(vv, Param):
+            vv.set_value(v)
+
     print(f"Chem Addition")
     print(f"\tblock DOF = {degrees_of_freedom(blk)}\n")
     print(f"\tunit DOF = {degrees_of_freedom(blk.unit)}\n")
