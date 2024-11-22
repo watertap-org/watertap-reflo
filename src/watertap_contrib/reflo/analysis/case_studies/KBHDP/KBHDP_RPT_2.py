@@ -656,7 +656,7 @@ def optimize(
     # else:
     #     m.fs.costing.frac_elec_from_grid.unfix()
     #     m.fs.energy.FPC.heat_load.fix(150)
-        # m.fs.energy.pv.annual_energy.fix(1e6)
+    # m.fs.energy.pv.annual_energy.fix(1e6)
 
 
 def report_MCAS_stream_conc(m, stream):
@@ -754,7 +754,7 @@ def display_system_stream_table(m):
         f'{"Disposal":<20s}{treatment.DWI.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.1f}{value(pyunits.convert(treatment.DWI.feed.properties[0.0].pressure, to_units=pyunits.bar)):<20.1f}{treatment.DWI.feed.properties[0.0].flow_mass_phase_comp["Liq", "TDS"].value:<30.3f}{treatment.DWI.feed.properties[0.0].conc_mass_phase_comp["Liq", "TDS"].value:<30.3f}'
     )
     print("\n\n")
-    
+
     report_EC(treatment.EC)
     report_UF(m, treatment.UF)
     report_pump(m, treatment.pump)
