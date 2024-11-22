@@ -6,6 +6,7 @@ from pyomo.environ import (
     Block,
     Constraint,
     SolverFactory,
+    check_optimal_termination,
 )
 import os
 
@@ -29,12 +30,17 @@ from idaes.core.util.model_statistics import (
 from watertap_contrib.reflo.costing import (
     EnergyCosting,
 )
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
+    check_jac,
+    calc_scale,
+)
 
 __all__ = [
     "build_fpc",
     "init_fpc",
     "set_fpc_op_conditions",
     "add_fpc_costing",
+    "add_FPC_scaling",
     "report_fpc",
     "print_FPC_costing_breakdown",
 ]
@@ -110,18 +116,30 @@ def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80):
     energy.FPC.temperature_hot.fix(temperature_hot)
     # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     energy.FPC.temperature_cold.set_value(20)
-    energy.FPC.heat_load.fix(10)
+    energy.FPC.heat_load.fix(1)
 
     energy.FPC.initialize()
 
 
-def add_fpc_costing(blk, costing_block):
+def add_fpc_costing(m, costing_block):
     energy = m.fs.energy
-    energy.costing = EnergyCosting()
+    if costing_block is None:
+        energy.costing = EnergyCosting()
 
     energy.FPC.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
     )
+
+    # constraint_scaling_transform(energy.costing.fixed_operating_cost_constraint, 1e-6)
+
+
+def add_FPC_scaling(m, blk):
+    set_scaling_factor(blk.heat_annual_scaled, 1e2)
+    set_scaling_factor(blk.electricity_annual_scaled, 1e2)
+    # set_scaling_factor(blk.heat_load, 100)
+
+    constraint_scaling_transform(blk.heat_constraint, 1e-3)
+    constraint_scaling_transform(blk.electricity_constraint, 1e-4)
 
 
 def calc_costing(m):
@@ -255,6 +273,45 @@ def print_FPC_costing_breakdown(m, blk):
     # )
 
 
+def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
+    # ---solving---
+    if solver is None:
+        solver = get_solver()
+        solver.options["max_iter"] = 2000
+
+    print("\n--------- SOLVING ---------\n")
+
+    results = solver.solve(m, tee=tee)
+
+    if check_optimal_termination(results):
+        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            print("\n--------- TREATMENT ---------\n")
+            print("\n--------- ENERGY ---------\n")
+            check_jac(m.fs.energy)
+
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(m)
+        return results
+    msg = (
+        "The current configuration is infeasible. Please adjust the decision variables."
+    )
+    if raise_on_failure:
+        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
+        print_infeasible_bounds(m)
+        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
+        print_infeasible_constraints(m)
+        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
+        print_close_to_bounds(m)
+
+        raise RuntimeError(msg)
+    else:
+        print("\n--------- FAILED SOLVE!!! ---------\n")
+        print(msg)
+        assert False
+
+
 if __name__ == "__main__":
 
     solver = get_solver()
@@ -264,14 +321,15 @@ if __name__ == "__main__":
 
     build_fpc(m)
     set_fpc_op_conditions(m)
+    add_FPC_scaling(m, m.fs.energy.FPC)
     init_fpc(m)
 
     add_fpc_costing(m, costing_block=m.fs.costing)
     # calc_costing(m, m.fs)
     # m.fs.costing.aggregate_flow_heat.fix(-4000)
-    results = solver.solve(m)
+    results = solve(m, debug=True)
 
-    # print(degrees_of_freedom(m))
-    report_fpc(m)
-    print(m.fs.energy.FPC.costing.display())
-    print_FPC_costing_breakdown(m, m.fs.energy.FPC)
+    # # print(degrees_of_freedom(m))
+    # report_fpc(m)
+    # print(m.fs.energy.FPC.costing.display())
+    # print_FPC_costing_breakdown(m, m.fs.energy.FPC)

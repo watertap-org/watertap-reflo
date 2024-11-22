@@ -396,9 +396,9 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             units=self.base_currency / pyo.units.kWh,
         )
 
-        self.heat_cost_buy = pyo.Param(
-            mutable=True,
+        self.heat_cost_buy = pyo.Var(
             initialize=0.01,
+            domain=pyo.NonNegativeReals,
             doc="Heat cost to buy",
             units=self.base_currency / pyo.units.kWh,
         )
@@ -410,6 +410,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             units=self.base_currency / pyo.units.kWh,
         )
 
+        self.heat_cost_buy.fix()
         # Build the integrated system costs
         self.build_integrated_costs()
 

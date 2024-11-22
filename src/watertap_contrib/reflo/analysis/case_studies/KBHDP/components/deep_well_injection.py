@@ -248,9 +248,9 @@ if __name__ == "__main__":
     set_system_op_conditions(m.fs.DWI)
 
     init_DWI(m, m.fs.DWI)
-    # add_DWI_costing(m, m.fs.DWI)
-    # m.fs.costing.cost_process()
-    # solve(m)
+    add_DWI_costing(m, m.fs.DWI)
+    m.fs.costing.cost_process()
+    solve(m)
 
-    # report_DWI(m, m.fs.DWI)
-    # print_DWI_costing_breakdown(m, m.fs.DWI)
+    report_DWI(m, m.fs.DWI)
+    print_DWI_costing_breakdown(m, m.fs.DWI)

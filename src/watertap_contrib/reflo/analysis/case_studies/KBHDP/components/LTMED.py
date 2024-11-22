@@ -44,12 +44,17 @@ from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.unit_models.surrogate import LTMEDSurrogate
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
+    check_jac,
+    calc_scale,
+)
 
 __all__ = [
     "build_LTMED",
     "set_LTMED_operating_conditions",
     "init_LTMED",
     "add_LTMED_costing",
+    "add_LTMED_scaling",
     "report_LTMED",
 ]
 
@@ -126,12 +131,44 @@ def set_LTMED_operating_conditions(blk):
     pass
 
 
-def add_LTMED_costing(m, blk, costing_blk=None):
-    """Add LTMED model costing components"""
-    if costing_blk is None:
-        costing_blk = m.fs.costing
+def add_LTMED_scaling(m, blk):
+    # set_scaling_factor(blk.product.properties[0.0].flow_mass_phase_comp['Liq','TDS'], 1e-11)
+    # set_scaling_factor(blk.unit.thermal_power_requirement, 1e-6)
+    # set_scaling_factor(blk.unit.distillate_props[0.0].flow_vol_phase['Liq'], 1)
+    set_scaling_factor(blk.unit.specific_energy_consumption_thermal, 1e-2)
+    set_scaling_factor(blk.unit.feed_props[0.0].flow_vol_phase["Liq"], 10)
+    set_scaling_factor(blk.unit.cooling_out_props[0.0].flow_vol_phase["Liq"], 10)
+    set_scaling_factor(blk.unit.distillate_props[0.0].flow_vol_phase["Liq"], 1e2)
+    # set_scaling_factor(blk.unit.feed_cool_vol_flow, 1e-4)
+    set_scaling_factor(
+        blk.unit.distillate_props[0.0].flow_mass_phase_comp["Liq", "H2O"], 1e-3
+    )
+    set_scaling_factor(blk.unit.brine_props[0.0].flow_vol_phase["Liq"], 100)
+    constraint_scaling_transform(blk.unit.eq_specific_area_per_m3_day, 1e-2)
+    constraint_scaling_transform(blk.unit.eq_specific_area_kg_s, 1e-2)
+    constraint_scaling_transform(blk.unit.eq_steam_mass_flow, 1e-2)
+    constraint_scaling_transform(blk.unit.eq_specific_thermal_energy_consumption, 1e-2)
+    constraint_scaling_transform(blk.unit.eq_thermal_power_requirement, 1e-4)
+    constraint_scaling_transform(blk.unit.eq_feed_cool_vol_flow, 1e-4)
+    constraint_scaling_transform(blk.unit.eq_feed_cool_mass_flow, 1e-2)
 
-    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
+    for temp_stream in [
+        blk.unit.eq_distillate_temp,
+        blk.unit.eq_brine_temp,
+        blk.unit.eq_cooling_temp,
+    ]:
+        for e in temp_stream:
+            print(temp_stream[e])
+            constraint_scaling_transform(temp_stream[e], 1e-2)
+        for pressure_stream in [
+            blk.unit.eq_feed_to_distillate_isobaric,
+            blk.unit.eq_feed_to_brine_isobaric,
+            blk.unit.eq_feed_to_cooling_isobaric,
+        ]:
+            for e in pressure_stream:
+                constraint_scaling_transform(pressure_stream[e], 1e-5)
+
+    set_scaling_factor(blk.unit.feed_props[0.0].temperature, 1e-2)
 
 
 def add_system_costing(m):
@@ -175,10 +212,19 @@ def init_LTMED(m, blk, solver=None):
 
 
 def set_system_operating_conditions(m):
-    m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].fix(1000)
-    m.fs.feed.flow_mass_phase_comp[0, "Liq", "TDS"].fix(2)
+    m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].fix(171.76)
+    m.fs.feed.flow_mass_phase_comp[0, "Liq", "TDS"].fix(0.6423)
     m.fs.feed.properties[0].pressure.fix(101325)
     m.fs.feed.properties[0].temperature.fix(25 + 273.15)
+
+    m.fs.liquid_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "H2O")
+    )
+    m.fs.liquid_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1, index=("Liq", "TDS")
+    )
+
+    calculate_scaling_factors(m)
 
 
 # The following functions are used for testing the component in isolation on thise file
@@ -215,7 +261,7 @@ def init_system(m, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
-    breakdown_dof(m.fs.treatment.LTMED)
+    # breakdown_dof(m.fs.treatment.LTMED)
     assert_no_degrees_of_freedom(m)
     print("\n\n")
 
@@ -225,10 +271,11 @@ def init_system(m, solver=None):
     init_LTMED(m, m.fs.treatment.LTMED)
 
 
-def solve(m, solver=None, tee=True, raise_on_failure=True):
+def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
     # ---solving---
     if solver is None:
         solver = get_solver()
+        solver.options["max_iter"] = 2000
 
     print("\n--------- SOLVING ---------\n")
 
@@ -236,18 +283,30 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
 
     if check_optimal_termination(results):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            print("\n--------- TREATMENT ---------\n")
+            check_jac(m.fs.treatment)
+
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(m)
         return results
     msg = (
         "The current configuration is infeasible. Please adjust the decision variables."
     )
     if raise_on_failure:
+        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
         print_infeasible_bounds(m)
+        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
+        print_infeasible_constraints(m)
+        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
         print_close_to_bounds(m)
 
         raise RuntimeError(msg)
     else:
+        print("\n--------- FAILED SOLVE!!! ---------\n")
         print(msg)
-        return results
+        assert False
 
 
 def breakdown_dof(blk):
@@ -315,6 +374,17 @@ def report_LTMED(m):
         f'{"Water Recovery":<20}{value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]/blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]) * 100:<20.2f}%'
     )
 
+    print(
+        m.fs.treatment.LTMED.product.properties[0.0].flow_mass_phase_comp.display()
+    )  # TDS
+    print(
+        m.fs.treatment.LTMED.unit.distillate_props[0.0].mass_frac_phase_comp.display()
+    )  # TDS
+    print(
+        m.fs.treatment.LTMED.unit.distillate_props[0.0].flow_vol_phase.display()
+    )  # TDS
+    print(m.fs.treatment.LTMED.unit.brine_props[0.0].flow_vol_phase.display())
+
 
 if __name__ == "__main__":
 
@@ -322,9 +392,11 @@ if __name__ == "__main__":
     set_system_operating_conditions(m)
     set_LTMED_operating_conditions(m.fs.treatment.LTMED)
     add_system_costing(m)
+    add_LTMED_scaling(m, m.fs.treatment.LTMED)
     # add_LTMED_costing(m, m.fs.treatment.LTMED)
     init_system(m)
     solver = get_solver()
-    results = solve(m)
+    results = solve(m, debug=True)
 
     report_LTMED(m)
+    print(m.fs.treatment.LTMED.unit.costing.display())

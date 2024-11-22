@@ -39,6 +39,10 @@ import pandas as pd
 import numpy as np
 from watertap.costing import WaterTAPCosting
 import math
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
+    check_jac,
+    calc_scale,
+)
 
 __all__ = [
     "build_ec",
@@ -175,25 +179,28 @@ def set_scaling(m, blk):
 
     scale_flow = calc_scale(m.fs.feed.flow_mass_comp[0, "H2O"].value)
     scale_tds = calc_scale(m.fs.feed.flow_mass_comp[0, "tds"].value)
+    scale_tss = calc_scale(m.fs.feed.flow_mass_comp[0, "tss"].value)
 
     m.fs.properties.set_default_scaling(
         "flow_mass_comp", 10**-scale_flow, index=("H2O")
     )
     m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tds, index=("tds"))
+    m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tss, index=("tss"))
     calculate_scaling_factors(m)
-
-    badly_scaled_var_list = list_badly_scaled_variables(m)
-    if len(badly_scaled_var_list) > 0:
-        [print(i[0].name, i[1]) for i in badly_scaled_var_list]
-    else:
-        print("Variables are scaled well")
 
 
 def add_ec_scaling(m, blk):
-    set_scaling_factor(blk.ec.charge_loading_rate, 1e-3)
-    set_scaling_factor(blk.ec.reactor_volume, 1e-1)
-    set_scaling_factor(blk.ec.power_required, 1e-6)
-
+    set_scaling_factor(blk.ec.charge_loading_rate, 1e3)
+    set_scaling_factor(blk.ec.electrode_volume, 1)
+    # set_scaling_factor(blk.ec.cell_voltage, )
+    # set_scaling_factor(blk.ec.applied_current, 1e5)
+    # set_scaling_factor(blk.ec.power_required, 1e-6)
+    
+    constraint_scaling_transform(blk.ec.eq_power_required, 1e-4)
+    set_scaling_factor(blk.ec.properties_in[0.0].flow_mass_comp['H2O'], 1e3)
+    set_scaling_factor(blk.ec.properties_in[0.0].flow_mass_comp['tds'], 1)
+    set_scaling_factor(blk.ec.properties_treated[0.0].flow_mass_comp['H2O'], 1e3)
+    set_scaling_factor(blk.ec.properties_byproduct[0.0].flow_mass_comp['H2O'], 1)
 
 def init_system(m, solver=None):
     """Initialize system for individual unit process flowsheet"""
@@ -252,6 +259,44 @@ def calc_costing(m, blk):
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(blk.ec.properties_treated[0].flow_vol)
     m.fs.costing.add_electricity_intensity(blk.ec.properties_treated[0].flow_vol)
+
+
+def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
+    # ---solving---
+    if solver is None:
+        solver = get_solver()
+        solver.options["max_iter"] = 2000
+
+    print("\n--------- SOLVING ---------\n")
+
+    results = solver.solve(m, tee=tee)
+
+    if check_optimal_termination(results):
+        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            print("\n--------- TREATMENT ---------\n")
+            check_jac(m)
+
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(m)
+        return results
+    msg = (
+        "The current configuration is infeasible. Please adjust the decision variables."
+    )
+    if raise_on_failure:
+        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
+        print_infeasible_bounds(m)
+        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
+        print_infeasible_constraints(m)
+        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
+        print_close_to_bounds(m)
+
+        raise RuntimeError(msg)
+    else:
+        print("\n--------- FAILED SOLVE!!! ---------\n")
+        print(msg)
+        assert False
 
 
 def report_EC(blk):
@@ -319,16 +364,17 @@ if __name__ == "__main__":
     m = build_system()
     set_system_operating_conditions(m)
     set_ec_operating_conditions(m, m.fs.EC)
-    set_scaling(m, m.fs.EC)
     add_ec_scaling(m, m.fs.EC)
+    set_scaling(m, m.fs.EC)
     init_system(m)
     add_system_costing(m)
 
     solver = get_solver()
     m.fs.objective_lcow = Objective(expr=m.fs.costing.LCOW)
-    results = solver.solve(m)
+    results = solve(m, debug=True)
 
-    print(m.fs.objective_lcow())
-    report_EC(m.fs.EC)
-    print_EC_costing_breakdown(m.fs.EC)
+    # print(m.fs.objective_lcow())
+    # report_EC(m.fs.EC)
+    # print_EC_costing_breakdown(m.fs.EC)
     # print(m.fs.EC.ec.display())
+
