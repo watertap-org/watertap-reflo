@@ -100,7 +100,6 @@ def setup_model(
     }
 
 
-
 def run_model(modules, heat_load=None, hours_storage=None, hot_tank_set_point=None):
     tech_model = modules["tech_model"]
 
@@ -142,11 +141,11 @@ def run_model(modules, heat_load=None, hours_storage=None, hot_tank_set_point=No
     }
 
 
-def setup_and_run(model_name, weather_file, config_data, heat_load, hours_storage): #,hot_tank_set_point):
+def setup_and_run(model_name, weather_file, config_data, heat_load, hours_storage,hot_tank_set_point):
     modules = setup_model(
         model_name, weather_file=weather_file, config_data=config_data
     )
-    result = run_model(modules, heat_load, hours_storage) #,hot_tank_set_point)
+    result = run_model(modules, heat_load, hours_storage,hot_tank_set_point)
     return result
 
 
@@ -202,7 +201,7 @@ if __name__ == "__main__":
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "test_trough_data_with_hot_tank.pkl"
+        dirname(__file__), "trough_data_heat_load_1_500.pkl"
     )  # output dataset for surrogate training
 
     config_data = [read_module_datafile(config_file) for config_file in config_files]
@@ -224,9 +223,11 @@ if __name__ == "__main__":
     heat_loads = np.arange(1, 500, 25)  # [MWt]
     hours_storages = np.arange(0, 27, 1)  # [hr]
     hot_tank_set_point = np.arange(80, 150, 10)  # [C]
+    # heat_loads =        np.arange(100, 300, 100)
+    # hours_storages =    np.arange(0, 6, 3)
     arguments = list(product(heat_loads, hours_storages, hot_tank_set_point))
     df = pd.DataFrame(arguments, columns=["heat_load", "hours_storage", "hot_tank_set_point"])
-    
+
     time_start = time.process_time()
     with multiprocessing.Pool(processes=6) as pool:
         args = [(model_name, weather_file, config_data, *args) for args in arguments]

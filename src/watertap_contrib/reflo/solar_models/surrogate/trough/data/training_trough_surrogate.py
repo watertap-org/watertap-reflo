@@ -192,8 +192,9 @@ def plot_training_validation(
 
 #########################################################################################################
 if __name__ == "__main__":
-    heat_load_range = (10, 100)  # must be (10, 100) or (100, 500)
+    heat_load_range = (1, 500)  # must be (10, 100) or (100, 500)
     hours_storage_range = (0, 26)
+    hot_tank_set_point_range = (80, 150)
     dataset_filename = Path(__file__).parent / "trough_data.pkl"
     surrogate_filename = (
         Path(__file__).parent
@@ -201,13 +202,14 @@ if __name__ == "__main__":
     )
     n_samples = 100  # number of points to use from overall dataset
     training_fraction = 0.8
-    input_labels = ["heat_load", "hours_storage"]
+    input_labels = ["heat_load", "hours_storage","hot_tank_set_point"]
     output_labels = ["heat_annual_scaled", "electricity_annual_scaled"]
 
-    if heat_load_range in TroughSurrogateData.surrogate_scaling_dict.keys():
-        scaling = TroughSurrogateData.surrogate_scaling_dict[heat_load_range]
-    else:
-        raise ValueError("heat_load_range must be (10, 100) or (100, 500)")
+    # This is no longer used
+    # if heat_load_range in TroughSurrogateData.surrogate_scaling_dict.keys():
+    #     scaling = TroughSurrogateData.surrogate_scaling_dict[heat_load_range]
+    # else:
+    #     raise ValueError("heat_load_range must be (10, 100) or (100, 500)")
 
     # Get training and validation data
     data_training, data_validation = get_training_validation(
@@ -216,11 +218,12 @@ if __name__ == "__main__":
         training_fraction,
         heat_load_range,
         hours_storage_range,
+        hot_tank_set_point_range
     )
-    data_training["heat_annual_scaled"] = data_training["heat_annual"] * scaling
-    data_training["electricity_annual_scaled"] = (
-        data_training["electricity_annual"] * scaling
-    )
+    # data_training["heat_annual_scaled"] = data_training["heat_annual"] * scaling
+    # data_training["electricity_annual_scaled"] = (
+    #     data_training["electricity_annual"] * scaling
+    # )
 
     # Create surrogate and save to file
     surrogate = create_rbf_surrogate(
@@ -233,11 +236,11 @@ if __name__ == "__main__":
     # Delete surrogate testing file
     os.remove(surrogate_filename)
 
-    # Create parity and residual plots for training and validation
-    data_validation["heat_annual_scaled"] = data_validation["heat_annual"] * scaling
-    data_validation["electricity_annual_scaled"] = (
-        data_validation["electricity_annual"] * scaling
-    )
+    # # Create parity and residual plots for training and validation
+    # data_validation["heat_annual_scaled"] = data_validation["heat_annual"] * scaling
+    # data_validation["electricity_annual_scaled"] = (
+    #     data_validation["electricity_annual"] * scaling
+    # )
     plot_training_validation(
         surrogate, data_training, data_validation, input_labels, output_labels
     )
@@ -257,6 +260,11 @@ if __name__ == "__main__":
         bounds=hours_storage_range,
         doc="rated plant hours of storage",
     )
+    m.fs.hot_tank_set_point = Var(
+        initialize=hot_tank_set_point_range[0],
+        bounds=hours_storage_range,
+        doc="rated plant hours of storage",
+    )
 
     # create flowsheet output variable
     m.fs.annual_energy_scaled = Var(
@@ -269,7 +277,7 @@ if __name__ == "__main__":
     )
 
     # create input and output variable object lists for flowsheet
-    inputs = [m.fs.heat_load, m.fs.hours_storage]
+    inputs = [m.fs.heat_load, m.fs.hours_storage, m.fs.hot_tank_set_point]
     outputs = [m.fs.annual_energy_scaled, m.fs.electrical_load_scaled]
 
     # capture long output
@@ -286,26 +294,28 @@ if __name__ == "__main__":
     # fix input values and solve flowsheet
     m.fs.heat_load.fix(heat_load_range[0])
     m.fs.hours_storage.fix(hours_storage_range[0])
+    m.fs.hot_tank_set_point.fix(hot_tank_set_point_range[0])
     solver = get_solver()
     results = solver.solve(m)
 
     print("\n")
     print("Heat rate = {x:.0f} MWt".format(x=value(m.fs.heat_load)))
     print("Hours of storage = {x:.1f} hrs".format(x=value(m.fs.hours_storage)))
-    print(
-        "Annual heat output = {x:.2e} kWht".format(
-            x=value(m.fs.annual_energy_scaled) / scaling
-        )
-    )
-    print(
-        "Annual electricity input = {x:.2e} kWhe".format(
-            x=value(m.fs.electrical_load_scaled) / scaling
-        )
-    )
+    # print(
+    #     "Annual heat output = {x:.2e} kWht".format(
+    #         x=value(m.fs.annual_energy_scaled) / scaling
+    #     )
+    # )
+    # print(
+    #     "Annual electricity input = {x:.2e} kWhe".format(
+    #         x=value(m.fs.electrical_load_scaled) / scaling
+    #     )
+    # )
 
     ### Optimize the surrogate model #########################################################################################
     m.fs.heat_load.unfix()
     m.fs.hours_storage.unfix()
+    m.fs.hot_tank_set_point.unfix()
     m.fs.obj = Objective(expr=m.fs.annual_energy_scaled, sense=maximize)
 
     # solve the optimization
@@ -319,16 +329,17 @@ if __name__ == "__main__":
     print("Solve time: ", solve_time)
     print("Heat rate = {x:.0f} MWt".format(x=value(m.fs.heat_load)))
     print("Hours of storage = {x:.1f} hrs".format(x=value(m.fs.hours_storage)))
-    print(
-        "Annual heat output = {x:.2e} kWht".format(
-            x=value(m.fs.annual_energy_scaled) / scaling
-        )
-    )
-    print(
-        "Annual electricity input = {x:.2e} kWhe".format(
-            x=value(m.fs.electrical_load_scaled) / scaling
-        )
-    )
+    print("Hot tank temperature set point = {x:.1f} hrs".format(x=value(m.fs.hot_tank_set_point)))
+    # print(
+    #     "Annual heat output = {x:.2e} kWht".format(
+    #         x=value(m.fs.annual_energy_scaled) / scaling
+    #     )
+    # )
+    # print(
+    #     "Annual electricity input = {x:.2e} kWhe".format(
+    #         x=value(m.fs.electrical_load_scaled) / scaling
+    #     )
+    # )
 
     x = 1
     pass
