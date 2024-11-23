@@ -49,6 +49,11 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.FPC import *
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.deep_well_injection import *
 import pandas as pd
 
+import pathlib
+
+reflo_dir = pathlib.Path(__file__).resolve().parents[3]
+case_study_yaml = f"{reflo_dir}/data/technoeconomic/kbhdp_case_study.yaml"
+
 
 def propagate_state(arc):
     _prop_state(arc)
@@ -61,7 +66,7 @@ def build_system(inlet_cond, n_time_points):
     m.fs.treatment = Block()
     m.fs.energy = Block()
 
-    m.fs.treatment.costing = TreatmentCosting()
+    m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     m.fs.energy.costing = EnergyCosting()
 
     # Property package
@@ -172,13 +177,12 @@ def add_costing(m, treatment_costing_block, energy_costing_block):
     add_DWI_costing(m.fs.treatment, m.fs.treatment.dwi, treatment_costing_block)
 
 
-def calc_costing(m,heat_price=0.01, electricity_price = 0.07):
+def calc_costing(m, heat_price=0.01, electricity_price=0.07):
     # Touching variables to solve for volumetric flow rate
     m.fs.product.properties[0].flow_vol_phase
 
     # Treatment costing
-    # m.fs.treatment.costing.capital_recovery_factor.fix(0.08764)
-    # m.fs.treatment.costing.wacc.unfix()
+    # Overwriting values in yaml
     m.fs.treatment.costing.heat_cost.fix(heat_price)
     m.fs.treatment.costing.electricity_cost.fix(electricity_price)
     m.fs.treatment.costing.cost_process()
@@ -199,13 +203,18 @@ def calc_costing(m,heat_price=0.01, electricity_price = 0.07):
     m.fs.energy.costing.add_LCOH()
 
 
-def add_system_costing(m, heat_price=0.01, electricity_price = 0.07, frac_heat_from_grid=0.01):
+def add_system_costing(
+    m, heat_price=0.01, electricity_price=0.07, frac_heat_from_grid=0.01
+):
     # System costing
     m.fs.sys_costing = REFLOSystemCosting()
     m.fs.sys_costing.frac_heat_from_grid.fix(frac_heat_from_grid)
     m.fs.sys_costing.heat_cost_buy.set_value(heat_price)
     m.fs.sys_costing.electricity_cost_buy.set_value(electricity_price)
     m.fs.sys_costing.cost_process()
+
+    # Unfix heat_load in FPC
+    m.fs.energy.fpc.unit.heat_load.unfix()
 
     print("\n--------- INITIALIZING SYSTEM COSTING ---------\n")
     m.fs.sys_costing.initialize()
@@ -235,10 +244,12 @@ def set_inlet_conditions(blk, model_options):
     )
 
 
-def set_operating_conditions(m,hours_storage=8):
+def set_operating_conditions(m, hours_storage=8):
 
     set_md_op_conditions(m.fs.treatment.md)
-    set_fpc_op_conditions(m.fs.energy.fpc, hours_storage=hours_storage, temperature_hot=80)
+    set_fpc_op_conditions(
+        m.fs.energy.fpc, hours_storage=hours_storage, temperature_hot=80
+    )
 
 
 def init_system(m, blk, model_options, n_time_points, verbose=True, solver=None):
@@ -368,7 +379,14 @@ def set_inlet_stream_conditions(Qinput=4, feed_salinity_input=12, water_recovery
     return inlet_cond
 
 
-def main(water_recovery=0.5, heat_price=0.07, electricity_price = 0.07,frac_heat_from_grid=0.01,hours_storage = 8):
+def main(
+    water_recovery=0.5,
+    heat_price=0.07,
+    electricity_price=0.07,
+    frac_heat_from_grid=0.01,
+    hours_storage=8,
+    run_optimization=True,
+):
     solver = get_solver()
     solver = SolverFactory("ipopt")
 
@@ -387,7 +405,7 @@ def main(water_recovery=0.5, heat_price=0.07, electricity_price = 0.07,frac_heat
 
     init_system(m, m.fs, model_options, n_time_points)
 
-    set_operating_conditions(m,hours_storage)
+    set_operating_conditions(m, hours_storage)
 
     print(f"\nBefore Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 
@@ -399,8 +417,8 @@ def main(water_recovery=0.5, heat_price=0.07, electricity_price = 0.07,frac_heat
         energy_costing_block=m.fs.energy.costing,
     )
 
-    calc_costing(m,heat_price, electricity_price)
-    add_system_costing(m, heat_price,electricity_price, frac_heat_from_grid)
+    calc_costing(m, heat_price, electricity_price)
+    add_system_costing(m, heat_price, electricity_price, frac_heat_from_grid)
 
     # add_energy_constraints(m)
 
@@ -415,8 +433,9 @@ def main(water_recovery=0.5, heat_price=0.07, electricity_price = 0.07,frac_heat
 
     print_results_summary(m)
 
-    optimize(m)
-    solve(m, solver=solver, tee=False)
+    if run_optimization:
+        optimize(m)
+        solve(m, solver=solver, tee=False)
 
     return m
 
@@ -489,8 +508,8 @@ def save_results(m):
     }
 
     fixed_opex_output = {
-        "FPC": value(m.fs.energy.fpc.unit.costing.fixed_operating_cost)\
-        + value(m.fs.energy.fpc.unit.costing.capital_cost)\
+        "FPC": value(m.fs.energy.fpc.unit.costing.fixed_operating_cost)
+        + value(m.fs.energy.fpc.unit.costing.capital_cost)
         * value(m.fs.energy.costing.maintenance_labor_chemical_factor),
         "MD": value(
             m.fs.treatment.md.unit.get_active_process_blocks()[
@@ -574,7 +593,7 @@ def save_results(m):
             "water_recovery": value(m.fs.water_recovery),
             "heat_price": value(m.fs.sys_costing.heat_cost_buy),
             "LCOH": value(m.fs.energy.costing.LCOH),
-            "hours_storage": value(m.fs.energy.fpc.unit.hours_storage),            
+            "hours_storage": value(m.fs.energy.fpc.unit.hours_storage),
             "frac_heat_from_grid": value(m.fs.sys_costing.frac_heat_from_grid),
             "product_annual_production": value(
                 m.fs.sys_costing.annual_water_production
@@ -603,25 +622,23 @@ def save_results(m):
     )
 
     results_df.to_csv(
-            r"C:\Users\mhardika\Documents\SETO\Case Studies\RPT3\RPT3_results\\"
-            + file_name
-            + ".csv"
-        )
-        # Flow cost
+        r"C:\Users\mhardika\Documents\SETO\Case Studies\RPT3\RPT3_results\\"
+        + file_name
+        + ".csv"
+    )
+    # Flow cost
 
 
 if __name__ == "__main__":
 
-    m = main(water_recovery=0.5, 
-             heat_price=0.08, 
-             electricity_price = 0.07, 
-             frac_heat_from_grid=0.05,
-             hours_storage = 6)
+    m = main(
+        water_recovery=0.8,
+        heat_price=0.08,
+        electricity_price=0.07,
+        frac_heat_from_grid=0.2,
+        hours_storage=6,
+        run_optimization=False,
+    )
 
     # save_results(m)
     print_results_summary(m)
-
-    # print(m.fs.sys_costing.treat_operating_cost_no_energy())
-    # print(m.fs.sys_costing.energy_operating_cost_no_energy())
-    # print(m.fs.sys_costing.total_heat_operating_cost())
-    # print(m.fs.sys_costing.total_electric_operating_cost())

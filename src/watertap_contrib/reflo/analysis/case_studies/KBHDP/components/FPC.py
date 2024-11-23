@@ -106,10 +106,12 @@ def init_fpc(blk):
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
-def add_fpc_scaling(m,blk):
+
+def add_fpc_scaling(m, blk):
     iscale.set_scaling_factor(blk.unit.hours_storage, 10)
     iscale.set_scaling_factor(blk.unit.electricity, 100)
     iscale.set_scaling_factor(blk.unit.heat_load, 1e4)
+
 
 def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
 
@@ -118,6 +120,7 @@ def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
     blk.unit.temperature_hot.fix(temperature_hot)
     # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     blk.unit.temperature_cold.set_value(20)
+    blk.unit.heat_load.fix(10)
 
 
 def add_fpc_costing(blk, costing_block):
@@ -169,6 +172,7 @@ def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
         print("\n--------- FAILED SOLVE!!! ---------\n")
         print(msg)
         assert False
+
 
 def report_fpc(m, blk):
     # blk = m.fs.fpc
@@ -254,6 +258,7 @@ def report_fpc_costing(m, blk):
     #     f'{"Elec Cost":<30s}{value(blk.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_costs["electricity"])}'
     # )
 
+
 def main():
 
     solver = get_solver()
@@ -269,22 +274,23 @@ def main():
 
     add_fpc_costing(m.fs.fpc, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-    m.fs.costing.aggregate_flow_heat.fix(-7842)
+    m.fs.fpc.unit.heat_load.unfix()
+    m.fs.costing.aggregate_flow_heat.fix(-20067.44)
 
-    print("\nDegrees of Freedom after fixing aggregate heat flow:", degrees_of_freedom(m))
+    print(
+        "\nDegrees of Freedom after fixing aggregate heat flow:", degrees_of_freedom(m)
+    )
     # results = solver.solve(m)
     solve(m, solver=solver, tee=False)
     return m
 
+
 if __name__ == "__main__":
 
-    
     m = main()
-    
+
     print(degrees_of_freedom(m))
     report_fpc(m, m.fs.fpc.unit)
     report_fpc_costing(m, m.fs)
-    
+
     # m.fs.fpc.unit.costing.display()
-
-
