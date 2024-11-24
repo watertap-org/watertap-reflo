@@ -264,3 +264,194 @@ class TestFO:
             33.72, rel=1e-3
         )
         assert value(m.fs.fo.heat_transfer_to_brine) == pytest.approx(41.88, rel=1e-3)
+
+
+if __name__ == "__main__":
+    import idaes.core.util.scaling as iscale
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.water_prop = SeawaterParameterBlock()
+    m.fs.draw_solution_prop = FODrawSolutionParameterBlock()
+    m.fs.fo = ForwardOsmosisZO(
+        property_package_water=m.fs.water_prop,
+        property_package_draw_solution=m.fs.draw_solution_prop,
+    )
+
+    fo = m.fs.fo
+    strong_draw = fo.strong_draw_props[0]
+    product = fo.product_props[0]
+
+    # System specifications
+    recovery_ratio = 0.3  # Assumed FO recovery ratio
+    nanofiltration_recovery_ratio = 0.8  # Nanofiltration recovery ratio
+    dp_brine = 0  # Required pressure over brine osmotic pressure (Pa)
+    heat_mixing = 75.6  # Heat of mixing in the membrane (MJ/m3 separated water)
+    reneration_temp = 90  # Separation temperature of the draw solution (C)
+    separator_temp_loss = 1  # Temperature loss in the separator (K)
+    feed_temperature = 13  # Feed water temperature (C)
+    feed_vol_flow = 0.022  # Feed water volumetric flow rate (m3/s)
+    feed_TDS_mass = 0.12  # TDS mass fraction of feed
+    strong_draw_temp = 20  # Strong draw solution inlet temperature (C)
+    strong_draw_mass_frac = 0.8  # Strong draw solution mass fraction
+    product_draw_mas_frac = 0.01  # Mass fraction of draw in the product water
+
+    fo.recovery_ratio.fix(recovery_ratio)
+    fo.nanofiltration_recovery_ratio.fix(nanofiltration_recovery_ratio)
+    fo.dp_brine.fix(dp_brine)
+    fo.heat_mixing.fix(heat_mixing)
+    fo.regeneration_temp.fix(reneration_temp + 273.15)
+    fo.separator_temp_loss.fix(separator_temp_loss)
+
+    # Specify strong draw solution properties
+    fo.strong_draw_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            (
+                "mass_frac_phase_comp",
+                ("Liq", "DrawSolution"),
+            ): strong_draw_mass_frac,
+            ("temperature", None): strong_draw_temp + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+    strong_draw.flow_mass_phase_comp["Liq", "DrawSolution"].unfix()
+
+    # Specify product water properties
+    fo.product_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            (
+                "mass_frac_phase_comp",
+                ("Liq", "DrawSolution"),
+            ): product_draw_mas_frac,
+            ("temperature", None): reneration_temp - separator_temp_loss + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    product.flow_mass_phase_comp["Liq", "H2O"].unfix()
+    product.temperature.unfix()
+
+    # Specify feed properties
+    fo.feed_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            ("mass_frac_phase_comp", ("Liq", "TDS")): feed_TDS_mass,
+            ("temperature", None): feed_temperature + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+    # Specify flows
+    fo.brine_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            ("mass_frac_phase_comp", ("Liq", "TDS")): feed_TDS_mass,
+            ("temperature", None): feed_temperature + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=False,
+    )
+    fo.weak_draw_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            (
+                "mass_frac_phase_comp",
+                ("Liq", "DrawSolution"),
+            ): strong_draw_mass_frac,
+            ("temperature", None): strong_draw_temp + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=False,
+    )
+    fo.reg_draw_props.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            (
+                "mass_frac_phase_comp",
+                ("Liq", "DrawSolution"),
+            ): strong_draw_mass_frac,
+            ("temperature", None): strong_draw_temp + 273.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=False,
+    )
+
+    # Set scaling factors for mass flow rates
+    m.fs.water_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1/feed_vol_flow/100, index=("Liq", "H2O")
+    )
+    m.fs.water_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1/feed_vol_flow/10, index=("Liq", "TDS")
+    )
+    m.fs.draw_solution_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1/feed_vol_flow/100, index=("Liq", "H2O")
+    )
+    m.fs.draw_solution_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1/feed_vol_flow/10, index=("Liq", "DrawSolution")
+    )
+
+    # iscale.set_scaling_factor(m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq","H2O"], 1/feed_vol_flow)
+
+    calculate_scaling_factors(m)
+    print('')
+    print('badly scaled variable before init')
+    badly_scaled_var_lst = list(badly_scaled_var_generator(m))
+    for i in badly_scaled_var_lst:
+        print(i[0].name, ":", i[0].value,  iscale.get_scaling_factor(i[0]), i[1])
+
+
+    m.fs.fo.initialize()
+    print('')
+    print('badly scaled variable after init')
+    badly_scaled_var_lst = list(badly_scaled_var_generator(m))
+    for i in badly_scaled_var_lst:
+        print(i[0].name, ":", i[0].value, iscale.get_scaling_factor(i[0]), i[1])
+
+    print('')
+    print('scaling factors after init:')
+    vars_test = [m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "H2O"],
+                 m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "TDS"],
+                 m.fs.fo.feed_props[0].flow_vol_phase["Liq"],
+                 m.fs.fo.brine_props[0].flow_mass_phase_comp["Liq", "H2O"],
+                 m.fs.fo.brine_props[0].flow_mass_phase_comp["Liq", "TDS"],
+                 m.fs.fo.brine_props[0].flow_vol_phase["Liq"],
+                 m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
+                 m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
+                 m.fs.fo.weak_draw_props[0].flow_vol_phase["Liq"],
+                 m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
+                 m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
+                 m.fs.fo.strong_draw_props[0].flow_vol_phase["Liq"],
+                 m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"],
+                 m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
+                 m.fs.fo.product_props[0].flow_vol_phase["Liq"],
+                 m.fs.fo.reg_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
+                 m.fs.fo.reg_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
+                 m.fs.fo.reg_draw_props[0].flow_vol_phase["Liq"],
+                 ]
+    
+    for v in vars_test:
+        print(v.name, round(v.value, 2), round(iscale.get_scaling_factor(v), 6), round(v.value *iscale.get_scaling_factor(v),3 ))
+
+    strong_draw_mass = 0.8  # Strong draw solution mass fraction
+    product_draw_mass = 0.01  # Mass fraction of draw in the product water
+    m.fs.fo.unfix_and_fix_freedom(strong_draw_mass, product_draw_mass)
+    print('dof', degrees_of_freedom(m))
+
+    try:
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+    except:
+        from watertap.core.util.model_diagnostics.infeasible import *
+        print_infeasible_constraints(m)
+        print_variables_close_to_bounds(m)
+        print("SOLVE FAILED")        
+    
+    print('')
+    print('scaling factors after solve:')
+
+    for v in vars_test:
+        print(v.name, round(v.value * iscale.get_scaling_factor(v), 2))
