@@ -71,7 +71,7 @@ def main():
 
     # # # # # scale_costing(m)
 
-    optimize(m, water_recovery=0.5, objective="LCOW")
+    optimize(m, water_recovery=0.4, objective="LCOW")
     solve(m, debug=True)
     # # # # # # display_flow_table(m)
     # # display_system_stream_table(m)
