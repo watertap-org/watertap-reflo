@@ -8,7 +8,6 @@ from pyomo.environ import (
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import *
 import time
-import pyutilib.services
 from watertap.core.util.model_diagnostics.infeasible import *
 
 __all__ = ["check_jac", "calc_scale", "print_fixed_and_unfixed_vars", "breakdown_dof"]
@@ -183,12 +182,6 @@ def standard_solve(
                 solver = get_solver()
         solver.options["max_iter"] = 2000
         fs = m.find_component("fs")
-        if get_stats and fs is not None and m.fs.find_component("num_DOF") is not None:
-            pyutilib.services.TempfileManager.push()
-            tempfile = pyutilib.services.TempfileManager.create_tempfile(
-                suffix="ipopt_out", text=True
-            )
-            solver.options["output_file"] = tempfile
         solver.options["print_level"] = print_level
         results = solver.solve(m, tee=tee)  # , symbolic_solver_labels=tee)
 
