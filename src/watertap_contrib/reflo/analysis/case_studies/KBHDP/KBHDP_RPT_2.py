@@ -71,8 +71,8 @@ def main():
 
     # # # # # scale_costing(m)
 
-    # optimize(m, water_recovery=None, grid_frac_heat=0.5, objective='LCOW')
-    # solve(m, debug=True)
+    optimize(m, water_recovery=0.5, objective="LCOW")
+    solve(m, debug=True)
     # # # # # # display_flow_table(m)
     # # display_system_stream_table(m)
     # report_LTMED(m)
@@ -329,12 +329,12 @@ def scale_costing(m):
     treatment = m.fs.treatment
     energy = m.fs.energy
 
-    iscale.constraint_scaling_transform(
-        m.fs.costing.aggregate_electricity_complement, 1e-2
-    )
-    iscale.constraint_scaling_transform(
-        m.fs.costing.aggregate_electricity_balance, 1e-2
-    )
+    # iscale.constraint_scaling_transform(
+    #     m.fs.costing.aggregate_electricity_complement, 1e-2
+    # )
+    # iscale.constraint_scaling_transform(
+    #     m.fs.costing.aggregate_electricity_balance, 1e-2
+    # )
     iscale.constraint_scaling_transform(
         m.fs.costing.aggregate_flow_electricity_constraint, 1
     )
@@ -681,6 +681,8 @@ def optimize(
     #     m.fs.costing.frac_elec_from_grid.unfix()
     #     m.fs.energy.FPC.heat_load.fix(150)
     # m.fs.energy.pv.annual_energy.fix(1e6)
+
+    assert degrees_of_freedom(m) >= 0
 
 
 def report_MCAS_stream_conc(m, stream):

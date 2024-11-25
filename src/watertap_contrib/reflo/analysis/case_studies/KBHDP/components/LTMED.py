@@ -177,6 +177,11 @@ def add_system_costing(m):
     add_LTMED_costing(m, m.fs.treatment.LTMED)
     calc_costing(m, m.fs.treatment.LTMED)
 
+    m.fs.costing.add_annual_water_production(
+        m.fs.treatment.LTMED.product.properties[0].flow_vol
+    )
+    m.fs.costing.add_LCOW(m.fs.treatment.LTMED.product.properties[0].flow_vol)
+
 
 def add_LTMED_costing(m, blk, costing_blk=None):
     """Add LTMED model costing components"""
@@ -269,6 +274,30 @@ def init_system(m, solver=None):
     propagate_state(m.fs.feed_to_unit)
 
     init_LTMED(m, m.fs.treatment.LTMED)
+
+
+def optimize(m, water_recovery=None, objective="LCOW"):
+
+    m.fs.water_recovery = Var(
+        initialize=0.5,
+        bounds=(0, 0.99),
+        domain=NonNegativeReals,
+        units=pyunits.dimensionless,
+        doc="System Water Recovery",
+    )
+
+    m.fs.eq_water_recovery = Constraint(
+        expr=m.fs.treatment.LTMED.feed.properties[0].flow_vol * m.fs.water_recovery
+        == m.fs.treatment.LTMED.product.properties[0].flow_vol
+    )
+
+    if objective == "LCOW":
+        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
+
+    if water_recovery is not None:
+        print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
+        m.fs.treatment.LTMED.unit.recovery_vol_phase[0.0, "Liq"].unfix()
+        m.fs.water_recovery.fix(water_recovery)
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
@@ -396,7 +425,8 @@ if __name__ == "__main__":
     # add_LTMED_costing(m, m.fs.treatment.LTMED)
     init_system(m)
     solver = get_solver()
-    results = solve(m, debug=True)
-
+    results = solve(m, debug=False)
+    optimize(m, water_recovery=0.4)
+    results = solve(m, debug=False)
     report_LTMED(m)
-    print(m.fs.treatment.LTMED.unit.costing.display())
+    # print(m.fs.treatment.LTMED.unit.costing.display())

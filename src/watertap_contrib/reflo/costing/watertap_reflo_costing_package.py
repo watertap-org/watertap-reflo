@@ -576,6 +576,16 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
         )
 
+        # self.aggregate_flow_electricity_sold_constraint = pyo.Constraint(
+        #     expr= self.aggregate_flow_electricity_sold
+        #     == smooth_max(energy_cost.aggregate_flow_electricity - treat_cost.aggregate_flow_electricity, 0)
+        # )
+
+        # self.aggregate_flow_electricity_purchased_constraint = pyo.Constraint(
+        #     expr= self.aggregate_flow_electricity_purchased
+        #     == smooth_max(treat_cost.aggregate_flow_electricity  - energy_cost.aggregate_flow_electricity, 0)
+        # )
+
         # Calculate fraction of electricity from grid when an electricity generating unit is present
         if energy_cost.has_electricity_generation:
             elec_gen_unit = self._get_electricity_generation_unit()
@@ -844,9 +854,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         if get_scaling_factor(self.aggregate_flow_electricity_purchased) is None:
             sf = get_scaling_factor(self.aggregate_flow_electricity)
             set_scaling_factor(self.aggregate_flow_electricity_purchased, sf)
-
-        if get_scaling_factor(self.aggregate_flow_electricity_sold) is None:
-            set_scaling_factor(self.aggregate_flow_electricity_sold, 1)
 
         if get_scaling_factor(self.aggregate_flow_heat_purchased) is None:
             sf = get_scaling_factor(self.aggregate_flow_heat)
