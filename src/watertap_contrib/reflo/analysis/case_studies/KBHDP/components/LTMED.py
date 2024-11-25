@@ -374,16 +374,16 @@ def report_LTMED(m):
         f'{"Water Recovery":<20}{value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]/blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]) * 100:<20.2f}%'
     )
 
-    print(
-        m.fs.treatment.LTMED.product.properties[0.0].flow_mass_phase_comp.display()
-    )  # TDS
-    print(
-        m.fs.treatment.LTMED.unit.distillate_props[0.0].mass_frac_phase_comp.display()
-    )  # TDS
-    print(
-        m.fs.treatment.LTMED.unit.distillate_props[0.0].flow_vol_phase.display()
-    )  # TDS
-    print(m.fs.treatment.LTMED.unit.brine_props[0.0].flow_vol_phase.display())
+    # print(
+    #     m.fs.treatment.LTMED.product.properties[0.0].flow_mass_phase_comp.display()
+    # )  # TDS
+    # print(
+    #     m.fs.treatment.LTMED.unit.distillate_props[0.0].mass_frac_phase_comp.display()
+    # )  # TDS
+    # print(
+    #     m.fs.treatment.LTMED.unit.distillate_props[0.0].flow_vol_phase.display()
+    # )  # TDS
+    # print(m.fs.treatment.LTMED.unit.brine_props[0.0].flow_vol_phase.display())
 
 
 if __name__ == "__main__":
