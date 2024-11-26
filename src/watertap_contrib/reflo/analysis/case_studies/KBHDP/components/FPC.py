@@ -67,21 +67,19 @@ def build_fpc(m):
 
     # file = cwd + "/src/watertap_contrib/reflo/solar_models/surrogate/flat_plate/"
     surrogate_dir = os.path.join(
-                cwd,
-                "src",
-                "watertap_contrib",
-                "reflo",
-                "solar_models",
-                "surrogate",
-                "flat_plate",
-            )
+        cwd,
+        "src",
+        "watertap_contrib",
+        "reflo",
+        "solar_models",
+        "surrogate",
+        "flat_plate",
+    )
 
     dataset_filename = os.path.join(
-        os.path.dirname(surrogate_dir), 
-        "data",
-        "FPC_Heat_Load.pkl"
-        )
-    
+        os.path.dirname(surrogate_dir), "data", "FPC_Heat_Load.pkl"
+    )
+
     surrogate_filename = os.path.join(
         os.path.dirname(surrogate_dir),
         "data",
