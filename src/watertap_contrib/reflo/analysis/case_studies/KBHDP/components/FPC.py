@@ -63,14 +63,12 @@ def build_fpc(m):
     energy = m.fs.energy
 
     print(f'\n{"=======> BUILDING FPC SYSTEM <=======":^60}\n')
-    cwd = os.getcwd()
+    parent_dir = os.path.abspath(
+        os.path.join(os.path.abspath(__file__), "..", "..", "..", "..", "..")
+    )
 
-    # file = cwd + "/src/watertap_contrib/reflo/solar_models/surrogate/flat_plate/"
     surrogate_dir = os.path.join(
-        cwd,
-        "src",
-        "watertap_contrib",
-        "reflo",
+        parent_dir,
         "solar_models",
         "surrogate",
         "flat_plate",
