@@ -122,7 +122,7 @@ def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
     blk.unit.temperature_hot.fix(temperature_hot)
     # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     blk.unit.temperature_cold.set_value(20)
-    # blk.unit.heat_load.fix(10)
+    blk.unit.heat_load.fix(10)
 
 
 def add_fpc_costing(blk, costing_block):

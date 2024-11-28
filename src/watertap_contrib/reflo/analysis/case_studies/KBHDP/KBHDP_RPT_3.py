@@ -77,9 +77,6 @@ def build_system(inlet_cond, n_time_points):
     m.fs.product = Product(property_package=m.fs.params)
     # m.fs.disposal = Product(property_package=m.fs.params)
 
-    add_constraints(m)
-    m.fs.water_recovery.fix(inlet_cond["water_recovery"])
-
     # Create MD unit model at flowsheet level
     m.fs.treatment.md = FlowsheetBlock(dynamic=False)
 
@@ -98,9 +95,9 @@ def build_system(inlet_cond, n_time_points):
 
 def add_connections(m):
 
-    m.fs.feed_to_md = Arc(
-        source=m.fs.feed.outlet, destination=m.fs.treatment.md.feed.inlet
-    )
+    # m.fs.feed_to_md = Arc(
+    #     source=m.fs.feed.outlet, destination=m.fs.treatment.md.feed.inlet
+    # )
 
     m.fs.md_to_product = Arc(
         source=m.fs.treatment.md.permeate.outlet, destination=m.fs.product.inlet
@@ -112,49 +109,6 @@ def add_connections(m):
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
-
-
-def add_constraints(m):
-    m.fs.water_recovery = Var(
-        initialize=0.3,
-        bounds=(0, 0.99),
-        domain=NonNegativeReals,
-        units=pyunits.dimensionless,
-        doc="System Water Recovery",
-    )
-
-    # m.fs.feed_flow_mass = Var(
-    #     initialize=1,
-    #     bounds=(0.00001, 1e6),
-    #     domain=NonNegativeReals,
-    #     units=pyunits.kg / pyunits.s,
-    #     doc="System Feed Flowrate",
-    # )
-
-    # m.fs.feed_flow_vol = Var(
-    #     initialize=1,
-    #     bounds=(0.00001, 1e6),
-    #     domain=NonNegativeReals,
-    #     units=pyunits.L / pyunits.s,
-    #     doc="System Feed Flowrate",
-    # )
-
-    # m.fs.perm_flow_mass = Var(
-    #     initialize=1,
-    #     bounds=(0.00001, 1e6),
-    #     domain=NonNegativeReals,
-    #     units=pyunits.kg / pyunits.s,
-    #     doc="System Produce Flowrate",
-    # )
-
-    # m.fs.eq_water_recovery = Constraint(
-    #     expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
-    #     == m.fs.product.properties[0].flow_vol
-    # )
-
-    # m.fs.feed.properties[0].conc_mass_phase_comp
-    # m.fs.product.properties[0].conc_mass_phase_comp
-    # m.fs.disposal.properties[0].conc_mass_phase_comp
 
 
 def add_costing(m, treatment_costing_block, energy_costing_block):
@@ -212,8 +166,8 @@ def add_system_costing(
     m.fs.sys_costing.add_LCOH()
 
 
-def set_inlet_conditions(blk, model_options):
-
+def set_inlet_conditions(blk, inlet_cond, model_options):
+    # This feed variable is basically used to set
     print(f'\n{"=======> SETTING FEED CONDITIONS <=======":^60}\n')
     feed_flow_rate = model_options["feed_flow_rate"]
     feed_salinity = model_options["feed_salinity"]
@@ -233,9 +187,9 @@ def set_inlet_conditions(blk, model_options):
     )
 
 
-def set_operating_conditions(m, hours_storage=8):
+def set_operating_conditions(m,model_options, hours_storage=8):
 
-    set_md_op_conditions(m.fs.treatment.md)
+    set_md_op_conditions(m.fs.treatment.md, model_options)
     set_fpc_op_conditions(
         m.fs.energy.fpc, hours_storage=hours_storage, temperature_hot=80
     )
@@ -251,7 +205,7 @@ def init_system(m, blk, model_options, n_time_points, verbose=True, solver=None)
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     m.fs.feed.initialize()
-    propagate_state(m.fs.feed_to_md)
+    # propagate_state(m.fs.feed_to_md)
 
     init_md(blk.treatment.md, model_options, n_time_points)
 
@@ -362,7 +316,7 @@ def set_inlet_stream_conditions(Qinput=4, feed_salinity_input=12, water_recovery
     inlet_cond = {
         "inlet_flow_rate": Qin,
         "inlet_salinity": feed_salinity,
-        "water_recovery": water_recovery,
+        "recovery": water_recovery,
     }
 
     return inlet_cond
@@ -390,11 +344,11 @@ def main(
         inlet_cond, n_time_points=n_time_points
     )
 
-    set_inlet_conditions(m.fs, model_options)
+    set_inlet_conditions(m.fs, inlet_cond,model_options)
 
     init_system(m, m.fs, model_options, n_time_points)
 
-    set_operating_conditions(m, hours_storage)
+    set_operating_conditions(m, model_options,hours_storage)
 
     print(f"\nBefore Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 
