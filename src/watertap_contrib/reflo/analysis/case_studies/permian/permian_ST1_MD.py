@@ -207,7 +207,7 @@ def build_permian_pretreatment(**kwargs):
     #     == m.fs.treatment.product.properties[0].flow_vol_phase["Liq"]
     # )
 
-    add_treatment_costing(m)
+    # add_treatment_costing(m)
 
     return m
 
@@ -290,6 +290,10 @@ def init_system(m, **kwargs):
 
     treat.disposal_ZO_mixer.initialize()
     propagate_state(treat.disposal_ZO_mix_to_translator)
+
+    treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
+    # treat.zo_to_sw_disposal.outlet.pressure[0].fix(20000)
+    treat.zo_to_sw_disposal.initialize()
     
 
 def run_permian_pretreatment():
@@ -366,7 +370,6 @@ def add_desal_connections(m):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-
 def run_permian_ST1_MD():
     '''
     MD needs the flowrate and recovery for build.
@@ -403,18 +406,16 @@ def run_permian_ST1_MD():
     init_md(treat.md, model_options, n_time_points)
     propagate_state(treat.md_to_product)
     treat.product.initialize()
-
-    treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
-    # treat.zo_to_sw_disposal.outlet.pressure[0].fix()
-    treat.zo_to_sw_disposal.initialize()
+    print(f"DOF 1 = {degrees_of_freedom(m)}")
 
     # MD to Disposal SW mixer
     propagate_state(treat.md_to_disposal_SW_mixer)
-    
     propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
+
     # NOTE: variable that affects DOF in unclear way
     treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
     treat.disposal_SW_mixer.initialize()
+    print(f"DOF 3 = {degrees_of_freedom(m)}")
 
     propagate_state(treat.disposal_SW_mixer_to_dwi)
     # NOTE: variables that affect DOF in unclear way
@@ -423,8 +424,11 @@ def run_permian_ST1_MD():
 
     init_dwi(m, treat.DWI)
 
+    print(f"DOF After initialization = {degrees_of_freedom(m)}")
+
     set_md_op_conditions(m.fs.treatment.md, model_options)
-    print(f"DOF = {degrees_of_freedom(m)}")
+
+    print(f"DOF After Solve = {degrees_of_freedom(m)}")
     results = solver.solve(m)
     print_infeasible_constraints(m)
 
@@ -433,11 +437,13 @@ def run_permian_ST1_MD():
     
     report_MD(m, m.fs.treatment)
 
+    return m
+
 
 if __name__ == "__main__":
 
-    m = run_permian_pretreatment()
+    # m = run_permian_pretreatment()
     # treat = m.fs.treatment
 
+    m = run_permian_ST1_MD()
     print(f"DOF = {degrees_of_freedom(m)}")
-    # run_permian_ST1_MD()
