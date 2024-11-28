@@ -119,10 +119,10 @@ def build_permian_pretreatment(**kwargs):
 
     treat.disposal_SW_mixer = Mixer(
         property_package=m.fs.properties_feed,
-        num_inlets=1,
-        inlet_list=["zo_mixer"],
         # num_inlets=2,
-        # inlet_list=["zo_mixer", "mvc_disposal"],
+        # inlet_list=["zo_mixer"],
+        num_inlets=2,
+        inlet_list=["zo_mixer", "md_disposal"],
         energy_mixing_type=MixingType.none,
         momentum_mixing_type=MomentumMixingType.none,
     )
@@ -184,14 +184,14 @@ def build_permian_pretreatment(**kwargs):
         source=treat.disposal_ZO_mixer.outlet, destination=treat.zo_to_sw_disposal.inlet
     )
 
-    treat.disposal_ZO_mix_translated_to_disposal_SW_mixer = Arc(
-        source=treat.zo_to_sw_disposal.outlet,
-        destination=treat.disposal_SW_mixer.zo_mixer,
-    )
+    # treat.disposal_ZO_mix_translated_to_disposal_SW_mixer = Arc(
+    #     source=treat.zo_to_sw_disposal.outlet,
+    #     destination=treat.disposal_SW_mixer.zo_mixer,
+    # )
 
-    treat.disposal_SW_mixer_to_dwi = Arc(
-        source=treat.disposal_SW_mixer.outlet, destination=treat.DWI.feed.inlet
-    )
+    # treat.disposal_SW_mixer_to_dwi = Arc(
+    #     source=treat.disposal_SW_mixer.outlet, destination=treat.DWI.feed.inlet
+    # )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
@@ -324,38 +324,6 @@ def run_permian_pretreatment():
     print_infeasible_constraints(m)
     assert_optimal_termination(results)
 
-    # print(f"DOF TREATMENT BLOCK = {degrees_of_freedom(treat)}")
-    # print(f"DOF FEED = {degrees_of_freedom(treat.feed)}")
-    # print(f"DOF ZO TO SW FEED TB = {degrees_of_freedom(treat.zo_to_sw_feed)}")
-    # print(f"DOF ZO TO SW DISPOSAL TB = {degrees_of_freedom(treat.zo_to_sw_disposal)}")
-    # print(f"DOF SW TO ZO TB = {degrees_of_freedom(treat.sw_to_zo)}")
-
-    # print(f"DOF CHEM ADDITION UNIT = {degrees_of_freedom(treat.chem_addition.unit)}")
-    # print(f"DOF CHEM ADDITION FEED = {degrees_of_freedom(treat.chem_addition.feed)}")
-    # print(f"DOF CHEM ADDITION PRODUCT = {degrees_of_freedom(treat.chem_addition.product)}")
-    # print(f"DOF CHEM ADDITION DISPOSAL = {degrees_of_freedom(treat.chem_addition.disposal)}")
-
-    # print(f"DOF EC UNIT = {degrees_of_freedom(treat.EC.unit)}")
-    # print(f"DOF EC FEED = {degrees_of_freedom(treat.EC.feed)}")
-    # print(f"DOF EC PRODUCT = {degrees_of_freedom(treat.EC.product)}")
-    # print(f"DOF EC DISPOSAL = {degrees_of_freedom(treat.EC.disposal)}")
-
-    # print(f"DOF CARTRIDGE FILTRATION UNIT = {degrees_of_freedom(treat.cart_filt.unit)}")
-    # print(f"DOF CARTRIDGE FILTRATION FEED = {degrees_of_freedom(treat.cart_filt.feed)}")
-    # print(f"DOF CARTRIDGE FILTRATION PRODUCT = {degrees_of_freedom(treat.cart_filt.product)}")
-    # print(f"DOF CARTRIDGE FILTRATION DISPOSAL = {degrees_of_freedom(treat.cart_filt.disposal)}")
-
-    # print(f"DOF DESAL STATE JUNCTION = {degrees_of_freedom(treat.desal)}")
-
-    # print(f"DOF DISPOSAL ZO MIXER = {degrees_of_freedom(treat.disposal_ZO_mixer)}")
-
-    # print(f"DOF DISPOSAL SW MIXER = {degrees_of_freedom(treat.disposal_SW_mixer)}")
-
-    # print(f"DOF DWI UNIT = {degrees_of_freedom(treat.DWI.feed)}")
-    # print(f"DOF DWI UNIT = {degrees_of_freedom(treat.DWI.unit)}")
-
-    # print(f"LCOW = {m.fs.treatment.costing.LCOW()}")
-
     return m
 
 def set_md_inlet_stream_conditions(Qinput=4, feed_salinity_input=12, water_recovery=0.5):
@@ -373,99 +341,103 @@ def set_md_inlet_stream_conditions(Qinput=4, feed_salinity_input=12, water_recov
 
     return inlet_cond
 
+
 def add_desal_connections(m):
     treat = m.fs.treatment
-    # Add arc connecting cartridge filteration to MD
-    treat.cart_filt_translated_to_md = Arc(
-        source=treat.zo_to_sw_feed.outlet, destination=treat.md.feed.inlet
+
+    treat.disposal_ZO_mix_translated_to_disposal_SW_mixer = Arc(
+        source=treat.zo_to_sw_disposal.outlet,
+        destination=treat.disposal_SW_mixer.zo_mixer,
     )
 
     treat.md_to_disposal_SW_mixer = Arc(
         source=treat.md.concentrate.outlet,
-        destination=treat.disposal_SW_mixer.zo_mixer,
+        destination=treat.disposal_SW_mixer.md_disposal,
     )
 
     treat.md_to_product = Arc(
         source=treat.md.permeate.outlet, destination=treat.product.inlet
     )
 
+    treat.disposal_SW_mixer_to_dwi = Arc(
+        source=treat.disposal_SW_mixer.outlet, destination=treat.DWI.feed.inlet
+    )
+
     TransformationFactory("network.expand_arcs").apply_to(m)
+
+
 
 def run_permian_ST1_MD():
     '''
     MD needs the flowrate and recovery for build.
     In this flowsheet the pretreatment is solved and MD is added on at a fixed water recovery
     '''
-
-    #TODO:
-    # Solve permian pretreatment
     
     m = run_permian_pretreatment()
     treat = m.fs.treatment
-    m.fs.treatment.zo_to_sw_feed.outlet.display()
-    
+
+    # Touching relevant variables
     m.fs.treatment.zo_to_sw_feed.properties_out[0]._flow_vol_phase()
     m.fs.treatment.zo_to_sw_feed.properties_out[0]._conc_mass_phase_comp()
+
     treat.zo_to_sw_feed.properties_out[0].temperature.fix(304)
     treat.zo_to_sw_feed.properties_out[0].pressure.fix()
     m.fs.treatment.zo_to_sw_feed.initialize()
-    # print("flow vol:",m.fs.treatment.zo_to_sw_feed.properties_out[0].flow_vol_phase['Liq']() )
-    # print("flow conc:",m.fs.treatment.zo_to_sw_feed.properties_out[0].conc_mass_phase_comp['Liq','TDS']() )
-    
+     
     # Building an input dictionary for MD
     inlet_cond = set_md_inlet_stream_conditions(
-        Qinput= treat.zo_to_sw_feed.properties_out[0].flow_vol_phase['Liq'], 
-        feed_salinity_input=treat.zo_to_sw_feed.properties_out[0].conc_mass_phase_comp['Liq','TDS'], 
-        water_recovery=0.5
+        Qinput= treat.zo_to_sw_feed.properties_out[0].flow_vol_phase['Liq'], # Flow rate from prior process
+        feed_salinity_input=treat.zo_to_sw_feed.properties_out[0].conc_mass_phase_comp['Liq','TDS'], # TDS from prior process
+        water_recovery=0.5 # FIxed for now
     )
 
-    # Create MD unit model at flowsheet level
     m.fs.treatment.md = FlowsheetBlock(dynamic=False)
 
     model_options, n_time_points = build_md(
-        m, m.fs.treatment.md, inlet_cond, n_time_points=2
+        m, m.fs.treatment.md, inlet_cond, m.fs.properties_feed,n_time_points=2
     )
 
     add_desal_connections(m)
 
-    propagate_state(treat.cart_filt_translated_to_md)
+    # Initialization Steps
     init_md(treat.md, model_options, n_time_points)
-
     propagate_state(treat.md_to_product)
     treat.product.initialize()
 
-    # propagate_state(treat.md_to_disposal_SW_mixer)
-   
-    # treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
-    # treat.zo_to_sw_disposal.outlet.pressure[0].fix(20000)
-    # treat.zo_to_sw_disposal.initialize()
+    treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
+    # treat.zo_to_sw_disposal.outlet.pressure[0].fix()
+    treat.zo_to_sw_disposal.initialize()
 
-
-    # propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
+    # MD to Disposal SW mixer
+    propagate_state(treat.md_to_disposal_SW_mixer)
+    
+    propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
     # NOTE: variable that affects DOF in unclear way
-    # treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
-    # treat.disposal_SW_mixer.initialize()
+    treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
+    treat.disposal_SW_mixer.initialize()
 
-    # propagate_state(treat.disposal_SW_mixer_to_dwi)
+    propagate_state(treat.disposal_SW_mixer_to_dwi)
     # NOTE: variables that affect DOF in unclear way
-    # treat.DWI.unit.properties[0].temperature.fix(305)
-    # treat.DWI.unit.properties[0].pressure.fix()
+    treat.DWI.unit.properties[0].temperature.fix(305)
+    treat.DWI.unit.properties[0].pressure.fix()
 
-    # init_dwi(m, treat.DWI)
+    init_dwi(m, treat.DWI)
 
-    # treat.product.initialize()
-
-    set_md_op_conditions(m.fs.treatment.md)
+    set_md_op_conditions(m.fs.treatment.md, model_options)
     print(f"DOF = {degrees_of_freedom(m)}")
     results = solver.solve(m)
     print_infeasible_constraints(m)
 
+    treat.feed.properties[0].flow_vol
+    # treat.feed.properties[0].conc_mass_phase_comp
+    
+    report_MD(m, m.fs.treatment)
+
 
 if __name__ == "__main__":
 
-    # m = run_permian_pretreatment()
+    m = run_permian_pretreatment()
     # treat = m.fs.treatment
 
-    # print(f"DOF = {degrees_of_freedom(m)}")
-
-    run_permian_ST1_MD()
+    print(f"DOF = {degrees_of_freedom(m)}")
+    # run_permian_ST1_MD()
