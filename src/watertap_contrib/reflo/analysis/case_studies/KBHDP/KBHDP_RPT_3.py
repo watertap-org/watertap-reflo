@@ -157,17 +157,6 @@ def add_constraints(m):
     # m.fs.disposal.properties[0].conc_mass_phase_comp
 
 
-# TODO: Add fraction of heat as solar
-def add_energy_constraints(m):
-
-    @m.Constraint()
-    def eq_thermal_req(b):
-        return (
-            b.fs.energy.costing.aggregate_flow_heat
-            == -1 * b.fs.treatment.costing.aggregate_flow_heat * 0.5
-        )
-
-
 def add_costing(m, treatment_costing_block, energy_costing_block):
     # Solving the system before adding costing
     solver = SolverFactory("ipopt")
@@ -635,7 +624,7 @@ if __name__ == "__main__":
         water_recovery=0.8,
         heat_price=0.08,
         electricity_price=0.07,
-        frac_heat_from_grid=0.2,
+        frac_heat_from_grid=0.5,
         hours_storage=6,
         run_optimization=False,
     )

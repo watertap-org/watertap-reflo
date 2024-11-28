@@ -37,6 +37,7 @@ import idaes.core.util.scaling as iscale
 __all__ = [
     "build_fpc",
     "init_fpc",
+    "add_fpc_scaling",
     "set_fpc_op_conditions",
     "add_fpc_costing",
     "report_fpc",
@@ -108,9 +109,10 @@ def set_system_op_conditions(m):
 
 
 def add_fpc_scaling(m, blk):
-    iscale.set_scaling_factor(blk.unit.hours_storage, 10)
-    iscale.set_scaling_factor(blk.unit.electricity, 100)
-    iscale.set_scaling_factor(blk.unit.heat_load, 1e4)
+    iscale.set_scaling_factor(blk.unit.hours_storage, 1)
+    iscale.set_scaling_factor(blk.unit.electricity, 1e3)
+    iscale.set_scaling_factor(blk.unit.heat_load, 10)
+    iscale.get_scaling_factor(blk.unit.heat, 1e3)
 
 
 def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
@@ -120,7 +122,7 @@ def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
     blk.unit.temperature_hot.fix(temperature_hot)
     # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     blk.unit.temperature_cold.set_value(20)
-    blk.unit.heat_load.fix(10)
+    # blk.unit.heat_load.fix(10)
 
 
 def add_fpc_costing(blk, costing_block):
@@ -128,7 +130,7 @@ def add_fpc_costing(blk, costing_block):
 
 
 def calc_costing(m, blk):
-    blk.costing.heat_cost.set_value(0)
+    blk.costing.heat_cost.fix(0)
     blk.costing.electricity_cost.fix(0.07)
     blk.costing.cost_process()
     blk.costing.initialize()
@@ -275,7 +277,7 @@ def main():
     add_fpc_costing(m.fs.fpc, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
     m.fs.fpc.unit.heat_load.unfix()
-    m.fs.costing.aggregate_flow_heat.fix(-20067.44)
+    m.fs.costing.aggregate_flow_heat.fix(-5000)
 
     print(
         "\nDegrees of Freedom after fixing aggregate heat flow:", degrees_of_freedom(m)
