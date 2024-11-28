@@ -187,7 +187,7 @@ def set_inlet_conditions(blk, inlet_cond, model_options):
     )
 
 
-def set_operating_conditions(m,model_options, hours_storage=8):
+def set_operating_conditions(m, model_options, hours_storage=8):
 
     set_md_op_conditions(m.fs.treatment.md, model_options)
     set_fpc_op_conditions(
@@ -344,11 +344,11 @@ def main(
         inlet_cond, n_time_points=n_time_points
     )
 
-    set_inlet_conditions(m.fs, inlet_cond,model_options)
+    set_inlet_conditions(m.fs, inlet_cond, model_options)
 
     init_system(m, m.fs, model_options, n_time_points)
 
-    set_operating_conditions(m, model_options,hours_storage)
+    set_operating_conditions(m, model_options, hours_storage)
 
     print(f"\nBefore Costing System Degrees of Freedom: {degrees_of_freedom(m)}")
 

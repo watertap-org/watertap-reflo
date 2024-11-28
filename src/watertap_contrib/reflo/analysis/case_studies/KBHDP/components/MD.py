@@ -125,7 +125,7 @@ def add_connections(m):
 
 def set_md_model_options(m, inlet_cond, n_time_points=None):
 
-    system_capacity = inlet_cond['recovery'] * pyunits.convert(
+    system_capacity = inlet_cond["recovery"] * pyunits.convert(
         inlet_cond["inlet_flow_rate"], to_units=pyunits.m**3 / pyunits.day
     )
     feed_salinity = pyunits.convert(
@@ -199,7 +199,7 @@ def init_md(blk, model_options, n_time_points, verbose=True, solver=None):
     # blk.feed.initialize()
 
     # feed_flow_rate = pyunits.convert(
-        # blk.feed.properties[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
+    # blk.feed.properties[0].flow_vol_phase["Liq"], to_units=pyunits.L / pyunits.h
     # )()
 
     # feed_temp = pyunits.convert_temp_K_to_C(blk.feed.properties[0].temperature())
@@ -208,7 +208,7 @@ def init_md(blk, model_options, n_time_points, verbose=True, solver=None):
     blk.unit.build_multi_period_model(
         model_data_kwargs={t: model_options for t in range(n_time_points)},
         flowsheet_options=model_options,
-        unfix_dof_options={"feed_flow_rate": model_options['feed_flow_rate']},
+        unfix_dof_options={"feed_flow_rate": model_options["feed_flow_rate"]},
     )
 
     add_performance_constraints(blk.unit, model_options)
@@ -220,10 +220,10 @@ def init_md(blk, model_options, n_time_points, verbose=True, solver=None):
     for active in active_blks:
         fix_dof_and_initialize(
             m=active,
-            feed_temp=model_options['feed_temp'],
+            feed_temp=model_options["feed_temp"],
         )
         result = solver.solve(active)
-        unfix_dof(m=active, feed_flow_rate=model_options['feed_flow_rate'])
+        unfix_dof(m=active, feed_flow_rate=model_options["feed_flow_rate"])
 
     # Build connection to permeate state junction
     blk.permeate.properties[0]._flow_vol_phase()
@@ -352,15 +352,17 @@ def set_md_op_conditions(blk, model_options):
     # feed_temp = pyunits.convert_temp_K_to_C(blk.feed.properties[0].temperature())
 
     print("\n--------- MD TIME PERIOD 1 INPUTS ---------\n")
-    print("Feed flow rate in L/h:", model_options['feed_flow_rate'])
-    print("Feed salinity in g/l:", model_options['feed_salinity'])
-    print("Feed temperature in C:",model_options["feed_temp"])
+    print("Feed flow rate in L/h:", model_options["feed_flow_rate"])
+    print("Feed salinity in g/l:", model_options["feed_salinity"])
+    print("Feed temperature in C:", model_options["feed_temp"])
     print("\n")
 
     active_blks[0].fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(
-        model_options['feed_salinity']
+        model_options["feed_salinity"]
     )
-    active_blks[0].fs.vagmd.feed_props[0].temperature.fix(model_options["feed_temp"] + 273.15)
+    active_blks[0].fs.vagmd.feed_props[0].temperature.fix(
+        model_options["feed_temp"] + 273.15
+    )
     active_blks[0].fs.acc_distillate_volume.fix(0)
     active_blks[0].fs.pre_feed_temperature.fix(model_options["feed_temp"] + 273.15)
     active_blks[0].fs.pre_permeate_flow_rate.fix(0)
@@ -705,7 +707,7 @@ if __name__ == "__main__":
         "recovery": overall_recovery,
     }
 
-    n_time_points = 2#None
+    n_time_points = 2  # None
     m, model_options, n_time_points = build_system(
         inlet_cond, n_time_points=n_time_points
     )
@@ -714,7 +716,7 @@ if __name__ == "__main__":
     set_system_op_conditions(m.fs, model_options)
     init_system(m, m.fs.md, model_options, n_time_points)
 
-    set_md_op_conditions(m.fs.md,model_options)
+    set_md_op_conditions(m.fs.md, model_options)
 
     results = solve(m, solver=solver, tee=False)
     # results= solver.solve(m)
