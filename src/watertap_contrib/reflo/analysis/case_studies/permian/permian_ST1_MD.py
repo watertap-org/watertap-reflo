@@ -54,7 +54,7 @@ from watertap.property_models.water_prop_pack import (
 )
 from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting
 from watertap_contrib.reflo.analysis.case_studies.permian import *
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.MD import *
+from watertap_contrib.reflo.analysis.case_studies.permian.components.MD import *
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
@@ -285,39 +285,12 @@ def init_system(m, **kwargs):
 
     init_cart_filt(m, treat.cart_filt)
     propagate_state(treat.cart_filt_to_translator)
+
     propagate_state(treat.cart_filt_to_disposal_mix)
 
     treat.disposal_ZO_mixer.initialize()
     propagate_state(treat.disposal_ZO_mix_to_translator)
-
-    treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
-    treat.zo_to_sw_disposal.outlet.pressure[0].fix(20000)
-    treat.zo_to_sw_disposal.initialize()
-
-    treat.zo_to_sw_feed.properties_out[0].temperature.fix(304)
-    treat.zo_to_sw_feed.properties_out[0].pressure.fix(40000)
-    treat.zo_to_sw_feed.initialize()
-
-    # propagate_state(treat.cart_filt_translated_to_desal)
-
-    # treat.desal.initialize()
-
-    # propagate_state(treat.desal_to_product)
-
-    propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
-    # NOTE: variable that affects DOF in unclear way
-    treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
-    treat.disposal_SW_mixer.initialize()
-
-    propagate_state(treat.disposal_SW_mixer_to_dwi)
-    # NOTE: variables that affect DOF in unclear way
-    treat.DWI.unit.properties[0].temperature.fix(305)
-    treat.DWI.unit.properties[0].pressure.fix(50000)
-
-    init_dwi(m, treat.DWI)
-
-    treat.product.initialize()
-
+    
 
 def run_permian_pretreatment():
     """
@@ -335,11 +308,11 @@ def run_permian_pretreatment():
     init_system(m)
     print(f"DOF = {degrees_of_freedom(m)}")
 
-    flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
-    treat.costing.electricity_cost.fix(0.07)
-    treat.costing.add_LCOW(flow_vol)
-    treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
-    treat.costing.initialize()
+    # flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
+    # treat.costing.electricity_cost.fix(0.07)
+    # treat.costing.add_LCOW(flow_vol)
+    # treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+    # treat.costing.initialize()
 
     # NOTE: variables that affect DOF in unclear way
     # treat.chem_addition.unit.chemical_dosage.unfix()
@@ -381,14 +354,118 @@ def run_permian_pretreatment():
     # print(f"DOF DWI UNIT = {degrees_of_freedom(treat.DWI.feed)}")
     # print(f"DOF DWI UNIT = {degrees_of_freedom(treat.DWI.unit)}")
 
-    print(f"LCOW = {m.fs.treatment.costing.LCOW()}")
+    # print(f"LCOW = {m.fs.treatment.costing.LCOW()}")
 
     return m
+
+def set_md_inlet_stream_conditions(Qinput=4, feed_salinity_input=12, water_recovery=0.5):
+    # Qin = Qinput * pyunits.m3 / pyunits.s
+    Qin = pyunits.convert(Qinput, to_units=pyunits.m**3 / pyunits.day)
+
+    feed_salinity = pyunits.convert(feed_salinity_input, to_units= pyunits.g / pyunits.L)
+    # water_recovery = 0.5
+
+    inlet_cond = {
+        "inlet_flow_rate": Qin,
+        "inlet_salinity": feed_salinity,
+        "recovery": water_recovery,
+    }
+
+    return inlet_cond
+
+def add_desal_connections(m):
+    treat = m.fs.treatment
+    # Add arc connecting cartridge filteration to MD
+    treat.cart_filt_translated_to_md = Arc(
+        source=treat.zo_to_sw_feed.outlet, destination=treat.md.feed.inlet
+    )
+
+    treat.md_to_disposal_SW_mixer = Arc(
+        source=treat.md.concentrate.outlet,
+        destination=treat.disposal_SW_mixer.zo_mixer,
+    )
+
+    treat.md_to_product = Arc(
+        source=treat.md.permeate.outlet, destination=treat.product.inlet
+    )
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
+
+def run_permian_ST1_MD():
+    '''
+    MD needs the flowrate and recovery for build.
+    In this flowsheet the pretreatment is solved and MD is added on at a fixed water recovery
+    '''
+
+    #TODO:
+    # Solve permian pretreatment
+    
+    m = run_permian_pretreatment()
+    treat = m.fs.treatment
+    m.fs.treatment.zo_to_sw_feed.outlet.display()
+    
+    m.fs.treatment.zo_to_sw_feed.properties_out[0]._flow_vol_phase()
+    m.fs.treatment.zo_to_sw_feed.properties_out[0]._conc_mass_phase_comp()
+    treat.zo_to_sw_feed.properties_out[0].temperature.fix(304)
+    treat.zo_to_sw_feed.properties_out[0].pressure.fix()
+    m.fs.treatment.zo_to_sw_feed.initialize()
+    # print("flow vol:",m.fs.treatment.zo_to_sw_feed.properties_out[0].flow_vol_phase['Liq']() )
+    # print("flow conc:",m.fs.treatment.zo_to_sw_feed.properties_out[0].conc_mass_phase_comp['Liq','TDS']() )
+    
+    # Building an input dictionary for MD
+    inlet_cond = set_md_inlet_stream_conditions(
+        Qinput= treat.zo_to_sw_feed.properties_out[0].flow_vol_phase['Liq'], 
+        feed_salinity_input=treat.zo_to_sw_feed.properties_out[0].conc_mass_phase_comp['Liq','TDS'], 
+        water_recovery=0.5
+    )
+
+    # Create MD unit model at flowsheet level
+    m.fs.treatment.md = FlowsheetBlock(dynamic=False)
+
+    model_options, n_time_points = build_md(
+        m, m.fs.treatment.md, inlet_cond, n_time_points=2
+    )
+
+    add_desal_connections(m)
+
+    propagate_state(treat.cart_filt_translated_to_md)
+    init_md(treat.md, model_options, n_time_points)
+
+    propagate_state(treat.md_to_product)
+    treat.product.initialize()
+
+    # propagate_state(treat.md_to_disposal_SW_mixer)
+   
+    # treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
+    # treat.zo_to_sw_disposal.outlet.pressure[0].fix(20000)
+    # treat.zo_to_sw_disposal.initialize()
+
+
+    # propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
+    # NOTE: variable that affects DOF in unclear way
+    # treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
+    # treat.disposal_SW_mixer.initialize()
+
+    # propagate_state(treat.disposal_SW_mixer_to_dwi)
+    # NOTE: variables that affect DOF in unclear way
+    # treat.DWI.unit.properties[0].temperature.fix(305)
+    # treat.DWI.unit.properties[0].pressure.fix()
+
+    # init_dwi(m, treat.DWI)
+
+    # treat.product.initialize()
+
+    set_md_op_conditions(m.fs.treatment.md)
+    print(f"DOF = {degrees_of_freedom(m)}")
+    results = solver.solve(m)
+    print_infeasible_constraints(m)
 
 
 if __name__ == "__main__":
 
-    m = run_permian_pretreatment()
-    treat = m.fs.treatment
+    # m = run_permian_pretreatment()
+    # treat = m.fs.treatment
 
-    print(f"DOF = {degrees_of_freedom(m)}")
+    # print(f"DOF = {degrees_of_freedom(m)}")
+
+    run_permian_ST1_MD()

@@ -125,7 +125,7 @@ def add_connections(m):
 
 def set_md_model_options(m, inlet_cond, n_time_points=None):
 
-    system_capacity = m.fs.water_recovery * pyunits.convert(
+    system_capacity = inlet_cond['recovery'] * pyunits.convert(
         inlet_cond["inlet_flow_rate"], to_units=pyunits.m**3 / pyunits.day
     )
     feed_salinity = pyunits.convert(
@@ -155,7 +155,7 @@ def set_md_model_options(m, inlet_cond, n_time_points=None):
             cond_inlet_temp=model_options["cond_inlet_temp"],
             feed_temp=model_options["feed_temp"],
             feed_salinity=model_options["feed_salinity"],
-            recovery_ratio=m.fs.water_recovery(),
+            recovery_ratio=inlet_cond['recovery'],
             initial_batch_volume=model_options["initial_batch_volume"],
             module_type=model_options["module_type"],
             cooling_system_type=model_options["cooling_system_type"],
@@ -171,9 +171,9 @@ def build_md(m, blk, inlet_cond, n_time_points=None) -> None:
 
     # Build a feed, permeate and brine state function for MD
 
-    blk.feed = StateJunction(property_package=m.fs.params)
-    blk.permeate = StateJunction(property_package=m.fs.params)
-    blk.concentrate = StateJunction(property_package=m.fs.params)
+    blk.feed = StateJunction(property_package=m.fs.properties_feed)
+    blk.permeate = StateJunction(property_package=m.fs.properties_feed)
+    blk.concentrate = StateJunction(property_package=m.fs.properties_feed)
 
     model_options, n_time_points = set_md_model_options(m, inlet_cond, n_time_points)
 
@@ -697,12 +697,12 @@ if __name__ == "__main__":
 
     feed_salinity = 12 * pyunits.g / pyunits.L
 
-    # overall_recovery = 0.9
+    overall_recovery = 0.9
 
     inlet_cond = {
         "inlet_flow_rate": Qin,
         "inlet_salinity": feed_salinity,
-        # "recovery": overall_recovery,
+        "recovery": overall_recovery,
     }
 
     n_time_points = None
