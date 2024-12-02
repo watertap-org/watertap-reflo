@@ -51,6 +51,8 @@ class REFLOCostingData(WaterTAPCostingData):
 
     def build_global_params(self):
 
+        pyo.units.load_definitions_from_strings(["USD_2023 = 500/797.9 * USD_CE500"])
+
         super().build_global_params()
 
         # Override WaterTAP default value of USD_2018
@@ -376,6 +378,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
     def build_global_params(self):
         super().build_global_params()
+
+        pyo.units.load_definitions_from_strings(["USD_2023 = 500/797.9 * USD_CE500"])
 
         self.base_currency = pyo.units.USD_2021
 

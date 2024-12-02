@@ -332,7 +332,7 @@ def build_heat_and_elec_gen():
     #### TREATMENT BLOCK
     m.fs.treatment = Block()
     m.fs.treatment.costing = TreatmentCosting()
-    m.fs.treatment.costing.base_currency = pyunits.USD_2002
+    m.fs.treatment.costing.base_currency = pyunits.USD_2023
 
     m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
     m.fs.treatment.unit.costing = UnitModelCostingBlock(
@@ -348,7 +348,7 @@ def build_heat_and_elec_gen():
     #### ENERGY BLOCK
     m.fs.energy = Block()
     m.fs.energy.costing = EnergyCosting()
-    m.fs.energy.costing.base_currency = pyunits.USD_2002
+    m.fs.energy.costing.base_currency = pyunits.USD_2023
 
     m.fs.energy.heat_unit = DummyHeatUnit()
     m.fs.energy.elec_unit = DummyElectricityUnit()
