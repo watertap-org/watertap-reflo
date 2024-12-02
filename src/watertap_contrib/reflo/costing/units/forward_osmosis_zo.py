@@ -74,7 +74,7 @@ def cost_forward_osmosis(blk):
     base_currency = blk.config.flowsheet_costing_block.base_currency
     base_period = blk.config.flowsheet_costing_block.base_period
     make_capital_cost_var(blk)
-    make_fixed_operating_cost_var(blk)
+    # make_fixed_operating_cost_var(blk)
 
     fo = blk.unit_model
     fo_fs = fo.flowsheet()
@@ -89,27 +89,27 @@ def cost_forward_osmosis(blk):
         expr=blk.capital_cost
         == pyo.units.convert(
             fo_params.base_unit_cost
-            * (pyo.units.m**3 / pyo.units.day)
+            * fo_fs.system_capacity
             * (fo_fs.system_capacity * pyo.units.day / pyo.units.m**3)
             ** fo_params.unit_cost_index,
             to_units=base_currency,
         )
     )
 
-    blk.fixed_operating_cost_constraint = pyo.Constraint(
-        expr=(
-            blk.fixed_operating_cost
-            == pyo.units.convert(
-                blk.annual_dist_production * fo_params.cost_durable_goods
-                + pyo.units.convert(
-                    brine.flow_vol_phase["Liq"],
-                    to_units=pyo.units.m**3 / pyo.units.year,
-                )
-                * fo_params.cost_disposal,
-                to_units=base_currency / base_period,
-            )
-        )
-    )
+    # blk.fixed_operating_cost_constraint = pyo.Constraint(
+    #     expr=(
+    #         blk.fixed_operating_cost
+    #         == pyo.units.convert(
+    #             blk.annual_dist_production * fo_params.cost_durable_goods
+    #             + pyo.units.convert(
+    #                 brine.flow_vol_phase["Liq"],
+    #                 to_units=pyo.units.m**3 / pyo.units.year,
+    #             )
+    #             * fo_params.cost_disposal,
+    #             to_units=base_currency / base_period,
+    #         )
+    #     )
+    # )
 
     blk.thermal_energy_flow = pyo.Expression(
         expr=fo_fs.specific_energy_consumption_thermal

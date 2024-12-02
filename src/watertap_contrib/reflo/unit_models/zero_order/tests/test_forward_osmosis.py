@@ -77,7 +77,7 @@ class TestFO:
         feed_vol_flow = 3.704  # Feed water volumetric flow rate (m3/s)
         feed_TDS_mass = 0.035  # TDS mass fraction of feed
         strong_draw_temp = 20  # Strong draw solution inlet temperature (C)
-        strong_draw_mass_frac = 0.8  # Strong draw solution mass fraction
+        strong_draw_mass_frac = 0.9  # Strong draw solution mass fraction
         product_draw_mas_frac = 0.01  # Mass fraction of draw in the product water
 
         fo.recovery_ratio.fix(recovery_ratio)
@@ -283,17 +283,17 @@ if __name__ == "__main__":
     product = fo.product_props[0]
 
     # System specifications
-    recovery_ratio = 0.3  # Assumed FO recovery ratio
+    recovery_ratio = 0.5 # Assumed FO recovery ratio
     nanofiltration_recovery_ratio = 0.8  # Nanofiltration recovery ratio
     dp_brine = 0  # Required pressure over brine osmotic pressure (Pa)
     heat_mixing = 75.6  # Heat of mixing in the membrane (MJ/m3 separated water)
     reneration_temp = 90  # Separation temperature of the draw solution (C)
     separator_temp_loss = 1  # Temperature loss in the separator (K)
-    feed_temperature = 13  # Feed water temperature (C)
-    feed_vol_flow = 0.022  # Feed water volumetric flow rate (m3/s)
-    feed_TDS_mass = 0.12  # TDS mass fraction of feed
-    strong_draw_temp = 20  # Strong draw solution inlet temperature (C)
-    strong_draw_mass_frac = 0.8  # Strong draw solution mass fraction
+    feed_temperature = 25  # Feed water temperature (C)
+    feed_vol_flow = 0.22  # Feed water volumetric flow rate (m3/s)
+    feed_TDS_mass = 0.119  # TDS mass fraction of feed
+    strong_draw_temp = 25  # Strong draw solution inlet temperature (C)
+    strong_draw_mass_frac = 0.95  # Strong draw solution mass fraction
     product_draw_mas_frac = 0.01  # Mass fraction of draw in the product water
 
     fo.recovery_ratio.fix(recovery_ratio)
@@ -436,8 +436,8 @@ if __name__ == "__main__":
     for v in vars_test:
         print(v.name, round(v.value, 2), round(iscale.get_scaling_factor(v), 6), round(v.value *iscale.get_scaling_factor(v),3 ))
 
-    strong_draw_mass = 0.8  # Strong draw solution mass fraction
-    product_draw_mass = 0.01  # Mass fraction of draw in the product water
+    strong_draw_mass = strong_draw_mass_frac  # Strong draw solution mass fraction
+    product_draw_mass = product_draw_mas_frac  # Mass fraction of draw in the product water
     m.fs.fo.unfix_and_fix_freedom(strong_draw_mass, product_draw_mass)
     print('dof', degrees_of_freedom(m))
 
