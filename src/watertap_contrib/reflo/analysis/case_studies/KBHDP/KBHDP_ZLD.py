@@ -22,6 +22,7 @@ from watertap_contrib.reflo.core import REFLODatabase
 import idaes.logger as idaeslog
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import *
 from watertap_contrib.reflo.costing import (
@@ -59,11 +60,11 @@ def main():
     m = build_system(RE=True)
     display_system_build(m.fs.treatment)
     display_system_build(m.fs.energy)
-    # add_connections(m)
+    add_connections(m)
     # add_constraints(m)
-    # set_operating_conditions(m)
-    # apply_scaling(m)
-    # init_system(m)
+    set_operating_conditions(m)
+    apply_scaling(m)
+    init_system(m)
     # add_costing(m)
     # scale_costing(m)
     # box_solve_problem(m)
@@ -98,6 +99,7 @@ def build_system(RE=True):
 
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
+    m.fs.MD_properties = SeawaterParameterBlock()
 
     build_treatment(m)
     build_energy(m)
@@ -132,11 +134,18 @@ def build_treatment(m):
         has_phase_equilibrium=False,
         outlet_state_defined=True,
     )
+    
+    treatment.NaCl_to_TDS_translator = Translator_NaCl_to_TDS(
+        inlet_property_package=m.fs.RO_properties,
+        outlet_property_package=m.fs.MD_properties,
+        has_phase_equilibrium=False,
+        outlet_state_defined=True,
+    )
 
     build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
     build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
     build_ro(m, treatment.RO, prop_package=m.fs.RO_properties)
-    build_md(m, treatment.MD, prop_package=m.fs.RO_properties)
+    build_md(m, treatment.MD, prop_package=m.fs.MD_properties)
 
     m.fs.units = [
         treatment.feed,
@@ -165,6 +174,13 @@ def build_treatment(m):
     )
     m.fs.RO_properties.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
+    )
+    
+    m.fs.MD_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
+    )
+    m.fs.MD_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e2, index=("Liq", "TDS")
     )
 
 
@@ -220,11 +236,16 @@ def add_connections(m):
         source=treatment.RO.product.outlet,
         destination=treatment.product.inlet,
     )
-
-    # treatment.ro_to_dwi = Arc(
-    #     source=treatment.RO.disposal.outlet,
-    #     destination=treatment.DWI.feed.inlet,
-    # )
+    
+    treatment.ro_to_translator = Arc(
+        source=treatment.RO.disposal.outlet,
+        destination=treatment.NaCl_to_TDS_translator.inlet,
+    )
+    
+    treatment.translator_to_md = Arc(
+        source=treatment.NaCl_to_TDS_translator.outlet,
+        destination=treatment.MD.feed.inlet,
+    )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
@@ -491,11 +512,16 @@ def init_treatment(m, verbose=True, solver=None):
 
     init_ro_system(m, treatment.RO)
     propagate_state(treatment.ro_to_product)
-    # propagate_state(treatment.ro_to_dwi)
+    propagate_state(treatment.ro_to_translator)
 
-    treatment.product.initialize(optarg=optarg)
-    # init_DWI(m, treatment.DWI)
-    display_system_stream_table(m)
+    treatment.NaCl_to_TDS_translator.initialize(optarg=optarg)
+    propagate_state(treatment.translator_to_md)
+
+    init_md(treatment.MD)
+    #TODO: Continue from here
+    # treatment.product.initialize(optarg=optarg)
+    # # init_DWI(m, treatment.DWI)
+    # display_system_stream_table(m)
 
 
 def init_system(m, verbose=True, solver=None):

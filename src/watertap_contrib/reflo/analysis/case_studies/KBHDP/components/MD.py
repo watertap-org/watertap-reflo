@@ -123,7 +123,7 @@ def add_connections(m):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def set_md_model_options(m, inlet_cond, n_time_points=None):
+def set_md_model_options(m, blk, inlet_cond, n_time_points=None):
 
     system_capacity = inlet_cond["recovery"] * pyunits.convert(
         inlet_cond["inlet_flow_rate"], to_units=pyunits.m**3 / pyunits.day
@@ -162,8 +162,8 @@ def set_md_model_options(m, inlet_cond, n_time_points=None):
             cooling_inlet_temp=model_options["cooling_inlet_temp"],
         )
 
-    m.fs.md.model_options = model_options
-    m.fs.md.n_time_points = n_time_points
+    blk.model_options = model_options
+    blk.n_time_points = n_time_points
 
 
 def build_md(m, blk, prop_package=None) -> None:
@@ -189,7 +189,7 @@ def build_md(m, blk, prop_package=None) -> None:
 
     n_time_points = 2  # None
 
-    set_md_model_options(m, inlet_cond, n_time_points)
+    set_md_model_options(m, blk, inlet_cond, n_time_points)
 
     # Build the multiperiod object for MD
     blk.unit = MultiPeriodModel(
@@ -708,31 +708,6 @@ if __name__ == "__main__":
     m = build_system()
     set_system_op_conditions(m)
     init_system(m)
-    # solver = get_solver()
-    # solver = SolverFactory("ipopt")
-
-    # Qin = 4 * pyunits.Mgal / pyunits.day  # KBHDP flow rate
-    # Qin = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.day)
-
-    # feed_salinity = 12 * pyunits.g / pyunits.L
-
-    # overall_recovery = 0.5
-
-    # inlet_cond = {
-    #     "inlet_flow_rate": Qin,
-    #     "inlet_salinity": feed_salinity,
-    #     "recovery": overall_recovery,
-    # }
-
-    # n_time_points = 2  # None
-    # m, model_options, n_time_points = build_system(
-    #     inlet_cond, n_time_points=n_time_points
-    # )
-    # print("Number of time points being modeled:", n_time_points)
-
-    
-    # init_system(m, m.fs.md, model_options, n_time_points)
-
     set_md_op_conditions(m.fs.md)
 
     results = solve(m)
