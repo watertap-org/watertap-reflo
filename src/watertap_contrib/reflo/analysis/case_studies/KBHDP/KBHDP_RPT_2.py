@@ -71,7 +71,7 @@ def main():
 
     # # # # # scale_costing(m)
 
-    optimize(m, water_recovery=0.4, objective="LCOW")
+    optimize(m, water_recovery=0.4, grid_frac_heat=0.5, objective="LCOW")
     solve(m, debug=True)
     # # # # # # display_flow_table(m)
     # # display_system_stream_table(m)
@@ -841,7 +841,6 @@ def display_costing_breakdown(m):
     print(
         f'{"Grid Frac Heat":<30s}{value(m.fs.costing.frac_heat_from_grid):<20,.2f}{pyunits.get_units(m.fs.costing.frac_heat_from_grid)}'
     )
-    print(m.fs.costing.display())
 
 
 if __name__ == "__main__":
