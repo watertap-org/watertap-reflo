@@ -19,7 +19,7 @@ from pyomo.environ import (
     Expression,
     value,
     assert_optimal_termination,
-    units as pyunits
+    units as pyunits,
 )
 from pyomo.network import Port
 
