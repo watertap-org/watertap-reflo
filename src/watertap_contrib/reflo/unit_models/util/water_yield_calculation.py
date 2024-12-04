@@ -163,8 +163,8 @@ def get_solar_still_daily_water_yield(
     if len(blk.weather_data) > 8760:
         blk.weather_data = blk.weather_data.loc[:8760]
 
-    blk.ambient_temp_by_hr, blk.irradiance_by_hr, blk.wind_vel_by_hr = create_input_arrays(
-        blk, **kwargs
+    blk.ambient_temp_by_hr, blk.irradiance_by_hr, blk.wind_vel_by_hr = (
+        create_input_arrays(blk, **kwargs)
     )
 
     len_data_hr = len(blk.irradiance_by_hr)
@@ -211,7 +211,9 @@ def get_solar_still_daily_water_yield(
     blk.sw_mass[1] = blk.depth[1] * blk.initial_density * area_bottom_basin  # kg
     blk.fw_mass[1] = blk.sw_mass[1] / (1 + blk.salinity[1] / 1000)  # kg
     blk.initial_mass_fw = blk.fw_mass[1]
-    blk.salt_mass = (blk.salinity[1] * blk.fw_mass[1]) / 1000  # Mass of Sodium Chloride (kg)
+    blk.salt_mass = (
+        blk.salinity[1] * blk.fw_mass[1]
+    ) / 1000  # Mass of Sodium Chloride (kg)
     blk.excess_salinity[1] = blk.salinity[1]  # Salinity without maximum solublity (g/l)
 
     # Initial effective radiation temperature of the sky (°C)
@@ -232,7 +234,9 @@ def get_solar_still_daily_water_yield(
         if blk.depth[i - 1] <= 0 or blk.fw_mass[i - 1] <= 0:
             blk.depth[i - 1] = blk.initial_water_depth
             blk.salinity[i - 1] = blk.initial_salinity
-            blk.sw_mass[i - 1] = blk.depth[i - 1] * blk.initial_density * area_bottom_basin
+            blk.sw_mass[i - 1] = (
+                blk.depth[i - 1] * blk.initial_density * area_bottom_basin
+            )
             blk.fw_mass[i - 1] = blk.sw_mass[i - 1] / (1 + blk.salinity[i] / 1000)
 
         blk.time[i] = blk.time[i - 1] + 1
@@ -253,9 +257,13 @@ def get_solar_still_daily_water_yield(
 
         density = calculate_density(blk.salinity[i - 1], blk.saltwater_temp[i - 1])
 
-        dynamic_visc = calculate_viscosity(blk.salinity[i - 1], blk.saltwater_temp[i - 1])
+        dynamic_visc = calculate_viscosity(
+            blk.salinity[i - 1], blk.saltwater_temp[i - 1]
+        )
 
-        specific_heat = calculate_specific_heat(blk.salinity[i - 1], blk.saltwater_temp[i - 1])
+        specific_heat = calculate_specific_heat(
+            blk.salinity[i - 1], blk.saltwater_temp[i - 1]
+        )
 
         thermal_conductivity = calculate_thermal_conductivity(
             blk.salinity[i - 1], blk.saltwater_temp[i - 1]
@@ -268,7 +276,9 @@ def get_solar_still_daily_water_yield(
         Pr = (specific_heat * dynamic_visc) / thermal_conductivity
 
         # Latent heat of vaporization of pure water J/kg
-        freshwater_vap_latent_heat = (2501.67 - 2.389 * blk.saltwater_temp[i - 1]) * 1000
+        freshwater_vap_latent_heat = (
+            2501.67 - 2.389 * blk.saltwater_temp[i - 1]
+        ) * 1000
 
         # Calculation of partial saturated vapor pressure of saltwater
         # According to parametric analysis and available literature,
@@ -366,7 +376,10 @@ def get_solar_still_daily_water_yield(
             stefan_boltzmann
             * emissivity_glass
             * (
-                (((blk.glass_temp[i - 1] + 273) ** 4) - ((blk.sky_temp[i - 1] + 273) ** 4))
+                (
+                    ((blk.glass_temp[i - 1] + 273) ** 4)
+                    - ((blk.sky_temp[i - 1] + 273) ** 4)
+                )
                 / (blk.temp_diff_outside_basin)
             )
         )
@@ -502,7 +515,9 @@ def get_solar_still_daily_water_yield(
         # Saltwater (kg) this iteration
         blk.sw_mass[i] = blk.fw_mass[i] + blk.salt_mass
         # Water blk.depth this iteration
-        blk.depth[i] = blk.sw_mass[i] / (density * area_bottom_basin)  # Current blk.depth (m)
+        blk.depth[i] = blk.sw_mass[i] / (
+            density * area_bottom_basin
+        )  # Current blk.depth (m)
 
         if blk.salinity[i - 1] >= maximum_solubility:
             blk.salinity[i] = maximum_solubility
@@ -517,7 +532,9 @@ def get_solar_still_daily_water_yield(
             else:
                 # Mass precipitated (kg)
                 blk.salt_precipitated[i] = (
-                    blk.fw_mass[i] * (blk.excess_salinity[i] - maximum_solubility) / 1000
+                    blk.fw_mass[i]
+                    * (blk.excess_salinity[i] - maximum_solubility)
+                    / 1000
                 )
                 # Volume of scale formation (m3)
                 blk.volume_scale_formation[i] = blk.salt_precipitated[i] / density_nacl
@@ -543,7 +560,9 @@ def get_solar_still_daily_water_yield(
     ) / num_seconds_for_zld_cycle  # (s / year) / s = year**-1
 
     # Total water productivity in year [kg water per m2 area per year]
-    annual_water_yield = (blk.initial_mass_fw * num_zld_cycles_per_year) / area_bottom_basin
+    annual_water_yield = (
+        blk.initial_mass_fw * num_zld_cycles_per_year
+    ) / area_bottom_basin
     # Daily water yield [kg water per m2 area per day]
     daily_water_yield = annual_water_yield / days_in_year
 
