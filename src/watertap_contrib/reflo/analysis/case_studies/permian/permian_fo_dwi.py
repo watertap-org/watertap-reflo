@@ -234,7 +234,7 @@ def set_operating_conditions(m, operating_condition, **kwargs):
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
 
     # Set energy system condition
-    # set_cst_op_conditions(m.fs.energy.cst)
+    set_cst_op_conditions(m.fs.energy.cst)
 
 def set_permian_scaling(m, **kwargs):
 
@@ -354,7 +354,7 @@ def add_energy_costing(m):
 
 
     energy.cst.unit.heat_load.unfix()
-    energy.costing.aggregate_flow_heat.fix(0)
+    energy.costing.aggregate_flow_heat.fix(-70000)
 
 def run_permian_FO(operating_condition,
                    permian_fo_config):
@@ -373,7 +373,7 @@ def run_permian_FO(operating_condition,
     assert_optimal_termination(results)
 
     add_treatment_costing(m)
-    # add_energy_costing(m)
+    add_energy_costing(m)
 
     flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
     treat.costing.base_currency = pyunits.USD_2021
@@ -385,12 +385,11 @@ def run_permian_FO(operating_condition,
 
     # scaling (based on grid participation), setup order
     # deactivate constraints, 
-    m.fs.costing = REFLOSystemCosting()
-    m.fs.costing.base_currency = pyunits.USD_2021
-    m.fs.costing.cost_process()
-    m.fs.costing.add_annual_water_production(flow_vol)
-    m.fs.costing.add_LCOW(flow_vol)
-    m.fs.costing.initialize()
+    # m.fs.costing = REFLOSystemCosting()
+    # m.fs.costing.cost_process()
+    # m.fs.costing.add_annual_water_production(flow_vol)
+    # m.fs.costing.add_LCOW(flow_vol)
+    # m.fs.costing.initialize()
     
 
     print(f"DOF after add costing: {degrees_of_freedom(m)}")
