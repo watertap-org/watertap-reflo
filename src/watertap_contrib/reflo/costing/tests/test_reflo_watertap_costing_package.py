@@ -201,7 +201,7 @@ def build_electricity_gen_only_no_heat():
 
     m.fs.treatment.unit.design_var_a.fix()
     m.fs.treatment.unit.design_var_b.fix()
-    m.fs.treatment.unit.electricity_consumption.fix(10000)
+    m.fs.treatment.unit.electricity_consumption.fix(100)
     m.fs.treatment.costing.cost_process()
     m.fs.treatment.costing.add_LCOW(
         m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
@@ -215,7 +215,7 @@ def build_electricity_gen_only_no_heat():
     m.fs.energy.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.energy.costing
     )
-    m.fs.energy.unit.electricity.fix(7500)
+    m.fs.energy.unit.electricity.fix(75)
     m.fs.energy.costing.cost_process()
 
     #### SYSTEM COSTING
@@ -455,9 +455,9 @@ class TestCostingPackagesDefault:
         assert hasattr(m.fs.energy.costing, "lifetime_heat_production")
         assert not hasattr(m.fs.treatment.costing, "has_electricity_generation")
 
-        assert m.fs.treatment.costing.base_currency is pyunits.USD_2021
-        assert m.fs.energy.costing.base_currency is pyunits.USD_2021
-        assert m.fs.costing.base_currency is pyunits.USD_2021
+        assert m.fs.treatment.costing.base_currency is pyunits.USD_2023
+        assert m.fs.energy.costing.base_currency is pyunits.USD_2023
+        assert m.fs.costing.base_currency is pyunits.USD_2023
 
         assert m.fs.treatment.costing.base_period is pyunits.year
         assert m.fs.energy.costing.base_period is pyunits.year
@@ -717,7 +717,7 @@ class TestElectricityGenOnlyNoHeat:
             pytest.approx(
                 value(m.fs.costing.aggregate_flow_electricity_purchased), rel=1e-3
             )
-            == 2500
+            == 25
         )
         assert pytest.approx(
             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
@@ -789,7 +789,7 @@ class TestElectricityGenOnlyNoHeat:
             pytest.approx(
                 value(m.fs.costing.aggregate_flow_electricity_purchased), rel=1e-3
             )
-            == 3300
+            == 33
         )
         assert pytest.approx(
             value(m.fs.costing.aggregate_flow_electricity), rel=1e-3
