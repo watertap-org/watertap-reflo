@@ -115,11 +115,11 @@ permian:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-      value: 0.
+      value: 0.1
       units: dimensionless
       reference: https://doi.org/10.1016/j.memsci.2018.06.041
     silica:
-      value: 0.7
+      value: 0.95
       units: dimensionless
   capital_cost:
     cost_factor: TPEC

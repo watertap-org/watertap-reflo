@@ -182,7 +182,7 @@ def set_ec_operating_conditions(m, blk, conv=5e3, **kwargs):
             vv.fix(v)
         if isinstance(vv, Param):
             vv.set_value(v)
-            
+
     print(f"Electrocoagulation")
     print(f"\tblock DOF = {degrees_of_freedom(blk)}\n")
     print(f"\tunit DOF = {degrees_of_freedom(blk.unit)}\n")
