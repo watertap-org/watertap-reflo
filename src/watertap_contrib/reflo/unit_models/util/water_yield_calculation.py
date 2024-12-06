@@ -192,6 +192,10 @@ def get_solar_still_daily_water_yield(
     blk.glass_temp = np.zeros(len_data_hr * 3600)
     blk.sky_temp = np.zeros(len_data_hr * 3600)
     blk.saltwater_temp = np.zeros(len_data_hr * 3600)
+    blk.temp_diff_inside_basin = np.zeros(len_data_hr * 3600)
+    blk.temp_diff_outside_basin = np.zeros(len_data_hr * 3600)
+    blk.grouping_term = np.zeros(len_data_hr * 3600)
+    blk.time_dependent_term = np.zeros(len_data_hr * 3600)
 
     blk.density = np.zeros(len_data_hr * 3600)
     blk.dynamic_visc = np.zeros(len_data_hr * 3600)
@@ -225,16 +229,18 @@ def get_solar_still_daily_water_yield(
 
     # Initializing Temperatures
     # Initial system is assumed to be in thermal equilibrium with ambient
+    blk.ambient_temp[0] = blk.ambient_temp_by_hr[0]
+    blk.ambient_temp[1] = blk.ambient_temp_by_hr[0]
 
     # Initial water temperature (°C)
     blk.saltwater_temp[0] = blk.ambient_temp_by_hr[0]
-    blk.saltwater_temp[1] = blk.ambient_temp_by_hr[1]
+    blk.saltwater_temp[1] = blk.ambient_temp_by_hr[0]
     # Initial basin temperature (°C)
     blk.basin_temp[0] = blk.ambient_temp_by_hr[0]
-    blk.basin_temp[1] = blk.ambient_temp_by_hr[1]
+    blk.basin_temp[1] = blk.ambient_temp_by_hr[0]
     # Initial glass temperature (°C)
     blk.glass_temp[0] = blk.ambient_temp_by_hr[0]
-    blk.glass_temp[1] = blk.ambient_temp_by_hr[1]
+    blk.glass_temp[1] = blk.ambient_temp_by_hr[0]
 
     blk.area_side_water[0] = (2 * (2 * length_basin)) * blk.initial_water_depth
     blk.area_side_water[1] = blk.area_side_water[0]
@@ -243,19 +249,19 @@ def get_solar_still_daily_water_yield(
     blk.density[1] = blk.density[0]
 
     blk.dynamic_visc[0] = calculate_viscosity(
-        blk.initial_salinity, blk.saltwater_temp[1]
+        blk.initial_salinity, blk.saltwater_temp[0]
     )
     blk.dynamic_visc[1] = blk.dynamic_visc[0]
-    blk.kinem_visc[0] = blk.dynamic_visc[0] / blk.density[0]
-    blk.kinem_visc[1] = blk.dynamic_visc[1] / blk.density[1]
+    blk.kinem_visc_sw[0] = blk.dynamic_visc[0] / blk.density[0]
+    blk.kinem_visc_sw[1] = blk.dynamic_visc[1] / blk.density[1]
 
     blk.specific_heat[0] = calculate_specific_heat(
-        blk.initial_salinity, blk.saltwater_temp[1]
+        blk.initial_salinity, blk.saltwater_temp[0]
     )
     blk.specific_heat[1] = blk.specific_heat[0]
 
     blk.thermal_conductivity[0] = calculate_thermal_conductivity(
-        blk.initial_salinity, blk.saltwater_temp[1]
+        blk.initial_salinity, blk.saltwater_temp[0]
     )
     blk.thermal_conductivity[1] = blk.thermal_conductivity[0]
 
@@ -284,9 +290,11 @@ def get_solar_still_daily_water_yield(
     ) / 1000  # Mass of Sodium Chloride (kg)
 
     # Initial effective radiation temperature of the sky (°C)
-    if blk.ambient_temp[1] <= 0:
+    if blk.ambient_temp[0] <= 0:
+        blk.sky_temp[0] = blk.ambient_temp[0]
         blk.sky_temp[1] = blk.ambient_temp[1]
     else:
+        blk.sky_temp[0] = 0.0552 * ((blk.ambient_temp[0]) ** 1.5)
         blk.sky_temp[1] = 0.0552 * ((blk.ambient_temp[1]) ** 1.5)
 
     blk.time[1] = 1
@@ -310,12 +318,20 @@ def get_solar_still_daily_water_yield(
         blk.time[i] = blk.time[i - 1] + 1
 
         # Avoiding singularities
-        blk.temp_diff_inside_basin = blk.saltwater_temp[i - 1] - blk.glass_temp[i - 1]
-        if blk.temp_diff_inside_basin <= 0:
-            blk.temp_diff_inside_basin = 0.01
-        blk.temp_diff_outside_basin = blk.glass_temp[i - 1] - blk.ambient_temp[i - 1]
-        if blk.temp_diff_outside_basin <= 0:
-            blk.temp_diff_outside_basin = 0.01
+        blk.temp_diff_inside_basin[i] = (
+            blk.saltwater_temp[i - 1] - blk.glass_temp[i - 1]
+        )
+        if blk.temp_diff_inside_basin[i] <= 0:
+            # Salwater temp should always be larger that glass temp.
+            # When it isn't it is very close and this temp difference should be small.
+            # But this quantity must be positive.
+            blk.temp_diff_inside_basin[i] = 0.01
+        blk.temp_diff_outside_basin[i] = blk.glass_temp[i - 1] - blk.ambient_temp[i - 1]
+        if blk.temp_diff_outside_basin[i] <= 0:
+            # Glass temp should always be larger that ambient temp.
+            # When it isn't it is very close and this temp difference should be small.
+            # But this quantity must be positive.
+            blk.temp_diff_outside_basin[i] = 0.01
 
         # Effective radiation temperature of the sky
         if blk.ambient_temp[i] <= 0:
@@ -440,7 +456,7 @@ def get_solar_still_daily_water_yield(
             * blk.conv_heat_trans_coeff_water_glass[i]
             * (
                 (blk.sw_partial_vap_press[i] - blk.partial_vap_press_at_glass[i])
-                / (blk.temp_diff_inside_basin)
+                / (blk.temp_diff_inside_basin[i])
             )
         )
 
@@ -460,7 +476,7 @@ def get_solar_still_daily_water_yield(
                     ((blk.glass_temp[i - 1] + 273) ** 4)
                     - ((blk.sky_temp[i - 1] + 273) ** 4)
                 )
-                / (blk.temp_diff_outside_basin)
+                / (blk.temp_diff_outside_basin[i])
             )
         )
         if blk.wind_velocity[i] > 5:
@@ -558,14 +574,20 @@ def get_solar_still_daily_water_yield(
         )
 
         # Present [i] temperature calculation
-        grouping_term = blk.overall_external_heat_trans_loss_coeff[i] / (
+        blk.grouping_term[i] = blk.overall_external_heat_trans_loss_coeff[i] / (
             blk.sw_mass[i - 1] * blk.specific_heat[i]
         )
+        if blk.grouping_term[i] <= 0:
+            blk.grouping_term[i] = blk.grouping_term[i - 1]
 
-        time_dependent_term = (
+        blk.time_dependent_term[i] = (
             (blk.effective_absorp[i] * blk.irradiance[i])
             + (blk.overall_external_heat_trans_loss_coeff[i] * blk.ambient_temp[i])
         ) / (blk.sw_mass[i - 1] * blk.specific_heat[i])
+
+        blk.saltwater_temp[i] = (blk.time_dependent_term[i] / blk.grouping_term[i]) * (
+            1 - np.exp(-blk.grouping_term[i] * blk.time[i])
+        ) + (blk.saltwater_temp[i - 1] * np.exp(-blk.grouping_term[i] * blk.time[i]))
 
         blk.glass_temp[i] = (
             (absorp_effective_glass * blk.irradiance[i])
@@ -575,10 +597,6 @@ def get_solar_still_daily_water_yield(
             blk.tot_heat_trans_coeff_water_glass[i]
             + blk.overall_heat_loss_coeff_glass_surr[i]
         )
-
-        blk.saltwater_temp[i] = (time_dependent_term / grouping_term) * (
-            1 - np.exp(-grouping_term * blk.time[i])
-        ) + (blk.saltwater_temp[i] * np.exp(-grouping_term * blk.time[i]))
 
         blk.basin_temp[i] = (
             (absorp_effective_basin * blk.irradiance[i])
@@ -601,7 +619,7 @@ def get_solar_still_daily_water_yield(
         blk.evap_fw_mass[i] = (
             area_bottom_basin
             * blk.evap_heat_trans_coeff_water_glass[i]
-            * (blk.temp_diff_inside_basin)
+            * (blk.temp_diff_inside_basin[i])
         ) / blk.freshwater_vap_latent_heat[i]
 
         # Distilled saltwater conversion (Morton) (kg)
@@ -611,10 +629,8 @@ def get_solar_still_daily_water_yield(
         blk.fw_mass[i] = blk.fw_mass[i - 1] - blk.evap_sw_mass[i]
         # Saltwater (kg) this iteration
         blk.sw_mass[i] = blk.fw_mass[i] + blk.salt_mass
-        # Water blk.depth this iteration
-        blk.depth[i] = blk.sw_mass[i] / (
-            blk.density[i] * area_bottom_basin
-        )  # Current blk.depth (m)
+        # Water depth this iteration
+        blk.depth[i] = blk.sw_mass[i] / (blk.density[i] * area_bottom_basin)
 
         if blk.salinity[i - 1] >= maximum_solubility:
             blk.salinity[i] = maximum_solubility
