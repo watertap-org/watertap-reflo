@@ -227,42 +227,61 @@ def get_solar_still_daily_water_yield(
     # Initial system is assumed to be in thermal equilibrium with ambient
 
     # Initial water temperature (°C)
+    blk.saltwater_temp[0] = blk.ambient_temp_by_hr[0]
     blk.saltwater_temp[1] = blk.ambient_temp_by_hr[1]
     # Initial basin temperature (°C)
+    blk.basin_temp[0] = blk.ambient_temp_by_hr[0]
     blk.basin_temp[1] = blk.ambient_temp_by_hr[1]
     # Initial glass temperature (°C)
+    blk.glass_temp[0] = blk.ambient_temp_by_hr[0]
     blk.glass_temp[1] = blk.ambient_temp_by_hr[1]
 
     blk.area_side_water[0] = (2 * (2 * length_basin)) * blk.initial_water_depth
+    blk.area_side_water[1] = blk.area_side_water[0]
 
     blk.density[0] = calculate_density(blk.initial_salinity, blk.saltwater_temp[1])
+    blk.density[1] = blk.density[0]
 
     blk.dynamic_visc[0] = calculate_viscosity(
         blk.initial_salinity, blk.saltwater_temp[1]
     )
+    blk.dynamic_visc[1] = blk.dynamic_visc[0]
+    blk.kinem_visc[0] = blk.dynamic_visc[0] / blk.density[0]
+    blk.kinem_visc[1] = blk.dynamic_visc[1] / blk.density[1]
 
     blk.specific_heat[0] = calculate_specific_heat(
         blk.initial_salinity, blk.saltwater_temp[1]
     )
+    blk.specific_heat[1] = blk.specific_heat[0]
 
     blk.thermal_conductivity[0] = calculate_thermal_conductivity(
         blk.initial_salinity, blk.saltwater_temp[1]
     )
+    blk.thermal_conductivity[1] = blk.thermal_conductivity[0]
 
     blk.salt_precipitated[1] = 0
     blk.salt_precipitated[0] = blk.salt_precipitated[1]
 
-    blk.salinity[1] = blk.initial_salinity
     blk.salinity[0] = blk.initial_salinity
-    blk.depth[1] = blk.initial_water_depth
+    blk.salinity[1] = blk.initial_salinity
+    blk.excess_salinity[0] = blk.initial_salinity
+    blk.excess_salinity[1] = (
+        blk.initial_salinity
+    )  # Salinity without maximum solublity (g/l)
+
     blk.depth[0] = blk.initial_water_depth
-    blk.sw_mass[1] = blk.depth[1] * blk.density[0] * area_bottom_basin  # kg
+    blk.depth[1] = blk.initial_water_depth
+
+    blk.sw_mass[0] = blk.depth[0] * blk.density[0] * area_bottom_basin  # kg
+    blk.sw_mass[1] = blk.depth[1] * blk.density[1] * area_bottom_basin  # kg
+    blk.fw_mass[0] = blk.sw_mass[0] / (1 + blk.salinity[0] / 1000)  # kg
     blk.fw_mass[1] = blk.sw_mass[1] / (1 + blk.salinity[1] / 1000)  # kg
+
     blk.initial_mass_fw = blk.fw_mass[1]
+
     blk.salt_mass = (
         blk.salinity[1] * blk.fw_mass[1]
     ) / 1000  # Mass of Sodium Chloride (kg)
-    blk.excess_salinity[1] = blk.salinity[1]  # Salinity without maximum solublity (g/l)
 
     # Initial effective radiation temperature of the sky (°C)
     if blk.ambient_temp[1] <= 0:
