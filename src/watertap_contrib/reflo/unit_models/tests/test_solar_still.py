@@ -197,6 +197,7 @@ class TestSolarStill:
         m.fs.costing = TreatmentCosting()
         m.fs.costing.electricity_cost.fix(0.07)
         m.fs.costing.heat_cost.fix(0.01)
+        m.fs.costing.base_currency = pyunits.USD_2021
         m.fs.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOW(
