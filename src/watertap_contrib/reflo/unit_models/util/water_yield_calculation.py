@@ -33,7 +33,7 @@ conductivity_insulation = 0.033  # Conductivity of SS Insulation (W/m.K)
 thickness_glass = 0.004  # Thickness of glass m
 conductivity_glass = 1.03  # Conductivity of glass W/m.K
 gravity = 9.81  # Accelaration due to gravity (m/s^2)
-density_nacl = 2165  # blk.density[i] of sodium chloride (kg/m^3)
+density_nacl = 2165  # density of sodium chloride (kg/m^3)
 maximum_solubility = 365  # maximum solubility of salt in water (g/L)
 
 # Radiative properties
@@ -171,61 +171,28 @@ def get_solar_still_daily_water_yield(
 
     # Create arrays
     # Values calculated per second
-    blk.time = np.zeros(len_data_hr * 3600)
-    blk.area_side_water = np.zeros(len_data_hr * 3600)
+
     blk.depth = np.zeros(len_data_hr * 3600)
     blk.salinity = np.zeros(len_data_hr * 3600)
     blk.excess_salinity = np.zeros(len_data_hr * 3600)
+    blk.volume_scale_formation = np.zeros(len_data_hr * 3600)
+    blk.thickness_scale_formation = np.zeros(len_data_hr * 3600)
+    blk.evap_sw_mass = np.zeros(len_data_hr * 3600)
+    blk.irradiance = np.zeros(len_data_hr * 3600)
     blk.salt_precipitated = np.zeros(len_data_hr * 3600)
     blk.sw_mass = np.zeros(len_data_hr * 3600)
     blk.fw_mass = np.zeros(len_data_hr * 3600)
-    blk.evap_sw_mass = np.zeros(len_data_hr * 3600)
-    blk.evap_fw_mass = np.zeros(len_data_hr * 3600)
-    blk.volume_scale_formation = np.zeros(len_data_hr * 3600)
-    blk.thickness_scale_formation = np.zeros(len_data_hr * 3600)
-
-    blk.irradiance = np.zeros(len_data_hr * 3600)
+    blk.time = np.zeros(len_data_hr * 3600)
     blk.wind_velocity = np.zeros(len_data_hr * 3600)
-
     blk.ambient_temp = np.zeros(len_data_hr * 3600)
     blk.basin_temp = np.zeros(len_data_hr * 3600)
     blk.glass_temp = np.zeros(len_data_hr * 3600)
     blk.sky_temp = np.zeros(len_data_hr * 3600)
     blk.saltwater_temp = np.zeros(len_data_hr * 3600)
+    blk.grouping_term = np.zeros(len_data_hr * 3600)
+    blk.evap_fw_mass = np.zeros(len_data_hr * 3600)
     blk.temp_diff_inside_basin = np.zeros(len_data_hr * 3600)
     blk.temp_diff_outside_basin = np.zeros(len_data_hr * 3600)
-    blk.grouping_term = np.zeros(len_data_hr * 3600)
-    blk.time_dependent_term = np.zeros(len_data_hr * 3600)
-
-    blk.density = np.zeros(len_data_hr * 3600)
-    blk.dynamic_visc = np.zeros(len_data_hr * 3600)
-    blk.kinem_visc_sw = np.zeros(len_data_hr * 3600)
-    blk.specific_heat = np.zeros(len_data_hr * 3600)
-    blk.thermal_conductivity = np.zeros(len_data_hr * 3600)
-    blk.Pr = np.zeros(len_data_hr * 3600)
-    blk.Gr = np.zeros(len_data_hr * 3600)
-    blk.freshwater_vap_latent_heat = np.zeros(len_data_hr * 3600)
-    blk.water_activity = np.zeros(len_data_hr * 3600)
-    blk.sw_partial_vap_press = np.zeros(len_data_hr * 3600)
-    blk.partial_vap_press_at_glass = np.zeros(len_data_hr * 3600)
-
-    blk.effective_absorp = np.zeros(len_data_hr * 3600)
-    blk.water_heat_trans_coeff = np.zeros(len_data_hr * 3600)
-    blk.conv_heat_trans_coeff_water_glass = np.zeros(len_data_hr * 3600)
-    blk.rad_heat_transf_coeff_water_glass = np.zeros(len_data_hr * 3600)
-    blk.evap_heat_trans_coeff_water_glass = np.zeros(len_data_hr * 3600)
-    blk.tot_heat_trans_coeff_water_glass = np.zeros(len_data_hr * 3600)
-    blk.rad_heat_trans_coeff_glass_ambient = np.zeros(len_data_hr * 3600)
-    blk.conv_heat_trans_coeff_basin_ambient = np.zeros(len_data_hr * 3600)
-    blk.conv_heat_trans_coeff_glass_ambient = np.zeros(len_data_hr * 3600)
-    blk.tot_heat_trans_coeff_glass_ambient = np.zeros(len_data_hr * 3600)
-    blk.tot_heat_trans_coeff_basin_ambient = np.zeros(len_data_hr * 3600)
-    blk.overall_external_heat_trans_loss_coeff = np.zeros(len_data_hr * 3600)
-    blk.overall_heat_loss_coeff_glass_surr = np.zeros(len_data_hr * 3600)
-    blk.overall_bottom_heat_trans_coeff_water_mass_surr = np.zeros(len_data_hr * 3600)
-    blk.overall_bottom_heat_loss_coeff_water_mass_surr = np.zeros(len_data_hr * 3600)
-    blk.overall_side_heat_loss_coefficient = np.zeros(len_data_hr * 3600)
-    blk.overall_heat_trans_coeff_basin_surr = np.zeros(len_data_hr * 3600)
 
     # Initializing Temperatures
     # Initial system is assumed to be in thermal equilibrium with ambient
@@ -242,28 +209,7 @@ def get_solar_still_daily_water_yield(
     blk.glass_temp[0] = blk.ambient_temp_by_hr[0]
     blk.glass_temp[1] = blk.ambient_temp_by_hr[0]
 
-    blk.area_side_water[0] = (2 * (2 * length_basin)) * blk.initial_water_depth
-    blk.area_side_water[1] = blk.area_side_water[0]
-
-    blk.density[0] = calculate_density(blk.initial_salinity, blk.saltwater_temp[1])
-    blk.density[1] = blk.density[0]
-
-    blk.dynamic_visc[0] = calculate_viscosity(
-        blk.initial_salinity, blk.saltwater_temp[0]
-    )
-    blk.dynamic_visc[1] = blk.dynamic_visc[0]
-    blk.kinem_visc_sw[0] = blk.dynamic_visc[0] / blk.density[0]
-    blk.kinem_visc_sw[1] = blk.dynamic_visc[1] / blk.density[1]
-
-    blk.specific_heat[0] = calculate_specific_heat(
-        blk.initial_salinity, blk.saltwater_temp[0]
-    )
-    blk.specific_heat[1] = blk.specific_heat[0]
-
-    blk.thermal_conductivity[0] = calculate_thermal_conductivity(
-        blk.initial_salinity, blk.saltwater_temp[0]
-    )
-    blk.thermal_conductivity[1] = blk.thermal_conductivity[0]
+    blk.initial_density = calculate_density(blk.initial_salinity, blk.saltwater_temp[1])
 
     blk.salt_precipitated[1] = 0
     blk.salt_precipitated[0] = blk.salt_precipitated[1]
@@ -278,8 +224,8 @@ def get_solar_still_daily_water_yield(
     blk.depth[0] = blk.initial_water_depth
     blk.depth[1] = blk.initial_water_depth
 
-    blk.sw_mass[0] = blk.depth[0] * blk.density[0] * area_bottom_basin  # kg
-    blk.sw_mass[1] = blk.depth[1] * blk.density[1] * area_bottom_basin  # kg
+    blk.sw_mass[0] = blk.depth[0] * blk.initial_density * area_bottom_basin  # kg
+    blk.sw_mass[1] = blk.depth[1] * blk.initial_density * area_bottom_basin  # kg
     blk.fw_mass[0] = blk.sw_mass[0] / (1 + blk.salinity[0] / 1000)  # kg
     blk.fw_mass[1] = blk.sw_mass[1] / (1 + blk.salinity[1] / 1000)  # kg
 
@@ -340,34 +286,30 @@ def get_solar_still_daily_water_yield(
             blk.sky_temp[i] = 0.0552 * ((blk.ambient_temp[i]) ** 1.5)
 
         # Perimeter x depth of water (m^2)
-        blk.area_side_water[i] = (2 * (2 * length_basin)) * blk.depth[i - 1]
+        area_side_water = (2 * (2 * length_basin)) * blk.depth[i - 1]
 
-        blk.density[i] = calculate_density(
+        density = calculate_density(blk.salinity[i - 1], blk.saltwater_temp[i - 1])
+
+        dynamic_visc = calculate_viscosity(
             blk.salinity[i - 1], blk.saltwater_temp[i - 1]
         )
 
-        blk.dynamic_visc[i] = calculate_viscosity(
+        specific_heat = calculate_specific_heat(
             blk.salinity[i - 1], blk.saltwater_temp[i - 1]
         )
 
-        blk.specific_heat[i] = calculate_specific_heat(
-            blk.salinity[i - 1], blk.saltwater_temp[i - 1]
-        )
-
-        blk.thermal_conductivity[i] = calculate_thermal_conductivity(
+        thermal_conductivity = calculate_thermal_conductivity(
             blk.salinity[i - 1], blk.saltwater_temp[i - 1]
         )
 
         # Kinemtic viscosity of salt water
-        blk.kinem_visc_sw[i] = blk.dynamic_visc[i] / blk.density[i]
+        kinem_visc_sw = dynamic_visc / density
 
         # Prandtl number for water (-)
-        blk.Pr[i] = (
-            blk.specific_heat[i] * blk.dynamic_visc[i]
-        ) / blk.thermal_conductivity[i]
+        Pr = (specific_heat * dynamic_visc) / thermal_conductivity
 
         # Latent heat of vaporization of pure water J/kg
-        blk.freshwater_vap_latent_heat[i] = (
+        freshwater_vap_latent_heat = (
             2501.67 - 2.389 * blk.saltwater_temp[i - 1]
         ) * 1000
 
@@ -376,15 +318,15 @@ def get_solar_still_daily_water_yield(
         # the partial vapor pressure plays a major role in the evaporation of water.
 
         # A coeff obtained from the water molar fraction in salt solutions from 0-350 g/l Paper: Kokya and Kokya
-        blk.water_activity[i] = (-0.000566 * blk.salinity[i - 1]) + 0.99853070
+        water_activity = (-0.000566 * blk.salinity[i - 1]) + 0.99853070
 
         # Partial saturated vapor pressure at a saltwater temperature (N/m^2)
-        blk.sw_partial_vap_press[i] = blk.water_activity[i] * math.exp(
+        sw_partial_vap_press = water_activity * math.exp(
             25.317 - (5144 / (blk.saltwater_temp[i - 1] + 273))
         )
 
         # Partial saturated vapor pressure at glass cover temperature (N/m^2)
-        blk.partial_vap_press_at_glass[i] = math.exp(
+        partial_vap_press_at_glass = math.exp(
             25.317 - (5144 / (blk.glass_temp[i - 1] + 273))
         )
 
@@ -398,38 +340,33 @@ def get_solar_still_daily_water_yield(
         )
 
         # Grashof number
-        blk.Gr[i] = abs(
+        Gr = abs(
             (
                 gravity
                 * beta
                 * (blk.basin_temp[i - 1] - blk.saltwater_temp[i - 1])
                 * (blk.depth[i - 1] ** 3)
             )
-            / (blk.kinem_visc_sw[i] ** 2)
+            / (kinem_visc_sw**2)
         )
 
         # Heat transfer coeff of water layer
-        blk.water_heat_trans_coeff[i] = abs(
-            (blk.thermal_conductivity[i] / blk.depth[i - 1])
-            * AA
-            * (blk.Gr[i] * blk.Pr[i]) ** BB
+        water_heat_trans_coeff = abs(
+            (thermal_conductivity / blk.depth[i - 1]) * AA * (Gr * Pr) ** BB
         )
 
         # Convective heat transfer coeff (W/m^2.°C) (Dunkel)
-        blk.conv_heat_trans_coeff_water_glass[i] = 0.884 * (
+        conv_heat_trans_coeff_water_glass = 0.884 * (
             (
                 abs(
                     (
                         (blk.saltwater_temp[i - 1] - blk.glass_temp[i - 1])
                         + (
                             (
-                                (
-                                    blk.sw_partial_vap_press[i]
-                                    - blk.partial_vap_press_at_glass[i]
-                                )
+                                (sw_partial_vap_press - partial_vap_press_at_glass)
                                 * (blk.saltwater_temp[i - 1] + 273.15)
                             )
-                            / (268900 - blk.sw_partial_vap_press[i])
+                            / (268900 - sw_partial_vap_press)
                         )
                     )
                 )
@@ -438,7 +375,7 @@ def get_solar_still_daily_water_yield(
         )
 
         # Radiative heat transfer coeff from basin water to glass cover (W/m^2.°C)
-        blk.rad_heat_transf_coeff_water_glass[i] = abs(
+        rad_heat_transf_coeff_water_glass = abs(
             emissivity_water
             * stefan_boltzmann
             * (
@@ -451,24 +388,24 @@ def get_solar_still_daily_water_yield(
         )
 
         # Evaporative heat transfer coeff from basin water to glass cover (W/m2.°C)
-        blk.evap_heat_trans_coeff_water_glass[i] = abs(
+        evap_heat_trans_coeff_water_glass = abs(
             0.01628
-            * blk.conv_heat_trans_coeff_water_glass[i]
+            * conv_heat_trans_coeff_water_glass
             * (
-                (blk.sw_partial_vap_press[i] - blk.partial_vap_press_at_glass[i])
+                (sw_partial_vap_press - partial_vap_press_at_glass)
                 / (blk.temp_diff_inside_basin[i])
             )
         )
 
         # Total heat transfer coeff from basin water to glass cover (W/m2°C)
-        blk.tot_heat_trans_coeff_water_glass[i] = (
-            blk.conv_heat_trans_coeff_water_glass[i]
-            + blk.rad_heat_transf_coeff_water_glass[i]
-            + blk.evap_heat_trans_coeff_water_glass[i]
+        tot_heat_trans_coeff_water_glass = (
+            conv_heat_trans_coeff_water_glass
+            + rad_heat_transf_coeff_water_glass
+            + evap_heat_trans_coeff_water_glass
         )
 
         # Radiative heat transfer coeff from glass cover to ambient (W/m^2.°C)
-        blk.rad_heat_trans_coeff_glass_ambient[i] = (
+        rad_heat_trans_coeff_glass_ambient = (
             stefan_boltzmann
             * emissivity_glass
             * (
@@ -481,45 +418,36 @@ def get_solar_still_daily_water_yield(
         )
         if blk.wind_velocity[i] > 5:
             # Convective heat transfer coefficient from basin to ambient (W/m2°C)
-            blk.conv_heat_trans_coeff_basin_ambient[i] = 2.8 + (
-                3.0 * blk.wind_velocity[i]
-            )
+            conv_heat_trans_coeff_basin_ambient = 2.8 + (3.0 * blk.wind_velocity[i])
             # Convective heat transfer coefficient from glass cover to ambient (W/m2°C)
-            blk.conv_heat_trans_coeff_glass_ambient[i] = 2.8 + (
-                3.0 * blk.wind_velocity[i]
-            )
+            conv_heat_trans_coeff_glass_ambient = 2.8 + (3.0 * blk.wind_velocity[i])
         else:
             # Convective heat transfer coefficient from basin to ambient (W/m2°C)
-            blk.conv_heat_trans_coeff_basin_ambient[i] = 2.8 + (
-                3.8 * blk.wind_velocity[i]
-            )
+            conv_heat_trans_coeff_basin_ambient = 2.8 + (3.8 * blk.wind_velocity[i])
             # Convective heat transfer coefficient from glass cover to ambient (W/m2°C)
-            blk.conv_heat_trans_coeff_glass_ambient[i] = 2.8 + (
-                3.8 * blk.wind_velocity[i]
-            )
+            conv_heat_trans_coeff_glass_ambient = 2.8 + (3.8 * blk.wind_velocity[i])
 
         # Total heat loss coeff from the glass cover to the outer atmosphere
-        blk.tot_heat_trans_coeff_glass_ambient[i] = (
-            blk.conv_heat_trans_coeff_glass_ambient[i]
-            + blk.rad_heat_trans_coeff_glass_ambient[i]
+        tot_heat_trans_coeff_glass_ambient = (
+            conv_heat_trans_coeff_glass_ambient + rad_heat_trans_coeff_glass_ambient
         )
 
         # Heat loss coefficient from basin liner to the atmosphere
-        blk.tot_heat_trans_coeff_basin_ambient[i] = 1 / (
+        tot_heat_trans_coeff_basin_ambient = 1 / (
             (thickness_insulation / conductivity_insulation)
-            + (1 / (blk.conv_heat_trans_coeff_basin_ambient[i]))
+            + (1 / (conv_heat_trans_coeff_basin_ambient))
         )
 
         # Effective overall absorptivity for energy balance equation
-        blk.effective_absorp[i] = (
+        effective_absorp = (
             (
                 absorp_effective_basin
                 * (
-                    blk.water_heat_trans_coeff[i]
+                    water_heat_trans_coeff
                     / (
-                        blk.water_heat_trans_coeff[i]
-                        + blk.tot_heat_trans_coeff_basin_ambient[i]
-                        + blk.conv_heat_trans_coeff_basin_ambient[i]
+                        water_heat_trans_coeff
+                        + tot_heat_trans_coeff_basin_ambient
+                        + conv_heat_trans_coeff_basin_ambient
                     )
                 )
             )
@@ -527,10 +455,10 @@ def get_solar_still_daily_water_yield(
             + (
                 (absorp_effective_glass)
                 * (
-                    blk.tot_heat_trans_coeff_water_glass[i]
+                    tot_heat_trans_coeff_water_glass
                     / (
-                        blk.tot_heat_trans_coeff_water_glass[i]
-                        + blk.tot_heat_trans_coeff_glass_ambient[i]
+                        tot_heat_trans_coeff_water_glass
+                        + tot_heat_trans_coeff_glass_ambient
                     )
                 )
             )
@@ -538,89 +466,81 @@ def get_solar_still_daily_water_yield(
 
         # Calculation of overall heat transfer coefficients
         # Overall heat loss coefficient (W/m^2.°C)
-        blk.overall_heat_loss_coeff_glass_surr[i] = (
+        overall_heat_loss_coeff_glass_surr = (
             (conductivity_glass / thickness_glass)
-            * (blk.tot_heat_trans_coeff_glass_ambient[i])
+            * (tot_heat_trans_coeff_glass_ambient)
         ) / (
-            (conductivity_glass / thickness_glass)
-            + blk.tot_heat_trans_coeff_glass_ambient[i]
+            (conductivity_glass / thickness_glass) + tot_heat_trans_coeff_glass_ambient
         )
 
         # Overall bottom heat transfer coefficient between the water mass and the surroundings (W/m^2.°C)
-        blk.overall_bottom_heat_trans_coeff_water_mass_surr[i] = (
-            blk.tot_heat_trans_coeff_water_glass[i]
-            * blk.overall_heat_loss_coeff_glass_surr[i]
-        ) / (
-            blk.tot_heat_trans_coeff_water_glass[i]
-            + blk.overall_heat_loss_coeff_glass_surr[i]
-        )
+        overall_bottom_heat_trans_coeff_water_mass_surr = (
+            tot_heat_trans_coeff_water_glass * overall_heat_loss_coeff_glass_surr
+        ) / (tot_heat_trans_coeff_water_glass + overall_heat_loss_coeff_glass_surr)
 
         # Overall bottom heat transfer coefficient from bottom to ambient (W/m^2.°C)
-        blk.overall_bottom_heat_loss_coeff_water_mass_surr[i] = (
-            blk.water_heat_trans_coeff[i] * blk.tot_heat_trans_coeff_basin_ambient[i]
-        ) / (blk.water_heat_trans_coeff[i] + blk.tot_heat_trans_coeff_basin_ambient[i])
+        overall_bottom_heat_loss_coeff_water_mass_surr = (
+            water_heat_trans_coeff * tot_heat_trans_coeff_basin_ambient
+        ) / (water_heat_trans_coeff + tot_heat_trans_coeff_basin_ambient)
 
-        blk.overall_side_heat_loss_coefficient[i] = (
-            blk.area_side_water[i] / area_bottom_basin
-        ) * blk.overall_bottom_heat_loss_coeff_water_mass_surr[i]
+        overall_side_heat_loss_coefficient = (
+            area_side_water / area_bottom_basin
+        ) * overall_bottom_heat_loss_coeff_water_mass_surr
 
-        blk.overall_heat_trans_coeff_basin_surr[i] = (
-            blk.overall_bottom_heat_loss_coeff_water_mass_surr[i]
-            + blk.overall_side_heat_loss_coefficient[i]
+        overall_heat_trans_coeff_basin_surr = (
+            overall_bottom_heat_loss_coeff_water_mass_surr
+            + overall_side_heat_loss_coefficient
         )
-        blk.overall_external_heat_trans_loss_coeff[i] = (
-            blk.overall_bottom_heat_trans_coeff_water_mass_surr[i]
-            + blk.overall_heat_trans_coeff_basin_surr[i]
+        overall_external_heat_trans_loss_coeff = (
+            overall_bottom_heat_trans_coeff_water_mass_surr
+            + overall_heat_trans_coeff_basin_surr
         )
 
         # Present [i] temperature calculation
-        blk.grouping_term[i] = blk.overall_external_heat_trans_loss_coeff[i] / (
-            blk.sw_mass[i - 1] * blk.specific_heat[i]
+        blk.grouping_term[i] = overall_external_heat_trans_loss_coeff / (
+            blk.sw_mass[i - 1] * specific_heat
         )
         if blk.grouping_term[i] <= 0:
             blk.grouping_term[i] = blk.grouping_term[i - 1]
 
-        blk.time_dependent_term[i] = (
-            (blk.effective_absorp[i] * blk.irradiance[i])
-            + (blk.overall_external_heat_trans_loss_coeff[i] * blk.ambient_temp[i])
-        ) / (blk.sw_mass[i - 1] * blk.specific_heat[i])
+        time_dependent_term = (
+            (effective_absorp * blk.irradiance[i])
+            + (overall_external_heat_trans_loss_coeff * blk.ambient_temp[i])
+        ) / (blk.sw_mass[i - 1] * specific_heat)
 
-        blk.saltwater_temp[i] = (blk.time_dependent_term[i] / blk.grouping_term[i]) * (
+        blk.saltwater_temp[i] = (time_dependent_term / blk.grouping_term[i]) * (
             1 - np.exp(-blk.grouping_term[i] * blk.time[i])
         ) + (blk.saltwater_temp[i - 1] * np.exp(-blk.grouping_term[i] * blk.time[i]))
 
         blk.glass_temp[i] = (
             (absorp_effective_glass * blk.irradiance[i])
-            + (blk.tot_heat_trans_coeff_water_glass[i] * blk.saltwater_temp[i - 1])
-            + (blk.overall_heat_loss_coeff_glass_surr[i] * blk.ambient_temp[i])
-        ) / (
-            blk.tot_heat_trans_coeff_water_glass[i]
-            + blk.overall_heat_loss_coeff_glass_surr[i]
-        )
+            + (tot_heat_trans_coeff_water_glass * blk.saltwater_temp[i - 1])
+            + (overall_heat_loss_coeff_glass_surr * blk.ambient_temp[i])
+        ) / (tot_heat_trans_coeff_water_glass + overall_heat_loss_coeff_glass_surr)
 
         blk.basin_temp[i] = (
             (absorp_effective_basin * blk.irradiance[i])
-            + (blk.water_heat_trans_coeff[i] * blk.saltwater_temp[i - 1])
+            + (water_heat_trans_coeff * blk.saltwater_temp[i - 1])
             + (
                 (
-                    blk.tot_heat_trans_coeff_basin_ambient[i]
-                    + blk.conv_heat_trans_coeff_basin_ambient[i]
+                    tot_heat_trans_coeff_basin_ambient
+                    + conv_heat_trans_coeff_basin_ambient
                 )
                 * blk.basin_temp[i - 1]
             )
         ) / (
-            blk.water_heat_trans_coeff[i]
-            + blk.tot_heat_trans_coeff_basin_ambient[i]
-            + blk.conv_heat_trans_coeff_basin_ambient[i]
+            water_heat_trans_coeff
+            + tot_heat_trans_coeff_basin_ambient
+            + conv_heat_trans_coeff_basin_ambient
         )
 
         # Evaporation estimation of freshwater and saltwater
         # Distilled (kg)
         blk.evap_fw_mass[i] = (
             area_bottom_basin
-            * blk.evap_heat_trans_coeff_water_glass[i]
+            * evap_heat_trans_coeff_water_glass
             * (blk.temp_diff_inside_basin[i])
-        ) / blk.freshwater_vap_latent_heat[i]
+        ) / freshwater_vap_latent_heat
 
         # Distilled saltwater conversion (Morton) (kg)
         blk.evap_sw_mass[i] = blk.evap_fw_mass[i] / (1 + blk.salinity[i - 1] / 1e3)
@@ -630,7 +550,7 @@ def get_solar_still_daily_water_yield(
         # Saltwater (kg) this iteration
         blk.sw_mass[i] = blk.fw_mass[i] + blk.salt_mass
         # Water depth this iteration
-        blk.depth[i] = blk.sw_mass[i] / (blk.density[i] * area_bottom_basin)
+        blk.depth[i] = blk.sw_mass[i] / (density * area_bottom_basin)
 
         if blk.salinity[i - 1] >= maximum_solubility:
             blk.salinity[i] = maximum_solubility
