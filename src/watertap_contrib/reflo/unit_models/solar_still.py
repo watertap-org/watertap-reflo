@@ -189,7 +189,7 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             )
             unit_log.info(
                 f"Calculating daily water yield assuming initial salinity {self.config.water_yield_calculation_args['initial_salinity']}"
-                f" g/L TDS with {self.config.water_yield_calculation_args['initial_water_depth']} initial water depth."
+                f" g/L TDS with {self.config.water_yield_calculation_args['initial_water_depth']} m initial water depth."
             )
 
             daily_water_yield_mass, num_zld_cycles_per_year = (
@@ -211,7 +211,7 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         else:
 
             unit_log.info(
-                f"No water yield calculation arguments found in {self.name} configuration. Assuming default values."
+                f"No water yield calculation arguments found in {self.name} configuration. Using default values."
             )
 
         self.dens_mass_salt = Param(
@@ -233,6 +233,10 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             units=pyunits.m**2,
             doc="Total area of solar still",
         )
+
+        @self.Expression(doc="Duration of one ZLD cycle in days")
+        def length_zld_cycle(b):
+            return pyunits.convert(b.number_zld_cycles**-1, to_units=pyunits.days)
 
         @self.Expression(doc="Annual water yield per unit area")
         def annual_water_yield(b):
