@@ -33,7 +33,7 @@ conductivity_insulation = 0.033  # Conductivity of SS Insulation (W/m.K)
 thickness_glass = 0.004  # Thickness of glass m
 conductivity_glass = 1.03  # Conductivity of glass W/m.K
 gravity = 9.81  # Accelaration due to gravity (m/s^2)
-density_nacl = 2165  # density of sodium chloride (kg/m^3)
+density_nacl = 2165  # blk.density[i] of sodium chloride (kg/m^3)
 maximum_solubility = 365  # maximum solubility of salt in water (g/L)
 
 # Radiative properties
@@ -188,6 +188,7 @@ def get_solar_still_daily_water_yield(
     blk.glass_temp = np.zeros(len_data_hr * 3600)
     blk.sky_temp = np.zeros(len_data_hr * 3600)
     blk.saltwater_temp = np.zeros(len_data_hr * 3600)
+    blk.density = np.zeros(len_data_hr * 3600)
 
     # Initializing Temperatures
     # Initial system is assumed to be in thermal equilibrium with ambient
@@ -199,7 +200,7 @@ def get_solar_still_daily_water_yield(
     # Initial glass temperature (°C)
     blk.glass_temp[1] = blk.ambient_temp_by_hr[1]
 
-    blk.initial_density = calculate_density(blk.initial_salinity, blk.saltwater_temp[1])
+    blk.density[0] = calculate_density(blk.initial_salinity, blk.saltwater_temp[1])
 
     blk.salt_precipitated[1] = 0
     blk.salt_precipitated[0] = blk.salt_precipitated[1]
@@ -208,7 +209,7 @@ def get_solar_still_daily_water_yield(
     blk.salinity[0] = blk.initial_salinity
     blk.depth[1] = blk.initial_water_depth
     blk.depth[0] = blk.initial_water_depth
-    blk.sw_mass[1] = blk.depth[1] * blk.initial_density * area_bottom_basin  # kg
+    blk.sw_mass[1] = blk.depth[1] * blk.density[0] * area_bottom_basin  # kg
     blk.fw_mass[1] = blk.sw_mass[1] / (1 + blk.salinity[1] / 1000)  # kg
     blk.initial_mass_fw = blk.fw_mass[1]
     blk.salt_mass = (
@@ -235,7 +236,7 @@ def get_solar_still_daily_water_yield(
             blk.depth[i - 1] = blk.initial_water_depth
             blk.salinity[i - 1] = blk.initial_salinity
             blk.sw_mass[i - 1] = (
-                blk.depth[i - 1] * blk.initial_density * area_bottom_basin
+                blk.depth[i - 1] * blk.density[0] * area_bottom_basin
             )
             blk.fw_mass[i - 1] = blk.sw_mass[i - 1] / (1 + blk.salinity[i] / 1000)
 
@@ -250,12 +251,15 @@ def get_solar_still_daily_water_yield(
             blk.temp_diff_outside_basin = 0.01
 
         # Effective radiation temperature of the sky
-        blk.sky_temp[i] = 0.0552 * ((blk.ambient_temp[i]) ** 1.5)
+        if blk.ambient_temp[i] <= 0:
+            blk.sky_temp[i] == blk.ambient_temp[i]
+        else:
+            blk.sky_temp[i] = 0.0552 * ((blk.ambient_temp[i]) ** 1.5)
 
         # Perimeter x blk.depth of water (m^2)
         area_side_water = (2 * (2 * length_basin)) * blk.depth[i - 1]
 
-        density = calculate_density(blk.salinity[i - 1], blk.saltwater_temp[i - 1])
+        blk.density[i] = calculate_density(blk.salinity[i - 1], blk.saltwater_temp[i - 1])
 
         dynamic_visc = calculate_viscosity(
             blk.salinity[i - 1], blk.saltwater_temp[i - 1]
@@ -270,7 +274,7 @@ def get_solar_still_daily_water_yield(
         )
 
         # Kinemtic viscosity of salt water
-        kinem_visc_sw = dynamic_visc / density
+        kinem_visc_sw = dynamic_visc / blk.density[i]
 
         # Prandtl number for water (-)
         Pr = (specific_heat * dynamic_visc) / thermal_conductivity
@@ -516,7 +520,7 @@ def get_solar_still_daily_water_yield(
         blk.sw_mass[i] = blk.fw_mass[i] + blk.salt_mass
         # Water blk.depth this iteration
         blk.depth[i] = blk.sw_mass[i] / (
-            density * area_bottom_basin
+            blk.density[i] * area_bottom_basin
         )  # Current blk.depth (m)
 
         if blk.salinity[i - 1] >= maximum_solubility:
@@ -552,12 +556,13 @@ def get_solar_still_daily_water_yield(
             # signaling we have reached the blk.time required for one ZLD cycle for one solar still
 
             # Number of seconds for a single ZLD cycle
-            num_seconds_for_zld_cycle = i
+            blk.num_seconds_for_zld_cycle = i
+            blk.num_days_for_zld_cycle = i / 3600 / 24
             break
 
     num_zld_cycles_per_year = (
         len(blk.weather_data) * 3600
-    ) / num_seconds_for_zld_cycle  # (s / year) / s = year**-1
+    ) / blk.num_seconds_for_zld_cycle  # (s / year) / s = year**-1
 
     # Total water productivity in year [kg water per m2 area per year]
     annual_water_yield = (
