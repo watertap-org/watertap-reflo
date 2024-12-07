@@ -314,6 +314,7 @@ class TestMEDTVC:
         # set heat and electricity costs to be non-zero
         m.fs.costing.heat_cost.set_value(0.01)
         m.fs.costing.electricity_cost.fix(0.07)
+        m.fs.costing.base_currency = pyunits.USD_2021
 
         med_tvc.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
 
@@ -347,9 +348,9 @@ class TestMEDTVC:
             m.fs.med_tvc.costing.fixed_operating_cost
         )
 
-        assert pytest.approx(1.7355, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(1.6756, rel=1e-3) == value(m.fs.costing.LCOW)
 
-        assert pytest.approx(740379.40, rel=1e-3) == value(
+        assert pytest.approx(696623.64, rel=1e-3) == value(
             m.fs.costing.total_operating_cost
         )
         assert pytest.approx(6018483.5, rel=1e-3) == value(

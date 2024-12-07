@@ -384,6 +384,7 @@ class TestCrystallizerEffect:
         # set heat and electricity costs to be non-zero
         m.fs.costing.heat_cost.set_value(0.01)
         m.fs.costing.electricity_cost.fix(0.07)
+        m.fs.costing.base_currency = pyunits.USD_2021
         m.fs.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing,
         )
