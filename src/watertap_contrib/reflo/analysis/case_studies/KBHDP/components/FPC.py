@@ -6,6 +6,7 @@ from pyomo.environ import (
     Block,
     Constraint,
     SolverFactory,
+    check_optimal_termination,
 )
 import os
 
@@ -18,6 +19,7 @@ from idaes.core.util.scaling import *
 from watertap_contrib.reflo.solar_models.surrogate.flat_plate.flat_plate_surrogate import (
     FlatPlateSurrogate,
 )
+from idaes.core.util.model_statistics import *
 
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
@@ -30,9 +32,12 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
 )
 
+import idaes.core.util.scaling as iscale
+
 __all__ = [
     "build_fpc",
     "init_fpc",
+    "add_fpc_scaling",
     "set_fpc_op_conditions",
     "add_fpc_costing",
     "report_fpc",
@@ -103,6 +108,13 @@ def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
+def add_fpc_scaling(m, blk):
+    iscale.set_scaling_factor(blk.unit.hours_storage, 1)
+    iscale.set_scaling_factor(blk.unit.electricity, 1e3)
+    iscale.set_scaling_factor(blk.unit.heat_load, 10)
+    iscale.get_scaling_factor(blk.unit.heat, 1e3)
+
+
 def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
 
     blk.unit.hours_storage.fix(hours_storage)
@@ -110,6 +122,7 @@ def set_fpc_op_conditions(blk, hours_storage=6, temperature_hot=80):
     blk.unit.temperature_hot.fix(temperature_hot)
     # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     blk.unit.temperature_cold.set_value(20)
+    blk.unit.heat_load.fix(10)
 
 
 def add_fpc_costing(blk, costing_block):
@@ -117,12 +130,50 @@ def add_fpc_costing(blk, costing_block):
 
 
 def calc_costing(m, blk):
-    blk.costing.heat_cost.set_value(0)
+    blk.costing.heat_cost.fix(0)
+    blk.costing.electricity_cost.fix(0.07)
     blk.costing.cost_process()
     blk.costing.initialize()
 
     # TODO: Connect to the treatment volume
-    blk.costing.add_LCOW(m.fs.system_capacity)
+    blk.costing.add_LCOH()
+
+
+def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
+    # ---solving---
+    if solver is None:
+        solver = get_solver()
+        solver.options["max_iter"] = 2000
+
+    print("\n--------- SOLVING ---------\n")
+
+    results = solver.solve(m, tee=tee)
+
+    if check_optimal_termination(results):
+        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            # check_jac(m)
+
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(m)
+        return results
+    msg = (
+        "The current configuration is infeasible. Please adjust the decision variables."
+    )
+    if raise_on_failure:
+        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
+        print_infeasible_bounds(m)
+        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
+        print_infeasible_constraints(m)
+        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
+        print_close_to_bounds(m)
+
+        raise RuntimeError(msg)
+    else:
+        print("\n--------- FAILED SOLVE!!! ---------\n")
+        print(msg)
+        assert False
 
 
 def report_fpc(m, blk):
@@ -140,6 +191,10 @@ def report_fpc(m, blk):
 
     print(
         f'{"Storage volume":<30s}{value(blk.storage_volume):<20,.2f}{pyunits.get_units(blk.storage_volume)}'
+    )
+
+    print(
+        f'{"Hours of storage":<30s}{value(blk.hours_storage):<20,.2f}{pyunits.get_units(blk.hours_storage)}'
     )
 
     print(
@@ -166,7 +221,7 @@ def report_fpc_costing(m, blk):
     print("\n")
 
     print(
-        f'{"LCOW":<30s}{value(blk.costing.LCOW):<20,.2f}{pyunits.get_units(blk.costing.LCOW)}'
+        f'{"LCOH":<30s}{value(blk.costing.LCOH):<20,.2f}{pyunits.get_units(blk.costing.LCOH)}'
     )
 
     print(
@@ -174,12 +229,12 @@ def report_fpc_costing(m, blk):
     )
 
     print(
-        f'{"Fixed Operating Cost":<30s}{value(blk.costing.total_fixed_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_fixed_operating_cost)}'
+        f'{"Fixed Operating Cost":<30s}{value(blk.fpc.unit.costing.fixed_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_fixed_operating_cost)}'
     )
 
-    print(
-        f'{"Variable Operating Cost":<30s}{value(blk.costing.total_variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_variable_operating_cost)}'
-    )
+    # print(
+    #     f'{"Variable Operating Cost":<30s}{value(blk.costing.variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_variable_operating_cost)}'
+    # )
 
     print(
         f'{"Total Operating Cost":<30s}{value(blk.costing.total_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_operating_cost)}'
@@ -206,7 +261,7 @@ def report_fpc_costing(m, blk):
     # )
 
 
-if __name__ == "__main__":
+def main():
 
     solver = get_solver()
     solver = SolverFactory("ipopt")
@@ -215,17 +270,29 @@ if __name__ == "__main__":
 
     build_fpc(m.fs.fpc)
     init_fpc(m.fs.fpc)
-    set_fpc_op_conditions(m.fs.fpc)
-
+    set_fpc_op_conditions(m.fs.fpc, hours_storage=6)
+    add_fpc_scaling(m, m.fs.fpc)
     print("Degrees of Freedom:", degrees_of_freedom(m))
 
     add_fpc_costing(m.fs.fpc, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-    m.fs.costing.aggregate_flow_heat.fix(-4000)
-    results = solver.solve(m)
+    m.fs.fpc.unit.heat_load.unfix()
+    m.fs.costing.aggregate_flow_heat.fix(-5000)
+
+    print(
+        "\nDegrees of Freedom after fixing aggregate heat flow:", degrees_of_freedom(m)
+    )
+    # results = solver.solve(m)
+    solve(m, solver=solver, tee=False)
+    return m
+
+
+if __name__ == "__main__":
+
+    m = main()
 
     print(degrees_of_freedom(m))
     report_fpc(m, m.fs.fpc.unit)
     report_fpc_costing(m, m.fs)
 
-    # m.fs.costing.used_flows.display()
+    # m.fs.fpc.unit.costing.display()

@@ -71,7 +71,7 @@ def propagate_state(arc):
 def build_DWI(m, blk, prop_package) -> None:
     print(f'\n{"=======> BUILDING DEEP WELL INJECTION SYSTEM <=======":^60}\n')
 
-    blk.unit = DeepWellInjection(property_package=m.fs.properties)
+    blk.unit = DeepWellInjection(property_package=prop_package)
 
 
 def set_DWI_op_conditions(blk):
@@ -121,9 +121,9 @@ def init_DWI(m, blk, verbose=True, solver=None):
     blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
 
 
-def add_DWI_costing(m, blk):
+def add_DWI_costing(m, blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
+        flowsheet_costing_block=costing_block,
         costing_method_arguments={
             "cost_method": "as_opex"
         },  # could be "as_capex" or "blm"
@@ -138,16 +138,18 @@ def report_DWI(m, blk):
     )
 
 
-def print_DWI_costing_breakdown(m, blk):
-    print(f"\n\n-------------------- UF Costing Breakdown --------------------\n")
+def print_DWI_costing_breakdown(cost_blk, blk):
+    print(f"\n\n-------------------- DWI Costing Breakdown --------------------\n")
     print("\n")
-    print(f'{"Capital Cost":<30s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
-    # print(
-    #     f'{"Capital Cost":<30s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
-    # )
     print(
-        f'{"Capital Cost":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
+        f'{"Variable Operating":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
     )
+    try:
+        print(
+            f'{"Elec Cost":<30s}{value(blk.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_costs["electricity"])}'
+        )
+    except AttributeError:
+        print(f'{"Elec Cost":<30s}{"NA"}')
 
 
 def build_system():
@@ -200,9 +202,16 @@ if __name__ == "__main__":
     set_DWI_op_conditions(m.fs.DWI)
 
     init_DWI(m, m.fs.DWI)
-    add_DWI_costing(m, m.fs.DWI)
+    add_DWI_costing(m, m.fs.DWI, m.fs.costing)
     m.fs.costing.cost_process()
     solve(m)
 
-    report_DWI(m, m.fs.DWI)
-    print_DWI_costing_breakdown(m, m.fs.DWI)
+    print("Degrees of Freedom:", degrees_of_freedom(m))
+
+    # report_DWI(m, m.fs.DWI)
+    print_DWI_costing_breakdown(m.fs, m.fs.DWI)
+    print(degrees_of_freedom(m))
+
+    # m.fs.costing.display()
+
+    # m.fs.DWI.unit.costing.display()
