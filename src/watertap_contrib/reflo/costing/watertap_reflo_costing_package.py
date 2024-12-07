@@ -26,9 +26,7 @@ from watertap.costing.watertap_costing_package import (
 from watertap.costing.zero_order_costing import _load_case_study_definition
 
 from watertap_contrib.reflo.core import PySAMWaterTAP
-from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import (
-    PVSurrogateData,
-)
+
 from watertap_contrib.reflo.costing.tests.dummy_costing_units import (
     DummyElectricityUnit,
 )
@@ -1086,10 +1084,14 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         """
         Get the electricity generating unit on the flowsheet, if present.
         """
+        from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import (
+            PVSurrogate,
+        )
+
         elec_gen_unit = None
         for b in self.model().component_objects(pyo.Block):
             if isinstance(
-                b, PVSurrogateData
+                b, PVSurrogate
             ):  # PV is only electricity generation model currently
                 elec_gen_unit = b
             if isinstance(b, DummyElectricityUnit):  # only used for testing
