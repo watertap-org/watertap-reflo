@@ -19,11 +19,10 @@ from watertap_contrib.reflo.costing import (
     REFLOCosting,
     REFLOSystemCosting,
 )
-
-# from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
-# check_jac,
-# calc_scale,
-# )
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
+    check_jac,
+    calc_scale,
+)
 
 __all__ = [
     "build_pv",
@@ -48,13 +47,9 @@ def build_system():
 def build_pv(m):
     energy = m.fs.energy
 
-    # Get directory path
-    cwd = os.getcwd()
     energy.pv = PVSurrogate(
-        surrogate_model_file=cwd
-        + "/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
-        dataset_filename=cwd
-        + "/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
+        surrogate_model_file="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
+        dataset_filename="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
         input_variables={
             "labels": ["design_size"],
             "bounds": {"design_size": [1, 200000]},
@@ -78,7 +73,7 @@ def train_pv_surrogate(m):
 
 def set_pv_constraints(m, focus="Size"):
     energy = m.fs.energy
-    # m.fs.energy.pv.load_surrogate()
+    m.fs.energy.pv.load_surrogate()
 
     m.fs.energy.pv.heat.fix(0)
 
@@ -242,7 +237,7 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
         if debug:
             print("\n--------- CHECKING JACOBIAN ---------\n")
-            # check_jac(m)
+            check_jac(m)
 
             print("\n--------- CLOSE TO BOUNDS ---------\n")
             print_close_to_bounds(m)

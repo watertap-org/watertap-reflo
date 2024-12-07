@@ -376,7 +376,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self.add_component(output_var_name, v_out)
 
     def load_surrogate(self):
-
         stream = StringIO()
         oldstdout = sys.stdout
         sys.stdout = stream

@@ -26,9 +26,7 @@ from watertap.costing.watertap_costing_package import (
 from watertap.costing.zero_order_costing import _load_case_study_definition
 
 from watertap_contrib.reflo.core import PySAMWaterTAP
-from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import (
-    PVSurrogateData,
-)
+
 from watertap_contrib.reflo.costing.tests.dummy_costing_units import (
     DummyElectricityUnit,
 )
@@ -402,9 +400,9 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             units=self.base_currency / pyo.units.kWh,
         )
 
-        self.heat_cost_buy = pyo.Param(
-            mutable=True,
+        self.heat_cost_buy = pyo.Var(
             initialize=0.01,
+            domain=pyo.NonNegativeReals,
             doc="Heat cost to buy",
             units=self.base_currency / pyo.units.kWh,
         )
@@ -416,6 +414,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             units=self.base_currency / pyo.units.kWh,
         )
 
+        self.heat_cost_buy.fix()
         # Build the integrated system costs
         self.build_integrated_costs()
 
@@ -580,6 +579,16 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 + self.aggregate_flow_electricity_sold
             )
         )
+
+        # self.aggregate_flow_electricity_sold_constraint = pyo.Constraint(
+        #     expr= self.aggregate_flow_electricity_sold
+        #     == smooth_max(energy_cost.aggregate_flow_electricity - treat_cost.aggregate_flow_electricity, 0)
+        # )
+
+        # self.aggregate_flow_electricity_purchased_constraint = pyo.Constraint(
+        #     expr= self.aggregate_flow_electricity_purchased
+        #     == smooth_max(treat_cost.aggregate_flow_electricity  - energy_cost.aggregate_flow_electricity, 0)
+        # )
 
         # Calculate fraction of electricity from grid when an electricity generating unit is present
         if energy_cost.has_electricity_generation:
@@ -850,9 +859,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             sf = get_scaling_factor(self.aggregate_flow_electricity)
             set_scaling_factor(self.aggregate_flow_electricity_purchased, sf)
 
-        if get_scaling_factor(self.aggregate_flow_electricity_sold) is None:
-            set_scaling_factor(self.aggregate_flow_electricity_sold, 1)
-
         if get_scaling_factor(self.aggregate_flow_heat_purchased) is None:
             sf = get_scaling_factor(self.aggregate_flow_heat)
             set_scaling_factor(self.aggregate_flow_heat_purchased, sf)
@@ -1086,10 +1092,14 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         """
         Get the electricity generating unit on the flowsheet, if present.
         """
+        from watertap_contrib.reflo.solar_models.surrogate.pv.pv_surrogate import (
+            PVSurrogate,
+        )
+
         elec_gen_unit = None
         for b in self.model().component_objects(pyo.Block):
             if isinstance(
-                b, PVSurrogateData
+                b, PVSurrogate
             ):  # PV is only electricity generation model currently
                 elec_gen_unit = b
             if isinstance(b, DummyElectricityUnit):  # only used for testing
