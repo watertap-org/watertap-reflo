@@ -51,10 +51,12 @@ class REFLOCostingData(WaterTAPCostingData):
 
     def build_global_params(self):
 
+        pyo.units.load_definitions_from_strings(["USD_2023 = 500/797.9 * USD_CE500"])
+
         super().build_global_params()
 
         # Override WaterTAP default value of USD_2018
-        self.base_currency = pyo.units.USD_2021
+        self.base_currency = pyo.units.USD_2023
 
         self.sales_tax_frac = pyo.Param(
             initialize=0.05,
@@ -377,7 +379,9 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
     def build_global_params(self):
         super().build_global_params()
 
-        self.base_currency = pyo.units.USD_2021
+        pyo.units.load_definitions_from_strings(["USD_2023 = 500/797.9 * USD_CE500"])
+
+        self.base_currency = pyo.units.USD_2023
 
         # Fix the parameters
         self.electricity_cost.fix(0.0)
@@ -996,11 +1000,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         for cp in common_params:
             tp = getattr(treat_cost, cp)
             ep = getattr(energy_cost, cp)
-            if (isinstance(tp, pyo.Var)) or isinstance(tp, pyo.Param):
+            if (isinstance(tp, pyo.Var)) or (isinstance(tp, pyo.Param)):
                 param_is_equivalent = pyo.value(tp) == pyo.value(ep)
             else:
                 param_is_equivalent = tp == ep
             if not param_is_equivalent:
+                # TODO: Add better logic to raise exception for certain params?
                 warning_msg = f"The common costing parameter {cp} was found to have a different value "
                 warning_msg += f"on the energy and treatment costing blocks. "
                 _log.warning(warning_msg)
@@ -1021,6 +1026,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                         f"The cost of electricity is different on {treat_cost.name} "
                     )
                     warning_msg += f"and {self.name} costing blocks."
+                    _log.warning(warning_msg)
                 if pyo.value(energy_cost.electricity_cost) != pyo.value(
                     self.electricity_cost_buy
                 ):
@@ -1028,15 +1034,18 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                         f"The cost of electricity is different on {energy_cost.name} "
                     )
                     warning_msg += f"and {self.name} costing blocks."
+                    _log.warning(warning_msg)
             if cp == "heat_cost":
                 if pyo.value(treat_cost.heat_cost) != pyo.value(self.heat_cost_buy):
                     warning_msg = f"The cost of heat is different on {treat_cost.name} "
                     warning_msg += f"and {self.name} costing blocks."
+                    _log.warning(warning_msg)
                 if pyo.value(energy_cost.heat_cost) != pyo.value(self.heat_cost_buy):
                     warning_msg = (
                         f"The cost of heat is different on {energy_cost.name} "
                     )
                     warning_msg += f"and {self.name} costing blocks."
+                    _log.warning(warning_msg)
 
             if cp == "base_currency":
                 self.base_currency = treat_cost.base_currency
