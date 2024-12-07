@@ -17,7 +17,7 @@ short_wavelength_albedo = 0.05
 # evap_rate
 bowen_constant = 0.665
 # Specific heat capacity MJ/kg degC
-specific_heat_capacity = 1.013e-3  
+specific_heat_capacity = 1.013e-3
 # salinity = int(df.iloc[-1, 0]) #salinity g/l
 # evap_rate_method = int(df.iloc[-1, 1]) #salinity g/l
 salinity = 100
@@ -162,7 +162,7 @@ for i in range(1, days_in_year, 1):
     area_coeff = 3.719e-9 * wetted_surface_area ** (-0.0459)
     water_activity = -0.00056678 * salinity + 0.9985307
     salinity_conversion = 1 / (1 + salinity / 1000)
-    salinity_conversion = 1 
+    salinity_conversion = 1
     # Bowen ratio
     bowen_ratio = psychometric_constant * (
         (water_temp_mean[i] - air_temp_mean[i])
@@ -178,7 +178,7 @@ for i in range(1, days_in_year, 1):
             - (pressure_sat_actual * rel_humidity_mean[i])
         )
         * 10
-    )  
+    )
 
     if evap_rate_method == 0:
 
@@ -190,10 +190,9 @@ for i in range(1, days_in_year, 1):
     elif evap_rate_method == 1:
         # Daily evaporation BREB model (mm/day)
 
-        
         evap_rate_breb[i] = salinity_conversion * (
             (rad_net[i]) / ((latent_heat_vap_water / 1e6) * (1 + bowen_ratio))
-        ) 
+        )
         # print(evap_rate_breb[i])
         evap_rate_penman[i] = 0
         evap_rate[i] = evap_rate_breb[i]
@@ -217,7 +216,7 @@ for i in range(1, days_in_year, 1):
                 )
                 / (latent_heat_vap_water / 1e6)
             )
-        )  
+        )
         evap_rate[i] = evap_rate_penman[i]
         area_pond = 10 * 4046.86
 
@@ -227,7 +226,7 @@ for i in range(1, days_in_year, 1):
         # Daily evaporation BREB model (mm/day)
         evap_rate_breb[i] = salinity_conversion * (
             (rad_net[i]) / ((latent_heat_vap_water / 1e6) * (1 + bowen_ratio))
-        )  
+        )
         # Daily evaporation Penman model (mm/day)
         evap_rate_penman[i] = salinity_conversion * (
             (
@@ -243,7 +242,7 @@ for i in range(1, days_in_year, 1):
                 )
                 / (latent_heat_vap_water / 1e6)
             )
-        )  
+        )
         # Average daily evaporation rate of two models (mm/day)
         evap_rate[i] = (evap_rate_breb[i] + evap_rate_penman[i]) / 2
         area_pond = 10 * 4046.86  # acre to m2
@@ -275,9 +274,9 @@ rad_net_mean = np.mean(rad_shortwave)
 [6] Modeltaling historial lake levels and recent climate change at three closed lakes, Western Victoria, Australia (c. 1840-1990)
 """
 
-def E_EPM():
-    return EP_evaporation_daily, Evap_day_WAIV, rad_net_mean 
 
+def E_EPM():
+    return EP_evaporation_daily, Evap_day_WAIV, rad_net_mean
 
 
 print(E_EPM(), salinity_conversion, Tot_Evaporation)
