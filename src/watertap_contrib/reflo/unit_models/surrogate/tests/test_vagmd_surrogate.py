@@ -229,4 +229,4 @@ class TestVAGMD_unit_model:
         assert pytest.approx(294352.922, rel=1e-3) == value(
             vagmd.costing.fixed_operating_cost
         )
-        assert pytest.approx(2.37915, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(2.2047, rel=1e-3) == value(m.fs.costing.LCOW)
