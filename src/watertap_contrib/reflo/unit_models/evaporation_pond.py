@@ -503,12 +503,11 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 + b.net_longwave_radiation_in[d]
                 - b.net_longwave_radiation_out[d]
             )
-        
+
         @self.Constraint(self.days_in_year)
         def eq_net_radiation(b, d):
             return (
-                b.net_radiation[d]
-                == b.net_solar_radiation[d] - b.net_heat_flux_out[d]
+                b.net_radiation[d] == b.net_solar_radiation[d] - b.net_heat_flux_out[d]
             )
 
         @self.Constraint(self.days_in_year, doc="Psychrometric constant equation")
