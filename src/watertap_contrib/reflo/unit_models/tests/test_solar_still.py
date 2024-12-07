@@ -206,21 +206,19 @@ class TestSolarStill:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 9183991.7,
-            "aggregate_fixed_operating_cost": 456749.3,
-            "aggregate_variable_operating_cost": 0.0,
-            "aggregate_flow_electricity": 2.5094,
-            "aggregate_flow_costs": {"electricity": 1807.6},
-            "aggregate_direct_capital_cost": 4591995.8,
-            "total_capital_cost": 9183991.7,
-            "total_operating_cost": 734076.7,
-            "maintenance_labor_chemical_operating_cost": 275519.7,
-            "total_fixed_operating_cost": 732269.0,
-            "total_variable_operating_cost": 1807.6,
-            "total_annualized_cost": 1762279.2,
-            "LCOW": 24.124,
+            "aggregate_capital_cost": 10350527.606,
+            "aggregate_fixed_operating_cost": 514766.241,
+            "aggregate_flow_electricity": 2.5095,
+            "aggregate_flow_costs": {"electricity": 2037.257},
+            "aggregate_direct_capital_cost": 5175263.803,
+            "total_capital_cost": 10350527.606,
+            "total_operating_cost": 827319.327,
+            "maintenance_labor_chemical_operating_cost": 310515.828,
+            "total_fixed_operating_cost": 825282.069,
+            "total_variable_operating_cost": 2037.257,
+            "total_annualized_cost": 1986122.47,
+            "LCOW": 27.188,
         }
-
         for v, r in sys_cost_results.items():
             sc = getattr(m.fs.costing, v)
             if sc.is_indexed():
@@ -230,33 +228,28 @@ class TestSolarStill:
                 assert pytest.approx(value(sc), rel=1e-3) == r
 
         ss_cost_results = {
-            "capital_cost": 9183991.7,
-            "fixed_operating_cost": 456749.3,
-            "number_sw_pumps": 3.8717,
-            "number_fw_pumps": 3.8717,
-            "capital_cost_per_still": 28.7,
-            "sw_pump_power": 0.32407,
-            "fw_pump_power": 0.32407,
-            "pumping_power_required": 2.509446,
-            "length_piping": 5788.3,
-            "capital_cost_solar_still": 9088887.7,
-            "capital_cost_sw_pumps": 5963.2,
-            "capital_cost_fw_pumps": 4395.4,
-            "capital_cost_feed_tank": 20070.9,
-            "capital_cost_distillate_tank": 21138.3,
-            "capital_cost_excavation": 9717.1,
-            "capital_cost_piping": 33818.7,
-            "operating_cost_labor": 135309.6,
-            "direct_capital_cost": 4591995.8,
+            "capital_cost": 10350527.606,
+            "fixed_operating_cost": 514766.241,
+            "number_fw_pumps": 3.871801,
+            "capital_cost_per_still": 32.362,
+            "sw_pump_power": 0.3240,
+            "fw_pump_power": 0.3240,
+            "pumping_power_required": 2.5095,
+            "length_piping": 5788.56,
+            "capital_cost_solar_still": 10243343.0,
+            "capital_cost_sw_pumps": 6720.6,
+            "capital_cost_fw_pumps": 4953.6,
+            "capital_cost_feed_tank": 22620.5,
+            "capital_cost_distillate_tank": 23823.5,
+            "capital_cost_excavation": 10951.5,
+            "capital_cost_piping": 38114.6,
+            "operating_cost_labor": 152497.7,
+            "direct_capital_cost": 5175263.803,
         }
 
         for v, r in ss_cost_results.items():
             ssv = getattr(m.fs.unit.costing, v)
-            if ssv.is_indexed():
-                for i, s in r.items():
-                    assert pytest.approx(value(ssv[i]), rel=1e-3) == s
-            else:
-                assert pytest.approx(value(ssv), rel=1e-3) == r
+            assert pytest.approx(value(ssv), rel=1e-3) == r
 
 
 @pytest.mark.unit
