@@ -1,5 +1,5 @@
 Low Temperature Multi-effect Distillation - Semibatch, Vacuum Air-gap Membrane Distillation (LTMED - VAGMD) Flowsheet
-===================================================================================================================
+=====================================================================================================================
 
 Implementation
 --------------
@@ -110,7 +110,7 @@ Equations
 
 
 Variables connected between periods
-----------------------------------
+-----------------------------------
 This table lists pairs of variables that need to be connected across two time periods during processing phase
 
 .. csv-table::
