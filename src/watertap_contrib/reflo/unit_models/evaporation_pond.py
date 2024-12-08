@@ -414,21 +414,21 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Net radiation for evaporation",
         )
 
-        self.psychrometric_constant = Var(
-            self.days_in_year,
-            initialize=0.06,
-            bounds=(0, None),
-            units=pyunits.kPa * pyunits.degK**-1,
-            doc="Psychrometric constant",
-        )
+        # self.psychrometric_constant = Var(
+        #     self.days_in_year,
+        #     initialize=0.06,
+        #     bounds=(0, None),
+        #     units=pyunits.kPa * pyunits.degK**-1,
+        #     doc="Psychrometric constant",
+        # )
 
-        self.bowen_ratio = Var(
-            self.days_in_year,
-            initialize=0.3,
-            bounds=(0, 2),
-            units=pyunits.dimensionless,
-            doc="Bowen ratio for BREB calculation of evaporation rate",
-        )
+        # self.bowen_ratio = Var(
+        #     self.days_in_year,
+        #     initialize=0.3,
+        #     bounds=(0, 2),
+        #     units=pyunits.dimensionless,
+        #     doc="Bowen ratio for BREB calculation of evaporation rate",
+        # )
 
         self.mass_flux_water_vapor = Var(
             self.days_in_year,
@@ -662,21 +662,55 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 b.net_solar_radiation[d] - b.net_heat_flux_out[d], 0.01
             )
 
-        @self.Constraint(self.days_in_year, doc="Psychrometric constant equation")
-        def eq_psychrometric_constant(b, d):
+        # @self.Constraint(self.days_in_year, doc="Psychrometric constant equation")
+        # def eq_psychrometric_constant(b, d):
+        #     mw_ratio = pyunits.convert(
+        #         prop_in.mw_comp["H2O"] / prop_in.mw_comp["Air"],
+        #         to_units=pyunits.dimensionless,
+        #     )
+        #     return b.psychrometric_constant[d] == pyunits.convert(
+        #         (prop_in.cp_air * b.weather[d].pressure)
+        #         / (mw_ratio * b.weather[d].dh_vap_mass_solvent),
+        #         to_units=pyunits.kPa * pyunits.degK**-1,
+        #     )
+
+        @self.Expression(self.days_in_year, doc="Psychrometric constant equation")
+        def psychrometric_constant(b, d):
             mw_ratio = pyunits.convert(
                 prop_in.mw_comp["H2O"] / prop_in.mw_comp["Air"],
                 to_units=pyunits.dimensionless,
             )
-            return b.psychrometric_constant[d] == pyunits.convert(
+            return pyunits.convert(
                 (prop_in.cp_air * b.weather[d].pressure)
                 / (mw_ratio * b.weather[d].dh_vap_mass_solvent),
                 to_units=pyunits.kPa * pyunits.degK**-1,
             )
 
-        @self.Constraint(self.days_in_year, doc="Bowen ratio calculation")
-        def eq_bowen_ratio(b, d):
-            return b.bowen_ratio[d] == smooth_max(
+        # @self.Constraint(self.days_in_year, doc="Bowen ratio calculation")
+        # def eq_bowen_ratio(b, d):
+        #     return b.bowen_ratio[d] == smooth_max(
+        #         pyunits.convert(
+        #             b.psychrometric_constant[d]
+        #             * (
+        #                 (
+        #                     b.weather[d].temperature["Liq"]
+        #                     - b.weather[d].temperature["Vap"]
+        #                 )
+        #                 / (
+        #                     b.water_activity * b.weather[d].pressure_vap_sat["H2O"]
+        #                     - b.weather[d].pressure_vap["H2O"]
+        #                 )
+        #             ),
+        #             to_units=pyunits.dimensionless,
+        #         ),
+        #         1e-3,
+        #     )
+        
+
+
+        @self.Expression(self.days_in_year, doc="Bowen ratio calculation")
+        def bowen_ratio(b, d):
+            return smooth_max(
                 pyunits.convert(
                     b.psychrometric_constant[d]
                     * (
@@ -875,14 +909,14 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         for v, c in zip(self.net_radiation.values(), self.eq_net_radiation.values()):
             calculate_variable_from_constraint(v, c)
 
-        for v, c in zip(
-            self.psychrometric_constant.values(),
-            self.eq_psychrometric_constant.values(),
-        ):
-            calculate_variable_from_constraint(v, c)
+        # for v, c in zip(
+        #     self.psychrometric_constant.values(),
+        #     self.eq_psychrometric_constant.values(),
+        # ):
+        #     calculate_variable_from_constraint(v, c)
 
-        for v, c in zip(self.bowen_ratio.values(), self.eq_bowen_ratio.values()):
-            calculate_variable_from_constraint(v, c)
+        # for v, c in zip(self.bowen_ratio.values(), self.eq_bowen_ratio.values()):
+        #     calculate_variable_from_constraint(v, c)
 
         for v, c in zip(
             self.mass_flux_water_vapor.values(), self.eq_mass_flux_water_vapor.values()
