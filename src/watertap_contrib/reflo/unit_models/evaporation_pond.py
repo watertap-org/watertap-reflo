@@ -837,25 +837,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.eq_total_evaporative_area_required,
         )
 
-        state_args_out = deepcopy(state_args)
-        for k, v in state_args_out.items():
-            if k == "flow_mass_phase_comp":
-                for p, j in v.keys():
-                    if p == "Liq":
-                        if j == "H2O":
-                            state_args_out[k][(p, j)] = 0
-                        elif j == "TDS":
-                            state_args_out[k][(p, j)] = state_args[k][(p, j)] * 0.5
-                        else:
-                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
-                    if p == "Vap":
-                        if j == "H2O":
-                            state_args_out[k][(p, j)] = state_args[k][("Liq", j)]
-                        elif j == "Air":
-                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
-                        else:
-                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
-
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
