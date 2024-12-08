@@ -9,10 +9,9 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
-import math
+
 import pandas as pd
 import numpy as np
-from copy import deepcopy
 
 # Import Pyomo libraries
 from pyomo.environ import (
@@ -358,54 +357,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Factor to increase evaporation rate due to enhancement",
         )
 
-        # self.emissivity_air = Var(
-        #     self.days_in_year,
-        #     initialize=1,
-        #     bounds=(0, 1),
-        #     units=pyunits.dimensionless,
-        #     doc="Emissivity of air",
-        # )
-
-        # self.longwave_radiation_in = Var(
-        #     self.days_in_year,
-        #     initialize=10,
-        #     bounds=(0, None),
-        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-        #     doc="Incident longwave radiation",
-        # )
-
-        # self.net_shortwave_radiation_in = Var(
-        #     self.days_in_year,
-        #     initialize=10,
-        #     bounds=(0, None),
-        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-        #     doc="Net incident shortwave radiation",
-        # )
-
-        # self.net_longwave_radiation_in = Var(
-        #     self.days_in_year,
-        #     initialize=10,
-        #     bounds=(0, None),
-        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-        #     doc="Net incident longwave radiation",
-        # )
-
-        # self.net_longwave_radiation_out = Var(
-        #     self.days_in_year,
-        #     initialize=10,
-        #     bounds=(0, None),
-        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-        #     doc="Net outgoing longwave radiation",
-        # )
-
-        # self.net_solar_radiation = Var(
-        #     self.days_in_year,
-        #     initialize=10,
-        #     bounds=(0, None),
-        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-        #     doc="Net solar radiation for evaporation",
-        # )
-
         self.net_radiation = Var(
             self.days_in_year,
             initialize=10,
@@ -413,22 +364,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Net radiation for evaporation",
         )
-
-        # self.psychrometric_constant = Var(
-        #     self.days_in_year,
-        #     initialize=0.06,
-        #     bounds=(0, None),
-        #     units=pyunits.kPa * pyunits.degK**-1,
-        #     doc="Psychrometric constant",
-        # )
-
-        # self.bowen_ratio = Var(
-        #     self.days_in_year,
-        #     initialize=0.3,
-        #     bounds=(0, 2),
-        #     units=pyunits.dimensionless,
-        #     doc="Bowen ratio for BREB calculation of evaporation rate",
-        # )
 
         self.mass_flux_water_vapor = Var(
             self.days_in_year,
@@ -442,9 +377,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year,
             initialize=100,
             bounds=(0, None),
-            # units=pyunits.watt / pyunits.m**2,
             units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-            # units=pyunits.megajoule * pyunits.hr**-1 * pyunits.m**-2,
             doc="Net heat flux out of system (water, soil, ecosystem, etc.)",
         )
 
@@ -538,26 +471,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.year,
             )
 
-        # @self.Constraint(self.days_in_year)
-        # def eq_emissivity_air(b, d):
-        #     p_sat_kPa = pyunits.convert(
-        #         pyunits.convert(
-        #             b.weather[d].pressure_vap["H2O"], to_units=pyunits.kilopascal
-        #         )
-        #         * pyunits.kilopascal**-1,
-        #         to_units=pyunits.dimensionless,
-        #     )
-        #     temp_C = pyunits.convert(
-        #         (b.weather[d].temperature["Vap"] - 273.15 * pyunits.degK)
-        #         * pyunits.degK**-1,
-        #         to_units=pyunits.dimensionless,
-        #     )
-        #     air_temp_C = smooth_max(temp_C, 0.1)
-
-        #     return b.emissivity_air[d] == smooth_min(
-        #         1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99
-        #     )
-
         @self.Expression(self.days_in_year)
         def emissivity_air(b, d):
             p_sat_kPa = pyunits.convert(
@@ -574,19 +487,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             )
             air_temp_C = smooth_max(temp_C, 0.1)
 
-            return smooth_min(
-                1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99
-            )
-        
-        # @self.Constraint(self.days_in_year)
-        # def eq_longwave_radiation_in(b, d):
-        #     return b.longwave_radiation_in[d] == pyunits.convert(
-        #         b.emissivity_air[d]
-        #         * Constants.stefan_constant
-        #         * b.weather[d].temperature["Vap"] ** 4,
-        #         to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-        #     )
-        
+            return smooth_min(1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99)
+
         @self.Expression(self.days_in_year)
         def longwave_radiation_in(b, d):
             return pyunits.convert(
@@ -596,40 +498,14 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             )
 
-        # @self.Constraint(self.days_in_year)
-        # def eq_net_shortwave_radiation_in(b, d):
-        #     return (
-        #         b.net_shortwave_radiation_in[d]
-        #         == (1 - b.shortwave_albedo) * b.shortwave_radiation[d]
-        #     )
-
         @self.Expression(self.days_in_year)
         def net_shortwave_radiation_in(b, d):
-            return ((1 - b.shortwave_albedo) * b.shortwave_radiation[d]
-            )
-
-
-        # @self.Constraint(self.days_in_year)
-        # def eq_net_longwave_radiation_in(b, d):
-        #     return (
-        #         b.net_longwave_radiation_in[d]
-        #         == (1 - b.longwave_albedo) * b.longwave_radiation_in[d]
-        #     )
+            return (1 - b.shortwave_albedo) * b.shortwave_radiation[d]
 
         @self.Expression(self.days_in_year)
         def net_longwave_radiation_in(b, d):
-            return ((1 - b.longwave_albedo) * b.longwave_radiation_in[d]
-            )
-        
-        # @self.Constraint(self.days_in_year)
-        # def eq_net_longwave_radiation_out(b, d):
-        #     return b.net_longwave_radiation_out[d] == pyunits.convert(
-        #         b.emissivity_water
-        #         * Constants.stefan_constant
-        #         * b.weather[d].temperature["Liq"] ** 4,
-        #         to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-        #     )
-        
+            return (1 - b.longwave_albedo) * b.longwave_radiation_in[d]
+
         @self.Expression(self.days_in_year)
         def net_longwave_radiation_out(b, d):
             return pyunits.convert(
@@ -639,40 +515,13 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             )
 
-        # @self.Constraint(self.days_in_year)
-        # def eq_net_solar_radiation(b, d):
-        #     return (
-        #         b.net_solar_radiation[d]
-        #         == b.net_shortwave_radiation_in[d]
-        #         + b.net_longwave_radiation_in[d]
-        #         - b.net_longwave_radiation_out[d]
-        #     )
-
-
         @self.Expression(self.days_in_year)
         def net_solar_radiation(b, d):
-            return (b.net_shortwave_radiation_in[d]
+            return (
+                b.net_shortwave_radiation_in[d]
                 + b.net_longwave_radiation_in[d]
                 - b.net_longwave_radiation_out[d]
             )
-
-        @self.Constraint(self.days_in_year)
-        def eq_net_radiation(b, d):
-            return b.net_radiation[d] == smooth_max(
-                b.net_solar_radiation[d] - b.net_heat_flux_out[d], 0.01
-            )
-
-        # @self.Constraint(self.days_in_year, doc="Psychrometric constant equation")
-        # def eq_psychrometric_constant(b, d):
-        #     mw_ratio = pyunits.convert(
-        #         prop_in.mw_comp["H2O"] / prop_in.mw_comp["Air"],
-        #         to_units=pyunits.dimensionless,
-        #     )
-        #     return b.psychrometric_constant[d] == pyunits.convert(
-        #         (prop_in.cp_air * b.weather[d].pressure)
-        #         / (mw_ratio * b.weather[d].dh_vap_mass_solvent),
-        #         to_units=pyunits.kPa * pyunits.degK**-1,
-        #     )
 
         @self.Expression(self.days_in_year, doc="Psychrometric constant equation")
         def psychrometric_constant(b, d):
@@ -685,7 +534,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 / (mw_ratio * b.weather[d].dh_vap_mass_solvent),
                 to_units=pyunits.kPa * pyunits.degK**-1,
             )
-
 
         @self.Expression(self.days_in_year, doc="Bowen ratio calculation")
         def bowen_ratio(b, d):
@@ -705,6 +553,12 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                     to_units=pyunits.dimensionless,
                 ),
                 1e-3,
+            )
+
+        @self.Constraint(self.days_in_year)
+        def eq_net_radiation(b, d):
+            return b.net_radiation[d] == smooth_max(
+                b.net_solar_radiation[d] - b.net_heat_flux_out[d], 0.01
             )
 
         @self.Constraint(
@@ -815,9 +669,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             state_args=state_args,
             hold_state=False,
         )
-        init_log.info("Initialization of weather Complete.")
+        init_log.info("Initialization of Weather Complete.")
 
-        # ---------------------------------------------------------------------
         flags = self.properties_in.initialize(
             outlvl=outlvl,
             optarg=optarg,
@@ -826,8 +679,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             hold_state=True,
         )
         init_log.info("Initialization Step 1 Complete.")
-
-
 
         for d, c in self.eq_water_temp.items():
             calculate_variable_from_constraint(self.weather[d].temperature["Liq"], c)
@@ -839,7 +690,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         for v, c in zip(self.net_radiation.values(), self.eq_net_radiation.values()):
             calculate_variable_from_constraint(v, c)
-
 
         for v, c in zip(
             self.mass_flux_water_vapor.values(), self.eq_mass_flux_water_vapor.values()
@@ -866,10 +716,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         self.properties_in.release_state(flags, outlvl=outlvl)
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
 
-        # self.number_evaporation_ponds.unfix()
-
-        # if not check_optimal_termination(res):
-        #     raise InitializationError(f"Unit model {self.name} failed to initialize.")
+        if not check_optimal_termination(res):
+            raise InitializationError(f"Unit model {self.name} failed to initialize.")
 
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
