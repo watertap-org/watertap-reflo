@@ -283,7 +283,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     - effect.temperature_operating,
                     doc=f"Change in temperature at inlet for effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_delta_temperature_inlet_effect_{n}", del_temp_in_constr
                 )
 
@@ -293,7 +293,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     - effect.properties_in[0].temperature,
                     doc=f"Change in temperature at outlet for effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_delta_temperature_outlet_effect_{n}", del_temp_out_constr
                 )
 
@@ -304,14 +304,14 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     * effect.delta_temperature[0],
                     doc=f"Heat transfer equation for effect {n}",
                 )
-                effect.add_component(f"eq_heat_transfer_effect_{n}", hx_constr)
+                self.add_component(f"eq_heat_transfer_effect_{n}", hx_constr)
 
                 energy_flow_constr = Constraint(
                     expr=effect.work_mechanical[0]
                     == prev_effect.energy_flow_superheated_vapor,
                     doc=f"Energy supplied to effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_energy_for_effect_{n}_from_effect_{n - 1}", energy_flow_constr
                 )
 
