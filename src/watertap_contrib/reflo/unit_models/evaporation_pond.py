@@ -538,8 +538,28 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.year,
             )
 
-        @self.Constraint(self.days_in_year)
-        def eq_emissivity_air(b, d):
+        # @self.Constraint(self.days_in_year)
+        # def eq_emissivity_air(b, d):
+        #     p_sat_kPa = pyunits.convert(
+        #         pyunits.convert(
+        #             b.weather[d].pressure_vap["H2O"], to_units=pyunits.kilopascal
+        #         )
+        #         * pyunits.kilopascal**-1,
+        #         to_units=pyunits.dimensionless,
+        #     )
+        #     temp_C = pyunits.convert(
+        #         (b.weather[d].temperature["Vap"] - 273.15 * pyunits.degK)
+        #         * pyunits.degK**-1,
+        #         to_units=pyunits.dimensionless,
+        #     )
+        #     air_temp_C = smooth_max(temp_C, 0.1)
+
+        #     return b.emissivity_air[d] == smooth_min(
+        #         1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99
+        #     )
+
+        @self.Expression(self.days_in_year)
+        def emissivity_air(b, d):
             p_sat_kPa = pyunits.convert(
                 pyunits.convert(
                     b.weather[d].pressure_vap["H2O"], to_units=pyunits.kilopascal
@@ -554,10 +574,10 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             )
             air_temp_C = smooth_max(temp_C, 0.1)
 
-            return b.emissivity_air[d] == smooth_min(
+            return smooth_min(
                 1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99
             )
-
+        
         @self.Constraint(self.days_in_year)
         def eq_longwave_radiation_in(b, d):
             return b.longwave_radiation_in[d] == pyunits.convert(
@@ -779,8 +799,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             # self.weather[d].temperature["Liq"].fix()
             # c.deactivate()
 
-        for v, c in zip(self.emissivity_air.values(), self.eq_emissivity_air.values()):
-            calculate_variable_from_constraint(v, c)
+        # for v, c in zip(self.emissivity_air.values(), self.eq_emissivity_air.values()):
+        #     calculate_variable_from_constraint(v, c)
 
         for v, c in zip(
             self.longwave_radiation_in.values(), self.eq_longwave_radiation_in.values()
