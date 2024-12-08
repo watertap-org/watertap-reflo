@@ -940,20 +940,20 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.evaporation_rate) is None:
             iscale.set_scaling_factor(self.evaporation_rate, 1e8)
 
-        # if iscale.get_scaling_factor(self.solids_precipitation_rate) is None:
-        #     iscale.set_scaling_factor(self.solids_precipitation_rate, 1e2)
+        if iscale.get_scaling_factor(self.solids_precipitation_rate) is None:
+            iscale.set_scaling_factor(self.solids_precipitation_rate, 1e2)
 
-        # if iscale.get_scaling_factor(self.total_evaporative_area_required) is None:
-        #     iscale.set_scaling_factor(self.total_evaporative_area_required, 1e-4)
+        if iscale.get_scaling_factor(self.total_evaporative_area_required) is None:
+            iscale.set_scaling_factor(self.total_evaporative_area_required, 1e-4)
 
-        # if iscale.get_scaling_factor(self.number_evaporation_ponds) is None:
-        #     iscale.set_scaling_factor(self.number_evaporation_ponds, 0.1)
+        if iscale.get_scaling_factor(self.number_evaporation_ponds) is None:
+            iscale.set_scaling_factor(self.number_evaporation_ponds, 0.1)
 
-        # if iscale.get_scaling_factor(self.evaporative_area_per_pond) is None:
-        #     iscale.set_scaling_factor(self.evaporative_area_per_pond, 1e-3)
+        if iscale.get_scaling_factor(self.evaporative_area_per_pond) is None:
+            iscale.set_scaling_factor(self.evaporative_area_per_pond, 1e-3)
 
-        # if iscale.get_scaling_factor(self.evaporation_pond_area) is None:
-        #     iscale.set_scaling_factor(self.evaporation_pond_area, 1e-3)
+        if iscale.get_scaling_factor(self.evaporation_pond_area) is None:
+            iscale.set_scaling_factor(self.evaporation_pond_area, 1e-3)
 
     def _get_stream_table_contents(self, time_point=0):
 
