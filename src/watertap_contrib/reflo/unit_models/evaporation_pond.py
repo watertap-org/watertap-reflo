@@ -65,6 +65,13 @@ area_correction_factor_param_dict = {
     4: (1.5357, -0.092),
 }
 
+default_weather_data_column_dict = {
+    "pressure": "Pressure",
+    "temperature": "Temperature",
+    "shortwave_radiation": "GHI",
+    "relative_humidity": "Relative Humidity",
+}
+
 
 @declare_process_block_class("EvaporationPond")
 class EvaporationPondData(InitializationMixin, UnitModelBlockData):
@@ -115,8 +122,23 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         ConfigValue(
             default=useDefault,
             domain=str,
-            description="",
+            description="Path to weather file with a years worth of hourly data.",
             doc="""""",
+        ),
+    )
+
+    CONFIG.declare(
+        "weather_data_column_dict",
+        ConfigValue(
+            default=default_weather_data_column_dict,
+            domain=dict,
+            description="dict of key, value pairs used to access the required weather variables in the weather file",
+            doc="""Dictionary of key, value pairs used to access the required weather variables,
+    **pressure** - Atmospheric pressure, kPa
+    **temperature** - Air temperature, C,
+    **shortwave_radiation** - Shortwave radiation, W/m2,
+    **relative_humidity** - Relative humidity (%)
+    """,
         ),
     )
 
@@ -175,7 +197,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             raise ConfigurationError(
                 "TDS must be present as a component in the influent stream."
             )
-
+        weather_col_dict = self.config.weather_data_column_dict
         self.weather_data = pd.read_csv(self.config.weather_data_path)
         self.weather_data["day_group"] = np.arange(len(self.weather_data)) // 24
 
@@ -205,7 +227,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         )
 
         for day, pres in enumerate(
-            self.weather_data.groupby("day_group").Pressure.mean()
+            self.weather_data.groupby("day_group")[
+                self.config.weather_data_column_dict["pressure"]
+            ].mean()
         ):
             pres_Pa = pyunits.convert(pres * pyunits.mbar, to_units=pyunits.Pa)
             self.weather[day].pressure.fix(pres_Pa)
@@ -215,10 +239,19 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         self.weather[:].temperature["Liq"].setlb(200)
 
         for day, temp in enumerate(
-            self.weather_data.groupby("day_group").Temperature.mean()
+            self.weather_data.groupby("day_group")[
+                self.config.weather_data_column_dict["temperature"]
+            ].mean()
         ):
             temp_K = temp + 273.15
             self.weather[day].temperature["Vap"].fix(temp_K)
+
+        for day, rh in enumerate(
+            self.weather_data.groupby("day_group")[
+                self.config.weather_data_column_dict["relative_humidity"]
+            ].mean()
+        ):
+            self.weather[day].relative_humidity["H2O"].set_value(rh / 100)
 
         @self.Constraint(self.days_in_year)
         def eq_water_temp(b, d):
@@ -275,6 +308,13 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Solids precipitation rate intercept",
         )
 
+        self.differential_head = Param(
+            initialize=40,
+            mutable=True,
+            units=pyunits.m,
+            doc="Differential head for pumping energy",
+        )
+
         self.dens_solids = Param(
             initialize=2.16,
             mutable=True,
@@ -284,8 +324,13 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         self.shortwave_radiation = Param(
             self.days_in_year,
-            initialize=self.weather_data.groupby("day_group").GHI.sum(),
-            units=pyunits.W * pyunits.m**-2,
+            # initialize=self.weather_data.groupby("day_group").GHI.sum() * 0.0864,
+            initialize=self.weather_data.groupby("day_group")[
+                self.config.weather_data_column_dict["shortwave_radiation"]
+            ].mean()
+            * 0.0864,
+            # units=pyunits.W * pyunits.m**-2,
+            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Shortwave radiation at location (GHI)",
         )
 
@@ -343,7 +388,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year,
             initialize=10,
             bounds=(0, None),
-            units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Incident longwave radiation",
         )
 
@@ -351,7 +398,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year,
             initialize=10,
             bounds=(0, None),
-            units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Net incident shortwave radiation",
         )
 
@@ -359,7 +408,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year,
             initialize=10,
             bounds=(0, None),
-            units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Net incident longwave radiation",
         )
 
@@ -367,7 +418,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year,
             initialize=10,
             bounds=(0, None),
-            units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Net outgoing longwave radiation",
         )
 
@@ -375,7 +428,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year,
             initialize=10,
             bounds=(0, None),
-            units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Net solar radiation for evaporation",
         )
 
@@ -383,7 +438,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year,
             initialize=10,
             bounds=(0, None),
-            units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.W * pyunits.m**-2,
+            # units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Net radiation for evaporation",
         )
 
@@ -403,24 +460,25 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Bowen ratio for BREB calculation of evaporation rate",
         )
 
-        self.water_activity = Var(
-            initialize=10,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Water activity",
-        )
+        # self.water_activity = Var(
+        #     initialize=10,
+        #     bounds=(0, None),
+        #     units=pyunits.dimensionless,
+        #     doc="Water activity",
+        # )
 
-        self.evaporation_rate = Var(
-            self.days_in_year,
-            initialize=0.03,
-            bounds=(0, None),
-            units=pyunits.m / pyunits.s,
-            doc="Evaporation rate",
-        )
+        # self.evaporation_rate = Var(
+        #     self.days_in_year,
+        #     initialize=0.03,
+        #     bounds=(0, None),
+        #     units=pyunits.m / pyunits.s,
+        #     doc="Evaporation rate",
+        # )
+
         self.mass_flux_water_vapor = Var(
             self.days_in_year,
             initialize=1e-5,
-            # bounds=(None, 1e-3),
+            bounds=(1e-8, 1e-3),
             units=pyunits.kg / (pyunits.m**2 * pyunits.s),
             doc="Mass flux of water vapor evaporated according using BREB method",
         )
@@ -429,25 +487,79 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year,
             initialize=100,
             bounds=(0, None),
-            units=pyunits.watt / pyunits.m**2,
+            # units=pyunits.watt / pyunits.m**2,
+            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            # units=pyunits.megajoule * pyunits.hr**-1 * pyunits.m**-2,
             doc="Net heat flux out of system (water, soil, ecosystem, etc.)",
         )
 
-        @self.Constraint()
-        def eq_water_activity(b):
+        self.area_correction_factor = Var(
+            initialize=1,
+            bounds=(0.99, 10),
+            units=pyunits.dimensionless,
+            doc="Area correction factor",
+        )
+
+        self.total_evaporative_area_required = Var(
+            initialize=100000,
+            bounds=(0, None),
+            units=pyunits.m**2,
+            doc="Total evaporative area required",
+        )
+
+        self.evaporative_area_per_pond = Var(
+            initialize=10000,
+            bounds=(0, 405000),
+            units=pyunits.m**2,
+            doc="Evaporative area required per pond",
+        )
+
+        self.evaporation_pond_area = Var(
+            initialize=10000,
+            bounds=(0, None),
+            units=pyunits.m**2,
+            doc="Area of single evaporation pond",
+        )
+
+        self.number_evaporation_ponds = Var(
+            initialize=1,
+            bounds=(1, None),
+            units=pyunits.dimensionless,
+            doc="Number of evaporation ponds",
+        )
+
+        self.solids_precipitation_rate = Var(
+            initialize=0.01,
+            bounds=(0, None),
+            units=pyunits.feet / pyunits.year,
+            doc="Rate at which solids precipitate on bottom of pond",
+        )
+
+        
+        @self.Expression(doc="Differential pressure required for pumping")
+        def differential_pressure(b):
+            return pyunits.convert(
+                prop_in.dens_mass_phase["Liq"]
+                * Constants.acceleration_gravity
+                * b.differential_head,
+                to_units=pyunits.Pa,
+            )
+        
+        @self.Expression(doc="Water activity")
+        def water_activity(b):
             salinity = pyunits.convert(
                 prop_in.conc_mass_phase_comp["Liq", "TDS"]
                 * pyunits.kg**-1
                 * pyunits.m**3,
                 to_units=pyunits.dimensionless,
             )
-            return b.water_activity == -0.00056678 * salinity + 0.9985307
+            return -0.00056678 * salinity + 0.9985307
 
         @self.Constraint(self.days_in_year)
         def eq_emissivity_air(b, d):
             p_sat_kPa = pyunits.convert(
                 pyunits.convert(
-                    b.weather[d].pressure_vap_sat["H2O"], to_units=pyunits.kilopascal
+                    b.weather[d].pressure_vap["H2O"], to_units=pyunits.kilopascal
                 )
                 * pyunits.kilopascal**-1,
                 to_units=pyunits.dimensionless,
@@ -462,6 +574,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             return b.emissivity_air[d] == smooth_min(
                 1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99
             )
+        
 
         @self.Constraint(self.days_in_year)
         def eq_longwave_radiation_in(b, d):
@@ -469,7 +582,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 b.emissivity_air[d]
                 * Constants.stefan_constant
                 * b.weather[d].temperature["Vap"] ** 4,
-                to_units=pyunits.watt * pyunits.m**-2,
+                # to_units=pyunits.watt * pyunits.m**-2,
+                to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             )
 
         @self.Constraint(self.days_in_year)
@@ -492,7 +606,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 b.emissivity_water
                 * Constants.stefan_constant
                 * b.weather[d].temperature["Liq"] ** 4,
-                to_units=pyunits.watt * pyunits.m**-2,
+                # to_units=pyunits.watt * pyunits.m**-2,
+                to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             )
 
         @self.Constraint(self.days_in_year)
@@ -507,7 +622,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(self.days_in_year)
         def eq_net_radiation(b, d):
             return (
-                b.net_radiation[d] == b.net_solar_radiation[d] - b.net_heat_flux_out[d]
+                b.net_radiation[d] == smooth_max(b.net_solar_radiation[d] - b.net_heat_flux_out[d], 0.01)
             )
 
         @self.Constraint(self.days_in_year, doc="Psychrometric constant equation")
@@ -567,8 +682,331 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 * prop_in.cp_mass_solvent["Liq"]
                 * b.evaporation_pond_depth
                 * daily_temperature_change,
-                to_units=pyunits.watt / pyunits.m**2,
+                # to_units=pyunits.watt / pyunits.m**2,
+                to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+                # to_units=pyunits.megajoule * pyunits.hr**-1 * pyunits.m**-2,
             )
+
+        @self.Constraint(doc="Air temperature is isothermal")
+        def eq_isothermal(b):
+            return prop_in.temperature["Vap"] == prop_out.temperature["Vap"]
+
+        @self.Constraint(doc="Isobaric constraint")
+        def eq_isobaric(b):
+            return prop_in.pressure == prop_out.pressure
+
+        # @self.Constraint(self.days_in_year, doc="Evaporation rate")
+        # def eq_evaporation_rate(b, d):
+        #     return b.evaporation_rate[d] == pyunits.convert(
+        #         b.mass_flux_water_vapor[d] / prop_in.dens_mass_phase["Liq"],
+        #         to_units=pyunits.m / pyunits.s,
+        #     )
+
+        @self.Expression(self.days_in_year, doc="Evaporation rate")
+        def evaporation_rate(b, d):
+            return pyunits.convert(
+                b.mass_flux_water_vapor[d] / prop_in.dens_mass_phase["Liq"],
+                to_units=pyunits.m / pyunits.s,
+            )
+
+        @self.Expression(doc="Average mass flux of water vapor leaving pond over year")
+        def mass_flux_water_vapor_average(b):
+            return sum(b.mass_flux_water_vapor[d] for d in self.days_in_year) / 365
+
+        @self.Expression(doc="Evaporative area per pond in acres")
+        def evaporative_area_acre(b):
+            return pyunits.convert(b.evaporative_area_per_pond, to_units=pyunits.acre)
+        
+
+        @self.Expression(doc="Total pond area in acres")
+        def total_pond_area_acre(b):
+            return pyunits.convert(
+                b.evaporation_pond_area * b.number_evaporation_ponds,
+                to_units=pyunits.acre,
+            )
+        
+        @self.Expression(doc="Mass flow of precipitated solids")
+        def mass_flow_precipitate(b):
+            return pyunits.convert(
+                b.total_pond_area_acre * b.solids_precipitation_rate * b.dens_solids,
+                to_units=pyunits.kg / pyunits.year,
+            )
+        
+        @self.Constraint(doc="Total evaporative area required")
+        def eq_total_evaporative_area_required(b):
+            return (
+                b.total_evaporative_area_required * b.mass_flux_water_vapor_average
+                == prop_in.flow_mass_phase_comp["Liq", "H2O"]
+            )
+
+        @self.Constraint(doc="Evaporation pond area")
+        def eq_evaporation_pond_area(b):
+            return (
+                b.evaporation_pond_area
+                == b.evaporative_area_per_pond * b.area_correction_factor
+            )
+
+        @self.Constraint(doc="Total evaporation pond area")
+        def eq_evaporative_area_per_pond(b):
+            return (
+                b.number_evaporation_ponds * b.evaporative_area_per_pond
+                == b.total_evaporative_area_required
+            )
+
+        @self.Constraint(doc="Area correction factor calculation")
+        def eq_area_correction_factor(b):
+            evap_per_pond_acre_dim = pyunits.convert(
+                b.evaporative_area_per_pond * pyunits.acre**-1,
+                to_units=pyunits.dimensionless,
+            )
+            return (
+                b.area_correction_factor
+                == b.area_correction_factor_base
+                * evap_per_pond_acre_dim**b.area_correction_factor_exp
+            )
+
+
+        @self.Constraint(doc="Solids precipitation rate")
+        def eq_solids_precipitation_rate(b):
+            tds_in_dim = pyunits.convert(
+                prop_in.conc_mass_phase_comp["Liq", "TDS"] * pyunits.g**-1 * pyunits.L,
+                to_units=pyunits.dimensionless,
+            )
+            return (
+                b.solids_precipitation_rate
+                == b.solids_precipitation_rate_a1 * tds_in_dim**2
+                + b.solids_precipitation_rate_a2 * tds_in_dim
+                + b.solids_precipitation_rate_intercept
+            )
+    def initialize(
+        self,
+        state_args=None,
+        outlvl=idaeslog.NOTSET,
+        solver=None,
+        optarg=None,
+    ):
+        """
+        General wrapper for initialization routines
+
+        Keyword Arguments:
+            state_args : a dict of arguments to be passed to the property
+                         package(s) to provide an initial state for
+                         initialization (see documentation of the specific
+                         property package) (default = {}).
+            outlvl : sets output level of initialization routine
+            optarg : solver options dictionary object (default=None)
+            solver : str indicating which solver to use during
+                     initialization (default = None)
+
+        Returns: None
+        """
+        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
+        solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
+
+        opt = get_solver(solver, optarg)
+
+        self.weather.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+            hold_state=False,
+        )
+        init_log.info("Initialization of weather Complete.")
+
+        # ---------------------------------------------------------------------
+        flags = self.properties_in.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args,
+            hold_state=True,
+        )
+        init_log.info("Initialization Step 1a Complete.")
+
+        # ---------------------------------------------------------------------
+        # Initialize other state blocks
+        # Set state_args from inlet state
+        if state_args is None:
+            self.state_args = state_args = {}
+            state_dict = self.properties_in[
+                self.flowsheet().config.time.first()
+            ].define_port_members()
+
+            for k in state_dict.keys():
+                if state_dict[k].is_indexed():
+                    state_args[k] = {}
+                    for m in state_dict[k].keys():
+                        state_args[k][m] = state_dict[k][m].value
+                else:
+                    state_args[k] = state_dict[k].value
+
+        for d, c in self.eq_water_temp.items():
+            calculate_variable_from_constraint(self.weather[d].temperature["Liq"], c)
+            # self.weather[d].temperature["Liq"].fix()
+            # c.deactivate()
+
+        for v, c in zip(self.emissivity_air.values(), self.eq_emissivity_air.values()):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(
+            self.longwave_radiation_in.values(), self.eq_longwave_radiation_in.values()
+        ):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(
+            self.net_longwave_radiation_in.values(), self.eq_net_longwave_radiation_in.values()
+        ):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(
+            self.net_shortwave_radiation_in.values(),
+            self.eq_net_shortwave_radiation_in.values(),
+        ):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(
+            self.net_longwave_radiation_out.values(),
+            self.eq_net_longwave_radiation_out.values(),
+        ):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(
+            self.net_solar_radiation.values(), self.eq_net_solar_radiation.values()
+        ):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(
+            self.net_heat_flux_out.values(), self.eq_net_heat_flux_out.values()
+        ):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(self.net_radiation.values(), self.eq_net_radiation.values()):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(
+            self.psychrometric_constant.values(),
+            self.eq_psychrometric_constant.values(),
+        ):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(self.bowen_ratio.values(), self.eq_bowen_ratio.values()):
+            calculate_variable_from_constraint(v, c)
+
+        for v, c in zip(self.mass_flux_water_vapor.values(), self.eq_mass_flux_water_vapor.values()):
+            calculate_variable_from_constraint(v, c)
+
+        calculate_variable_from_constraint(
+            self.total_evaporative_area_required,
+            self.eq_total_evaporative_area_required,
+        )
+
+        state_args_out = deepcopy(state_args)
+        for k, v in state_args_out.items():
+            if k == "flow_mass_phase_comp":
+                for p, j in v.keys():
+                    if p == "Liq":
+                        if j == "H2O":
+                            state_args_out[k][(p, j)] = 0
+                        elif j == "TDS":
+                            state_args_out[k][(p, j)] = state_args[k][(p, j)] * 0.5
+                        else:
+                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
+                    if p == "Vap":
+                        if j == "H2O":
+                            state_args_out[k][(p, j)] = state_args[k][("Liq", j)]
+                        elif j == "Air":
+                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
+                        else:
+                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
+
+        self.properties_out.initialize(
+            outlvl=outlvl,
+            optarg=optarg,
+            solver=solver,
+            state_args=state_args_out,
+        )
+        init_log.info("Initialization Step 1b Complete.")
+
+        # Solve unit
+        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
+            res = opt.solve(self, tee=slc.tee)
+            # nponds = math.floor(self.number_evaporation_ponds.value)
+            # if nponds < 1:
+            #     nponds = 1
+            # self.number_evaporation_ponds.fix(nponds)
+            # res = opt.solve(self, tee=slc.tee)
+            if not check_optimal_termination(res):
+                init_log.warning(
+                    f"Trouble solving unit model {self.name}, trying one more time"
+                )
+                res = opt.solve(self, tee=slc.tee)
+
+        init_log.info("Initialization Step 2 {}.".format(idaeslog.condition(res)))
+
+        # Release Inlet state
+        self.properties_in.release_state(flags, outlvl=outlvl)
+        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+
+        self.number_evaporation_ponds.unfix()
+
+        # if not check_optimal_termination(res):
+        #     raise InitializationError(f"Unit model {self.name} failed to initialize.")
+
+    def calculate_scaling_factors(self):
+        super().calculate_scaling_factors()
+
+        if iscale.get_scaling_factor(self.net_heat_flux_out) is None:
+            iscale.set_scaling_factor(self.net_heat_flux_out, 0.01)
+
+        if iscale.get_scaling_factor(self.area_correction_factor) is None:
+            iscale.set_scaling_factor(self.area_correction_factor, 1)
+
+        if iscale.get_scaling_factor(self.bowen_ratio) is None:
+            iscale.set_scaling_factor(self.bowen_ratio, 10)
+
+        if iscale.get_scaling_factor(self.psychrometric_constant) is None:
+            iscale.set_scaling_factor(self.psychrometric_constant, 100)
+
+        if iscale.get_scaling_factor(self.mass_flux_water_vapor) is None:
+            iscale.set_scaling_factor(self.mass_flux_water_vapor, 1e5)
+
+        if iscale.get_scaling_factor(self.evaporation_rate) is None:
+            iscale.set_scaling_factor(self.evaporation_rate, 1e8)
+
+        # if iscale.get_scaling_factor(self.solids_precipitation_rate) is None:
+        #     iscale.set_scaling_factor(self.solids_precipitation_rate, 1e2)
+
+        # if iscale.get_scaling_factor(self.total_evaporative_area_required) is None:
+        #     iscale.set_scaling_factor(self.total_evaporative_area_required, 1e-4)
+
+        # if iscale.get_scaling_factor(self.number_evaporation_ponds) is None:
+        #     iscale.set_scaling_factor(self.number_evaporation_ponds, 0.1)
+
+        # if iscale.get_scaling_factor(self.evaporative_area_per_pond) is None:
+        #     iscale.set_scaling_factor(self.evaporative_area_per_pond, 1e-3)
+
+        # if iscale.get_scaling_factor(self.evaporation_pond_area) is None:
+        #     iscale.set_scaling_factor(self.evaporation_pond_area, 1e-3)
+
+    def _get_stream_table_contents(self, time_point=0):
+
+        return create_stream_table_dataframe(
+            {
+                "Feed Inlet": self.inlet,
+                "Liquid Outlet": self.outlet,
+                "Precipitated Solids Outlet": self.solids,
+            },
+            time_point=time_point,
+        )
+
+    def _get_performance_contents(self, time_point=0):
+        var_dict = dict()
+        return {"vars": var_dict}
+
+    @property
+    def default_costing_method(self):
+        return cost_evaporation_pond
 
         # self.pressure_atm = Param(
         #     initialize=101325,
@@ -764,19 +1202,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         #         == prop_out.flow_mass_phase_comp["Vap", "Air"]
         #     )
 
-        # @self.Constraint(doc="Solids precipitation rate")
-        # def eq_solids_precipitation_rate(b):
-        #     tds_in_dim = pyunits.convert(
-        #         prop_in.conc_mass_phase_comp["Liq", "TDS"] * pyunits.g**-1 * pyunits.L,
-        #         to_units=pyunits.dimensionless,
-        #     )
-        #     return (
-        #         b.solids_precipitation_rate
-        #         == b.solids_precipitation_rate_a1 * tds_in_dim**2
-        #         + b.solids_precipitation_rate_a2 * tds_in_dim
-        #         + b.solids_precipitation_rate_intercept
-        #     )
-
         # @self.Constraint(doc="Area correction factor calculation")
         # def eq_area_correction_factor(b):
         #     evap_per_pond_acre_dim = pyunits.convert(
@@ -884,186 +1309,3 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         #         b.number_evaporation_ponds * b.evaporative_area_per_pond
         #         == b.total_evaporative_area_required
         #     )
-
-    def initialize(
-        self,
-        state_args=None,
-        outlvl=idaeslog.NOTSET,
-        solver=None,
-        optarg=None,
-    ):
-        """
-        General wrapper for initialization routines
-
-        Keyword Arguments:
-            state_args : a dict of arguments to be passed to the property
-                         package(s) to provide an initial state for
-                         initialization (see documentation of the specific
-                         property package) (default = {}).
-            outlvl : sets output level of initialization routine
-            optarg : solver options dictionary object (default=None)
-            solver : str indicating which solver to use during
-                     initialization (default = None)
-
-        Returns: None
-        """
-        init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
-        solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="unit")
-
-        opt = get_solver(solver, optarg)
-
-        # ---------------------------------------------------------------------
-        flags = self.properties_in.initialize(
-            outlvl=outlvl,
-            optarg=optarg,
-            solver=solver,
-            state_args=state_args,
-            hold_state=True,
-        )
-        init_log.info("Initialization Step 1a Complete.")
-
-        # ---------------------------------------------------------------------
-        # Initialize other state blocks
-        # Set state_args from inlet state
-        if state_args is None:
-            self.state_args = state_args = {}
-            state_dict = self.properties_in[
-                self.flowsheet().config.time.first()
-            ].define_port_members()
-
-            for k in state_dict.keys():
-                if state_dict[k].is_indexed():
-                    state_args[k] = {}
-                    for m in state_dict[k].keys():
-                        state_args[k][m] = state_dict[k][m].value
-                else:
-                    state_args[k] = state_dict[k].value
-
-        calculate_variable_from_constraint(
-            self.properties_out[0].temperature["Liq"],
-            self.eq_water_temperature_constraint,
-        )
-        calculate_variable_from_constraint(
-            self.net_heat_flux_out, self.eq_net_heat_flux_out
-        )
-        calculate_variable_from_constraint(
-            self.psychrometric_constant, self.eq_psychrometric_constant
-        )
-        calculate_variable_from_constraint(self.bowen_ratio, self.eq_bowen_ratio)
-        calculate_variable_from_constraint(
-            self.net_heat_flux_out, self.eq_net_heat_flux_out
-        )
-        calculate_variable_from_constraint(
-            self.mass_flux_water_vapor, self.eq_mass_flux_water_vapor
-        )
-        calculate_variable_from_constraint(
-            self.total_evaporative_area_required,
-            self.eq_total_evaporative_area_required,
-        )
-
-        state_args_out = deepcopy(state_args)
-        for k, v in state_args_out.items():
-            if k == "flow_mass_phase_comp":
-                for p, j in v.keys():
-                    if p == "Liq":
-                        if j == "H2O":
-                            state_args_out[k][(p, j)] = 0
-                        elif j == "TDS":
-                            state_args_out[k][(p, j)] = state_args[k][(p, j)] * 0.5
-                        else:
-                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
-                    if p == "Vap":
-                        if j == "H2O":
-                            state_args_out[k][(p, j)] = state_args[k][("Liq", j)]
-                        elif j == "Air":
-                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
-                        else:
-                            state_args_out[k][(p, j)] = state_args[k][(p, j)]
-
-        self.properties_out.initialize(
-            outlvl=outlvl,
-            optarg=optarg,
-            solver=solver,
-            state_args=state_args_out,
-        )
-        init_log.info("Initialization Step 1b Complete.")
-
-        # Solve unit
-        with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
-            res = opt.solve(self, tee=slc.tee)
-            nponds = math.floor(self.number_evaporation_ponds.value)
-            if nponds < 1:
-                nponds = 1
-            self.number_evaporation_ponds.fix(nponds)
-            res = opt.solve(self, tee=slc.tee)
-            if not check_optimal_termination(res):
-                init_log.warning(
-                    f"Trouble solving unit model {self.name}, trying one more time"
-                )
-                res = opt.solve(self, tee=slc.tee)
-
-        init_log.info("Initialization Step 2 {}.".format(idaeslog.condition(res)))
-
-        # Release Inlet state
-        self.properties_in.release_state(flags, outlvl=outlvl)
-        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
-
-        self.number_evaporation_ponds.unfix()
-
-        if not check_optimal_termination(res):
-            raise InitializationError(f"Unit model {self.name} failed to initialize.")
-
-    def calculate_scaling_factors(self):
-        super().calculate_scaling_factors()
-
-        # if iscale.get_scaling_factor(self.net_heat_flux_out) is None:
-        #     iscale.set_scaling_factor(self.net_heat_flux_out, 0.01)
-
-        # if iscale.get_scaling_factor(self.area_correction_factor) is None:
-        #     iscale.set_scaling_factor(self.area_correction_factor, 1)
-
-        # if iscale.get_scaling_factor(self.bowen_ratio) is None:
-        #     iscale.set_scaling_factor(self.bowen_ratio, 10)
-
-        # if iscale.get_scaling_factor(self.psychrometric_constant) is None:
-        #     iscale.set_scaling_factor(self.psychrometric_constant, 100)
-
-        # if iscale.get_scaling_factor(self.mass_flux_water_vapor) is None:
-        #     iscale.set_scaling_factor(self.mass_flux_water_vapor, 1e5)
-
-        # if iscale.get_scaling_factor(self.evaporation_rate) is None:
-        #     iscale.set_scaling_factor(self.evaporation_rate, 1e8)
-
-        # if iscale.get_scaling_factor(self.solids_precipitation_rate) is None:
-        #     iscale.set_scaling_factor(self.solids_precipitation_rate, 1e2)
-
-        # if iscale.get_scaling_factor(self.total_evaporative_area_required) is None:
-        #     iscale.set_scaling_factor(self.total_evaporative_area_required, 1e-4)
-
-        # if iscale.get_scaling_factor(self.number_evaporation_ponds) is None:
-        #     iscale.set_scaling_factor(self.number_evaporation_ponds, 0.1)
-
-        # if iscale.get_scaling_factor(self.evaporative_area_per_pond) is None:
-        #     iscale.set_scaling_factor(self.evaporative_area_per_pond, 1e-3)
-
-        # if iscale.get_scaling_factor(self.evaporation_pond_area) is None:
-        #     iscale.set_scaling_factor(self.evaporation_pond_area, 1e-3)
-
-    def _get_stream_table_contents(self, time_point=0):
-
-        return create_stream_table_dataframe(
-            {
-                "Feed Inlet": self.inlet,
-                "Liquid Outlet": self.outlet,
-                "Precipitated Solids Outlet": self.solids,
-            },
-            time_point=time_point,
-        )
-
-    def _get_performance_contents(self, time_point=0):
-        var_dict = dict()
-        return {"vars": var_dict}
-
-    @property
-    def default_costing_method(self):
-        return cost_evaporation_pond

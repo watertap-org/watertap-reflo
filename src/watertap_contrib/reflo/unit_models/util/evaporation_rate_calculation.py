@@ -11,7 +11,7 @@ df = pd.read_csv(f)
 
 
 emissivity_water = 0.97
-stefan_boltzmann = 4.903e-9  # Stefan-Boltzmann constant (MJ M-2 K-4)
+stefan_boltzmann = 4.903e-9  # Stefan-Boltzmann constant (MJ M-2 K-4 day-1)
 long_wavelength_albedo = 0.03
 short_wavelength_albedo = 0.05
 # evap_rate
@@ -22,7 +22,8 @@ specific_heat_capacity = 1.013e-3
 # evap_rate_method = int(df.iloc[-1, 1]) #salinity g/l
 salinity = 100
 evap_rate_method = 1
-print(salinity, evap_rate_method)
+pond_depth = 0.4572 # m = 18 inches
+# print(salinity, evap_rate_method)
 # Create a new column to group by every 24 rows
 df["group"] = np.arange(len(df)) // 24
 
@@ -65,6 +66,7 @@ evap_rate_harbeck_waiv = np.zeros(days_in_year)
 for kk in range(0, days_in_year, 1):
     # Daily
     rad_shortwave[kk] = float(daily_sum.iloc[kk, 8]) * 0.0036  # GHI
+    # rad_shortwave[kk] = float(daily_sum.iloc[kk, 8]) * 0.0864  # GHI
     air_temp_max[kk] = float(daily_max.iloc[kk, 5])  # Temperature
     air_temp_min[kk] = float(daily_min.iloc[kk, 5])  # Temperature
     air_temp_mean[kk] = float(daily_avg.iloc[kk, 5])  # Temperature
@@ -77,13 +79,15 @@ for kk in range(0, days_in_year, 1):
 if water_depth[0] <= 2:
     water_temp_mean[0] = 1.167 * air_temp_mean[0] - 0.175
 else:
+    print("here")
     water_temp_mean[0] = 0.955 * air_temp_mean[0] + 2.367
 
 for i in range(1, days_in_year, 1):
+    water_depth[i] = pond_depth
     if water_depth[i - 1] <= 2:
-        water_temp_mean[i] = 1.04 * air_temp_mean[i] + 0.22
+        water_temp_mean[i] = 1.167 * air_temp_mean[i] - 0.175
     else:
-        water_temp_mean[i] = 1.04 * air_temp_mean[i] + 0.22
+        water_temp_mean[i] = 0.955 * air_temp_mean[i] + 2.367
 
     if salinity > 380:
         salinity = 380
@@ -95,6 +99,9 @@ for i in range(1, days_in_year, 1):
     pressure_sat_air_temp_min = 0.6108 * numpy.exp(
         (17.269 * air_temp_min[i]) / (air_temp_min[i] + 237.3)
     )
+    pressure_sat_air_temp_mean = (0.6108 * numpy.exp(
+        (17.269 * air_temp_mean[i]) / (air_temp_mean[i] + 237.3)
+    )) * rel_humidity_mean[i]
     # Saturation vapor pressure at the max air temperature [kPa]
     pressure_sat_air_temp_max = 0.6108 * numpy.exp(
         (17.269 * air_temp_max[i]) / (air_temp_max[i] + 237.3)
@@ -107,11 +114,14 @@ for i in range(1, days_in_year, 1):
         (pressure_sat_air_temp_max * rel_humidity_min[i])
         + (pressure_sat_air_temp_min * rel_humidity_max[i])
     ) * 0.5
+    # pressure_sat_actual = pressure_sat_air_temp_mean / rel_humidity_mean[i]
 
     if air_temp_mean[i] <= 0:
         emissivity_air = 0.99
+        emissivity_air2 = 0.99
     else:
         emissivity_air = 1.24 * ((pressure_sat_actual / air_temp_mean[i]) ** (1 / 7))
+        emissivity_air2 = 1.24 * ((pressure_sat_air_temp_mean / air_temp_mean[i]) ** (1 / 7))
         if emissivity_air > 1:
             emissivity_air = 0.99
     # print(air_temp_mean[i], emissivity_air)
@@ -127,7 +137,28 @@ for i in range(1, days_in_year, 1):
     )
     rad_net[i] = rad_net_shortwave + rad_net_longwave_in - rad_net_longwave_out
 
-    # print(rad_shortwave[i], rad_net_shortwave, rad_longwave_in, rad_net_longwave_out, rad_net[i])
+    print(
+        " ",
+        i,
+        # water_depth[i],
+        # air_temp_mean[i], 
+        # rel_humidity_mean[i],
+        # water_temp_mean[i],
+        # f'{pressure_sat_actual= }',
+        # f'{pressure_sat_air_temp_mean= }',
+        f"{emissivity_air= }",
+        f"{emissivity_air2= }",
+        f"{rad_shortwave[i]= }",
+        f"{rad_net_shortwave= }",
+        f"{rad_longwave_in= }",
+        f"{rad_net_longwave_in= }",
+        f"{rad_net_longwave_out= }",
+        f"{rad_net[i]= }",
+        sep="\n",
+    )
+
+    if i > 5:
+        assert False
     psychometric_constant = (specific_heat_capacity * pressure_atm[i]) / (
         0.622 * (latent_heat_vap_water / 1e6)
     )
@@ -168,7 +199,7 @@ for i in range(1, days_in_year, 1):
         (water_temp_mean[i] - air_temp_mean[i])
         / (water_activity * pressure_sat_water_temp - pressure_sat_actual)
     )
-    print(i, bowen_ratio)
+    # print(i, bowen_ratio)
     # Daily evaporation Harbeck/WAIV model (mm/day)
     evap_rate_harbeck_waiv[i] = (
         area_coeff
