@@ -374,37 +374,37 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         #     doc="Incident longwave radiation",
         # )
 
-        self.net_shortwave_radiation_in = Var(
-            self.days_in_year,
-            initialize=10,
-            bounds=(0, None),
-            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-            doc="Net incident shortwave radiation",
-        )
+        # self.net_shortwave_radiation_in = Var(
+        #     self.days_in_year,
+        #     initialize=10,
+        #     bounds=(0, None),
+        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+        #     doc="Net incident shortwave radiation",
+        # )
 
-        self.net_longwave_radiation_in = Var(
-            self.days_in_year,
-            initialize=10,
-            bounds=(0, None),
-            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-            doc="Net incident longwave radiation",
-        )
+        # self.net_longwave_radiation_in = Var(
+        #     self.days_in_year,
+        #     initialize=10,
+        #     bounds=(0, None),
+        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+        #     doc="Net incident longwave radiation",
+        # )
 
-        self.net_longwave_radiation_out = Var(
-            self.days_in_year,
-            initialize=10,
-            bounds=(0, None),
-            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-            doc="Net outgoing longwave radiation",
-        )
+        # self.net_longwave_radiation_out = Var(
+        #     self.days_in_year,
+        #     initialize=10,
+        #     bounds=(0, None),
+        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+        #     doc="Net outgoing longwave radiation",
+        # )
 
-        self.net_solar_radiation = Var(
-            self.days_in_year,
-            initialize=10,
-            bounds=(0, None),
-            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-            doc="Net solar radiation for evaporation",
-        )
+        # self.net_solar_radiation = Var(
+        #     self.days_in_year,
+        #     initialize=10,
+        #     bounds=(0, None),
+        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+        #     doc="Net solar radiation for evaporation",
+        # )
 
         self.net_radiation = Var(
             self.days_in_year,
@@ -596,34 +596,62 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             )
 
-        @self.Constraint(self.days_in_year)
-        def eq_net_shortwave_radiation_in(b, d):
-            return (
-                b.net_shortwave_radiation_in[d]
-                == (1 - b.shortwave_albedo) * b.shortwave_radiation[d]
+        # @self.Constraint(self.days_in_year)
+        # def eq_net_shortwave_radiation_in(b, d):
+        #     return (
+        #         b.net_shortwave_radiation_in[d]
+        #         == (1 - b.shortwave_albedo) * b.shortwave_radiation[d]
+        #     )
+
+        @self.Expression(self.days_in_year)
+        def net_shortwave_radiation_in(b, d):
+            return ((1 - b.shortwave_albedo) * b.shortwave_radiation[d]
             )
 
-        @self.Constraint(self.days_in_year)
-        def eq_net_longwave_radiation_in(b, d):
-            return (
-                b.net_longwave_radiation_in[d]
-                == (1 - b.longwave_albedo) * b.longwave_radiation_in[d]
-            )
 
-        @self.Constraint(self.days_in_year)
-        def eq_net_longwave_radiation_out(b, d):
-            return b.net_longwave_radiation_out[d] == pyunits.convert(
+        # @self.Constraint(self.days_in_year)
+        # def eq_net_longwave_radiation_in(b, d):
+        #     return (
+        #         b.net_longwave_radiation_in[d]
+        #         == (1 - b.longwave_albedo) * b.longwave_radiation_in[d]
+        #     )
+
+        @self.Expression(self.days_in_year)
+        def net_longwave_radiation_in(b, d):
+            return ((1 - b.longwave_albedo) * b.longwave_radiation_in[d]
+            )
+        
+        # @self.Constraint(self.days_in_year)
+        # def eq_net_longwave_radiation_out(b, d):
+        #     return b.net_longwave_radiation_out[d] == pyunits.convert(
+        #         b.emissivity_water
+        #         * Constants.stefan_constant
+        #         * b.weather[d].temperature["Liq"] ** 4,
+        #         to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+        #     )
+        
+        @self.Expression(self.days_in_year)
+        def net_longwave_radiation_out(b, d):
+            return pyunits.convert(
                 b.emissivity_water
                 * Constants.stefan_constant
                 * b.weather[d].temperature["Liq"] ** 4,
                 to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             )
 
-        @self.Constraint(self.days_in_year)
-        def eq_net_solar_radiation(b, d):
-            return (
-                b.net_solar_radiation[d]
-                == b.net_shortwave_radiation_in[d]
+        # @self.Constraint(self.days_in_year)
+        # def eq_net_solar_radiation(b, d):
+        #     return (
+        #         b.net_solar_radiation[d]
+        #         == b.net_shortwave_radiation_in[d]
+        #         + b.net_longwave_radiation_in[d]
+        #         - b.net_longwave_radiation_out[d]
+        #     )
+
+
+        @self.Expression(self.days_in_year)
+        def net_solar_radiation(b, d):
+            return (b.net_shortwave_radiation_in[d]
                 + b.net_longwave_radiation_in[d]
                 - b.net_longwave_radiation_out[d]
             )
@@ -816,28 +844,28 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         # ):
         #     calculate_variable_from_constraint(v, c)
 
-        for v, c in zip(
-            self.net_longwave_radiation_in.values(),
-            self.eq_net_longwave_radiation_in.values(),
-        ):
-            calculate_variable_from_constraint(v, c)
+        # for v, c in zip(
+        #     self.net_longwave_radiation_in.values(),
+        #     self.eq_net_longwave_radiation_in.values(),
+        # ):
+        #     calculate_variable_from_constraint(v, c)
 
-        for v, c in zip(
-            self.net_shortwave_radiation_in.values(),
-            self.eq_net_shortwave_radiation_in.values(),
-        ):
-            calculate_variable_from_constraint(v, c)
+        # for v, c in zip(
+        #     self.net_shortwave_radiation_in.values(),
+        #     self.eq_net_shortwave_radiation_in.values(),
+        # ):
+        #     calculate_variable_from_constraint(v, c)
 
-        for v, c in zip(
-            self.net_longwave_radiation_out.values(),
-            self.eq_net_longwave_radiation_out.values(),
-        ):
-            calculate_variable_from_constraint(v, c)
+        # for v, c in zip(
+        #     self.net_longwave_radiation_out.values(),
+        #     self.eq_net_longwave_radiation_out.values(),
+        # ):
+        #     calculate_variable_from_constraint(v, c)
 
-        for v, c in zip(
-            self.net_solar_radiation.values(), self.eq_net_solar_radiation.values()
-        ):
-            calculate_variable_from_constraint(v, c)
+        # for v, c in zip(
+        #     self.net_solar_radiation.values(), self.eq_net_solar_radiation.values()
+        # ):
+        #     calculate_variable_from_constraint(v, c)
 
         for v, c in zip(
             self.net_heat_flux_out.values(), self.eq_net_heat_flux_out.values()
