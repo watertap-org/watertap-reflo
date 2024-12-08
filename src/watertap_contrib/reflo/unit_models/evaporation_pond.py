@@ -358,21 +358,21 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Factor to increase evaporation rate due to enhancement",
         )
 
-        self.emissivity_air = Var(
-            self.days_in_year,
-            initialize=1,
-            bounds=(0, 1),
-            units=pyunits.dimensionless,
-            doc="Emissivity of air",
-        )
+        # self.emissivity_air = Var(
+        #     self.days_in_year,
+        #     initialize=1,
+        #     bounds=(0, 1),
+        #     units=pyunits.dimensionless,
+        #     doc="Emissivity of air",
+        # )
 
-        self.longwave_radiation_in = Var(
-            self.days_in_year,
-            initialize=10,
-            bounds=(0, None),
-            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-            doc="Incident longwave radiation",
-        )
+        # self.longwave_radiation_in = Var(
+        #     self.days_in_year,
+        #     initialize=10,
+        #     bounds=(0, None),
+        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+        #     doc="Incident longwave radiation",
+        # )
 
         self.net_shortwave_radiation_in = Var(
             self.days_in_year,
@@ -578,9 +578,18 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99
             )
         
-        @self.Constraint(self.days_in_year)
-        def eq_longwave_radiation_in(b, d):
-            return b.longwave_radiation_in[d] == pyunits.convert(
+        # @self.Constraint(self.days_in_year)
+        # def eq_longwave_radiation_in(b, d):
+        #     return b.longwave_radiation_in[d] == pyunits.convert(
+        #         b.emissivity_air[d]
+        #         * Constants.stefan_constant
+        #         * b.weather[d].temperature["Vap"] ** 4,
+        #         to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+        #     )
+        
+        @self.Expression(self.days_in_year)
+        def longwave_radiation_in(b, d):
+            return pyunits.convert(
                 b.emissivity_air[d]
                 * Constants.stefan_constant
                 * b.weather[d].temperature["Vap"] ** 4,
@@ -802,10 +811,10 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         # for v, c in zip(self.emissivity_air.values(), self.eq_emissivity_air.values()):
         #     calculate_variable_from_constraint(v, c)
 
-        for v, c in zip(
-            self.longwave_radiation_in.values(), self.eq_longwave_radiation_in.values()
-        ):
-            calculate_variable_from_constraint(v, c)
+        # for v, c in zip(
+        #     self.longwave_radiation_in.values(), self.eq_longwave_radiation_in.values()
+        # ):
+        #     calculate_variable_from_constraint(v, c)
 
         for v, c in zip(
             self.net_longwave_radiation_in.values(),
