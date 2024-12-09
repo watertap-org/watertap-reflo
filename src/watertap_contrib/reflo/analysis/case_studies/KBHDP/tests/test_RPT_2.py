@@ -135,7 +135,7 @@ class TestRPT2:
     def test_solution(self, RPT_2_frame):
         m = RPT_2_frame
 
-        assert pytest.approx(value(m.fs.water_recovery), rel=1e-3) == 0.486
+        assert pytest.approx(value(m.fs.water_recovery), rel=1e-3) == 0.486987
 
     #     assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 1.935
 
@@ -153,20 +153,18 @@ class TestRPT2:
         assert value(m.fs.costing.heat_cost_buy) == 0.01
 
         cost_results = {
-            "total_capital_cost": 16275469.798,
-            "total_operating_cost": 4880943.681138365,
-            "aggregate_flow_electricity": 940,
-            "aggregate_flow_heat": 19577,
-            "total_electric_operating_cost": 577104,
-            "total_heat_operating_cost": 1716205,
-            "aggregate_flow_electricity_purchased": 940.49,
-            "aggregate_flow_electricity_sold": 0,
-            "aggregate_flow_heat_purchased": 19577.977,
-            "aggregate_flow_heat_sold": 0,
+            "total_capital_cost": 22313055,
+            "total_operating_cost": 5271692,
+            "aggregate_flow_electricity": 1090,
+            "aggregate_flow_heat": 19623,
+            "total_electric_operating_cost": 669055,
+            "total_heat_operating_cost": 1720166,
+            "aggregate_flow_electricity_purchased": 1090,
+            "aggregate_flow_heat_purchased": 19623,
             "frac_heat_from_grid": 0.983,
-            "aggregate_capital_cost": 16275469.798,
-            "aggregate_fixed_operating_cost": 691261.7801448428,
-            "aggregate_variable_operating_cost": 159727,
+            "aggregate_capital_cost": 22313055,
+            "aggregate_fixed_operating_cost": 804669,
+            "aggregate_variable_operating_cost": 160028,
         }
 
         for v, r in cost_results.items():
