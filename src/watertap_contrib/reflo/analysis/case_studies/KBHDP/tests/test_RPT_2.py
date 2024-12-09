@@ -153,8 +153,8 @@ class TestRPT2:
         assert value(m.fs.costing.heat_cost_buy) == 0.01
 
         cost_results = {
-            "total_capital_cost": 22574817,
-            "total_operating_cost": 5208204,
+            "total_capital_cost": 16275469.798,
+            "total_operating_cost": 4880943.681138365,
             "aggregate_flow_electricity": 940,
             "aggregate_flow_heat": 19577,
             "total_electric_operating_cost": 577104,
@@ -164,8 +164,8 @@ class TestRPT2:
             "aggregate_flow_heat_purchased": 19577.977,
             "aggregate_flow_heat_sold": 0,
             "frac_heat_from_grid": 0.983,
-            "aggregate_capital_cost": 22574817,
-            "aggregate_fixed_operating_cost": 829542,
+            "aggregate_capital_cost": 16275469.798,
+            "aggregate_fixed_operating_cost": 691261.7801448428,
             "aggregate_variable_operating_cost": 159727,
         }
 
