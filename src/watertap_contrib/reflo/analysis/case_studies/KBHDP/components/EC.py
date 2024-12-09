@@ -15,7 +15,7 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-
+from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.solvers import get_solver
 
@@ -171,12 +171,21 @@ def set_system_operating_conditions(m):
     # # initialize feed
 
 
-def set_ec_operating_conditions(m, blk):
+def set_ec_operating_conditions(m, blk, conv=5e3):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
     print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
 
     blk.ec.load_parameters_from_database(use_default_removal=True)
+    # blk.ec.conductivity.unfix()
+    # tds_ec_conversion = conv * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
+    # blk.ec.conductivity_constr = Constraint(
+    #     expr=blk.ec.conductivity
+    #     == pyunits.convert(
+    #         blk.feed.properties[0].conc_mass_comp["tds"] / tds_ec_conversion,
+    #         to_units=pyunits.S / pyunits.m,
+    #     )
+    # )
     # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
     # blk.ec.overpotential.fix(2)
     print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
@@ -232,7 +241,6 @@ def init_system(m, solver=None):
 
     init_ec(m, m.fs.EC)
 
-
 def init_ec(m, blk, solver=None):
     """Initialize IX model"""
 
@@ -240,19 +248,40 @@ def init_ec(m, blk, solver=None):
         solver = get_solver()
 
     optarg = solver.options
-    # assert_no_degrees_of_freedom(m)
-    _initialize(blk.feed)
+
+    blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_ec)
 
-    _initialize(blk.ec)
+    cvc(blk.ec.overpotential, blk.ec.eq_overpotential)
+    cvc(blk.ec.applied_current, blk.ec.eq_applied_current)
+    cvc(blk.ec.anode_area, blk.ec.eq_electrode_area_total)
+    cvc(blk.ec.ohmic_resistance, blk.ec.eq_ohmic_resistance)
 
+    blk.ec.initialize(optarg=optarg)
     propagate_state(blk.ec_to_product)
     propagate_state(blk.ec_to_disposal)
+
+# def init_ec(m, blk, solver=None):
+#     """Initialize IX model"""
+
+#     if solver is None:
+#         solver = get_solver()
+
+#     optarg = solver.options
+#     # assert_no_degrees_of_freedom(m)
+#     _initialize(blk.feed)
+#     propagate_state(blk.feed_to_ec)
+
+#     _initialize(blk.ec)
+
+#     propagate_state(blk.ec_to_product)
+#     propagate_state(blk.ec_to_disposal)
 
 
 def add_system_costing(m):
     """Add system level costing components"""
     m.fs.costing = ZeroOrderCosting()
+    m.fs.costing.base_currency = pyunits.USD_2022
     add_ec_costing(m, m.fs.EC)
     calc_costing(m, m.fs.EC)
 
@@ -386,3 +415,4 @@ if __name__ == "__main__":
 
     report_EC(m.fs.EC)
     print_EC_costing_breakdown(m.fs.EC)
+    m.fs.EC.ec.conductivity.display()
