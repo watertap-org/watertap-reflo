@@ -16,7 +16,6 @@ from ..util import (
     make_fixed_operating_cost_var,
 )
 from watertap.costing.util import register_costing_parameter_block
-from watertap.costing.unit_models.pump import build_low_pressure_pump_cost_param_block
 
 
 costing_params_dict = {
@@ -135,10 +134,6 @@ def build_evaporation_pond_cost_param_block(blk):
 
 
 @register_costing_parameter_block(
-    build_rule=build_low_pressure_pump_cost_param_block,
-    parameter_block_name="low_pressure_pump",
-)
-@register_costing_parameter_block(
     build_rule=build_evaporation_pond_cost_param_block,
     parameter_block_name="evaporation_pond",
 )
@@ -149,7 +144,6 @@ def cost_evaporation_pond(blk):
 
     dike_height = blk.unit_model.config.dike_height
     pond_params = blk.costing_package.evaporation_pond
-    pump_params = blk.costing_package.low_pressure_pump
 
     for cv, d in costing_params_dict.items():
         cvps = d[dike_height]  # costing var params
@@ -246,13 +240,6 @@ def cost_evaporation_pond(blk):
         bounds=(0, None),
         units=blk.costing_package.base_currency,
         doc="Road capital cost",
-    )
-
-    blk.pump_capital_cost = pyo.Var(
-        initialize=5000,
-        bounds=(0, None),
-        units=blk.costing_package.base_currency,
-        doc="Low-pressure pump capital cost",
     )
 
     blk.evaporation_enhancement_capital_cost = pyo.Var(
@@ -381,15 +368,6 @@ def cost_evaporation_pond(blk):
 
     capital_cost_expr += blk.road_capital_cost
 
-    @blk.Constraint(doc="Low-pressure pump capital cost")
-    def pump_capital_cost_constraint(b):
-        return b.pump_capital_cost == pyo.units.convert(
-            pump_params.cost * b.unit_model.properties_in[0].flow_vol,
-            to_units=b.costing_package.base_currency,
-        )
-
-    capital_cost_expr += blk.pump_capital_cost
-
     @blk.Constraint(doc="Evaporation enhancement technology capital cost")
     def evaporation_enhancement_capital_cost_constraint(b):
         return (
@@ -426,13 +404,3 @@ def cost_evaporation_pond(blk):
     @blk.Constraint(doc="Fixed operating cost for evaporation pond")
     def fixed_operating_cost_constraint(b):
         return b.fixed_operating_cost == fixed_operating_cost_expr
-
-    @blk.Expression(doc="Pumping power required")
-    def pumping_power(b):
-        return pyo.units.convert(
-            blk.unit_model.differential_pressure
-            * blk.unit_model.properties_in[0].flow_vol,
-            to_units=pyo.units.kilowatt,
-        )
-
-    blk.costing_package.cost_flow(blk.pumping_power, "electricity")
