@@ -54,6 +54,16 @@ __all__ = [
     "print_EC_costing_breakdown",
 ]
 
+__all__ = [
+    "build_ec",
+    "set_ec_operating_conditions",
+    "init_ec",
+    "add_ec_costing",
+    "add_ec_scaling",
+    "report_EC",
+    "print_EC_costing_breakdown",
+]
+
 
 def propagate_state(arc, detailed=True):
     _prop_state(arc)
@@ -374,7 +384,6 @@ if __name__ == "__main__":
     m.fs.objective_lcow = Objective(expr=m.fs.costing.LCOW)
     results = solve(m, debug=True)
 
-    # print(m.fs.objective_lcow())
-    # report_EC(m.fs.EC)
-    # print_EC_costing_breakdown(m.fs.EC)
-    # print(m.fs.EC.ec.display())
+    report_EC(m.fs.EC)
+    print_EC_costing_breakdown(m.fs.EC)
+
