@@ -241,6 +241,7 @@ def init_system(m, solver=None):
 
     init_ec(m, m.fs.EC)
 
+
 def init_ec(m, blk, solver=None):
     """Initialize IX model"""
 
@@ -260,6 +261,7 @@ def init_ec(m, blk, solver=None):
     blk.ec.initialize(optarg=optarg)
     propagate_state(blk.ec_to_product)
     propagate_state(blk.ec_to_disposal)
+
 
 # def init_ec(m, blk, solver=None):
 #     """Initialize IX model"""

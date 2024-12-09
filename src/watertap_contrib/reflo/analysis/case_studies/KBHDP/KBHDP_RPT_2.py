@@ -67,9 +67,9 @@ def main():
     add_costing(m)
     scale_costing(m)
     box_solve_problem(m)
-    solve(m, debug=True)
+    # solve(m, debug=True)
 
-    optimize(m, water_recovery=0.4, grid_frac_heat=0.5, objective="LCOW")
+    optimize(m, water_recovery=0.35, grid_frac_heat=0.5, objective="LCOW")
     solve(m, debug=True)
     display_system_stream_table(m)
     report_LTMED(m)
@@ -314,6 +314,20 @@ def scale_costing(m):
     treatment = m.fs.treatment
     energy = m.fs.energy
     # TBD
+
+    print(m.fs.costing.display())
+
+    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_electricity_sold, 0)
+    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_heat_sold, 0)
+    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_heat_purchased, 1e-6)
+
+    # iscale.constraint_scaling_transform(m.fs.costing.aggregate_electricity_balance, 0)
+    # iscale.constraint_scaling_transform(m.fs.costing.aggregate_heat_balance, 0)
+    # iscale.constraint_scaling_transform(m.fs.costing.aggregate_heat_complement, 0)
+
+    # iscale.calculate_scaling_factors(m.fs.treatment.costing)
+    # iscale.calculate_scaling_factors(m.fs.energy.costing)
+    # iscale.calculate_scaling_factors(m.fs.costing)
 
 
 def apply_system_scaling(m):
