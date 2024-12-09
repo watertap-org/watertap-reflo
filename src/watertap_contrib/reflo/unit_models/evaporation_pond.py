@@ -243,15 +243,20 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         ):
             self.weather[day].relative_humidity["H2O"].set_value(rh / 100)
 
-        @self.Constraint(self.days_in_year)
-        def eq_water_temp(b, d):
-            air_temp_C = b.weather[d].temperature["Vap"] - 273.15
-            return b.weather[d].temperature["Liq"] == smooth_max(
-                (1.167 * air_temp_C - 0.175) + 273.15, 274.15
-            )
-
         self.add_inlet_port(name="inlet", block=self.properties_in)
 
+        self.water_temp_param1 = Param(
+            initialize=1.167,
+            units=pyunits.dimensionless,
+            doc="Water temp parameter 1"
+        )
+
+        self.water_temp_param2 = Param(
+            initialize=0.175,
+            units=pyunits.degK,
+            doc="Water temp parameter 2"
+        )
+    
         self.area_correction_factor_base = Param(
             initialize=area_correction_factor_param_dict[self.config.dike_height][0],
             mutable=True,
@@ -553,6 +558,13 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                     to_units=pyunits.dimensionless,
                 ),
                 1e-3,
+            )
+
+        @self.Constraint(self.days_in_year)
+        def eq_water_temp(b, d):
+            air_temp_C = b.weather[d].temperature["Vap"] - 273.15 * pyunits.degK
+            return b.weather[d].temperature["Liq"] == smooth_max(
+                (b.water_temp_param1 * air_temp_C - b.water_temp_param2) + 273.15* pyunits.degK, 274.15
             )
 
         @self.Constraint(self.days_in_year)
