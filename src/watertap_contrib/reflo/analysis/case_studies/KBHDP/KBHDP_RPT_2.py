@@ -69,25 +69,14 @@ def main():
     box_solve_problem(m)
     solve(m, debug=True)
 
-    # # # # # scale_costing(m)
-
     optimize(m, water_recovery=0.4, grid_frac_heat=0.5, objective="LCOW")
     solve(m, debug=True)
-    # # # # # # display_flow_table(m)
-    # # display_system_stream_table(m)
-    # report_LTMED(m)
-    # # # # # # # # report_pump(m, m.fs.treatment.pump)
-    # # # # # report_PV(m)
-    # # # # # # # # m.fs.treatment.costing.display()
-    # # # # # # # # m.fs.energy.costing.display()""
-    # # # # # # # # m.fs.costing.display()
+    display_system_stream_table(m)
+    report_LTMED(m)
+    report_pump(m, m.fs.treatment.pump)
+    report_fpc(m)
 
-    # # # # # # # # print(m.fs.energy.pv.display())
-    # # # # # # print_system_scaling_report(m)
-    # # # report_PV(m)
-    # # # # print(m.fs.energy.pv.display())
     display_costing_breakdown(m)
-    # report_fpc(m)
 
     return m
 
@@ -183,10 +172,6 @@ def build_treatment(m):
     m.fs.liquid_prop.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
     )
-
-    # treatment.feed.properties[0].conc_mass_phase_comp
-    # treatment.product.properties[0].conc_mass_phase_comp
-    # treatment.disposal.properties[0].conc_mass_phase_comp
 
 
 def build_energy(m):
@@ -328,38 +313,10 @@ def get_scaling_factors(m):
 def scale_costing(m):
     treatment = m.fs.treatment
     energy = m.fs.energy
-
-    # iscale.constraint_scaling_transform(
-    #     m.fs.costing.aggregate_electricity_complement, 1e-2
-    # )
-    # iscale.constraint_scaling_transform(
-    #     m.fs.costing.aggregate_electricity_balance, 1e-2
-    # )
-    # iscale.constraint_scaling_transform(
-    #     m.fs.costing.aggregate_flow_electricity_constraint, 1
-    # )
-    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_electricity_purchased, 1e-3)
-
-    # iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1/10000000)
-    # iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-10)
-    # iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-6)
-
-    # # iscale.constraint_scaling_transform(
-    # #     m.fs.energy.pv.costing.annual_generation_constraint, 1e-8
-    # # )
-
-    # iscale.constraint_scaling_transform(m.fs.energy.pv.electricity_constraint, 1e-1)
-    # iscale.constraint_scaling_transform(m.fs.energy.pv.costing.system_capacity_constraint, 1e-3)
-
-    # agg_elec_scale = calc_scale(pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)())
-    # iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1e-8)
-    # iscale.constraint_scaling_transform(energy.pv_design_constraint, 1e-2)
-    # for e in m.fs.treatment.RO.stage[1].module.feed_side.eq_K:
-    #     iscale.constraint_scaling_transform(m.fs.treatment.RO.stage[1].module.feed_side.eq_K[e], 1e6)
+    # TBD
 
 
 def apply_system_scaling(m):
-    # iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["H2O"], 1)
     iscale.set_scaling_factor(
         m.fs.treatment.sludge.properties[0.0].flow_mass_comp["tss"], 1e1
     )
@@ -373,12 +330,6 @@ def apply_system_scaling(m):
     iscale.set_scaling_factor(
         m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3
     )
-    # iscale.constraint_scaling_transform(
-    #     m.fs.treatment.product.properties[0.0].eq_flow_vol_phase["Liq"], 1e-6
-    # )
-    # iscale.set_scaling_factor(m.fs.treatment.pump.control_volume.work, 1e-6)
-    # iscale.set_scaling_factor(m.fs.treatment.feed.properties[0.0].flow_mol_phase_comp['Liq','H2O'], 1e-5)
-    # iscale.set_scaling_factor(m.fs.treatment.feed.properties[0.0].flow_vol_phase['Liq','H2O'], 1e-5)
 
 
 def apply_scaling(m):
@@ -463,11 +414,6 @@ def set_inlet_conditions(
     # # initialize feed
     treatment.feed.pressure[0].fix(supply_pressure)
     treatment.feed.temperature[0].fix(feed_temperature)
-
-    # treatment.product.properties[0.0].pressure.fix(101356)
-    # treatment.product.properties[0.0].temperature.fix(feed_temperature)
-
-    # assert_units_consistent(m)
 
 
 def display_unfixed_vars(blk, report=True):
@@ -588,8 +534,6 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
 
 def set_prob_for_box_solve(m):
     treatment = m.fs.treatment
-    # m.fs.water_recovery.unfix()
-    # m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(75e5)
     treatment.pump.control_volume.properties_out[0].pressure.unfix()
     for idx, stage in treatment.RO.stage.items():
         stage.module.recovery_vol_phase[0.0, "Liq"].fix(0.5)
@@ -617,55 +561,16 @@ def optimize(
     objective="LCOW",
 ):
     treatment = m.fs.treatment
-    # energy = m.fs.energy
+    energy = m.fs.energy
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
 
     if objective == "LCOW":
         m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
-    # else:
-    #     m.fs.membrane_area_objective = Objective(expr=treatment.RO.stage[1].module.area)
 
     if water_recovery is not None:
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
         m.fs.treatment.LTMED.unit.recovery_vol_phase[0.0, "Liq"].unfix()
         m.fs.water_recovery.fix(water_recovery)
-    # else:
-    #     lower_bound = 0.01
-    #     upper_bound = 0.99
-    #     print(f"\n------- Unfixed Recovery -------")
-    #     print(f"Lower Bound: {lower_bound}")
-    #     print(f"Upper Bound: {upper_bound}")
-    #     m.fs.water_recovery.unfix()
-    #     m.fs.water_recovery.setlb(0.01)
-    #     m.fs.water_recovery.setub(0.99)
-
-    # if fixed_pressure is not None:
-    #     print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
-    #     treatment.pump.control_volume.properties_out[0].pressure.fix(fixed_pressure)
-    # else:
-    #     lower_bound = 100 * pyunits.psi
-    #     upper_bound = 900 * pyunits.psi
-    #     print(f"------- Unfixed RO Pump Pressure -------")
-    #     print(f"Lower Bound: {value(lower_bound)} {pyunits.get_units(lower_bound)}")
-    #     print(f"Upper Bound: {value(upper_bound)} {pyunits.get_units(upper_bound)}")
-    #     treatment.pump.control_volume.properties_out[0].pressure.unfix()
-    #     treatment.pump.control_volume.properties_out[0].pressure.setlb(lower_bound)
-    #     treatment.pump.control_volume.properties_out[0].pressure.setub(upper_bound)
-
-    # if ro_mem_area is not None:
-    #     print(f"\n------- Fixed RO Membrane Area at {ro_mem_area} -------\n")
-    #     for idx, stage in treatment.RO.stage.items():
-    #         stage.module.area.fix(ro_mem_area)
-    # else:
-    #     lower_bound = 1e3
-    #     upper_bound = 2e5
-    #     print(f"\n------- Unfixed RO Membrane Area -------")
-    #     print(f"Lower Bound: {lower_bound} m2")
-    #     print(f"Upper Bound: {upper_bound} m2")
-    #     print("\n")
-    #     for idx, stage in treatment.RO.stage.items():
-    #         stage.module.area.unfix()
-    #         stage.module.area.setub(1e6)
 
     if grid_frac_heat is not None:
         m.fs.energy.FPC.heat_load.unfix()
@@ -675,12 +580,6 @@ def optimize(
         m.fs.energy.FPC.heat_load.unfix()
         m.fs.costing.frac_heat_from_grid.unfix()
         m.fs.costing.heat_cost_buy.fix(heat_price)
-    #     m.fs.energy.FPC.heat_load.unfix()
-    #     # m.fs.energy.pv.annual_energy.unfix()
-    # else:
-    #     m.fs.costing.frac_elec_from_grid.unfix()
-    #     m.fs.energy.FPC.heat_load.fix(150)
-    # m.fs.energy.pv.annual_energy.fix(1e6)
 
     assert degrees_of_freedom(m) >= 0
 
@@ -750,16 +649,6 @@ def print_system_scaling_report(m):
             for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
             if var.name.split(".")[1] == "costing"
         ]
-
-        # for var in badly_scaled_var_list:
-        #     keys = var[0].name.split(".")
-        #     val_scale = -1 * calc_scale(var[1])
-        #     sf_scale = -1 * calc_scale(iscale.get_scaling_factor(var[0]))
-        #     scale_diff = val_scale - sf_scale
-        #     print(f"{var[0].name:<80s}{val_scale:<10.1f}{sf_scale:<10.1f}{scale_diff:<10.1f}")
-        #     print(f"{var[0].name:<80s}{var[1]}")
-        # [print(i[0].name, i[1]) for i in badly_scaled_var_list]
-        # [print(f'Variable: {var.name:<80s} Value Scale:{-1*calc_scale(val):<5.1f} Scale Factor:{-1*calc_scale(iscale.get_scaling_factor(var))}') for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)]
     else:
         print("Variables are scaled well")
 
@@ -807,9 +696,7 @@ def display_costing_breakdown(m):
 
     print_EC_costing_breakdown(m.fs.treatment.EC)
     print_UF_costing_breakdown(m.fs.treatment.UF)
-    # print_RO_costing_breakdown(m.fs.treatment.RO)
-    # print_DWI_costing_breakdown(m.fs.treatment.DWI)""
-
+    print_DWI_costing_breakdown(m.fs.treatment.DWI)
     print_FPC_costing_breakdown(m, m.fs.energy.FPC)
 
     # print(
