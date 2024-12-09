@@ -49,7 +49,7 @@ class REFLOCostingData(WaterTAPCostingData):
 
     def build_global_params(self):
 
-        pyo.units.load_definitions_from_strings(["USD_2023 = 500/500 * USD_CE500"])
+        pyo.units.load_definitions_from_strings(["USD_2023 = 500/797.9 * USD_CE500"])
 
         super().build_global_params()
 
@@ -377,7 +377,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
     def build_global_params(self):
         super().build_global_params()
 
-        pyo.units.load_definitions_from_strings(["USD_2023 = 500/500 * USD_CE500"])
+        pyo.units.load_definitions_from_strings(["USD_2023 = 500/797.9 * USD_CE500"])
 
         self.base_currency = pyo.units.USD_2023
 
@@ -579,16 +579,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 + self.aggregate_flow_electricity_sold
             )
         )
-
-        # self.aggregate_flow_electricity_sold_constraint = pyo.Constraint(
-        #     expr= self.aggregate_flow_electricity_sold
-        #     == smooth_max(energy_cost.aggregate_flow_electricity - treat_cost.aggregate_flow_electricity, 0)
-        # )
-
-        # self.aggregate_flow_electricity_purchased_constraint = pyo.Constraint(
-        #     expr= self.aggregate_flow_electricity_purchased
-        #     == smooth_max(treat_cost.aggregate_flow_electricity  - energy_cost.aggregate_flow_electricity, 0)
-        # )
 
         # Calculate fraction of electricity from grid when an electricity generating unit is present
         if energy_cost.has_electricity_generation:
