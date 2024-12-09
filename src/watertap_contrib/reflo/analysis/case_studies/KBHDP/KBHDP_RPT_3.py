@@ -98,8 +98,8 @@ def build_system(inlet_cond, n_time_points):
     m.fs.treatment.dwi = FlowsheetBlock(dynamic=False)
     build_DWI(m, m.fs.treatment.dwi, m.fs.params)
 
-    m.fs.energy.fpc = FlowsheetBlock(dynamic=False)
-    build_fpc(m.fs.energy.fpc)
+    m.fs.energy.FPC = FlowsheetBlock(dynamic=False)
+    build_fpc(m)
 
     add_connections(m)
     return m, model_options, n_time_points

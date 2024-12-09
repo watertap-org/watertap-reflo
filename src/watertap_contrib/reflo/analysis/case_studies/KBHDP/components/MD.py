@@ -155,7 +155,7 @@ def set_md_model_options(m, inlet_cond, n_time_points=None):
             cond_inlet_temp=model_options["cond_inlet_temp"],
             feed_temp=model_options["feed_temp"],
             feed_salinity=model_options["feed_salinity"],
-            recovery_ratio=m.fs.water_recovery(),
+            recovery_ratio=inlet_cond["recovery"],
             initial_batch_volume=model_options["initial_batch_volume"],
             module_type=model_options["module_type"],
             cooling_system_type=model_options["cooling_system_type"],
@@ -191,7 +191,7 @@ def build_md(m, blk, inlet_cond, n_time_points=None) -> None:
 
 
 def init_md(blk, model_options, n_time_points, verbose=True, solver=None):
-    
+
     # Because its multiperiod, each instance is assigned an initial value based on model input (kwargs)
     blk.unit.build_multi_period_model(
         model_data_kwargs={t: model_options for t in range(n_time_points)},
@@ -222,20 +222,13 @@ def init_md(blk, model_options, n_time_points, verbose=True, solver=None):
     def get_permeate_flow(b):
         num_modules = blk.unit.get_active_process_blocks()[-1].fs.vagmd.num_modules
 
-        return (
-            b.permeate.properties[0].flow_vol_phase["Liq"]
-            ==
-            pyunits.convert(
-                (
-                    num_modules
-                    * b.unit.get_active_process_blocks()[-1].fs.acc_distillate_volume
-                    / (
-                        b.unit.get_active_process_blocks()[-1].fs.dt
-                        * (n_time_points - 1)
-                    )
-                ),
-                to_units=pyunits.m**3 / pyunits.s,
-            )
+        return b.permeate.properties[0].flow_vol_phase["Liq"] == pyunits.convert(
+            (
+                num_modules
+                * b.unit.get_active_process_blocks()[-1].fs.acc_distillate_volume
+                / (b.unit.get_active_process_blocks()[-1].fs.dt * (n_time_points - 1))
+            ),
+            to_units=pyunits.m**3 / pyunits.s,
         )
 
     blk.permeate.properties[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
@@ -606,27 +599,39 @@ def report_MD(m, blk, detailed=False):
         m.fs.md.unit.get_active_process_blocks()[0].fs.dt.display()
         m.fs.md.unit.get_active_process_blocks()[0].fs.vagmd.permeate_flux.display()
         m.fs.md.unit.get_active_process_blocks()[0].fs.pre_permeate_flow_rate.display()
-        m.fs.md.unit.get_active_process_blocks()[0].fs.pre_acc_distillate_volume.display()
+        m.fs.md.unit.get_active_process_blocks()[
+            0
+        ].fs.pre_acc_distillate_volume.display()
         m.fs.md.unit.get_active_process_blocks()[0].fs.acc_distillate_volume.display()
         m.fs.md.unit.get_active_process_blocks()[0].fs.pre_evap_out_temp.display()
         m.fs.md.unit.get_active_process_blocks()[0].fs.vagmd.thermal_power.display()
-        m.fs.md.unit.get_active_process_blocks()[0].fs.specific_energy_consumption_thermal.display()
+        m.fs.md.unit.get_active_process_blocks()[
+            0
+        ].fs.specific_energy_consumption_thermal.display()
 
         m.fs.md.unit.get_active_process_blocks()[1].fs.vagmd.permeate_flux.display()
         m.fs.md.unit.get_active_process_blocks()[1].fs.pre_permeate_flow_rate.display()
-        m.fs.md.unit.get_active_process_blocks()[1].fs.pre_acc_distillate_volume.display()
+        m.fs.md.unit.get_active_process_blocks()[
+            1
+        ].fs.pre_acc_distillate_volume.display()
         m.fs.md.unit.get_active_process_blocks()[1].fs.acc_distillate_volume.display()
         m.fs.md.unit.get_active_process_blocks()[1].fs.pre_evap_out_temp.display()
         m.fs.md.unit.get_active_process_blocks()[1].fs.vagmd.thermal_power.display()
-        m.fs.md.unit.get_active_process_blocks()[1].fs.specific_energy_consumption_thermal.display()
+        m.fs.md.unit.get_active_process_blocks()[
+            1
+        ].fs.specific_energy_consumption_thermal.display()
 
         m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd.permeate_flux.display()
         m.fs.md.unit.get_active_process_blocks()[-1].fs.pre_permeate_flow_rate.display()
-        m.fs.md.unit.get_active_process_blocks()[-1].fs.pre_acc_distillate_volume.display()
+        m.fs.md.unit.get_active_process_blocks()[
+            -1
+        ].fs.pre_acc_distillate_volume.display()
         m.fs.md.unit.get_active_process_blocks()[-1].fs.acc_distillate_volume.display()
         m.fs.md.unit.get_active_process_blocks()[-1].fs.pre_evap_out_temp.display()
         m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd.thermal_power.display()
-        m.fs.md.unit.get_active_process_blocks()[-1].fs.specific_energy_consumption_thermal.display()
+        m.fs.md.unit.get_active_process_blocks()[
+            -1
+        ].fs.specific_energy_consumption_thermal.display()
 
 
 def report_md_costing(m, blk):
@@ -649,7 +654,7 @@ def report_md_costing(m, blk):
     )
 
     print(
-    f'{"Heat flow":<30s}{value(blk.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_heat)}'
+        f'{"Heat flow":<30s}{value(blk.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_heat)}'
     )
 
     print(

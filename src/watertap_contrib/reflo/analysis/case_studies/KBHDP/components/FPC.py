@@ -57,22 +57,28 @@ def build_system():
     return m
 
 
-def build_fpc(blk, __file__=None):
+
+def build_fpc(m):
+    energy = m.fs.energy
 
     print(f'\n{"=======> BUILDING FPC SYSTEM <=======":^60}\n')
-
-    if __file__ == None:
-        cwd = os.getcwd()
-        __file__ = (
-            cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\flat_plate\\"
-        )
-
-    dataset_filename = os.path.join(
-        os.path.dirname(__file__), r"data\flat_plate_data_heat_load_1_400.pkl"
+    parent_dir = os.path.abspath(
+        os.path.join(os.path.abspath(__file__), "..", "..", "..", "..", "..")
     )
+
+    surrogate_dir = os.path.join(
+        parent_dir,
+        "solar_models",
+        "surrogate",
+        "flat_plate",
+        "data",
+    )
+
+    dataset_filename = os.path.join(surrogate_dir, "FPC_Heat_Load.pkl")
+
     surrogate_filename = os.path.join(
-        os.path.dirname(__file__),
-        r"data\flat_plate_data_heat_load_1_400_heat_load_1_400_hours_storage_0_27_temperature_hot_50_102.json",
+        surrogate_dir,
+        "flat_plate_data_heat_load_1_400_heat_load_1_400_hours_storage_0_27_temperature_hot_50_102.json",
     )
 
     input_bounds = dict(
@@ -91,7 +97,7 @@ def build_fpc(blk, __file__=None):
         "units": output_units,
     }
 
-    blk.unit = FlatPlateSurrogate(
+    energy.FPC = FlatPlateSurrogate(
         surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
