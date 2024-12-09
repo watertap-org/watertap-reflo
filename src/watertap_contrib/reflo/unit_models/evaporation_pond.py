@@ -247,16 +247,18 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         self.water_temp_param1 = Param(
             initialize=1.167,
+            mutable=True,
             units=pyunits.dimensionless,
-            doc="Water temp parameter 1"
+            doc="Water temperature correlation slope",
         )
 
         self.water_temp_param2 = Param(
             initialize=0.175,
+            mutable=True,
             units=pyunits.degK,
-            doc="Water temp parameter 2"
+            doc="Water temperature correlation intercept",
         )
-    
+
         self.area_correction_factor_base = Param(
             initialize=area_correction_factor_param_dict[self.config.dike_height][0],
             mutable=True,
@@ -564,7 +566,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         def eq_water_temp(b, d):
             air_temp_C = b.weather[d].temperature["Vap"] - 273.15 * pyunits.degK
             return b.weather[d].temperature["Liq"] == smooth_max(
-                (b.water_temp_param1 * air_temp_C - b.water_temp_param2) + 273.15* pyunits.degK, 274.15
+                (b.water_temp_param1 * air_temp_C - b.water_temp_param2)
+                + 273.15 * pyunits.degK,
+                274.15,
             )
 
         @self.Constraint(self.days_in_year)
