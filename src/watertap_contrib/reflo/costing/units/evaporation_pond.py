@@ -198,8 +198,6 @@ def cost_evaporation_pond(blk):
         doc="Road cost per acre",
     )
 
-    ########
-
     blk.land_capital_cost = pyo.Var(
         initialize=500000,
         bounds=(0, None),

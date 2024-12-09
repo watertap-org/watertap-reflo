@@ -194,8 +194,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 "TDS must be present as a component in the influent stream."
             )
 
-        self.weather_data = pd.read_csv(self.config.weather_data_path)
-        self.weather_data["day_group"] = np.arange(len(self.weather_data)) // 24
+        weather_data = pd.read_csv(self.config.weather_data_path, skiprows=2)
+        weather_data["day_of_year"] = np.arange(len(weather_data)) // 24
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
@@ -208,6 +208,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.flowsheet().config.time, doc="Material properties of inlet", **tmp_dict
         )
         prop_in = self.properties_in[0]
+        self.add_inlet_port(name="inlet", block=self.properties_in)
 
         tmp_dict["defined_state"] = True
         self.weather = self.config.property_package.state_block_class(
@@ -217,7 +218,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         )
 
         for day, pres in enumerate(
-            self.weather_data.groupby("day_group")[
+            weather_data.groupby("day_of_year")[
                 self.config.weather_data_column_dict["pressure"]
             ].mean()
         ):
@@ -229,21 +230,21 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         self.weather[:].temperature["Liq"].setlb(200)
 
         for day, temp in enumerate(
-            self.weather_data.groupby("day_group")[
+            weather_data.groupby("day_of_year")[
                 self.config.weather_data_column_dict["temperature"]
             ].mean()
         ):
+            if temp <= 0.1:
+                temp = 0.1
             temp_K = temp + 273.15
             self.weather[day].temperature["Vap"].fix(temp_K)
 
         for day, rh in enumerate(
-            self.weather_data.groupby("day_group")[
+            weather_data.groupby("day_of_year")[
                 self.config.weather_data_column_dict["relative_humidity"]
             ].mean()
         ):
             self.weather[day].relative_humidity["H2O"].set_value(rh / 100)
-
-        self.add_inlet_port(name="inlet", block=self.properties_in)
 
         self.water_temp_param1 = Param(
             initialize=1.167,
@@ -298,13 +299,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Solids precipitation rate intercept",
         )
 
-        self.differential_head = Param(
-            initialize=40,
-            mutable=True,
-            units=pyunits.m,
-            doc="Differential head for pumping energy",
-        )
-
         self.dens_solids = Param(
             initialize=2.16,
             mutable=True,
@@ -314,7 +308,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         self.shortwave_radiation = Param(
             self.days_in_year,
-            initialize=self.weather_data.groupby("day_group")[
+            initialize=weather_data.groupby("day_of_year")[
                 self.config.weather_data_column_dict["shortwave_radiation"]
             ].mean()
             * 0.0864,
@@ -375,7 +369,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         self.mass_flux_water_vapor = Var(
             self.days_in_year,
             initialize=1e-5,
-            bounds=(1e-8, 1e-3),
+            bounds=(1e-12, 1e-3),
             units=pyunits.kg / (pyunits.m**2 * pyunits.s),
             doc="Mass flux of water vapor evaporated according using BREB method",
         )
@@ -429,15 +423,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             units=pyunits.feet / pyunits.year,
             doc="Rate at which solids precipitate on bottom of pond",
         )
-
-        @self.Expression(doc="Differential pressure required for pumping")
-        def differential_pressure(b):
-            return pyunits.convert(
-                prop_in.dens_mass_phase["Liq"]
-                * Constants.acceleration_gravity
-                * b.differential_head,
-                to_units=pyunits.Pa,
-            )
 
         @self.Expression(doc="Water activity")
         def water_activity(b):
@@ -565,16 +550,17 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(self.days_in_year)
         def eq_water_temp(b, d):
             air_temp_C = b.weather[d].temperature["Vap"] - 273.15 * pyunits.degK
+            # Minimum water temp is 0.2 degC
             return b.weather[d].temperature["Liq"] == smooth_max(
                 (b.water_temp_param1 * air_temp_C - b.water_temp_param2)
                 + 273.15 * pyunits.degK,
-                274.15,
+                273.35,
             )
 
         @self.Constraint(self.days_in_year)
         def eq_net_radiation(b, d):
             return b.net_radiation[d] == smooth_max(
-                b.net_solar_radiation[d] - b.net_heat_flux_out[d], 0.01
+                b.net_solar_radiation[d] - b.net_heat_flux_out[d], 1e-3
             )
 
         @self.Constraint(
@@ -597,12 +583,15 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             daily_temperature_change = (
                 b.weather[d].temperature["Liq"] - b.weather[d].temperature["Vap"]
             ) / pyunits.day
-            return b.net_heat_flux_out[d] == pyunits.convert(
-                prop_in.dens_mass_phase["Liq"]
-                * prop_in.cp_mass_solvent["Liq"]
-                * b.evaporation_pond_depth
-                * daily_temperature_change,
-                to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            return b.net_heat_flux_out[d] == smooth_max(
+                pyunits.convert(
+                    prop_in.dens_mass_phase["Liq"]
+                    * prop_in.cp_mass_solvent["Liq"]
+                    * b.evaporation_pond_depth
+                    * daily_temperature_change,
+                    to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+                ),
+                1e-3,
             )
 
         @self.Constraint(doc="Total evaporative area required")
@@ -696,27 +685,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         )
         init_log.info("Initialization Step 1 Complete.")
 
-        for d, c in self.eq_water_temp.items():
-            calculate_variable_from_constraint(self.weather[d].temperature["Liq"], c)
-
-        for v, c in zip(
-            self.net_heat_flux_out.values(), self.eq_net_heat_flux_out.values()
-        ):
-            calculate_variable_from_constraint(v, c)
-
-        for v, c in zip(self.net_radiation.values(), self.eq_net_radiation.values()):
-            calculate_variable_from_constraint(v, c)
-
-        for v, c in zip(
-            self.mass_flux_water_vapor.values(), self.eq_mass_flux_water_vapor.values()
-        ):
-            calculate_variable_from_constraint(v, c)
-
-        calculate_variable_from_constraint(
-            self.total_evaporative_area_required,
-            self.eq_total_evaporative_area_required,
-        )
-
         # Solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
@@ -730,7 +698,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         # Release Inlet state
         self.properties_in.release_state(flags, outlvl=outlvl)
-        init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+        init_log.info("Initialization Complete: {}.".format(idaeslog.condition(res)))
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize.")
@@ -770,6 +738,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.evaporation_pond_area) is None:
             iscale.set_scaling_factor(self.evaporation_pond_area, 1e-3)
+
+        if iscale.get_scaling_factor(self.net_radiation) is None:
+            iscale.set_scaling_factor(self.net_radiation, 1)
 
     def _get_stream_table_contents(self, time_point=0):
 
