@@ -112,7 +112,7 @@ def build_pond():
 
 
 class TestEvaporationPond:
-    
+
     @pytest.fixture(scope="class")
     def ss_frame(self):
         m = build_pond()

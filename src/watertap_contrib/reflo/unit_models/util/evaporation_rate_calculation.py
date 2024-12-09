@@ -22,7 +22,7 @@ specific_heat_capacity = 1.013e-3
 # evap_rate_method = int(df.iloc[-1, 1]) #salinity g/l
 salinity = 100
 evap_rate_method = 1
-pond_depth = 0.4572 # m = 18 inches
+pond_depth = 0.4572  # m = 18 inches
 # print(salinity, evap_rate_method)
 # Create a new column to group by every 24 rows
 df["group"] = np.arange(len(df)) // 24
@@ -99,9 +99,9 @@ for i in range(1, days_in_year, 1):
     pressure_sat_air_temp_min = 0.6108 * numpy.exp(
         (17.269 * air_temp_min[i]) / (air_temp_min[i] + 237.3)
     )
-    pressure_sat_air_temp_mean = (0.6108 * numpy.exp(
-        (17.269 * air_temp_mean[i]) / (air_temp_mean[i] + 237.3)
-    )) * rel_humidity_mean[i]
+    pressure_sat_air_temp_mean = (
+        0.6108 * numpy.exp((17.269 * air_temp_mean[i]) / (air_temp_mean[i] + 237.3))
+    ) * rel_humidity_mean[i]
     # Saturation vapor pressure at the max air temperature [kPa]
     pressure_sat_air_temp_max = 0.6108 * numpy.exp(
         (17.269 * air_temp_max[i]) / (air_temp_max[i] + 237.3)
@@ -121,7 +121,9 @@ for i in range(1, days_in_year, 1):
         emissivity_air2 = 0.99
     else:
         emissivity_air = 1.24 * ((pressure_sat_actual / air_temp_mean[i]) ** (1 / 7))
-        emissivity_air2 = 1.24 * ((pressure_sat_air_temp_mean / air_temp_mean[i]) ** (1 / 7))
+        emissivity_air2 = 1.24 * (
+            (pressure_sat_air_temp_mean / air_temp_mean[i]) ** (1 / 7)
+        )
         if emissivity_air > 1:
             emissivity_air = 0.99
     # print(air_temp_mean[i], emissivity_air)
@@ -141,7 +143,7 @@ for i in range(1, days_in_year, 1):
         " ",
         i,
         # water_depth[i],
-        # air_temp_mean[i], 
+        # air_temp_mean[i],
         # rel_humidity_mean[i],
         # water_temp_mean[i],
         # f'{pressure_sat_actual= }',
