@@ -761,8 +761,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         #     == self.aggregate_flow_heat_purchased - self.aggregate_flow_heat_sold
         # )
         self.aggregate_flow_heat_constraint = pyo.Constraint(
-            expr=self.aggregate_flow_heat
-            == self.aggregate_flow_heat_purchased
+            expr=self.aggregate_flow_heat == self.aggregate_flow_heat_purchased
         )
 
     def initialize_build(self):
