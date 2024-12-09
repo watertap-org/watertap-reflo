@@ -217,8 +217,12 @@ def plot_3d(surrogate):
 #########################################################################################################
 if __name__ == "__main__":
     create_plots = True
-    dataset_filename = join(dirname(__file__), "../data/test_flat_plate_data.pkl")
-    surrogate_filename = join(dirname(__file__), "../flat_plate_surrogate.json")
+    dataset_filename = join(
+        dirname(__file__), "../data/flat_plate_data_heat_load_1_100.pkl"
+    )
+    surrogate_filename = join(
+        dirname(__file__), "../flat_plate_surrogate_heat_load_1_100.json"
+    )
     n_samples = 100  # number of points to use from overall dataset
     training_fraction = 0.8
     input_labels = ["heat_load", "hours_storage", "temperature_hot"]
@@ -254,7 +258,7 @@ if __name__ == "__main__":
 
     # create flowsheet input variables
     m.fs.heat_load = Var(
-        initialize=1000, bounds=[100, 1000], doc="rated plant heat capacity in MWt"
+        initialize=100, bounds=[5, 200], doc="rated plant heat capacity in MWt"
     )
     m.fs.hours_storage = Var(
         initialize=20, bounds=[0, 26], doc="rated plant hours of storage"
@@ -287,7 +291,7 @@ if __name__ == "__main__":
     sys.stdout = oldstdout
 
     # fix input values and solve flowsheet
-    m.fs.heat_load.fix(1000)
+    m.fs.heat_load.fix(100)
     m.fs.hours_storage.fix(20)
     m.fs.temperature_hot.fix(70)
     solver = SolverFactory("ipopt")
