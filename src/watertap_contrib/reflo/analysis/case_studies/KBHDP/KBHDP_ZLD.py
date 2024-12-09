@@ -65,10 +65,12 @@ def main():
     set_operating_conditions(m)
     apply_scaling(m)
     init_system(m)
+
+    print(m.fs.treatment.MD.display())
     # add_costing(m)
     # scale_costing(m)
     # box_solve_problem(m)
-    # solve(m, debug=True)
+    solve(m, debug=True)
 
     # scale_costing(m)
 
