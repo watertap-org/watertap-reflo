@@ -335,14 +335,14 @@ def scale_costing(m):
     # iscale.constraint_scaling_transform(
     #     m.fs.costing.aggregate_electricity_balance, 1e-2
     # )
-    iscale.constraint_scaling_transform(
-        m.fs.costing.aggregate_flow_electricity_constraint, 1
-    )
-    iscale.set_scaling_factor(m.fs.costing.aggregate_flow_electricity_purchased, 1e-4)
+    # iscale.constraint_scaling_transform(
+    #     m.fs.costing.aggregate_flow_electricity_constraint, 1
+    # )
+    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_electricity_purchased, 1e-3)
 
     # iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1/10000000)
-    # # iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-10)
-    # # iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-6)
+    # iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-10)
+    # iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-6)
 
     # # iscale.constraint_scaling_transform(
     # #     m.fs.energy.pv.costing.annual_generation_constraint, 1e-8

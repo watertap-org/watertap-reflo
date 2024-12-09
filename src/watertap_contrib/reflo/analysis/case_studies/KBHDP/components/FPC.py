@@ -128,7 +128,7 @@ def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80):
     energy.FPC.initialize()
 
 
-def add_fpc_costing(m, costing_block):
+def add_fpc_costing(m, costing_block=None):
     energy = m.fs.energy
     if costing_block is None:
         energy.costing = EnergyCosting()
@@ -143,7 +143,7 @@ def add_fpc_costing(m, costing_block):
 def add_FPC_scaling(m, blk):
     set_scaling_factor(blk.heat_annual_scaled, 1e2)
     set_scaling_factor(blk.electricity_annual_scaled, 1e2)
-    # set_scaling_factor(blk.heat_load, 100)
+    set_scaling_factor(blk.heat_load, 1e6)
 
     constraint_scaling_transform(blk.heat_constraint, 1e-3)
     constraint_scaling_transform(blk.electricity_constraint, 1e-4)
@@ -331,7 +331,7 @@ if __name__ == "__main__":
     add_FPC_scaling(m, m.fs.energy.FPC)
     init_fpc(m)
 
-    add_fpc_costing(m, costing_block=m.fs.costing)
+    add_fpc_costing(m)
     # calc_costing(m, m.fs)
     # m.fs.costing.aggregate_flow_heat.fix(-4000)
     results = solve(m, debug=True)
