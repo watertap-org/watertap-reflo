@@ -142,8 +142,8 @@ def add_DWI_costing(m, blk, costing_blk=None):
     )
 
 
-def report_DWI(m, blk):
-    print(f"\n\n-------------------- UF Report --------------------\n")
+def report_DWI(blk):
+    print(f"\n\n-------------------- DWI Report --------------------\n")
     print("\n")
     print(
         f'{"Injection Well Depth":<30s}{value(blk.unit.config.injection_well_depth):<10.3f}{pyunits.get_units(blk.unit.config.injection_well_depth)}'
@@ -151,14 +151,11 @@ def report_DWI(m, blk):
 
 
 def print_DWI_costing_breakdown(blk):
-    print(f"\n\n-------------------- DWI Costing Breakdown --------------------\n")
-    print(f'{"Capital Cost":<30s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
-    # print(
-    #     f'{"Capital Cost":<30s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
-    # )
+    print(f'{"DWI Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
     print(
-        f'{"Operating Cost":<30s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
+        f'{"DWI Operating Cost":<35s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
     )
+    print("\n")
 
 
 def build_system():
@@ -248,9 +245,4 @@ if __name__ == "__main__":
     set_system_op_conditions(m.fs.DWI)
 
     init_DWI(m, m.fs.DWI)
-    # add_DWI_costing(m, m.fs.DWI)
-    # m.fs.costing.cost_process()
-    # solve(m)
 
-    # report_DWI(m, m.fs.DWI)
-    # print_DWI_costing_breakdown(m, m.fs.DWI)
