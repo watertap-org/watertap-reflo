@@ -674,7 +674,7 @@ def display_system_stream_table(m):
     report_UF(m, treatment.UF)
     report_pump(m, treatment.pump)
     report_LTMED(m)
-    report_DWI(m, treatment.DWI)
+    report_DWI(treatment.DWI)
     report_fpc(m)
 
 
