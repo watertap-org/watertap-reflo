@@ -245,4 +245,3 @@ if __name__ == "__main__":
     set_system_op_conditions(m.fs.DWI)
 
     init_DWI(m, m.fs.DWI)
-
