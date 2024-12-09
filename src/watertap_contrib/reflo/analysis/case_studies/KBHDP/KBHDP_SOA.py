@@ -1,5 +1,4 @@
 import os
-import math
 
 from pyomo.environ import (
     ConcreteModel,
