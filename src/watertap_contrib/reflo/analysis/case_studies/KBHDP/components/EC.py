@@ -386,4 +386,3 @@ if __name__ == "__main__":
 
     report_EC(m.fs.EC)
     print_EC_costing_breakdown(m.fs.EC)
-
