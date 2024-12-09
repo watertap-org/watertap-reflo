@@ -32,7 +32,7 @@ import idaes.logger as idaeslogger
 from idaes.core.util.exceptions import InitializationError
 from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
-
+from watertap.core.util.initialization import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
@@ -43,7 +43,6 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
     REFLOCosting,
 )
-
 from watertap_contrib.reflo.unit_models.deep_well_injection import DeepWellInjection
 from watertap_contrib.reflo.costing.units.deep_well_injection import (
     blm_costing_params_dict,
@@ -80,7 +79,7 @@ def build_DWI(m, blk, prop_package) -> None:
     )
 
 
-def set_DWI_op_conditions(blk):
+def set_system_op_conditions(blk):
     inlet_conc = {
         "Ca_2+": 1.43,
         "Mg_2+": 0.1814,
@@ -118,18 +117,25 @@ def set_DWI_op_conditions(blk):
     )
 
 
+def set_DWI_op_conditions(blk):
+    pass
+
+
 def init_DWI(m, blk, verbose=True, solver=None):
     if solver is None:
         solver = get_solver()
 
     optarg = solver.options
-
+    assert_no_degrees_of_freedom(m)
     blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
 
 
-def add_DWI_costing(m, blk):
+def add_DWI_costing(m, blk, costing_blk=None):
+    if costing_blk is None:
+        costing_blk = TreatmentCosting()
+
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
+        flowsheet_costing_block=costing_blk,
         costing_method_arguments={
             "cost_method": "as_opex"
         },  # could be "as_capex" or "blm"
@@ -155,7 +161,7 @@ def print_DWI_costing_breakdown(blk):
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.costing = REFLOCosting()
+    # m.fs.costing = REFLOCosting()
     inlet_conc = {
         "Ca_2+": 1.43,
         "Mg_2+": 0.1814,
@@ -196,15 +202,46 @@ def solve(model, solver=None, tee=True, raise_on_failure=True):
         return results
 
 
+def breakdown_dof(blk):
+    equalities = [c for c in activated_equalities_generator(blk)]
+    active_vars = variables_in_activated_equalities_set(blk)
+    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
+    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
+    print("\n ===============DOF Breakdown================\n")
+    print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
+    print(f"Activated Variables: ({len(active_vars)})")
+    for v in active_vars:
+        print(f"   {v}")
+    print(f"Activated Equalities: ({len(equalities)})")
+    for c in equalities:
+        print(f"   {c}")
+
+    print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
+    for v in fixed_active_vars:
+        print(f"   {v}")
+
+    print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
+    for v in unfixed_active_vars:
+        print(f"   {v}")
+    print("\n")
+    print(f" {f' Active Vars':<30s}{len(active_vars)}")
+    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
+    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
+    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+    print("\nSuggested Variables to Fix:")
+
+    if degrees_of_freedom != 0:
+        unfixed_vars_without_constraint = [
+            v for v in active_vars if v not in unfixed_active_vars
+        ]
+        for v in unfixed_vars_without_constraint:
+            if v.fixed is False:
+                print(f"   {v}")
+
+
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
-    set_DWI_op_conditions(m.fs.DWI)
+    set_system_op_conditions(m.fs.DWI)
 
     init_DWI(m, m.fs.DWI)
-    add_DWI_costing(m, m.fs.DWI)
-    m.fs.costing.cost_process()
-    solve(m)
-
-    report_DWI(m.fs.DWI)
-    print_DWI_costing_breakdown(m.fs.DWI)
