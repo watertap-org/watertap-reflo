@@ -50,7 +50,6 @@ __all__ = [
     "add_connections",
     "add_constraints",
     "add_costing",
-    # "relax_constraints",
     "set_inlet_conditions",
     "set_operating_conditions",
     "report_MCAS_stream_conc",
@@ -60,34 +59,34 @@ __all__ = [
 ]
 
 
-def propagate_state(arc):
+def propagate_state(arc, detailed=True):
     _prop_state(arc)
-    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    # arc.source.display()
-    # print(arc.destination.name)
-    # arc.destination.display()
-    # print("\n")
+    if detailed:
+        print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+        arc.source.display()
+        print(arc.destination.name)
+        arc.destination.display()
+        print("\n")
 
 
 def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     m = build_system()
-    # display_system_build(m)
+    display_system_build(m)
     add_connections(m)
     add_constraints(m)
-    # relax_constraints(m, m.fs.RO)
     set_operating_conditions(m)
     init_system(m)
     add_costing(m)
     display_system_build(m)
     optimize(m, ro_mem_area=None, water_recovery=0.5)
     solve(m, debug=True)
-    # display_system_stream_table(m)
-    # report_softener(m)
-    # report_UF(m, m.fs.UF)
-    # report_RO(m, m.fs.RO)
-    # display_costing_breakdown(m)
+    display_system_stream_table(m)
+    report_softener(m)
+    report_UF(m, m.fs.UF)
+    report_RO(m, m.fs.RO)
+    display_costing_breakdown(m)
     print_all_results(m)
 
 
@@ -203,11 +202,6 @@ def add_connections(m):
         source=m.fs.pump.outlet,
         destination=m.fs.RO.feed.inlet,
     )
-
-    # m.fs.translator_to_ro = Arc(
-    #     source=m.fs.TDS_to_NaCl_translator.outlet,
-    #     destination=m.fs.RO.feed.inlet,
-    # )
 
     m.fs.ro_to_product = Arc(
         source=m.fs.RO.product.outlet,
@@ -412,7 +406,6 @@ def init_system(m, verbose=True, solver=None):
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     m.fs.feed.initialize()
-    # propagate_state(m.fs.feed_to_primary_pump)
     propagate_state(m.fs.feed_to_softener)
     report_MCAS_stream_conc(m, m.fs.feed.properties[0.0])
     init_softener(m, m.fs.softener.unit)
@@ -421,7 +414,6 @@ def init_system(m, verbose=True, solver=None):
     propagate_state(m.fs.translator_to_UF)
     init_UF(m, m.fs.UF)
     propagate_state(m.fs.UF_to_translator3)
-    # BUG Need to add UF to disposal
 
     m.fs.TDS_to_NaCl_translator.initialize()
 
@@ -429,7 +421,6 @@ def init_system(m, verbose=True, solver=None):
     m.fs.pump.initialize()
 
     propagate_state(m.fs.pump_to_ro)
-    # propagate_state(m.fs.translator_to_ro)
 
     init_ro_system(m, m.fs.RO)
     propagate_state(m.fs.ro_to_product)
@@ -611,9 +602,6 @@ def display_costing_breakdown(m):
     print(
         f'{"Pump Capital Cost":<35s}{f"${value(m.fs.pump.costing.capital_cost):<25,.0f}"}'
     )
-    # print(
-    #     f'{"Brine Disposal Cost":<35s}{f"${value(m.fs.disposal.costing.fixed_operating_cost()):<25,.0f}"}'
-    # )
     print("\n")
     print(
         f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.3f}"}'
@@ -651,7 +639,7 @@ def print_all_results(m):
     report_softener(m)
     report_UF(m, m.fs.UF)
     report_RO(m, m.fs.RO)
-    # report_DWI
+    report_DWI(m.fs.DWI)
     display_costing_breakdown(m)
 
 
