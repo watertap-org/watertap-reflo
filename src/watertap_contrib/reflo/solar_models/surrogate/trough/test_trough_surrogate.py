@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -285,7 +285,6 @@ class TestTroughLarge:
         # set heat and electricity costs to be non-zero
         m.fs.costing.heat_cost.set_value(0.01)
         m.fs.costing.electricity_cost.fix(0.07)
-        m.fs.costing.base_currency = pyunits.USD_2021
         m.fs.trough.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.costing
         )
@@ -316,10 +315,10 @@ class TestTroughLarge:
             "aggregate_variable_operating_cost": 1313013.020,
             "aggregate_flow_heat": -149784.738,
             "aggregate_flow_electricity": 1843.139,
-            "aggregate_flow_costs": {"heat": -11650748.44, "electricity": 1327705.190},
+            "aggregate_flow_costs": {"heat": -13130130.20, "electricity": 1327705.190},
             "total_capital_cost": 249933275.0,
             "maintenance_labor_chemical_operating_cost": 0.0,
-            "total_operating_cost": -7010030.23,
+            "total_operating_cost": -8489411.99,
             "capital_recovery_factor": 0.11955949,
             "aggregate_direct_capital_cost": 249933275.0,
         }

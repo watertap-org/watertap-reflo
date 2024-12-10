@@ -37,7 +37,7 @@ default:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-      value: 0.08
+      value: 0.7
       units: dimensionless
   capital_cost:
     cost_factor: TPEC
@@ -78,7 +78,7 @@ default:
 
 kbhdp:
   conductivity:
-    value: 2.416270685
+    value: 26
     units: S/m
   electrode_thick:
     value: 0.1
@@ -115,10 +115,10 @@ kbhdp:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-      value: 0.08
+      value: 0.7
       units: dimensionless
     silica:
-      value: 0.95
+      value: 0.7
       units: dimensionless
   capital_cost:
     cost_factor: TPEC

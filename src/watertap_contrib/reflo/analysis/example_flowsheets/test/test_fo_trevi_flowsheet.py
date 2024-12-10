@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -121,7 +121,7 @@ class TestTreviFO:
         assert overall_performance["Thermal power requirement (kW)"] == pytest.approx(
             569.175, rel=1e-3
         )
-        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.42375, rel=1e-3)
+        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.454, rel=1e-3)
 
         assert operational_parameters["HX1 cold in temp"] == pytest.approx(
             21.23, rel=1e-3

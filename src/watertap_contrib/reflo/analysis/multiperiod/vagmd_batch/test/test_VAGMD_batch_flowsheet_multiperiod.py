@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -280,7 +280,7 @@ class TestVAGMDbatchAS7C15L_Closed:
         assert pytest.approx(151892.658, rel=1e-3) == value(
             vagmd.costing.fixed_operating_cost
         )
-        assert pytest.approx(2.3206, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(2.500, rel=1e-3) == value(m.fs.costing.LCOW)
 
 
 class TestVAGMDbatchAS7C15L_HighSalinityClosed:

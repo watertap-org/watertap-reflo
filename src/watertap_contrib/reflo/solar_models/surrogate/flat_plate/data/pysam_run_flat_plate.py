@@ -426,7 +426,7 @@ if __name__ == "__main__":
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "FPC_Heat_Load.pkl"
+        dirname(__file__), "flat_plate_data_heat_load_1_400.pkl"
     )  # output dataset for surrogate training
 
     config_data = read_module_datafile(param_file)
