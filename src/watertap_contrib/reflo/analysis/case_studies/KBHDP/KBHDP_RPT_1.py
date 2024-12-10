@@ -271,6 +271,7 @@ def add_treatment_costing(m):
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
     )
+
     add_ec_costing(m, treatment.EC, treatment.costing)
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_ro_costing(m, treatment.RO, treatment.costing)

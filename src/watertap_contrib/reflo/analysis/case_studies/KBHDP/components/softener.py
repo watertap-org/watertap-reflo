@@ -288,9 +288,11 @@ def set_scaling(m):
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
 
-def add_softener_costing(m, blk):
+def add_softener_costing(m, blk, costing_blk=None):
+    if costing_blk is None:
+        costing_blk = m.fs.costing
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
+        flowsheet_costing_block=costing_blk,
     )
 
     # m.fs.costing.cost_process()
