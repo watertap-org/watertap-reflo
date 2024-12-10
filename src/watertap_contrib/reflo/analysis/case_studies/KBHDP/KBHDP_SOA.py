@@ -261,14 +261,15 @@ def add_constraints(m):
 
 
 def add_costing(m):
+
     m.fs.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
     )
 
-    add_softener_costing(m, m.fs.softener)
-    add_UF_costing(m, m.fs.UF)
-    add_ro_costing(m, m.fs.RO)
-    add_DWI_costing(m, m.fs.DWI)
+    add_softener_costing(m, m.fs.softener, m.fs.costing)
+    add_UF_costing(m, m.fs.UF, m.fs.costing)
+    add_ro_costing(m, m.fs.RO, m.fs.costing)
+    add_DWI_costing(m, m.fs.DWI, m.fs.costing)
 
     m.fs.costing.cost_process()
     m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
