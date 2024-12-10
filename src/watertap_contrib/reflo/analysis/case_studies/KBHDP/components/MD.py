@@ -284,7 +284,10 @@ def init_md(blk, verbose=True, solver=None):
                 * blk.model_options["initial_batch_volume"]
                 * pyunits.L
                 * (1 - b.unit.get_active_process_blocks()[-1].fs.acc_recovery_ratio)
-                / (b.unit.get_active_process_blocks()[-1].fs.dt * (blk.n_time_points - 1))
+                / (
+                    b.unit.get_active_process_blocks()[-1].fs.dt
+                    * (blk.n_time_points - 1)
+                )
             ),
             to_units=pyunits.m**3 / pyunits.s,
         )
@@ -363,19 +366,19 @@ def set_md_op_conditions(blk):
     # feed_temp = pyunits.convert_temp_K_to_C(blk.feed.properties[0].temperature())
 
     print("\n--------- MD TIME PERIOD 1 INPUTS ---------\n")
-    print("Feed flow rate in L/h:",  blk.model_options["feed_flow_rate"])
-    print("Feed salinity in g/l:",  blk.model_options["feed_salinity"])
-    print("Feed temperature in C:",  blk.model_options["feed_temp"])
+    print("Feed flow rate in L/h:", blk.model_options["feed_flow_rate"])
+    print("Feed salinity in g/l:", blk.model_options["feed_salinity"])
+    print("Feed temperature in C:", blk.model_options["feed_temp"])
     print("\n")
 
     active_blks[0].fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"].fix(
-         blk.model_options["feed_salinity"]
+        blk.model_options["feed_salinity"]
     )
     active_blks[0].fs.vagmd.feed_props[0].temperature.fix(
-         blk.model_options["feed_temp"] + 273.15
+        blk.model_options["feed_temp"] + 273.15
     )
     active_blks[0].fs.acc_distillate_volume.fix(0)
-    active_blks[0].fs.pre_feed_temperature.fix( blk.model_options["feed_temp"] + 273.15)
+    active_blks[0].fs.pre_feed_temperature.fix(blk.model_options["feed_temp"] + 273.15)
     active_blks[0].fs.pre_permeate_flow_rate.fix(0)
     active_blks[0].fs.acc_thermal_energy.fix(0)
     active_blks[0].fs.pre_thermal_power.fix(0)
@@ -720,7 +723,9 @@ if __name__ == "__main__":
     m.fs.md.unit.get_active_process_blocks()[0].fs.acc_distillate_volume.display()
     m.fs.md.unit.get_active_process_blocks()[0].fs.pre_evap_out_temp.display()
     m.fs.md.unit.get_active_process_blocks()[0].fs.vagmd.thermal_power.display()
-    m.fs.md.unit.get_active_process_blocks()[0].fs.specific_energy_consumption_thermal.display()
+    m.fs.md.unit.get_active_process_blocks()[
+        0
+    ].fs.specific_energy_consumption_thermal.display()
 
     m.fs.md.unit.get_active_process_blocks()[1].fs.vagmd.permeate_flux.display()
     m.fs.md.unit.get_active_process_blocks()[1].fs.pre_permeate_flow_rate.display()
@@ -728,7 +733,9 @@ if __name__ == "__main__":
     m.fs.md.unit.get_active_process_blocks()[1].fs.acc_distillate_volume.display()
     m.fs.md.unit.get_active_process_blocks()[1].fs.pre_evap_out_temp.display()
     m.fs.md.unit.get_active_process_blocks()[1].fs.vagmd.thermal_power.display()
-    m.fs.md.unit.get_active_process_blocks()[1].fs.specific_energy_consumption_thermal.display()
+    m.fs.md.unit.get_active_process_blocks()[
+        1
+    ].fs.specific_energy_consumption_thermal.display()
 
     m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd.permeate_flux.display()
     m.fs.md.unit.get_active_process_blocks()[-1].fs.pre_permeate_flow_rate.display()
@@ -736,7 +743,9 @@ if __name__ == "__main__":
     m.fs.md.unit.get_active_process_blocks()[-1].fs.acc_distillate_volume.display()
     m.fs.md.unit.get_active_process_blocks()[-1].fs.pre_evap_out_temp.display()
     m.fs.md.unit.get_active_process_blocks()[-1].fs.vagmd.thermal_power.display()
-    m.fs.md.unit.get_active_process_blocks()[-1].fs.specific_energy_consumption_thermal.display()
+    m.fs.md.unit.get_active_process_blocks()[
+        -1
+    ].fs.specific_energy_consumption_thermal.display()
 
     m.fs.disposal.properties[0].flow_vol_phase
 
@@ -754,7 +763,15 @@ if __name__ == "__main__":
     results = solve(m)
     print("\n--------- Cost solve Completed ---------\n")
 
-    print("Inlet flow rate in m3/day:", value(pyunits.convert(m.fs.feed.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)))
+    print(
+        "Inlet flow rate in m3/day:",
+        value(
+            pyunits.convert(
+                m.fs.feed.properties[0].flow_vol_phase["Liq"],
+                pyunits.m**3 / pyunits.day,
+            )
+        ),
+    )
     report_MD(m, m.fs.md)
     report_md_costing(m, m.fs)
 
@@ -770,12 +787,26 @@ if __name__ == "__main__":
     # heat_in = [value(active_blks[i].fs.pre_thermal_power) for i in range(n_time_points)]
 
     # m.fs.water_recovery.display()
-    print('\n')
-    print(f'Sys Feed Flow Rate: {value(pyunits.convert(m.fs.feed.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day')
-    print(f'MD  Feed Flow Rate: {value(pyunits.convert(m.fs.md.feed.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day')
-    print(f'Sys Perm Flow Rate: {value(pyunits.convert(m.fs.product.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day')
-    print(f'MD  Perm Flow Rate: {value(pyunits.convert(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day')
-    print(f'Sys Conc Flow Rate: {value(pyunits.convert(m.fs.disposal.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day')
-    print(f'MD  Conc Flow Rate: {value(pyunits.convert(m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day')
-    print(f'System Var Recovery: {value(m.fs.water_recovery):<10.2f}')
-    print(f'Calculated Recovery: {value(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"] / (m.fs.md.permeate.properties[0].flow_vol_phase["Liq"] + m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"])):<10.2f}')
+    print("\n")
+    print(
+        f'Sys Feed Flow Rate: {value(pyunits.convert(m.fs.feed.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
+    )
+    print(
+        f'MD  Feed Flow Rate: {value(pyunits.convert(m.fs.md.feed.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
+    )
+    print(
+        f'Sys Perm Flow Rate: {value(pyunits.convert(m.fs.product.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
+    )
+    print(
+        f'MD  Perm Flow Rate: {value(pyunits.convert(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
+    )
+    print(
+        f'Sys Conc Flow Rate: {value(pyunits.convert(m.fs.disposal.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
+    )
+    print(
+        f'MD  Conc Flow Rate: {value(pyunits.convert(m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
+    )
+    print(f"System Var Recovery: {value(m.fs.water_recovery):<10.2f}")
+    print(
+        f'Calculated Recovery: {value(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"] / (m.fs.md.permeate.properties[0].flow_vol_phase["Liq"] + m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"])):<10.2f}'
+    )

@@ -198,8 +198,10 @@ see property package for documentation.}""",
             doc="Equality solute equation",
         )
         def eq_solute_mass_flow(blk, t):
-            return blk.properties_out[t].flow_mass_phase_comp["Liq", "TDS"] == blk.properties_in[t].flow_mass_phase_comp["Liq", "NaCl"]
-
+            return (
+                blk.properties_out[t].flow_mass_phase_comp["Liq", "TDS"]
+                == blk.properties_in[t].flow_mass_phase_comp["Liq", "NaCl"]
+            )
 
     def initialize_build(
         self,

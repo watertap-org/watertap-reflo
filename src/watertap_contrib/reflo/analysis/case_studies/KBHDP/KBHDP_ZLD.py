@@ -136,7 +136,7 @@ def build_treatment(m):
         has_phase_equilibrium=False,
         outlet_state_defined=True,
     )
-    
+
     treatment.NaCl_to_TDS_translator = Translator_NaCl_to_TDS(
         inlet_property_package=m.fs.RO_properties,
         outlet_property_package=m.fs.MD_properties,
@@ -177,7 +177,7 @@ def build_treatment(m):
     m.fs.RO_properties.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
     )
-    
+
     m.fs.MD_properties.set_default_scaling(
         "flow_mass_phase_comp", 1, index=("Liq", "H2O")
     )
@@ -238,12 +238,12 @@ def add_connections(m):
         source=treatment.RO.product.outlet,
         destination=treatment.product.inlet,
     )
-    
+
     treatment.ro_to_translator = Arc(
         source=treatment.RO.disposal.outlet,
         destination=treatment.NaCl_to_TDS_translator.inlet,
     )
-    
+
     treatment.translator_to_md = Arc(
         source=treatment.NaCl_to_TDS_translator.outlet,
         destination=treatment.MD.feed.inlet,
@@ -521,7 +521,7 @@ def init_treatment(m, verbose=True, solver=None):
     propagate_state(treatment.translator_to_md)
 
     init_md(treatment.MD)
-    #TODO: Continue from here
+    # TODO: Continue from here
     # treatment.product.initialize(optarg=optarg)
     # # init_DWI(m, treatment.DWI)
     # display_system_stream_table(m)
