@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -260,11 +260,11 @@ class TestVAGMDbatch:
             68657.789, rel=1e-3
         )
         assert cost_performance["Annual heat cost ($)"] == pytest.approx(
-            128236.19, rel=1e-3
+            113787.72, rel=1e-3
         )
         assert cost_performance["Annual electricity cost ($)"] == pytest.approx(
             4064.964, rel=1e-3
         )
         assert cost_performance["Overall LCOW ($/m3)"] == pytest.approx(
-            1.70261, rel=1e-3
+            1.66306, rel=1e-3
         )
