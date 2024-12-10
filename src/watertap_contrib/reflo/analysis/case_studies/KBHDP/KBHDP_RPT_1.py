@@ -465,7 +465,7 @@ def display_unfixed_vars(blk, report=True):
             print(f"\t{v2.name:<40s}")
 
 
-def set_operating_conditions(m, RO_pressure=15e5):
+def set_operating_conditions(m, RO_pressure=20e5):
     treatment = m.fs.treatment
     pump_efi = 0.8  # pump efficiency [-]
     # Set inlet conditions and operating conditions for each unit
