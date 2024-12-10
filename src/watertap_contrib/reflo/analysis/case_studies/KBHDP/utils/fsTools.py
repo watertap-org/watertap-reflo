@@ -9,6 +9,7 @@ from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import *
 import time
 from watertap.core.util.model_diagnostics.infeasible import *
+import numpy as np
 
 __all__ = ["check_jac", "calc_scale", "print_fixed_and_unfixed_vars", "breakdown_dof"]
 
@@ -146,6 +147,7 @@ def standard_solve(
     debug=False,
     check_close_to_bounds=False,
     check_var_scailing=False,
+    auto_rescale=False,
     check_jacobian=False,
     get_stats=True,
     symbolic_solver_labels=False,
@@ -283,6 +285,9 @@ def standard_solve(
         if check_var_scailing:
             print("------poor_scaling_vars-tests---------")
             get_poorly_scaled_vars(m)
+            if auto_rescale:
+                print("\n\n------auto_scaling_vars-tests---------\n\n")
+                auto_scale_bad_vars(m, m.fs, display=True, auto_scale_all=True)
         if check_jacobian:
             print("------jac-tests---------")
             check_jac(m)
@@ -333,3 +338,59 @@ def get_poorly_scaled_vars(blk):
             "delta",
             delta,
         )
+
+
+def auto_scale_bad_vars(
+    m,
+    blk,
+    display=False,
+    auto_scale_all=False,
+    small_values=1e-10,
+    upscale_small_values=None,
+    update_scaling=True,
+    display_with_out_scale=False,
+    rescale_magnitude=0,
+    loosen=0,
+):
+    if auto_scale_all is False:
+        for var, sv in iscale.badly_scaled_var_generator(blk):
+            # print("poor scaling:", var, sv)
+            sc = calc_scale(sv) - loosen
+            if update_scaling:
+                iscale.set_scaling_factor(
+                    var,
+                    10**sc,
+                )
+            if display:
+                print("auto_scaled_bar_var", var, sv, 10**sc)
+    else:
+        rescaled_var_count = 0
+        for var in blk.component_data_objects(Var):
+            # print(var)
+            _add = 0
+            if (
+                (var.value) != 0
+                and var.value != None
+                and display_with_out_scale == False
+            ):
+                val = abs(var.value)
+                cur_scale = iscale.get_scaling_factor(var)
+                if cur_scale == None:
+                    cur_scale = 1
+                sc = calc_scale(val) + _add - loosen
+                if cur_scale == None:
+                    cur_scale = sc + rescale_magnitude * 2
+                if abs(sc - np.log10(cur_scale)) > rescale_magnitude and update_scaling:
+                    # print(sc, np.log10(cur_scale), abs(10**sc - cur_scale))
+                    iscale.set_scaling_factor(
+                        var,
+                        10**sc,
+                    )
+                    rescaled_var_count += 1
+                if display:
+                    print("auto_scaled", var, var.value, 10**sc)
+            elif iscale.get_scaling_factor(var) is None:
+                print("Var no scale", var)
+
+        print("auto scaled", rescaled_var_count)
+    iscale.calculate_scaling_factors(m)
