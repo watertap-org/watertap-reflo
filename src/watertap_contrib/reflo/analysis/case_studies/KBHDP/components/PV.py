@@ -166,9 +166,9 @@ def report_PV(m):
     print(
         f'{"Electricity Buy":<30s}{f"{value(m.fs.costing.aggregate_flow_electricity_purchased):<10,.0f}"}{"kW":<10s}'
     )
-    print(
-        f'{"Electricity Sold":<30s}{f"{value(m.fs.costing.aggregate_flow_electricity_sold):<10,.0f}"}{"kW":<10s}'
-    )
+    # print(
+    #     f'{"Electricity Sold":<30s}{f"{value(m.fs.costing.aggregate_flow_electricity_sold):<10,.0f}"}{"kW":<10s}'
+    # )
     print(
         f'{"Electricity Cost":<29s}{f"${value(m.fs.costing.total_electric_operating_cost):<10,.0f}"}{"$/yr":<10s}'
     )
