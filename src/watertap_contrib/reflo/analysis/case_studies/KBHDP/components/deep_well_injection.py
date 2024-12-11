@@ -151,6 +151,7 @@ def report_DWI(blk):
 
 
 def print_DWI_costing_breakdown(blk):
+    print(f"\n\n-------------------- DWI Costing Breakdown --------------------\n")
     print(f'{"DWI Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
     print(
         f'{"DWI Operating Cost":<35s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'

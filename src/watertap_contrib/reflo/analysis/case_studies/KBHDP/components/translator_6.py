@@ -49,8 +49,8 @@ __author__ = "Zachary Binger"
 _log = idaeslog.getLogger(__name__)
 
 
-@declare_process_block_class("Translator_TDS_to_TDS")
-class Translator_TDS_to_TDS_Data(TranslatorData):
+@declare_process_block_class("Translator_NaCl_to_TDS")
+class Translator_NaCl_to_TDS_Data(TranslatorData):
     """
     Translator block representing the
     """
@@ -167,14 +167,7 @@ see property package for documentation.}""",
             None
         """
         # Call UnitModel.build to setup dynamics
-        super(Translator_TDS_to_TDS_Data, self).build()
-
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Equality pressure equation",
-        # )
-        # def eq_pressure_rule(blk, t):
-        #     return blk.properties_out[t].pressure == blk.properties_in[t].pressure
+        super(Translator_NaCl_to_TDS_Data, self).build()
 
         @self.Constraint(
             self.flowsheet().time,
@@ -183,11 +176,22 @@ see property package for documentation.}""",
         def eq_flow_vol_rule(blk, t):
             return (
                 blk.properties_out[t].flow_mass_phase_comp["Liq", "H2O"]
-                == blk.properties_in[t].flow_mass_comp["H2O"]
+                == blk.properties_in[t].flow_mass_phase_comp["Liq", "H2O"]
             )
 
-        solute_set = self.config.inlet_property_package.solute_set
-        solvent_set = self.config.inlet_property_package.solvent_set
+        @self.Constraint(
+            self.flowsheet().time,
+            doc="Equality temperature equation",
+        )
+        def eq_temperature_rule(blk, t):
+            return blk.properties_out[t].temperature == blk.properties_in[t].temperature
+
+        @self.Constraint(
+            self.flowsheet().time,
+            doc="Equality pressure equation",
+        )
+        def eq_pressure_rule(blk, t):
+            return blk.properties_out[t].pressure == blk.properties_in[t].pressure
 
         @self.Constraint(
             self.flowsheet().time,
@@ -196,31 +200,8 @@ see property package for documentation.}""",
         def eq_solute_mass_flow(blk, t):
             return (
                 blk.properties_out[t].flow_mass_phase_comp["Liq", "TDS"]
-                == blk.properties_in[t].flow_mass_comp["tds"]
+                == blk.properties_in[t].flow_mass_phase_comp["Liq", "NaCl"]
             )
-
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Outlet Pressure",
-        # )
-        # def eq_outlet_pressure(blk, t):
-        #     return (
-        #         blk.properties_out[t].pressure
-        #         == 101325 * pyunits.Pa
-        #     )
-
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Outlet Pressure",
-        # )
-        # def eq_outlet_temperature(blk, t):
-        #     return (
-        #         blk.properties_out[t].temperature
-        #         == 298.15 * pyunits.K
-        #     )
-
-        self.properties_out[0].pressure.fix(101325)
-        self.properties_out[0].temperature.fix(298.15)
 
     def initialize_build(
         self,
