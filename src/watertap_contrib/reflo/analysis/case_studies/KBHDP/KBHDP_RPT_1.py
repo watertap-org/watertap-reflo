@@ -22,7 +22,6 @@ from watertap_contrib.reflo.core import REFLODatabase
 import idaes.logger as idaeslog
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import *
 from watertap_contrib.reflo.costing import (
@@ -58,24 +57,34 @@ def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     m = build_system(RE=True)
-    display_system_build(m.fs.treatment)
-    display_system_build(m.fs.energy)
+    display_system_build(m)
     add_connections(m)
-    # add_constraints(m)
+    add_constraints(m)
     set_operating_conditions(m)
     apply_scaling(m)
     init_system(m)
-
-    print(m.fs.treatment.MD.display())
-    # add_costing(m)
-    # scale_costing(m)
+    add_costing(m)
+    scale_costing(m)
     # box_solve_problem(m)
-    solve(m, debug=True)
+    # solve(m, debug=True)
 
     # scale_costing(m)
 
-    # optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
-    # solve(m, debug=True)
+    optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
+    solve(m, debug=True)
+    # # display_flow_table(m)
+    # display_system_stream_table(m)
+    # report_RO(m, m.fs.treatment.RO)
+    # # # # # report_pump(m, m.fs.treatment.pump)
+    # # report_PV(m)
+    # # # # # m.fs.treatment.costing.display()
+    # # # # # m.fs.energy.costing.display()""
+    # # # # # m.fs.costing.display()
+    # display_costing_breakdown(m)
+    # # # # # print(m.fs.energy.pv.display())
+    # # # print_system_scaling_report(m)
+    report_PV(m)
+    # print(m.fs.energy.pv.display())
 
     return m
 
@@ -101,10 +110,15 @@ def build_system(RE=True):
 
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
-    m.fs.MD_properties = SeawaterParameterBlock()
 
     build_treatment(m)
+    # if RE:
+    #     print('Building System with Renewable Energy')
+    #     m.fs.RE = RE
     build_energy(m)
+    # else:
+    #     print('Building System without Renewable Energy')
+    #     m.fs.RE = RE
 
     return m
 
@@ -121,7 +135,7 @@ def build_treatment(m):
     treatment.UF = FlowsheetBlock(dynamic=False)
     treatment.pump = Pump(property_package=m.fs.RO_properties)
     treatment.RO = FlowsheetBlock(dynamic=False)
-    treatment.MD = FlowsheetBlock(dynamic=False)
+    treatment.DWI = FlowsheetBlock(dynamic=False)
 
     treatment.MCAS_to_TDS_translator = Translator_MCAS_to_TDS(
         inlet_property_package=m.fs.MCAS_properties,
@@ -137,17 +151,10 @@ def build_treatment(m):
         outlet_state_defined=True,
     )
 
-    treatment.NaCl_to_TDS_translator = Translator_NaCl_to_TDS(
-        inlet_property_package=m.fs.RO_properties,
-        outlet_property_package=m.fs.MD_properties,
-        has_phase_equilibrium=False,
-        outlet_state_defined=True,
-    )
-
     build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
     build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
     build_ro(m, treatment.RO, prop_package=m.fs.RO_properties)
-    build_md(m, treatment.MD, prop_package=m.fs.MD_properties)
+    build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
 
     m.fs.units = [
         treatment.feed,
@@ -155,8 +162,8 @@ def build_treatment(m):
         treatment.UF,
         treatment.pump,
         treatment.RO,
-        treatment.MD,
-        treatment.product,
+        treatment.DWI,
+        # treatment.product,
         treatment.sludge,
     ]
 
@@ -176,13 +183,6 @@ def build_treatment(m):
     )
     m.fs.RO_properties.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
-    )
-
-    m.fs.MD_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
-    )
-    m.fs.MD_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e2, index=("Liq", "TDS")
     )
 
 
@@ -239,14 +239,9 @@ def add_connections(m):
         destination=treatment.product.inlet,
     )
 
-    treatment.ro_to_translator = Arc(
+    treatment.ro_to_dwi = Arc(
         source=treatment.RO.disposal.outlet,
-        destination=treatment.NaCl_to_TDS_translator.inlet,
-    )
-
-    treatment.translator_to_md = Arc(
-        source=treatment.NaCl_to_TDS_translator.outlet,
-        destination=treatment.MD.feed.inlet,
+        destination=treatment.DWI.feed.inlet,
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -280,6 +275,7 @@ def add_treatment_costing(m):
     add_ec_costing(m, treatment.EC, treatment.costing)
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_ro_costing(m, treatment.RO, treatment.costing)
+    add_DWI_costing(m, treatment.DWI, treatment.costing)
 
     treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
     treatment.costing.total_investment_factor.fix(1)
@@ -515,16 +511,11 @@ def init_treatment(m, verbose=True, solver=None):
 
     init_ro_system(m, treatment.RO)
     propagate_state(treatment.ro_to_product)
-    propagate_state(treatment.ro_to_translator)
+    # propagate_state(treatment.ro_to_dwi)
 
-    treatment.NaCl_to_TDS_translator.initialize(optarg=optarg)
-    propagate_state(treatment.translator_to_md)
-
-    init_md(treatment.MD)
-    # TODO: Continue from here
-    # treatment.product.initialize(optarg=optarg)
-    # # init_DWI(m, treatment.DWI)
-    # display_system_stream_table(m)
+    treatment.product.initialize(optarg=optarg)
+    # init_DWI(m, treatment.DWI)
+    display_system_stream_table(m)
 
 
 def init_system(m, verbose=True, solver=None):
@@ -754,9 +745,9 @@ def display_system_stream_table(m):
     print("\n\n")
 
 
-def display_system_build(blk):
+def display_system_build(m):
     blocks = []
-    for v in blk.component_data_objects(ctype=Block, active=True, descend_into=False):
+    for v in m.fs.component_data_objects(ctype=Block, active=True, descend_into=False):
         print(v)
 
 
@@ -771,7 +762,7 @@ def display_costing_breakdown(m):
     print_EC_costing_breakdown(m.fs.treatment.EC)
     print_UF_costing_breakdown(m.fs.treatment.UF)
     print_RO_costing_breakdown(m.fs.treatment.RO)
-    # print_DWI_costing_breakdown(m.fs.treatment.DWI)
+    print_DWI_costing_breakdown(m.fs.treatment.DWI)
     print_PV_costing_breakdown(m.fs.energy.pv)
 
 
