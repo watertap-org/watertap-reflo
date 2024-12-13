@@ -58,8 +58,8 @@ def run_all_cases():
 
 
 if __name__ == "__main__":
-    # run_all_cases()
+    run_all_cases()
 
-    run_case_sweep(SOA, case_name="KBHDP_SOA_1", yaml_file= 'KBHDP_SOA_1.yaml')
+    # run_case_sweep(SOA, case_name="KBHDP_SOA_1", yaml_file= 'KBHDP_SOA_1.yaml')
     # run_case_sweep(RPT2, case_name="KBHDP_RPT_2", yaml_file='KBHDP_RPT_2.yaml')
 
