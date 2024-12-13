@@ -67,11 +67,9 @@ def main():
     scale_costing(m)
     # box_solve_problem(m)
     # solve(m, debug=True)
-
     # scale_costing(m)
-
     optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
-    solve(m, debug=True)
+    solve(m, debug=False)
     # # display_flow_table(m)
     # display_system_stream_table(m)
     # report_RO(m, m.fs.treatment.RO)
@@ -88,6 +86,23 @@ def main():
 
     return m
 
+def build_sweep(
+        grid_frac=None,
+        heat_price=None,
+        water_recovery=None,):
+    
+    m = build_system(RE=True)
+    display_system_build(m)
+    add_connections(m)
+    add_constraints(m)
+    set_operating_conditions(m)
+    apply_scaling(m)
+    init_system(m)
+    add_costing(m)
+    scale_costing(m)
+    optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
+
+    return m
 
 def build_system(RE=True):
     m = ConcreteModel()
@@ -276,6 +291,7 @@ def add_treatment_costing(m):
     add_ro_costing(m, treatment.RO, treatment.costing)
     add_DWI_costing(m, treatment.DWI, treatment.costing)
 
+    
     treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
     treatment.costing.total_investment_factor.fix(1)
     # treatment.costing.maintenance_labor_chemical_factor.fix(0)

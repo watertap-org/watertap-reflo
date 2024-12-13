@@ -80,6 +80,24 @@ def main():
 
     return m
 
+def build_sweep(
+        grid_frac_heat=None,
+        heat_price=None,
+        water_recovery=None,
+    ):
+    m = build_system(RE=True)
+    add_connections(m)
+    add_constraints(m)
+    set_operating_conditions(m)
+    apply_scaling(m)
+    init_system(m)
+    add_costing(m)
+    scale_costing(m)
+    box_solve_problem(m)
+    optimize(m, water_recovery=water_recovery, grid_frac_heat=grid_frac_heat, objective="LCOW")
+
+    return m
+
 
 def build_system(RE=True):
     m = ConcreteModel()
@@ -543,7 +561,8 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
     else:
         print("\n--------- FAILED SOLVE!!! ---------\n")
         print(msg)
-        assert False
+        # assert False
+        return results
 
 
 def set_prob_for_box_solve(m):
@@ -595,6 +614,7 @@ def optimize(
         m.fs.costing.frac_heat_from_grid.unfix()
         m.fs.costing.heat_cost_buy.fix(heat_price)
 
+    print(f'Degrees of Feedom: {degrees_of_freedom(m)}')
     assert degrees_of_freedom(m) >= 0
 
 
