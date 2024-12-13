@@ -15,7 +15,8 @@ save_dir = os.path.join(parent_dir, "sweep_results")
 solver = get_solver()
 solver.options["max_iter"] = 3000
 
-def run_case_sweep(case, case_name=None, yaml_file = None):
+
+def run_case_sweep(case, case_name=None, yaml_file=None):
     if yaml_file == None:
         map_yaml_file = os.path.join(sweep_yaml_dir, "KBHDP.yaml")
     else:
@@ -30,8 +31,10 @@ def run_case_sweep(case, case_name=None, yaml_file = None):
             if file_id[:3] == case_id[:3]:
                 timestr = time.strftime("%Y%m%d-%H%M%S")
                 print("Moving Prior Data to Archive")
-                original_file = (os.path.join(save_dir, "output", file))
-                archive_file = (os.path.join(save_dir, "archive", file[:-3] +'_'+ timestr + file[-3:]))
+                original_file = os.path.join(save_dir, "output", file)
+                archive_file = os.path.join(
+                    save_dir, "archive", file[:-3] + "_" + timestr + file[-3:]
+                )
                 os.rename(original_file, archive_file)
 
     lT = loopTool(
@@ -48,13 +51,15 @@ def run_case_sweep(case, case_name=None, yaml_file = None):
 
 def run_all_cases():
     cases = [
-        {'case':SOA, 'case_name': "KBHDP_SOA_1", 'yaml_file': 'KBHDP_SOA_1.yaml'},
-        {'case':RPT1, 'case_name': "KBHDP_RPT_1", 'yaml_file': 'KBHDP_RPT_1.yaml'},
-        {'case':RPT2, 'case_name': "KBHDP_RPT_2", 'yaml_file':'KBHDP_RPT_2.yaml'},
+        {"case": SOA, "case_name": "KBHDP_SOA_1", "yaml_file": "KBHDP_SOA_1.yaml"},
+        {"case": RPT1, "case_name": "KBHDP_RPT_1", "yaml_file": "KBHDP_RPT_1.yaml"},
+        {"case": RPT2, "case_name": "KBHDP_RPT_2", "yaml_file": "KBHDP_RPT_2.yaml"},
     ]
 
     for case in cases:
-        run_case_sweep(case['case'], case_name=case['case_name'], yaml_file=case['yaml_file'])
+        run_case_sweep(
+            case["case"], case_name=case["case_name"], yaml_file=case["yaml_file"]
+        )
 
 
 if __name__ == "__main__":
@@ -62,4 +67,3 @@ if __name__ == "__main__":
 
     # run_case_sweep(SOA, case_name="KBHDP_SOA_1", yaml_file= 'KBHDP_SOA_1.yaml')
     # run_case_sweep(RPT2, case_name="KBHDP_RPT_2", yaml_file='KBHDP_RPT_2.yaml')
-
