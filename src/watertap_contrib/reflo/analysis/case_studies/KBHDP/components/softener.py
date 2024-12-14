@@ -239,7 +239,6 @@ def set_softener_op_conditions(
     soft.retention_time_sed.fix(120)
     soft.retention_time_recarb.fix(20)
     soft.frac_mass_water_recovery.fix(0.99)
-    
 
     # soft.removal_efficiency["SiO2"].fix(0)
     # soft.CO2_CaCO3.fix(0.10)
@@ -492,6 +491,7 @@ def print_softening_costing_breakdown(blk):
         f'{"Softening Operating Cost":<35s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
     )
 
+
 def breakdown_dof(blk, detailed=False):
     all_vars = [
         v for v in blk.component_data_objects(ctype=Var, active=True, descend_into=True)
@@ -528,6 +528,7 @@ def breakdown_dof(blk, detailed=False):
     print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
     print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
     print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+
 
 # calculate_variable_from_constraint
 if __name__ == "__main__":
