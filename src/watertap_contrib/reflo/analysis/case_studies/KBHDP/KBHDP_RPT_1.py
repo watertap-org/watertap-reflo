@@ -490,7 +490,7 @@ def init_treatment(m, verbose=True, solver=None):
     assert_no_degrees_of_freedom(m)
     treatment.feed.initialize(optarg=optarg)
     propagate_state(treatment.feed_to_translator)
-
+    report_MCAS_stream_conc(m, treatment.feed.properties[0.0])
     treatment.MCAS_to_TDS_translator.initialize(optarg=optarg)
     propagate_state(treatment.translator_to_EC)
 
@@ -513,7 +513,7 @@ def init_treatment(m, verbose=True, solver=None):
     # propagate_state(treatment.ro_to_dwi)
 
     treatment.product.initialize(optarg=optarg)
-    # init_DWI(m, treatment.DWI)
+    init_DWI(m, treatment.DWI)
     display_system_stream_table(m)
 
 
