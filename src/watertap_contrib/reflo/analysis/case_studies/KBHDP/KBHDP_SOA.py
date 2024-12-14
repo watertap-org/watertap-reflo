@@ -72,23 +72,14 @@ def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     m = build_system()
-    # display_system_build(m)
     add_connections(m)
     add_constraints(m)
     set_operating_conditions(m)
     apply_scaling(m)
     init_system(m)
-    # breakdown_dof(m, detailed=True)
     add_costing(m)
-    # display_system_build(m)
     optimize(m, ro_mem_area=None, water_recovery=0.6)
     solve(m, debug=True)
-    # display_system_stream_table(m)
-    # report_softener(m)
-    # report_UF(m, m.fs.UF)
-    # report_RO(m, m.fs.RO)
-    # display_costing_breakdown(m)
-    # print_all_results(m)
 
 
 def build_system():
@@ -152,7 +143,13 @@ def build_treatment(m):
     build_ro(m, treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=2)
     build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
 
-    m.fs.units = [treatment.softener, treatment.UF, treatment.pump, treatment.RO, treatment.DWI]
+    m.fs.units = [
+        treatment.softener,
+        treatment.UF,
+        treatment.pump,
+        treatment.RO,
+        treatment.DWI,
+    ]
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -266,11 +263,8 @@ def add_constraints(m):
 
 def apply_scaling(m):
     treatment = m.fs.treatment
-    # add_ec_scaling(m, m.fs.treatment.EC)
     add_UF_scaling(treatment.UF)
     add_ro_scaling(m, treatment.RO)
-    # # if m.fs.RE:
-    # add_pv_scaling(m, m.fs.energy.pv)
     calculate_scaling_factors(m)
 
 
@@ -434,7 +428,7 @@ def init_treatment(m, verbose=True, solver=None):
     propagate_state(treatment.softener_to_translator)
     propagate_state(treatment.softener_to_sludge)
     treatment.sludge.initialize()
-    
+
     treatment.MCAS_to_TDS_translator.initialize()
     propagate_state(treatment.translator_to_UF)
     init_UF(m, treatment.UF)
