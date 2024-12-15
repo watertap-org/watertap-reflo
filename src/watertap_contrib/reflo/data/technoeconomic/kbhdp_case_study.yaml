@@ -1,5 +1,6 @@
 base_currency: USD_2021
 base_period: year
+<<<<<<< HEAD
 defined_flows:
   # electricity:
   #   value: 0.0595
@@ -11,6 +12,19 @@ defined_flows:
     value: 1.53
     units: USD_2020/kg
     purity: 1
+=======
+# defined_flows:
+#   # electricity:
+#   #   value: 0.0595
+#   #   units: USD_2019/kWh
+#   # heat:
+#   #   value: 0.0000061
+#   #   units: USD_2020/kJ
+#   hydrogen_peroxide:
+#     value: 1.53
+#     units: USD_2020/kg
+#     purity: 1
+>>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
 
 # global_parameters:
 #   plant_lifetime:
