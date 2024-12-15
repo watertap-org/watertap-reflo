@@ -67,11 +67,9 @@ def main():
     scale_costing(m)
     # box_solve_problem(m)
     # solve(m, debug=True)
-
     # scale_costing(m)
-
     optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
-    solve(m, debug=True)
+    solve(m, debug=False)
     # # display_flow_table(m)
     # display_system_stream_table(m)
     # report_RO(m, m.fs.treatment.RO)
@@ -85,6 +83,26 @@ def main():
     # # # print_system_scaling_report(m)
     report_PV(m)
     # print(m.fs.energy.pv.display())
+
+    return m
+
+
+def build_sweep(
+    grid_frac=None,
+    heat_price=None,
+    water_recovery=None,
+):
+
+    m = build_system(RE=True)
+    display_system_build(m)
+    add_connections(m)
+    add_constraints(m)
+    set_operating_conditions(m)
+    apply_scaling(m)
+    init_system(m)
+    add_costing(m)
+    scale_costing(m)
+    optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
 
     return m
 
