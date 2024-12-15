@@ -275,11 +275,13 @@ def init_system(m, permian_fo_config):
     init_ec(m, treat.ec)
     propagate_state(treat.ec_to_cart_filt)
     propagate_state(treat.ec_disposal_to_translator)
+    propagate_state(treat.ec_disposal_translator_to_SW_mixer)
 
     init_cart_filt(m, treat.cart_filt)
     propagate_state(arc = treat.cart_filt_to_translator)
     propagate_state(arc = treat.cart_filt_translated_to_fo)
     propagate_state(treat.cart_filt_disposal_to_translator)
+    propagate_state(treat.cart_filt_disposal_translator_to_SW_mixer)
 
     treat.zo_to_sw_feed.initialize()
 
@@ -300,6 +302,7 @@ def init_system(m, permian_fo_config):
 
     propagate_state(arc = treat.fo_to_translator)
     propagate_state(arc = treat.fo_translator_to_product)
+    propagate_state(arc = treat.fo_disposal_translator_to_SW_mixer)
 
     treat.product.initialize()
 
@@ -350,11 +353,12 @@ def add_energy_costing(m):
 
     energy.costing.heat_cost.set_value(0)
     energy.costing.cost_process()
+    energy.costing.add_LCOH()
     energy.costing.initialize()
 
 
     energy.cst.unit.heat_load.unfix()
-    energy.costing.aggregate_flow_heat.fix(-70000)
+    energy.costing.aggregate_flow_heat.fix(-150000)
 
 def run_permian_FO(operating_condition,
                    permian_fo_config):
@@ -385,11 +389,11 @@ def run_permian_FO(operating_condition,
 
     # scaling (based on grid participation), setup order
     # deactivate constraints, 
-    # m.fs.costing = REFLOSystemCosting()
-    # m.fs.costing.cost_process()
-    # m.fs.costing.add_annual_water_production(flow_vol)
-    # m.fs.costing.add_LCOW(flow_vol)
-    # m.fs.costing.initialize()
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.cost_process()
+    m.fs.costing.add_annual_water_production(flow_vol)
+    m.fs.costing.add_LCOW(flow_vol)
+    m.fs.costing.initialize()
     
 
     print(f"DOF after add costing: {degrees_of_freedom(m)}")
@@ -450,12 +454,12 @@ if __name__ == "__main__":
     h2o2_cost = value(m.fs.treatment.costing.aggregate_flow_costs["hydrogen_peroxide"])
 
 
-    chem_elec_cost = 0.07 * value(m.fs.treatment.chem_addition.unit.electricity[0]) * 8766
-    ec_elec_cost = 0.07 * value(m.fs.treatment.ec.unit.costing.electricity_flow) * 8766
-    filt_elec_cost = 0.07 * value(m.fs.treatment.cart_filt.unit.electricity[0]) * 8766
-    fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 8766
+    chem_elec_cost = 0.07 * value(m.fs.treatment.chem_addition.unit.electricity[0]) * 10290.711324821756
+    ec_elec_cost = 0.07 * value(m.fs.treatment.ec.unit.costing.electricity_flow) * 10290.711324821756
+    filt_elec_cost = 0.07 * value(m.fs.treatment.cart_filt.unit.electricity[0]) * 10290.711324821756
+    fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 10290.711324821756
     fo_heat_cost = 0.02 * value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow) * 8766
-    dwi_elec_cost = 0.07 * value(m.fs.treatment.DWI.costing.pumping_power_required) * 8766
+    dwi_elec_cost = 0.07 * value(m.fs.treatment.DWI.costing.pumping_power_required) * 10290.711324821756
 
     print('LCOW                     ', lcow)
 
@@ -510,19 +514,19 @@ if __name__ == "__main__":
     LCOWs =[]
     failed= []
 
-    rr = [ 0.2,0.24,0.28,0.32,0.36,0.4,0.44, 0.45]
+    rr = [ 0.2,0.24,0.28,0.32,0.35,0.4,0.44, 0.45]
     strong_draw_mass = [i*0.03 + 0.80 for i in range(6)]
 
-    for v in strong_draw_mass:
+    for v in rr:
         permian_fo_config = {
     "feed_vol_flow": 0.22, # initial value for fo model setup
     "feed_TDS_mass": 0.119, # mass fraction, 0.119 is about 130 g/L
-    "recovery_ratio": 0.4,
+    "recovery_ratio": v,
     "RO_recovery_ratio":1,  # RO recovery ratio
     "NF_recovery_ratio":0.8,  # Nanofiltration recovery ratio
     "feed_temperature":25,
     "strong_draw_temp":25,  # Strong draw solution inlet temperature (C)
-    "strong_draw_mass_frac":v,  # Strong draw solution mass fraction
+    "strong_draw_mass_frac": 0.85,  # Strong draw solution mass fraction
     "product_draw_mass_frac": 0.01,   # FO product draw solution mass fraction
     "HX1_cold_out_temp": 78 + 273.15, # HX1 coldside outlet temperature
     "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
@@ -554,8 +558,13 @@ if __name__ == "__main__":
         fo_opex = fo_capex * 0.03
         dwi_opex = dwi_capex * 0.03
 
-        fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 8766
+        # fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 10290.711324821756
         fo_heat_cost = 0.02 * value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow) * 8766
+        chem_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][0])
+        ec_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][1])
+        filt_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][2])
+        fo_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][3])
+        dwi_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][4])
 
 
         var_opex_total = value(m.fs.treatment.costing.total_variable_operating_cost)
@@ -575,11 +584,11 @@ if __name__ == "__main__":
         fo_capexs.append(fo_capex*capital_recovery_rate/flow_vol)
         dwi_capexs.append(dwi_capex*capital_recovery_rate/flow_vol)
 
-        chem_opexs.append(chem_opex /flow_vol)
-        ec_opexs.append(ec_opex /flow_vol)
-        filt_opexs.append(filt_opex/flow_vol)
-        fo_opexs.append(fo_opex /flow_vol)
-        dwi_opexs.append(dwi_opex /flow_vol)
+        chem_opexs.append((chem_opex + h2o2_cost    +chem_elec_cost) /flow_vol)
+        ec_opexs.append(  (ec_opex   + alum_cost    +ec_elec_cost) /flow_vol)
+        filt_opexs.append((filt_opex + filt_elec_cost)/flow_vol)
+        fo_opexs.append(  (fo_opex   + fo_elec_cost + fo_heat_cost) /flow_vol)
+        dwi_opexs.append( (dwi_opex  + dwi_elec_cost) /flow_vol)
 
         elecs.append(elec_cost/flow_vol)
         heats.append(heat_cost/flow_vol)
@@ -591,48 +600,44 @@ if __name__ == "__main__":
 #%%
     import matplotlib.pyplot as plt
 
-    plt.stackplot(strong_draw_mass,
+    plt.stackplot(rr,
                 chem_capexs, chem_opexs,
                 ec_capexs, ec_opexs,
                 filt_capexs, filt_opexs,
                 fo_capexs, fo_opexs,
                 dwi_capexs, dwi_opexs,
-                elecs, heats, alums, h2o2s,
+                # elecs, heats, alums, h2o2s,
                 labels=['Chem add CAPEX', 'Chem add OPEX',
                         'EC CAPEX', 'EC OPEX',
                         'Cart filt CAPEX', 'Cart filt OPEX',
                         'FO CAPEX', 'FO OPEX',
                         'DWI CAPEX', 'DWI OPEX',
-                        'Elec', 'Heat','Aluminum','H2O2'
+                        # 'Elec', 'Heat','Aluminum','H2O2'
                         ],
                 hatch =['', '\\\\',
                         '', '\\\\',
                         '', '\\\\',
                         '', '\\\\',
                         '', '\\\\',
-                        '','','','',
+                        # '','','','',
                         ],
                 colors=['gray','gray',
                         'tomato', 'tomato',
                         'sandybrown','sandybrown',
                         'khaki','khaki',
                         'lightgreen','lightgreen',
-                        'gold','indianred','royalblue','darkviolet'
+                        # 'gold','indianred','royalblue','darkviolet'
                         ],
                 edgecolor='black',
                       )
 
     plt.rcParams['figure.dpi']=300
-    # Add labels and title
-    plt.xlabel('X-axis')
-    plt.ylabel('Y-axis')
-    plt.title('Stacked Line Chart')
 
     # Show the legend
     plt.legend(loc='upper right', ncol =2,prop={'size': 6})
 
     plt.ylabel('LCOW ($/m3)')
-    plt.xlabel('FO strong draw solution mass fraction')
+    plt.xlabel('FO recovery rate')
     plt.title('')
     # Display the chart
     plt.show()

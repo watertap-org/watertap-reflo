@@ -323,7 +323,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="Mass transfer term for vapor water")
         def eq_mass_transfer_term_vap_water(b):
-            return b.control_volume.mass_transfer_term[0, "Vap", "H2O"] == -1 * (
+            return b.control_volume.mass_transfer_term[0, "Vap", "H2O"] == 0 * (
                 b.effects[1].effect.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"]
             )
 
@@ -339,7 +339,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 b.control_volume.properties_in[0].flow_mass_phase_comp["Vap", "H2O"]
                 == b.effects[1]
                 .effect.heating_steam[0]
-                .flow_mass_phase_comp["Vap", "H2O"]
+                .flow_mass_phase_comp["Vap", "H2O"] * 0
             )
 
         @self.Constraint(doc="Mass balance of water for all effects")

@@ -27,7 +27,7 @@ def build_recovered_nacl_cost_param_block(blk):
 
     blk.cost = pyo.Param(
         mutable=True,
-        initialize=0,
+        initialize=-0.024,
         doc="Recovered cost (sale price) of NaCl",
         units=pyo.units.USD_2020 / pyo.units.kg,
     )
@@ -254,7 +254,7 @@ def cost_crystallizer_heat_exchanger(effect):
 
     capital_cost_hx = pyo.units.convert(
         costing_package.multi_effect_crystallizer.heat_exchanger_capital_factor
-        * effect.heat_exchanger_area,
+        * effect.heat_exchanger_area * 10,
         to_units=costing_package.base_currency,
     )
 
@@ -262,7 +262,7 @@ def cost_crystallizer_heat_exchanger(effect):
 
     dimensionless_hx_area = pyo.units.convert(
         (
-            effect.heat_exchanger_area
+            effect.heat_exchanger_area * 10
             / costing_package.multi_effect_crystallizer.heat_exchanger_endplates_capital_basis
         ),
         to_units=pyo.units.dimensionless,
@@ -293,7 +293,7 @@ def cost_crystallizer_effect_by_crystal_mass(effect):
                 sum(
                     effect.properties_solids[0].flow_mass_phase_comp["Sol", j]
                     for j in effect.config.property_package.solute_set
-                )
+                ) * 10
                 / costing_package.multi_effect_crystallizer.ref_capacity
             )
             ** costing_package.multi_effect_crystallizer.ref_exponent
@@ -347,12 +347,12 @@ def _cost_effect_flows(effect, effect_number):
     )
 
     costing_package.cost_flow(
-        effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"],
+        effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]*10,
         "NaCl_recovered",
     )
 
     if effect_number == 1:
         costing_package.cost_flow(
-            effect.heating_steam[0].flow_vol_phase["Vap"],
-            "steam",
+            effect.work_mechanical[0]*10,
+            "heat",
         )
