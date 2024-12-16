@@ -78,7 +78,7 @@ def build_system(inlet_cond, n_time_points):
     m.fs.treatment = Block()
     m.fs.energy = Block()
 
-    m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
+    m.fs.treatment.costing = TreatmentCosting()
     m.fs.energy.costing = EnergyCosting()
 
     # Property package
@@ -92,8 +92,8 @@ def build_system(inlet_cond, n_time_points):
     # Create MD unit model at flowsheet level
     m.fs.treatment.md = FlowsheetBlock(dynamic=False)
 
-    model_options, n_time_points = build_md(
-        m, m.fs.treatment.md, inlet_cond, n_time_points
+    build_md(
+        m, m.fs.treatment.md,
     )
     m.fs.treatment.dwi = FlowsheetBlock(dynamic=False)
     build_DWI(m, m.fs.treatment.dwi, m.fs.params)
@@ -102,7 +102,8 @@ def build_system(inlet_cond, n_time_points):
     build_fpc(m)
 
     add_connections(m)
-    return m, model_options, n_time_points
+    # return m, model_options, n_time_points
+    return m
 
 
 def add_connections(m):
@@ -352,7 +353,7 @@ def main(
     n_time_points = None
 
     # Build  MD, DWI and FPC
-    m, model_options, n_time_points = build_system(
+    m = build_system(
         inlet_cond, n_time_points=n_time_points
     )
 
@@ -576,11 +577,11 @@ def save_results(m):
         + str(value(m.fs.energy.fpc.unit.hours_storage))
     )
 
-    results_df.to_csv(
-        r"C:\Users\mhardika\Documents\SETO\Case Studies\RPT3\RPT3_results\\"
-        + file_name
-        + ".csv"
-    )
+    # results_df.to_csv(
+    #     r"C:\Users\mhardika\Documents\SETO\Case Studies\RPT3\RPT3_results\\"
+    #     + file_name
+    #     + ".csv"
+    # )
     # Flow cost
 
 
