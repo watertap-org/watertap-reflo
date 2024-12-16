@@ -326,9 +326,9 @@ def init_ro_system(m, blk, verbose=True, solver=None):
     print(
         f'RO Recovery: {100 * (value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]) / value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"])):<5.2f}%'
     )
-    print(
-        f'{"Average Flux":<30s}{value(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"]):<10.2f}{pyunits.get_units(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"])}'
-    )
+    # print(
+    #     f'{"Average Flux":<30s}{value(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"]):<10.2f}{pyunits.get_units(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"])}'
+    # )
 
 
 def init_ro_stage(m, stage, solver=None):
@@ -579,8 +579,8 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
         stage.module.feed_side.channel_height.fix(height)
         stage.module.feed_side.spacer_porosity.fix(spacer_porosity)
 
-        stage.module.flux_vol_phase_avg[0, "Liq"].setlb(5)
-        stage.module.flux_vol_phase_avg[0, "Liq"].setub(60)
+        # stage.module.flux_vol_phase_avg[0, "Liq"].setlb(5)
+        # stage.module.flux_vol_phase_avg[0, "Liq"].setub(60)
 
         for e in stage.module.flux_mass_phase_comp:
             if e[-1] == "H2O":
@@ -732,9 +732,9 @@ def report_RO(m, blk):
         f'{"RO Operating Pressure":<30s}{value(pyunits.convert(blk.feed.properties[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
     )
     print(f'{"RO Membrane Area":<30s}{value(blk.stage[1].module.area):<10.1f}{"m^2"}')
-    print(
-        f'{"Average Flux":<30s}{value(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"]):<10.2f}{pyunits.get_units(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"])}'
-    )
+    # print(
+    #     f'{"Average Flux":<30s}{value(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"]):<10.2f}{pyunits.get_units(blk.stage[1].module.flux_vol_phase_avg[0, "Liq"])}'
+    # )
     print(blk.stage[1].module.report())
 
 

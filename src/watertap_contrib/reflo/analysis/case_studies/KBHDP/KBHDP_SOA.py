@@ -79,7 +79,7 @@ def main():
     init_system(m)
     add_costing(m)
     display_system_build(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.5)
+    optimize(m, ro_mem_area=None, water_recovery=0.75)
     solve(m, debug=True)
     display_system_stream_table(m)
     report_softener(m)
@@ -166,6 +166,21 @@ def build_system():
     m.fs.RO_properties.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
     )
+
+    return m
+
+
+def build_sweep():
+
+    m = build_system()
+    display_system_build(m)
+    add_connections(m)
+    add_constraints(m)
+    set_operating_conditions(m)
+    init_system(m)
+    add_costing(m)
+    display_system_build(m)
+    optimize(m, ro_mem_area=None, water_recovery=0.75)
 
     return m
 
@@ -261,14 +276,15 @@ def add_constraints(m):
 
 
 def add_costing(m):
+
     m.fs.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
     )
 
-    add_softener_costing(m, m.fs.softener)
-    add_UF_costing(m, m.fs.UF)
-    add_ro_costing(m, m.fs.RO)
-    add_DWI_costing(m, m.fs.DWI)
+    add_softener_costing(m, m.fs.softener, m.fs.costing)
+    add_UF_costing(m, m.fs.UF, m.fs.costing)
+    add_ro_costing(m, m.fs.RO, m.fs.costing)
+    add_DWI_costing(m, m.fs.DWI, m.fs.costing)
 
     m.fs.costing.cost_process()
     m.fs.costing.add_annual_water_production(m.fs.product.properties[0].flow_vol)
@@ -468,7 +484,7 @@ def optimize(
             stage.module.area.unfix()
 
 
-def solve(model, solver=None, tee=False, raise_on_failure=False, debug=False):
+def solve(model, solver=None, tee=False, raise_on_failure=True, debug=False):
     print(f"DEGREES OF FREEDOM BEFORE SOLVING: {degrees_of_freedom(model)}")
 
     # ---solving---
@@ -498,8 +514,6 @@ def solve(model, solver=None, tee=False, raise_on_failure=False, debug=False):
     )
     if raise_on_failure:
         print("\n--------- INFEASIBLE SOLVE!!! ---------\n")
-
-        print("\n--------- CHECKING JACOBIAN ---------\n")
 
         print("\n--------- CLOSE TO BOUNDS ---------\n")
         print_close_to_bounds(model)
