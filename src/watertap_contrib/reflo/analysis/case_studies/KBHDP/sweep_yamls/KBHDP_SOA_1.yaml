@@ -10,7 +10,7 @@ KBHDP_RPT_1_disposal_cost_sweep:
   sweep_param_loop:
     water_recovery:
       type: LinearSample
-      param: fs.costing.deep_well_injection.dwi_lcow
+      param: fs.treatment.costing.deep_well_injection.dwi_lcow
       lower_limit: 0.05
       upper_limit: 0.1
       num_samples: 6

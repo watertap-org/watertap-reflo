@@ -71,7 +71,7 @@ def create_sweep_cost_breakdown(
             },
             {
                 "filekey": "fs.costing.heat_cost_buy",
-                "return_key": "Heat Cost",
+                "return_key": "fs.costing.heat_cost_buy",
                 # "units": "USD/kWh",
             },
             {
@@ -128,11 +128,18 @@ def create_sweep_cost_breakdown(
     The CAPEX and OPEX will be aggregated from keys in supplied costing groups, the 
     capital and opex costs that are attached to the costing packages will not be used!
     """
-    costing_data.get_costing(
-        device_groups,
-        costing_block="fs.costing",
-        default_flow="fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    )
+    if save_name is "KBHDP_SOA_1":
+        costing_data.get_costing(
+            device_groups,
+            costing_block="fs.treatment.costing",
+            default_flow="fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+        )
+    else:
+        costing_data.get_costing(
+            device_groups,
+            costing_block="fs.costing",
+            default_flow="fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+        )
 
     """ note how you have access to total and levelized cost. You can plot either one"""
     costing_data.display()
@@ -156,15 +163,28 @@ def create_sweep_cost_breakdown(
     # print(list(device_groups.keys()))
     # assert False
     y_max = (
-        np.array(costing_data[costing_data.directory_keys[0], "LCOW"].data)
-        .max()
-        .round()
+        np.ceil(np.array(costing_data[costing_data.directory_keys[0], "LCOW"].data).max())
     )
     print(np.array(costing_data[costing_data.directory_keys[0], "LCOW"].data))
-    print(y_max)
-    assert False
+    print(f'Y Max {y_max}')
+    # assert False
     if np.isnan(y_max):
         print("No figure generated\nLCOW returned NaN\nMoving on to next figure")
+        y_axis_lims = np.linspace(0, y_max, 5)
+        cost_plotter.plotbreakdown(
+            xdata=x_var,
+            ydata=[
+                "cost_breakdown",
+                "levelized",
+            ],
+            axis_options={
+                "yticks": np.linspace(0, 1, 5),
+                # "yticks": [0, 0.25 ,0.5],  # adjust as needed
+                "xticks": costing_data[costing_data.directory_keys[0], x_var].data,
+            },
+            legend_loc="upper right",
+            generate_figure=True,
+        )
     else:
         y_axis_lims = np.linspace(0, y_max, 5)
         cost_plotter.plotbreakdown(
@@ -193,6 +213,7 @@ def create_case_figures(case_name=None, sweep_file=None, device_groups=None):
                 file_id = file.split("_")
                 case_id = case_name.split("_")
                 if file_id[:3] == case_id[:3]:
+                    print(f'\n\nCreating Figures for {file} sweep\n\n')
                     costing_data = psDataManager(os.path.join(sweep_results_dir, file))
                     create_sweep_cost_breakdown(
                         costing_data, device_groups=device_groups, save_name=case_name
@@ -200,12 +221,12 @@ def create_case_figures(case_name=None, sweep_file=None, device_groups=None):
 
 
 def create_all_figures():
-    create_case_figures(
-        case_name="KBHDP_SOA_1", device_groups=figure_device_groups["KBHDP_SOA_1"]
-    )
     # create_case_figures(
-    #     case_name="KBHDP_RPT_1", device_groups=figure_device_groups["KBHDP_RPT_1"]
+    #     case_name="KBHDP_SOA_1", device_groups=figure_device_groups["KBHDP_SOA_1"]
     # )
+    create_case_figures(
+        case_name="KBHDP_RPT_1", device_groups=figure_device_groups["KBHDP_RPT_1"]
+    )
     # create_case_figures(
     #     case_name="KBHDP_RPT_2", device_groups=figure_device_groups["KBHDP_RPT_2"]
     # )

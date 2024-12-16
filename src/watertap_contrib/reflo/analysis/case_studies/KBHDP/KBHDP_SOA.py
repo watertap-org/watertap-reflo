@@ -84,7 +84,8 @@ def main():
 
     print(m.fs.treatment.product.display())
     print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
-    print(m.fs.costing.LCOW.display())
+    print(m.fs.treatment.costing.display())
+    print(m.fs.treatment.costing.LCOW.display())
 
 
 def build_system():
@@ -275,9 +276,11 @@ def apply_scaling(m):
 
 def add_costing(m):
     treatment = m.fs.treatment
-    treatment.costing = TreatmentCosting()
-    energy = m.fs.energy = Block()
-    energy.costing = EnergyCosting()
+    # treatment.costing = TreatmentCosting()
+    treatment.costing = REFLOCosting()
+    
+    # energy = m.fs.energy = Block()
+    # energy.costing = EnergyCosting()
 
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
@@ -288,19 +291,23 @@ def add_costing(m):
     add_ro_costing(m, treatment.RO, treatment.costing)
     add_DWI_costing(m, treatment.DWI, treatment.costing)
 
+    # treatment.costing.cost_process()
+    # treatment.costing.initialize()
+
+    # energy.costing.cost_process()
+    # energy.costing.initialize()
+
+    # m.fs.costing = REFLOCosting()
+    # m.fs.costing.cost_process()
+
     treatment.costing.cost_process()
+
+    treatment.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
+    treatment.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase['Liq'])
+
+    # m.fs.costing.initialize()
     treatment.costing.initialize()
 
-    energy.costing.cost_process()
-    energy.costing.initialize()
-
-    m.fs.costing = REFLOSystemCosting()
-    m.fs.costing.cost_process()
-
-    m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
-    m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase['Liq'])
-
-    m.fs.costing.initialize()
 
 
 def define_inlet_composition(m):
@@ -471,7 +478,7 @@ def optimize(
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
     treatment = m.fs.treatment
     if objective == "LCOW":
-        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
+        m.fs.lcow_objective = Objective(expr=treatment.costing.LCOW)
 
     if water_recovery is not None:
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
