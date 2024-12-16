@@ -162,16 +162,16 @@ def set_ec_operating_conditions(m, blk, conv=5e3, **kwargs):
     """Set EC operating conditions"""
 
     blk.unit.load_parameters_from_database(use_default_removal=True)
-    blk.unit.conductivity.unfix()
-    tds_ec_conversion = conv * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
+    # blk.unit.conductivity.unfix()
+    # tds_ec_conversion = conv * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
 
-    blk.unit.conductivity_constr = Constraint(
-        expr=blk.unit.conductivity
-        == pyunits.convert(
-            blk.feed.properties[0].conc_mass_comp["tds"] / tds_ec_conversion,
-            to_units=pyunits.S / pyunits.m,
-        )
-    )
+    # blk.unit.conductivity_constr = Constraint(
+    #     expr=blk.unit.conductivity
+    #     == pyunits.convert(
+    #         blk.feed.properties[0].conc_mass_comp["tds"] / tds_ec_conversion,
+    #         to_units=pyunits.S / pyunits.m,
+    #     )
+    # )
     for k, v in kwargs.items():
         try:
             vv = getattr(blk.unit, k)
