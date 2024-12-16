@@ -41,6 +41,7 @@ from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
     REFLOCosting,
+    REFLOSystemCosting,
 )
 from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
 
@@ -80,6 +81,10 @@ def main():
     add_costing(m)
     optimize(m, ro_mem_area=None, water_recovery=0.6)
     solve(m, debug=True)
+
+    print(m.fs.treatment.product.display())
+    print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
+    print(m.fs.costing.LCOW.display())
 
 
 def build_system():
@@ -271,6 +276,8 @@ def apply_scaling(m):
 def add_costing(m):
     treatment = m.fs.treatment
     treatment.costing = TreatmentCosting()
+    energy = m.fs.energy = Block()
+    energy.costing = EnergyCosting()
 
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
@@ -284,11 +291,14 @@ def add_costing(m):
     treatment.costing.cost_process()
     treatment.costing.initialize()
 
-    m.fs.costing = REFLOCosting()
+    energy.costing.cost_process()
+    energy.costing.initialize()
+
+    m.fs.costing = REFLOSystemCosting()
     m.fs.costing.cost_process()
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
-    m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase['Liq'])
 
     m.fs.costing.initialize()
 
