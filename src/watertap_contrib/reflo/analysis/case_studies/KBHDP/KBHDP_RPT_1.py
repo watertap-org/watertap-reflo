@@ -68,7 +68,7 @@ def main():
     # box_solve_problem(m)
     # solve(m, debug=True)
     # scale_costing(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
+    optimize(m, ro_mem_area=None, water_recovery=0.5, grid_frac=None, objective="LCOW")
     solve(m, debug=False)
     # # display_flow_table(m)
     # display_system_stream_table(m)
@@ -311,6 +311,7 @@ def add_energy_costing(m):
     )
 
     energy.costing.cost_process()
+    energy.costing.add_LCOE()
     energy.costing.initialize()
 
 
@@ -667,6 +668,19 @@ def optimize(
         m.fs.costing.frac_elec_from_grid.fix(grid_frac)
         m.fs.energy.pv.design_size.unfix()
         m.fs.energy.pv.annual_energy.unfix()
+
+    for idx, stage in treatment.RO.stage.items():
+        stage.module.width.setub(5000)
+        stage.module.feed_side.velocity[0, 0].unfix()
+        stage.module.feed_side.velocity[0, 1].setlb(0.0)
+        stage.module.feed_side.K.setlb(1e-6)
+        stage.module.feed_side.friction_factor_darcy.setub(50)
+        stage.module.flux_mass_phase_comp.setub(1)
+        # stage.module.flux_mass_phase_comp.setlb(1e-5)
+        stage.module.feed_side.cp_modulus.setub(10)
+        stage.module.rejection_phase_comp.setlb(1e-4)
+        stage.module.feed_side.N_Re.setlb(1)
+        stage.module.recovery_mass_phase_comp.setlb(1e-7)
 
 
 def report_MCAS_stream_conc(m, stream):

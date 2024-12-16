@@ -571,9 +571,9 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
         stage.module.A_comp.fix(mem_A)
         stage.module.B_comp.fix(mem_B)
         stage.module.area.fix(area / idx)
-        stage.module.feed_side.velocity[0, 0].fix(0.25)
+        stage.module.feed_side.velocity[0, 0].fix(0.35)
         # stage.module.length.fix(length)
-        # stage.module.width.setub(20000)
+        stage.module.width.setub(20000)
         stage.module.mixed_permeate[0].pressure.fix(pressure_atm)
 
         stage.module.feed_side.channel_height.fix(height)
@@ -581,6 +581,8 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
 
         # stage.module.flux_vol_phase_avg[0, "Liq"].setlb(5)
         # stage.module.flux_vol_phase_avg[0, "Liq"].setub(60)
+
+        stage.module.feed_side.friction_factor_darcy.setub(50)
 
         for e in stage.module.flux_mass_phase_comp:
             if e[-1] == "H2O":
