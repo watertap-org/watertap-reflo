@@ -18,18 +18,18 @@ figure_device_groups = {
         },
         "Injection": {
             "OPEX": {
-                "units": {"fs.DWI.unit.costing.variable_operating_cost"},
+                "units": {"fs.treatment.DWI.unit.costing.variable_operating_cost"},
             },
         },
         "Pumps": {
             "CAPEX": {
-                "units": {"fs.pump.costing.capital_cost"},
+                "units": {"fs.treatment.pump.costing.capital_cost"},
             },
         },
         "UF": {
             "CAPEX": {
                 "units": {
-                    "fs.UF.unit.costing.capital_cost",
+                    "fs.treatment.UF.unit.costing.capital_cost",
                 },
             },
         },

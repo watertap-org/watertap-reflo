@@ -1,3 +1,4 @@
+import os
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -46,9 +47,27 @@ def build_system():
 def build_pv(m):
     energy = m.fs.energy
 
+    parent_dir = os.path.abspath(
+            os.path.join(os.path.abspath(__file__), "..", "..", "..", "..", "..")
+        )
+
+    surrogate_dir = os.path.join(
+        parent_dir,
+        "solar_models",
+        "surrogate",
+        "pv",
+    )
+
+    dataset_filename = os.path.join(surrogate_dir,'data', "dataset.pkl")
+
+    surrogate_filename = os.path.join(
+        surrogate_dir,
+        "pv_surrogate.json",
+    )
+    
     energy.pv = PVSurrogate(
-        surrogate_model_file="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
-        dataset_filename="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
+        surrogate_model_file=surrogate_filename,
+        dataset_filename=dataset_filename,
         input_variables={
             "labels": ["design_size"],
             "bounds": {"design_size": [1, 200000]},
@@ -262,11 +281,11 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
 if __name__ == "__main__":
     m = build_system()
     build_pv(m)
-    set_pv_constraints(m, focus="Energy")
-    solve(m, debug=True)
-    add_pv_costing(m, m.fs.energy.pv)
-    add_pv_scaling(m, m.fs.energy.pv)
-    iscale.calculate_scaling_factors(m)
-    initialize(m)
-    solve(m, debug=True)
-    print(m.fs.energy.pv.display())
+    # set_pv_constraints(m, focus="Energy")
+    # solve(m, debug=True)
+    # add_pv_costing(m, m.fs.energy.pv)
+    # add_pv_scaling(m, m.fs.energy.pv)
+    # iscale.calculate_scaling_factors(m)
+    # initialize(m)
+    # solve(m, debug=True)
+    # print(m.fs.energy.pv.display())
