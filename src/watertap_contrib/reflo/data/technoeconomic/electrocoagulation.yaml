@@ -37,11 +37,7 @@ default:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-<<<<<<< HEAD
-      value: 0.7
-=======
       value: 0.08
->>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
       units: dimensionless
   capital_cost:
     cost_factor: TPEC
@@ -80,8 +76,6 @@ default:
       value: 177335
       units: USD_2007
 
-<<<<<<< HEAD
-=======
 kbhdp:
   conductivity:
     value: 2.416270685
@@ -163,7 +157,6 @@ kbhdp:
       value: 177335
       units: USD_2007
 
->>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
 permian:
   conductivity:
     value: 26
@@ -175,11 +168,7 @@ permian:
     value: 500
     units: A / m^2
   metal_dose:
-<<<<<<< HEAD
-    value: 0.0001
-=======
     value: 0.0010
->>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
     units: kg/L
   electrode_gap:
     value: 0.005
@@ -207,14 +196,8 @@ permian:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-<<<<<<< HEAD
-      value: 0.
-      units: dimensionless
-      reference: https://doi.org/10.1016/j.memsci.2018.06.041
-=======
       value: 0.7
       units: dimensionless
->>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
     silica:
       value: 0.7
       units: dimensionless
@@ -253,8 +236,4 @@ permian:
       units: USD_2007/Mgallons
     capital_floc_b_parameter:
       value: 177335
-<<<<<<< HEAD
       units: USD_2007
-=======
-      units: USD_2007
->>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5

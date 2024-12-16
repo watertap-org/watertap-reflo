@@ -347,6 +347,7 @@ def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
 
+    # energy.costing.base_currency = pyunits.USD_2023
     energy.cst.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
     )
@@ -380,7 +381,7 @@ def run_permian_FO(operating_condition,
     add_energy_costing(m)
 
     flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
-    treat.costing.base_currency = pyunits.USD_2021
+    # treat.costing.base_currency = pyunits.USD_2023
     treat.costing.electricity_cost.fix(0.07)
     treat.costing.heat_cost.fix(0.02)
     treat.costing.add_LCOW(flow_vol)
