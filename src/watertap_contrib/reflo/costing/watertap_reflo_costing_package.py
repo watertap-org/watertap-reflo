@@ -861,16 +861,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         add_object_reference(self, name, getattr(treat_cost, name))
 
-    def add_LCOE(self):
-        """
-        Add Levelized Cost of Energy (LCOE) to costing block.
-        """
-
-        energy_cost = self._get_energy_cost_block()
-        if not hasattr(energy_cost, "LCOE"):
-            energy_cost.add_LCOE()
-
-        add_object_reference(self, "LCOE", energy_cost.LCOE)
 
     def add_LCOH(self):
         """

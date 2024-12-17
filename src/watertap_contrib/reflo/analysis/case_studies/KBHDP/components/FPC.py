@@ -118,6 +118,8 @@ def set_system_op_conditions(m):
 
 def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80):
     energy = m.fs.energy
+    energy.FPC.load_surrogate()
+
     energy.FPC.hours_storage.fix(hours_storage)
     # Assumes the hot temperature to the inlet of a 'MD HX'
     energy.FPC.temperature_hot.fix(temperature_hot)

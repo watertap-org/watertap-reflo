@@ -66,17 +66,20 @@ def main():
     init_system(m)
     add_costing(m)
     scale_costing(m)
-    box_solve_problem(m)
-    # solve(m, debug=True)
+    # box_solve_problem(m)
+    # # solve(m, debug=True)
 
-    optimize(m, water_recovery=0.35, grid_frac_heat=0.5, objective="LCOT")
+    optimize(m, water_recovery=0.35, heat_price=0.005, objective="LCOW")
     solve(m, debug=True)
-    display_system_stream_table(m)
-    report_LTMED(m)
-    report_pump(m, m.fs.treatment.pump)
+    # display_system_stream_table(m)
+    # report_LTMED(m)
+    # report_pump(m, m.fs.treatment.pump)
     report_fpc(m)
 
-    display_costing_breakdown(m)
+    m.fs.costing.LCOW.display()
+    m.fs.energy.costing.LCOH.display()
+    m.fs.costing.LCOT.display()
+    # display_costing_breakdown(m)
 
     return m
 
@@ -303,6 +306,7 @@ def add_energy_costing(m):
     add_fpc_costing(m, energy.costing)
 
     energy.costing.cost_process()
+    energy.costing.add_LCOH()
     energy.costing.initialize()
 
 
@@ -619,7 +623,8 @@ def optimize(
         m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
 
     if heat_price is not None:
-        m.fs.energy.FPC.heat_load.unfix()
+        energy.FPC.heat_load.unfix()
+        energy.FPC.hours_storage.unfix()
         m.fs.costing.frac_heat_from_grid.unfix()
         m.fs.costing.heat_cost_buy.fix(heat_price)
 

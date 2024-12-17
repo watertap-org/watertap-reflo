@@ -75,6 +75,11 @@ def create_sweep_cost_breakdown(
                 # "units": "USD/kWh",
             },
             {
+                "filekey": "fs.energy.costing.flat_plate.cost_per_area_collector",
+                "return_key": "fs.energy.costing.flat_plate.cost_per_area_collector",
+                # "units": "USD/kWh",
+            },
+            {
                 "filekey": "fs.costing.electricity_cost_buy",
                 "return_key": "fs.costing.electricity_cost_buy",
                 # "units": "USD/kWh",
@@ -178,7 +183,7 @@ def create_sweep_cost_breakdown(
     # assert False
     if np.isnan(y_max):
         print("No figure generated\nLCOW returned NaN\nMoving on to next figure")
-        y_axis_lims = np.linspace(0, 5, 5)
+        y_axis_lims = np.linspace(0, 10, 5)
         cost_plotter.plotbreakdown(
             xdata=x_var,
             ydata=[
@@ -186,7 +191,7 @@ def create_sweep_cost_breakdown(
                 "levelized",
             ],
             axis_options={
-                "yticks": np.linspace(0, 1, 5),
+                "yticks": y_axis_lims,
                 # "yticks": [0, 0.25 ,0.5],  # adjust as needed
                 "xticks": costing_data[costing_data.directory_keys[0], x_var].data,
             },
@@ -232,12 +237,12 @@ def create_all_figures():
     # create_case_figures(
     #     case_name="KBHDP_SOA_1", device_groups=figure_device_groups["KBHDP_SOA_1"]
     # )
-    create_case_figures(
-        case_name="KBHDP_RPT_1", device_groups=figure_device_groups["KBHDP_RPT_1"]
-    )
     # create_case_figures(
-    #     case_name="KBHDP_RPT_2", device_groups=figure_device_groups["KBHDP_RPT_2"]
+    #     case_name="KBHDP_RPT_1", device_groups=figure_device_groups["KBHDP_RPT_1"]
     # )
+    create_case_figures(
+        case_name="KBHDP_RPT_2", device_groups=figure_device_groups["KBHDP_RPT_2"]
+    )
 
 
 if __name__ == "__main__":

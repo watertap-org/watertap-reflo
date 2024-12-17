@@ -108,8 +108,8 @@ def build_sweep(
         m,
         ro_mem_area=ro_mem_area,
         water_recovery=water_recovery,
-        grid_frac=None,
-        elec_price=None,
+        grid_frac=grid_frac,
+        elec_price=elec_price,
         objective=objective,
     )
 
