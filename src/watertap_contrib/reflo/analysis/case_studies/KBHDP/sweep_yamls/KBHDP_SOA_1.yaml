@@ -1,4 +1,4 @@
-KBHDP_RPT_1_water_recovery_sweep:
+KBHDP_SOA_1_water_recovery_sweep:
   sweep_param_loop:
     water_recovery:
       type: LinearSample
@@ -6,7 +6,7 @@ KBHDP_RPT_1_water_recovery_sweep:
       lower_limit: 0.5
       upper_limit: 0.8
       num_samples: 11
-KBHDP_RPT_1_disposal_cost_sweep:
+KBHDP_SOA_1_disposal_cost_sweep:
   sweep_param_loop:
     water_recovery:
       type: LinearSample
