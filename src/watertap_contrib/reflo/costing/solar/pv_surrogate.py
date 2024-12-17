@@ -102,28 +102,28 @@ def cost_pv_surrogate(blk):
 
     blk.direct_capital_cost = pyo.Var(
         initialize=0,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=blk.costing_package.base_currency,
         bounds=(0, None),
         doc="Direct costs of PV system",
     )
 
     blk.indirect_capital_cost = pyo.Var(
         initialize=0,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=blk.costing_package.base_currency,
         bounds=(0, None),
         doc="Indirect costs of PV system",
     )
 
     blk.land_cost = pyo.Var(
         initialize=0,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=blk.costing_package.base_currency,
         bounds=(0, None),
         doc="Land costs of PV system",
     )
 
     blk.sales_tax = pyo.Var(
         initialize=0,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=blk.costing_package.base_currency,
         bounds=(0, None),
         doc="Sales tax for PV system",
     )
