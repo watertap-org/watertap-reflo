@@ -278,7 +278,7 @@ def add_costing(m):
     treatment = m.fs.treatment
     # treatment.costing = TreatmentCosting()
     treatment.costing = REFLOCosting()
-    
+
     # energy = m.fs.energy = Block()
     # energy.costing = EnergyCosting()
 
@@ -302,12 +302,13 @@ def add_costing(m):
 
     treatment.costing.cost_process()
 
-    treatment.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
-    treatment.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase['Liq'])
+    treatment.costing.add_annual_water_production(
+        treatment.product.properties[0].flow_vol
+    )
+    treatment.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase["Liq"])
 
     # m.fs.costing.initialize()
     treatment.costing.initialize()
-
 
 
 def define_inlet_composition(m):

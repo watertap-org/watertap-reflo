@@ -169,13 +169,13 @@ figure_device_groups = {
                 "units": {"fs.treatment.pump.costing.capital_cost"},
             },
         },
-        "PV": {
+        "FPC": {
             "CAPEX": {
-                "units": {"fs.energy.pv.costing.capital_cost"},
+                "units": {"fs.energy.FPC.costing.capital_cost"},
             },
             "OPEX": {
                 "units": {
-                    "fs.energy.pv.costing.fixed_operating_cost",
+                    "fs.energy.FPC.costing.fixed_operating_cost",
                 }
             },
         },

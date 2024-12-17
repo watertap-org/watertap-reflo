@@ -73,7 +73,7 @@ def build_pv_surrogate_cost_param_block(blk):
     )
 
     blk.fixed_operating_by_capacity = pyo.Var(
-        initialize=0,
+        initialize=31,
         units=costing.base_currency / (pyo.units.kW * costing.base_period),
         bounds=(0, None),
         doc="Fixed operating cost of PV system per kW generated",
@@ -130,26 +130,26 @@ def cost_pv_surrogate(blk):
 
     blk.direct_capital_cost_constraint = pyo.Constraint(
         expr=blk.direct_capital_cost
-        == blk.unit_model.design_size
+        == pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
         * (
             pv_params.cost_per_watt_module
             + pv_params.cost_per_watt_inverter
             + pv_params.cost_per_watt_other
         )
         + (
-            blk.unit_model.design_size
+            pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
             * (
                 pv_params.cost_per_watt_module
                 + pv_params.cost_per_watt_inverter
                 + pv_params.cost_per_watt_other
             )
         )
-        * pv_params.contingency_frac_direct_capital_cost
+        * (1 + pv_params.contingency_frac_direct_capital_cost) #BUG Check this
     )
 
     blk.indirect_capital_cost_constraint = pyo.Constraint(
         expr=blk.indirect_capital_cost
-        == (blk.unit_model.design_size * pv_params.cost_per_watt_indirect)
+        == (pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt) * pv_params.cost_per_watt_indirect)
         + (blk.unit_model.land_req * pv_params.land_cost_per_acre)
     )
 
@@ -168,7 +168,7 @@ def cost_pv_surrogate(blk):
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == pv_params.fixed_operating_by_capacity * blk.unit_model.design_size
+        == pv_params.fixed_operating_by_capacity * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW)
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(

@@ -69,7 +69,7 @@ def main():
     box_solve_problem(m)
     # solve(m, debug=True)
 
-    optimize(m, water_recovery=0.35, grid_frac_heat=0.5, objective="LCOW")
+    optimize(m, water_recovery=0.35, grid_frac_heat=0.5, objective="LCOT")
     solve(m, debug=True)
     display_system_stream_table(m)
     report_LTMED(m)
@@ -99,6 +99,7 @@ def build_sweep(
         m,
         water_recovery=water_recovery,
         grid_frac_heat=grid_frac_heat,
+        heat_price=heat_price,
         objective="LCOW",
     )
 
@@ -317,6 +318,7 @@ def add_costing(m):
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
 
     m.fs.costing.initialize()
 
@@ -604,6 +606,8 @@ def optimize(
 
     if objective == "LCOW":
         m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
+    if objective == "LCOT":
+        m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)
 
     if water_recovery is not None:
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")

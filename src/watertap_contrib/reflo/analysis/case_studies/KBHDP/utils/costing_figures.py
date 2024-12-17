@@ -42,7 +42,7 @@ def create_sweep_cost_breakdown(
     filepath = os.path.abspath(__file__)
     util_dir = os.path.dirname(filepath)
     parent_dir = os.path.dirname(util_dir)
-    save_path = os.path.join(parent_dir,'figures')
+    save_path = os.path.join(parent_dir, "figures")
 
     if device_groups == None:
         device_groups = {
@@ -75,6 +75,11 @@ def create_sweep_cost_breakdown(
                 # "units": "USD/kWh",
             },
             {
+                "filekey": "fs.costing.electricity_cost_buy",
+                "return_key": "fs.costing.electricity_cost_buy",
+                # "units": "USD/kWh",
+            },
+            {
                 "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
                 "return_key": "FPC Cost",
                 "units": "USD/a/kW",
@@ -87,6 +92,11 @@ def create_sweep_cost_breakdown(
             {
                 "filekey": "fs.treatment.costing.LCOW",
                 "return_key": "LCOW",
+                # "units": "USD/m**3",
+            },
+            {
+                "filekey": "fs.costing.LCOT",
+                "return_key": "LCOT",
                 # "units": "USD/m**3",
             },
             {
@@ -128,7 +138,7 @@ def create_sweep_cost_breakdown(
     The CAPEX and OPEX will be aggregated from keys in supplied costing groups, the 
     capital and opex costs that are attached to the costing packages will not be used!
     """
-    if save_name is "KBHDP_SOA_1":
+    if save_name == "KBHDP_SOA_1":
         costing_data.get_costing(
             device_groups,
             costing_block="fs.treatment.costing",
@@ -148,29 +158,27 @@ def create_sweep_cost_breakdown(
     cost_plotter = breakDownPlotter(
         costing_data,
         save_location=save_path,
-        save_name=save_name+"_"+x_var,
+        save_name=save_name + "_" + x_var,
     )
-    print(save_name+"_"+x_var)
+    print(save_name + "_" + x_var)
 
     """ define the costing groups, this will be order they are plotted in"""
     ## This is why the rest of the device groups aren't showing up
-    cost_plotter.define_area_groups(
-        list(device_groups.keys())
-    )
+    cost_plotter.define_area_groups(list(device_groups.keys()))
     """ define if you want to plot specific groups, for example CAPEX, OPEX or TOTAl isstead"""
     cost_plotter.define_hatch_groups({"CAPEX": {"hatch": ""}, "OPEX": {"hatch": "//"}})
 
     # print(list(device_groups.keys()))
     # assert False
-    y_max = (
-        np.ceil(np.array(costing_data[costing_data.directory_keys[0], "LCOW"].data).max())
+    y_max = np.ceil(
+        np.array(costing_data[costing_data.directory_keys[0], "LCOT"].data).max()
     )
-    print(np.array(costing_data[costing_data.directory_keys[0], "LCOW"].data))
-    print(f'Y Max {y_max}')
+    print(np.array(costing_data[costing_data.directory_keys[0], "LCOT"].data))
+    print(f"Y Max {y_max}")
     # assert False
     if np.isnan(y_max):
         print("No figure generated\nLCOW returned NaN\nMoving on to next figure")
-        y_axis_lims = np.linspace(0, y_max, 5)
+        y_axis_lims = np.linspace(0, 5, 5)
         cost_plotter.plotbreakdown(
             xdata=x_var,
             ydata=[
@@ -213,7 +221,7 @@ def create_case_figures(case_name=None, sweep_file=None, device_groups=None):
                 file_id = file.split("_")
                 case_id = case_name.split("_")
                 if file_id[:3] == case_id[:3]:
-                    print(f'\n\nCreating Figures for {file} sweep\n\n')
+                    print(f"\n\nCreating Figures for {file} sweep\n\n")
                     costing_data = psDataManager(os.path.join(sweep_results_dir, file))
                     create_sweep_cost_breakdown(
                         costing_data, device_groups=device_groups, save_name=case_name
