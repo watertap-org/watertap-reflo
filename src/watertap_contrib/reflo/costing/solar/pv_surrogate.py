@@ -144,12 +144,15 @@ def cost_pv_surrogate(blk):
                 + pv_params.cost_per_watt_other
             )
         )
-        * (1 + pv_params.contingency_frac_direct_capital_cost) #BUG Check this
+        * (1 + pv_params.contingency_frac_direct_capital_cost)  # BUG Check this
     )
 
     blk.indirect_capital_cost_constraint = pyo.Constraint(
         expr=blk.indirect_capital_cost
-        == (pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt) * pv_params.cost_per_watt_indirect)
+        == (
+            pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
+            * pv_params.cost_per_watt_indirect
+        )
         + (blk.unit_model.land_req * pv_params.land_cost_per_acre)
     )
 
@@ -168,7 +171,8 @@ def cost_pv_surrogate(blk):
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == pv_params.fixed_operating_by_capacity * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW)
+        == pv_params.fixed_operating_by_capacity
+        * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW)
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(

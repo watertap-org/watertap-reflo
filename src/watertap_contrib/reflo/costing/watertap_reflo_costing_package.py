@@ -861,7 +861,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         add_object_reference(self, name, getattr(treat_cost, name))
 
-
     def add_LCOH(self):
         """
         Add Levelized Cost of Heat (LCOH) to costing block.

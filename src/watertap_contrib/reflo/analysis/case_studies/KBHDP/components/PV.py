@@ -290,14 +290,17 @@ if __name__ == "__main__":
     solve(m, debug=True)
     print(m.fs.energy.pv.display())
 
-    print(f"{f'Design Size (W):':<30s}{value(pyunits.convert(m.fs.energy.pv.design_size, to_units=pyunits.watt)):<10,.1f}")
-    print(f"{f'Direct Cost Per Watt ($/W):':<30s}{value(m.fs.energy.costing.pv_surrogate.cost_per_watt_module):<10,.1f}")
+    print(
+        f"{f'Design Size (W):':<30s}{value(pyunits.convert(m.fs.energy.pv.design_size, to_units=pyunits.watt)):<10,.1f}"
+    )
+    print(
+        f"{f'Direct Cost Per Watt ($/W):':<30s}{value(m.fs.energy.costing.pv_surrogate.cost_per_watt_module):<10,.1f}"
+    )
     # print(f"{f'Direct Cost Should Be ($):':<30s}{value(pyunits.convert(m.fs.energy.pv.design_size, to_units=pyunits.watt))*value(m.fs.energy.costing.pv_surrogate.cost_per_watt_module):<10,.1f}")
-    print(f"{f'Direct Cost Currently Is ($):':<30s}{value(m.fs.energy.pv.costing.capital_cost):<10,.1f}")
+    print(
+        f"{f'Direct Cost Currently Is ($):':<30s}{value(m.fs.energy.pv.costing.capital_cost):<10,.1f}"
+    )
 
     # print(m.fs.energy.pv.costing.direct_capital_cost_constraint.pprint())
     # print(m.fs.energy.pv.design_size())
     # print(m.fs.energy.costing.pv_surrogate.cost_per_watt_module())
-
-
-    

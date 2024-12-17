@@ -589,7 +589,6 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
                 stage.module.flux_mass_phase_comp[e].setlb(1e-5)
                 stage.module.flux_mass_phase_comp[e].setub(0.99)
 
-
     # for idx, stage in blk.stage.items():
     #     # stage.module.width.setub(5000)
     #     # stage.module.feed_side.velocity[0, 0].unfix()
