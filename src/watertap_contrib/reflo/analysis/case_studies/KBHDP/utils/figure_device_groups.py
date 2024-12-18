@@ -16,21 +16,57 @@ figure_device_groups = {
                 },
             },
         },
+        "Chemicals": {
+            "OPEX": {
+                "units": {
+                    "fs.treatment.costing.aggregate_flow_costs[lime]",
+                    "fs.treatment.costing.aggregate_flow_costs[mgcl2]",
+                    "fs.treatment.costing.aggregate_flow_costs[soda_ash]",
+                    "fs.treatment.costing.aggregate_flow_costs[co2]",
+                },
+            },
+        },
         "Injection": {
             "OPEX": {
-                "units": {"fs.DWI.unit.costing.variable_operating_cost"},
+                "units": {"fs.treatment.DWI.unit.costing.variable_operating_cost"},
             },
         },
         "Pumps": {
             "CAPEX": {
-                "units": {"fs.pump.costing.capital_cost"},
+                "units": {"fs.treatment.pump.costing.capital_cost"},
             },
         },
         "UF": {
             "CAPEX": {
                 "units": {
-                    "fs.UF.unit.costing.capital_cost",
+                    "fs.treatment.UF.unit.costing.capital_cost",
                 },
+            },
+        },
+        "RO": {
+            "CAPEX": {
+                "units": {
+                    "fs.treatment.RO.stage[1].module.costing.capital_cost",
+                    "fs.treatment.RO.stage[2].module.costing.capital_cost",
+                }
+            },
+            "OPEX": {
+                "units": {
+                    "fs.treatment.RO.stage[1].module.costing.fixed_operating_cost",
+                    "fs.treatment.RO.stage[2].module.costing.fixed_operating_cost",
+                }
+            },
+        },
+        "Softening": {
+            "CAPEX": {
+                "units": {
+                    "fs.treatment.softener.unit.costing.capital_cost",
+                }
+            },
+            "OPEX": {
+                "units": {
+                    "fs.treatment.softener.unit.costing.fixed_operating_cost",
+                }
             },
         },
     },
@@ -88,11 +124,13 @@ figure_device_groups = {
             "CAPEX": {
                 "units": {
                     "fs.treatment.RO.stage[1].module.costing.capital_cost",
+                    "fs.treatment.RO.stage[2].module.costing.capital_cost",
                 }
             },
             "OPEX": {
                 "units": {
                     "fs.treatment.RO.stage[1].module.costing.fixed_operating_cost",
+                    "fs.treatment.RO.stage[2].module.costing.fixed_operating_cost",
                 }
             },
         },
@@ -131,13 +169,13 @@ figure_device_groups = {
                 "units": {"fs.treatment.pump.costing.capital_cost"},
             },
         },
-        "PV": {
+        "FPC": {
             "CAPEX": {
-                "units": {"fs.energy.pv.costing.capital_cost"},
+                "units": {"fs.energy.FPC.costing.capital_cost"},
             },
             "OPEX": {
                 "units": {
-                    "fs.energy.pv.costing.fixed_operating_cost",
+                    "fs.energy.FPC.costing.fixed_operating_cost",
                 }
             },
         },
