@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -120,27 +120,6 @@ def cost_pv(blk):
         bounds=(0, None),
         doc="Sales tax for PV system",
     )
-
-    # pv.design_size = pyo.Var(
-    #     initialize=0,
-    #     units=pyo.units.watt,
-    #     bounds=(0, None),
-    #     doc="DC system capacity for PV system",
-    # )
-
-    # blk.land_area = pyo.Var(
-    #     initialize=0,
-    #     units=pyo.units.acre,
-    #     bounds=(0, None),
-    #     doc="Land area required for PV system",
-    # )
-
-    # blk.annual_generation = pyo.Var(
-    #     initialize=0,
-    #     units=pyo.units.MWh,
-    #     bounds=(0, None),
-    #     doc="Annual electricity generation of PV system",
-    # )
 
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost

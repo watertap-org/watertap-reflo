@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -9,10 +9,9 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
-
+import os
 import json
-from os.path import join, dirname
-from math import floor, ceil, isnan
+
 import numpy as np
 import pandas as pd
 import time
@@ -20,6 +19,20 @@ import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.Swh as swh
+
+__all__ = [
+    "read_module_datafile",
+    "load_config",
+    "setup_model",
+    "run_model",
+    "setup_and_run",
+    "run_pysam_kbhdp_fpc",
+]
+
+
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
+param_file = os.path.join(__location__, "swh-kbhdp.json")
 
 
 def read_module_datafile(file_name):
@@ -117,14 +130,15 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     :param hours_storage: [hr]
     :param temperature_hot: [C]
     """
-    CP_WATER = 4.181  # [kJ/kg-K]
-    DENSITY_WATER = 1000  # [kg/m3]
-    PUMP_POWER_PER_COLLECTOR = 45 / 2  # [W]
-    PIPE_LENGTH_FIXED = 9  # [m]
-    PIPE_LENGTH_PER_COLLECTOR = 0.5  # [m]
+    cp_water = 4.181  # [kJ/kg-K]
+    density_water = 1000  # [kg/m3]
+    pump_power_per_collector = 45 / 2  # [W]
+    pipe_length_fixed = 9  # [m]
+    pipe_length_per_collector = 0.5  # [m]
 
     T_cold = tech_model.value("custom_mains")[0]  # [C]
     heat_load = heat_load_mwt * 1e3 if heat_load_mwt is not None else None  # [kWt]
+
     print(
         f"Running:\n\tHeat Load = {heat_load_mwt}\n\tHours Storage = {hours_storage}\n\tTemperature Hot = {temperature_hot}"
     )
@@ -150,9 +164,9 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
         system_capacity = tech_model.value("system_capacity")  # [kW]
         T_hot = tech_model.value("T_set")  # [C]
         mass_tank_water = (
-            hours_storage * 3600 * system_capacity / (CP_WATER * (T_hot - T_cold))
+            hours_storage * 3600 * system_capacity / (cp_water * (T_hot - T_cold))
         )  # [kg]
-        volume_tank = mass_tank_water / DENSITY_WATER  # [m3]
+        volume_tank = mass_tank_water / density_water  # [m3]
         tech_model.value("V_tank", volume_tank)
 
     # Set collector loop and hot water mass flow rates
@@ -160,16 +174,16 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     tech_model.value("mdot", mdot_collectors)  # [kg/s]
     T_hot = tech_model.value("T_set")  # [C]
     mdot_hot = (
-        tech_model.value("system_capacity") / (CP_WATER * (T_hot - T_cold)) * 3600
+        tech_model.value("system_capacity") / (cp_water * (T_hot - T_cold)) * 3600
     )  # [kg/hr]
     tech_model.value("scaled_draw", 8760 * (mdot_hot,))  # [kg/hr]
 
     # Set pipe diameter and pump power
-    pipe_length = PIPE_LENGTH_FIXED + PIPE_LENGTH_PER_COLLECTOR * tech_model.value(
+    pipe_length = pipe_length_fixed + pipe_length_per_collector * tech_model.value(
         "ncoll"
     )
     tech_model.value("pipe_length", pipe_length)  # [m] default is 0.019 m
-    pumping_power = PUMP_POWER_PER_COLLECTOR * tech_model.value("ncoll")
+    pumping_power = pump_power_per_collector * tech_model.value("ncoll")
     tech_model.value("pump_power", pumping_power)  # [W]
 
     tech_model.execute()
@@ -353,91 +367,33 @@ def plot_3ds(df):
     )
 
 
-def debug_t_hot(tech_model):
-    dataset_filename = join(
-        dirname(__file__), "debugging_t_hot.pkl"
-    )  # output dataset for surrogate training
+def run_pysam_kbhdp_fpc(
+    heat_loads=np.linspace(1, 25, 25),
+    hours_storages=np.linspace(0, 12, 13),
+    temperature_hots=np.arange(50, 102, 2),
+    temperature_cold=20,
+    plot_saved_dataset=False,
+    run_pysam=True,
+    save_data=True,
+    use_multiprocessing=True,
+    dataset_filename="FPC_KBHDP_el_paso.pkl",
+):
+    """
+    Run PySAM to collect data for FPC surrogate model
+    for KBHPD case study
+    """
 
-    if False:
-        df = pd.read_pickle(dataset_filename)
-        plot_2d(
-            df.query("hours_storage == 12 & heat_load == 500"),
-            "temperature_hot",
-            "heat_annual",
-            units=["C", "kWht"],
-        )
+    pysam_model_name = "SolarWaterHeatingCommercial"
 
-    heat_loads = [500]  # [MWt]
-    hours_storages = [12]  # [hr]
-    temperature_hots = np.arange(50, 100.5, 0.5)  # [C]
-    comb = [
-        (hl, hs, th)
-        for hl in heat_loads
-        for hs in hours_storages
-        for th in temperature_hots
-    ]
-    data = []
-    for heat_load, hours_storage, temperature_hot in comb:
-        result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
-        data.append(
-            [
-                heat_load,
-                hours_storage,
-                temperature_hot,
-                result["heat_annual"],
-                result["electricity_annual"],
-            ]
-        )
-    df = pd.DataFrame(
-        data,
-        columns=[
-            "heat_load",
-            "hours_storage",
-            "temperature_hot",
-            "heat_annual",
-            "electricity_annual",
-        ],
-    )
-    df.to_pickle(dataset_filename)
-    plot_2d(
-        df.query("hours_storage == 12 & heat_load == 500"),
-        "temperature_hot",
-        "heat_annual",
-        units=["C", "kWht"],
-    )
-
-
-#########################################################################################################
-if __name__ == "__main__":
-    debug = False
-    plot_saved_dataset = True  # plot previously run, saved data?
-    run_parametrics = True
-    use_multiprocessing = True
-
-    # heat_loads = np.arange(5, 115, 10)          # [MWt]
-    heat_loads = np.linspace(1, 25, 25)  # [MWt]
-    hours_storages = np.linspace(0, 12, 13)  # [hr]
-    temperature_hots = np.arange(50, 102, 2)  # [C]
-    # print(temperature_hots)
-    # assert False
     temperatures = {
-        "T_cold": 20,
+        "T_cold": temperature_cold,
         "T_hot": 70,  # this will be overwritten by temperature_hot value
         "T_amb": 18,
     }
-    model_name = "SolarWaterHeatingCommercial"
-    param_file = join(dirname(__file__), "swh-reflo.json")
-    weather_file = join(
-        dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
-    )
-    weather_file = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/KBHDP/el_paso_texas-KBHDP-weather.csv"
-    dataset_filename = join(
-        dirname(__file__), "FPC_Heat_Load.pkl"
-    )  # output dataset for surrogate training
-    dataset_filename = join(
-        dirname(__file__), "FPC_KBHDP_el_paso.pkl"
-    )  # output dataset for surrogate training
+
+    dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
     config_data = read_module_datafile(param_file)
+
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
     tech_model = setup_model(
@@ -446,30 +402,9 @@ if __name__ == "__main__":
         config_data=config_data,
     )
 
-    if debug:
-        debug_t_hot(tech_model)
-
-    if plot_saved_dataset:
-        # Load and plot saved df (x, y z)
-        df = pd.read_pickle(dataset_filename)
-        plot_2d(
-            df.query("hours_storage == 6 & heat_load == 6"),
-            "temperature_hot",
-            "heat_annual",
-            units=["C", "kWht"],
-        )
-        plot_3ds(df)
-        plot_contours(df)
-
-    # assert False
-    # Run model for single parameter set
-    result = run_model(
-        tech_model, heat_load_mwt=200, hours_storage=1, temperature_hot=70
-    )
-
-    # Run parametrics
+    # Run pysam
     data = []
-    if run_parametrics:
+    if run_pysam:
         if use_multiprocessing:
             arguments = list(product(heat_loads, hours_storages, temperature_hots))
             df = pd.DataFrame(
@@ -521,5 +456,10 @@ if __name__ == "__main__":
                 )
             df = pd.DataFrame(data, columns=["heat_annual", "electricity_annual"])
 
-        df.to_pickle(dataset_filename)
-        plot_contours(df)
+        if save_data:
+            df.to_pickle(dataset_filename)
+
+
+if __name__ == "__main__":
+
+    run_pysam_kbhdp_fpc(dataset_filename="test.pkl")
