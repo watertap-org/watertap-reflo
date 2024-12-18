@@ -571,9 +571,9 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
         stage.module.A_comp.fix(mem_A)
         stage.module.B_comp.fix(mem_B)
         stage.module.area.fix(area / idx)
-        stage.module.feed_side.velocity[0, 0].fix(0.25)
+        stage.module.feed_side.velocity[0, 0].fix(0.35)
         # stage.module.length.fix(length)
-        # stage.module.width.setub(20000)
+        stage.module.width.setub(20000)
         stage.module.mixed_permeate[0].pressure.fix(pressure_atm)
 
         stage.module.feed_side.channel_height.fix(height)
@@ -582,34 +582,57 @@ def set_ro_system_operating_conditions(m, blk, mem_area=100, RO_pressure=15e5):
         # stage.module.flux_vol_phase_avg[0, "Liq"].setlb(5)
         # stage.module.flux_vol_phase_avg[0, "Liq"].setub(60)
 
+        stage.module.feed_side.friction_factor_darcy.setub(50)
+
         for e in stage.module.flux_mass_phase_comp:
             if e[-1] == "H2O":
                 stage.module.flux_mass_phase_comp[e].setlb(1e-5)
                 stage.module.flux_mass_phase_comp[e].setub(0.99)
 
-        # stage.eq_max_water_flux = Constraint(
-        #     expr= stage.module.flux_vol_phase_avg[0] <= 40
-        # )
+    # for idx, stage in blk.stage.items():
+    #     # stage.module.width.setub(5000)
+    #     # stage.module.feed_side.velocity[0, 0].unfix()
+    #     # stage.module.feed_side.velocity[0, 1].setlb(0.0)
+    #     stage.module.feed_side.K.setlb(1e-6)
+    #     stage.module.feed_side.friction_factor_darcy.setub(50)
+    #     stage.module.flux_mass_phase_comp.setub(1)
+    #     # stage.module.flux_mass_phase_comp.setlb(1e-5)
+    #     stage.module.feed_side.cp_modulus.setub(10)
+    #     stage.module.rejection_phase_comp.setlb(1e-4)
+    #     stage.module.feed_side.N_Re.setlb(1)
+    #     stage.module.recovery_mass_phase_comp.setlb(1e-7)
 
-        # stage.eq_min_water_flux = Constraint(
-        #     expr=pyunits.convert(
-        #         stage.module.flux_mass_phase_comp_avg[
-        #             0, "Liq", "H2O"
-        #         ]
-        #         / stage.module.feed_side.properties[0.0,0.0].dens_mass_phase["Liq"],
-        #         to_units=pyunits.liter / pyunits.m**2 / pyunits.hr,
-        #     ) >= 10 * pyunits.liter / pyunits.m**2 / pyunits.hr
-        # )
+    blk.total_membrane_area = Var(
+        initialize=10000,
+        domain=NonNegativeReals,
+        units=pyunits.m**2,
+        doc="Total RO System Membrane Area",
+    )
 
-        # blk.eq_minimum_water_flux = Constraint(
-        #     expr=pyunits.convert(
-        #         m.fs.treatment.RO.stage[1].module.flux_mass_phase_comp_avg[
-        #             0.0, "Liq", "H2O"
-        #         ],
-        #         to_units=pyunits.kg / pyunits.hr / pyunits.m**2,
-        #     )
-        #     <= 40 * pyunits.kg / pyunits.hr / pyunits.m**2
-        # )
+    blk.eq_total_membrane_area = Constraint(
+        expr=blk.total_membrane_area
+        == sum([stage.module.area for idx, stage in blk.stage.items()])
+    )
+
+    # stage.eq_min_water_flux = Constraint(
+    #     expr=pyunits.convert(
+    #         stage.module.flux_mass_phase_comp_avg[
+    #             0, "Liq", "H2O"
+    #         ]
+    #         / stage.module.feed_side.properties[0.0,0.0].dens_mass_phase["Liq"],
+    #         to_units=pyunits.liter / pyunits.m**2 / pyunits.hr,
+    #     ) >= 10 * pyunits.liter / pyunits.m**2 / pyunits.hr
+    # )
+
+    # blk.eq_minimum_water_flux = Constraint(
+    #     expr=pyunits.convert(
+    #         m.fs.treatment.RO.stage[1].module.flux_mass_phase_comp_avg[
+    #             0.0, "Liq", "H2O"
+    #         ],
+    #         to_units=pyunits.kg / pyunits.hr / pyunits.m**2,
+    #     )
+    #     <= 40 * pyunits.kg / pyunits.hr / pyunits.m**2
+    # )
     #     add_ro_scaling(m, stage)
 
     # iscale.calculate_scaling_factors(m)

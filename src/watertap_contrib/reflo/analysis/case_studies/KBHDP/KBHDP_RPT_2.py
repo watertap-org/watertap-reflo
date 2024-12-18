@@ -66,17 +66,20 @@ def main():
     init_system(m)
     add_costing(m)
     scale_costing(m)
-    box_solve_problem(m)
-    # solve(m, debug=True)
+    # box_solve_problem(m)
+    # # solve(m, debug=True)
 
-    optimize(m, water_recovery=0.35, grid_frac_heat=0.5, objective="LCOW")
+    optimize(m, water_recovery=0.35, heat_price=0.005, objective="LCOW")
     solve(m, debug=True)
-    display_system_stream_table(m)
-    report_LTMED(m)
-    report_pump(m, m.fs.treatment.pump)
+    # display_system_stream_table(m)
+    # report_LTMED(m)
+    # report_pump(m, m.fs.treatment.pump)
     report_fpc(m)
 
-    display_costing_breakdown(m)
+    m.fs.costing.LCOW.display()
+    m.fs.energy.costing.LCOH.display()
+    m.fs.costing.LCOT.display()
+    # display_costing_breakdown(m)
 
     return m
 
@@ -99,6 +102,7 @@ def build_sweep(
         m,
         water_recovery=water_recovery,
         grid_frac_heat=grid_frac_heat,
+        heat_price=heat_price,
         objective="LCOW",
     )
 
@@ -302,6 +306,7 @@ def add_energy_costing(m):
     add_fpc_costing(m, energy.costing)
 
     energy.costing.cost_process()
+    energy.costing.add_LCOH()
     energy.costing.initialize()
 
 
@@ -313,11 +318,11 @@ def add_costing(m):
     add_energy_costing(m)
 
     m.fs.costing = REFLOSystemCosting()
-    # m.fs.costing.base_currency = pyunits.USD_2020
     m.fs.costing.cost_process()
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
 
     m.fs.costing.initialize()
 
@@ -605,6 +610,8 @@ def optimize(
 
     if objective == "LCOW":
         m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
+    if objective == "LCOT":
+        m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)
 
     if water_recovery is not None:
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
@@ -616,7 +623,8 @@ def optimize(
         m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
 
     if heat_price is not None:
-        m.fs.energy.FPC.heat_load.unfix()
+        energy.FPC.heat_load.unfix()
+        energy.FPC.hours_storage.unfix()
         m.fs.costing.frac_heat_from_grid.unfix()
         m.fs.costing.heat_cost_buy.fix(heat_price)
 
