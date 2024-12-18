@@ -36,8 +36,6 @@ from watertap.core.solvers import get_solver
 __author__ = "Kurban Sitterley"
 
 
-
-
 class SolarModelType(StrEnum):
     surrogate = "surrogate"
     physical = "physical"
@@ -258,7 +256,9 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self.trainer.config.basis_function = "gaussian"  # default = gaussian
         self.trainer.config.solution_method = "algebraic"  # default = algebraic
         self.trainer.config.regularization = True  # default = True
-        self.log.info(f"Training RBF Surrogate with {self.trainer.config.basis_function} basis function and {self.trainer.config.solution_method} solution method.")
+        self.log.info(
+            f"Training RBF Surrogate with {self.trainer.config.basis_function} basis function and {self.trainer.config.solution_method} solution method."
+        )
         self.trained_rbf = self.trainer.train_surrogate()
         self.log.info(f"Training Complete.")
 

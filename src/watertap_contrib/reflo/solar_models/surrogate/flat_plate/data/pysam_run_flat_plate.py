@@ -125,7 +125,9 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
 
     T_cold = tech_model.value("custom_mains")[0]  # [C]
     heat_load = heat_load_mwt * 1e3 if heat_load_mwt is not None else None  # [kWt]
-    print(f"Running:\n\tHeat Load = {heat_load_mwt}\n\tHours Storage = {hours_storage}\n\tTemperature Hot = {temperature_hot}")
+    print(
+        f"Running:\n\tHeat Load = {heat_load_mwt}\n\tHours Storage = {hours_storage}\n\tTemperature Hot = {temperature_hot}"
+    )
 
     if heat_load is not None:
         # Set heat load (system capacity)
