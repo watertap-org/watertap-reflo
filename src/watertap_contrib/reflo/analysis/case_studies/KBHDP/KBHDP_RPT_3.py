@@ -93,7 +93,8 @@ def build_system(inlet_cond, n_time_points):
     m.fs.treatment.md = FlowsheetBlock(dynamic=False)
 
     build_md(
-        m, m.fs.treatment.md,
+        m,
+        m.fs.treatment.md,
     )
     m.fs.treatment.dwi = FlowsheetBlock(dynamic=False)
     build_DWI(m, m.fs.treatment.dwi, m.fs.params)
@@ -353,9 +354,7 @@ def main(
     n_time_points = None
 
     # Build  MD, DWI and FPC
-    m = build_system(
-        inlet_cond, n_time_points=n_time_points
-    )
+    m = build_system(inlet_cond, n_time_points=n_time_points)
 
     set_inlet_conditions(m.fs, inlet_cond, model_options)
 
