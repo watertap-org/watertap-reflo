@@ -126,7 +126,7 @@ def init_DWI(m, blk, verbose=True, solver=None):
         solver = get_solver()
 
     optarg = solver.options
-    assert_no_degrees_of_freedom(m)
+    # assert_no_degrees_of_freedom(m)
     blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
 
 

@@ -68,7 +68,7 @@ def main():
     # box_solve_problem(m)
     # solve(m, debug=True)
     # scale_costing(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
+    optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=None, objective="LCOT")
     solve(m, debug=False)
     # # display_flow_table(m)
     # display_system_stream_table(m)
@@ -89,8 +89,10 @@ def main():
 
 def build_sweep(
     grid_frac=None,
-    heat_price=None,
+    elec_price=None,
     water_recovery=None,
+    ro_mem_area=None,
+    objective="LCOT",
 ):
 
     m = build_system(RE=True)
@@ -102,7 +104,14 @@ def build_sweep(
     init_system(m)
     add_costing(m)
     scale_costing(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
+    optimize(
+        m,
+        ro_mem_area=ro_mem_area,
+        water_recovery=water_recovery,
+        grid_frac=grid_frac,
+        elec_price=elec_price,
+        objective=objective,
+    )
 
     return m
 
@@ -171,7 +180,7 @@ def build_treatment(m):
 
     build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
     build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
-    build_ro(m, treatment.RO, prop_package=m.fs.RO_properties)
+    build_ro(m, treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
     build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
 
     m.fs.units = [
@@ -311,6 +320,7 @@ def add_energy_costing(m):
     )
 
     energy.costing.cost_process()
+    energy.costing.add_LCOE()
     energy.costing.initialize()
 
 
@@ -323,11 +333,11 @@ def add_costing(m):
     add_energy_costing(m)
 
     m.fs.costing = REFLOSystemCosting()
-    m.fs.costing.base_currency = pyunits.USD_2020
     m.fs.costing.cost_process()
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
 
     m.fs.costing.initialize()
 
@@ -508,7 +518,7 @@ def init_treatment(m, verbose=True, solver=None):
     assert_no_degrees_of_freedom(m)
     treatment.feed.initialize(optarg=optarg)
     propagate_state(treatment.feed_to_translator)
-
+    report_MCAS_stream_conc(m, treatment.feed.properties[0.0])
     treatment.MCAS_to_TDS_translator.initialize(optarg=optarg)
     propagate_state(treatment.translator_to_EC)
 
@@ -531,7 +541,7 @@ def init_treatment(m, verbose=True, solver=None):
     # propagate_state(treatment.ro_to_dwi)
 
     treatment.product.initialize(optarg=optarg)
-    # init_DWI(m, treatment.DWI)
+    init_DWI(m, treatment.DWI)
     display_system_stream_table(m)
 
 
@@ -612,6 +622,7 @@ def optimize(
     fixed_pressure=None,
     ro_mem_area=None,
     grid_frac=None,
+    elec_price=None,
     objective="LCOW",
 ):
     treatment = m.fs.treatment
@@ -620,6 +631,8 @@ def optimize(
 
     if objective == "LCOW":
         m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
+    elif objective == "LCOT":
+        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
     else:
         m.fs.membrane_area_objective = Objective(expr=treatment.RO.stage[1].module.area)
 
@@ -651,8 +664,12 @@ def optimize(
 
     if ro_mem_area is not None:
         print(f"\n------- Fixed RO Membrane Area at {ro_mem_area} -------\n")
+        # for idx, stage in treatment.RO.stage.items():
+        #     stage.module.area.fix(ro_mem_area)
+        treatment.RO.total_membrane_area.fix(ro_mem_area)
         for idx, stage in treatment.RO.stage.items():
-            stage.module.area.fix(ro_mem_area)
+            stage.module.area.unfix()
+            stage.module.area.setub(1e6)
     else:
         lower_bound = 1e3
         upper_bound = 2e5
@@ -668,6 +685,24 @@ def optimize(
         m.fs.costing.frac_elec_from_grid.fix(grid_frac)
         m.fs.energy.pv.design_size.unfix()
         m.fs.energy.pv.annual_energy.unfix()
+
+    if elec_price is not None:
+        m.fs.costing.frac_elec_from_grid.unfix()
+        m.fs.energy.pv.design_size.unfix()
+        m.fs.energy.pv.annual_energy.unfix()
+
+    for idx, stage in treatment.RO.stage.items():
+        stage.module.width.setub(5000)
+        stage.module.feed_side.velocity[0, 0].unfix()
+        stage.module.feed_side.velocity[0, 1].setlb(0.0)
+        stage.module.feed_side.K.setlb(1e-6)
+        stage.module.feed_side.friction_factor_darcy.setub(50)
+        stage.module.flux_mass_phase_comp.setub(1)
+        # stage.module.flux_mass_phase_comp.setlb(1e-5)
+        stage.module.feed_side.cp_modulus.setub(10)
+        stage.module.rejection_phase_comp.setlb(1e-4)
+        stage.module.feed_side.N_Re.setlb(1)
+        stage.module.recovery_mass_phase_comp.setlb(1e-7)
 
 
 def report_MCAS_stream_conc(m, stream):
