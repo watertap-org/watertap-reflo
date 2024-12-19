@@ -495,4 +495,3 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     m = ConcreteModel()
     build_VAGMD_batch_multiperiod_fs(m)
-    
