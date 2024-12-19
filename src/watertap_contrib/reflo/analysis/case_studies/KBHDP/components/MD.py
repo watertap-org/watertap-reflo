@@ -343,7 +343,7 @@ def set_md_initial_conditions(blk):
 
     print("\n--------- MD TIME PERIOD 1 INPUTS ---------\n")
     print("Feed flow rate in L/h:", blk.model_options["feed_flow_rate"])
-    print("Feed salinity in g/l:", blk.model_options["feed_salinity"])
+    print("Feed salinity in g/L:", blk.model_options["feed_salinity"])
     print("Feed temperature in C:", blk.model_options["feed_temp"])
     print("\n")
 
