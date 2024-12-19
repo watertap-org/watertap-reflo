@@ -60,11 +60,14 @@ __all__ = [
     "build_system",
     "add_connections",
     "add_costing",
-    "add_system_costing",
+    "add_constraints",
+    "apply_scaling",
     "set_inlet_conditions",
     "set_operating_conditions",
     "init_system",
     "print_results_summary",
+    "optimize",
+    "solve",
 ]
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -74,6 +77,41 @@ param_file = os.path.join(__location__, "swh-kbhdp.json")
 
 def propagate_state(arc):
     _prop_state(arc)
+
+
+def build_sweep(
+    elec_price=None,
+    grid_frac_heat=None,
+    heat_price=None,
+    water_recovery=0.5,
+    objective="LCOT",
+):
+    m = build_system(water_recovery=water_recovery)
+    add_connections(m)
+    add_constraints(m)
+    set_operating_conditions(m)
+    apply_scaling(m)
+    init_system(m, m.fs)
+    _ = solve(m.fs.treatment.md.mp)  # solve just MultiPeriod first
+    _ = solve(m)
+    add_costing(m)
+    _ = solve(m.fs.treatment.md.mp)  # solve just MultiPeriod first
+    _ = solve(m.fs.treatment)
+    _ = solve(m.fs.energy)
+    _ = solve(m)
+
+    return m
+
+
+def optimize(
+    m,
+    elec_price=None,
+    grid_frac_heat=None,
+    heat_price=None,
+    water_recovery=None,
+    objective="LCOT",
+):
+    pass
 
 
 def build_system(Qin=4, Cin=12, water_recovery=0.5):
@@ -105,14 +143,10 @@ def build_system(Qin=4, Cin=12, water_recovery=0.5):
     # Create MD unit model at flowsheet level
     m.fs.treatment.md = FlowsheetBlock()
 
-    build_md(
-        m,
-        m.fs.treatment.md,
-    )
+    build_md(m, m.fs.treatment.md)
     m.fs.treatment.dwi = FlowsheetBlock()
     build_DWI(m, m.fs.treatment.dwi, m.fs.properties)
 
-    m.fs.energy.FPC = FlowsheetBlock()
     build_fpc(m)
 
     return m
@@ -213,7 +247,7 @@ def add_constraints(m):
     )
 
 
-def set_scaling(m):
+def apply_scaling(m):
 
     m.fs.properties.set_default_scaling(
         "flow_mass_phase_comp", 0.1, index=("Liq", "H2O")
@@ -364,11 +398,11 @@ def main(
     run_optimization=True,
 ):
     # Build  MD, DWI and FPC
-    m = build_system()
+    m = build_system(water_recovery=water_recovery)
     add_connections(m)
     add_constraints(m)
     set_operating_conditions(m)
-    set_scaling(m)
+    apply_scaling(m)
     # check_jac(m)
     init_system(m, m.fs)
     print(f"dof = {degrees_of_freedom(m)}")
@@ -569,7 +603,7 @@ def save_results(m):
 if __name__ == "__main__":
 
     main(
-        water_recovery=0.8,
+        water_recovery=0.7,
         heat_price=0.08,
         electricity_price=0.07,
         frac_heat_from_grid=0.5,
