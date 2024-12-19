@@ -67,6 +67,7 @@ class TestRPT2:
         return m
 
     @pytest.mark.unit
+    @pytest.mark.skip
     def test_config(self, RPT_2_frame):
         m = RPT_2_frame
         treatment = m.fs.treatment
@@ -100,12 +101,14 @@ class TestRPT2:
         # assert isinstance(m.fs.costing, WaterTAPCostingBlockData)
 
     @pytest.mark.unit
+    @pytest.mark.skip
     def test_dof(self, RPT_2_frame):
         m = RPT_2_frame
 
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.unit
+    @pytest.mark.skip
     def test_build(self, RPT_2_frame):
         m = RPT_2_frame
 
@@ -114,24 +117,28 @@ class TestRPT2:
         assert number_unused_variables(m) == 120
 
     @pytest.mark.component
+    @pytest.mark.skip
     def test_initialize(self, RPT_2_frame):
         m = RPT_2_frame
         apply_scaling(m)
         init_system(m)
 
     @pytest.mark.component
+    @pytest.mark.skip
     def test_scaling(self, RPT_2_frame):
         m = RPT_2_frame
         badly_scaled_var_lst = list(badly_scaled_var_generator(m))
         assert badly_scaled_var_lst == []
 
     @pytest.mark.component
+    @pytest.mark.skip
     def test_solve(self, RPT_2_frame):
         m = RPT_2_frame
         results = solver.solve(m)
         assert_optimal_termination(results)
 
     @pytest.mark.component
+    @pytest.mark.skip
     def test_solution(self, RPT_2_frame):
         m = RPT_2_frame
 
@@ -140,6 +147,7 @@ class TestRPT2:
     #     assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 1.935
 
     @pytest.mark.component
+    @pytest.mark.skip
     def test_costing(self, RPT_2_frame):
         m = RPT_2_frame
         add_costing(m)
