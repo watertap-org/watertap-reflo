@@ -241,10 +241,10 @@ if __name__ == "__main__":
         join(dirname(__file__), "lcoefcr-reflo.json"),
     ]
     weather_file = join(
-        dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
+        dirname(__file__), "permian_basin_32.5002_-103.0001_32.305_-102.638_psm3-tmy_60_tmy.csv"
     )
     dataset_filename = join(
-        dirname(__file__), "test_trough_data.pkl"
+        dirname(__file__), "permian_basin_trough_data.pkl"
     )  # output dataset for surrogate training
 
     # modules = setup_model(model_name, weather_file, config_files=config_files)
@@ -272,8 +272,8 @@ if __name__ == "__main__":
     data = []
     # heat_loads =        np.arange(100, 1100, 100)
     # hours_storages =    np.arange(0, 27, 3)
-    heat_loads = np.arange(100, 1100, 25)  # [MWt]
-    hours_storages = np.arange(0, 27, 1)  # [hr]
+    heat_loads = np.arange(5, 105, 25)  # [MWt]
+    hours_storages = np.arange(0, 25, 1)  # [hr]
     # heat_loads =        np.arange(100, 300, 100)
     # hours_storages =    np.arange(0, 6, 3)
     arguments = list(product(heat_loads, hours_storages))
