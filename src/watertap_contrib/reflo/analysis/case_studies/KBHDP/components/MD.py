@@ -148,8 +148,8 @@ def set_md_model_options(m, blk, n_time_points=None):
         "system_capacity": value(m.system_capacity),  # m3/day
         "feed_flow_rate": 750,  # L/h
         "evap_inlet_temp": 80,
-        "cond_inlet_temp": 30,
-        "feed_temp": 30,
+        "cond_inlet_temp": 25,
+        "feed_temp": 25,
         "feed_salinity": value(m.feed_salinity),  # g/L
         "initial_batch_volume": 50,  # L
         "module_type": "AS26C7.2L",
