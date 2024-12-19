@@ -305,7 +305,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
             "evap_inlet_temp",
             "cond_inlet_temp",
             "feed_temp",
-            "feed_salinity",
+            # "feed_salinity",
             "initial_batch_volume",
             "recovery_ratio",
         ]
@@ -315,7 +315,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
             evap_inlet_temp,
             cond_inlet_temp,
             feed_temp,
-            feed_salinity,
+            # feed_salinity,
             initial_batch_volume,
             recovery_ratio,
         ]
@@ -325,7 +325,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
             [60, 80],
             [20, 30],
             [20, 30],
-            [35, max_allowed_brine_salinity[module_type]],
+            # [35, max_allowed_brine_salinity[module_type]],
             [50, float("inf")],
             [0, 1],
         ]
