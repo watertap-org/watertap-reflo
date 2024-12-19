@@ -16,7 +16,6 @@ from pyomo.environ import (
     RangeSet,
     check_optimal_termination,
     units as pyunits,
-    SolverFactory, 
 )
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
@@ -80,7 +79,6 @@ def propagate_state(arc):
 
 
 def build_sweep(
-    elec_price=None,
     grid_frac_heat=None,
     heat_price=None,
     water_recovery=0.5,
@@ -92,27 +90,26 @@ def build_sweep(
     set_operating_conditions(m)
     apply_scaling(m)
     init_system(m, m.fs)
-    _ = solve(m.fs.treatment.md.mp)  # solve just MultiPeriod first
+    m.fs.energy.FPC.heat_load.unfix()
+    _ = solve(m.fs.treatment.md, tee=True)
+    _ = solve(m, raise_on_failure=False, tee=True)
+    m.fs.energy.FPC.heat_load.fix()
     _ = solve(m)
     add_costing(m)
-    # _ = solve(m.fs.treatment.md.mp)  # solve just MultiPeriod first
-    # _ = solve(m.fs.treatment)
-    # _ = solve(m.fs.energy)
     _ = solve(m)
-    optimize(m,
-    elec_price=elec_price,
-    grid_frac_heat=grid_frac_heat,
-    heat_price=heat_price,
-    water_recovery=water_recovery,
-    objective=objective,)
+    optimize_rpt3(
+        m,
+        grid_frac_heat=grid_frac_heat,
+        heat_price=heat_price,
+        water_recovery=water_recovery,
+        objective=objective,
+    )
 
     return m
 
 
-
-def optimize(
+def optimize_rpt3(
     m,
-    elec_price=None,
     grid_frac_heat=None,
     heat_price=None,
     water_recovery=None,
@@ -138,9 +135,10 @@ def optimize(
         energy.FPC.hours_storage.unfix()
         m.fs.costing.frac_heat_from_grid.unfix()
         m.fs.costing.heat_cost_buy.fix(heat_price)
-    
+
     print(f"Degrees of Feedom: {degrees_of_freedom(m)}")
     assert degrees_of_freedom(m) >= 0
+
 
 def build_system(Qin=4, Cin=12, water_recovery=0.5):
 
@@ -282,6 +280,9 @@ def apply_scaling(m):
     )
     m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "TDS"))
 
+    set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
+    set_scaling_factor(m.fs.energy.FPC.electricity_annual_scaled, 1e-3)
+
     calculate_scaling_factors(m)
 
 
@@ -329,16 +330,19 @@ def init_system(m, blk, verbose=True, solver=None):
     init_fpc(m.fs.energy)
 
 
-def solve(m, solver=None, tee=False, raise_on_failure=True):
+def solve(
+    m, solver=None, tee=False, raise_on_failure=True, symbolic_solver_labels=True
+):
     # ---solving---
     if solver is None:
         solver = get_solver()
-    # solver.options["max_iter"] = 5000
+
+    solver.options["max_iter"] = 1000
     solver.options["halt_on_ampl_error"] = "yes"
 
     print(f"\n--------- SOLVING {m.name} ---------\n")
 
-    results = solver.solve(m, tee=tee)
+    results = solver.solve(m, tee=tee, symbolic_solver_labels=True)
 
     if check_optimal_termination(results):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
@@ -417,42 +421,29 @@ def report_costing(blk):
     )
 
 
-def main(
-    water_recovery=0.5,
-    heat_price=0.07,
-    electricity_price=0.07,
-    frac_heat_from_grid=0.01,
-    hours_storage=8,
-    run_optimization=True,
-):
-    # Build  MD, DWI and FPC
+def main(water_recovery=0.5):
+
     m = build_system(water_recovery=water_recovery)
-    # m.fs.treatment.md.unit.display()
-    # assert False
+
     add_connections(m)
     add_constraints(m)
     set_operating_conditions(m)
     apply_scaling(m)
-    set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
-    set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
-    # check_jac(m)
-    # assert False
     init_system(m, m.fs)
-    # check_jac(m)
-    # assert False
     print(f"dof = {degrees_of_freedom(m)}")
-    # assert False
-    results = solve(m.fs.treatment.md.unit.mp)
-    # results = solve(m.fs.treatment.md)
-    results = solve(m.fs.treatment)
-    results = solve(m.fs.energy)
-    results = solve(m)
+    results = solve(m.fs.treatment.md)
+    m.fs.energy.FPC.heat_load.unfix()
+    _ = solve(m, raise_on_failure=False, tee=True)
+    m.fs.energy.FPC.heat_load.fix()
+    results = solve(m, raise_on_failure=True)
+
     print(f"termination {results.solver.termination_condition}")
     add_costing(m)
 
     print(f"dof = {degrees_of_freedom(m)}")
     results = solve(m)
-    print(f"termination 2 {results.solver.termination_condition}")
+    print(f"termination costing {results.solver.termination_condition}")
+    print(f"LCOT = {m.fs.costing.LCOT()}")
 
 
 def print_results_summary(m):
@@ -638,11 +629,10 @@ def save_results(m):
 
 if __name__ == "__main__":
 
-    main(
-        water_recovery=0.8,
-        heat_price=0.08,
-        electricity_price=0.07,
-        frac_heat_from_grid=0.5,
-        hours_storage=6,
-        run_optimization=False,
-    )
+    # main(water_recovery=0.8)
+    m = build_sweep(water_recovery=0.8, heat_price=0.01)
+    m.fs.costing.LCOT.display()
+    m.fs.energy.FPC.heat_load.display()
+    results = solve(m)
+    m.fs.costing.LCOT.display()
+    m.fs.energy.FPC.heat_load.display()
