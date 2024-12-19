@@ -16,7 +16,7 @@ from pyomo.environ import (
     RangeSet,
     check_optimal_termination,
     units as pyunits,
-    SolverFactory,
+    SolverFactory, 
 )
 from pyomo.network import Arc, SequentialDecomposition
 from pyomo.util.check_units import assert_units_consistent
@@ -174,7 +174,6 @@ def build_system(Qin=4, Cin=12, water_recovery=0.5):
     build_md(m, m.fs.treatment.md)
     m.fs.treatment.dwi = FlowsheetBlock()
     build_DWI(m, m.fs.treatment.dwi, m.fs.properties)
-
     build_fpc(m)
 
     return m
@@ -207,10 +206,11 @@ def add_costing(m, treatment_costing_block=None, energy_costing_block=None):
         treatment_costing_block = m.fs.treatment.costing
     if energy_costing_block is None:
         energy_costing_block = m.fs.energy.costing
-    solver = get_solver()
-    solve(m, solver=solver, tee=False)
+    # solver = get_solver()
+    # solve(m, solver=solver, tee=False)
     add_fpc_costing(m, costing_block=energy_costing_block)
-    add_md_costing(m.fs.treatment.md.mp, treatment_costing_block)
+    # add_md_costing(m.fs.treatment.md.mp, treatment_costing_block)
+    m.fs.treatment.md.unit.add_costing_module(treatment_costing_block)
     add_DWI_costing(
         m.fs.treatment, m.fs.treatment.dwi, costing_blk=treatment_costing_block
     )
@@ -329,14 +329,14 @@ def init_system(m, blk, verbose=True, solver=None):
     init_fpc(m.fs.energy)
 
 
-def solve(m, solver=None, tee=True, raise_on_failure=True):
+def solve(m, solver=None, tee=False, raise_on_failure=True):
     # ---solving---
     if solver is None:
         solver = get_solver()
     # solver.options["max_iter"] = 5000
-    # solver.options["halt_on_ampl_error"] = "yes"
+    solver.options["halt_on_ampl_error"] = "yes"
 
-    print("\n--------- SOLVING ---------\n")
+    print(f"\n--------- SOLVING {m.name} ---------\n")
 
     results = solver.solve(m, tee=tee)
 
@@ -427,17 +427,25 @@ def main(
 ):
     # Build  MD, DWI and FPC
     m = build_system(water_recovery=water_recovery)
+    # m.fs.treatment.md.unit.display()
+    # assert False
     add_connections(m)
     add_constraints(m)
     set_operating_conditions(m)
     apply_scaling(m)
+    set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
+    set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
     # check_jac(m)
+    # assert False
     init_system(m, m.fs)
+    # check_jac(m)
+    # assert False
     print(f"dof = {degrees_of_freedom(m)}")
-    results = solve(m.fs.treatment.md.mp)
+    # assert False
+    results = solve(m.fs.treatment.md.unit.mp)
     # results = solve(m.fs.treatment.md)
-    # results = solve(m.fs.treatment)
-    # results = solve(m.fs.energy)
+    results = solve(m.fs.treatment)
+    results = solve(m.fs.energy)
     results = solve(m)
     print(f"termination {results.solver.termination_condition}")
     add_costing(m)
@@ -631,7 +639,7 @@ def save_results(m):
 if __name__ == "__main__":
 
     main(
-        water_recovery=0.4,
+        water_recovery=0.8,
         heat_price=0.08,
         electricity_price=0.07,
         frac_heat_from_grid=0.5,
