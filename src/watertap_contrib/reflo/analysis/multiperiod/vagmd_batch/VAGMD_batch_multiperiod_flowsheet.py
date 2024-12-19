@@ -132,6 +132,7 @@ def build_VAGMD_batch_multiperiod_fs(
     module_type="AS7C1.5L",
     cooling_system_type="closed",
     cooling_inlet_temp=25,  # 20 - feed_temp deg C, not required when cooling system type is "closed"
+    **kwargs
 ):
     """
     This function builds a multiperiod flowsheet of the VAGMD system
@@ -489,3 +490,9 @@ if __name__ == "__main__":
     assert_optimal_termination(results)
 
     print("Overall LCOW ($/m3): ", value(m.costing.LCOW))
+
+
+if __name__ == "__main__":
+    m = ConcreteModel()
+    build_VAGMD_batch_multiperiod_fs(m)
+    
