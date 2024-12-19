@@ -95,12 +95,19 @@ def build_sweep(
     _ = solve(m.fs.treatment.md.mp)  # solve just MultiPeriod first
     _ = solve(m)
     add_costing(m)
-    _ = solve(m.fs.treatment.md.mp)  # solve just MultiPeriod first
-    _ = solve(m.fs.treatment)
-    _ = solve(m.fs.energy)
+    # _ = solve(m.fs.treatment.md.mp)  # solve just MultiPeriod first
+    # _ = solve(m.fs.treatment)
+    # _ = solve(m.fs.energy)
     _ = solve(m)
+    optimize(m,
+    elec_price=elec_price,
+    grid_frac_heat=grid_frac_heat,
+    heat_price=heat_price,
+    water_recovery=water_recovery,
+    objective=objective,)
 
     return m
+
 
 
 def optimize(
@@ -111,8 +118,29 @@ def optimize(
     water_recovery=None,
     objective="LCOT",
 ):
-    pass
+    treatment = m.fs.treatment
+    energy = m.fs.energy
+    print("\n\nDOF before optimization: ", degrees_of_freedom(m))
 
+    if objective == "LCOW":
+        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
+    if objective == "LCOT":
+        m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)
+
+    if grid_frac_heat is not None:
+        # Leaves 0 DOF
+        m.fs.energy.FPC.heat_load.unfix()
+        m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
+
+    if heat_price is not None:
+        # Leaves 2 DOF
+        energy.FPC.heat_load.unfix()
+        energy.FPC.hours_storage.unfix()
+        m.fs.costing.frac_heat_from_grid.unfix()
+        m.fs.costing.heat_cost_buy.fix(heat_price)
+    
+    print(f"Degrees of Feedom: {degrees_of_freedom(m)}")
+    assert degrees_of_freedom(m) >= 0
 
 def build_system(Qin=4, Cin=12, water_recovery=0.5):
 
@@ -603,7 +631,7 @@ def save_results(m):
 if __name__ == "__main__":
 
     main(
-        water_recovery=0.7,
+        water_recovery=0.4,
         heat_price=0.08,
         electricity_price=0.07,
         frac_heat_from_grid=0.5,
