@@ -54,6 +54,10 @@ from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_design_
     get_n_time_points,
 )
 
+from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_multiperiod_unit_model import (
+    VAGMDbatchSurrogate,
+)
+
 from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_multiperiod_flowsheet import (
     get_vagmd_batch_variable_pairs,
     unfix_dof,
