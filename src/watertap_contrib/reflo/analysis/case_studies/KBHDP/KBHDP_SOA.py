@@ -325,19 +325,11 @@ def define_inlet_composition(m):
 
 def set_inlet_conditions(
     m,
-    Qin=None,
-    Cin=None,
+    Qin=4,
     water_recovery=None,
     supply_pressure=101325,
 ):
-    """Sets operating condition for the PV-RO system
 
-    Args:
-        m (obj): Pyomo model
-        flow_in (float, optional): feed volumetric flow rate [m3/s]. Defaults to 1e-2.
-        conc_in (int, optional): solute concentration [g/L]. Defaults to 30.
-        water_recovery (float, optional): water recovery. Defaults to 0.5.
-    """
     print(f'\n{"=======> SETTING OPERATING CONDITIONS <=======":^60}\n')
 
     treatment = m.fs.treatment
