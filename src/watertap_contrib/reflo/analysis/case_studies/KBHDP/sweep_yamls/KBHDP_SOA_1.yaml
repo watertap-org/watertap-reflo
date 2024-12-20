@@ -1,16 +1,49 @@
-KBHDP_SOA_1_water_recovery_sweep:
+# KBHDP_SOA_1_water_recovery_sweep:
+#   sweep_param_loop:
+#     water_recovery:
+#       type: LinearSample
+#       param: fs.water_recovery
+#       lower_limit: 0.5
+#       upper_limit: 0.8
+#       num_samples: 21
+# KBHDP_SOA_1_disposal_cost_sweep:
+#   sweep_param_loop:
+#     dwi_lcow:
+#       type: LinearSample
+#       param: fs.treatment.costing.deep_well_injection.dwi_lcow
+#       lower_limit: 0.05
+#       upper_limit: 0.25
+#       num_samples: 21
+
+KBHDP_SOA_1_lime_cost_sweep:
   sweep_param_loop:
-    water_recovery:
+    lime_cost:
       type: LinearSample
-      param: fs.water_recovery
-      lower_limit: 0.5
-      upper_limit: 0.8
-      num_samples: 11
-KBHDP_SOA_1_disposal_cost_sweep:
-  sweep_param_loop:
-    water_recovery:
-      type: LinearSample
-      param: fs.treatment.costing.deep_well_injection.dwi_lcow
+      param: fs.treatment.costing.lime.cost
       lower_limit: 0.05
-      upper_limit: 0.1
-      num_samples: 6
+      upper_limit: 0.20
+      num_samples: 21
+KBHDP_SOA_1_soda_ash_cost_sweep:
+  sweep_param_loop:
+    soda_ash_cost:
+      type: LinearSample
+      param: fs.treatment.costing.soda_ash.cost
+      lower_limit: 0.12
+      upper_limit: 0.36
+      num_samples: 21
+KBHDP_SOA_1_mgcl2_cost_sweep:
+  sweep_param_loop:
+    mgcl2_cost:
+      type: LinearSample
+      param: fs.treatment.costing.mgcl2.cost
+      lower_limit: 0.25
+      upper_limit: 1
+      num_samples: 21
+KBHDP_SOA_1_co2_cost_sweep:
+  sweep_param_loop:
+    co2_cost:
+      type: LinearSample
+      param: fs.treatment.costing.co2.cost
+      lower_limit: 0.19
+      upper_limit: 0.76
+      num_samples: 21

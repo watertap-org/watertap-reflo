@@ -79,13 +79,13 @@ def main():
     apply_scaling(m)
     init_system(m)
     add_costing(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.6)
+    optimize(m, ro_mem_area=None, water_recovery=0.75)
     solve(m, debug=True)
 
-    print(m.fs.treatment.product.display())
-    print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
-    print(m.fs.treatment.costing.display())
-    print(m.fs.treatment.costing.LCOW.display())
+    # print(m.fs.treatment.product.display())
+    # print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
+    # print(m.fs.treatment.costing.display())
+    # print(m.fs.treatment.costing.LCOW.display())
 
 
 def build_system():
@@ -189,7 +189,7 @@ def build_sweep():
     init_system(m)
     add_costing(m)
     display_system_build(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.6)
+    optimize(m, ro_mem_area=None, water_recovery=0.75)
 
     return m
 
@@ -533,7 +533,7 @@ def solve(model, solver=None, tee=False, raise_on_failure=True, debug=False):
             print("\n--------- INFEASIBLE BOUNDS ---------\n")
             print_infeasible_bounds(model)
 
-            print("\n--------- CHECKING JACOBIAN ---------\n")
+            # print("\n--------- CHECKING JACOBIAN ---------\n")
         return results
     msg = (
         "The current configuration is infeasible. Please adjust the decision variables."
