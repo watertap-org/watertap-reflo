@@ -280,8 +280,8 @@ def apply_scaling(m):
     )
     m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "TDS"))
 
-    # set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
-    # set_scaling_factor(m.fs.energy.FPC.electricity_annual_scaled, 1e-3)
+    set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
+    set_scaling_factor(m.fs.energy.FPC.electricity_annual_scaled, 1e-3)
 
     calculate_scaling_factors(m)
 
