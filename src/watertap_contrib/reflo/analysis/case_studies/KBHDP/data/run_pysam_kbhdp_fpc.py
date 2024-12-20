@@ -12,6 +12,11 @@
 import os
 import json
 
+from pyomo.environ import ConcreteModel
+from idaes.core import FlowsheetBlock
+from watertap_contrib.reflo.solar_models.surrogate.flat_plate.flat_plate_surrogate import (
+    FlatPlateSurrogate,
+)
 import numpy as np
 import pandas as pd
 import time
@@ -462,4 +467,107 @@ def run_pysam_kbhdp_fpc(
 
 if __name__ == "__main__":
 
-    run_pysam_kbhdp_fpc(dataset_filename="test.pkl")
+    # LOW
+    # heat_loads_lb = np.linspace(0.1, 0.9, 9)
+    # heat_loads_ub = np.linspace(1, 25, 25)
+    # dataset_filename = "FPC_KBHDP_el_paso-low.pkl"
+    # heat_loads = heat_loads_lb.tolist() + heat_loads_ub.tolist()
+    # print(heat_loads)
+
+    # run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
+
+    # input_bounds = dict(
+    #     heat_load=[0.1, 25], hours_storage=[0, 12], temperature_hot=[50, 102]
+    # )
+    # input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+    # input_variables = {
+    #     "labels": ["heat_load", "hours_storage", "temperature_hot"],
+    #     "bounds": input_bounds,
+    #     "units": input_units,
+    # }
+
+    # output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+    # output_variables = {
+    #     "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+    #     "units": output_units,
+    # }
+    # dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
+    # m = ConcreteModel()
+    # m.fs = FlowsheetBlock(dynamic=False)
+    # m.fs.FPC = FlatPlateSurrogate(
+    #     # surrogate_model_file=surrogate_filename,
+    #     dataset_filename=dataset_filename,
+    #     input_variables=input_variables,
+    #     output_variables=output_variables,
+    #     scale_training_data=True,
+    # )
+
+    # # HIGH
+    # heat_loads_lb = np.linspace(1, 5, 5)
+    # heat_loads_ub = np.linspace(5, 50, 46)
+    # dataset_filename = "FPC_KBHDP_el_paso-high.pkl"
+    # heat_loads = heat_loads_lb.tolist() + heat_loads_ub.tolist()
+    # # print(heat_loads)
+    # # assert False
+    # run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
+
+    # input_bounds = dict(
+    #     heat_load=[1, 50], hours_storage=[0, 12], temperature_hot=[50, 102]
+    # )
+    # input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+    # input_variables = {
+    #     "labels": ["heat_load", "hours_storage", "temperature_hot"],
+    #     "bounds": input_bounds,
+    #     "units": input_units,
+    # }
+
+    # output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+    # output_variables = {
+    #     "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+    #     "units": output_units,
+    # }
+    # dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
+    # m = ConcreteModel()
+    # m.fs = FlowsheetBlock(dynamic=False)
+    # m.fs.FPC = FlatPlateSurrogate(
+    #     # surrogate_model_file=surrogate_filename,
+    #     dataset_filename=dataset_filename,
+    #     input_variables=input_variables,
+    #     output_variables=output_variables,
+    #     scale_training_data=True,
+    # )
+
+    # REALLY HIGH
+    heat_loads_lb = np.linspace(1, 5, 5)
+    heat_loads_ub = np.linspace(1, 100, 100)
+    dataset_filename = "FPC_KBHDP_el_paso-really_high.pkl"
+    heat_loads = heat_loads_ub.tolist()
+    # print(heat_loads)
+    # assert False
+    run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
+
+    input_bounds = dict(
+        heat_load=[1, 100], hours_storage=[0, 12], temperature_hot=[50, 102]
+    )
+    input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+    input_variables = {
+        "labels": ["heat_load", "hours_storage", "temperature_hot"],
+        "bounds": input_bounds,
+        "units": input_units,
+    }
+
+    output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+    output_variables = {
+        "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+        "units": output_units,
+    }
+    dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.FPC = FlatPlateSurrogate(
+        # surrogate_model_file=surrogate_filename,
+        dataset_filename=dataset_filename,
+        input_variables=input_variables,
+        output_variables=output_variables,
+        scale_training_data=True,
+    )
