@@ -294,10 +294,6 @@ def add_treatment_costing(m):
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_ro_costing(m, treatment.RO, treatment.costing)
 
-    treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
-    treatment.costing.total_investment_factor.fix(1)
-    # treatment.costing.maintenance_labor_chemical_factor.fix(0)
-
     treatment.costing.cost_process()
     treatment.costing.initialize()
 

@@ -305,10 +305,6 @@ def add_treatment_costing(m):
     add_ro_costing(m, treatment.RO, treatment.costing)
     add_DWI_costing(m, treatment.DWI, treatment.costing)
 
-    treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
-    treatment.costing.total_investment_factor.fix(1)
-    # treatment.costing.maintenance_labor_chemical_factor.fix(0)
-
     treatment.costing.cost_process()
     treatment.costing.initialize()
 
@@ -828,6 +824,16 @@ if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = main()
     # m.fs.treatment.costing.aggregate_flow_electricity.display()
-    print(pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)())
-    print(pyunits.convert(m.fs.energy.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)()) 
+    print(
+        pyunits.convert(
+            m.fs.treatment.costing.aggregate_flow_electricity,
+            to_units=pyunits.kWh / pyunits.year,
+        )()
+    )
+    print(
+        pyunits.convert(
+            m.fs.energy.costing.aggregate_flow_electricity,
+            to_units=pyunits.kWh / pyunits.year,
+        )()
+    )
     # m.fs.energy.costing.aggregate_flow_electricity.display()

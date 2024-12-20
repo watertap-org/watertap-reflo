@@ -70,7 +70,6 @@ def propagate_state(arc, detailed=True):
 
 
 def main():
-    file_dir = os.path.dirname(os.path.abspath(__file__))
 
     m = build_system()
     add_connections(m)
@@ -81,6 +80,7 @@ def main():
     add_costing(m)
     optimize(m, ro_mem_area=None, water_recovery=0.75)
     solve(m, debug=True)
+    report_UF(m, m.fs.UF)
 
     # print(m.fs.treatment.product.display())
     # print(m.fs.treatment.product.properties[0].flow_vol_phase.display())

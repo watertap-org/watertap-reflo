@@ -302,9 +302,6 @@ def add_treatment_costing(m):
     add_LTMED_costing(m, treatment.LTMED, treatment.costing)
     add_DWI_costing(m, treatment.DWI, treatment.costing)
 
-    treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
-    treatment.costing.total_investment_factor.fix(1)
-
     treatment.costing.cost_process()
     treatment.costing.initialize()
 
