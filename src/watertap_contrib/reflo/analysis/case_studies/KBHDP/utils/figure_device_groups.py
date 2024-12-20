@@ -143,6 +143,16 @@ figure_device_groups = {
         },
     },
     "KBHDP_RPT_2": {
+        "FPC": {
+            "CAPEX": {
+                "units": {"fs.energy.FPC.costing.capital_cost"},
+            },
+            "OPEX": {
+                "units": {
+                    "fs.energy.FPC.costing.fixed_operating_cost",
+                }
+            },
+        },
         "Heat": {
             "OPEX": {
                 "units": {
@@ -167,16 +177,6 @@ figure_device_groups = {
         "Pumps": {
             "CAPEX": {
                 "units": {"fs.treatment.pump.costing.capital_cost"},
-            },
-        },
-        "FPC": {
-            "CAPEX": {
-                "units": {"fs.energy.FPC.costing.capital_cost"},
-            },
-            "OPEX": {
-                "units": {
-                    "fs.energy.FPC.costing.fixed_operating_cost",
-                }
             },
         },
         "EC": {
@@ -208,6 +208,53 @@ figure_device_groups = {
             "CAPEX": {
                 "units": {
                     "fs.treatment.UF.unit.costing.capital_cost",
+                },
+            },
+        },
+    },
+    "KBHDP_RPT_3": {
+        "Heat": {
+            "OPEX": {
+                "units": {
+                    "fs.costing.total_heat_operating_cost",
+                    #   "fs.costing.aggregate_flow_electricity_sold"
+                },
+            },
+        },
+        "Electricity": {
+            "OPEX": {
+                "units": {
+                    "fs.costing.aggregate_flow_electricity_purchased",
+                    #   "fs.costing.aggregate_flow_electricity_sold"
+                },
+            },
+        },
+        "Injection": {
+            "OPEX": {
+                "units": {"fs.treatment.DWI.unit.costing.variable_operating_cost"},
+            },
+        },
+        "FPC": {
+            "CAPEX": {
+                "units": {"fs.energy.FPC.costing.capital_cost"},
+            },
+            "OPEX": {
+                "units": {
+                    "fs.energy.FPC.costing.fixed_operating_cost",
+                }
+            },
+        },
+        "MD": {
+            "CAPEX": {
+                "units": {
+                    "fs.treatment.md.unit.md_costing.capital_cost",
+                },
+            },
+            "OPEX": {
+                "units": {
+                    "fs.treatment.md.unit.md_costing.fixed_operating_cost",
+                    "fs.treatment.costing.aggregate_flow_costs[heat]",
+                    "fs.treatment.costing.aggregate_flow_costs[electricity]",
                 },
             },
         },
