@@ -37,7 +37,7 @@ __all__ = [
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
-param_file = os.path.join(__location__, "swh-kbhdp.json")
+param_file = os.path.join(__location__, "fpc/swh-kbhdp.json")
 
 
 def read_module_datafile(file_name):
@@ -471,18 +471,21 @@ if __name__ == "__main__":
     heat_loads_lb = np.linspace(0.1, 0.9, 9)
     heat_loads_ub = np.linspace(1, 10, 10)
     heat_loads = heat_loads_lb.tolist() + heat_loads_ub.tolist()
-    
-    hours_storages = np.linspace(0, 24, 25)
-    temperature_hots=np.arange(50, 102, 2)
-    dataset_filename = f"FPC_KBHDP_el_paso_LOW_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}_{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}_{int(max(temperature_hots))}.pkl"
-    print(heat_loads)
-    print(hours_storages)
-    # assert False
 
-    run_pysam_kbhdp_fpc(heat_loads=heat_loads, hours_storages=hours_storages, dataset_filename=dataset_filename)
+    hours_storages = np.linspace(0, 24, 25)
+    temperature_hots = np.arange(50, 102, 2)
+
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_LOW_heat_load_{float(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}.pkl"
+
+    run_pysam_kbhdp_fpc(
+        heat_loads=heat_loads,
+        hours_storages=hours_storages,
+        temperature_hots=temperature_hots,
+        dataset_filename=dataset_filename,
+    )
 
     input_bounds = dict(
-        heat_load=[0.1, 10], hours_storage=[0, 24], temperature_hot=[50, 102]
+        heat_load=[0.1, 10], hours_storage=[0, 24], temperature_hot=[50, 100]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -497,28 +500,32 @@ if __name__ == "__main__":
         "units": output_units,
     }
     dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
+
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.FPC = FlatPlateSurrogate(
-        # surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
     )
-
 
     # MID
-    heat_loads_lb = np.linspace(1, 5, 5)
-    heat_loads_ub = np.linspace(5, 50, 46)
-    dataset_filename = "FPC_KBHDP_el_paso-mid.pkl"
-    heat_loads = heat_loads_lb.tolist() + heat_loads_ub.tolist()
-    # print(heat_loads)
-    # assert False
-    run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
+    heat_loads = np.linspace(1, 25, 25)
+    hours_storages = np.linspace(0, 24, 25)
+    temperature_hots = np.arange(50, 102, 2)
+
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_MID_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}.pkl"
+
+    run_pysam_kbhdp_fpc(
+        heat_loads=heat_loads,
+        hours_storages=hours_storages,
+        temperature_hots=temperature_hots,
+        dataset_filename=dataset_filename,
+    )
 
     input_bounds = dict(
-        heat_load=[1, 50], hours_storage=[0, 12], temperature_hot=[50, 102]
+        heat_load=[1, 25], hours_storage=[0, 24], temperature_hot=[50, 100]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -533,27 +540,32 @@ if __name__ == "__main__":
         "units": output_units,
     }
     dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
+
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.FPC = FlatPlateSurrogate(
-        # surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
     )
 
-    # # HIGH
-    heat_loads_lb = np.linspace(1, 5, 5)
-    heat_loads_ub = np.linspace(5, 50, 46)
-    dataset_filename = "FPC_KBHDP_el_paso-high.pkl"
-    heat_loads = heat_loads_lb.tolist() + heat_loads_ub.tolist()
-    # print(heat_loads)
-    # assert False
-    run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
+    # HIGH
+    heat_loads = np.linspace(1, 50, 50)
+    hours_storages = np.linspace(0, 24, 25)
+    temperature_hots = np.arange(50, 102, 2)
+
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}.pkl"
+
+    run_pysam_kbhdp_fpc(
+        heat_loads=heat_loads,
+        hours_storages=hours_storages,
+        temperature_hots=temperature_hots,
+        dataset_filename=dataset_filename,
+    )
 
     input_bounds = dict(
-        heat_load=[1, 50], hours_storage=[0, 12], temperature_hot=[50, 102]
+        heat_load=[1, 50], hours_storage=[0, 24], temperature_hot=[50, 100]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -571,7 +583,6 @@ if __name__ == "__main__":
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.FPC = FlatPlateSurrogate(
-        # surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -579,16 +590,21 @@ if __name__ == "__main__":
     )
 
     # REALLY HIGH
-    heat_loads_lb = np.linspace(1, 5, 5)
-    heat_loads_ub = np.linspace(1, 100, 100)
-    dataset_filename = "FPC_KBHDP_el_paso-really_high.pkl"
-    heat_loads = heat_loads_ub.tolist()
-    # print(heat_loads)
-    # assert False
-    run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
+    heat_loads = np.linspace(1, 100, 100)
+    hours_storages = np.linspace(0, 24, 25)
+    temperature_hots = np.arange(50, 102, 2)
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}.pkl"
+
+
+    run_pysam_kbhdp_fpc(
+        heat_loads=heat_loads,
+        hours_storages=hours_storages,
+        temperature_hots=temperature_hots,
+        dataset_filename=dataset_filename,
+    )
 
     input_bounds = dict(
-        heat_load=[1, 100], hours_storage=[0, 12], temperature_hot=[50, 102]
+        heat_load=[1, 100], hours_storage=[0, 24], temperature_hot=[50, 100]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -603,10 +619,10 @@ if __name__ == "__main__":
         "units": output_units,
     }
     dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
+
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.FPC = FlatPlateSurrogate(
-        # surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
