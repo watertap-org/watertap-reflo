@@ -30,6 +30,7 @@ from idaes.core import (
     UnitModelCostingBlock,
     useDefault,
 )
+from idaes.core.util.misc import add_object_reference
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
@@ -449,6 +450,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
         vagmd.costing = UnitModelCostingBlock(
             flowsheet_costing_block=flowsheet_costing_block
         )
+        add_object_reference(self, "costing", vagmd.costing)
 
         # Overwrite the thermal and electric energy flow with the accumulated values
         vagmd.costing.costing_package.cost_flow(
