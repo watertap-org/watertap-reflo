@@ -42,7 +42,7 @@ from watertap.property_models.water_prop_pack import WaterParameterBlock as vapo
 _log = idaeslog.getLogger(__name__)
 
 
-def propagate_state(arc, detailed=True):
+def propagate_state(arc, detailed=False):
     _prop_state(arc)
 
     if detailed:
@@ -67,18 +67,23 @@ def main():
     add_costing(m)
     scale_costing(m)
     # box_solve_problem(m)
-    # # solve(m, debug=True)
+    m.fs.energy.FPC.heat_load.unfix()
+    solve(m, debug=False)
+    m.fs.energy.FPC.heat_load.fix(25)
+    solve(m, debug=False)
 
-    optimize(m, water_recovery=0.35, heat_price=0.005, objective="LCOW")
-    solve(m, debug=True)
+    optimize(m, objective="LCOT", grid_frac_heat=0.05)
+
+    print(f"Degrees of Feedom: {degrees_of_freedom(m)}")
+    solve(m, raise_on_failure=False, debug=False, tee=False)
     # display_system_stream_table(m)
     # report_LTMED(m)
     # report_pump(m, m.fs.treatment.pump)
-    report_fpc(m)
+    # report_fpc(m)
 
-    m.fs.costing.LCOW.display()
-    m.fs.energy.costing.LCOH.display()
-    m.fs.costing.LCOT.display()
+    # m.fs.costing.LCOW.display()
+    # m.fs.energy.costing.LCOH.display()
+    # m.fs.costing.LCOT.display()
     # display_costing_breakdown(m)
 
     return m
@@ -96,14 +101,18 @@ def build_sweep(
     apply_scaling(m)
     init_system(m)
     add_costing(m)
-    scale_costing(m)
-    box_solve_problem(m)
+    # scale_costing(m)
+    # box_solve_problem(m)
+    m.fs.energy.FPC.heat_load.unfix()
+    solve(m, debug=False)
+    m.fs.energy.FPC.heat_load.fix(10)
+    solve(m, debug=False)
     optimize(
         m,
-        water_recovery=water_recovery,
+        water_recovery=None,
         grid_frac_heat=grid_frac_heat,
         heat_price=heat_price,
-        objective="LCOW",
+        objective="LCOT",
     )
 
     return m
@@ -128,7 +137,6 @@ def build_system(RE=True):
         material_flow_basis=MaterialFlowBasis.mass,
     )
 
-    # m.fs.RO_properties = NaClParameterBlock()
     m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
     m.fs.liquid_prop = SeawaterParameterBlock()
     m.fs.vapor_prop = vapor_prop()
@@ -204,7 +212,7 @@ def build_treatment(m):
 
 def build_energy(m):
     energy = m.fs.energy = Block()
-    build_fpc(m)
+    build_fpc_really_high(m)
 
 
 def add_connections(m):
@@ -306,7 +314,7 @@ def add_energy_costing(m):
     add_fpc_costing(m, energy.costing)
 
     energy.costing.cost_process()
-    energy.costing.add_LCOH()
+    # energy.costing.add_LCOH()
     energy.costing.initialize()
 
 
@@ -519,7 +527,7 @@ def init_treatment(m, verbose=True, solver=None):
 
     treatment.product.initialize(optarg=optarg)
     init_DWI(m, treatment.DWI)
-    display_system_stream_table(m)
+    # display_system_stream_table(m)
 
 
 def init_system(m, verbose=True, solver=None):
@@ -531,7 +539,7 @@ def init_system(m, verbose=True, solver=None):
     init_treatment(m)
 
 
-def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
+def solve(m, solver=None, tee=False, raise_on_failure=False, debug=False):
     # ---solving---
     if solver is None:
         solver = get_solver()
@@ -602,7 +610,7 @@ def optimize(
     fixed_pressure=None,
     grid_frac_heat=None,
     heat_price=None,
-    objective="LCOW",
+    objective="LCOT",
 ):
     treatment = m.fs.treatment
     energy = m.fs.energy
@@ -619,7 +627,8 @@ def optimize(
         m.fs.water_recovery.fix(water_recovery)
 
     if grid_frac_heat is not None:
-        m.fs.energy.FPC.heat_load.unfix()
+        energy.FPC.heat_load.unfix()
+        energy.FPC.hours_storage.unfix()
         m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
 
     if heat_price is not None:
@@ -781,3 +790,10 @@ def display_costing_breakdown(m):
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = main()
+    m.fs.costing.LCOT.display()
+    m.fs.energy.FPC.heat_load.display()
+    m.fs.energy.FPC.hours_storage.display()
+    m.fs.energy.FPC.heat.display()
+    m.fs.treatment.costing.aggregate_flow_heat.display()
+    m.fs.costing.aggregate_flow_heat.display()
+    m.fs.costing.frac_heat_from_grid.display()
