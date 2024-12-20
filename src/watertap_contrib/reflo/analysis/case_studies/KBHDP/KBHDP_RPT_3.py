@@ -209,6 +209,22 @@ def add_costing(m, treatment_costing_block=None, energy_costing_block=None):
     add_fpc_costing(m, costing_block=energy_costing_block)
     # add_md_costing(m.fs.treatment.md.mp, treatment_costing_block)
     m.fs.treatment.md.unit.add_costing_module(treatment_costing_block)
+    m.fs.treatment.md.unit.md_costing = Block()
+    m.fs.treatment.md.unit.md_costing.capital_cost = Expression(
+        expr=m.fs.treatment.md.unit.costing.capital_cost
+    )
+    m.fs.treatment.md.unit.md_costing.direct_capital_cost = Expression(
+        expr=m.fs.treatment.md.unit.costing.direct_capital_cost
+    )
+    m.fs.treatment.md.unit.md_costing.fixed_operating_cost = Expression(
+        expr=m.fs.treatment.md.unit.costing.fixed_operating_cost
+    )
+    m.fs.treatment.md.unit.md_costing.module_cost = Expression(
+        expr=m.fs.treatment.md.unit.costing.module_cost
+    )
+    m.fs.treatment.md.unit.md_costing.other_capital_cost = Expression(
+        expr=m.fs.treatment.md.unit.costing.other_capital_cost
+    )
     add_DWI_costing(
         m.fs.treatment, m.fs.treatment.dwi, costing_blk=treatment_costing_block
     )
