@@ -1,3 +1,88 @@
+costing_data_keys = [
+    {
+        "filekey": "fs.costing.frac_heat_from_grid",
+        "return_key": "Grid Frac Heat",
+        # "units": "%",
+    },
+    {
+        "filekey": "fs.costing.heat_cost_buy",
+        "return_key": "fs.costing.heat_cost_buy",
+        # "units": "USD/kWh",
+    },
+    {
+        "filekey": "fs.energy.costing.flat_plate.cost_per_area_collector",
+        "return_key": "fs.energy.costing.flat_plate.cost_per_area_collector",
+        # "units": "USD/kWh",
+    },
+    {
+        "filekey": "fs.costing.electricity_cost_buy",
+        "return_key": "fs.costing.electricity_cost_buy",
+        # "units": "USD/kWh",
+    },
+    {
+        "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
+        "return_key": "FPC Cost",
+        "units": "USD/a/kW",
+    },
+    {
+        "filekey": "fs.water_recovery",
+        "return_key": "fs.water_recovery",
+        "units": "%",
+    },
+    {
+        "filekey": "fs.treatment.costing.LCOW",
+        "return_key": "LCOW",
+        # "units": "USD/m**3",
+    },
+    {
+        "filekey": "fs.costing.LCOT",
+        "return_key": "LCOT",
+        # "units": "USD/m**3",
+    },
+    {
+        "filekey": "fs.energy.pv.annual_energy",
+        "return_key": "fs.energy.pv.annual_energy",
+        # "units": "kWh",
+    },
+    {
+        "filekey": "fs.treatment.costing.deep_well_injection.dwi_lcow",
+        "return_key": "fs.treatment.costing.deep_well_injection.dwi_lcow",
+        # "units": "kWh",
+    },
+    {
+        "filekey": "fs.treatment.costing.deep_well_injection.dwi_lcow",
+        "return_key": "Disposal Cost",
+        "units": "USD/m**3",
+    },
+    {
+        "filekey": "fs.costing.frac_heat_from_grid",
+        "return_key": "fs.costing.frac_heat_from_grid",
+        # "units": "USD/m**3",
+    },
+    {
+        "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
+        "return_key": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
+        # "units": "USD/m**3",
+    },
+]
+
+default_device_groups = {
+    "Heat": {
+        "OPEX": {
+            "units": {
+                "fs.costing.total_heat_operating_cost",
+            },
+        },
+    },
+    "Electricity": {
+        "OPEX": {
+            "units": {
+                "fs.costing.aggregate_flow_electricity_purchased",
+            },
+        },
+    },
+}
+
 figure_device_groups = {
     "KBHDP_SOA_1": {
         "Heat": {
