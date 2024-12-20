@@ -56,13 +56,13 @@ dataset_filename_low = os.path.join(
     parent_dir,
     "data/fpc/FPC_KBHDP_el_paso_LOW_heat_load_0.1-10_hours_storage_0-24_temperature_hot_50-100.pkl",
 )
-surrgate_filename_low = dataset_filename_low.replace(".pkl", ".json")
+surrogate_filename_low = dataset_filename_low.replace(".pkl", ".json")
 
 dataset_filename_mid = os.path.join(
     parent_dir,
     "data/fpc/FPC_KBHDP_el_paso_MID_heat_load_1-25_hours_storage_0-24_temperature_hot_50-100.pkl",
 )
-surrgate_filename_mid = dataset_filename_mid.replace(".pkl", ".json")
+surrogate_filename_mid = dataset_filename_mid.replace(".pkl", ".json")
 
 dataset_filename_high = os.path.join(
     parent_dir,
