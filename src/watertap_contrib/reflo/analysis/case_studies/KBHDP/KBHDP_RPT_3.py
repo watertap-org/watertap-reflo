@@ -86,7 +86,7 @@ def build_sweep(
 ):
     m = build_system(water_recovery=water_recovery)
     add_connections(m)
-    add_constraints(m)
+    # add_constraints(m)
     set_operating_conditions(m)
     apply_scaling(m)
     init_system(m, m.fs)
@@ -280,8 +280,8 @@ def apply_scaling(m):
     )
     m.fs.properties.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "TDS"))
 
-    set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
-    set_scaling_factor(m.fs.energy.FPC.electricity_annual_scaled, 1e-3)
+    # set_scaling_factor(m.fs.energy.FPC.heat_annual_scaled, 1e-3)
+    # set_scaling_factor(m.fs.energy.FPC.electricity_annual_scaled, 1e-3)
 
     calculate_scaling_factors(m)
 
@@ -317,7 +317,7 @@ def init_system(m, blk, verbose=True, solver=None):
 
     treatment.feed.initialize()
 
-    init_md(treatment.md)
+    init_md(m, treatment.md)
 
     propagate_state(treatment.md_to_product)
     treatment.product.initialize()
@@ -629,10 +629,11 @@ def save_results(m):
 
 if __name__ == "__main__":
 
-    # main(water_recovery=0.8)
-    m = build_sweep(water_recovery=0.8, heat_price=0.01)
+
+    m = build_sweep(water_recovery=0.90, heat_price=0.01)
     m.fs.costing.LCOT.display()
     m.fs.energy.FPC.heat_load.display()
+
     results = solve(m)
     m.fs.costing.LCOT.display()
     m.fs.energy.FPC.heat_load.display()

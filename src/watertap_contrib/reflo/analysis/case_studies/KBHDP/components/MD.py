@@ -155,7 +155,7 @@ def set_md_model_options(m, blk, n_time_points=None):
         "module_type": "AS26C7.2L",
         "cooling_system_type": "closed",
         "cooling_inlet_temp": 25,
-        "recovery_ratio": m.water_recovery
+        "recovery_ratio": m.water_recovery,
     }
 
     if n_time_points == None:
@@ -208,36 +208,36 @@ def build_md(m, blk, prop_package=None) -> None:
     # assert False
 
 
-def init_md(blk, verbose=True, solver=None):
+def init_md(m, blk, verbose=True, solver=None):
     # blk = m.fs.md
 
     blk.feed.initialize()
 
-    # blk.mp.build_multi_period_model(
-    #     model_data_kwargs={t: blk.model_options for t in range(blk.n_time_points)},
-    #     flowsheet_options=blk.model_options,
-    #     unfix_dof_options={"feed_flow_rate": blk.model_options["feed_flow_rate"]},
-    # )
+    # # blk.mp.build_multi_period_model(
+    # #     model_data_kwargs={t: blk.model_options for t in range(blk.n_time_points)},
+    # #     flowsheet_options=blk.model_options,
+    # #     unfix_dof_options={"feed_flow_rate": blk.model_options["feed_flow_rate"]},
+    # # )
 
-    # add_performance_constraints(blk)
+    # # add_performance_constraints(blk)
 
-    # blk.unit.system_capacity.fix(blk.model_options["system_capacity"])
+    # # blk.unit.system_capacity.fix(blk.model_options["system_capacity"])
 
-    # solver = get_solver()
-    # active_blks = blk.unit.mp.get_active_process_blocks()
-    # active_blks[0].fs.vagmd.feed_props.display()
-    # active_blks[0].fs.vagmd.feed_props.initialize()
-    # print(f"dof = {degrees_of_freedom(active_blks[0].fs.vagmd)}")
-    # assert False
-    # for active in active_blks:
-    #     fix_dof_and_initialize(
-    #         m=active,
-    #         feed_temp=blk.model_input["feed_temp"],
-    #     )
-    #     _ = solver.solve(active)
-    #     unfix_dof(m=active, feed_flow_rate=blk.model_input["feed_flow_rate"])
+    # # solver = get_solver()
+    # # active_blks = blk.unit.mp.get_active_process_blocks()
+    # # active_blks[0].fs.vagmd.feed_props.display()
+    # # active_blks[0].fs.vagmd.feed_props.initialize()
+    # # print(f"dof = {degrees_of_freedom(active_blks[0].fs.vagmd)}")
+    # # assert False
+    # # for active in active_blks:
+    # #     fix_dof_and_initialize(
+    # #         m=active,
+    # #         feed_temp=blk.model_input["feed_temp"],
+    # #     )
+    # #     _ = solver.solve(active)
+    # #     unfix_dof(m=active, feed_flow_rate=blk.model_input["feed_flow_rate"])
 
-    # Build connection to permeate state junction
+    # # Build connection to permeate state junction
     blk.permeate.properties[0]._flow_vol_phase
 
     @blk.Constraint(
@@ -267,7 +267,7 @@ def init_md(blk, verbose=True, solver=None):
     blk.permeate.properties[0].pressure.fix(101325)
     blk.permeate.properties[0].temperature.fix(298.15)
 
-    # Build connection to concentrate state junction
+    # # Build connection to concentrate state junction
 
     blk.concentrate.properties[0]._flow_vol_phase
     blk.concentrate.properties[0]._conc_mass_phase_comp
@@ -280,11 +280,13 @@ def init_md(blk, verbose=True, solver=None):
 
         return b.concentrate.properties[0].flow_vol_phase["Liq"] == pyunits.convert(
             (
-                num_modules
-                * blk.model_input["initial_batch_volume"]
-                * pyunits.L
-                * (1 - b.unit.mp.get_active_process_blocks()[-1].fs.acc_recovery_ratio)
-                / (b.unit.mp.get_active_process_blocks()[-1].fs.dt * (blk.n_time_points - 1))
+                b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.system_capacity
+                * m.water_recovery
+                # num_modules
+                # * blk.model_input["initial_batch_volume"]
+                # * pyunits.L
+                # * (1 - b.unit.mp.get_active_process_blocks()[-1].fs.acc_recovery_ratio)
+                # / (b.unit.mp.get_active_process_blocks()[-1].fs.dt * (blk.n_time_points - 1))
             ),
             to_units=pyunits.m**3 / pyunits.s,
         )
@@ -305,7 +307,7 @@ def init_md(blk, verbose=True, solver=None):
     blk.concentrate.properties[0].pressure.fix(101325)
     blk.concentrate.properties[0].temperature.fix(298.15)
 
-    # set_md_initial_conditions(blk)
+    # # set_md_initial_conditions(blk)
 
 
 def init_system(m, verbose=True, solver=None):
@@ -323,7 +325,7 @@ def init_system(m, verbose=True, solver=None):
     m.fs.feed.initialize()
     propagate_state(m.fs.feed_to_md)
 
-    init_md(m.fs.md, verbose=True, solver=None)
+    init_md(m, m.fs.md, verbose=True, solver=None)
 
     propagate_state(m.fs.md_to_product)
     m.fs.product.initialize()
