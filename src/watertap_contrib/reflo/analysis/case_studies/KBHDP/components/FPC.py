@@ -36,7 +36,10 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
 )
 
 __all__ = [
-    "build_fpc",
+    "build_fpc_low",
+    "build_fpc_mid",
+    "build_fpc_high",
+    "build_fpc_really_high",
     "init_fpc",
     "set_fpc_op_conditions",
     "add_fpc_costing",
@@ -48,10 +51,28 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 parent_dir = os.path.abspath(os.path.join(__location__, ".."))
 weather_file = os.path.join(parent_dir, "el_paso_texas-KBHDP-weather.csv")
 param_file = os.path.join(parent_dir, "swh-kbhdp.json")
-dataset_filename = os.path.join(parent_dir, "data/FPC_KBHDP_el_paso.pkl")
-surrogate_filename = os.path.join(
+
+dataset_filename_low = os.path.join(parent_dir, "data/FPC_KBHDP_el_paso-low.pkl")
+surrogate_filename_low = os.path.join(
     parent_dir,
-    "data/FPC_KBHDP_el_paso_heat_load_1_25_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/FPC_KBHDP_el_paso-low_heat_load_0.1_25_hours_storage_0_12_temperature_hot_50_102.json",
+)
+dataset_filename_mid = os.path.join(parent_dir, "data/FPC_KBHDP_el_paso-mid.pkl")
+surrogate_filename_mid = os.path.join(
+    parent_dir,
+    "data/FPC_KBHDP_el_paso-mid_heat_load_1_25_hours_storage_0_12_temperature_hot_50_102.json",
+)
+dataset_filename_high = os.path.join(parent_dir, "data/FPC_KBHDP_el_paso-high.pkl")
+surrogate_filename_high = os.path.join(
+    parent_dir,
+    "data/FPC_KBHDP_el_paso-high_heat_load_1_50_hours_storage_0_12_temperature_hot_50_102.json",
+)
+dataset_filename_really_high = os.path.join(
+    parent_dir, "data/FPC_KBHDP_el_paso-really_high.pkl"
+)
+surrogate_filename_really_high = os.path.join(
+    parent_dir,
+    "data/FPC_KBHDP_el_paso-really_high_heat_load_1_100_hours_storage_0_12_temperature_hot_50_102.json",
 )
 
 
@@ -68,14 +89,15 @@ def build_system():
     return m
 
 
-def build_fpc(m):
+def build_fpc_low(m):
     energy = m.fs.energy
 
-    print(f'\n{"=======> BUILDING FPC SYSTEM <=======":^60}\n')
+    print(f'\n{"=======> BUILDING FPC SYSTEM -- LOW RANGE <=======":^60}\n')
 
     input_bounds = dict(
-        heat_load=[1, 25], hours_storage=[0, 12], temperature_hot=[50, 102]
+        heat_load=[0.1, 25], hours_storage=[0, 12], temperature_hot=[50, 102]
     )
+
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
         "labels": ["heat_load", "hours_storage", "temperature_hot"],
@@ -90,8 +112,101 @@ def build_fpc(m):
     }
 
     energy.FPC = FlatPlateSurrogate(
-        surrogate_model_file=surrogate_filename,
-        dataset_filename=dataset_filename,
+        surrogate_model_file=surrogate_filename_low,
+        dataset_filename=dataset_filename_low,
+        input_variables=input_variables,
+        output_variables=output_variables,
+        scale_training_data=True,
+    )
+
+
+def build_fpc_mid(m):
+    energy = m.fs.energy
+
+    print(f'\n{"=======> BUILDING FPC SYSTEM -- MID RANGE <=======":^60}\n')
+
+    input_bounds = dict(
+        heat_load=[1, 25], hours_storage=[0, 12], temperature_hot=[50, 102]
+    )
+
+    input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+    input_variables = {
+        "labels": ["heat_load", "hours_storage", "temperature_hot"],
+        "bounds": input_bounds,
+        "units": input_units,
+    }
+
+    output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+    output_variables = {
+        "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+        "units": output_units,
+    }
+
+    energy.FPC = FlatPlateSurrogate(
+        surrogate_model_file=surrogate_filename_mid,
+        dataset_filename=dataset_filename_mid,
+        input_variables=input_variables,
+        output_variables=output_variables,
+        scale_training_data=True,
+    )
+
+
+def build_fpc_high(m):
+    energy = m.fs.energy
+
+    print(f'\n{"=======> BUILDING FPC SYSTEM -- HIGH RANGE <=======":^60}\n')
+
+    input_bounds = dict(
+        heat_load=[1, 50], hours_storage=[0, 12], temperature_hot=[50, 102]
+    )
+
+    input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+    input_variables = {
+        "labels": ["heat_load", "hours_storage", "temperature_hot"],
+        "bounds": input_bounds,
+        "units": input_units,
+    }
+
+    output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+    output_variables = {
+        "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+        "units": output_units,
+    }
+
+    energy.FPC = FlatPlateSurrogate(
+        surrogate_model_file=surrogate_filename_high,
+        dataset_filename=dataset_filename_high,
+        input_variables=input_variables,
+        output_variables=output_variables,
+        scale_training_data=True,
+    )
+
+
+def build_fpc_really_high(m):
+    energy = m.fs.energy
+
+    print(f'\n{"=======> BUILDING FPC SYSTEM -- REALLY HIGH RANGE <=======":^60}\n')
+
+    input_bounds = dict(
+        heat_load=[1, 100], hours_storage=[0, 12], temperature_hot=[50, 102]
+    )
+
+    input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+    input_variables = {
+        "labels": ["heat_load", "hours_storage", "temperature_hot"],
+        "bounds": input_bounds,
+        "units": input_units,
+    }
+
+    output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+    output_variables = {
+        "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+        "units": output_units,
+    }
+
+    energy.FPC = FlatPlateSurrogate(
+        surrogate_model_file=surrogate_filename_really_high,
+        dataset_filename=dataset_filename_really_high,
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
@@ -106,7 +221,7 @@ def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80):
+def set_fpc_op_conditions(m, hours_storage=12, temperature_hot=80):
     energy = m.fs.energy
     # energy.FPC.load_surrogate()
 
