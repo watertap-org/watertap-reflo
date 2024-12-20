@@ -65,7 +65,7 @@ __all__ = [
 ]
 
 
-def propagate_state(arc, detailed=True):
+def propagate_state(arc, detailed=False):
     _prop_state(arc)
     if detailed:
         print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")

@@ -81,10 +81,10 @@ def _initialize(blk, verbose=False):
 
 def propagate_state(arc):
     _prop_state(arc)
-    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    arc.source.display()
-    print(arc.destination.name)
-    arc.destination.display()
+    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    # arc.source.display()
+    # print(arc.destination.name)
+    # arc.destination.display()
     print("\n")
 
 
@@ -121,10 +121,7 @@ def build_LTMED(m, blk, liquid_prop, vapor_prop, number_effects=12):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def set_LTMED_operating_conditions(blk):
-
-    steam_temperature = 80
-    recovery_ratio = 0.5
+def set_LTMED_operating_conditions(blk, recovery_ratio=0.45, steam_temperature=80):
 
     blk.unit.steam_props[0].temperature.fix(steam_temperature + 273.15)
     blk.unit.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
