@@ -281,7 +281,7 @@ def init_md(m, blk, verbose=True, solver=None):
         return b.concentrate.properties[0].flow_vol_phase["Liq"] == pyunits.convert(
             (
                 b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.system_capacity
-                * m.water_recovery
+                * (1 - m.water_recovery)
                 # num_modules
                 # * blk.model_input["initial_batch_volume"]
                 # * pyunits.L
