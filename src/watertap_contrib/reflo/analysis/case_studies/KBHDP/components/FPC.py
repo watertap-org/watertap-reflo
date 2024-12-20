@@ -49,30 +49,30 @@ __all__ = [
 ]
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 parent_dir = os.path.abspath(os.path.join(__location__, ".."))
-weather_file = os.path.join(parent_dir, "el_paso_texas-KBHDP-weather.csv")
-param_file = os.path.join(parent_dir, "swh-kbhdp.json")
+weather_file = os.path.join(parent_dir, "data/el_paso_texas-KBHDP-weather.csv")
+param_file = os.path.join(parent_dir, "data/fpc/swh-kbhdp.json")
 
-dataset_filename_low = os.path.join(parent_dir, "data/FPC_KBHDP_el_paso-low.pkl")
+dataset_filename_low = os.path.join(parent_dir, "data/fpc/FPC_KBHDP_el_paso-low.pkl")
 surrogate_filename_low = os.path.join(
     parent_dir,
-    "data/FPC_KBHDP_el_paso-low_heat_load_0.1_25_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/fpc/FPC_KBHDP_el_paso-low_heat_load_0.1_25_hours_storage_0_12_temperature_hot_50_102.json",
 )
-dataset_filename_mid = os.path.join(parent_dir, "data/FPC_KBHDP_el_paso-mid.pkl")
+dataset_filename_mid = os.path.join(parent_dir, "data/fpc/FPC_KBHDP_el_paso-mid.pkl")
 surrogate_filename_mid = os.path.join(
     parent_dir,
-    "data/FPC_KBHDP_el_paso-mid_heat_load_1_25_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/fpc/FPC_KBHDP_el_paso-mid_heat_load_1_25_hours_storage_0_12_temperature_hot_50_102.json",
 )
-dataset_filename_high = os.path.join(parent_dir, "data/FPC_KBHDP_el_paso-high.pkl")
+dataset_filename_high = os.path.join(parent_dir, "data/fpc/FPC_KBHDP_el_paso-high.pkl")
 surrogate_filename_high = os.path.join(
     parent_dir,
-    "data/FPC_KBHDP_el_paso-high_heat_load_1_50_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/fpc/FPC_KBHDP_el_paso-high_heat_load_1_50_hours_storage_0_12_temperature_hot_50_102.json",
 )
 dataset_filename_really_high = os.path.join(
-    parent_dir, "data/FPC_KBHDP_el_paso-really_high.pkl"
+    parent_dir, "data/fpc/FPC_KBHDP_el_paso-really_high.pkl"
 )
 surrogate_filename_really_high = os.path.join(
     parent_dir,
-    "data/FPC_KBHDP_el_paso-really_high_heat_load_1_100_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/fpc/FPC_KBHDP_el_paso-really_high_heat_load_1_100_hours_storage_0_12_temperature_hot_50_102.json",
 )
 
 

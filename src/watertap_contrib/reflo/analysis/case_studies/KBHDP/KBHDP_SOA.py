@@ -277,7 +277,9 @@ def apply_scaling(m):
 def add_costing(m):
     treatment = m.fs.treatment
     # treatment.costing = TreatmentCosting()
-    treatment.costing = REFLOCosting()
+    treatment.costing = TreatmentCosting()
+    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+    treatment.costing.electricity_cost.fix(elec_cost)
 
     # energy = m.fs.energy = Block()
     # energy.costing = EnergyCosting()

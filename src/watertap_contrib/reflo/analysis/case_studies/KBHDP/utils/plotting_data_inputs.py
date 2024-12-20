@@ -1,5 +1,25 @@
 costing_data_keys = [
     {
+        "filekey": "fs.treatment.costing.co2.cost",
+        "return_key": "fs.treatment.costing.co2.cost",
+        # "units": "%",
+    },
+    {
+        "filekey": "fs.treatment.costing.lime.cost",
+        "return_key": "fs.treatment.costing.lime.cost",
+        # "units": "%",
+    },
+    {
+        "filekey": "fs.treatment.costing.mgcl2.cost",
+        "return_key": "fs.treatment.costing.mgcl2.cost",
+        # "units": "%",
+    },
+    {
+        "filekey": "fs.treatment.costing.soda_ash.cost",
+        "return_key": "fs.treatment.costing.soda_ash.cost",
+        # "units": "%",
+    },
+    {
         "filekey": "fs.costing.frac_heat_from_grid",
         "return_key": "Grid Frac Heat",
         # "units": "%",
@@ -27,7 +47,7 @@ costing_data_keys = [
     {
         "filekey": "fs.water_recovery",
         "return_key": "fs.water_recovery",
-        "units": "%",
+        # "units": "%",
     },
     {
         "filekey": "fs.treatment.costing.LCOW",
@@ -62,6 +82,26 @@ costing_data_keys = [
     {
         "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
         "return_key": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
+        # "units": "USD/m**3",
+    },
+    {
+        "filekey": "fs.treatment.md.unit.md_costing.capital_cost",
+        "return_key": "fs.treatment.md.unit.md_costing.capital_cost",
+        # "units": "USD/m**3",
+    },
+    {
+        "filekey": "fs.treatment.md.unit.md_costing.fixed_operating_cost",
+        "return_key": "fs.treatment.md.unit.md_costing.fixed_operating_cost",
+        # "units": "USD/m**3",
+    },
+    {
+        "filekey": "fs.treatment.costing.aggregate_flow_costs[heat]",
+        "return_key": "fs.treatment.costing.aggregate_flow_costs[heat]",
+        # "units": "USD/m**3",
+    },
+    {
+        "filekey": "fs.treatment.costing.aggregate_flow_costs[electricity]",
+        "return_key": "fs.treatment.costing.aggregate_flow_costs[electricity]",
         # "units": "USD/m**3",
     },
 ]
@@ -314,11 +354,6 @@ figure_device_groups = {
                 },
             },
         },
-        "Injection": {
-            "OPEX": {
-                "units": {"fs.treatment.DWI.unit.costing.variable_operating_cost"},
-            },
-        },
         "FPC": {
             "CAPEX": {
                 "units": {"fs.energy.FPC.costing.capital_cost"},
@@ -327,6 +362,11 @@ figure_device_groups = {
                 "units": {
                     "fs.energy.FPC.costing.fixed_operating_cost",
                 }
+            },
+        },
+        "Injection": {
+            "OPEX": {
+                "units": {"fs.treatment.DWI.unit.costing.variable_operating_cost"},
             },
         },
         "MD": {

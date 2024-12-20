@@ -291,6 +291,8 @@ def add_constraints(m):
 def add_treatment_costing(m):
     treatment = m.fs.treatment
     treatment.costing = TreatmentCosting()
+    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+    treatment.costing.electricity_cost.fix(elec_cost)
 
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
@@ -311,6 +313,9 @@ def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
 
+    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+    m.fs.energy.costing.electricity_cost.fix(elec_cost)
+
     add_fpc_costing(m, energy.costing)
 
     energy.costing.cost_process()
@@ -326,6 +331,8 @@ def add_costing(m):
     add_energy_costing(m)
 
     m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.electricity_cost_buy.set_value(0.066)
+    m.fs.costing.heat_cost_buy.set_value(0.00894)
     m.fs.costing.cost_process()
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)

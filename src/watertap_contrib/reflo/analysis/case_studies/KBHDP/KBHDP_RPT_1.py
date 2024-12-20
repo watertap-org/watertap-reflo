@@ -70,6 +70,8 @@ def main():
     # scale_costing(m)
     optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=None, objective="LCOT")
     solve(m, debug=False)
+    m.fs.energy.costing.electricity_cost.fix(0)
+    solve(m, debug=False)
     # # display_flow_table(m)
     # display_system_stream_table(m)
     # report_RO(m, m.fs.treatment.RO)
@@ -315,6 +317,8 @@ def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
 
+    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+    m.fs.energy.costing.electricity_cost.fix(elec_cost)
     energy.pv.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
     )
@@ -333,6 +337,8 @@ def add_costing(m):
     add_energy_costing(m)
 
     m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.electricity_cost_buy.set_value(0.066)
+    m.fs.costing.heat_cost_buy.set_value(0.00894)
     m.fs.costing.cost_process()
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
@@ -821,3 +827,7 @@ def display_costing_breakdown(m):
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = main()
+    # m.fs.treatment.costing.aggregate_flow_electricity.display()
+    print(pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)())
+    print(pyunits.convert(m.fs.energy.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)()) 
+    # m.fs.energy.costing.aggregate_flow_electricity.display()

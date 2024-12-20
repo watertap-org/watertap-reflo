@@ -144,7 +144,7 @@ def report_PV(m):
         f'{"Land Requirement":<30s}{value(m.fs.energy.pv.land_req):<10.1f}{pyunits.get_units(m.fs.energy.pv.land_req)}'
     )
     print(
-        f'{"System Agg. Flow Electricity":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
+        f'{"System Agg. Flow Electricity":<30s}{value(m.fs.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
     )
     print(
         f'{"PV Agg. Flow Elec.":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}'

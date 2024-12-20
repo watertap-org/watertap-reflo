@@ -7,8 +7,10 @@ import pandas as pd
 
 # import seaborn as sns
 import matplotlib.pyplot as plt
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.figure_device_groups import (
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.plotting_data_inputs import (
     figure_device_groups,
+    costing_data_keys,
+    default_device_groups,
 )
 
 pal = {
@@ -28,13 +30,21 @@ pal = {
 
 filepath = os.path.abspath(__file__)
 parent_dir = os.path.dirname(filepath)
+fig_dir = os.path.join(os.path.dirname(parent_dir), "figures")
 sweep_yaml_dir = os.path.join(os.path.dirname(parent_dir), "sweep_yamls")
 sweep_results_dir = os.path.join(os.path.dirname(parent_dir), "sweep_results", "output")
 
 
 def create_sweep_cost_breakdown(
-    costing_data, device_groups=None, save_name=None, xrange=None
+    costing_data,
+    device_groups=None,
+    save_name=None,
+    xrange=None,
+    y_var="LCOT", 
+    fig_options=dict(),
+    generate_fig=False,
 ):
+    global x_var, fig_save_file
     """here we define the costing groups, these should be either units on the block
     another example is in bgw_ref/costing_plotting_trains_rkt.py that shows different ways to isolate units for cost plotting
     or explicit keys that point to capex or opex for each units.
@@ -46,92 +56,10 @@ def create_sweep_cost_breakdown(
     save_path = os.path.join(parent_dir, "figures")
 
     if device_groups == None:
-        device_groups = {
-            "Heat": {
-                "OPEX": {
-                    "units": {
-                        "fs.costing.total_heat_operating_cost",
-                    },
-                },
-            },
-            "Electricity": {
-                "OPEX": {
-                    "units": {
-                        "fs.costing.aggregate_flow_electricity_purchased",
-                    },
-                },
-            },
-        }
+        device_groups = default_device_groups
 
-    costing_data.load_data(
-        [
-            {
-                "filekey": "fs.costing.frac_heat_from_grid",
-                "return_key": "Grid Frac Heat",
-                # "units": "%",
-            },
-            {
-                "filekey": "fs.costing.heat_cost_buy",
-                "return_key": "fs.costing.heat_cost_buy",
-                # "units": "USD/kWh",
-            },
-            {
-                "filekey": "fs.energy.costing.flat_plate.cost_per_area_collector",
-                "return_key": "fs.energy.costing.flat_plate.cost_per_area_collector",
-                # "units": "USD/kWh",
-            },
-            {
-                "filekey": "fs.costing.electricity_cost_buy",
-                "return_key": "fs.costing.electricity_cost_buy",
-                # "units": "USD/kWh",
-            },
-            {
-                "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
-                "return_key": "FPC Cost",
-                "units": "USD/a/kW",
-            },
-            {
-                "filekey": "fs.water_recovery",
-                "return_key": "fs.water_recovery",
-                "units": "%",
-            },
-            {
-                "filekey": "fs.treatment.costing.LCOW",
-                "return_key": "LCOW",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.costing.LCOT",
-                "return_key": "LCOT",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.energy.pv.annual_energy",
-                "return_key": "fs.energy.pv.annual_energy",
-                # "units": "kWh",
-            },
-            {
-                "filekey": "fs.treatment.costing.deep_well_injection.dwi_lcow",
-                "return_key": "fs.treatment.costing.deep_well_injection.dwi_lcow",
-                # "units": "kWh",
-            },
-            {
-                "filekey": "fs.treatment.costing.deep_well_injection.dwi_lcow",
-                "return_key": "Disposal Cost",
-                "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.costing.frac_heat_from_grid",
-                "return_key": "fs.costing.frac_heat_from_grid",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
-                "return_key": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
-                # "units": "USD/m**3",
-            },
-        ],
-    )
+    costing_data.load_data(costing_data_keys)
+
     print(costing_data.directory_keys)
     x_var = costing_data.psDataImportInstances[0].file_index[
         costing_data.directory_keys[0]
@@ -144,23 +72,19 @@ def create_sweep_cost_breakdown(
     The CAPEX and OPEX will be aggregated from keys in supplied costing groups, the 
     capital and opex costs that are attached to the costing packages will not be used!
     """
-    if save_name == "KBHDP_SOA_1":
-        costing_data.get_costing(
-            device_groups,
-            costing_block="fs.treatment.costing",
-            default_flow="fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-        )
-    else:
-        costing_data.get_costing(
-            device_groups,
-            costing_block="fs.costing",
-            default_flow="fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-        )
+
+    costing_data.get_costing(
+        device_groups,
+        costing_block="fs.treatment.costing",
+        default_flow="fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+    )
 
     """ note how you have access to total and levelized cost. You can plot either one"""
     costing_data.display()
+    # assert False
 
     """lets plot our data"""
+    fig_save_file = save_name + "_" + x_var
     cost_plotter = breakDownPlotter(
         costing_data,
         save_location=save_path,
@@ -180,6 +104,7 @@ def create_sweep_cost_breakdown(
         np.array(costing_data[costing_data.directory_keys[0], "LCOT"].data).max()
     )
     print(np.array(costing_data[costing_data.directory_keys[0], "LCOT"].data))
+    # assert False
     print(f"Y Max {y_max}")
     # assert False
     if np.isnan(y_max):
@@ -197,7 +122,8 @@ def create_sweep_cost_breakdown(
                 "xticks": costing_data[costing_data.directory_keys[0], x_var].data,
             },
             legend_loc="upper right",
-            generate_figure=True,
+            generate_figure=generate_fig,
+            fig_options=fig_options,
         )
     else:
         y_axis_lims = np.linspace(0, y_max, 5)
@@ -207,19 +133,20 @@ def create_sweep_cost_breakdown(
                 "cost_breakdown",
                 "levelized",
             ],
-            axis_options={
-                "yticks": y_axis_lims,
+            # axis_options={
+            #     "yticks": y_axis_lims,
                 # "yticks": [0, 0.25 ,0.5],  # adjust as needed
-                "xticks": costing_data[costing_data.directory_keys[0], x_var].data,
-            },
-            legend_loc="upper right",
-            generate_figure=True,
+                # "xticks": costing_data[costing_data.directory_keys[0], x_var].data,
+            # },
+            # legend_loc="upper right",
+            generate_figure=generate_fig,
+            fig_options=fig_options,
         )
 
     return costing_data, device_groups, cost_plotter
 
 
-def create_case_figures(case_name=None, sweep_file=None, device_groups=None):
+def create_case_figures(case_name=None, sweep_file=None, device_groups=None, **kwargs):
     if sweep_file is None:
         print(sweep_results_dir)
         for root, dirs, files in os.walk(sweep_results_dir):
@@ -230,21 +157,550 @@ def create_case_figures(case_name=None, sweep_file=None, device_groups=None):
                     print(f"\n\nCreating Figures for {file} sweep\n\n")
                     costing_data = psDataManager(os.path.join(sweep_results_dir, file))
                     create_sweep_cost_breakdown(
-                        costing_data, device_groups=device_groups, save_name=case_name
+                        costing_data,
+                        device_groups=device_groups,
+                        save_name=case_name,
+                        **kwargs,
                     )
+    else:
+        costing_data = psDataManager(sweep_file)
+        create_sweep_cost_breakdown(
+            costing_data, device_groups=device_groups, save_name=case_name, **kwargs
+        )
 
 
-def create_all_figures():
+def create_all_figures(**kwargs):
     # create_case_figures(
     #     case_name="KBHDP_SOA_1", device_groups=figure_device_groups["KBHDP_SOA_1"]
     # )
     # create_case_figures(
     #     case_name="KBHDP_RPT_1", device_groups=figure_device_groups["KBHDP_RPT_1"]
     # )
+    # create_case_figures(
+    #     case_name="KBHDP_RPT_2", device_groups=figure_device_groups["KBHDP_RPT_2"], **kwargs
+    # )
     create_case_figures(
-        case_name="KBHDP_RPT_2", device_groups=figure_device_groups["KBHDP_RPT_2"]
+        case_name="KBHDP_RPT_3", device_groups=figure_device_groups["KBHDP_RPT_3"]
     )
 
+    pass
+
+
+def create_fig_legend(cost_plotter, leg1_kwargs=dict(), leg2_kwargs=dict()):
+
+    fig = cost_plotter.fig
+    ax = fig.ax[0]
+    fig = fig.fig
+    leg = ax.legend()
+    # add_patch(leg)
+    leg.remove()
+    handles, labels = ax.get_legend_handles_labels()
+    # leg1 is OPEX/CAPEX
+    leg1 = ax.legend(handles[2:], labels[2:], **leg1_kwargs)
+    ax.add_artist(leg1)
+    # leg2 is units
+    leg2 = ax.legend(handles[:2], labels[:2], **leg2_kwargs)
+    ax.add_artist(leg2)
+
+    return fig, ax
+
+
+def create_axis_labels_etc(fig, ax, label_kwargs=dict()):
+    ax.set(**label_kwargs)
+    return fig, ax
+    # costing_data.load_data(costing_data_keys)
+    # x_var = costing_data.psDataImportInstances[0].file_index[
+    #     costing_data.directory_keys[0]
+    # ]["sweep_params"]["data_keys"][0]
+    # # costing_data[costing_data.directory_keys[0], x_var].data
+    # costing_data.get_costing(
+    #     figure_device_groups[case_name],
+    #     costing_block="fs.treatment.costing",
+    #     default_flow="fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+    # )
+    # # costing_data.display()
+    # print(x_var)
+    # print(costing_data[costing_data.directory_keys[0], x_var])
+    # # costing_data[costing_data.directory_keys[0], x_var]
+    # assert False
 
 if __name__ == "__main__":
-    create_all_figures()
+    fig_options = dict(width=5, height=5)
+
+    f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_RPT_3_20241220-085750_analysisType_KBHDP_RPT_3_heat_price_sweep.h5"
+
+    # create_all_figures(fig_options=fig_options)
+    case_name = "KBHDP_RPT_3"
+    xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    print(xvar)
+
+    costing_data = psDataManager(f)
+
+
+    costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+        costing_data,
+        save_name=case_name,
+        device_groups=figure_device_groups[case_name],
+        fig_options=fig_options,
+    )
+
+    leg1_kwargs = dict(
+        bbox_to_anchor=(0.0, 1.0),
+        loc="upper left",
+        ncols=2,
+        fontsize=8,
+        # mode="expand"
+    )
+
+    leg2_kwargs = dict(
+        # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+        loc="best",
+        fontsize=8,
+    )
+
+    fig, ax = create_fig_legend(
+        cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    )
+
+    label_kwargs = dict(
+        # ylabel="LCOW (\$/m$^3$)",
+        # xlabel="Fraction Heat From Grid",
+        # xlabel="Brine Disposal Cost (\$/m$^3$)", 
+        # xlabel="Water Recovery (%)",
+        # ylim=(ax.get_ylim()[0], 7),
+        # title=f"{case_name.replace('_', ' ')}\nLCOW vs. Brine Disposal Cost",
+        yscale="log"
+    )
+
+    fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # plt.tight_layout()
+    plt.show()
+
+    # fig.savefig(f"{fig_dir}/{case_name}_{xvar}.svg", dpi=500)
+    # fig.savefig(f"{fig_dir}/{case_name}_{xvar}.png", dpi=500)
+
+
+
+
+
+    # ######## SOA ################ SOA ################ SOA ################ SOA ################ SOA ################ SOA ########
+    # ######## SOA ################ SOA ################ SOA ################ SOA ################ SOA ################ SOA ########
+    # ######## SOA ################ SOA ################ SOA ################ SOA ################ SOA ################ SOA ########
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_SOA_1_20241219-203726_analysisType_KBHDP_SOA_1_water_recovery_sweep.h5"
+
+    # case_name = "KBHDP_SOA_1"
+    # xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    # print(xvar)
+
+    # costing_data = psDataManager(f)
+
+    # costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+    #     costing_data,
+    #     save_name="KBHDP_RPT_2-test",
+    #     device_groups=figure_device_groups[case_name],
+    #     fig_options=fig_options,
+    # )
+
+    # leg1_kwargs = dict(
+    #     bbox_to_anchor=(0.0, 1.0),
+    #     loc="upper left",
+    #     ncols=2,
+    #     fontsize=8,
+    #     # mode="expand"
+    # )
+
+    # leg2_kwargs = dict(
+    #     # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+    #     loc="best",
+    #     fontsize=8,
+    # )
+
+    # fig, ax = create_fig_legend(
+    #     cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    # )
+
+    # label_kwargs = dict(
+    #     ylabel="LCOW (\$/m$^3$)",
+    #     # xlabel="Deep Well Injection Cost (\$/m$^3$)",
+    #     # xlabel="Fraction Heat From Grid",
+    #     xlabel="Water Recovery (%)",
+    #     ylim=(ax.get_ylim()[0], 4.5),
+    #     title="KBHDP SOA\nLCOW vs. Water Recovery",
+    # )
+
+    # fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # # plt.tight_layout()
+    # plt.show()
+
+    # fig.savefig(f"{fig_dir}/{case_name}_{xvar}.svg", dpi=500)
+    # fig.savefig(f"{fig_dir}/{case_name}_{xvar}.png", dpi=500)
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_SOA_1_20241219-203726_analysisType_KBHDP_SOA_1_disposal_cost_sweep.h5"
+    # # create_all_figures(fig_options=fig_options)
+    # case_name = "KBHDP_SOA_1"
+    # xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    # print(xvar)
+
+    # costing_data = psDataManager(f)
+
+    # costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+    #     costing_data,
+    #     save_name="KBHDP_RPT_2-test",
+    #     device_groups=figure_device_groups[case_name],
+    #     fig_options=fig_options,
+    # )
+
+    # leg1_kwargs = dict(
+    #     bbox_to_anchor=(0.0, 1.0),
+    #     loc="upper left",
+    #     ncols=2,
+    #     fontsize=8,
+    #     # mode="expand"
+    # )
+
+    # leg2_kwargs = dict(
+    #     # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+    #     loc="best",
+    #     fontsize=8,
+    # )
+
+    # fig, ax = create_fig_legend(
+    #     cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    # )
+
+    # label_kwargs = dict(
+    #     ylabel="LCOW (\$/m$^3$)",
+    #     xlabel="Brine Disposal Cost (\$/m$^3$)",
+    #     # xlabel="Fraction Heat From Grid",
+    #     # xlabel="Water Recovery (%)",
+    #     ylim=(ax.get_ylim()[0], 4.5),
+    #     title="KBHDP SOA\nLCOW vs. Brine Disposal Costs",
+    # )
+
+    # fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # # plt.tight_layout()
+    # plt.show()
+
+    # # fig.savefig(f"{fig_dir}/{case_name}_{xvar}.svg", dpi=500)
+    # # fig.savefig(f"{fig_dir}/{case_name}_{xvar}.png", dpi=500)
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_SOA_1_20241219-204718_analysisType_KBHDP_SOA_1_soda_ash_cost_sweep.h5"
+
+    # # create_all_figures(fig_options=fig_options)
+    # case_name = "KBHDP_SOA_1"
+    # xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    # print(xvar)
+
+    # costing_data = psDataManager(f)
+
+    # costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+    #     costing_data,
+    #     save_name=case_name,
+    #     device_groups=figure_device_groups[case_name],
+    #     fig_options=fig_options,
+    # )
+
+    # leg1_kwargs = dict(
+    #     bbox_to_anchor=(0.0, 1.0),
+    #     loc="upper left",
+    #     ncols=2,
+    #     fontsize=8,
+    #     # mode="expand"
+    # )
+
+    # leg2_kwargs = dict(
+    #     # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+    #     loc="best",
+    #     fontsize=8,
+    # )
+
+    # fig, ax = create_fig_legend(
+    #     cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    # )
+
+    # label_kwargs = dict(
+    #     ylabel="LCOW (\$/m$^3$)",
+    #     xlabel="Soda Ash Cost ($/kg)",
+    #     # xlabel="Fraction Heat From Grid",
+    #     # xlabel="Water Recovery (%)",
+    #     # ylim=(ax.get_ylim()[0], 4.5),
+    #     title="KBHDP SOA\nLCOW vs. Soda Ash Costs",
+    # )
+
+    # fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # # plt.tight_layout()
+    # plt.show()
+
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_SOA_1_20241219-204718_analysisType_KBHDP_SOA_1_co2_cost_sweep.h5"
+
+    # # create_all_figures(fig_options=fig_options)
+    # case_name = "KBHDP_SOA_1"
+    # xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    # print(xvar)
+
+    # costing_data = psDataManager(f)
+
+
+    # costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+    #     costing_data,
+    #     save_name=case_name,
+    #     device_groups=figure_device_groups[case_name],
+    #     fig_options=fig_options,
+    # )
+
+    # leg1_kwargs = dict(
+    #     bbox_to_anchor=(0.0, 1.0),
+    #     loc="upper left",
+    #     ncols=2,
+    #     fontsize=8,
+    #     # mode="expand"
+    # )
+
+    # leg2_kwargs = dict(
+    #     # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+    #     loc="best",
+    #     fontsize=8,
+    # )
+
+    # fig, ax = create_fig_legend(
+    #     cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    # )
+
+    # label_kwargs = dict(
+    #     ylabel="LCOW (\$/m$^3$)",
+    #     xlabel="Carbon Dioxide Cost ($/kg)",
+    #     # xlabel="Fraction Heat From Grid",
+    #     # xlabel="Water Recovery (%)",
+    #     ylim=(ax.get_ylim()[0], 3.5),
+    #     title="KBHDP SOA\nLCOW vs. Carbon Dioxide Costs",
+    # )
+
+    # fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # # plt.tight_layout()
+    # plt.show()
+
+
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_SOA_1_20241219-204718_analysisType_KBHDP_SOA_1_mgcl2_cost_sweep.h5"
+
+    # # create_all_figures(fig_options=fig_options)
+    # case_name = "KBHDP_SOA_1"
+    # xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    # print(xvar)
+
+    # costing_data = psDataManager(f)
+
+
+    # costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+    #     costing_data,
+    #     save_name=case_name,
+    #     device_groups=figure_device_groups[case_name],
+    #     fig_options=fig_options,
+    # )
+
+    # leg1_kwargs = dict(
+    #     bbox_to_anchor=(0.0, 1.0),
+    #     loc="upper left",
+    #     ncols=2,
+    #     fontsize=8,
+    #     # mode="expand"
+    # )
+
+    # leg2_kwargs = dict(
+    #     # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+    #     loc="best",
+    #     fontsize=8,
+    # )
+
+    # fig, ax = create_fig_legend(
+    #     cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    # )
+
+    # label_kwargs = dict(
+    #     ylabel="LCOW (\$/m$^3$)",
+    #     xlabel="MgCl$_2$ Cost (\$/kg)",
+    #     # xlabel="Fraction Heat From Grid",
+    #     # xlabel="Water Recovery (%)",
+    #     ylim=(ax.get_ylim()[0], 3.5),
+    #     title="KBHDP SOA\nLCOW vs. MgCl$_2$ Costs",
+    # )
+
+    # fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # # plt.tight_layout()
+    # plt.show()
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_SOA_1_20241219-204718_analysisType_KBHDP_SOA_1_lime_cost_sweep.h5"
+
+    # # create_all_figures(fig_options=fig_options)
+    # case_name = "KBHDP_SOA_1"
+    # xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    # print(xvar)
+
+    # costing_data = psDataManager(f)
+
+
+    # costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+    #     costing_data,
+    #     save_name=case_name,
+    #     device_groups=figure_device_groups[case_name],
+    #     fig_options=fig_options,
+    # )
+
+    # leg1_kwargs = dict(
+    #     bbox_to_anchor=(0.0, 1.0),
+    #     loc="upper left",
+    #     ncols=2,
+    #     fontsize=8,
+    #     # mode="expand"
+    # )
+
+    # leg2_kwargs = dict(
+    #     # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+    #     loc="best",
+    #     fontsize=8,
+    # )
+
+    # fig, ax = create_fig_legend(
+    #     cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    # )
+
+    # label_kwargs = dict(
+    #     ylabel="LCOW (\$/m$^3$)",
+    #     xlabel="Lime Cost (\$/kg)",
+    #     # xlabel="Fraction Heat From Grid",
+    #     # xlabel="Water Recovery (%)",
+    #     ylim=(ax.get_ylim()[0], 3.5),
+    #     title="KBHDP SOA\nLCOW vs. Lime Costs",
+    # )
+
+    # fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # # plt.tight_layout()
+    # plt.show()
+
+######## RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ###########
+######## RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ###########
+######## RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ################### RPT1 ###########
+
+
+
+
+
+
+
+# ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ##########
+# ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ##########
+# ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ########### ######## RPT2 ##########
+
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_RPT_2_20241219-213759_analysisType_KBHDP_RPT_2_frac_heat_from_grid_sweep.h5"
+
+    # # create_all_figures(fig_options=fig_options)
+    # case_name = "KBHDP_RPT_2"
+    # xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    # print(xvar)
+
+    # costing_data = psDataManager(f)
+
+
+    # costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+    #     costing_data,
+    #     save_name=case_name,
+    #     device_groups=figure_device_groups[case_name],
+    #     fig_options=fig_options,
+    # )
+
+    # leg1_kwargs = dict(
+    #     bbox_to_anchor=(0.0, 1.0),
+    #     loc="upper left",
+    #     ncols=2,
+    #     fontsize=8,
+    #     # mode="expand"
+    # )
+
+    # leg2_kwargs = dict(
+    #     # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+    #     loc="best",
+    #     fontsize=8,
+    # )
+
+    # fig, ax = create_fig_legend(
+    #     cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    # )
+
+    # label_kwargs = dict(
+    #     ylabel="LCOW (\$/m$^3$)",
+    #     # xlabel="Lime Cost (\$/kg)",
+    #     xlabel="Fraction Heat From Grid",
+    #     # xlabel="Water Recovery (%)",
+    #     ylim=(ax.get_ylim()[0], 8),
+    #     title=f"{case_name.replace('_', ' ')}\nLCOW vs. Fraction Heat From Grid",
+    # )
+
+    # fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # # plt.tight_layout()
+    # plt.show()
+
+
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/sweep_results/output/KBHDP_RPT_2_20241219-213759_analysisType_KBHDP_SOA_2_disposal_cost_sweep.h5"
+
+    # # create_all_figures(fig_options=fig_options)
+    # case_name = "KBHDP_RPT_2"
+    # # xvar = f.split(case_name + "_")[-1].replace(".h5", "").replace("_sweep", "")
+    # xvar = f.split(case_name + "_")
+    # print(xvar)
+    # assert False
+    # costing_data = psDataManager(f)
+
+
+    # costing_data, device_groups, cost_plotter = create_sweep_cost_breakdown(
+    #     costing_data,
+    #     save_name=case_name,
+    #     device_groups=figure_device_groups[case_name],
+    #     fig_options=fig_options,
+    # )
+
+    # leg1_kwargs = dict(
+    #     bbox_to_anchor=(0.0, 1.0),
+    #     loc="upper left",
+    #     ncols=2,
+    #     fontsize=8,
+    #     # mode="expand"
+    # )
+
+    # leg2_kwargs = dict(
+    #     # bbox_to_anchor=(0.28, 1.0, 1.0, 0.102),
+    #     loc="best",
+    #     fontsize=8,
+    # )
+
+    # fig, ax = create_fig_legend(
+    #     cost_plotter, leg1_kwargs=leg1_kwargs, leg2_kwargs=leg2_kwargs
+    # )
+
+    # label_kwargs = dict(
+    #     ylabel="LCOW (\$/m$^3$)",
+    #     # xlabel="Fraction Heat From Grid",
+    #     xlabel="Brine Disposal Cost (\$/m$^3$)", 
+    #     # xlabel="Water Recovery (%)",
+    #     ylim=(ax.get_ylim()[0], 7),
+    #     title=f"{case_name.replace('_', ' ')}\nLCOW vs. Brine Disposal Cost",
+    # )
+
+    # fig, ax = create_axis_labels_etc(fig, ax, label_kwargs=label_kwargs)
+
+    # # plt.tight_layout()
+    # plt.show()
+
+    # fig.savefig(f"{fig_dir}/{case_name}_{xvar}.svg", dpi=500)
+    # fig.savefig(f"{fig_dir}/{case_name}_{xvar}.png", dpi=500)

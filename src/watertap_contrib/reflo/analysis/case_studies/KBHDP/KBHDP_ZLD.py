@@ -37,6 +37,7 @@ from watertap.core.util.initialization import *
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
 from watertap.core.zero_order_properties import WaterParameterBlock
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.FPC import *
 
 _log = idaeslog.getLogger(__name__)
 
@@ -57,20 +58,23 @@ def propagate_state(arc, detailed=True):
 def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
-    m = build_system(RE=True)
+    m = build_system()
     display_system_build(m.fs.treatment)
     display_system_build(m.fs.energy)
     add_connections(m)
     # add_constraints(m)
     set_operating_conditions(m)
-    apply_scaling(m)
-    init_system(m)
+    # display_unfixed_vars(m)
+    m.fs.energy.pv.heat.fix(0)
+    print(f"dof = {degrees_of_freedom(m)}")
+    # apply_scaling(m)
+    # init_system(m)
 
-    print(m.fs.treatment.MD.display())
+    # print(m.fs.treatment.MD.display())
     # add_costing(m)
     # scale_costing(m)
     # box_solve_problem(m)
-    solve(m, debug=True)
+    # solve(m, debug=True)
 
     # scale_costing(m)
 
@@ -80,10 +84,18 @@ def main():
     return m
 
 
-def build_system(RE=True):
+def build_system(Qin=4, Cin=12, water_recovery=0.5):
     m = ConcreteModel()
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
+
+    m.inlet_flow_rate = pyunits.convert(
+        Qin * pyunits.Mgallons / pyunits.day, to_units=pyunits.m**3 / pyunits.s
+    )
+    m.inlet_salinity = pyunits.convert(
+        Cin * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.m**3
+    )
+    m.water_recovery = water_recovery
 
     m.fs.MCAS_properties = MCASParameterBlock(
         solute_list=[
@@ -189,6 +201,7 @@ def build_treatment(m):
 def build_energy(m):
     energy = m.fs.energy = Block()
     build_pv(m)
+    build_fpc_mid(m)
 
 
 def add_connections(m):
@@ -292,6 +305,8 @@ def add_treatment_costing(m):
 def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
+    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+    m.fs.energy.costing.electricity_cost.fix(elec_cost)
 
     energy.pv.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
@@ -374,7 +389,6 @@ def apply_scaling(m):
     add_ec_scaling(m, m.fs.treatment.EC)
     add_UF_scaling(m.fs.treatment.UF)
     add_ro_scaling(m, m.fs.treatment.RO)
-    # if m.fs.RE:
     add_pv_scaling(m, m.fs.energy.pv)
     apply_system_scaling(m)
     iscale.calculate_scaling_factors(m)
@@ -387,21 +401,14 @@ def set_inlet_conditions(
     water_recovery=None,
     supply_pressure=101325,
 ):
-    """Sets operating condition for the PV-RO system
 
-    Args:
-        m (obj): Pyomo model
-        flow_in (float, optional): feed volumetric flow rate [m3/s]. Defaults to 1e-2.
-        conc_in (int, optional): solute concentration [g/L]. Defaults to 30.
-        water_recovery (float, optional): water recovery. Defaults to 0.5.
-    """
     print(f'\n{"=======> SETTING OPERATING CONDITIONS <=======":^60}\n')
 
     treatment = m.fs.treatment
 
     # Convert Q_in from MGD to kg/s
     Qin = pyunits.convert(
-        Qin * pyunits.Mgallon * pyunits.day**-1, to_units=pyunits.L / pyunits.s
+        Qin * pyunits.Mgallon * pyunits.day**-1, to_units=pyunits.m**3 / pyunits.s
     )
     feed_density = 1000 * pyunits.kg / pyunits.m**3
     print('\n=======> SETTING FEED CONDITIONS <======="\n')
@@ -480,6 +487,8 @@ def set_operating_conditions(m, RO_pressure=20e5):
     treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
     set_ro_system_operating_conditions(m, treatment.RO, mem_area=10000)
     set_pv_constraints(m, focus="Energy")
+    m.fs.energy.FPC.heat_load.fix(10)
+    m.fs.energy.FPC.hours_storage.fix(12)
 
 
 def init_treatment(m, verbose=True, solver=None):
@@ -519,7 +528,7 @@ def init_treatment(m, verbose=True, solver=None):
     treatment.NaCl_to_TDS_translator.initialize(optarg=optarg)
     propagate_state(treatment.translator_to_md)
 
-    init_md(treatment.MD)
+    init_md(m, treatment.MD)
     # TODO: Continue from here
     # treatment.product.initialize(optarg=optarg)
     # # init_DWI(m, treatment.DWI)
@@ -533,6 +542,7 @@ def init_system(m, verbose=True, solver=None):
         breakdown_dof(m, detailed=True)
     assert_no_degrees_of_freedom(m)
     init_treatment(m)
+    m.fs.energy.FPC.initialize()
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
