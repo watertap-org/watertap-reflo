@@ -52,28 +52,29 @@ parent_dir = os.path.abspath(os.path.join(__location__, ".."))
 weather_file = os.path.join(parent_dir, "data/el_paso_texas-KBHDP-weather.csv")
 param_file = os.path.join(parent_dir, "data/fpc/swh-kbhdp.json")
 
-dataset_filename_low = os.path.join(parent_dir, "data/fpc/FPC_KBHDP_el_paso-low.pkl")
-surrogate_filename_low = os.path.join(
+dataset_filename_low = os.path.join(
     parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso-low_heat_load_0.1_25_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/fpc/FPC_KBHDP_el_paso_LOW_heat_load_0.1-10_hours_storage_0-24_temperature_hot_50-100.pkl",
 )
-dataset_filename_mid = os.path.join(parent_dir, "data/fpc/FPC_KBHDP_el_paso-mid.pkl")
-surrogate_filename_mid = os.path.join(
+surrgate_filename_low = dataset_filename_low.replace(".pkl", ".json")
+
+dataset_filename_mid = os.path.join(
     parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso-mid_heat_load_1_25_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/fpc/FPC_KBHDP_el_paso_MID_heat_load_1-25_hours_storage_0-24_temperature_hot_50-100.pkl",
 )
-dataset_filename_high = os.path.join(parent_dir, "data/fpc/FPC_KBHDP_el_paso-high.pkl")
-surrogate_filename_high = os.path.join(
+surrgate_filename_mid = dataset_filename_mid.replace(".pkl", ".json")
+
+dataset_filename_high = os.path.join(
     parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso-high_heat_load_1_50_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/fpc/FPC_KBHDP_el_paso_HIGH_heat_load_1-50_hours_storage_0-24_temperature_hot_50-100.pkl",
 )
+surrogate_filename_high = dataset_filename_high.replace(".pkl", ".json")
+
 dataset_filename_really_high = os.path.join(
-    parent_dir, "data/fpc/FPC_KBHDP_el_paso-really_high.pkl"
-)
-surrogate_filename_really_high = os.path.join(
     parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso-really_high_heat_load_1_100_hours_storage_0_12_temperature_hot_50_102.json",
+    "data/fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_1-100_hours_storage_0-24_temperature_hot_50-100.pkl",
 )
+surrogate_filename_really_high = dataset_filename_really_high.replace(".pkl", ".json")
 
 
 def build_system():
