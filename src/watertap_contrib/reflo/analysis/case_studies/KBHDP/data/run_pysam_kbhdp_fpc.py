@@ -204,6 +204,7 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     return {
         "heat_annual": heat_annual,  # [kWh] annual net thermal energy in year 1
         "electricity_annual": electricity_annual,  # [kWhe]
+        "system_capacity_actual": system_capacity_actual
     }
 
 
