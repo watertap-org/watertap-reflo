@@ -55,7 +55,7 @@ def propagate_state(arc, detailed=False):
         print("\n")
 
 
-def main():
+def main(frac_heat_from_grid=0.75):
 
     m = build_system(RE=True)
     add_connections(m)
@@ -64,9 +64,6 @@ def main():
     apply_scaling(m)
     init_system(m)
     add_costing(m)
-    # scale_costing(m)
-    # box_solve_problem(m)
-    # m.fs.energy.FPC.heat_load.unfix()
     solve(m.fs.treatment, debug=False)
     solve(m.fs.treatment, debug=False)
 
@@ -86,7 +83,7 @@ def main():
             m.fs.treatment.costing.aggregate_flow_heat,
             to_units=pyunits.kWh * pyunits.year**-1,
         )
-    )
+    )  * (1 - frac_heat_from_grid)
 
     heat_load_required, pysam_results = get_fpc_heat_load(
         m, heat_annual_required, increment_heat_load=1
@@ -95,16 +92,17 @@ def main():
     m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
     m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
     m.fs.energy.FPC.heat_load.fix(heat_load_required)
+    assert degrees_of_freedom(m) == 0
     results = solve(m)
+
     display_costing_breakdown(m)
 
     return m
 
 
 def build_sweep(
-    grid_frac_heat=None,
-    heat_price=None,
-    water_recovery=None,
+    frac_heat_from_grid=None,
+    heat_load=None,
 ):
     m = build_system(RE=True)
     add_connections(m)
@@ -113,17 +111,39 @@ def build_sweep(
     apply_scaling(m)
     init_system(m)
     add_costing(m)
-    m.fs.energy.FPC.heat_load.unfix()
-    solve(m, debug=False)
-    m.fs.energy.FPC.heat_load.fix(10)
-    solve(m, debug=False)
-    optimize(
-        m,
-        water_recovery=None,
-        grid_frac_heat=grid_frac_heat,
-        heat_price=heat_price,
-        objective="LCOT",
-    )
+    solve(m.fs.treatment, debug=False)
+    solve(m.fs.treatment, debug=False)
+    if frac_heat_from_grid is not None:
+        m.fs.costing.frac_heat_from_grid.set_value(frac_heat_from_grid)
+        m.fs.costing.frac_heat_from_grid.setub(None)
+    
+        heat_annual_required = value(
+            pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.kWh * pyunits.year**-1)
+        ) * (1 - value(m.fs.costing.frac_heat_from_grid))
+        # pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
+        heat_load_required, pysam_results = get_fpc_heat_load(
+            m, heat_annual_required, increment_heat_load=1
+        )
+        m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
+        m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
+        m.fs.energy.FPC.heat_load.fix(heat_load_required)
+
+    elif heat_load is not None:
+        pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
+        m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
+        m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
+        m.fs.energy.FPC.heat_load.fix(heat_load)
+    else:
+
+        heat_load = value(
+            pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.MW)
+        )
+        pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
+        m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
+        m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
+        m.fs.energy.FPC.heat_load.fix(heat_load)
+    
+    results = solve(m)
 
     return m
 
@@ -326,7 +346,7 @@ def add_energy_costing(m):
     add_fpc_pysam_costing(m, costing_block=energy.costing)
 
     energy.costing.cost_process()
-    # energy.costing.add_LCOH()
+    energy.costing.add_LCOH()
     energy.costing.initialize()
 
 
@@ -801,4 +821,14 @@ def display_costing_breakdown(m):
 
 if __name__ == "__main__":
 
-    m = main()
+    # m = main()
+    # m.fs.costing.display()
+    m = build_sweep(frac_heat_from_grid=None, heat_load=33.5)
+    results = solve(m, raise_on_failure=True)
+    display_costing_breakdown(m)
+    m.fs.costing.LCOT.display()
+    m.fs.energy.FPC.storage_volume.display()
+    # m.fs.energy.FPC.display()
+    # m.fs.energy.costing.display()
+    # m.fs.energy.costing.LCOH.display()
+
