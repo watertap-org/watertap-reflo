@@ -114,6 +114,22 @@ def run_pysam_fpc_model(m, heat_load=60):
     return results
 
 
+def get_fpc_heat_load(m, heat_annual_desired, heat_load_start=5, increment_heat_load=1):
+    """
+    Use to get the heat_load input required to
+    get the desired annual heat output (heat_annual)
+    """
+    pysam_results = run_pysam_fpc_model(m, heat_load=heat_load_start)
+    heat_annual_fpc = pysam_results["heat_annual"]
+    heat_load = heat_load_start
+    while heat_annual_fpc < heat_annual_desired:
+        heat_load += increment_heat_load
+        pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
+        heat_annual_fpc = pysam_results["heat_annual"]
+    heat_load_required = heat_load
+    return heat_load_required, pysam_results
+
+
 def init_fpc(blk):
     blk.FPC.initialize()
 
@@ -149,15 +165,6 @@ def add_fpc_pysam_costing(m, costing_block=None):
     energy.FPC.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
     )
-
-
-# def add_FPC_scaling(m, blk):
-#     set_scaling_factor(blk.heat_annual_scaled, 1e2)
-#     set_scaling_factor(blk.electricity_annual_scaled, 1e2)
-#     set_scaling_factor(blk.heat_load, 1e6)
-
-#     constraint_scaling_transform(blk.heat_constraint, 1e-3)
-#     constraint_scaling_transform(blk.electricity_constraint, 1e-4)
 
 
 def report_fpc(m):
@@ -294,32 +301,31 @@ if __name__ == "__main__":
     add_fpc_pysam_costing(m)
     set_system_op_conditions(m)
     print(f"dof = {degrees_of_freedom(m)}")
-    # # m.fs.energy.FPC.initialize()
+
     heat_load = value(
         pyunits.convert(m.fs.aggregate_flow_heat_treatment, to_units=pyunits.MW)
     )
+
     pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
     m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
     m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
     m.fs.energy.FPC.heat_load.fix(heat_load)
     print(f"dof = {degrees_of_freedom(m)}")
-    # m.fs.energy.FPC.display()
-
-    # add_FPC_scaling(m, m.fs.energy.FPC)
-    # init_fpc(m.fs.energy)
-
-    # add_fpc_costing(m)
     results = solve(m)
     print_FPC_costing_breakdown(m, m.fs.energy.FPC)
-    # m.fs.energy.costing.display()
-    print(dir(m.tech_model.Outputs))
-    #
-    # fig, ax = plt.subplots()
-    # ax.plot(m.tech_model.Outputs.gen[168:168*2], label="Hourly Power Generated")
-    # ax.set(ylabel="System power generated [kW]", xlabel="Time [hr]", title=f"{int(heat_load)} MW System Capacity, 12 hr Storage, 80C")
 
-    # ax.plot([0, 168], [heat_load * 1000, heat_load * 1000], label="System Capacity")
-    # ax.legend()
-    # plt.show()
+    heat_annual_required = value(
+        pyunits.convert(
+            m.fs.aggregate_flow_heat_treatment, to_units=pyunits.kWh * pyunits.year**-1
+        )
+    )
 
-    # m.fs.energy.FPC.heat_annual.display()
+    heat_load_required, pysam_results = get_fpc_heat_load(
+        m, heat_annual_required, increment_heat_load=1
+    )
+    print(heat_annual_required, pysam_results["heat_annual"], heat_load_required)
+    m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
+    m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
+    m.fs.energy.FPC.heat_load.fix(heat_load_required)
+    results = solve(m)
+    print_FPC_costing_breakdown(m, m.fs.energy.FPC)
