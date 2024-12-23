@@ -39,6 +39,7 @@ __author__ = "Kurban Sitterley"
 class SolarModelType(StrEnum):
     surrogate = "surrogate"
     physical = "physical"
+    pysam = "pysam"
 
 
 @declare_process_block_class("SolarEnergyBase")
