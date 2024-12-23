@@ -1,0 +1,66 @@
+KBHDP_RPT_2_pysam_frac_heat_from_grid_sweep:
+  build_defaults:
+    heat_load: 33
+    # frac_heat_from_grid: 0.5
+    # water_recovery: 0.45
+  sweep_param_loop:
+    cost_per_area_collector:
+      type: LinearSample
+      param: fs.energy.costing.flat_plate.cost_per_area_collector
+      lower_limit: 300
+      upper_limit: 700
+      num_samples: 6
+# KBHDP_RPT_2_pysam_fpc_cost_sweep:
+#   build_defaults:
+#     heat_price: 0.01
+#     water_recovery: 0.35
+#   sweep_param_loop:
+#     fpc_cost:
+#       type: LinearSample
+#       param: fs.energy.costing.flat_plate.fixed_operating_by_capacity
+#       lower_limit: 1
+#       upper_limit: 15
+#       num_samples: 11
+# KBHDP_RPT_2_pysam_heat_price_sweep:
+#   build_defaults:
+#     heat_price: 0.00894
+#     # water_recovery: 0.35
+#   sweep_param_loop:
+#     heat_cost_buy:
+#       type: LinearSample
+#       param: fs.costing.heat_cost_buy
+#       lower_limit: 0.0045
+#       upper_limit: 0.02
+#       num_samples: 21
+# KBHDP_RPT_2_pysam_collector_cost_sweep:
+#   build_defaults:
+#     heat_price: 0.00894
+#     water_recovery: 0.35
+#   sweep_param_loop:
+#     collector_cost:
+#       type: LinearSample
+#       param: fs.energy.costing.flat_plate.cost_per_area_collector
+#       lower_limit: 0
+#       upper_limit: 600
+#       num_samples: 11
+# KBHDP_RPT_2_pysam_water_recovery_sweep:
+#   build_defaults:
+#     # grid_frac_heat: 0.5
+#     water_recovery: 0.4
+#   sweep_param_loop:
+#     water_recovery:
+#       type: LinearSample
+#       param: fs.water_recovery
+#       lower_limit: 0.3
+#       upper_limit: 0.45
+#       num_samples: 11
+# KBHDP_RPT_2_pysam_disposal_cost_sweep:
+#   build_defaults:
+#     grid_frac_heat: 0.5
+#   sweep_param_loop:
+#     dwi_lcow:
+#       type: LinearSample
+#       param: fs.treatment.costing.deep_well_injection.dwi_lcow
+#       lower_limit: 0.05
+#       upper_limit: 0.25
+#       num_samples: 21
