@@ -11,6 +11,8 @@
 #################################################################################
 import os
 import json
+import time
+import multiprocessing
 
 from pyomo.environ import ConcreteModel
 from idaes.core import FlowsheetBlock
@@ -19,8 +21,6 @@ from watertap_contrib.reflo.solar_models.surrogate.flat_plate.flat_plate_surroga
 )
 import numpy as np
 import pandas as pd
-import time
-import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.Swh as swh

@@ -1,603 +1,361 @@
-# #################################################################################
-# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
-# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
-# # National Renewable Energy Laboratory, and National Energy Technology
-# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
-# # of Energy). All rights reserved.
-# #
-# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
-# # information, respectively. These files are also available online at the URL
-# # "https://github.com/watertap-org/watertap/"
-# #################################################################################
-# import os
-# import json
-
-# from pyomo.environ import ConcreteModel
-# from idaes.core import FlowsheetBlock
-# from watertap_contrib.reflo.solar_models.surrogate.flat_plate.flat_plate_surrogate import (
-#     FlatPlateSurrogate,
-# )
-# import numpy as np
-# import pandas as pd
-# import time
-# import multiprocessing
-# from itertools import product
-# import matplotlib.pyplot as plt
-# import PySAM.Swh as swh
-
-# __all__ = [
-#     "read_module_datafile",
-#     "load_config",
-#     "setup_model",
-#     "run_model",
-#     "setup_and_run",
-#     "run_pysam_kbhdp_fpc",
-# ]
-
-
-# __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-# weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
-# param_file = os.path.join(__location__, "swh-kbhdp.json")
-
-
-# def read_module_datafile(file_name):
-#     with open(file_name, "r") as file:
-#         data = json.load(file)
-#     return data
-
-
-# def load_config(modules, file_names=None, module_data=None):
-#     """
-#     Loads parameter values into PySAM modules, either from files or supplied dicts
-
-#     :param modules: List of PySAM modules
-#     :param file_names: List of JSON file paths containing parameter values for respective modules
-#     :param module_data: List of dictionaries containing parameter values for respective modules
-
-#     :returns: no return value
-#     """
-#     for i in range(len(modules)):
-#         if file_names is not None:
-#             assert len(file_names) == len(modules)
-#             data = read_module_datafile(file_names[i])
-#         elif module_data is not None:
-#             assert len(module_data) == len(modules)
-#             data = module_data[i]
-#         else:
-#             raise Exception("Either file_names or module_data must be assigned.")
-
-#         missing_values = []  # for debugging
-#         for k, v in data.items():
-#             if k != "number_inputs":
-#                 try:
-#                     modules[i].value(k, v)
-#                 except:
-#                     missing_values.append(k)
-#         pass
-
-
-# def system_capacity_computed(tech_model):
-#     """
-#     Computes the system capacity in kW
-
-#     Equation taken from SAM UI
-#     """
-#     system_capacity = (
-#         tech_model.value("area_coll")
-#         * tech_model.value("ncoll")
-#         * (tech_model.value("FRta") - tech_model.value("FRUL") * 30 / 1000)
-#     )
-#     return system_capacity
-
-
-# def setup_model(
-#     temperatures,
-#     weather_file=None,
-#     weather_data=None,
-#     config_file=None,
-#     config_data=None,
-# ):
-
-#     tech_model = swh.new()
-
-#     for k, v in config_data.items():
-#         tech_model.value(k, v)
-
-#     if weather_file is not None:
-#         tech_model.value("solar_resource_file", weather_file)
-#     elif weather_data is not None:
-#         tech_model.value("solar_resource_data", weather_data)
-#     else:
-#         raise Exception("Either weather_file or weather_data must be specified.")
-
-#     # Set constant temperatures
-#     tech_model.value("custom_mains", 8760 * (temperatures["T_cold"],))
-
-#     tech_model.value("T_set", temperatures["T_hot"])
-#     tech_model.value("T_room", temperatures["T_amb"])
-
-#     # Set collector loop mass flow (this should be done automatically in SAM)
-#     tech_model.value(
-#         "mdot", tech_model.value("test_flow") * tech_model.value("ncoll")
-#     )  # [kg/s]
-
-#     # Ensure system capacity parameter agreement
-#     system_capacity_actual = system_capacity_computed(tech_model)
-#     tech_model.value("system_capacity", system_capacity_actual)
-
-#     return tech_model
-
-
-# def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_hot=None):
-#     """
-#     :param tech_model: PySAM technology model
-#     :param heat_load_mwt: [MWt]
-#     :param hours_storage: [hr]
-#     :param temperature_hot: [C]
-#     """
-#     cp_water = 4.181  # [kJ/kg-K]
-#     density_water = 1000  # [kg/m3]
-#     pump_power_per_collector = 45 / 2  # [W]
-#     pipe_length_fixed = 9  # [m]
-#     pipe_length_per_collector = 0.5  # [m]
-
-#     T_cold = tech_model.value("custom_mains")[0]  # [C]
-#     heat_load = heat_load_mwt * 1e3 if heat_load_mwt is not None else None  # [kWt]
-
-#     print(
-#         f"Running:\n\tHeat Load = {heat_load_mwt}\n\tHours Storage = {hours_storage}\n\tTemperature Hot = {temperature_hot}"
-#     )
-
-#     if heat_load is not None:
-#         # Set heat load (system capacity)
-#         n_collectors = round(
-#             heat_load
-#             / (
-#                 tech_model.value("area_coll")
-#                 * (tech_model.value("FRta") - tech_model.value("FRUL") * 30 / 1000)
-#             )
-#         )  # from SAM UI
-#         tech_model.value("ncoll", n_collectors)
-#         system_capacity_actual = system_capacity_computed(tech_model)
-#         tech_model.value("system_capacity", system_capacity_actual)  # [kW]
-#     if temperature_hot is not None:
-#         # Set hot outlet temperature
-#         tech_model.value("T_set", temperature_hot)
-#     if hours_storage is not None:
-#         # Set hours of storage (tank volume)
-#         hours_storage = max(hours_storage, 1e-3)  # don't accept 0 hours
-#         system_capacity = tech_model.value("system_capacity")  # [kW]
-#         T_hot = tech_model.value("T_set")  # [C]
-#         mass_tank_water = (
-#             hours_storage * 3600 * system_capacity / (cp_water * (T_hot - T_cold))
-#         )  # [kg]
-#         volume_tank = mass_tank_water / density_water  # [m3]
-#         tech_model.value("V_tank", volume_tank)
-
-#     # Set collector loop and hot water mass flow rates
-#     mdot_collectors = tech_model.value("test_flow") * tech_model.value("ncoll")
-#     tech_model.value("mdot", mdot_collectors)  # [kg/s]
-#     T_hot = tech_model.value("T_set")  # [C]
-#     mdot_hot = (
-#         tech_model.value("system_capacity") / (cp_water * (T_hot - T_cold)) * 3600
-#     )  # [kg/hr]
-#     tech_model.value("scaled_draw", 8760 * (mdot_hot,))  # [kg/hr]
-
-#     # Set pipe diameter and pump power
-#     pipe_length = pipe_length_fixed + pipe_length_per_collector * tech_model.value(
-#         "ncoll"
-#     )
-#     tech_model.value("pipe_length", pipe_length)  # [m] default is 0.019 m
-#     pumping_power = pump_power_per_collector * tech_model.value("ncoll")
-#     tech_model.value("pump_power", pumping_power)  # [W]
-
-#     tech_model.execute()
-
-#     heat_annual = tech_model.value(
-#         "annual_Q_deliv"
-#     )  # [kWh] does not include electric heat, includes losses
-#     electricity_annual = sum(tech_model.value("P_pump"))  # [kWh]
-#     frac_electricity_annual = (
-#         electricity_annual / heat_annual
-#     )  # [-] for analysis only, plant beneficial if < 1
-
-#     return {
-#         "heat_annual": heat_annual,  # [kWh] annual net thermal energy in year 1
-#         "electricity_annual": electricity_annual,  # [kWhe]
-#     }
-
-
-# def setup_and_run(
-#     temperatures, weather_file, config_data, heat_load, hours_storage, temperature_hot
-# ):
-
-#     tech_model = setup_model(
-#         temperatures, weather_file=weather_file, config_data=config_data
-#     )
-#     result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
-#     return result
-
-
-# def plot_contour(
-#     df, x_label, y_label, z_label, units=None, grid=False, countour_lines=False
-# ):
-#     def _set_aspect(ax, aspect):
-#         x_left, x_right = ax.get_xlim()
-#         y_low, y_high = ax.get_ylim()
-#         ax.set_aspect(abs((x_right - x_left) / (y_low - y_high)) * aspect)
-
-#     levels = 25
-#     df2 = df[[x_label, y_label, z_label]].pivot([y_label, x_label, z_label])
-#     y = df2.index.values
-#     x = df2.columns.values
-#     z = df2.values
-#     fig, ax = plt.subplots(1, 1)
-#     cs = ax.contourf(x, y, z, levels=levels)
-#     if countour_lines:
-#         cl = ax.contour(x, y, z, colors="black", levels=levels)
-#         ax.clabel(cl, colors="black", fmt="%#.4g")
-#     if grid:
-#         ax.grid(color="black")
-#     _set_aspect(ax, 0.5)
-#     fig.colorbar(cs)
-
-#     if units is None:
-#         x_units, y_units, z_units = "", "", ""
-#     else:
-#         x_units, y_units, z_units = ["  [" + unit + "]" for unit in units]
-#     ax.set_xlabel(x_label + x_units)
-#     ax.set_ylabel(y_label + y_units)
-#     ax.set_title(z_label + z_units)
-#     plt.show()
-
-
-# def plot_3d(df, x_label, y_label, z_label, units=None):
-#     fig = plt.figure(figsize=(8, 6))
-#     ax = fig.add_subplot(1, 1, 1, projection="3d")
-#     surf = ax.plot_trisurf(
-#         df[x_label], df[y_label], df[z_label], cmap=plt.cm.viridis, linewidth=0.2
-#     )
-
-#     if units is None:
-#         x_units, y_units, z_units = "", "", ""
-#     else:
-#         x_units, y_units, z_units = ["  [" + unit + "]" for unit in units]
-#     ax.set_xlabel(x_label + x_units)
-#     ax.set_ylabel(y_label + y_units)
-#     ax.set_title(z_label + z_units)
-#     plt.show()
-
-
-# def plot_2d(df, x_label, y_label, units=None):
-#     fig = plt.figure(figsize=(8, 6))
-#     ax = fig.add_subplot(1, 1, 1)
-#     surf = ax.plot(df[x_label], df[y_label])
-
-#     if units is None:
-#         x_units, y_units = "", ""
-#     else:
-#         x_units, y_units = ["  [" + unit + "]" for unit in units]
-#     ax.set_xlabel(x_label + x_units)
-#     ax.set_ylabel(y_label + y_units)
-#     plt.show()
-
-
-# def plot_contours(df):
-#     plot_contour(
-#         df.query("temperature_hot == 70"),
-#         "heat_load",
-#         "hours_storage",
-#         "heat_annual",
-#         units=["MWt", "hr", "kWht"],
-#     )
-#     plot_contour(
-#         df.query("hours_storage == 12"),
-#         "heat_load",
-#         "temperature_hot",
-#         "heat_annual",
-#         units=["MWt", "C", "kWht"],
-#     )
-#     plot_contour(
-#         df.query("heat_load == 500"),
-#         "hours_storage",
-#         "temperature_hot",
-#         "heat_annual",
-#         units=["hr", "C", "kWht"],
-#     )
-#     plot_contour(
-#         df.query("temperature_hot == 70"),
-#         "heat_load",
-#         "hours_storage",
-#         "electricity_annual",
-#         units=["MWt", "hr", "kWhe"],
-#     )
-#     plot_contour(
-#         df.query("hours_storage == 12"),
-#         "heat_load",
-#         "temperature_hot",
-#         "electricity_annual",
-#         units=["MWt", "C", "kWhe"],
-#     )
-#     plot_contour(
-#         df.query("heat_load == 500"),
-#         "hours_storage",
-#         "temperature_hot",
-#         "electricity_annual",
-#         units=["hr", "C", "kWhe"],
-#     )
-
-
-# def plot_3ds(df):
-#     plot_3d(
-#         df.query("temperature_hot == 70"),
-#         "heat_load",
-#         "hours_storage",
-#         "heat_annual",
-#         units=["MWt", "hr", "kWht"],
-#     )
-#     plot_3d(
-#         df.query("hours_storage == 12"),
-#         "heat_load",
-#         "temperature_hot",
-#         "heat_annual",
-#         units=["MWt", "C", "kWht"],
-#     )
-#     plot_3d(
-#         df.query("heat_load == 6"),
-#         "hours_storage",
-#         "temperature_hot",
-#         "heat_annual",
-#         units=["hr", "C", "kWht"],
-#     )
-#     plot_3d(
-#         df.query("temperature_hot == 70"),
-#         "heat_load",
-#         "hours_storage",
-#         "electricity_annual",
-#         units=["MWt", "hr", "kWhe"],
-#     )
-#     plot_3d(
-#         df.query("hours_storage == 6"),
-#         "heat_load",
-#         "temperature_hot",
-#         "electricity_annual",
-#         units=["MWt", "C", "kWhe"],
-#     )
-#     plot_3d(
-#         df.query("heat_load == 6"),
-#         "hours_storage",
-#         "temperature_hot",
-#         "electricity_annual",
-#         units=["hr", "C", "kWhe"],
-#     )
-
-
-# def run_pysam_kbhdp_fpc(
-#     heat_loads=np.linspace(1, 25, 25),
-#     hours_storages=np.linspace(0, 12, 13),
-#     temperature_hots=np.arange(50, 102, 2),
-#     temperature_cold=20,
-#     plot_saved_dataset=False,
-#     run_pysam=True,
-#     save_data=True,
-#     use_multiprocessing=True,
-#     dataset_filename="FPC_KBHDP_el_paso.pkl",
-# ):
-#     """
-#     Run PySAM to collect data for FPC surrogate model
-#     for KBHPD case study
-#     """
-
-#     pysam_model_name = "SolarWaterHeatingCommercial"
-
-#     temperatures = {
-#         "T_cold": temperature_cold,
-#         "T_hot": 70,  # this will be overwritten by temperature_hot value
-#         "T_amb": 18,
-#     }
-
-#     dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
-#     config_data = read_module_datafile(param_file)
-
-#     if "solar_resource_file" in config_data:
-#         del config_data["solar_resource_file"]
-#     tech_model = setup_model(
-#         temperatures=temperatures,
-#         weather_file=weather_file,
-#         config_data=config_data,
-#     )
-
-#     # Run pysam
-#     data = []
-#     if run_pysam:
-#         if use_multiprocessing:
-#             arguments = list(product(heat_loads, hours_storages, temperature_hots))
-#             df = pd.DataFrame(
-#                 arguments, columns=["heat_load", "hours_storage", "temperature_hot"]
-#             )
-
-#             time_start = time.process_time()
-#             with multiprocessing.Pool(processes=6) as pool:
-#                 args = [
-#                     (temperatures, weather_file, config_data, *args)
-#                     for args in arguments
-#                 ]
-#                 results = pool.starmap(setup_and_run, args)
-#             time_stop = time.process_time()
-#             print("Multiprocessing time:", time_stop - time_start, "\n")
-
-#             df_results = pd.DataFrame(results)
-#             df = pd.concat(
-#                 [
-#                     df,
-#                     df_results[
-#                         [
-#                             "heat_annual",
-#                             "electricity_annual",
-#                         ]
-#                     ],
-#                 ],
-#                 axis=1,
-#             )
-#         else:
-#             comb = [
-#                 (hl, hs, th)
-#                 for hl in heat_loads
-#                 for hs in hours_storages
-#                 for th in temperature_hots
-#             ]
-#             for heat_load, hours_storage, temperature_hot in comb:
-#                 result = run_model(
-#                     tech_model, heat_load, hours_storage, temperature_hot
-#                 )
-#                 data.append(
-#                     [
-#                         heat_load,
-#                         hours_storage,
-#                         temperature_hot,
-#                         result["heat_annual"],
-#                         result["electricity_annual"],
-#                     ]
-#                 )
-#             df = pd.DataFrame(data, columns=["heat_annual", "electricity_annual"])
-
-#         if save_data:
-#             df.to_pickle(dataset_filename)
-
-
-# if __name__ == "__main__":
-
-#     # LOW
-#     # heat_loads_lb = np.linspace(0.1, 0.9, 9)
-#     # heat_loads_ub = np.linspace(1, 25, 25)
-#     # dataset_filename = "FPC_KBHDP_el_paso-low.pkl"
-#     # heat_loads = heat_loads_lb.tolist() + heat_loads_ub.tolist()
-#     # print(heat_loads)
-
-#     # run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
-
-#     # input_bounds = dict(
-#     #     heat_load=[0.1, 25], hours_storage=[0, 12], temperature_hot=[50, 102]
-#     # )
-#     # input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
-#     # input_variables = {
-#     #     "labels": ["heat_load", "hours_storage", "temperature_hot"],
-#     #     "bounds": input_bounds,
-#     #     "units": input_units,
-#     # }
-
-#     # output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
-#     # output_variables = {
-#     #     "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
-#     #     "units": output_units,
-#     # }
-#     # dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
-#     # m = ConcreteModel()
-#     # m.fs = FlowsheetBlock(dynamic=False)
-#     # m.fs.FPC = FlatPlateSurrogate(
-#     #     # surrogate_model_file=surrogate_filename,
-#     #     dataset_filename=dataset_filename,
-#     #     input_variables=input_variables,
-#     #     output_variables=output_variables,
-#     #     scale_training_data=True,
-#     # )
-
-#     # # HIGH
-#     # heat_loads_lb = np.linspace(1, 5, 5)
-#     # heat_loads_ub = np.linspace(5, 50, 46)
-#     # dataset_filename = "FPC_KBHDP_el_paso-high.pkl"
-#     # heat_loads = heat_loads_lb.tolist() + heat_loads_ub.tolist()
-#     # # print(heat_loads)
-#     # # assert False
-#     # run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
-
-#     # input_bounds = dict(
-#     #     heat_load=[1, 50], hours_storage=[0, 12], temperature_hot=[50, 102]
-#     # )
-#     # input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
-#     # input_variables = {
-#     #     "labels": ["heat_load", "hours_storage", "temperature_hot"],
-#     #     "bounds": input_bounds,
-#     #     "units": input_units,
-#     # }
-
-#     # output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
-#     # output_variables = {
-#     #     "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
-#     #     "units": output_units,
-#     # }
-#     # dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
-#     # m = ConcreteModel()
-#     # m.fs = FlowsheetBlock(dynamic=False)
-#     # m.fs.FPC = FlatPlateSurrogate(
-#     #     # surrogate_model_file=surrogate_filename,
-#     #     dataset_filename=dataset_filename,
-#     #     input_variables=input_variables,
-#     #     output_variables=output_variables,
-#     #     scale_training_data=True,
-#     # )
-
-#     # REALLY HIGH
-#     heat_loads_lb = np.linspace(1, 5, 5)
-#     heat_loads_ub = np.linspace(1, 100, 100)
-#     dataset_filename = "FPC_KBHDP_el_paso-really_high.pkl"
-#     heat_loads = heat_loads_ub.tolist()
-#     # print(heat_loads)
-#     # assert False
-#     run_pysam_kbhdp_fpc(heat_loads=heat_loads, dataset_filename=dataset_filename)
-
-#     input_bounds = dict(
-#         heat_load=[1, 100], hours_storage=[0, 12], temperature_hot=[50, 102]
-#     )
-#     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
-#     input_variables = {
-#         "labels": ["heat_load", "hours_storage", "temperature_hot"],
-#         "bounds": input_bounds,
-#         "units": input_units,
-#     }
-
-#     output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
-#     output_variables = {
-#         "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
-#         "units": output_units,
-#     }
-#     dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
-#     m = ConcreteModel()
-#     m.fs = FlowsheetBlock(dynamic=False)
-#     m.fs.FPC = FlatPlateSurrogate(
-#         # surrogate_model_file=surrogate_filename,
-#         dataset_filename=dataset_filename,
-#         input_variables=input_variables,
-#         output_variables=output_variables,
-#         scale_training_data=True,
-#     )
-import os # need this to get user path for weather file
-
-# import compute modules required for the PVWatts - Single Owner configuration
-import PySAM.Pvwattsv8 as pv
-import PySAM.Grid as gr
-import PySAM.Utilityrate5 as ur
-import PySAM.Singleowner as so
-
-# create an instance of the Pvwattsv8 module with defaults from the PVWatts - Single Owner configuration
-system_model = pv.default('PVWattsSingleOwner')
-
-# create instances of the other modules with shared data from the PVwattsv8 module
-grid_model = gr.from_existing(system_model, 'PVWattsSingleOwner')
-utilityrate_model = ur.from_existing(system_model, 'PVWattsSingleOwner')
-financial_model = so.from_existing(system_model, 'PVWattsSingleOwner')
-
-# use weather file downloaded from SAM as "denver, co", you can replace this with a path to any valid weather file in the SAM CSV format
-# filename = os.path.expanduser('~') + '/SAM Downloaded Weather Files/denver_co_39.7385_-104.985_psm3-tmy_60_tmy.csv'
-filename = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/data/el_paso_texas-KBHDP-weather.csv"
-system_model.SolarResource.solar_resource_file = filename
-
-# run the modules in the correct order
-system_model.execute()
-grid_model.execute()
-utilityrate_model.execute()
-financial_model.execute()
-
-# display results
-print( 'Annual AC Output in Year 1 = {:,.3f} kWh'.format( system_model.Outputs.ac_annual ) )
-print( 'Net Present Value = ${:,.2f}'.format(financial_model.Outputs.project_return_aftertax_npv) )
+#################################################################################
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+import os
+import json
+import time
+import multiprocessing
+
+import numpy as np
+import pandas as pd
+from math import floor, ceil
+import PySAM.Pvsamv1 as pv
+import PySAM.Grid as grid
+import PySAM.Utilityrate5 as utilityrate
+import PySAM.Singleowner as singleowner
+
+__author__ = "Kurban Sitterley"
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
+pysam_model = "pv"
+tech_config_file = f"{__location__}/pv/untitled_pvsamv1.json"
+grid_config_file = f"{__location__}/pv/untitled_grid.json"
+rate_config_file = f"{__location__}/pv/untitled_utilityrate5.json"
+cash_config_file = f"{__location__}/pv/untitled_singleowner.json"
+weather_file = f"{__location__}/el_paso_texas-KBHDP-weather.csv"
+dcac_ratio = 1.2
+
+if pysam_model is None:
+    raise Exception("PySAM module is required.")
+if not all([tech_config_file, grid_config_file, rate_config_file, cash_config_file]):
+    raise Exception("One of the PySAM model configuration files is missing.")
+if weather_file is None:
+    raise Exception("Weather file is required.")
+
+_pysam_model = pysam_model
+_tech_config_file = tech_config_file
+_grid_config_file = grid_config_file
+_rate_config_file = rate_config_file
+_cash_config_file = cash_config_file
+_weather_file = weather_file
+_dcac_ratio = dcac_ratio
+_config_files = [
+    _tech_config_file,
+    _grid_config_file,
+    _rate_config_file,
+    _cash_config_file,
+]
+
+
+def setup_pv_single_owner(pysam_model_config):
+    # global modules
+    # print(f"\nBuilding PySAM model {pysam_model_config}...\n")
+    tech_model = pv.new()
+    grid_model = grid.from_existing(tech_model, pysam_model_config)
+    rate_model = utilityrate.from_existing(tech_model, pysam_model_config)
+    cash_model = singleowner.from_existing(tech_model, pysam_model_config)
+    modules = [
+        tech_model,
+        grid_model,
+        rate_model,
+        cash_model,
+    ]
+    _load_config_files(modules)
+    tech_model.SolarResource.solar_resource_file = _weather_file
+
+    return modules
+
+
+def run_pv_single_owner(
+    modules,
+    pysam_model_config,
+    design_size=None,  # kW
+    desired_dcac_ratio=1.2,
+    tech_model_kwargs={},
+    cash_model_kwargs={},
+):
+    if design_size is None:
+        raise ValueError("design_size input must be provided")
+    tech_model = modules[0]
+    cash_model = modules[3]
+    inverters, num_inverters, num_parallel = _size_pv_array(
+        tech_model, design_size=design_size, desired_dcac_ratio=desired_dcac_ratio
+    )
+    print(
+        f"\nRunning PySAM model {pysam_model_config} for design size = {design_size} kW...\n"
+    )
+    tech_model.value("inverter_count", num_inverters)
+    tech_model.value("subarray1_nstrings", num_parallel)
+    # Courtesy of Google AI:
+    # The "cec_gamma_r" maximum power point temperature coefficient, t
+    # ypically found on a solar panel datasheet, represents the percentage change
+    # in maximum power output per degree Celsius change in temperature, usually
+    # expressed as a negative value ranging from around -0.3% to -0.5% per degree Celsius.
+    # BUG Dec 2024: cec_gamma_r was a required parameter but wasn't provided by default config
+    tech_model.value("cec_gamma_r", -0.3)
+
+    for param, val in tech_model_kwargs.items():
+        # if not isinstance(val, list):
+        #     val = [val]
+        tech_model.value(param, val)
+    for param, val in cash_model_kwargs.items():
+        if not isinstance(val, list):
+            val = [val]
+        cash_model.value(param, val)
+    for mod in modules:
+        mod.execute()
+    # print("PySAM run finished.\n")
+    # tech_model = modules[0]
+    # cash_model = modules[3]
+    # annual_energy = tech_model.Outputs.annual_energy
+    # hourly_energy = tech_model.Outputs.gen
+    # hourly_energy = [x if x > 0 else 0 for x in hourly_energy]
+    # dc_capacity_factor = tech_model.Outputs.capacity_factor
+    # ac_capacity_factor = tech_model.Outputs.capacity_factor_ac
+    # lcoe_real = cash_model.Outputs.lcoe_real
+    return tech_model, cash_model
+
+
+def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
+
+    # Sizing rules
+    # 1. Voc < Vdcmax
+    # 2. Vmp > Vmin
+    # 3. Vmp < Vmax
+    # 4. num series * num_parallel is about desired array size (num_parallel = desired / (num series * mod_power)
+    # 5. num inverters is about desired array size (num_inv = num_series * num_parallel * mod_power) / inv_power
+
+    m = _flatten_dict(tech_model.export())
+
+    # module parameters
+    module_model = int(m["module_model"])
+    m["spe_imp"] = (
+        _spe_power(m["spe_eff4"], m["spe_rad4"], m["spe_area"]) / m["spe_vmp"]
+    )  # 4 = reference conditions
+    mod_imp = [
+        m["spe_imp"],
+        m["cec_i_mp_ref"],
+        m["sixpar_imp"],
+        m["snl_impo"],
+        m["sd11par_Imp0"],
+    ][module_model]
+    mod_vmp = [
+        m["spe_vmp"],
+        m["cec_v_mp_ref"],
+        m["sixpar_vmp"],
+        m["snl_vmpo"],
+        m["sd11par_Vmp0"],
+    ][module_model]
+    mod_voc = [
+        m["spe_voc"],
+        m["cec_v_oc_ref"],
+        m["sixpar_voc"],
+        m["snl_voco"],
+        m["sd11par_Voc0"],
+    ][module_model]
+    mod_power = mod_vmp * mod_imp
+
+    # inverter parameters
+    inv_vmin = m["mppt_low_inverter"]
+    inv_vmax = m["mppt_hi_inverter"]
+    inverter_model = int(m["inverter_model"])
+    m["inv_ds_pdco"] = m["inv_ds_paco"] / (m["inv_ds_eff"] / 100)
+    inv_vdcmax = [
+        m["inv_snl_vdcmax"],
+        m["inv_ds_vdcmax"],
+        m["inv_pd_vdcmax"],
+        m["inv_cec_cg_vdcmax"],
+    ][
+        inverter_model
+    ]  # Vdcmax
+    inv_power = [
+        m["inv_snl_paco"],
+        m["inv_ds_paco"],
+        m["inv_pd_paco"],
+        m["inv_cec_cg_paco"],
+    ][
+        inverter_model
+    ]  # Paco
+    inv_dc_power = [
+        m["inv_snl_pdco"],
+        m["inv_ds_pdco"],
+        m["inv_pd_pdco"],
+        m["inv_cec_cg_pdco"],
+    ][
+        inverter_model
+    ]  # Pdco
+
+    # DC-connected battery parameters (assumed to use common inverter)
+    batt_max_power_dc = 0
+    if m["en_batt"] and m["batt_ac_or_dc"] == 0:
+        batt_max_power_dc = m["batt_max_power"]
+
+    if mod_vmp > 0:
+        num_series = 0.5 * (inv_vmin + inv_vmax) / mod_vmp
+        if inv_vdcmax > 0:
+            while num_series > 0 and (num_series * mod_voc) > inv_vdcmax:
+                num_series -= 1
+
+    num_series = max(1, round(num_series))
+    num_parallel = design_size * 1000 / (num_series * mod_power)
+    num_parallel = max(1, round(num_parallel))
+    if desired_dcac_ratio > 0:
+        inverters = ((num_series * num_parallel * mod_power)) / (
+            desired_dcac_ratio * inv_power
+        )
+        # round inverters for best DC-AC ratio
+        if inverters - floor(inverters) < 0.5:
+            num_inverters = floor(inverters)
+        else:
+            num_inverters = ceil(inverters)
+    else:
+        num_inverters = ceil(((num_series * num_parallel * mod_power)) / inv_power)
+    num_inverters = max(1, num_inverters)
+    total_modules = num_series * num_parallel
+    total_ac_capacity = inv_power * num_inverters / 1000
+    total_dc_inverter_capacity = inv_dc_power * num_inverters / 1000
+
+    # check that the sizing was close to the desired sizes, otherwise error out
+    nameplate_dc = total_modules * mod_power / 1000
+    proposed_ratio = nameplate_dc / (num_inverters * inv_power / 1000)
+    if abs(nameplate_dc - design_size) / design_size > 0.2:
+        num_inverters = None
+        num_series = None
+        num_parallel = None
+        total_modules = None
+        nameplate_dc = None
+        total_ac_capacity = None
+        total_dc_inverter_capacity = None
+    else:
+        num_inverters = num_inverters
+        num_series = num_series
+        num_parallel = num_parallel
+        total_modules = total_modules
+        nameplate_dc = nameplate_dc
+        total_ac_capacity = total_ac_capacity
+        total_dc_inverter_capacity = total_dc_inverter_capacity
+
+    size_pv_array = {
+        "inverter_count": num_inverters,
+        "subarray1_modules_per_string": num_series,
+        "subarray1_nstrings": num_parallel,
+        "total_modules": total_modules,
+        "system_capacity": nameplate_dc,
+        "total_inverter_capacity": total_ac_capacity,
+        "total_dc_inverter_capacity": total_dc_inverter_capacity,
+    }
+
+    if not all([num_inverters, num_parallel]):
+        raise ValueError("One of inverters, num_inverters, num_parallel is None.")
+
+    return inverters, num_inverters, num_parallel
+
+
+def _flatten_dict(d):
+    def get_key_values(d):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                yield from get_key_values(value)
+            else:
+                yield key, value
+
+    return {key: value for (key, value) in get_key_values(d)}
+
+
+def _load_config_files(modules):
+    for file_name, module in zip(_config_files, modules):
+        with open(file_name, "r") as file:
+            data = json.load(file)
+            missing_values = []  # for debugging
+            for k, v in data.items():
+                if k != "number_inputs":
+                    try:
+                        module.value(k, v)
+                    except:
+                        missing_values.append(k)
+            pass
+
+
+def _spe_power(spe_eff_level, spe_rad_level, spe_area):
+    return spe_eff_level / 100 * spe_rad_level * spe_area
+
+
+def setup_and_run(design_size, pysam_model_config):
+    modules = setup_pv_single_owner(pysam_model_config)
+    tech_model, cash_model = run_pv_single_owner(
+        modules, pysam_model_config, design_size=design_size
+    )
+    annual_energy = tech_model.Outputs.annual_energy  # kWh
+    # hourly_energy = tech_model.Outputs.gen # kW
+    # hourly_energy = [x if x > 0 else 0 for x in hourly_energy]
+    # dc_capacity_factor = tech_model.Outputs.capacity_factor
+    # ac_capacity_factor = tech_model.Outputs.capacity_factor_ac
+    # lcoe_real = cash_model.Outputs.lcoe_real
+    cash_model.execute()
+    land_req = cash_model.LandLease.land_area
+    result = {"electricity_annual": annual_energy, "land_req": land_req}
+    print(f"Design Size {design_size} completed.")
+    print(f"\tAnnual Energy = {annual_energy} kWh")
+    print(f"\tLand Required = {land_req} acre\n")
+    return result
+
+
+def run_pysam_kbhdp_pv(
+    design_sizes=np.linspace(10, 10000, 10),
+    dataset_filename=None,
+    save_data=True,
+    use_multiprocessing=True,
+    pysam_model_config="FlatPlatePVSingleOwner",
+):
+    if dataset_filename is None:
+        raise ValueError("Must provide dataset_filename")
+    dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
+    data = list()
+    if use_multiprocessing:
+        df = pd.DataFrame(design_sizes, columns=["design_size"])
+        # args = [(ds, *a) for ds in design_sizes]
+        # print(args)
+        # assert False
+        with multiprocessing.Pool(processes=6) as pool:
+            args = [(ds, pysam_model_config) for ds in design_sizes]
+            results = pool.starmap(setup_and_run, args)
+        df_results = pd.DataFrame(results)
+        df = pd.concat(
+            [
+                df,
+                df_results[
+                    [
+                        "electricity_annual",
+                        "land_req", 
+                    ]
+                ],
+            ],
+            axis=1,
+        )
+    else:
+        data = list()
+        for ds in design_sizes:
+            result = setup_and_run(ds, pysam_model_config)
+            data.append([ds, result["electricity_annual"], result["land_req"]])
+        df = pd.DataFrame(
+            data, columns=["design_size", "electricity_annual", "land_req"]
+        )
+    if save_data:
+        df.to_pickle(dataset_filename)
+
+
+if __name__ == "__main__":
+    design_sizes = np.linspace(15, 15000, 10)
+    print(design_sizes)
+    run_pysam_kbhdp_pv(
+        design_sizes=design_sizes, dataset_filename="test", use_multiprocessing=False
+    )
+    
