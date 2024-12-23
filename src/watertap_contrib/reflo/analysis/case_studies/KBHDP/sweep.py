@@ -6,6 +6,7 @@ from idaes.core.solvers import get_solver
 import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_SOA as SOA
 import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_RPT_1 as RPT1
 import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_RPT_2 as RPT2
+import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_RPT_2_pysam as RPT2_pysam
 import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_RPT_3 as RPT3
 
 filepath = os.path.abspath(__file__)
@@ -56,6 +57,7 @@ def run_all_cases():
         # {"case": SOA, "case_name": "KBHDP_SOA_1", "yaml_file": "KBHDP_SOA_1.yaml"},
         # {"case": RPT1, "case_name": "KBHDP_RPT_1", "yaml_file": "KBHDP_RPT_1.yaml"},
         # {"case": RPT2, "case_name": "KBHDP_RPT_2", "yaml_file": "KBHDP_RPT_2.yaml"},
+        # {"case": RPT2_pysam, "case_name": "KBHDP_RPT_2_pysam", "yaml_file": "KBHDP_RPT_2_pysam.yaml"},
         {"case": RPT3, "case_name": "KBHDP_RPT_3", "yaml_file": "KBHDP_RPT_3.yaml"},
     ]
 
