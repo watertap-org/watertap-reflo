@@ -50,7 +50,7 @@ __all__ = [
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 parent_dir = os.path.abspath(os.path.join(__location__, ".."))
 weather_file = os.path.join(parent_dir, "data/el_paso_texas-KBHDP-weather.csv")
-param_file = os.path.join(parent_dir, "data/fpc/swh-kbhdp.json")
+param_file = os.path.join(parent_dir, "data/fpc/solar_water_heating-kbhdp.json")
 
 dataset_filename_low = os.path.join(
     parent_dir,
@@ -421,10 +421,11 @@ if __name__ == "__main__":
 
     m = build_system()
 
-    build_fpc(m)
+    build_fpc_low(m)
     set_fpc_op_conditions(m)
     add_FPC_scaling(m, m.fs.energy.FPC)
     init_fpc(m.fs.energy)
 
     add_fpc_costing(m)
     results = solve(m)
+    m.fs.energy.FPC.heat_annual.display()
