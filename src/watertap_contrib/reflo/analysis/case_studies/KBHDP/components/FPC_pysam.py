@@ -40,14 +40,13 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.data import *
 
 __all__ = [
-    "build_fpc_low",
-    "build_fpc_mid",
-    "build_fpc_high",
-    "build_fpc_really_high",
+    "build_fpc_pysam",
+    "add_pysam_FPC_model", 
+    "run_pysam_fpc_model", 
+    "get_fpc_heat_load", 
     "init_fpc",
-    "set_fpc_op_conditions",
-    "add_fpc_costing",
-    "add_FPC_scaling",
+    "set_fpc_pysam_op_conditions",
+    "add_fpc_pysam_costing",
     "report_fpc",
     "print_FPC_costing_breakdown",
 ]

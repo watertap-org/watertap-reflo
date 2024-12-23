@@ -12,3 +12,4 @@ from .translator_4 import Translator_TDS_to_TDS
 from .translator_6 import Translator_NaCl_to_TDS
 from .PV import *
 from .FPC import *
+from .FPC_pysam import *
