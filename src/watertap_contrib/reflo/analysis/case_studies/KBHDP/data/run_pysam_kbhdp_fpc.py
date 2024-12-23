@@ -37,7 +37,7 @@ __all__ = [
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
-param_file = os.path.join(__location__, "fpc/swh-kbhdp.json")
+param_file = os.path.join(__location__, "fpc/solar_water_heating-kbhdp.json")
 
 
 def read_module_datafile(file_name):
