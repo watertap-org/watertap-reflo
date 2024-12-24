@@ -1,27 +1,36 @@
 figure_device_groups = {
     "KBHDP_SOA_1": {
-        "Heat": {
-            "OPEX": {
-                "units": {
-                    "fs.costing.total_heat_operating_cost",
-                    #   "fs.costing.aggregate_flow_electricity_sold"
-                },
-            },
-        },
         "Electricity": {
             "OPEX": {
                 "units": {
-                    "fs.costing.aggregate_flow_electricity_purchased",
-                    #   "fs.costing.aggregate_flow_electricity_sold"
+                    "fs.treatment.costing.aggregate_flow_costs[electricity]",
                 },
             },
         },
-        "Chemicals": {
+        "Lime": {
             "OPEX": {
                 "units": {
                     "fs.treatment.costing.aggregate_flow_costs[lime]",
+                },
+            },
+        },
+        "MgCl2": {
+            "OPEX": {
+                "units": {
                     "fs.treatment.costing.aggregate_flow_costs[mgcl2]",
+                },
+            },
+        },
+        "Soda Ash": {
+            "OPEX": {
+                "units": {
                     "fs.treatment.costing.aggregate_flow_costs[soda_ash]",
+                },
+            },
+        },
+        "CO2": {
+            "OPEX": {
+                "units": {
                     "fs.treatment.costing.aggregate_flow_costs[co2]",
                 },
             },
@@ -75,7 +84,6 @@ figure_device_groups = {
             "OPEX": {
                 "units": {
                     "fs.costing.total_heat_operating_cost",
-                    #   "fs.costing.aggregate_flow_electricity_sold"
                 },
             },
         },
@@ -83,7 +91,6 @@ figure_device_groups = {
             "OPEX": {
                 "units": {
                     "fs.costing.aggregate_flow_electricity_purchased",
-                    #   "fs.costing.aggregate_flow_electricity_sold"
                 },
             },
         },

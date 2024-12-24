@@ -44,7 +44,7 @@ from watertap_contrib.reflo.costing import (
     REFLOCosting,
 )
 from watertap.costing.zero_order_costing import ZeroOrderCosting
-from watertap.core.wt_database import Database
+from watertap_contrib.reflo.core import REFLODatabase
 
 __all__ = [
     "build_UF",
@@ -72,7 +72,9 @@ def build_UF(m, blk, prop_package) -> None:
     blk.feed = StateJunction(property_package=prop_package)
     blk.product = StateJunction(property_package=prop_package)
     blk.disposal = StateJunction(property_package=prop_package)
-    blk.unit = UltraFiltrationZO(property_package=prop_package, database=m.db)
+    blk.unit = UltraFiltrationZO(
+        property_package=prop_package, database=m.db, process_subtype="kbhdp"
+    )
 
     blk.feed_to_unit = Arc(
         source=blk.feed.outlet,
@@ -130,9 +132,9 @@ def add_UF_costing(m, blk, costing_blk=None):
     if costing_blk is None:
         costing_blk = m.fs.costing
 
-    blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=costing_blk,
-    )
+    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
+    # costing_blk.ultra_filtration.capital_a_parameter.fix(500000)
+    # costing_blk.total_investment_factor.fix(1)
 
     # m.fs.costing.cost_process()
 
@@ -157,7 +159,7 @@ def build_system():
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = REFLOCosting()
     # m.fs.costing = ZeroOrderCosting()
-    m.db = Database()
+    m.db = REFLODatabase()
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.MCAS_properties = MCASParameterBlock(
         solute_list=[
@@ -261,7 +263,7 @@ def report_UF(m, blk, stream_table=False):
 
 
 def print_UF_costing_breakdown(blk, debug=False):
-    print(f"\n\n-------------------- Ud Costing Breakdown --------------------\n")
+    print(f"\n\n-------------------- UF Costing Breakdown --------------------\n")
     print(f'{"UF Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
 
     if debug:

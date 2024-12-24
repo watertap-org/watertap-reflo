@@ -416,4 +416,4 @@ if __name__ == "__main__":
 
     report_EC(m.fs.EC)
     print_EC_costing_breakdown(m.fs.EC)
-    m.fs.EC.ec.conductivity.display()
+    m.fs.EC.ec.costing.display()

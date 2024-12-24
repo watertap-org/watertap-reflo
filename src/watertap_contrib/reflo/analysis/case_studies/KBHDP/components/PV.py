@@ -121,13 +121,15 @@ def add_pv_scaling(m, blk):
     # iscale.set_scaling_factor(pv.annual_energy, 1)
     iscale.set_scaling_factor(pv.electricity, 1000)
     iscale.set_scaling_factor(pv.land_req, 100)
-
+    
 
 def add_pv_costing_scaling(m, blk):
-    pv = blk
 
-    iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-5)
-
+    # iscale.set_scaling_factor(blk.system_capacity, 1e-5)
+    iscale.set_scaling_factor(blk.yearly_electricity_production, 1e7)
+    iscale.set_scaling_factor(blk.lifetime_electricity_production, 1e8)
+    iscale.set_scaling_factor(blk.aggregate_flow_electricity, 1e3)
+    # iscale.constraint_scaling_transform(blk.lifetime_electricity_production_constraint, 1e2)
 
 def print_PV_costing_breakdown(pv):
     print(f"\n\n-------------------- PV Costing Breakdown --------------------\n")

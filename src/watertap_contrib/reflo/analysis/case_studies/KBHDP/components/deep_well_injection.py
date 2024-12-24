@@ -37,7 +37,7 @@ from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 from watertap.core.zero_order_properties import WaterParameterBlock
-
+from watertap_contrib.reflo.core import REFLODatabase
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
@@ -88,11 +88,13 @@ def set_system_op_conditions(blk):
     }
 
     rho = 1000 * pyunits.kg / pyunits.m**3
-    flow_mgd = 5.08 * pyunits.Mgallons / pyunits.day
+    flow_mgd = 2.08 * pyunits.Mgallons / pyunits.day
 
     flow_mass_phase_water = pyunits.convert(
         flow_mgd * rho, to_units=pyunits.kg / pyunits.s
     )
+
+    flow_mass_phase_water = 30.56 * pyunits.kg / pyunits.s
 
     prop = blk.unit.properties[0]
     prop.temperature.fix()
@@ -132,7 +134,7 @@ def init_DWI(m, blk, verbose=True, solver=None):
 
 def add_DWI_costing(m, blk, costing_blk=None):
     if costing_blk is None:
-        costing_blk = TreatmentCosting()
+        costing_blk = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=costing_blk,
@@ -162,7 +164,8 @@ def print_DWI_costing_breakdown(blk):
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    # m.fs.costing = REFLOCosting()
+    m.fs.costing = REFLOCosting()
+    m.db = REFLODatabase()
     inlet_conc = {
         "Ca_2+": 1.43,
         "Mg_2+": 0.1814,
@@ -246,3 +249,8 @@ if __name__ == "__main__":
     set_system_op_conditions(m.fs.DWI)
 
     init_DWI(m, m.fs.DWI)
+    add_DWI_costing(m, m.fs.DWI)
+    solve(m)
+    print_DWI_costing_breakdown(m.fs.DWI)
+
+    print(m.fs.DWI.display())
