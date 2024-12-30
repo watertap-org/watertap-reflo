@@ -57,7 +57,8 @@ from watertap_contrib.reflo.analysis.case_studies.permian import *
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
-rho = 1000 * pyunits.kg / pyunits.m**3
+rho = 1125 * pyunits.kg / pyunits.m**3
+rho_water =  997 * pyunits.kg / pyunits.m**3
 
 solver = get_solver()
 
@@ -215,9 +216,11 @@ def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
 
     global flow_mass_water, flow_mass_tds, flow_in
 
+    m.fs.properties.dens_mass_default = rho
+
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
-    flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
+    flow_mass_water = pyunits.convert(Qin * rho_water, to_units=pyunits.kg / pyunits.s)
     flow_mass_tds = pyunits.convert(
         Qin * tds * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.s
     )
@@ -293,7 +296,7 @@ def init_system(m, **kwargs):
     treat.zo_to_sw_disposal.outlet.pressure[0].fix()
     treat.zo_to_sw_disposal.initialize()
 
-    treat.zo_to_sw_feed.properties_out[0].temperature.fix(304)
+    treat.zo_to_sw_feed.properties_out[0].temperature.fix(302)
     treat.zo_to_sw_feed.properties_out[0].pressure.fix()
     treat.zo_to_sw_feed.initialize()
 
@@ -312,8 +315,11 @@ def init_system(m, **kwargs):
     propagate_state(treat.disposal_SW_mixer_to_dwi)
     # NOTE: variables that affect DOF in unclear way
     treat.DWI.feed.properties[0].temperature.fix()
-    treat.DWI.feed.properties[0].pressure.fix()
+    # treat.DWI.feed.properties[0].pressure.fix()
     init_dwi(m, treat.DWI)
+
+    treat.product.properties[0].conc_mass_phase_comp
+    treat.product.properties[0].flow_vol_phase
     
     treat.product.initialize()
 
@@ -390,4 +396,30 @@ if __name__ == "__main__":
     m = run_permian_pretreatment()
     treat = m.fs.treatment
 
-    print(f"DOF = {degrees_of_freedom(m)}")
+    print(f"DOF After Solve = {degrees_of_freedom(m)}")
+
+    treat.feed.properties[0].conc_mass_comp
+    treat.feed.properties[0].flow_vol
+    print('Feed:',treat.feed.properties[0].flow_vol(),
+          pyunits.get_units(treat.feed.properties[0].flow_vol))
+
+    print('Feed:',treat.feed.properties[0].conc_mass_comp['tds'](),
+          pyunits.get_units(treat.feed.properties[0].conc_mass_comp['tds']))
+
+    treat.EC.feed.properties[0].conc_mass_comp
+    print('EC feed:',treat.EC.feed.properties[0].conc_mass_comp['tds'](),
+        pyunits.get_units(treat.EC.feed.properties[0].conc_mass_comp['tds']))
+
+    treat.EC.product.properties[0].conc_mass_comp
+    print('EC product:',treat.EC.product.properties[0].conc_mass_comp['tds'](),
+        pyunits.get_units(treat.EC.product.properties[0].conc_mass_comp['tds']))
+
+    treat.cart_filt.product.properties[0].conc_mass_comp
+    print('Cartidge:',treat.cart_filt.product.properties[0].conc_mass_comp['tds'](),
+        pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp['tds']))
+    
+    print('Product:',treat.product.properties[0].conc_mass_phase_comp['Liq','TDS'](),
+          pyunits.get_units(treat.product.properties[0].conc_mass_phase_comp['Liq','TDS']()))
+    
+    print('Product:',treat.product.properties[0].flow_vol_phase['Liq'](),
+          pyunits.get_units(treat.product.properties[0].flow_vol_phase['Liq']))
