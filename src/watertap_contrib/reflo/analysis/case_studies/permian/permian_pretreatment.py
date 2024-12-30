@@ -292,11 +292,11 @@ def init_system(m, **kwargs):
     treat.disposal_ZO_mixer.initialize()
     propagate_state(treat.disposal_ZO_mix_to_translator)
 
-    treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
+    treat.zo_to_sw_disposal.outlet.temperature[0].fix(320)
     treat.zo_to_sw_disposal.outlet.pressure[0].fix()
     treat.zo_to_sw_disposal.initialize()
 
-    treat.zo_to_sw_feed.properties_out[0].temperature.fix(302)
+    treat.zo_to_sw_feed.properties_out[0].temperature.fix(320)
     treat.zo_to_sw_feed.properties_out[0].pressure.fix()
     treat.zo_to_sw_feed.initialize()
 
@@ -308,15 +308,20 @@ def init_system(m, **kwargs):
 
     propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
     # NOTE: variable that affects DOF in unclear way
-    # treat.disposal_SW_mixer.zo_mixer_state[0].temperature.fix()
-    # treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
     treat.disposal_SW_mixer.initialize()
+    treat.disposal_SW_mixer.mixed_state[0].temperature.fix()
+    # treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
+    
 
     propagate_state(treat.disposal_SW_mixer_to_dwi)
-    init_dwi(m, treat.DWI)
+    
+    treat.DWI.unit.properties[0].conc_mass_phase_comp
+    treat.DWI.unit.properties[0].flow_vol_phase
+
     # NOTE: variables that affect DOF in unclear way
-    treat.DWI.feed.properties[0].temperature.fix()
+    # treat.DWI.feed.properties[0].temperature.fix()
     # treat.DWI.feed.properties[0].pressure.fix()
+    init_dwi(m, treat.DWI)
 
     treat.product.properties[0].conc_mass_phase_comp
     treat.product.properties[0].flow_vol_phase
@@ -425,10 +430,21 @@ if __name__ == "__main__":
     
     print('Product:',treat.product.properties[0].flow_vol_phase['Liq'](),
           pyunits.get_units(treat.product.properties[0].flow_vol_phase['Liq']))
+    
+
+    print('DWI:',treat.DWI.unit.properties[0].flow_vol_phase['Liq'](),
+          pyunits.get_units(treat.DWI.unit.properties[0].flow_vol_phase['Liq']))
+    
+    print('DWI:',treat.DWI.unit.properties[0].conc_mass_phase_comp['Liq','TDS'](),
+          pyunits.get_units(treat.DWI.unit.properties[0].conc_mass_phase_comp['Liq','TDS']))
 
     print('Translator pressure:',treat.disposal_SW_mixer.zo_mixer_state[0].pressure())
     print('DWI pressure:',treat.DWI.feed.properties[0].pressure())
 
-    treat.disposal_SW_mixer.mixed_state[0].display()
+    treat.disposal_ZO_mixer.display()
+    
+    treat.zo_to_sw_disposal.display()
+
+    treat.disposal_SW_mixer.display()
 
     treat.DWI.unit.properties[0.0].display()
