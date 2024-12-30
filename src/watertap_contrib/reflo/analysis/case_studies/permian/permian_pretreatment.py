@@ -314,8 +314,7 @@ def init_system(m, **kwargs):
     treat.DWI.feed.properties[0].temperature.fix()
     treat.DWI.feed.properties[0].pressure.fix()
     init_dwi(m, treat.DWI)
-    print(f"DOF = {degrees_of_freedom(treat.DWI)}")
-
+    
     treat.product.initialize()
 
 
