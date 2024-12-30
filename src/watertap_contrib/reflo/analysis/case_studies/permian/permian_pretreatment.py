@@ -290,11 +290,11 @@ def init_system(m, **kwargs):
     propagate_state(treat.disposal_ZO_mix_to_translator)
 
     treat.zo_to_sw_disposal.outlet.temperature[0].fix(302)
-    treat.zo_to_sw_disposal.outlet.pressure[0].fix(20000)
+    treat.zo_to_sw_disposal.outlet.pressure[0].fix()
     treat.zo_to_sw_disposal.initialize()
 
     treat.zo_to_sw_feed.properties_out[0].temperature.fix(304)
-    treat.zo_to_sw_feed.properties_out[0].pressure.fix(40000)
+    treat.zo_to_sw_feed.properties_out[0].pressure.fix()
     treat.zo_to_sw_feed.initialize()
 
     propagate_state(treat.cart_filt_translated_to_desal)
@@ -305,15 +305,16 @@ def init_system(m, **kwargs):
 
     propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
     # NOTE: variable that affects DOF in unclear way
+    treat.disposal_SW_mixer.zo_mixer_state[0].temperature.fix()
     treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
     treat.disposal_SW_mixer.initialize()
 
     propagate_state(treat.disposal_SW_mixer_to_dwi)
     # NOTE: variables that affect DOF in unclear way
-    treat.DWI.unit.properties[0].temperature.fix(305)
-    treat.DWI.unit.properties[0].pressure.fix(50000)
-
+    treat.DWI.feed.properties[0].temperature.fix()
+    treat.DWI.feed.properties[0].pressure.fix()
     init_dwi(m, treat.DWI)
+    print(f"DOF = {degrees_of_freedom(treat.DWI)}")
 
     treat.product.initialize()
 
