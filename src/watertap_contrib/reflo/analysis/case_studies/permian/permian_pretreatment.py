@@ -104,10 +104,10 @@ def build_permian_pretreatment(**kwargs):
         outlet_property_package=m.fs.properties_feed,
     )
 
-    treat.sw_to_zo = Translator_SW_to_ZO(
-        inlet_property_package=m.fs.properties_feed,
-        outlet_property_package=m.fs.properties,
-    )
+    # treat.sw_to_zo = Translator_SW_to_ZO(
+    #     inlet_property_package=m.fs.properties_feed,
+    #     outlet_property_package=m.fs.properties,
+    # )
 
     treat.disposal_ZO_mixer = Mixer(
         property_package=m.fs.properties,
@@ -124,7 +124,7 @@ def build_permian_pretreatment(**kwargs):
         # num_inlets=2,
         # inlet_list=["zo_mixer", "mvc_disposal"],
         energy_mixing_type=MixingType.none,
-        momentum_mixing_type=MomentumMixingType.none,
+        momentum_mixing_type=MomentumMixingType.equality,
     )
 
     treat.chem_addition = FlowsheetBlock(dynamic=False)
@@ -308,19 +308,19 @@ def init_system(m, **kwargs):
 
     propagate_state(treat.disposal_ZO_mix_translated_to_disposal_SW_mixer)
     # NOTE: variable that affects DOF in unclear way
-    treat.disposal_SW_mixer.zo_mixer_state[0].temperature.fix()
-    treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
+    # treat.disposal_SW_mixer.zo_mixer_state[0].temperature.fix()
+    # treat.disposal_SW_mixer.zo_mixer_state[0].pressure.fix()
     treat.disposal_SW_mixer.initialize()
 
     propagate_state(treat.disposal_SW_mixer_to_dwi)
+    init_dwi(m, treat.DWI)
     # NOTE: variables that affect DOF in unclear way
     treat.DWI.feed.properties[0].temperature.fix()
     # treat.DWI.feed.properties[0].pressure.fix()
-    init_dwi(m, treat.DWI)
 
     treat.product.properties[0].conc_mass_phase_comp
     treat.product.properties[0].flow_vol_phase
-    
+
     treat.product.initialize()
 
 
@@ -352,8 +352,10 @@ def run_permian_pretreatment():
     # treat.EC.unit.conductivity.fix()
 
     print(f"DOF = {degrees_of_freedom(m)}")
-    results = solver.solve(m)
-    print_infeasible_constraints(m)
+    try:
+        results = solver.solve(m)
+    except ValueError:
+        print_infeasible_constraints(m)
     assert_optimal_termination(results)
 
     # print(f"DOF TREATMENT BLOCK = {degrees_of_freedom(treat)}")
@@ -423,3 +425,10 @@ if __name__ == "__main__":
     
     print('Product:',treat.product.properties[0].flow_vol_phase['Liq'](),
           pyunits.get_units(treat.product.properties[0].flow_vol_phase['Liq']))
+
+    print('Translator pressure:',treat.disposal_SW_mixer.zo_mixer_state[0].pressure())
+    print('DWI pressure:',treat.DWI.feed.properties[0].pressure())
+
+    treat.disposal_SW_mixer.mixed_state[0].display()
+
+    treat.DWI.unit.properties[0.0].display()
