@@ -54,6 +54,7 @@ rho = 1000 * pyunits.kg / pyunits.m**3
 __all__ = [
     "build_chem_addition",
     "set_chem_addition_op_conditions",
+    "set_chem_addition_scaling",
     "add_chem_addition_costing",
     "init_chem_addition",
 ]
@@ -115,42 +116,36 @@ def build_chem_addition(m, blk, prop_package=None) -> None:
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def set_system_operating_conditions(m, Qin=5):
+def set_system_operating_conditions(m, Qin=5, tds=130):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
     Qin = Qin * pyunits.Mgal / pyunits.day
-    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
+    tds = tds * pyunits.kg / pyunits.m**3
+
     flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
-    inlet_dict = {"tds": 130 * pyunits.kg / pyunits.m**3}
+    flow_mass_tds = pyunits.convert(Qin * tds, to_units=pyunits.kg / pyunits.s)
+
     m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(flow_mass_water)
+    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(flow_mass_tds)
+    m.fs.chem_addition.unit.properties[0].flow_mass_comp["tds"].set_value(flow_mass_tds)
 
-    for solute, solute_conc in inlet_dict.items():
-        flow_mass_solute = pyunits.convert(
-            flow_in * solute_conc, to_units=pyunits.kg / pyunits.s
-        )
-        sf = 1 / value(flow_mass_solute)
-        m.fs.feed.properties[0].flow_mass_comp[solute].fix(flow_mass_solute)
-        m.fs.chem_addition.unit.properties[0].flow_mass_comp[solute].set_value(
-            flow_mass_solute
-        )
-        m.fs.properties.set_default_scaling(
-            "flow_mass_comp",
-            sf,
-            index=(solute),
-        )
-        m.fs.properties.set_default_scaling(
-            "conc_mass_comp",
-            1 / solute_conc(),
-            index=(solute),
-        )
 
-    m.fs.properties.set_default_scaling(
-        "flow_mass_comp",
-        1 / value(flow_mass_water),
-        index=("H2O"),
-    )
-    calculate_scaling_factors(m)
+def set_chem_addition_scaling(m, blk, calc_blk_scaling_factors=False):
+
+    set_scaling_factor(blk.unit.chemical_dosage, 0.1)
+    set_scaling_factor(blk.unit.solution_density, 1e-2)
+    set_scaling_factor(blk.unit.chemical_flow_vol, 1e5)
+    set_scaling_factor(blk.unit.electricity, 1e4)
+
+    # Calculate scaling factors only for chem addition block if in full case study flowsheet
+    # so we don't prematurely set scaling factors
+    if calc_blk_scaling_factors:
+        calculate_scaling_factors(blk)
+
+    # otherwise calculate all scaling factors
+    else:
+        calculate_scaling_factors(m)
 
 
 def set_chem_addition_op_conditions(m, blk, **kwargs):
@@ -245,9 +240,9 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
 if __name__ == "__main__":
     m = build_system()
     set_system_operating_conditions(m)
-    set_chem_addition_op_conditions(m, m.fs.chem_addition.unit)
-
+    set_chem_addition_op_conditions(m, m.fs.chem_addition)
     add_chem_addition_costing(m, m.fs.chem_addition)
+    set_chem_addition_scaling(m, m.fs.chem_addition, calc_blk_scaling_factors=True)
     init_system(m)
     solve(m)
     print_chem_addition_costing_breakdown(m.fs.chem_addition)
