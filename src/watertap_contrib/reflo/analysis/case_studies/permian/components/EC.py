@@ -136,26 +136,8 @@ def set_system_operating_conditions(m, Qin=5, tds=130):
         flow_mass_solute = pyunits.convert(
             Qin * solute_conc, to_units=pyunits.kg / pyunits.s
         )
-        sf = 1 / value(flow_mass_solute)
         m.fs.feed.properties[0].flow_mass_comp[solute].fix(flow_mass_solute)
         m.fs.EC.unit.properties_in[0].flow_mass_comp[solute].set_value(flow_mass_solute)
-        m.fs.properties.set_default_scaling(
-            "flow_mass_comp",
-            sf,
-            index=(solute),
-        )
-        m.fs.properties.set_default_scaling(
-            "conc_mass_comp",
-            1 / solute_conc(),
-            index=(solute),
-        )
-
-    m.fs.properties.set_default_scaling(
-        "flow_mass_comp",
-        1 / value(flow_mass_water),
-        index=("H2O"),
-    )
-    calculate_scaling_factors(m)
 
 
 def set_ec_operating_conditions(m, blk, conv=5e3, **kwargs):
@@ -193,11 +175,24 @@ def set_ec_scaling(m, blk, calc_blk_scaling_factors=False):
     set_scaling_factor(blk.unit.properties_in[0].flow_vol, 1e7)
     set_scaling_factor(blk.unit.properties_in[0].conc_mass_comp["tds"], 1e5)
     set_scaling_factor(blk.unit.charge_loading_rate, 1e3)
-    # set_scaling_factor(m.fs.ec.cell_voltage,1)
-    set_scaling_factor(blk.unit.anode_area, 1e4)
+    set_scaling_factor(blk.unit.cell_voltage, 1)
+    set_scaling_factor(blk.unit.anode_area, 1e-3)
+    set_scaling_factor(blk.unit.cathode_area, 1e-3)
     set_scaling_factor(blk.unit.current_density, 1e-1)
-    # set_scaling_factor(m.fs.ec.applied_current,1e2)
-    set_scaling_factor(blk.unit.metal_dose, 1e4)
+    set_scaling_factor(blk.unit.applied_current, 1e-6)
+    set_scaling_factor(blk.unit.metal_dose, 1e3)
+    set_scaling_factor(blk.unit.electrode_thick, 1e3)
+    set_scaling_factor(blk.unit.electrode_mass, 1e-4)
+    set_scaling_factor(blk.unit.electrode_volume, 1)
+    set_scaling_factor(blk.unit.electrode_gap, 1e3)
+    set_scaling_factor(blk.unit.conductivity, 0.1)
+    set_scaling_factor(blk.unit.overpotential, 1)
+    set_scaling_factor(blk.unit.reactor_volume, 0.1)
+    set_scaling_factor(blk.unit.ohmic_resistance, 1e7)
+    set_scaling_factor(blk.unit.charge_loading_rate, 1e-3)
+    set_scaling_factor(blk.unit.power_required, 1e-6)
+    set_scaling_factor(blk.unit.overpotential_k1, 1)
+    set_scaling_factor(blk.unit.overpotential_k2, 1)
 
     # Calculate scaling factors only for EC block if in full case study flowsheet
     # so we don't prematurely set scaling factors
@@ -239,7 +234,6 @@ def init_ec(m, blk, solver=None):
     blk.feed.initialize(optarg=optarg)
     propagate_state(blk.feed_to_ec)
 
-    # cvc(blk.unit.conductivity_constr, blk.unit.conductivity)
     cvc(blk.unit.overpotential, blk.unit.eq_overpotential)
     cvc(blk.unit.applied_current, blk.unit.eq_applied_current)
     cvc(blk.unit.anode_area, blk.unit.eq_electrode_area_total)
