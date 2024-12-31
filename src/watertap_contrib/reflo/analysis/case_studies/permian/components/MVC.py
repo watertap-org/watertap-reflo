@@ -252,7 +252,9 @@ def build_mvc(m, blk, external_heating=True):
     )
 
     blk.eq_separator_split_frac = Constraint(
-        expr=blk.separator.split_fraction[0, "hx_distillate_cold"] == blk.recovery
+        # expr=blk.separator.split_fraction[0, "hx_distillate_cold"] == blk.recovery
+        expr=blk.separator.split_fraction[0, "hx_distillate_cold"]
+        == 0.5
     )
 
     if external_heating:
@@ -364,9 +366,9 @@ def set_mvc_scaling(
     properties_feed.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "TDS")
     )
-    properties_feed.set_default_scaling(
-        "conc_mass_phase_comp", 1e-2, index=("Liq", "TDS")
-    )
+    # properties_feed.set_default_scaling(
+    #     "conc_mass_phase_comp", 1e-2, index=("Liq", "TDS")
+    # )
     properties_vapor.set_default_scaling(
         "flow_mass_phase_comp", 1, index=("Vap", "H2O")
     )
@@ -380,6 +382,8 @@ def set_mvc_scaling(
     set_scaling_factor(blk.evaporator.delta_temperature_in, 1e-1)
     set_scaling_factor(blk.evaporator.delta_temperature_out, 1e-1)
     set_scaling_factor(blk.evaporator.lmtd, 1e-1)
+    set_scaling_factor(blk.evaporator.heat_transfer, 1e-6)
+    set_scaling_factor(blk.external_heating, 1e-6)
 
     # Compressor
     set_scaling_factor(blk.compressor.control_volume.work, 1e-6)
@@ -474,7 +478,8 @@ def init_mvc(
     propagate_state(blk.pump_to_separator)
     # Touch property for initialization
     blk.separator.mixed_state[0].mass_frac_phase_comp["Liq", "TDS"]
-    blk.separator.split_fraction[0, "hx_distillate_cold"].fix(blk.recovery.value)
+    # blk.separator.split_fraction[0, "hx_distillate_cold"].fix(blk.recovery.value)
+    blk.separator.split_fraction[0, "hx_distillate_cold"].fix(0.5)
     blk.separator.mixed_state.initialize(optarg=optarg, solver="ipopt-watertap")
     # Touch properties for initialization
     blk.separator.hx_brine_cold_state[0].mass_frac_phase_comp["Liq", "TDS"]
@@ -959,7 +964,7 @@ if __name__ == "__main__":
 
     set_system_operating_conditions(m)
 
-    set_mvc_operating_conditions(m, mvc)
+    set_mvc_operating_conditions(m, mvc, recovery=0.65)
     set_mvc_scaling(m, mvc)
     init_system(m, mvc)
 
@@ -970,16 +975,30 @@ if __name__ == "__main__":
     m.fs.costing.add_LCOW(flow_vol)
     m.fs.costing.add_specific_energy_consumption(flow_vol, name="SEC")
     m.fs.costing.initialize()
-
-    results = solver.solve(m)
-    mvc.external_heating.fix()
-    results = solver.solve(m)
-    assert_optimal_termination(results)
+    m.fs.costing.LCOW_obj = Objective(expr=m.fs.costing.LCOW)
     print(f"dof = {degrees_of_freedom(m)}")
+
+    results = solver.solve(m, tee=True)
     print(f"termination {results.solver.termination_condition}")
+    m.fs.costing.LCOW_obj.deactivate()
+    # mvc.external_heating.display()
+    # assert False
+    # mvc.external_heating.fix()
+    # print(f"dof = {degrees_of_freedom(m)}")
+
+    # results = solver.solve(m, tee=False)
+    # print(f"termination {results.solver.termination_condition}")
+    # assert_optimal_termination(results)
+    # print(f"dof = {degrees_of_freedom(m)}")
+    # print(f"termination {results.solver.termination_condition}")
 
     design_mvc(m, mvc)
+    m.fs.disposal.properties[0].conc_mass_phase_comp
     results = solver.solve(m)
     assert_optimal_termination(results)
     print(f"dof = {degrees_of_freedom(m)}")
     print(f"termination {results.solver.termination_condition}")
+
+    print(f"LCOW {m.fs.costing.LCOW()}")
+    # mvc.recovery.display()
+    # m.fs.disposal.display()
