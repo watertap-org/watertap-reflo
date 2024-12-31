@@ -530,7 +530,7 @@ if __name__ == "__main__":
     print(f"DOF After Solve = {degrees_of_freedom(m)}")
 
     system_recovery = (
-        treat.feed.properties[0].flow_vol() / treat.product.properties[0].flow_vol()
+        treat.product.properties[0].flow_vol() / treat.feed.properties[0].flow_vol()
     )
 
     print(f"Pretreatment Recovery: {system_recovery:.2f}")
@@ -563,7 +563,7 @@ if __name__ == "__main__":
     )
 
     print(
-        f'Product flow_vol: {treat.product.properties[0].flow_vol_phase["Liq"]():.2f} {pyunits.get_units(treat.product.properties[0].flow_vol_phase["Liq"])}'
+        f'Product flow_vol: {treat.product.properties[0].flow_vol_phase["Liq"]():.6f} {pyunits.get_units(treat.product.properties[0].flow_vol_phase["Liq"])}'
     )
 
     print(

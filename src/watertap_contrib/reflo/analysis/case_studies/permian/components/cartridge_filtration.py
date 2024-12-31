@@ -180,7 +180,7 @@ def set_cart_filt_scaling(m, blk, calc_blk_scaling_factors=False):
         calculate_scaling_factors(m)
 
 
-def set_cart_filt_op_conditions(m, blk):
+def set_cart_filt_op_conditions(m, blk, **kwargs):
 
     # data = m.db.get_unit_operation_parameters("chemical_addition")
     blk.unit.load_parameters_from_database()
