@@ -15,6 +15,7 @@ from pyomo.environ import (
     Block,
     RangeSet,
     assert_optimal_termination,
+    check_optimal_termination,
     units as pyunits,
 )
 from pyomo.network import Arc, SequentialDecomposition
@@ -55,11 +56,35 @@ rho = 1000 * pyunits.kg / pyunits.m**3
 
 __all__ = [
     "build_dwi",
+    "build_and_run_dwi",
     "init_dwi",
     "add_dwi_costing",
     "report_DWI",
     "print_DWI_costing_breakdown",
 ]
+
+
+def build_and_run_dwi(Qin=5, tds=130, **kwargs):
+
+    m = build_system()
+    m.fs.optimal_solve = Var(initialize=1)
+    m.fs.optimal_solve.fix()
+    add_dwi_costing(m, m.fs.DWI)
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(m.fs.feed.properties[0].flow_vol_phase["Liq"])
+    set_system_operating_conditions(m, Qin=Qin, tds=tds, **kwargs)
+    print(f"dof = {degrees_of_freedom(m)}")
+    init_system(m, m.fs.DWI)
+
+    solver = get_solver()
+    results = solver.solve(m)
+    # assert_optimal_termination(results)
+    if not check_optimal_termination(results):
+        m.fs.optimal_solve.fix(0)
+
+    print(f"LCOW = {m.fs.costing.LCOW()}")
+
+    return m
 
 
 def build_system():
@@ -79,7 +104,7 @@ def build_system():
     return m
 
 
-def build_dwi(m, blk, prop_package, injection_well_depth=5000) -> None:
+def build_dwi(m, blk, prop_package, injection_well_depth=5000):
 
     print(f'\n{"=======> BUILDING DEEP WELL INJECTION SYSTEM <=======":^60}\n')
 
@@ -147,8 +172,12 @@ def add_dwi_costing(m, blk, flowsheet_costing_block=None):
         flowsheet_costing_block = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=flowsheet_costing_block
+        flowsheet_costing_block=flowsheet_costing_block,
+        costing_method_arguments={
+            "cost_method": "as_opex"
+        },  # could be "as_capex" or "blm"
     )
+    flowsheet_costing_block.deep_well_injection.dwi_lcow.set_value(0.1)
 
 
 def report_DWI(m, blk):
@@ -170,24 +199,26 @@ def print_DWI_costing_breakdown(m, blk):
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
-    m = build_system()
-    add_dwi_costing(m, m.fs.DWI)
-    m.fs.costing.cost_process()
-    m.fs.costing.add_LCOW(m.fs.feed.properties[0].flow_vol_phase["Liq"])
-    set_system_operating_conditions(m)
-    print(f"dof = {degrees_of_freedom(m)}")
-    init_system(m, m.fs.DWI)
+    m = build_and_run_dwi(Qin=5, tds=130)
 
-    solver = get_solver()
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-
-    print(f"LCOW = {m.fs.costing.LCOW()}")
-
-    # init_DWI(m, m.fs.DWI)
-    # add_DWI_costing(m, m.fs.DWI)
+    # m = build_system()
+    # add_dwi_costing(m, m.fs.DWI)
     # m.fs.costing.cost_process()
-    # solve(m)
+    # m.fs.costing.add_LCOW(m.fs.feed.properties[0].flow_vol_phase["Liq"])
+    # set_system_operating_conditions(m)
+    print(f"dof = {degrees_of_freedom(m)}")
+    # init_system(m, m.fs.DWI)
 
-    # report_DWI(m, m.fs.DWI)
-    # print_DWI_costing_breakdown(m, m.fs.DWI)
+    # solver = get_solver()
+    # results = solver.solve(m)
+    # assert_optimal_termination(results)
+
+    # print(f"LCOW = {m.fs.costing.LCOW()}")
+
+    # # init_DWI(m, m.fs.DWI)
+    # # add_DWI_costing(m, m.fs.DWI)
+    # # m.fs.costing.cost_process()
+    # # solve(m)
+
+    # # report_DWI(m, m.fs.DWI)
+    # # print_DWI_costing_breakdown(m, m.fs.DWI)
