@@ -68,7 +68,7 @@ __all__ = [
     "add_treatment_costing",
     "set_permian_pretreatment_scaling",
     "init_system",
-    "run_permian_pretreatment",
+    "build_and_run_permian_pretreatment",
 ]
 
 
@@ -458,24 +458,35 @@ def init_system(m, **kwargs):
     treat.product.initialize()
 
 
-def run_permian_pretreatment():
+def solve_permian_pretreatment(m):
+    print(f"DOF = {degrees_of_freedom(m)}")
+    try:
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+    except:
+        print_infeasible_constraints(m)
+
+
+def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
     """
     Run Permian pretreatment flowsheet
     """
 
     m = build_permian_pretreatment()
+    m.fs.optimal_solve = Var(initialize=1)
     treat = m.fs.treatment
 
-    set_operating_conditions(m)
+    set_operating_conditions(m, Qin=Qin, tds=tds, **kwargs)
     set_permian_pretreatment_scaling(m, calclate_m_scaling_factors=True)
 
     treat.feed.properties[0].flow_vol
+    treat.product.properties[0].flow_vol_phase
 
     init_system(m)
     print(f"DOF = {degrees_of_freedom(m)}")
 
     flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
-    treat.costing.electricity_cost.fix(0.07)
+    treat.costing.electricity_cost.fix(0.0626)
     treat.costing.add_LCOW(flow_vol)
     treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
     treat.costing.initialize()
@@ -483,39 +494,11 @@ def run_permian_pretreatment():
     print(f"DOF = {degrees_of_freedom(m)}")
     try:
         results = solver.solve(m)
-    except ValueError:
+        assert_optimal_termination(results)
+        m.fs.optimal_solve.fix(1)
+    except:
+        m.fs.optimal_solve.fix(0)
         print_infeasible_constraints(m)
-    assert_optimal_termination(results)
-
-    # print(f"DOF TREATMENT BLOCK = {degrees_of_freedom(treat)}")
-    # print(f"DOF FEED = {degrees_of_freedom(treat.feed)}")
-    # print(f"DOF ZO TO SW FEED TB = {degrees_of_freedom(treat.zo_to_sw_feed)}")
-    # print(f"DOF ZO TO SW DISPOSAL TB = {degrees_of_freedom(treat.zo_to_sw_disposal)}")
-    # print(f"DOF SW TO ZO TB = {degrees_of_freedom(treat.sw_to_zo)}")
-
-    # print(f"DOF CHEM ADDITION UNIT = {degrees_of_freedom(treat.chem_addition.unit)}")
-    # print(f"DOF CHEM ADDITION FEED = {degrees_of_freedom(treat.chem_addition.feed)}")
-    # print(f"DOF CHEM ADDITION PRODUCT = {degrees_of_freedom(treat.chem_addition.product)}")
-    # print(f"DOF CHEM ADDITION DISPOSAL = {degrees_of_freedom(treat.chem_addition.disposal)}")
-
-    # print(f"DOF EC UNIT = {degrees_of_freedom(treat.EC.unit)}")
-    # print(f"DOF EC FEED = {degrees_of_freedom(treat.EC.feed)}")
-    # print(f"DOF EC PRODUCT = {degrees_of_freedom(treat.EC.product)}")
-    # print(f"DOF EC DISPOSAL = {degrees_of_freedom(treat.EC.disposal)}")
-
-    # print(f"DOF CARTRIDGE FILTRATION UNIT = {degrees_of_freedom(treat.cart_filt.unit)}")
-    # print(f"DOF CARTRIDGE FILTRATION FEED = {degrees_of_freedom(treat.cart_filt.feed)}")
-    # print(f"DOF CARTRIDGE FILTRATION PRODUCT = {degrees_of_freedom(treat.cart_filt.product)}")
-    # print(f"DOF CARTRIDGE FILTRATION DISPOSAL = {degrees_of_freedom(treat.cart_filt.disposal)}")
-
-    # print(f"DOF DESAL STATE JUNCTION = {degrees_of_freedom(treat.desal)}")
-
-    # print(f"DOF DISPOSAL ZO MIXER = {degrees_of_freedom(treat.disposal_ZO_mixer)}")
-
-    # print(f"DOF DISPOSAL SW MIXER = {degrees_of_freedom(treat.disposal_SW_mixer)}")
-
-    # print(f"DOF DWI UNIT = {degrees_of_freedom(treat.DWI.feed)}")
-    # print(f"DOF DWI UNIT = {degrees_of_freedom(treat.DWI.unit)}")
 
     print(f"LCOW = {m.fs.treatment.costing.LCOW()}")
 
@@ -524,7 +507,7 @@ def run_permian_pretreatment():
 
 if __name__ == "__main__":
 
-    m = run_permian_pretreatment()
+    m = build_and_run_permian_pretreatment(Qin=1)
     treat = m.fs.treatment
 
     print(f"DOF After Solve = {degrees_of_freedom(m)}")
@@ -578,6 +561,14 @@ if __name__ == "__main__":
     print(
         f"Translator pressure: {treat.disposal_SW_mixer.zo_mixer_state[0].pressure()} Pa"
     )
+
+    print(
+        pyunits.convert(
+            treat.product.properties[0].flow_vol_phase["Liq"],
+            to_units=pyunits.Mgallons / pyunits.day,
+        )()
+    )
+    # treat.product.properties[0].display()
 
     # treat.disposal_ZO_mixer.display()
 
