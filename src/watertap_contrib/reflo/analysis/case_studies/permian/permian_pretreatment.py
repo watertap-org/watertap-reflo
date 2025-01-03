@@ -57,8 +57,8 @@ from watertap_contrib.reflo.analysis.case_studies.permian import *
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
-rho = 1125 * pyunits.kg / pyunits.m**3
-rho_water = 995 * pyunits.kg / pyunits.m**3
+# rho = 1067.41 * pyunits.kg / pyunits.m**3
+# rho_water = 989.42 * pyunits.kg / pyunits.m**3
 
 solver = get_solver()
 
@@ -212,11 +212,11 @@ def build_permian_pretreatment(**kwargs):
     return m
 
 
-def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
+def set_operating_conditions(m,rho,rho_water,Qin=5, tds=130, **kwargs):
 
     global flow_mass_water, flow_mass_tds, flow_in
 
-    m.fs.properties.dens_mass_default = rho
+    m.fs.properties.dens_mass = rho
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
@@ -233,6 +233,32 @@ def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
     set_ec_operating_conditions(m, m.fs.treatment.EC, **kwargs)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
 
+def get_density(m, Qin=5, tds=130, **kwargs):
+
+    Qin = Qin * pyunits.Mgallons / pyunits.day
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
+
+    treat = m.fs.treatment
+    treat.feed_sw = Feed(property_package=m.fs.properties_feed)
+    m.fs.treatment.feed_sw.properties.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): flow_in,
+            ("conc_mass_phase_comp", ("Liq", "TDS")):  tds * pyunits.g / pyunits.liter,
+            ("temperature", None): 298.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+    
+    m.fs.treatment.feed_sw.initialize()
+
+    rho = m.fs.treatment.feed_sw.properties[0].dens_mass_phase["Liq"]
+    rho_water = m.fs.treatment.feed_sw.properties[0].dens_mass_solvent
+
+    print(m.fs.treatment.feed_sw.properties[0].dens_mass_phase.display())
+    print( m.fs.treatment.feed_sw.properties[0].dens_mass_solvent.display())
+
+    return [rho,rho_water]
 
 def add_treatment_costing(m):
 
@@ -422,16 +448,17 @@ def init_system(m, **kwargs):
     treat.disposal_ZO_mixer.initialize()
     propagate_state(treat.disposal_ZO_mix_to_translator)
 
-    treat.zo_to_sw_disposal.outlet.temperature[0].fix(320)
+    treat.zo_to_sw_disposal.outlet.temperature[0].fix()
     treat.zo_to_sw_disposal.outlet.pressure[0].fix()
     treat.zo_to_sw_disposal.initialize()
 
-    treat.zo_to_sw_feed.properties_out[0].temperature.fix(320)
+    treat.zo_to_sw_feed.properties_out[0].temperature.fix()
     treat.zo_to_sw_feed.properties_out[0].pressure.fix()
     treat.zo_to_sw_feed.initialize()
 
     propagate_state(treat.cart_filt_translated_to_desal)
-
+    treat.desal.properties[0].conc_mass_phase_comp
+    treat.desal.properties[0].flow_vol_phase
     treat.desal.initialize()
 
     propagate_state(treat.desal_to_product)
@@ -467,7 +494,7 @@ def solve_permian_pretreatment(m):
         print_infeasible_constraints(m)
 
 
-def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
+def build_and_run_permian_pretreatment(Qin=5, tds=200, **kwargs):
     """
     Run Permian pretreatment flowsheet
     """
@@ -476,7 +503,9 @@ def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
     m.fs.optimal_solve = Var(initialize=1)
     treat = m.fs.treatment
 
-    set_operating_conditions(m, Qin=Qin, tds=tds, **kwargs)
+    rho,rho_water = get_density(m, Qin=Qin, tds=tds, **kwargs)
+
+    set_operating_conditions(m, rho, rho_water, Qin=Qin, tds=tds, **kwargs)
     set_permian_pretreatment_scaling(m, calclate_m_scaling_factors=True)
 
     treat.feed.properties[0].flow_vol
@@ -568,12 +597,3 @@ if __name__ == "__main__":
             to_units=pyunits.Mgallons / pyunits.day,
         )()
     )
-    # treat.product.properties[0].display()
-
-    # treat.disposal_ZO_mixer.display()
-
-    # treat.zo_to_sw_disposal.display()
-
-    # treat.disposal_SW_mixer.display()
-
-    # treat.DWI.unit.properties[0.0].display()

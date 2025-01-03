@@ -53,24 +53,19 @@ from watertap.property_models.water_prop_pack import (
     WaterParameterBlock as SteamParameterBlock,
 )
 from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting
+from watertap_contrib.reflo.analysis.case_studies.permian.components import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.MD import *
-from watertap_contrib.reflo.analysis.case_studies.permian.components.cartridge_filtration import *
-from watertap_contrib.reflo.analysis.case_studies.permian.components.deep_well_injection import *
-from watertap_contrib.reflo.analysis.case_studies.permian.components.oxidation import *
-from watertap_contrib.reflo.analysis.case_studies.permian.components.EC import *
-from watertap_contrib.reflo.analysis.case_studies.permian.components.translator_sw_to_zo import *
-from watertap_contrib.reflo.analysis.case_studies.permian.components.translator_zo_to_sw import *
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
-rho = 1125 * pyunits.kg / pyunits.m**3
-rho_water = 997 * pyunits.kg / pyunits.m**3
+# rho = 1125 * pyunits.kg / pyunits.m**3
+# rho_water = 997 * pyunits.kg / pyunits.m**3
 
 solver = get_solver()
 
 __all__ = [
     "build_permian_st1_md",
-    "set_operating_conditions",
+    "set_operating_conditions_st1_md",
     "add_treatment_costing_st1_md",
     "set_permian_pretreatment_scaling_st1_md",
     "init_system_st1_md",
@@ -81,7 +76,7 @@ __all__ = [
 # Update membrane type and MD recovery
 
 
-def build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2):
+def build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.1):
     """
     Build Permian pretreatment flowsheet
     """
@@ -216,11 +211,11 @@ def build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2):
     return m
 
 
-def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
+def set_operating_conditions_st1_md(m, rho,rho_water,Qin=5, tds=130, **kwargs):
 
     global flow_mass_water, flow_mass_tds, flow_in
 
-    m.fs.properties.dens_mass_default = rho
+    m.fs.properties.dens_mass = rho
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
@@ -476,6 +471,32 @@ def init_system_st1_md(m, **kwargs):
     treat.product.properties[0].conc_mass_phase_comp
     treat.product.initialize()
 
+def get_density(m, Qin=5, tds=130, **kwargs):
+
+    Qin = Qin * pyunits.Mgallons / pyunits.day
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
+
+    treat = m.fs.treatment
+    treat.feed_sw = Feed(property_package=m.fs.properties_feed)
+    m.fs.treatment.feed_sw.properties.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): flow_in,
+            ("conc_mass_phase_comp", ("Liq", "TDS")):  tds * pyunits.g / pyunits.liter,
+            ("temperature", None): 300,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+    
+    m.fs.treatment.feed_sw.initialize()
+
+    rho = m.fs.treatment.feed_sw.properties[0].dens_mass_phase["Liq"]
+    rho_water = m.fs.treatment.feed_sw.properties[0].dens_mass_solvent
+
+    print(m.fs.treatment.feed_sw.properties[0].dens_mass_phase.display())
+    print( m.fs.treatment.feed_sw.properties[0].dens_mass_solvent.display())
+
+    return [rho,rho_water]
 
 def run_permian_st1_md():
     """
@@ -485,7 +506,9 @@ def run_permian_st1_md():
     m = build_permian_st1_md()
     treat = m.fs.treatment
 
-    set_operating_conditions(m)
+    rho,rho_water = get_density(m)
+
+    set_operating_conditions_st1_md(m,rho,rho_water)
     set_permian_pretreatment_scaling_st1_md(
         m, calclate_m_scaling_factors=True
     )  # Doesn't solve without this even before costing

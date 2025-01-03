@@ -55,7 +55,7 @@ from watertap.property_models.multicomp_aq_sol_prop_pack import (
 )
 
 # from watertap.costing.zero_order_costing import ZeroOrderCosting
-from watertap_contrib.reflo.kurby import *
+# from watertap_contrib.reflo.kurby import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
@@ -78,14 +78,14 @@ rho_water = 995 * pyunits.kg / pyunits.m**3
 
 solver = get_solver()
 
-__all__ = [
-    "build_permian_SOA",
-    "set_operating_conditions_SOA",
-    "add_treatment_costing",
-    "set_SOA_scaling",
-    "init_SOA_system",
-    "run_permian_SOA",
-]
+# __all__ = [
+#     "build_permian_SOA",
+#     "set_operating_conditions_SOA",
+#     "add_treatment_costing",
+#     "set_SOA_scaling",
+#     "init_SOA_system",
+#     "run_permian_SOA",
+# ]
 
 
 def build_permian_SOA(
