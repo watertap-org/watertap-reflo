@@ -346,9 +346,6 @@ def init_SOA_system(m, mvc_inlet_temp=50, **kwargs):
     assert False
 
 
-
-
-
 def run_permian_SOA(recovery=0.5, **kwargs):
     """
     Run Permian state-of-the-art case study
@@ -373,7 +370,7 @@ def run_permian_SOA(recovery=0.5, **kwargs):
     # assert False
 
     init_SOA_system(m)
-    
+
     # check_jac(m)
     # mvc.evaporator.display()
     # assert False

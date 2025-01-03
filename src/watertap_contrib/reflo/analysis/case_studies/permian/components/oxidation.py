@@ -134,8 +134,8 @@ def set_system_operating_conditions(m, Qin=5, tds=130):
 def set_chem_addition_scaling(m, blk, calc_blk_scaling_factors=False):
 
     set_scaling_factor(blk.unit.chemical_dosage, 0.1)
-    set_scaling_factor(blk.unit.solution_density, 1e-2)
-    set_scaling_factor(blk.unit.chemical_flow_vol, 1e5)
+    set_scaling_factor(blk.unit.solution_density, 1e-3)
+    set_scaling_factor(blk.unit.chemical_flow_vol, 1e6)
     set_scaling_factor(blk.unit.electricity, 1e4)
 
     # Calculate scaling factors only for chem addition block if in full case study flowsheet

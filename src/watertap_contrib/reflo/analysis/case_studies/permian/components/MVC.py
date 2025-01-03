@@ -617,7 +617,7 @@ def init_mvc(
     blk.separator.mixed_state[0].mass_frac_phase_comp["Liq", "TDS"]
     blk.separator.split_fraction[0, "hx_distillate_cold"].fix(blk.recovery_mass.value)
     blk.separator.mixed_state.initialize(optarg=optarg, solver="ipopt-watertap")
-    
+
     # Touch properties for initialization
     blk.separator.hx_brine_cold_state[0].mass_frac_phase_comp["Liq", "TDS"]
     blk.separator.hx_distillate_cold_state[0].mass_frac_phase_comp["Liq", "TDS"]
