@@ -55,7 +55,7 @@ from watertap.property_models.multicomp_aq_sol_prop_pack import (
 )
 
 # from watertap.costing.zero_order_costing import ZeroOrderCosting
-from watertap_contrib.reflo.kurby import *
+# from watertap_contrib.reflo.kurby import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
