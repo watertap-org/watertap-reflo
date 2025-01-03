@@ -119,6 +119,9 @@ def build_and_run_mvc(recovery=0.5, Qin=4.9, tds=118, **kwargs):
     mvc.evaporator.area.fix()
     mvc.hx_distillate.area.fix()
     mvc.hx_brine.area.fix()
+    mvc.compressor.pressure_ratio.fix()
+    print(f"dof = {degrees_of_freedom(m)}")
+    assert degrees_of_freedom(m) == 0
     m.fs.product.properties[0].flow_vol_phase
     m.fs.product.properties[0].conc_mass_phase_comp
     m.fs.product.initialize()
