@@ -79,16 +79,12 @@ rho_water = 995 * pyunits.kg / pyunits.m**3
 solver = get_solver()
 
 __all__ = [
-    "build_permian_SOA",
-    "set_operating_conditions_SOA",
-    "add_treatment_costing",
-    "set_SOA_scaling",
-    "init_SOA_system",
-    "run_permian_SOA",
+    "build_and_run_permian_SOA",
+    "solve_permian_SOA"
 ]
 
 
-def build_permian_SOA(
+def build_and_run_permian_SOA(
     pretreatment_recovery=0.98, recovery=0.5, Qin=5, tds=130, **kwargs
 ):
     m_pre = build_and_run_permian_pretreatment(Qin=Qin, tds=tds, **kwargs)
@@ -254,7 +250,7 @@ if __name__ == "__main__":
 
     from watertap_contrib.reflo.kurby import *
 
-    m, m_pre, m_mvc, m_dwi = build_permian_SOA(Qin=2.05, tds=130)
+    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=2.05, tds=130)
 
     # results_dict = build_results_dict(m)
     # results_dict["flow_mgd"] = list()
@@ -268,7 +264,7 @@ if __name__ == "__main__":
     qs = np.arange(1, 10 + 0.5, 0.5)
     salt = np.arange(75, 180, 5)
 
-    recovery = [0.4]
+    recovery = [0.4, 0.45, 0.5, 0.55, 0.6, 0.65]
     qs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     salt = [75, 90, 105, 120, 130, 135, 150, 165]
 
@@ -303,13 +299,13 @@ if __name__ == "__main__":
                 rerun = 0
                 tds = s
                 try:
-                    m, m_pre, m_mvc, m_dwi = build_permian_SOA(
+                    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(
                         Qin=q, tds=tds, recovery=r
                     )
                 except:
                     rerun = 1
                     # tds = s * 1.01
-                    m, m_pre, m_mvc, m_dwi = build_permian_SOA(
+                    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(
                         Qin=q + 0.025, tds=s * 1.01, recovery=r
                     )
                 tmp_results_dict = results_dict_append(m, tmp_results_dict)
@@ -350,4 +346,4 @@ if __name__ == "__main__":
     results_df_pre.to_csv(f"permian_soa_results_pre_{timestr}.csv", index=False)
     results_df_mvc.to_csv(f"permian_soa_results_mvc_{timestr}.csv", index=False)
     results_df_dwi.to_csv(f"permian_soa_results_dwi_{timestr}.csv", index=False)
-    # # m = build_permian_SOA(Qin=5, tds=105)
+    # # m = build_and_run_permian_SOA(Qin=5, tds=105)
