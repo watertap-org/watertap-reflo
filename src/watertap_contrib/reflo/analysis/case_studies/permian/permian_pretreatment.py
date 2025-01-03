@@ -72,6 +72,32 @@ __all__ = [
 ]
 
 
+def get_stream_density(Qin=5, tds=130, **kwargs):
+    global rho
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    Qin = Qin * pyunits.Mgallons / pyunits.day
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
+    m.fs.properties_feed = SeawaterParameterBlock()
+    m.fs.feed_sw = Feed(property_package=m.fs.properties_feed)
+    m.fs.feed_sw.properties.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): flow_in,
+            ("conc_mass_phase_comp", ("Liq", "TDS")): tds * pyunits.g / pyunits.liter,
+            ("temperature", None): 298.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    m.fs.feed_sw.initialize()
+
+    rho = m.fs.feed_sw.properties[0].dens_mass_phase["Liq"]
+
+    # print(m.fs.feed_sw.properties[0].dens_mass_phase.display())
+
+
 def build_permian_pretreatment(**kwargs):
     """
     Build Permian pretreatment flowsheet
@@ -82,6 +108,7 @@ def build_permian_pretreatment(**kwargs):
     m.db = REFLODatabase()
 
     m.fs.properties = ZO(solute_list=["tds"])
+    m.fs.properties.dens_mass_default = rho
 
     m.fs.properties_feed = SeawaterParameterBlock()
     m.fs.properties_vapor = SteamParameterBlock()
@@ -216,16 +243,16 @@ def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
 
     global flow_mass_water, flow_mass_tds, flow_in
 
-    m.fs.properties.dens_mass_default = rho
-
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
-    flow_mass_water = pyunits.convert(Qin * rho_water, to_units=pyunits.kg / pyunits.s)
+    flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
     flow_mass_tds = pyunits.convert(
         Qin * tds * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.s
     )
 
-    m.fs.treatment.feed.properties[0].flow_mass_comp["H2O"].fix(flow_mass_water)
+    m.fs.treatment.feed.properties[0].flow_mass_comp["H2O"].fix(
+        flow_mass_water - flow_mass_tds
+    )
     m.fs.treatment.feed.properties[0].flow_mass_comp["tds"].fix(flow_mass_tds)
     m.fs.treatment.feed.properties[0].conc_mass_comp[...]
 
@@ -287,8 +314,6 @@ def set_permian_pretreatment_scaling(m, calclate_m_scaling_factors=False, **kwar
     set_cart_filt_scaling(m, m.fs.treatment.cart_filt, calc_blk_scaling_factors=True)
 
     set_ec_scaling(m, m.fs.treatment.EC, calc_blk_scaling_factors=True)
-
-    # set_mvc_scaling(m, m.fs.treatment.MVC, calc_blk_scaling_factors=True)
 
     set_scaling_factor(
         m.fs.treatment.product.properties[0].flow_mass_phase_comp["Liq", "H2O"], 1e-2
@@ -471,6 +496,7 @@ def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
     """
     Run Permian pretreatment flowsheet
     """
+    get_stream_density(Qin=Qin, tds=tds)
 
     m = build_permian_pretreatment()
     m.fs.optimal_solve = Var(initialize=1)
@@ -538,7 +564,11 @@ if __name__ == "__main__":
     )
 
     print(
-        f'CF feed TDS conc: {treat.cart_filt.product.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
+        f'CF feed TDS conc: {treat.cart_filt.feed.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.feed.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'CF product TDS conc: {treat.cart_filt.product.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
     )
 
     print(
@@ -568,12 +598,3 @@ if __name__ == "__main__":
             to_units=pyunits.Mgallons / pyunits.day,
         )()
     )
-    # treat.product.properties[0].display()
-
-    # treat.disposal_ZO_mixer.display()
-
-    # treat.zo_to_sw_disposal.display()
-
-    # treat.disposal_SW_mixer.display()
-
-    # treat.DWI.unit.properties[0.0].display()

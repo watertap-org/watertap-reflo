@@ -78,10 +78,7 @@ rho_water = 995 * pyunits.kg / pyunits.m**3
 
 solver = get_solver()
 
-__all__ = [
-    "build_and_run_permian_SOA",
-    "solve_permian_SOA"
-]
+__all__ = ["build_and_run_permian_SOA", "solve_permian_SOA"]
 
 
 def build_and_run_permian_SOA(

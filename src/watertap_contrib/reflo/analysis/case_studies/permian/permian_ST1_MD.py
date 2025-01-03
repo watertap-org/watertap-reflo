@@ -76,6 +76,30 @@ __all__ = [
 # Update membrane type and MD recovery
 
 
+def get_stream_density(Qin=5, tds=130, **kwargs):
+    global rho
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    Qin = Qin * pyunits.Mgallons / pyunits.day
+    flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
+    m.fs.properties_feed = SeawaterParameterBlock()
+    m.fs.feed_sw = Feed(property_package=m.fs.properties_feed)
+    m.fs.feed_sw.properties.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): flow_in,
+            ("conc_mass_phase_comp", ("Liq", "TDS")): tds * pyunits.g / pyunits.liter,
+            ("temperature", None): 298.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    m.fs.feed_sw.initialize()
+
+    rho = m.fs.feed_sw.properties[0].dens_mass_phase["Liq"]
+
+
 def build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.1):
     """
     Build Permian pretreatment flowsheet
@@ -86,6 +110,7 @@ def build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.1):
     m.db = REFLODatabase()
 
     m.fs.properties = ZO(solute_list=["tds"])
+    m.fs.properties.dens_mass_default = rho
 
     m.fs.properties_feed = SeawaterParameterBlock()
     m.fs.properties_vapor = SteamParameterBlock()
@@ -211,20 +236,20 @@ def build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.1):
     return m
 
 
-def set_operating_conditions_st1_md(m, rho,rho_water,Qin=5, tds=130, **kwargs):
+def set_operating_conditions_st1_md(m, rho, rho_water, Qin=5, tds=130, **kwargs):
 
     global flow_mass_water, flow_mass_tds, flow_in
 
-    m.fs.properties.dens_mass = rho
-
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
-    flow_mass_water = pyunits.convert(Qin * rho_water, to_units=pyunits.kg / pyunits.s)
+    flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
     flow_mass_tds = pyunits.convert(
         Qin * tds * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.s
     )
 
-    m.fs.treatment.feed.properties[0].flow_mass_comp["H2O"].fix(flow_mass_water)
+    m.fs.treatment.feed.properties[0].flow_mass_comp["H2O"].fix(
+        flow_mass_water - flow_mass_tds
+    )
     m.fs.treatment.feed.properties[0].flow_mass_comp["tds"].fix(flow_mass_tds)
     m.fs.treatment.feed.properties[0].conc_mass_comp[...]
 
@@ -471,6 +496,7 @@ def init_system_st1_md(m, **kwargs):
     treat.product.properties[0].conc_mass_phase_comp
     treat.product.initialize()
 
+
 def get_density(m, Qin=5, tds=130, **kwargs):
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
@@ -481,34 +507,36 @@ def get_density(m, Qin=5, tds=130, **kwargs):
     m.fs.treatment.feed_sw.properties.calculate_state(
         var_args={
             ("flow_vol_phase", "Liq"): flow_in,
-            ("conc_mass_phase_comp", ("Liq", "TDS")):  tds * pyunits.g / pyunits.liter,
+            ("conc_mass_phase_comp", ("Liq", "TDS")): tds * pyunits.g / pyunits.liter,
             ("temperature", None): 300,
             ("pressure", None): 101325,
         },
         hold_state=True,
     )
-    
+
     m.fs.treatment.feed_sw.initialize()
 
     rho = m.fs.treatment.feed_sw.properties[0].dens_mass_phase["Liq"]
     rho_water = m.fs.treatment.feed_sw.properties[0].dens_mass_solvent
 
     print(m.fs.treatment.feed_sw.properties[0].dens_mass_phase.display())
-    print( m.fs.treatment.feed_sw.properties[0].dens_mass_solvent.display())
+    print(m.fs.treatment.feed_sw.properties[0].dens_mass_solvent.display())
 
-    return [rho,rho_water]
+    return [rho, rho_water]
 
-def run_permian_st1_md():
+
+def run_permian_st1_md(Qin=5, tds=130, **kwargs):
     """
     Run Permian pretreatment flowsheet
     """
+    get_stream_density(Qin, tds)
 
     m = build_permian_st1_md()
     treat = m.fs.treatment
 
-    rho,rho_water = get_density(m)
+    rho, rho_water = get_density(m)
 
-    set_operating_conditions_st1_md(m,rho,rho_water)
+    set_operating_conditions_st1_md(m, rho, rho_water)
     set_permian_pretreatment_scaling_st1_md(
         m, calclate_m_scaling_factors=True
     )  # Doesn't solve without this even before costing
@@ -584,7 +612,7 @@ def run_permian_st1_md():
 
 if __name__ == "__main__":
 
-    m = run_permian_st1_md()
+    m = run_permian_st1_md(Qin=5, tds=130)
     treat = m.fs.treatment
     report_MD(m, treat.md)
     print(f"DOF = {degrees_of_freedom(m)}")

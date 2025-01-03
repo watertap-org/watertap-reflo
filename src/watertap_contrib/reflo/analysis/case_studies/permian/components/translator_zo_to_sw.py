@@ -62,7 +62,6 @@ class Translator_ZO_to_SW_Data(TranslatorData):
         def eq_flow_mass_water(blk, t):
             return (
                 blk.properties_out[t].flow_mass_phase_comp["Liq", "H2O"]
-                # * 1.0539167632118351
                 == blk.properties_in[t].flow_mass_comp["H2O"]
             )
 
@@ -72,8 +71,8 @@ class Translator_ZO_to_SW_Data(TranslatorData):
         )
         def eq_flow_mass_tds(blk, t):
             return (
-                blk.properties_out[t].conc_mass_phase_comp["Liq", "TDS"]
-                == blk.properties_in[t].conc_mass_comp["tds"]
+                blk.properties_out[t].flow_mass_phase_comp["Liq", "TDS"]
+                == blk.properties_in[t].flow_mass_comp["tds"]
             )
 
     def initialize_build(
