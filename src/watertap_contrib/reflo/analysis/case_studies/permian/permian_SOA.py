@@ -96,7 +96,7 @@ def build_and_run_permian_SOA(
     )()
     flow_to_mvc = Qin * pretreatment_recovery
     tds_to_mvc = pyunits.convert(
-        m_pre.fs.treatment.product.properties[0].conc_mass_phase_comp["Liq", "TDS"],
+        m_pre.cart_filt.product.properties[0].conc_mass_comp["tds"],
         to_units=pyunits.gram / pyunits.liter,
     )()
     print(f"Flow to MVC: {flow_to_mvc} MGD")
