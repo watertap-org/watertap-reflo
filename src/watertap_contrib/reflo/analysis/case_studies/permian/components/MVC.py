@@ -94,8 +94,8 @@ def build_and_run_mvc(recovery=0.5, Qin=4.9, tds=118, **kwargs):
 
     m = build_mvc_system(recovery=recovery)
     mvc = m.fs.MVC
-    m.fs.optimal_solve = Var(initialize=1)
-    m.fs.optimal_solve.fix()
+    m.fs.optimal_solve_mvc = Var(initialize=0)
+    m.fs.optimal_solve_mvc.fix()
     set_system_operating_conditions(m, Qin=Qin, tds=tds, feed_temp=25)
     set_mvc_operating_conditions(m, mvc)
     set_mvc_scaling(m, mvc)
@@ -111,30 +111,38 @@ def build_and_run_mvc(recovery=0.5, Qin=4.9, tds=118, **kwargs):
     mvc.hx_brine.area.unfix()
     mvc.recovery_mass.unfix()
     mvc.recovery_vol.fix(m.recovery_vol)
+    print(f"\n~~~~~FOURTH MVC SOLVE~~~~")
     try:
         results = solve_mvc(m)
+        print(f"termination MVC FOURTH {results.solver.termination_condition}")
     except:
         pass
 
-    mvc.evaporator.area.fix()
-    mvc.hx_distillate.area.fix()
-    mvc.hx_brine.area.fix()
-    mvc.compressor.pressure_ratio.fix()
-    print(f"dof = {degrees_of_freedom(m)}")
-    assert degrees_of_freedom(m) == 0
+    display_metrics(m, mvc)
+    display_design(m, mvc)
+    # del m.fs.costing.LCOW_obj
+    # mvc.evaporator.area.fix()
+    # mvc.hx_distillate.area.fix()
+    # mvc.hx_brine.area.fix()
+    mvc.compressor.pressure_ratio.fix(1.6)
+    print(f"dof MVC FINAL = {degrees_of_freedom(m)}")
+    # assert degrees_of_freedom(m) == 0
     m.fs.product.properties[0].flow_vol_phase
-    m.fs.product.properties[0].conc_mass_phase_comp
+    # m.fs.product.properties[0].conc_mass_phase_comp
     m.fs.product.initialize()
     m.fs.disposal.properties[0].flow_vol_phase
-    m.fs.disposal.properties[0].conc_mass_phase_comp
+    # m.fs.disposal.properties[0].conc_mass_phase_comp
+
+    print(f"\n~~~~~FINAL MVC SOLVE~~~~")
     try:
         results = solve_mvc(m)
+        print(f"termination MVC FINAL {results.solver.termination_condition}")
         if not check_optimal_termination(results):
-            m.fs.optimal_solve.fix(0)
+            m.fs.optimal_solve_mvc.fix(0)
     except:
         pass
     # m.fs.costing.LCOW.display()
-    # assert False
+
     display_metrics(m, mvc)
     display_design(m, mvc)
 
@@ -145,14 +153,14 @@ def solve_mvc(m):
     solver = get_solver()
     try:
         results = solver.solve(m, tee=False)
-        print(f"termination {results.solver.termination_condition}")
+        print(f"termination MVC {results.solver.termination_condition}")
         assert_optimal_termination(results)
-        m.fs.optimal_solve.fix(1)
+        m.fs.optimal_solve_mvc.fix(1)
     except:
         results = solver.solve(m, tee=False)
-        print(f"termination {results.solver.termination_condition}")
+        print(f"termination MVC {results.solver.termination_condition}")
         assert_optimal_termination(results)
-        m.fs.optimal_solve.fix(1)
+        m.fs.optimal_solve_mvc.fix(1)
 
     return results
 
@@ -265,7 +273,7 @@ def build_mvc(m, blk, external_heating=True):
     # Set lower bound of approach temperatures
     blk.hx_distillate.delta_temperature_in.setlb(0)
     blk.hx_distillate.delta_temperature_out.setlb(0)
-    blk.hx_distillate.area.setlb(10)
+    blk.hx_distillate.area.setlb(5)
 
     blk.hx_brine = HeatExchanger(
         hot_side_name="hot",
@@ -281,7 +289,7 @@ def build_mvc(m, blk, external_heating=True):
     # Set lower bound of approach temperatures
     blk.hx_brine.delta_temperature_in.setlb(0)
     blk.hx_brine.delta_temperature_out.setlb(0)
-    blk.hx_brine.area.setlb(10)
+    blk.hx_brine.area.setlb(5)
 
     blk.mixer_feed = Mixer(
         property_package=m.fs.properties_feed,
@@ -759,9 +767,9 @@ def init_mvc(
     print(f"blk dof = {degrees_of_freedom(blk)}")
     print(f"model dof = {degrees_of_freedom(m)}")
     results = solver.solve(blk, tee=False)
-    print(f"MVC solve termination {results.solver.termination_condition}")
-    _log.info(f"MVC solve termination {results.solver.termination_condition}")
     assert_optimal_termination(results)
+    print(f"MVC FIRST solve termination {results.solver.termination_condition}")
+    _log.info(f"MVC FIRST solve termination {results.solver.termination_condition}")
     display_metrics(m, blk)
     display_design(m, blk)
 
@@ -779,9 +787,9 @@ def init_mvc(
     print(f"blk dof = {degrees_of_freedom(blk)}")
     print(f"model dof = {degrees_of_freedom(m)}")
     results = solver.solve(blk, tee=False)
-    print(f"MVC solve termination {results.solver.termination_condition}")
-    _log.info(f"MVC solve termination {results.solver.termination_condition}")
     assert_optimal_termination(results)
+    print(f"MVC SECOND solve termination {results.solver.termination_condition}")
+    _log.info(f"MVC SECOND solve termination {results.solver.termination_condition}")
 
     display_metrics(m, blk)
     display_design(m, blk)
@@ -797,18 +805,20 @@ def init_mvc(
             v.fix(value(feed_state_vars[k]))
     try:
         print(f"\n~~~~~THIRD SOLVE~~~~")
-        blk.feed.initialize()
-        m.fs.costing.initialize()
         print(f"blk dof = {degrees_of_freedom(blk)}")
         print(f"model dof = {degrees_of_freedom(m)}")
+        blk.feed.initialize()
+        m.fs.costing.initialize()
         results = solver.solve(blk, tee=False)
-        print(f"MVC solve termination {results.solver.termination_condition}")
-        _log.info(f"MVC solve termination {results.solver.termination_condition}")
+        # results = solve_mvc(blk)
         assert_optimal_termination(results)
+        print(f"MVC THIRD solve termination {results.solver.termination_condition}")
+        _log.info(f"MVC THIRD solve termination {results.solver.termination_condition}")
 
         display_metrics(m, blk)
         display_design(m, blk)
     except:
+        print(f"MVC THIRD SOLVE FAILED!!\n")
         pass
 
     # print(f"\n~~~~~FOURTH SOLVE~~~~")
@@ -1208,10 +1218,33 @@ def scale_mvc_costs(m, blk):
 
 
 if __name__ == "__main__":
-    m = build_and_run_mvc(recovery=0.4, Qin=1, tds=75)
-    m.fs.MVC.recovery_vol.display()
+    m = build_and_run_mvc(recovery=0.5, Qin=5.01, tds=130)
+    # m.fs.MVC.recovery_vol.display()
     # m.fs.costing.total_capital_cost.display()
     # m.fs.costing.total_operating_cost.display()
     # m.fs.product.properties[0].flow_vol_phase.display()
     # m.fs.MVC.product.properties[0].flow_vol_phase.display()
-    m.fs.costing.LCOW.display()
+    # m.fs.costing.LCOW.display()
+
+
+## USED TO RE-INIT MVC @ THIRD SOLVE
+# blk.condenser.initialize(heat=-blk.evaporator.heat_transfer.value)
+
+# blk.external_heating.fix()
+# blk.evaporator.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"].fix()
+# blk.evaporator.initialize(
+#     delta_temperature_in=delta_temperature_in,
+#     delta_temperature_out=delta_temperature_out,
+#     solver="ipopt-watertap",
+# )
+# blk.external_heating.unfix()
+# blk.evaporator.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
+
+# blk.separator.split_fraction[0, "hx_distillate_cold"].fix(
+#     blk.recovery_mass.value
+# )
+# blk.separator.initialize(solver="ipopt-watertap")
+# blk.separator.split_fraction[0, "hx_distillate_cold"].unfix()
+
+# blk.mixer_feed.initialize(solver="ipopt-watertap")
+# blk.mixer_feed.pressure_equality_constraints[0, 2].deactivate()

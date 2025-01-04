@@ -67,8 +67,9 @@ __all__ = [
 def build_and_run_dwi(Qin=5, tds=130, **kwargs):
 
     m = build_system()
-    m.fs.optimal_solve = Var(initialize=1)
-    m.fs.optimal_solve.fix()
+    m.fs.optimal_solve_dwi = Var(initialize=1)
+    m.fs.optimal_solve_dwi.fix()
+    m.fs.feed.properties[0].conc_mass_phase_comp
     add_dwi_costing(m, m.fs.DWI)
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(m.fs.feed.properties[0].flow_vol_phase["Liq"])
@@ -80,9 +81,9 @@ def build_and_run_dwi(Qin=5, tds=130, **kwargs):
     results = solver.solve(m)
     # assert_optimal_termination(results)
     if not check_optimal_termination(results):
-        m.fs.optimal_solve.fix(0)
-
-    print(f"LCOW = {m.fs.costing.LCOW()}")
+        m.fs.optimal_solve_dwi.fix(0)
+    # m.fs.feed.properties[0].conc_mass_phase_comp.display()
+    # print(f"LCOW = {m.fs.costing.LCOW()}")
 
     return m
 
@@ -125,10 +126,20 @@ def set_system_operating_conditions(m, Qin=5, tds=130):
         Qin * tds * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.s
     )
 
-    m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_water)
-    m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"].fix(flow_mass_tds)
-    m.fs.feed.properties[0].temperature.fix(293)
-    m.fs.feed.properties[0].pressure.fix(101325)
+    m.fs.feed.properties.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): flow_in,
+            ("conc_mass_phase_comp", ("Liq", "TDS")): tds * pyunits.g / pyunits.liter,
+            ("temperature", None): 298.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    # m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_water)
+    # m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"].fix(flow_mass_tds)
+    # m.fs.feed.properties[0].temperature.fix(293)
+    # m.fs.feed.properties[0].pressure.fix(101325)
 
     m.fs.properties.set_default_scaling(
         "flow_mass_phase_comp",

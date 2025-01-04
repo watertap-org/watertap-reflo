@@ -85,33 +85,48 @@ def build_and_run_permian_SOA(
     pretreatment_recovery=0.98, recovery=0.5, Qin=5, tds=130, **kwargs
 ):
     m_pre = build_and_run_permian_pretreatment(Qin=Qin, tds=tds, **kwargs)
+
     # results = solve_permian_SOA(m_pre)
     # m.fs.treatment.product.display()
-    flow_to_mvc = pyunits.convert(
-        m_pre.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
-        to_units=pyunits.Mgallons / pyunits.day,
-    )()
+    flow_to_mvc = value(
+        pyunits.convert(
+            m_pre.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
+            to_units=pyunits.Mgallons / pyunits.day,
+        )
+    )
     flow_to_mvc = Qin * pretreatment_recovery
-    tds_to_mvc = pyunits.convert(
-        m_pre.cart_filt.product.properties[0].conc_mass_comp["tds"],
-        to_units=pyunits.gram / pyunits.liter,
-    )()
-    print(f"Flow to MVC: {flow_to_mvc} MGD")
-    print(f"TDS to MVC: {tds_to_mvc} g/L")
+    tds_to_mvc = value(
+        pyunits.convert(
+            m_pre.fs.treatment.product.properties[0].conc_mass_phase_comp["Liq", "TDS"],
+            to_units=pyunits.gram / pyunits.liter,
+        )
+    )
+    # print(f"Flow to MVC: {flow_to_mvc} MGD")
+    # print(f"TDS to MVC: {tds_to_mvc} g/L")
+    # assert False
     # assert False
     m_mvc = build_and_run_mvc(
         recovery=recovery, Qin=Qin * pretreatment_recovery, tds=tds_to_mvc, **kwargs
     )
     # results = solve_permian_SOA(m_mvc)
+    m_mvc.fs.disposal.properties[0].flow_vol_phase
+    m_mvc.fs.disposal.properties[0].conc_mass_phase_comp
+    m_mvc.fs.disposal.initialize()
 
-    flow_to_dwi = pyunits.convert(
-        m_mvc.fs.disposal.properties[0].flow_vol_phase["Liq"],
-        to_units=pyunits.Mgallons / pyunits.day,
-    )()
-    tds_to_dwi = pyunits.convert(
-        m_mvc.fs.disposal.properties[0].conc_mass_phase_comp["Liq", "TDS"],
-        to_units=pyunits.gram / pyunits.liter,
-    )()
+    flow_to_dwi = value(
+        pyunits.convert(
+            m_mvc.fs.disposal.properties[0].flow_vol_phase["Liq"],
+            to_units=pyunits.Mgallons / pyunits.day,
+        )
+    )
+    tds_to_dwi = value(
+        pyunits.convert(
+            m_mvc.fs.disposal.properties[0].conc_mass_phase_comp["Liq", "TDS"],
+            to_units=pyunits.gram / pyunits.liter,
+        )
+    )
+    # m_mvc.fs.disposal.properties[0].display()
+    # assert False
     m_dwi = build_and_run_dwi(Qin=flow_to_dwi, tds=tds_to_dwi, **kwargs)
     # results = solve_permian_SOA(m_dwi)
 
@@ -138,6 +153,8 @@ def build_and_run_permian_SOA(
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = Block()
+    m.fs.optimal_solve_system = Var(initialize=1)
+    m.fs.optimal_solve_system.fix(1)
 
     m.fs.recovery = Var(initialize=recovery)
     m.fs.recovery.fix()
@@ -228,7 +245,7 @@ def build_and_run_permian_SOA(
         f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% FINISHED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
     )
     print(
-        f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% {Qin}, {tds} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+        f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% {Qin}, {tds}, {recovery} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
     )
     print(
         f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
@@ -239,7 +256,10 @@ def build_and_run_permian_SOA(
 def solve_permian_SOA(m):
     solver = get_solver()
     results = solver.solve(m)
-    assert_optimal_termination(results)
+    if not check_optimal_termination(results):
+        results = solver.solve(m)
+        if not check_optimal_termination(results):
+            m.fs.optimal_solve_system.fix(0)
     return results
 
 
@@ -247,100 +267,113 @@ if __name__ == "__main__":
 
     from watertap_contrib.reflo.kurby import *
 
-    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=2.05, tds=130)
+    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=5, tds=130)
 
     # results_dict = build_results_dict(m)
     # results_dict["flow_mgd"] = list()
     # results_dict["tds"] = list()
 
-    recovery = [0.4, 0.45]
-    qs = [5]
-    salt = [90, 130]
+    # recovery = [0.4, 0.45]
+    # qs = [5]
+    # salt = [90, 130]
 
-    recovery = np.arange(0.4, 0.61, 0.01)
-    qs = np.arange(1, 10 + 0.5, 0.5)
-    salt = np.arange(75, 180, 5)
+    # recovery = np.arange(0.4, 0.61, 0.01)
+    # qs = np.arange(1, 10 + 0.5, 0.5)
+    # salt = np.arange(75, 180, 5)
 
-    recovery = [0.4, 0.45, 0.5, 0.55, 0.6, 0.65]
-    qs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    salt = [75, 90, 105, 120, 130, 135, 150, 165]
+    # recovery = [0.4, 0.45, 0.5, 0.55, 0.6, 0.65]
+    # recovery = [0.45]
+    # qs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    # salt = [75, 90, 105, 120, 130, 135, 150, 165]
 
-    results_df = pd.DataFrame()
-    results_df_pre = pd.DataFrame()
-    results_df_mvc = pd.DataFrame()
-    results_df_dwi = pd.DataFrame()
+    # results_df = pd.DataFrame()
+    # results_df_pre = pd.DataFrame()
+    # results_df_mvc = pd.DataFrame()
+    # results_df_dwi = pd.DataFrame()
 
-    for r in recovery:
+    # for r in recovery:
 
-        tmp_results_dict = build_results_dict(m)
-        tmp_results_dict["flow_mgd"] = list()
-        tmp_results_dict["tds"] = list()
-        tmp_results_dict["rerun"] = list()
+    #     tmp_results_dict = build_results_dict(m)
+    #     tmp_results_dict["flow_mgd"] = list()
+    #     tmp_results_dict["tds"] = list()
+    #     tmp_results_dict["rerun"] = list()
 
-        tmp_results_dict_pre = build_results_dict(m_pre)
-        tmp_results_dict_pre["flow_mgd"] = list()
-        tmp_results_dict_pre["tds"] = list()
-        tmp_results_dict_pre["rerun"] = list()
+    #     tmp_results_dict_pre = build_results_dict(m_pre)
+    #     tmp_results_dict_pre["flow_mgd"] = list()
+    #     tmp_results_dict_pre["tds"] = list()
+    #     tmp_results_dict_pre["rerun"] = list()
 
-        tmp_results_dict_mvc = build_results_dict(m_mvc)
-        tmp_results_dict_mvc["flow_mgd"] = list()
-        tmp_results_dict_mvc["tds"] = list()
-        tmp_results_dict_mvc["rerun"] = list()
+    #     tmp_results_dict_mvc = build_results_dict(m_mvc)
+    #     tmp_results_dict_mvc["flow_mgd"] = list()
+    #     tmp_results_dict_mvc["tds"] = list()
+    #     tmp_results_dict_mvc["rerun"] = list()
 
-        tmp_results_dict_dwi = build_results_dict(m_dwi)
-        tmp_results_dict_dwi["flow_mgd"] = list()
-        tmp_results_dict_dwi["tds"] = list()
-        tmp_results_dict_dwi["rerun"] = list()
-        for q in qs:
-            for s in salt:
-                rerun = 0
-                tds = s
-                try:
-                    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(
-                        Qin=q, tds=tds, recovery=r
-                    )
-                except:
-                    rerun = 1
-                    # tds = s * 1.01
-                    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(
-                        Qin=q + 0.025, tds=s * 1.01, recovery=r
-                    )
-                tmp_results_dict = results_dict_append(m, tmp_results_dict)
-                tmp_results_dict["flow_mgd"].append(q)
-                tmp_results_dict["tds"].append(tds)
-                tmp_results_dict["rerun"].append(rerun)
+    #     tmp_results_dict_dwi = build_results_dict(m_dwi)
+    #     tmp_results_dict_dwi["flow_mgd"] = list()
+    #     tmp_results_dict_dwi["tds"] = list()
+    #     tmp_results_dict_dwi["rerun"] = list()
+    #     for q in qs:
+    #         for s in salt:
+    #             rerun = 0
+    #             tds = s
+    #             try:
+    #                 m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(
+    #                     Qin=q, tds=tds, recovery=r
+    #                 )
+    #             except:
+    #                 rerun = 1
+    #                 # tds = s * 1.01
+    #                 m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(
+    #                     Qin=q + 0.01, tds=s * 1.01, recovery=r
+    #                 )
+    #             tmp_results_dict = results_dict_append(m, tmp_results_dict)
+    #             tmp_results_dict["flow_mgd"].append(q)
+    #             tmp_results_dict["tds"].append(tds)
+    #             tmp_results_dict["rerun"].append(rerun)
 
-                tmp_results_dict_pre = results_dict_append(m_pre, tmp_results_dict_pre)
-                tmp_results_dict_pre["flow_mgd"].append(q)
-                tmp_results_dict_pre["tds"].append(tds)
-                tmp_results_dict_pre["rerun"].append(rerun)
+    #             tmp_results_dict_pre = results_dict_append(m_pre, tmp_results_dict_pre)
+    #             tmp_results_dict_pre["flow_mgd"].append(q)
+    #             tmp_results_dict_pre["tds"].append(tds)
+    #             tmp_results_dict_pre["rerun"].append(rerun)
 
-                tmp_results_dict_mvc = results_dict_append(m_mvc, tmp_results_dict_mvc)
-                tmp_results_dict_mvc["flow_mgd"].append(q)
-                tmp_results_dict_mvc["tds"].append(tds)
-                tmp_results_dict_mvc["rerun"].append(rerun)
+    #             tmp_results_dict_mvc = results_dict_append(m_mvc, tmp_results_dict_mvc)
+    #             tmp_results_dict_mvc["flow_mgd"].append(q)
+    #             tmp_results_dict_mvc["tds"].append(tds)
+    #             tmp_results_dict_mvc["rerun"].append(rerun)
 
-                tmp_results_dict_dwi = results_dict_append(m_dwi, tmp_results_dict_dwi)
-                tmp_results_dict_dwi["flow_mgd"].append(q)
-                tmp_results_dict_dwi["tds"].append(tds)
-                tmp_results_dict_dwi["rerun"].append(rerun)
+    #             tmp_results_dict_dwi = results_dict_append(m_dwi, tmp_results_dict_dwi)
+    #             tmp_results_dict_dwi["flow_mgd"].append(q)
+    #             tmp_results_dict_dwi["tds"].append(tds)
+    #             tmp_results_dict_dwi["rerun"].append(rerun)
 
-        results_df = pd.concat([results_df, pd.DataFrame.from_dict(tmp_results_dict)])
-        results_df_pre = pd.concat(
-            [results_df_pre, pd.DataFrame.from_dict(tmp_results_dict_pre)]
-        )
-        results_df_mvc = pd.concat(
-            [results_df_mvc, pd.DataFrame.from_dict(tmp_results_dict_mvc)]
-        )
-        results_df_dwi = pd.concat(
-            [results_df_dwi, pd.DataFrame.from_dict(tmp_results_dict_dwi)]
-        )
-        # results_dict = results_dict_append(m, results_dict, tmp_results_dict=tmp_results_dict)
+    #     results_df = pd.concat([results_df, pd.DataFrame.from_dict(tmp_results_dict)])
+    #     results_df_pre = pd.concat(
+    #         [results_df_pre, pd.DataFrame.from_dict(tmp_results_dict_pre)]
+    #     )
+    #     results_df_mvc = pd.concat(
+    #         [results_df_mvc, pd.DataFrame.from_dict(tmp_results_dict_mvc)]
+    #     )
+    #     results_df_dwi = pd.concat(
+    #         [results_df_dwi, pd.DataFrame.from_dict(tmp_results_dict_dwi)]
+    #     )
+    #     # results_dict = results_dict_append(m, results_dict, tmp_results_dict=tmp_results_dict)
+    # save_dir = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/SOA_results"
+    # # pprint.pprint(results_dict)
+    # timestr = time.strftime("%Y%m%d-%H%M%S")
+    # # results_df.to_csv(f"permian_soa_results_{timestr}.csv", index=False)
+    # # results_df_pre.to_csv(f"permian_soa_results_pre_{timestr}.csv", index=False)
+    # # results_df_mvc.to_csv(f"permian_soa_results_mvc_{timestr}.csv", index=False)
+    # # results_df_dwi.to_csv(f"permian_soa_results_dwi_{timestr}.csv", index=False)
+    # # # m = build_and_run_permian_SOA(Qin=5, tds=105)
 
-    # pprint.pprint(results_dict)
-    timestr = time.strftime("%Y%m%d-%H%M%S")
-    results_df.to_csv(f"permian_soa_results_{timestr}.csv", index=False)
-    results_df_pre.to_csv(f"permian_soa_results_pre_{timestr}.csv", index=False)
-    results_df_mvc.to_csv(f"permian_soa_results_mvc_{timestr}.csv", index=False)
-    results_df_dwi.to_csv(f"permian_soa_results_dwi_{timestr}.csv", index=False)
-    # # m = build_and_run_permian_SOA(Qin=5, tds=105)
+    # results_merged = pd.merge(
+    #     results_df, results_df_pre, on=["flow_mgd", "tds", "rerun"], suffixes=("_system", "_pre")
+    # )
+    # results_merged = pd.merge(
+    #     results_merged, results_df_mvc, on=["flow_mgd", "tds", "rerun"], suffixes=("_pre", "_mvc")
+    # )
+    # results_merged = pd.merge(
+    #     results_merged, results_df_dwi, on=["flow_mgd", "tds", "rerun"], suffixes=("_mvc", "_dwi")
+    # )
+
+    # results_merged.to_csv(f"{save_dir}/permian_soa_results_MERGED_{timestr}.csv", index=False)

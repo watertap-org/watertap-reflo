@@ -73,15 +73,14 @@ __all__ = [
 
 
 def get_stream_density(Qin=5, tds=130, **kwargs):
-    global rho
 
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
+    x = ConcreteModel()
+    x.fs = FlowsheetBlock(dynamic=False)
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
-    m.fs.properties_feed = SeawaterParameterBlock()
-    m.fs.feed_sw = Feed(property_package=m.fs.properties_feed)
-    m.fs.feed_sw.properties.calculate_state(
+    x.fs.properties_feed = SeawaterParameterBlock()
+    x.fs.feed_sw = Feed(property_package=x.fs.properties_feed)
+    x.fs.feed_sw.properties.calculate_state(
         var_args={
             ("flow_vol_phase", "Liq"): flow_in,
             ("conc_mass_phase_comp", ("Liq", "TDS")): tds * pyunits.g / pyunits.liter,
@@ -91,18 +90,24 @@ def get_stream_density(Qin=5, tds=130, **kwargs):
         hold_state=True,
     )
 
-    m.fs.feed_sw.initialize()
+    x.fs.feed_sw.initialize()
 
-    rho = m.fs.feed_sw.properties[0].dens_mass_phase["Liq"]
+    rho = (
+        value(x.fs.feed_sw.properties[0].dens_mass_phase["Liq"])
+        * pyunits.kg
+        / pyunits.m**3
+    )
+    return rho
 
     # print(m.fs.feed_sw.properties[0].dens_mass_phase.display())
 
 
-def build_permian_pretreatment(**kwargs):
+def build_permian_pretreatment(rho=None, **kwargs):
     """
     Build Permian pretreatment flowsheet
     """
-
+    if rho is None:
+        raise ValueError("need a rho!")
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.db = REFLODatabase()
@@ -245,7 +250,7 @@ def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
-    flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
+    flow_mass_water = pyunits.convert(Qin * m.rho, to_units=pyunits.kg / pyunits.s)
     flow_mass_tds = pyunits.convert(
         Qin * tds * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.s
     )
@@ -447,11 +452,11 @@ def init_system(m, **kwargs):
     treat.disposal_ZO_mixer.initialize()
     propagate_state(treat.disposal_ZO_mix_to_translator)
 
-    treat.zo_to_sw_disposal.outlet.temperature[0].fix(320)
+    treat.zo_to_sw_disposal.outlet.temperature[0].fix(298.15)
     treat.zo_to_sw_disposal.outlet.pressure[0].fix()
     treat.zo_to_sw_disposal.initialize()
 
-    treat.zo_to_sw_feed.properties_out[0].temperature.fix(320)
+    treat.zo_to_sw_feed.properties_out[0].temperature.fix(298.15)
     treat.zo_to_sw_feed.properties_out[0].pressure.fix()
     treat.zo_to_sw_feed.initialize()
 
@@ -496,10 +501,13 @@ def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
     """
     Run Permian pretreatment flowsheet
     """
-    get_stream_density(Qin=Qin, tds=tds)
+    rho = get_stream_density(Qin=Qin, tds=tds)
 
-    m = build_permian_pretreatment()
-    m.fs.optimal_solve = Var(initialize=1)
+    m = build_permian_pretreatment(rho=rho)
+    m.rho = rho
+    m.fs.optimal_solve_pre = Var(initialize=1)
+    m.fs.rho = Var(initialize=rho())
+    m.fs.rho.fix()
     treat = m.fs.treatment
 
     set_operating_conditions(m, Qin=Qin, tds=tds, **kwargs)
@@ -521,9 +529,9 @@ def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
     try:
         results = solver.solve(m)
         assert_optimal_termination(results)
-        m.fs.optimal_solve.fix(1)
+        m.fs.optimal_solve_pre.fix(1)
     except:
-        m.fs.optimal_solve.fix(0)
+        m.fs.optimal_solve_pre.fix(0)
         print_infeasible_constraints(m)
 
     print(f"LCOW = {m.fs.treatment.costing.LCOW()}")
@@ -533,7 +541,7 @@ def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
 
 if __name__ == "__main__":
 
-    m = build_and_run_permian_pretreatment(Qin=1)
+    m = build_and_run_permian_pretreatment(Qin=5)
     treat = m.fs.treatment
 
     print(f"DOF After Solve = {degrees_of_freedom(m)}")
@@ -568,11 +576,27 @@ if __name__ == "__main__":
     )
 
     print(
+        f'CF unit inlet TDS conc: {treat.cart_filt.unit.properties_in[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'CF unit outlet TDS conc: {treat.cart_filt.unit.properties_treated[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'CF unit waste TDS conc: {treat.cart_filt.unit.properties_byproduct[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
         f'CF product TDS conc: {treat.cart_filt.product.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
     )
 
     print(
-        f'Product TDS conc: {treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]():.2f} {pyunits.get_units(treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]())}'
+        f'CF disposal TDS conc: {treat.cart_filt.disposal.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'Product TDS conc: {treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]():.2f} {pyunits.get_units(treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"])}'
     )
 
     print(
@@ -591,10 +615,10 @@ if __name__ == "__main__":
     print(
         f"Translator pressure: {treat.disposal_SW_mixer.zo_mixer_state[0].pressure()} Pa"
     )
-
+    print(f"System recovery: {system_recovery*100:.2f}%")
     print(
-        pyunits.convert(
-            treat.product.properties[0].flow_vol_phase["Liq"],
-            to_units=pyunits.Mgallons / pyunits.day,
-        )()
+        f"Feed Flow: {pyunits.convert(treat.feed.properties[0].flow_vol,to_units=pyunits.Mgallons / pyunits.day,)():.2f} MGD"
+    )
+    print(
+        f"Product Flow: {pyunits.convert(treat.product.properties[0].flow_vol_phase['Liq'],to_units=pyunits.Mgallons / pyunits.day,)():.2f} MGD"
     )
