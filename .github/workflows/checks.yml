@@ -51,7 +51,7 @@ jobs:
           - noneditable
         include:
           - os: linux
-            os-version: ubuntu-latest
+            os-version: ubuntu-22.04
           - os: win64
             os-version: windows-latest
     steps:
