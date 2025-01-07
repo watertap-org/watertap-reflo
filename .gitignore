@@ -155,4 +155,5 @@ auto-save-list
 *.jpg
 *.csv
 *.png
+*.rtf
 _archive/
