@@ -13,9 +13,7 @@
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    ConcreteModel,
     check_optimal_termination,
-    assert_optimal_termination,
     Var,
     Constraint,
     Expression,
@@ -32,15 +30,12 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
     FlowsheetBlock,
-    UnitModelCostingBlock,
 )
 from idaes.core.util.exceptions import InitializationError, ConfigurationError
 import idaes.core.util.scaling as iscale
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.util.tables import create_stream_table_dataframe
 import idaes.logger as idaeslog
-from idaes.core.util.constants import Constants
 
 from watertap.core import InitializationMixin, ControlVolume0DBlock
 from watertap.core.solvers import get_solver
@@ -283,7 +278,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     - effect.temperature_operating,
                     doc=f"Change in temperature at inlet for effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_delta_temperature_inlet_effect_{n}", del_temp_in_constr
                 )
 
@@ -293,7 +288,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     - effect.properties_in[0].temperature,
                     doc=f"Change in temperature at outlet for effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_delta_temperature_outlet_effect_{n}", del_temp_out_constr
                 )
 
@@ -304,14 +299,14 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     * effect.delta_temperature[0],
                     doc=f"Heat transfer equation for effect {n}",
                 )
-                effect.add_component(f"eq_heat_transfer_effect_{n}", hx_constr)
+                self.add_component(f"eq_heat_transfer_effect_{n}", hx_constr)
 
                 energy_flow_constr = Constraint(
                     expr=effect.work_mechanical[0]
                     == prev_effect.energy_flow_superheated_vapor,
                     doc=f"Energy supplied to effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_energy_for_effect_{n}_from_effect_{n - 1}", energy_flow_constr
                 )
 
@@ -456,7 +451,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             else:
                 # Deactivate contraint that links energy flow between effects
                 linking_constr = getattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    self, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
                 linking_constr.deactivate()
                 eff.effect.initialize(**init_args)
