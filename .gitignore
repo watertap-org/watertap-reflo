@@ -153,3 +153,7 @@ auto-save-list
 *.h5
 *.svg
 *.jpg
+*.csv
+*.png
+*.pkl
+*.rtf
