@@ -96,7 +96,7 @@ def build_fpc_low(m):
     print(f'\n{"=======> BUILDING FPC SYSTEM -- LOW RANGE <=======":^60}\n')
 
     input_bounds = dict(
-        heat_load=[0.1, 25], hours_storage=[0, 12], temperature_hot=[50, 102]
+        heat_load=[0.1, 10], hours_storage=[0, 24], temperature_hot=[50, 102]
     )
 
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
@@ -127,7 +127,7 @@ def build_fpc_mid(m):
     print(f'\n{"=======> BUILDING FPC SYSTEM -- MID RANGE <=======":^60}\n')
 
     input_bounds = dict(
-        heat_load=[1, 25], hours_storage=[0, 12], temperature_hot=[50, 102]
+        heat_load=[1, 25], hours_storage=[0, 24], temperature_hot=[50, 102]
     )
 
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
@@ -158,7 +158,7 @@ def build_fpc_high(m):
     print(f'\n{"=======> BUILDING FPC SYSTEM -- HIGH RANGE <=======":^60}\n')
 
     input_bounds = dict(
-        heat_load=[1, 50], hours_storage=[0, 12], temperature_hot=[50, 102]
+        heat_load=[1, 50], hours_storage=[0, 24], temperature_hot=[50, 102]
     )
 
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
@@ -189,7 +189,7 @@ def build_fpc_really_high(m):
     print(f'\n{"=======> BUILDING FPC SYSTEM -- REALLY HIGH RANGE <=======":^60}\n')
 
     input_bounds = dict(
-        heat_load=[1, 100], hours_storage=[0, 12], temperature_hot=[50, 102]
+        heat_load=[1, 100], hours_storage=[0, 24], temperature_hot=[50, 102]
     )
 
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
@@ -222,7 +222,7 @@ def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_fpc_op_conditions(m, hours_storage=12, temperature_hot=80):
+def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80):
     energy = m.fs.energy
     # energy.FPC.load_surrogate()
 
@@ -421,7 +421,7 @@ if __name__ == "__main__":
 
     m = build_system()
 
-    build_fpc_low(m)
+    build_fpc_really_high(m)
     set_fpc_op_conditions(m)
     add_FPC_scaling(m, m.fs.energy.FPC)
     init_fpc(m.fs.energy)
@@ -429,3 +429,4 @@ if __name__ == "__main__":
     add_fpc_costing(m)
     results = solve(m)
     m.fs.energy.FPC.heat_annual.display()
+    report_fpc(m)
