@@ -85,6 +85,15 @@ feed_pressure = 101325 * pyunits.Pa
 atm_pressure = 101325 * pyunits.Pa
 feed_temperature = 273.15 + 20
 
+__all__ = [
+    "build_mec", 
+    "init_mec", 
+    "display_mec_streams", 
+    "set_mec_scaling", 
+    "set_mec_initial_scaling",
+    "display_mec_dof"
+]
+
 
 def build_system():
 
@@ -387,7 +396,7 @@ def add_mec_costing(m, blk, flowsheet_costing_block=None):
     )
 
 
-def display_dof(m, blk, where=None):
+def display_mec_dof(m, blk, where=None):
     if where is not None:
         print(f"\n{where}")
     else:
@@ -497,7 +506,7 @@ def display_mec_streams(m, blk):
 
     print()
 
-    display_dof(m, blk)
+    display_mec_dof(m, blk)
 
 
 if __name__ == "__main__":
@@ -544,7 +553,7 @@ if __name__ == "__main__":
 #     which is align to the default value, in order to guarantee a solution in the initial solve.
 #     """
 
-#     display_dof(m, blk, where="Beginning set_mec_operating_conditions")
+#     display_mec_dof(m, blk, where="Beginning set_mec_operating_conditions")
 #     flow_mass_phase_water_per = rho / (rho + tds) * 1 * pyunits.kg / pyunits.s
 #     flow_mass_phase_salt_per = tds / (rho + tds) * 1 * pyunits.kg / pyunits.s
 
@@ -607,7 +616,7 @@ if __name__ == "__main__":
 #     which connect energy flow between effects, and the DOF should be negative (n_effects - 1)
 #     """
 
-#     display_dof(m, blk, where="After 1 kg/s flow rate ")
+#     display_mec_dof(m, blk, where="After 1 kg/s flow rate ")
 #     # assert degrees_of_freedom(blk) == -3
 
 #     ### INITIALIZE FOR EACH EFFECT
@@ -618,7 +627,7 @@ if __name__ == "__main__":
 #     for n, eff in mec.effects.items():
 #         eff.effect.initialize()
 
-#     display_dof(m, blk, where="After effect initialize")
+#     display_mec_dof(m, blk, where="After effect initialize")
 
 #     ### UNFIX THE INLET FLOW RATES OF EACH EFFECT
 #     """
@@ -633,7 +642,7 @@ if __name__ == "__main__":
 
 #         eff.effect.properties_in[0].conc_mass_phase_comp.display()
 
-#     display_dof(m, blk, where="After unfixing effect flow mass, fixing conc mass")
+#     display_mec_dof(m, blk, where="After unfixing effect flow mass, fixing conc mass")
 
 #     """
 #     Note: by this point, the multi-effect flow sheet should be fully specified (DOF=0),
@@ -641,7 +650,7 @@ if __name__ == "__main__":
 #     """
 
 
-#     display_dof(m, blk, where="before first MEC solve")
+#     display_mec_dof(m, blk, where="before first MEC solve")
 #     # assert False
 #     results = solver.solve(mec)
 #     assert_optimal_termination(results)
@@ -663,7 +672,7 @@ if __name__ == "__main__":
 #     mec.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].fix(
 #         m.flow_mass_tds
 #     )
-#     display_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
+#     display_mec_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
 
 #     m.fs.properties.set_default_scaling(
 #         "flow_mass_phase_comp",
@@ -706,7 +715,7 @@ if __name__ == "__main__":
 #         else:
 #             v.unfix()
 
-#     display_dof(m, blk, where="After unfixing blk.steam state vars")
+#     display_mec_dof(m, blk, where="After unfixing blk.steam state vars")
 #     results = solver.solve(m)
 #     assert_optimal_termination(results)
 #     display_mec_streams(m, blk)
@@ -722,11 +731,11 @@ if __name__ == "__main__":
 #     blk.unit.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].set_value(m.flow_mass_tds)
 
 
-#     # display_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
+#     # display_mec_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
 #     # first_effect.heating_steam[0].display()
 
 #     display_mec_streams(m, blk)
-#     # display_dof(m, blk)
+#     # display_mec_dof(m, blk)
 
 
 #     # mec.control_volume.initialize()
