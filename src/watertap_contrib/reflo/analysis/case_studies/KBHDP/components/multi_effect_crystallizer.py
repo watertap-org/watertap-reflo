@@ -95,7 +95,6 @@ def build_system():
     m.fs.vapor_properties = WaterParameterBlock()
 
     m.fs.feed = Feed(property_package=m.fs.properties)
-    # m.fs.steam = Feed(property_package=m.fs.vapor_properties)
     m.fs.product = Product(property_package=m.fs.properties)
     m.fs.solids = Product(property_package=m.fs.properties)
 
@@ -103,10 +102,7 @@ def build_system():
 
     build_mec(m, m.fs.MEC)
 
-
     m.fs.feed_to_unit = Arc(source=m.fs.feed.outlet, destination=mec.unit.inlet)
-
-    # m.fs.steam_to_unit = Arc(source=m.fs.steam.outlet, destination=mec.steam.inlet)
 
     m.fs.mec_to_product = Arc(source=mec.product.outlet, destination=m.fs.product.inlet)
 
@@ -150,28 +146,64 @@ def build_mec(
     )
 
     TransformationFactory("network.expand_arcs").apply_to(blk)
-    display_dof(m, blk, where="After build")
+
+
+def set_system_operating_conditions(
+    m,
+    blk,
+    Qin=2.8,  # MGD
+    tds=12,  # g/L
+    operating_pressures=[0.45, 0.25, 0.208, 0.095],
+    upstream_recovery=0.9,  # assumed
+    crystallizer_yield=0.5,
+    saturated_steam_pressure_gage=3,
+    heat_transfer_coefficient=0.1,
+    eps=1e-8,
+    **kwargs,
+):
+    Qin = Qin * pyunits.Mgallons / pyunits.day
+    tds = tds * pyunits.gram / pyunits.liter
+    tds = tds / (1 - upstream_recovery)
+    saturated_steam_pressure = atm_pressure + pyunits.convert(
+        saturated_steam_pressure_gage * pyunits.bar, to_units=pyunits.Pa
+    )
+
+    m.flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
+    m.flow_mass_tds = pyunits.convert(Qin * tds, to_units=pyunits.kg / pyunits.s)
+    m.upstream_recovery = upstream_recovery
+    m.operating_pressures = operating_pressures
+    m.crystallizer_yield = crystallizer_yield
+    m.heat_transfer_coefficient = heat_transfer_coefficient
+    m.saturated_steam_pressure = saturated_steam_pressure
+    m.saturated_steam_pressure_gage = saturated_steam_pressure_gage
+
+    m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(m.flow_mass_water)
+    m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "NaCl"].fix(m.flow_mass_tds)
+    m.fs.feed.properties[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
+    m.fs.feed.properties[0].temperature.fix(298.15)
+    m.fs.feed.properties[0].pressure.fix(101325)
+
 
 def init_system(m, blk):
+
     m.fs.feed.properties[0].conc_mass_phase_comp
     m.fs.feed.initialize()
-    m.fs.feed.properties[0].display()
-    # assert False
     propagate_state(m.fs.feed_to_unit)
+
     init_mec(m, blk)
 
     propagate_state(m.fs.MEC.unit_to_product)
-
     m.fs.MEC.product.initialize()
+
     propagate_state(m.fs.mec_to_product)
     m.fs.product.initialize()
 
     propagate_state(m.fs.MEC.unit_to_solids)
-    
-    # display_dof(m, m.fs.MEC)
     m.fs.MEC.solids.initialize()
+
     propagate_state(m.fs.mec_to_solids)
     m.fs.solids.initialize()
+
     add_mec_costing(m, m.fs.MEC)
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol_phase["Liq"])
@@ -179,37 +211,32 @@ def init_system(m, blk):
 
 
 def init_mec(m, blk, feed_props=None, verbose=True, solver=None):
-    
+
     if feed_props is None:
         feed_props = m.fs.feed.properties[0]
-    
+
     feed_props.conc_mass_phase_comp
     feed_props.flow_vol_phase
     feed_props.parent_block().initialize()
-    Qin = feed_props.flow_vol_phase["Liq"]
+
     tds = feed_props.conc_mass_phase_comp["Liq", "NaCl"]
-    print(tds)
-    tds = 120 * pyunits.kg / pyunits.m**3
+    # tds = 120 * pyunits.kg / pyunits.m**3
 
     mec = blk.unit
     assert len(m.operating_pressures) == mec.config.number_effects
 
     set_mec_initial_scaling(m, blk)
-    
+
     """
     Note: In the initial solve of the system, assume the total feed flow rate is 1 kg/s,
     which is align to the default value, in order to guarantee a solution in the initial solve.
     """
 
-    display_dof(m, blk, where="Beginning set_mec_operating_conditions")
     flow_mass_phase_water_per = rho / (rho + tds) * 1 * pyunits.kg / pyunits.s
     flow_mass_phase_salt_per = tds / (rho + tds) * 1 * pyunits.kg / pyunits.s
     saturated_steam_pressure = atm_pressure + pyunits.convert(
         m.saturated_steam_pressure_gage * pyunits.bar, to_units=pyunits.Pa
     )
-    print(value(flow_mass_phase_water_per), value(flow_mass_phase_salt_per), value(tds))
-    # assert False
-
 
     ### FIX UNIT MODEL PARAMETERS
     for (_, eff), op_pressure in zip(mec.effects.items(), m.operating_pressures):
@@ -258,62 +285,21 @@ def init_mec(m, blk, feed_props=None, verbose=True, solver=None):
     mec.control_volume.properties_in[0].temperature.fix(feed_temperature)
     mec.control_volume.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
 
-
-    """
-    Check DOF
-    By this point, each effect is fully specified, so their DOF should be 0.
-    However, the multi-effect flowsheet is over-constrianted by energy_flow_constr, 
-    which connect energy flow between effects, and the DOF should be negative (n_effects - 1)
-    """
-
-    display_dof(m, blk, where="After 1 kg/s flow rate ")
-    # assert degrees_of_freedom(blk) == -3
-
-    ### INITIALIZE FOR EACH EFFECT
-    """
-    Note: this is essentially to have an initial guess of the crysts,
-    and to populate the feed concentration to all effects
-    """
     for n, eff in mec.effects.items():
         eff.effect.initialize()
 
-    display_dof(m, blk, where="After effect initialize")
-
     ### UNFIX THE INLET FLOW RATES OF EACH EFFECT
-    """
-    Note: this is to release the volumetric inlet flow entering different effects
-    with the same salinity
-    """
     for n, eff in mec.effects.items():
         if n > 1:
             eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
             eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
             eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix()
 
-        eff.effect.properties_in[0].conc_mass_phase_comp.display()
-
-    display_dof(m, blk, where="After unfixing effect flow mass, fixing conc mass")
-
-    """
-    Note: by this point, the multi-effect flow sheet should be fully specified (DOF=0),
-    while inlet flows to effect 2-4 should be subject to the previous effect (DOF=1)
-    """
-
-
-    display_dof(m, blk, where="before first MEC solve")
-    # assert False
     solver = get_solver()
     results = solver.solve(mec)
     assert_optimal_termination(results)
-    display_mec_streams(m, blk)
     results = solver.solve(blk)
     assert_optimal_termination(results)
-    display_mec_streams(m, blk)
-    
-
-    # mec.control_volume.properties_in[0].pressure.unfix()
-    # mec.control_volume.properties_in[0].temperature.unfix()
-
 
     first_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
     first_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
@@ -323,286 +309,21 @@ def init_mec(m, blk, feed_props=None, verbose=True, solver=None):
     mec.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].fix(
         m.flow_mass_tds
     )
-    display_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
-    # assert False
+
     set_mec_scaling(m, blk)
 
     results = solver.solve(mec)
     assert_optimal_termination(results)
-    display_mec_streams(m, blk)
     results = solver.solve(blk)
     assert_optimal_termination(results)
-    display_mec_streams(m, blk)
-    # assert False
-    prop_in_state_dict = blk.unit.control_volume.properties_in[0].define_port_members()
-    for k, v in prop_in_state_dict.items():
-        # print(k, v)
+
+    for k, v in blk.unit.control_volume.properties_in[0].define_port_members().items():
         if k == "flow_mass_phase_comp":
             for i, vv in v.items():
-                # print(k, i, vv)
                 vv.unfix()
         else:
             v.unfix()
-    display_dof(m, blk)
-    # assert False
 
-def set_system_operating_conditions(
-    m,
-    blk,
-    Qin=2.8,  # MGD
-    tds=12,  # g/L
-    operating_pressures=[0.45, 0.25, 0.208, 0.095],
-    upstream_recovery=0.9,  # assumed
-    crystallizer_yield=0.5,
-    saturated_steam_pressure_gage=3,
-    heat_transfer_coefficient=0.1,
-    eps=1e-8,
-    **kwargs
-):
-    Qin = Qin * pyunits.Mgallons / pyunits.day
-    tds = tds * pyunits.gram / pyunits.liter
-    tds = tds / (1 - upstream_recovery)
-    saturated_steam_pressure = atm_pressure + pyunits.convert(
-        saturated_steam_pressure_gage * pyunits.bar, to_units=pyunits.Pa
-    )
-
-    m.flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
-    m.flow_mass_tds = pyunits.convert(Qin * tds, to_units=pyunits.kg / pyunits.s)
-    m.upstream_recovery = upstream_recovery
-    m.operating_pressures = operating_pressures
-    m.crystallizer_yield = crystallizer_yield
-    m.heat_transfer_coefficient = heat_transfer_coefficient
-    m.saturated_steam_pressure = saturated_steam_pressure
-    m.saturated_steam_pressure_gage = saturated_steam_pressure_gage
-
-
-    m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(m.flow_mass_water)
-    m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "NaCl"].fix(m.flow_mass_tds)
-    m.fs.feed.properties[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
-    m.fs.feed.properties[0].temperature.fix(298.15)
-    m.fs.feed.properties[0].pressure.fix(101325)
-
-    display_dof(m, blk, where="After set_system_operating_conditions")
-
-
-def set_mec_operating_conditions(
-    m,
-    blk,
-    Qin=2.8,  # MGD
-    tds=12,  # g/L
-    operating_pressures=[0.45, 0.25, 0.208, 0.095],
-    upstream_recovery=0.9,  # assumed
-    crystallizer_yield=0.5,
-    saturated_steam_pressure_gage=3,
-    heat_transfer_coefficient=0.1,
-    eps=1e-8,
-    **kwargs
-):
-    rho = 1000 * pyunits.kg / pyunits.m**3
-    Qin = Qin * pyunits.Mgallons / pyunits.day
-    tds = tds * pyunits.gram / pyunits.liter
-    tds = tds / (1 - upstream_recovery)
-
-    mec = blk.unit
-    assert len(operating_pressures) == mec.config.number_effects
-
-    set_mec_initial_scaling(m, blk)
-
-    # m.flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
-    # m.flow_mass_tds = pyunits.convert(Qin * tds, to_units=pyunits.kg / pyunits.s)
-
-    """
-    Note: In the initial solve of the system, assume the total feed flow rate is 1 kg/s,
-    which is align to the default value, in order to guarantee a solution in the initial solve.
-    """
-
-    display_dof(m, blk, where="Beginning set_mec_operating_conditions")
-    flow_mass_phase_water_per = rho / (rho + tds) * 1 * pyunits.kg / pyunits.s
-    flow_mass_phase_salt_per = tds / (rho + tds) * 1 * pyunits.kg / pyunits.s
-
-    saturated_steam_pressure = atm_pressure + pyunits.convert(
-        saturated_steam_pressure_gage * pyunits.bar, to_units=pyunits.Pa
-    )
-
-    ### FIX UNIT MODEL PARAMETERS
-    for (_, eff), op_pressure in zip(mec.effects.items(), operating_pressures):
-
-        eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
-            flow_mass_phase_water_per
-        )
-        eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].fix(
-            flow_mass_phase_salt_per
-        )
-
-        eff.effect.properties_in[0].pressure.fix(feed_pressure)
-        eff.effect.properties_in[0].temperature.fix(feed_temperature)
-
-        eff.effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
-        eff.effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
-        eff.effect.properties_in[0].conc_mass_phase_comp[...]
-
-        eff.effect.crystallization_yield["NaCl"].fix(crystallizer_yield)
-        eff.effect.crystal_growth_rate.fix()
-        eff.effect.souders_brown_constant.fix()
-        eff.effect.crystal_median_length.fix()
-
-        eff.effect.pressure_operating.fix(
-            pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
-        )
-        eff.effect.overall_heat_transfer_coefficient.fix(heat_transfer_coefficient)
-
-    first_effect = mec.effects[1].effect
-
-    first_effect.overall_heat_transfer_coefficient.fix(heat_transfer_coefficient)
-    first_effect.heating_steam[0].pressure_sat
-    first_effect.heating_steam[0].dh_vap_mass
-    first_effect.heating_steam.calculate_state(
-        var_args={
-            ("flow_mass_phase_comp", ("Liq", "H2O")): 0,
-            ("pressure", None): saturated_steam_pressure,
-            ("pressure_sat", None): saturated_steam_pressure,
-        },
-        hold_state=True,
-    )
-    first_effect.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
-
-    ### FIX CV PROPERTIES EXCEPT FOR THE LIQUID FLOW RATES
-    mec.control_volume.properties_in[0].pressure.fix(feed_pressure)
-    mec.control_volume.properties_in[0].temperature.fix(feed_temperature)
-    mec.control_volume.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
-
-
-    """
-    Check DOF
-    By this point, each effect is fully specified, so their DOF should be 0.
-    However, the multi-effect flowsheet is over-constrianted by energy_flow_constr, 
-    which connect energy flow between effects, and the DOF should be negative (n_effects - 1)
-    """
-
-    display_dof(m, blk, where="After 1 kg/s flow rate ")
-    # assert degrees_of_freedom(blk) == -3
-
-    ### INITIALIZE FOR EACH EFFECT
-    """
-    Note: this is essentially to have an initial guess of the crysts,
-    and to populate the feed concentration to all effects
-    """
-    for n, eff in mec.effects.items():
-        eff.effect.initialize()
-
-    display_dof(m, blk, where="After effect initialize")
-
-    ### UNFIX THE INLET FLOW RATES OF EACH EFFECT
-    """
-    Note: this is to release the volumetric inlet flow entering different effects
-    with the same salinity
-    """
-    for n, eff in mec.effects.items():
-        if n > 1:
-            eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-            eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
-            eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix()
-
-        eff.effect.properties_in[0].conc_mass_phase_comp.display()
-
-    display_dof(m, blk, where="After unfixing effect flow mass, fixing conc mass")
-
-    """
-    Note: by this point, the multi-effect flow sheet should be fully specified (DOF=0),
-    while inlet flows to effect 2-4 should be subject to the previous effect (DOF=1)
-    """
-
-
-    display_dof(m, blk, where="before first MEC solve")
-    # assert False
-    results = solver.solve(mec)
-    assert_optimal_termination(results)
-    display_mec_streams(m, blk)
-    results = solver.solve(blk)
-    assert_optimal_termination(results)
-    display_mec_streams(m, blk)
-    # assert False
-
-    # mec.control_volume.properties_in[0].pressure.unfix()
-    # mec.control_volume.properties_in[0].temperature.unfix()
-
-
-    first_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-    first_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
-    mec.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
-        m.flow_mass_water
-    )
-    mec.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].fix(
-        m.flow_mass_tds
-    )
-    display_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
-    
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp",
-        1 / value(m.flow_mass_water),
-        index=("Liq", "H2O"),
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp",
-        1 / value(m.flow_mass_tds),
-        index=("Liq", "NaCl"),
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 10, index=("Vap", "H2O")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-2, index=("Sol", "NaCl")
-    )
-    m.fs.vapor_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-2, index=("Vap", "H2O")
-    )
-    m.fs.vapor_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
-    )
-
-    calculate_scaling_factors(m)
-    results = solver.solve(mec)
-    assert_optimal_termination(results)
-    display_mec_streams(m, blk)
-    results = solver.solve(blk)
-    assert_optimal_termination(results)
-    display_mec_streams(m, blk)
-    # assert False
-    prop_in_state_dict = blk.unit.control_volume.properties_in[0].define_port_members()
-    for k, v in prop_in_state_dict.items():
-        # print(k, v)
-        if k == "flow_mass_phase_comp":
-            for i, vv in v.items():
-                # print(k, i, vv)
-                vv.unfix()
-        else:
-            v.unfix()
-    
-    display_dof(m, blk, where="After unfixing blk.steam state vars")
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-    display_mec_streams(m, blk)
-    assert False
-
-    first_effect.properties_in[0].display()
-    assert False
-    # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-    # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
-    # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].setlb(m.flow_mass_water / 4)
-    # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].setlb(m.flow_mass_tds/ 4)
-    blk.unit.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].set_value(m.flow_mass_water)
-    blk.unit.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].set_value(m.flow_mass_tds)
-
-
-    # display_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
-    # first_effect.heating_steam[0].display()
-    
-    display_mec_streams(m, blk)
-    # display_dof(m, blk)
-
-
-
-    # mec.control_volume.initialize()
 
 def set_mec_initial_scaling(m, blk):
     """
@@ -658,13 +379,13 @@ def set_mec_scaling(m, blk):
     calculate_scaling_factors(blk)
 
 
-
 def add_mec_costing(m, blk, flowsheet_costing_block=None):
     if flowsheet_costing_block is None:
         flowsheet_costing_block = m.fs.costing
     blk.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=flowsheet_costing_block
     )
+
 
 def display_dof(m, blk, where=None):
     if where is not None:
@@ -677,15 +398,24 @@ def display_dof(m, blk, where=None):
     print(f"Degrees of Freedom MEC blk: {degrees_of_freedom(blk)}")
     print(f"Degrees of Freedom MEC unit: {degrees_of_freedom(blk.unit)}")
 
+
 def display_mec_streams(m, blk):
 
-    fe = blk.unit.effects[1].effect # first effect
+    fe = blk.unit.effects[1].effect  # first effect
 
     print("\nm.fs.feed")
-    print(f"\t{'Feed Mass Flow In Liq, H2O:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s")
-    print(f"\t{'Feed Mass Flow In Liq, TDS:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s")
-    print(f"\t{'Feed Mass Flow In Sol, TDS:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Sol', 'NaCl']):<20.2e} kg/s")
-    print(f"\t{'Feed Mass Flow In Vap, H2O:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s")
+    print(
+        f"\t{'Feed Mass Flow In Liq, H2O:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s"
+    )
+    print(
+        f"\t{'Feed Mass Flow In Liq, TDS:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s"
+    )
+    print(
+        f"\t{'Feed Mass Flow In Sol, TDS:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Sol', 'NaCl']):<20.2e} kg/s"
+    )
+    print(
+        f"\t{'Feed Mass Flow In Vap, H2O:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s"
+    )
     # print("\nMEC Feed blk")
     # print(f"\t{'MEC Feed Mass Flow In Liq, H2O:':<50} {value(blk.feed.properties[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s")
     # print(f"\t{'MEC Feed Mass Flow In Liq, TDS:':<50} {value(blk.feed.properties[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s")
@@ -693,13 +423,25 @@ def display_mec_streams(m, blk):
     # print(f"\t{'MEC Feed Mass Flow In Vap, H2O:':<50} {value(blk.feed.properties[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s")
     for n, eff in blk.unit.effects.items():
         print(f"\nMEC Effect {n}")
-        print(f"\t{f'Effect {n} TDS Conc:':<50} {value(blk.unit.effects[n].effect.properties_in[0].conc_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/m3")
-        print(f"\t{f'Effect {n} Mass Flow In Liq, H2O:':<50} {value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s")
-        print(f"\t{f'Effect {n} Mass Flow In Liq, TDS:':<50} {value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s")
-        print(f"\t{f'Effect {n} Mass Flow In Sol, TDS:':<50} {value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp['Sol', 'NaCl']):<20.2e} kg/s")
-        print(f"\t{f'Effect {n} Mass Flow In Vap, H2O:':<50} {value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s")
+        print(
+            f"\t{f'Effect {n} TDS Conc:':<50} {value(blk.unit.effects[n].effect.properties_in[0].conc_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/m3"
+        )
+        print(
+            f"\t{f'Effect {n} Mass Flow In Liq, H2O:':<50} {value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s"
+        )
+        print(
+            f"\t{f'Effect {n} Mass Flow In Liq, TDS:':<50} {value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s"
+        )
+        print(
+            f"\t{f'Effect {n} Mass Flow In Sol, TDS:':<50} {value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp['Sol', 'NaCl']):<20.2e} kg/s"
+        )
+        print(
+            f"\t{f'Effect {n} Mass Flow In Vap, H2O:':<50} {value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s"
+        )
         if n == 1:
-            print(f"\t{f'Effect {n} Mass Flow In Vap, H2O:':<50} {value(blk.unit.effects[n].effect.heating_steam[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s")
+            print(
+                f"\t{f'Effect {n} Mass Flow In Vap, H2O:':<50} {value(blk.unit.effects[n].effect.heating_steam[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s"
+            )
     # print("\nm.fs.steam")
     # print(f"\t{'Steam Mass Flow In Liq, H2O:':<50} {value(m.fs.steam.properties[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s")
     # print(f"\t{'Steam Mass Flow In Vap, H2O:':<50} {value(m.fs.steam.properties[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s")
@@ -707,18 +449,48 @@ def display_mec_streams(m, blk):
     # print(f"\t{'MEC Steam Mass Flow In Liq, H2O:':<50} {value(blk.steam.properties[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s")
     # print(f"\t{'MEC Steam Mass Flow In Vap, H2O:':<50} {value(blk.steam.properties[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s")
     print("\nMEC CV IN")
-    print(f"\t{'MEC Control Volume Mass Flow In Liq, H2O:':<50} {value(blk.unit.control_volume.properties_in[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s")
-    print(f"\t{'MEC Control Volume Mass Flow In Liq, TDS:':<50} {value(blk.unit.control_volume.properties_in[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s")
-    print(f"\t{'MEC Control Volume Mass Flow In Sol, TDS:':<50} {value(blk.unit.control_volume.properties_in[0].flow_mass_phase_comp['Sol', 'NaCl']):<20.2e} kg/s")
-    print(f"\t{'MEC Control Volume Mass Flow In Vap, H2O:':<50} {value(blk.unit.control_volume.properties_in[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s")
+    print(
+        f"\t{'MEC Control Volume Mass Flow In Liq, H2O:':<50} {value(blk.unit.control_volume.properties_in[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s"
+    )
+    print(
+        f"\t{'MEC Control Volume Mass Flow In Liq, TDS:':<50} {value(blk.unit.control_volume.properties_in[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s"
+    )
+    print(
+        f"\t{'MEC Control Volume Mass Flow In Sol, TDS:':<50} {value(blk.unit.control_volume.properties_in[0].flow_mass_phase_comp['Sol', 'NaCl']):<20.2e} kg/s"
+    )
+    print(
+        f"\t{'MEC Control Volume Mass Flow In Vap, H2O:':<50} {value(blk.unit.control_volume.properties_in[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s"
+    )
     print("\nMEC CV OUT")
-    print(f"\t{'MEC Control Volume Mass Flow Out Liq, H2O:':<50} {value(blk.unit.control_volume.properties_out[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s")
-    print(f"\t{'MEC Control Volume Mass Flow Out Liq, TDS:':<50} {value(blk.unit.control_volume.properties_out[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s")
-    print(f"\t{'MEC Control Volume Mass Flow Out Sol, TDS:':<50} {value(blk.unit.control_volume.properties_out[0].flow_mass_phase_comp['Sol', 'NaCl']):<20.2e} kg/s")
-    print(f"\t{'MEC Control Volume Mass Flow Out Vap, H2O:':<50} {value(blk.unit.control_volume.properties_out[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s")
+    print(
+        f"\t{'MEC Control Volume Mass Flow Out Liq, H2O:':<50} {value(blk.unit.control_volume.properties_out[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s"
+    )
+    print(
+        f"\t{'MEC Control Volume Mass Flow Out Liq, TDS:':<50} {value(blk.unit.control_volume.properties_out[0].flow_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/s"
+    )
+    print(
+        f"\t{'MEC Control Volume Mass Flow Out Sol, TDS:':<50} {value(blk.unit.control_volume.properties_out[0].flow_mass_phase_comp['Sol', 'NaCl']):<20.2e} kg/s"
+    )
+    print(
+        f"\t{'MEC Control Volume Mass Flow Out Vap, H2O:':<50} {value(blk.unit.control_volume.properties_out[0].flow_mass_phase_comp['Vap', 'H2O']):<20.2f} kg/s"
+    )
 
-    total_mass_flow_water = sum(value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]) for n, _ in blk.unit.effects.items())
-    total_mass_flow_tds = sum(value(blk.unit.effects[n].effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"]) for n, _ in blk.unit.effects.items())
+    total_mass_flow_water = sum(
+        value(
+            blk.unit.effects[n]
+            .effect.properties_in[0]
+            .flow_mass_phase_comp["Liq", "H2O"]
+        )
+        for n, _ in blk.unit.effects.items()
+    )
+    total_mass_flow_tds = sum(
+        value(
+            blk.unit.effects[n]
+            .effect.properties_in[0]
+            .flow_mass_phase_comp["Liq", "NaCl"]
+        )
+        for n, _ in blk.unit.effects.items()
+    )
 
     print(f"\n{'SUM EFFECT MASS FLOW WATER:':<50} {total_mass_flow_water}")
     print(f"\n{'SUM EFFECT MASS FLOW TDS:':<50} {total_mass_flow_tds}")
@@ -727,234 +499,234 @@ def display_mec_streams(m, blk):
 
     display_dof(m, blk)
 
+
 if __name__ == "__main__":
     solver = get_solver()
     m = build_system()
     blk = m.fs.MEC
-    display_dof(m, m.fs.MEC)
-    set_system_operating_conditions(m, m.fs.MEC)
-    init_system(m, m.fs.MEC)
 
-    # display_dof(m, m.fs.MEC)
+    set_system_operating_conditions(m, blk)
+    init_system(m, blk)
+
     results = solver.solve(m)
     assert_optimal_termination(results)
     display_mec_streams(m, blk)
     m.fs.costing.LCOW.display()
 
+# def set_mec_operating_conditions(
+#     m,
+#     blk,
+#     Qin=2.8,  # MGD
+#     tds=12,  # g/L
+#     operating_pressures=[0.45, 0.25, 0.208, 0.095],
+#     upstream_recovery=0.9,  # assumed
+#     crystallizer_yield=0.5,
+#     saturated_steam_pressure_gage=3,
+#     heat_transfer_coefficient=0.1,
+#     eps=1e-8,
+#     **kwargs
+# ):
+#     rho = 1000 * pyunits.kg / pyunits.m**3
+#     Qin = Qin * pyunits.Mgallons / pyunits.day
+#     tds = tds * pyunits.gram / pyunits.liter
+#     tds = tds / (1 - upstream_recovery)
 
-    assert False
+#     mec = blk.unit
+#     assert len(operating_pressures) == mec.config.number_effects
 
-    solver = get_solver()
-    m = build_system()
-    blk = m.fs.MEC
-    display_dof(m, m.fs.MEC)
-    set_system_operating_conditions(m, m.fs.MEC)
+#     set_mec_initial_scaling(m, blk)
 
-    display_dof(m, m.fs.MEC)
+#     # m.flow_mass_water = pyunits.convert(Qin * rho, to_units=pyunits.kg / pyunits.s)
+#     # m.flow_mass_tds = pyunits.convert(Qin * tds, to_units=pyunits.kg / pyunits.s)
 
-    set_mec_initial_scaling(m, m.fs.MEC)
+#     """
+#     Note: In the initial solve of the system, assume the total feed flow rate is 1 kg/s,
+#     which is align to the default value, in order to guarantee a solution in the initial solve.
+#     """
+
+#     display_dof(m, blk, where="Beginning set_mec_operating_conditions")
+#     flow_mass_phase_water_per = rho / (rho + tds) * 1 * pyunits.kg / pyunits.s
+#     flow_mass_phase_salt_per = tds / (rho + tds) * 1 * pyunits.kg / pyunits.s
+
+#     saturated_steam_pressure = atm_pressure + pyunits.convert(
+#         saturated_steam_pressure_gage * pyunits.bar, to_units=pyunits.Pa
+#     )
+
+#     ### FIX UNIT MODEL PARAMETERS
+#     for (_, eff), op_pressure in zip(mec.effects.items(), operating_pressures):
+
+#         eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
+#             flow_mass_phase_water_per
+#         )
+#         eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].fix(
+#             flow_mass_phase_salt_per
+#         )
+
+#         eff.effect.properties_in[0].pressure.fix(feed_pressure)
+#         eff.effect.properties_in[0].temperature.fix(feed_temperature)
+
+#         eff.effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
+#         eff.effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
+#         eff.effect.properties_in[0].conc_mass_phase_comp[...]
+
+#         eff.effect.crystallization_yield["NaCl"].fix(crystallizer_yield)
+#         eff.effect.crystal_growth_rate.fix()
+#         eff.effect.souders_brown_constant.fix()
+#         eff.effect.crystal_median_length.fix()
+
+#         eff.effect.pressure_operating.fix(
+#             pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
+#         )
+#         eff.effect.overall_heat_transfer_coefficient.fix(heat_transfer_coefficient)
+
+#     first_effect = mec.effects[1].effect
+
+#     first_effect.overall_heat_transfer_coefficient.fix(heat_transfer_coefficient)
+#     first_effect.heating_steam[0].pressure_sat
+#     first_effect.heating_steam[0].dh_vap_mass
+#     first_effect.heating_steam.calculate_state(
+#         var_args={
+#             ("flow_mass_phase_comp", ("Liq", "H2O")): 0,
+#             ("pressure", None): saturated_steam_pressure,
+#             ("pressure_sat", None): saturated_steam_pressure,
+#         },
+#         hold_state=True,
+#     )
+#     first_effect.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
+
+#     ### FIX CV PROPERTIES EXCEPT FOR THE LIQUID FLOW RATES
+#     mec.control_volume.properties_in[0].pressure.fix(feed_pressure)
+#     mec.control_volume.properties_in[0].temperature.fix(feed_temperature)
+#     mec.control_volume.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
 
 
-    display_dof(m, m.fs.MEC, where="After initializing/propagating feed/steam blks and Arcs\nbefore set_mec_operating_conditions")
+#     """
+#     Check DOF
+#     By this point, each effect is fully specified, so their DOF should be 0.
+#     However, the multi-effect flowsheet is over-constrianted by energy_flow_constr,
+#     which connect energy flow between effects, and the DOF should be negative (n_effects - 1)
+#     """
 
-    set_mec_operating_conditions(m, m.fs.MEC)
+#     display_dof(m, blk, where="After 1 kg/s flow rate ")
+#     # assert degrees_of_freedom(blk) == -3
 
-    display_dof(m, blk, where="After set MEC operating conditions")
+#     ### INITIALIZE FOR EACH EFFECT
+#     """
+#     Note: this is essentially to have an initial guess of the crysts,
+#     and to populate the feed concentration to all effects
+#     """
+#     for n, eff in mec.effects.items():
+#         eff.effect.initialize()
 
-    propagate_state(m.fs.MEC.unit_to_product)
+#     display_dof(m, blk, where="After effect initialize")
 
-    m.fs.MEC.product.initialize()
-    propagate_state(m.fs.mec_to_product)
-    m.fs.product.initialize()
+#     ### UNFIX THE INLET FLOW RATES OF EACH EFFECT
+#     """
+#     Note: this is to release the volumetric inlet flow entering different effects
+#     with the same salinity
+#     """
+#     for n, eff in mec.effects.items():
+#         if n > 1:
+#             eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
+#             eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
+#             eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix()
 
-    propagate_state(m.fs.MEC.unit_to_solids)
-    
-    # display_dof(m, m.fs.MEC)
-    m.fs.MEC.solids.initialize()
-    propagate_state(m.fs.mec_to_solids)
-    m.fs.solids.initialize()
+#         eff.effect.properties_in[0].conc_mass_phase_comp.display()
 
-    blk_feed_state_vars = m.fs.feed.properties[0].define_port_members()
-    for k, v in blk_feed_state_vars.items():
-        # print(k, v)
-        if k == "flow_mass_phase_comp":
-            for i, vv in v.items():
-                # vv.fix()
-                blk.unit.control_volume.properties_in[0].flow_mass_phase_comp[i].fix(value(vv))
-        else:
-            # v.fix()
-            xx = getattr(blk.unit.control_volume.properties_in[0], k)
-            xx.fix(value(v))
-            # xx.set_value(value(v))
-    
+#     display_dof(m, blk, where="After unfixing effect flow mass, fixing conc mass")
 
-    blk.unit.control_volume.properties_in[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
-    blk.unit.control_volume.properties_in[0].display()
-    blk.unit.effects[1].effect.heating_steam[0].display()
+#     """
+#     Note: by this point, the multi-effect flow sheet should be fully specified (DOF=0),
+#     while inlet flows to effect 2-4 should be subject to the previous effect (DOF=1)
+#     """
 
-    display_dof(m, m.fs.MEC)
-    results = solver.solve(blk)
-    # assert_optimal_termination(results)
-    # blk.steam.properties[0].flow_mass_phase_comp["Liq", "H2O"].setub(None)
-    # m.fs.MEC.unit.control_volume.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].unfix()
-    # blk.unit.effects[1].effect.properties_in[0].display()
-    # print_infeasible_constraints(blk)
-    display_mec_streams(m, blk)
-    assert False
-    blk.feed.properties.display()
-    blk.steam.properties.display()
-    blk.unit.control_volume.properties_in[0].display()
-    # blk.solids.display()
-    # print(f"termination {results.solver.termination_condition}")
-    # assert False
 
-    # m.fs.MEC.unit.inlet.flow_mass_phase_comp["Sol", "NaCl"].unfix()
-    blk.feed.properties[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
-    blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-    blk.feed.properties[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
-    blk.feed.properties[0].flow_mass_phase_comp["Sol", "NaCl"].unfix()
-    m.fs.feed.properties[0].flow_mass_phase_comp["Vap", "H2O"].unfix()
-    m.fs.feed.properties[0].flow_mass_phase_comp["Vap", "H2O"].set_value(value(blk.feed.properties[0].flow_mass_phase_comp["Vap", "H2O"]))
-    m.fs.steam.properties[0].flow_mass_phase_comp["Vap", "H2O"].set_value(value(blk.feed.properties[0].flow_mass_phase_comp["Vap", "H2O"]))
-    blk.unit.effects[1].effect.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"].set_value(value(blk.feed.properties[0].flow_mass_phase_comp["Vap", "H2O"]))
-    blk.feed.properties[0].temperature.unfix()
-    blk.feed.properties[0].pressure.unfix()
+#     display_dof(m, blk, where="before first MEC solve")
+#     # assert False
+#     results = solver.solve(mec)
+#     assert_optimal_termination(results)
+#     display_mec_streams(m, blk)
+#     results = solver.solve(blk)
+#     assert_optimal_termination(results)
+#     display_mec_streams(m, blk)
+#     # assert False
 
-    # m.fs.constr = Constraint(
-    #     expr=m.fs.steam.properties[0].flow_mass_phase_comp["Vap", "H2O"] == m.fs.feed.properties[0].flow_mass_phase_comp["Vap", "H2O"]
-    # )
-    m.fs.feed.properties.display()
-    blk.feed.properties.display()
-    m.fs.steam.properties.display()
-    blk.steam.properties.display()
-    blk.unit.control_volume.properties_in[0].display()
-    display_dof(m, m.fs.MEC)
-    # assert False
-    # m.fs.steam.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(0)
-    display_dof(m, m.fs.MEC, where="before new scaling")
+#     # mec.control_volume.properties_in[0].pressure.unfix()
+#     # mec.control_volume.properties_in[0].temperature.unfix()
 
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp",
-        # 1 / value(m.flow_mass_water),
-        1e-2,
-        index=("Liq", "H2O"),
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp",
-        # 1 / value(m.flow_mass_tds),
-        1,
-        index=("Liq", "NaCl"),
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 10, index=("Vap", "H2O")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-2, index=("Sol", "NaCl")
-    )
-    m.fs.vapor_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1e-2, index=("Vap", "H2O")
-    )
-    m.fs.vapor_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
-    )
 
-    calculate_scaling_factors(m)
-    solver.options["max_iter"] = 5000
-    solver.options["halt_on_ampl_error"] = "yes"
-    # blk.heating_steam_flow_mass_water_vap.deactivate()
-    display_dof(m, blk, where="BEFORE SOLVE")
-    results = solver.solve(m, tee=False)
-    display_mec_streams(m, blk)
-    print(f"termination {results.solver.termination_condition}")
-    # blk.heating_steam_flow_mass_water_vap.activate()
-    # blk.unit.effects[1].effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix(
-    #     value(blk.unit.effects[2].effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"])
-    # )
-    blk.unit.effects[1].effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
-    display_dof(m, blk, where="BEFORE SOLVE")
-    # blk.unit.effects[1].effect.initialize()
-    blk.unit.control_volume.properties_in[0].conc_mass_phase_comp
-    m.fs.feed.properties[0].conc_mass_phase_comp
-    results = solver.solve(m, tee=False)
-    
-    # results = solver.solve(m, tee=False)
-    
-    display_mec_streams(m, blk)
-    blk.unit.control_volume.properties_in[0].conc_mass_phase_comp.display() 
-    m.fs.feed.properties[0].conc_mass_phase_comp.display()
-    # print_infeasible_constraints(m)
-    print(f"termination {results.solver.termination_condition}")
-    # blk.
-    # assert_optimal_termination(results)
-    # assert False
-    # display_mec_streams(m, m.fs.MEC)
-    # m.fs.feed.properties[0].flow_mass_phase_comp.display()
-    # m.fs.MEC.feed.properties[0].flow_mass_phase_comp.display()
-    # m.fs.MEC.unit.control_volume.properties_in[0].flow_mass_phase_comp.display()
-    # m.fs.MEC.unit.effects[1].effect.properties_in[0].flow_mass_phase_comp.display()
-    # m.fs.MEC.product.properties[0].flow_mass_phase_comp.display()
-    # m.fs.MEC.unit.effects[1].effect.properties_solids[0].flow_mass_phase_comp.display()
-    # # m.fs.MEC.solids.properties[0].flow_mass_phase_comp.display()
-    # m.fs.MEC.unit.solids.display()
-    # m.fs.MEC.solids.properties[0].display()
-    # m.fs.MEC.unit.effects[1].effect.properties_in.display()
+#     first_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
+#     first_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
+#     mec.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
+#         m.flow_mass_water
+#     )
+#     mec.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].fix(
+#         m.flow_mass_tds
+#     )
+#     display_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
 
-    # m.fs.MEC.unit.initialize()
+#     m.fs.properties.set_default_scaling(
+#         "flow_mass_phase_comp",
+#         1 / value(m.flow_mass_water),
+#         index=("Liq", "H2O"),
+#     )
+#     m.fs.properties.set_default_scaling(
+#         "flow_mass_phase_comp",
+#         1 / value(m.flow_mass_tds),
+#         index=("Liq", "NaCl"),
+#     )
+#     m.fs.properties.set_default_scaling(
+#         "flow_mass_phase_comp", 10, index=("Vap", "H2O")
+#     )
+#     m.fs.properties.set_default_scaling(
+#         "flow_mass_phase_comp", 1e-2, index=("Sol", "NaCl")
+#     )
+#     m.fs.vapor_properties.set_default_scaling(
+#         "flow_mass_phase_comp", 1e-2, index=("Vap", "H2O")
+#     )
+#     m.fs.vapor_properties.set_default_scaling(
+#         "flow_mass_phase_comp", 1, index=("Liq", "H2O")
+#     )
 
-    #####
+#     calculate_scaling_factors(m)
+#     results = solver.solve(mec)
+#     assert_optimal_termination(results)
+#     display_mec_streams(m, blk)
+#     results = solver.solve(blk)
+#     assert_optimal_termination(results)
+#     display_mec_streams(m, blk)
+#     # assert False
+#     prop_in_state_dict = blk.unit.control_volume.properties_in[0].define_port_members()
+#     for k, v in prop_in_state_dict.items():
+#         # print(k, v)
+#         if k == "flow_mass_phase_comp":
+#             for i, vv in v.items():
+#                 # print(k, i, vv)
+#                 vv.unfix()
+#         else:
+#             v.unfix()
 
-    # set_mec_operating_conditions(m, m.fs.MEC)
+#     display_dof(m, blk, where="After unfixing blk.steam state vars")
+#     results = solver.solve(m)
+#     assert_optimal_termination(results)
+#     display_mec_streams(m, blk)
+#     assert False
 
-    # print(f"Degrees of Freedom: {degrees_of_freedom(m)}")
+#     first_effect.properties_in[0].display()
+#     assert False
+#     # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
+#     # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
+#     # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].setlb(m.flow_mass_water / 4)
+#     # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].setlb(m.flow_mass_tds/ 4)
+#     blk.unit.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].set_value(m.flow_mass_water)
+#     blk.unit.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].set_value(m.flow_mass_tds)
 
-    # set_mec_scaling(m, m.fs.MEC)
-    # results = solver.solve(m)
-    # assert_optimal_termination(results)
-    # first_effect = m.fs.MEC.unit.effects[1].effect
-    # mec = m.fs.MEC.unit
-    # # first_effect.display()
-    # # assert False
 
-    # ### Release 1st effect flow rate and fix total flow rate instead
-    # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
-    # first_effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
+#     # display_dof(m, blk, where="After unfixing first effect flow_mass, fixing CV flow mass")
+#     # first_effect.heating_steam[0].display()
 
-    # mec.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
-    #     m.flow_mass_water
-    # )
-    # mec.control_volume.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].fix(
-    #     m.flow_mass_tds
-    # )
+#     display_mec_streams(m, blk)
+#     # display_dof(m, blk)
 
-    # """
-    # Note: Rescaling is probably needed for extremely large feed flow,
-    # """
-    # m.fs.properties.set_default_scaling(
-    #     "flow_mass_phase_comp",
-    #     1 / value(m.flow_mass_water),
-    #     index=("Liq", "H2O"),
-    # )
-    # m.fs.properties.set_default_scaling(
-    #     "flow_mass_phase_comp",
-    #     1 / value(m.flow_mass_tds),
-    #     index=("Liq", "NaCl"),
-    # )
-    # m.fs.properties.set_default_scaling(
-    #     "flow_mass_phase_comp", 10, index=("Vap", "H2O")
-    # )
-    # m.fs.properties.set_default_scaling(
-    #     "flow_mass_phase_comp", 1e-2, index=("Sol", "NaCl")
-    # )
-    # m.fs.vapor_properties.set_default_scaling(
-    #     "flow_mass_phase_comp", 1e-2, index=("Vap", "H2O")
-    # )
-    # m.fs.vapor_properties.set_default_scaling(
-    #     "flow_mass_phase_comp", 1, index=("Liq", "H2O")
-    # )
 
-    # calculate_scaling_factors(m)
-    # print(f"Degrees of Freedom: {degrees_of_freedom(m)}")
-    # results = solver.solve(m)
-    # assert_optimal_termination(results)
-    # print(f"Degrees of Freedom: {degrees_of_freedom(m)}")
-    # mec.effects[1].effect.properties_vapor.display()
+#     # mec.control_volume.initialize()
