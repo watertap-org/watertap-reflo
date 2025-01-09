@@ -102,7 +102,7 @@ def main(
     _ = solve(m)
 
     add_costing(m,heat_price=heat_price, electricity_price=electricity_price)
-    _ = solve(m)
+    # _ = solve(m)
 
     m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)
 
@@ -578,14 +578,14 @@ if __name__ == "__main__":
 
     # m = build_sweep(water_recovery=0.90)
     m = main(
-        water_recovery=0.6,
+        water_recovery=0.8,
         heat_price=0.01,
         electricity_price=0.07,
-        grid_frac_heat=0.5,
+        grid_frac_heat=0.99,
         hours_storage=6,
         cost_per_area_collector=500,
         cost_per_volume_storage=2000,
-        dwi_injection_cost = 0.1
+        dwi_lcow = 0.1
         )
 
     # m.fs.costing.LCOT.display()

@@ -267,7 +267,7 @@ def plot_results(folder_name, sweep_type, xaxis_label=None):
 
     ax2=ax.twinx()
     a2 = ax2.scatter(results[sweep_type],results['fpc_heat_load'],c='black',label='FPC Heat Load')
-    ax2.set_ylim(round(results['fpc_heat_load'].min()/10)*10-10,round(results['fpc_heat_load'].min()/10)*10+20)
+    ax2.set_ylim(round(results['fpc_heat_load'].min()/10)*10-10,round(results['fpc_heat_load'].max()/10)*10+20)
 
     capex_handle = mpatches.Patch( facecolor='white', edgecolor='black',hatch='',label='Capex')
     opex_handle = mpatches.Patch( facecolor='white', edgecolor='black',hatch='//',label='Opex')
@@ -303,8 +303,8 @@ if __name__ == "__main__":
     #############################################################################################
     # Select sweep type
     #############################################################################################
-    folder_name = "hours_storage_lcot"
-    sweep_type = "hours_storage"
+    folder_name = "cost_per_volume_storage_rec_0.9_grid_frac_0.5_lcot"
+    sweep_type = "cost_per_volume_storage"
 
     folder_path = r"C:\Users\mhardika\Documents\SETO\Case Studies\RPT3\RPT3_results\\"
 
@@ -323,7 +323,7 @@ if __name__ == "__main__":
                 sweep_type=sweep_type,
                 water_recovery=recovery,
                 heat_price=0.01,
-                frac_heat_from_grid=0.5,
+                frac_heat_from_grid=0.99,
                 hours_storage=24,
             )
 
