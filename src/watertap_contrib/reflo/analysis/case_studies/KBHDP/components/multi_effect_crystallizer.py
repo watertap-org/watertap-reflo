@@ -86,12 +86,12 @@ atm_pressure = 101325 * pyunits.Pa
 feed_temperature = 273.15 + 20
 
 __all__ = [
-    "build_mec", 
-    "init_mec", 
-    "display_mec_streams", 
-    "set_mec_scaling", 
+    "build_mec",
+    "init_mec",
+    "display_mec_streams",
+    "set_mec_scaling",
     "set_mec_initial_scaling",
-    "display_mec_dof"
+    "display_mec_dof",
 ]
 
 
@@ -125,22 +125,22 @@ def build_system():
 def build_mec(
     m,
     blk,
-    property_package=None,
-    property_package_vapor=None,
+    prop_package=None,
+    prop_package_vapor=None,
     number_effects=4,
 ):
 
-    if property_package is None:
-        property_package = m.fs.properties
-    if property_package_vapor is None:
-        property_package_vapor = m.fs.vapor_properties
+    if prop_package is None:
+        prop_package = m.fs.properties
+    if prop_package_vapor is None:
+        prop_package_vapor = m.fs.vapor_properties
 
-    blk.product = StateJunction(property_package=property_package)
-    blk.solids = StateJunction(property_package=property_package)
+    blk.product = StateJunction(property_package=prop_package)
+    blk.solids = StateJunction(property_package=prop_package)
 
     blk.unit = MultiEffectCrystallizer(
-        property_package=m.fs.properties,
-        property_package_vapor=m.fs.vapor_properties,
+        property_package=prop_package,
+        property_package_vapor=prop_package_vapor,
         number_effects=number_effects,
     )
 
