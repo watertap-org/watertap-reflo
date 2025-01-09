@@ -1,48 +1,27 @@
 import os
-import math
-import numpy as np
 from pyomo.environ import (
     ConcreteModel,
     value,
-    Param,
-    Var,
-    Constraint,
-    Set,
-    Expression,
     TransformationFactory,
-    Objective,
-    NonNegativeReals,
-    Block,
-    RangeSet,
     check_optimal_termination,
     units as pyunits,
 )
-from pyomo.network import Arc, SequentialDecomposition
+from pyomo.network import Arc
 from pyomo.util.check_units import assert_units_consistent
+
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
 from idaes.core.solvers import get_solver
-from idaes.core.util.initialization import propagate_state as _prop_state
-import idaes.core.util.scaling as iscale
-from idaes.core.util.scaling import (
-    constraint_scaling_transform,
-    calculate_scaling_factors,
-    set_scaling_factor,
-)
-import idaes.logger as idaeslogger
-from idaes.core.util.exceptions import InitializationError
-from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
+from idaes.core.util.initialization import propagate_state as _prop_state
+from idaes.core.util.scaling import *
+import idaes.logger as idaeslogger
+from idaes.models.unit_models import Product, Feed, StateJunction
+
 from watertap.core.util.initialization import *
 from watertap.core.util.model_diagnostics.infeasible import *
-from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
-from watertap.core.zero_order_properties import WaterParameterBlock
 
-from watertap_contrib.reflo.costing import (
-    TreatmentCosting,
-    EnergyCosting,
-    REFLOCosting,
-)
+from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.unit_models.deep_well_injection import DeepWellInjection
 from watertap_contrib.reflo.costing.units.deep_well_injection import (
     blm_costing_params_dict,
@@ -60,11 +39,6 @@ __all__ = [
 
 def propagate_state(arc):
     _prop_state(arc)
-    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    # arc.source.display()
-    # print(arc.destination.name)
-    # arc.destination.display()
-    # print('\n')
 
 
 def build_DWI(m, blk, prop_package) -> None:
