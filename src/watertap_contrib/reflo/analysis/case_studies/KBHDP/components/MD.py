@@ -225,27 +225,31 @@ def init_md(blk, verbose=True, solver=None):
     # Build connection to permeate state junction
     blk.permeate.properties[0]._flow_vol_phase
 
-    @blk.Constraint(
-        doc="Assign the permeate flow rate to its respective state junction"
-    )
     def get_permeate_flow(b):
-        num_modules = b.mp.get_active_process_blocks()[-1].fs.vagmd.num_modules
+        # num_modules = b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.num_modules
 
-        return (
-            b.permeate.properties[0].flow_vol_phase["Liq"]
-            ==
-            # pyunits.convert(
-            pyunits.convert(
-                (
-                    num_modules
-                    * b.mp.get_active_process_blocks()[-1].fs.acc_distillate_volume
-                    / (
-                        b.mp.get_active_process_blocks()[-1].fs.dt
-                        * (blk.n_time_points - 1)
-                    )
-                ),
-                to_units=pyunits.m**3 / pyunits.s,
+        vagmd = b.unit.mp.get_active_process_blocks()[-1].fs.vagmd
+        num_modules = pyunits.convert(
+            vagmd.system_capacity
+            / sum(
+                b.unit.mp.get_active_process_blocks()[i].fs.vagmd.permeate_flux
+                for i in range(blk.n_time_points)
             )
+            * blk.n_time_points
+            / b.unit.mp.get_active_process_blocks()[0].fs.vagmd.module_area,
+            to_units=pyunits.dimensionless,
+        )
+
+        return b.permeate.properties[0].flow_vol_phase["Liq"] == pyunits.convert(
+            (
+                num_modules
+                * b.unit.mp.get_active_process_blocks()[-1].fs.acc_distillate_volume
+                / (
+                    b.unit.mp.get_active_process_blocks()[-1].fs.dt
+                    * (blk.n_time_points - 1)
+                )
+            ),
+            to_units=pyunits.m**3 / pyunits.s,
         )
 
     blk.permeate.properties[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
@@ -261,19 +265,21 @@ def init_md(blk, verbose=True, solver=None):
         doc="Assign the concentrate flow rate to its respective state junction"
     )
     def get_concentrate_flow(b):
-        num_modules = b.mp.get_active_process_blocks()[-1].fs.vagmd.num_modules
+        num_modules = b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.num_modules
 
         return b.concentrate.properties[0].flow_vol_phase["Liq"] == pyunits.convert(
             (
-                num_modules
-                * blk.model_options["initial_batch_volume"]
-                * pyunits.L
-                * (1 - b.mp.get_active_process_blocks()[-1].fs.acc_recovery_ratio)
-                / (b.mp.get_active_process_blocks()[-1].fs.dt * (blk.n_time_points - 1))
+                b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.system_capacity
+                * (1 - m.water_recovery)
+                / m.water_recovery
+                #     num_modules
+                #     * blk.model_input["initial_batch_volume"]
+                #     * pyunits.L
+                #     * (1 - b.unit.mp.get_active_process_blocks()[-1].fs.acc_recovery_ratio)
+                #     / (b.unit.mp.get_active_process_blocks()[-1].fs.dt * (blk.n_time_points - 1))
             ),
             to_units=pyunits.m**3 / pyunits.s,
         )
-
     @blk.Constraint(
         doc="Assign the concentrate concentration to its respective state junction"
     )
