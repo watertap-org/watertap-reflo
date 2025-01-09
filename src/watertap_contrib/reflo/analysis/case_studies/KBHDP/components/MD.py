@@ -195,7 +195,7 @@ def init_md(m, blk, verbose=True, solver=None):
     )
     def get_permeate_flow(b):
         # num_modules = b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.num_modules
-        
+
         vagmd = b.unit.mp.get_active_process_blocks()[-1].fs.vagmd
         num_modules = pyunits.convert(
             vagmd.system_capacity
@@ -224,7 +224,7 @@ def init_md(m, blk, verbose=True, solver=None):
     blk.permeate.properties[0].pressure.fix(101325)
     blk.permeate.properties[0].temperature.fix(298.15)
 
-    # Build connection to concentrate state junction
+    # # Build connection to concentrate state junction
 
     blk.concentrate.properties[0]._flow_vol_phase
     blk.concentrate.properties[0]._conc_mass_phase_comp
@@ -233,17 +233,18 @@ def init_md(m, blk, verbose=True, solver=None):
         doc="Assign the concentrate flow rate to its respective state junction"
     )
     def get_concentrate_flow(b):
-        # num_modules = b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.num_modules
+        num_modules = b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.num_modules
 
         return b.concentrate.properties[0].flow_vol_phase["Liq"] == pyunits.convert(
             (
                 b.unit.mp.get_active_process_blocks()[-1].fs.vagmd.system_capacity
-                * m.water_recovery
-                # num_modules
-                # * blk.model_input["initial_batch_volume"]
-                # * pyunits.L
-                # * (1 - b.unit.mp.get_active_process_blocks()[-1].fs.acc_recovery_ratio)
-                # / (b.unit.mp.get_active_process_blocks()[-1].fs.dt * (blk.n_time_points - 1))
+                * (1 - m.water_recovery)
+                / m.water_recovery
+                #     num_modules
+                #     * blk.model_input["initial_batch_volume"]
+                #     * pyunits.L
+                #     * (1 - b.unit.mp.get_active_process_blocks()[-1].fs.acc_recovery_ratio)
+                #     / (b.unit.mp.get_active_process_blocks()[-1].fs.dt * (blk.n_time_points - 1))
             ),
             to_units=pyunits.m**3 / pyunits.s,
         )
