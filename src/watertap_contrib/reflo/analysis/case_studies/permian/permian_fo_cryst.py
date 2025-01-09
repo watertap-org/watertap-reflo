@@ -781,49 +781,49 @@ if __name__ == "__main__":
     
     print('failed',failed)
 
-#%%
-    import matplotlib.pyplot as plt
+#%% Make plots
+import matplotlib.pyplot as plt
 
-    plt.stackplot(nacl_prices, NaCls,
-                chem_capexs, chem_opexs,
-                ec_capexs, ec_opexs,
-                filt_capexs, filt_opexs,
-                fo_capexs, fo_opexs,
-                cryst_capexs, cryst_opexs,
-                # elecs, heats, alums, h2o2s,
-                labels=[None,'Chem add CAPEX', 'Chem add OPEX',
-                        'EC CAPEX', 'EC OPEX',
-                        'Cart filt CAPEX', 'Cart filt OPEX',
-                        'FO CAPEX', 'FO OPEX',
-                        'Cryst CAPEX', 'Cryst OPEX',
-                        # 'Elec', 'Heat','Aluminum','H2O2'
-                        ],
-                hatch =['','', '\\\\',
-                        '', '\\\\',
-                        '', '\\\\',
-                        '', '\\\\',
-                        '', '\\\\',
-                        # '','','','',
-                        ],
-                colors=['none','gray','gray',
-                        'tomato', 'tomato',
-                        'sandybrown','sandybrown',
-                        'khaki','khaki',
-                        'lightgreen','lightgreen',
-                        # 'gold','indianred','royalblue','darkviolet'
-                        ],
-                edgecolor='black',
-                      )
+plt.stackplot(nacl_prices, NaCls,
+            chem_capexs, chem_opexs,
+            ec_capexs, ec_opexs,
+            filt_capexs, filt_opexs,
+            fo_capexs, fo_opexs,
+            cryst_capexs, cryst_opexs,
+            # elecs, heats, alums, h2o2s,
+            labels=[None,'Chem add CAPEX', 'Chem add OPEX',
+                    'EC CAPEX', 'EC OPEX',
+                    'Cart filt CAPEX', 'Cart filt OPEX',
+                    'FO CAPEX', 'FO OPEX',
+                    'Cryst CAPEX', 'Cryst OPEX',
+                    # 'Elec', 'Heat','Aluminum','H2O2'
+                    ],
+            hatch =['','', '\\\\',
+                    '', '\\\\',
+                    '', '\\\\',
+                    '', '\\\\',
+                    '', '\\\\',
+                    # '','','','',
+                    ],
+            colors=['none','gray','gray',
+                    'tomato', 'tomato',
+                    'sandybrown','sandybrown',
+                    'khaki','khaki',
+                    'lightgreen','lightgreen',
+                    # 'gold','indianred','royalblue','darkviolet'
+                    ],
+            edgecolor='black',
+                    )
 
-    plt.rcParams['figure.dpi']=300
+plt.rcParams['figure.dpi']=300
 
-    # Show the legend
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol =2,prop={'size': 6})
+# Show the legend
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol =2,prop={'size': 6})
 
-    plt.ylabel('LCOW ($/m3)')
-    plt.xlabel('NaCl prices ($/kg)')
-    plt.title('')
-    # Display the chart
-    plt.show()
+plt.ylabel('LCOW ($/m3)')
+plt.xlabel('NaCl prices ($/kg)')
+plt.title('')
+# Display the chart
+plt.show()
 
 # %%
