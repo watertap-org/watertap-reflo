@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import PySAM.TroughPhysicalProcessHeat as iph
 import PySAM.IphToLcoefcr as iph_to_lcoefcr
 import PySAM.Lcoefcr as lcoefcr
+import os
 
 
 def read_module_datafile(file_name):
@@ -192,30 +193,22 @@ def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True)
 #########################################################################################################
 if __name__ == "__main__":
     model_name = "PhysicalTroughIPHLCOHCalculator"
+    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
     config_files = [
-        join(dirname(__file__), "trough_physical_process_heat-reflo.json"),
+        os.path.join(__location__,  "cst/trough_physical_process_heat-reflo.json"),
     ]
-    weather_file = join(
-        dirname(__file__), "carlsbad_NM_weather_tmy-2023-full.csv"
+    weather_file = os.path.join(
+        __location__,  "carlsbad_NM_weather_tmy-2023-full.csv"
     )
-    dataset_filename = join(
-        dirname(__file__), "trough_data_heat_load_1_50.pkl"
+    dataset_filename =  os.path.join(
+        __location__,  "cst/trough_data_heat_load_1_50.pkl"
     )  # output dataset for surrogate training
 
     config_data = [read_module_datafile(config_file) for config_file in config_files]
     del config_data[0]["file_name"]  # remove weather filename
-    # modules = setup_model(model_name, weather_file, config_data=config_data)
-
-    # Run default model
-    # result = run_model(modules, heat_load=None, hours_storage=None)
-
-    # Run model at specific parameters
-    # result = run_model(modules, heat_load=600, hours_storage=3)
-
-    # Run model conducive to multiprocessing
-    # weather_data = utils.read_weather_data(weather_file)    # passing of weather data not yet enabled
-    # result_check = setup_and_run(model_name, weather_file, config_data, heat_load=600, hours_storage=3)
-
+    
+    
     # Run parametrics via multiprocessing
     data = []
     heat_loads = np.linspace(1, 50, 50)  # [MWt]
