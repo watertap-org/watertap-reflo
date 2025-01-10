@@ -222,7 +222,7 @@ def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80):
+def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80, heat_load=10):
     energy = m.fs.energy
     # energy.FPC.load_surrogate()
 
@@ -231,7 +231,7 @@ def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80):
     energy.FPC.temperature_hot.fix(temperature_hot)
     # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     energy.FPC.temperature_cold.set_value(20)
-    energy.FPC.heat_load.fix(10)
+    energy.FPC.heat_load.fix(heat_load)
 
 
 def add_fpc_costing(m, costing_block=None):
@@ -421,8 +421,9 @@ if __name__ == "__main__":
 
     m = build_system()
 
-    build_fpc_really_high(m)
-    set_fpc_op_conditions(m)
+    # build_fpc_really_high(m)
+    build_fpc_low(m)
+    set_fpc_op_conditions(m, hours_storage=24, heat_load=0.1)
     add_FPC_scaling(m, m.fs.energy.FPC)
     init_fpc(m.fs.energy)
 
@@ -430,3 +431,6 @@ if __name__ == "__main__":
     results = solve(m)
     m.fs.energy.FPC.heat_annual.display()
     report_fpc(m)
+    m.fs.energy.FPC.display()
+    m.fs.energy.FPC.storage_volume.display()
+    m.fs.energy.FPC.number_collectors.display()
