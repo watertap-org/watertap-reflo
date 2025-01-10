@@ -615,7 +615,8 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     treat.costing.initialize()
 
     flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
-    treat.costing.electricity_cost.fix(0.07)
+    treat.costing.electricity_cost.fix(0.0626)
+    treat.costing.heat_cost.set_value(0.018)
     treat.costing.add_LCOW(flow_vol)
     treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
 
@@ -687,4 +688,8 @@ if __name__ == "__main__":
 
     print(
         f"Translator pressure: {treat.disposal_SW_mixer.zo_mixer_state[0].pressure()} Pa"
+    )
+
+    print(
+        f'{"Aggregated Heat Cost":<30s}{value(m.fs.treatment.costing.aggregate_flow_costs["heat"]):<20,.2f}{pyunits.get_units(m.fs.treatment.costing.aggregate_flow_costs["heat"])}'
     )
