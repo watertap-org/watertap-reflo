@@ -39,7 +39,7 @@ __all__ = [
     "build_fpc_low",
     "build_fpc_mid",
     "build_fpc_high",
-    "build_fpc_really_high",
+    # "build_fpc_really_high",
     "init_fpc",
     "set_fpc_op_conditions",
     "add_fpc_costing",
@@ -54,27 +54,27 @@ param_file = os.path.join(parent_dir, "data/fpc/solar_water_heating-kbhdp.json")
 
 dataset_filename_low = os.path.join(
     parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso_LOW_heat_load_0.1-10_hours_storage_0-24_temperature_hot_50-100.pkl",
+    "data/fpc/FPC_KBHDP_el_paso_LOW_heat_load_0.1-10_hours_storage_1-24_temperature_hot_50-98.pkl",
 )
 surrogate_filename_low = dataset_filename_low.replace(".pkl", ".json")
 
 dataset_filename_mid = os.path.join(
     parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso_MID_heat_load_1-25_hours_storage_0-24_temperature_hot_50-100.pkl",
+    "data/fpc/FPC_KBHDP_el_paso_MID_heat_load_1-25_hours_storage_1-24_temperature_hot_50-98.pkl",
 )
 surrogate_filename_mid = dataset_filename_mid.replace(".pkl", ".json")
 
 dataset_filename_high = os.path.join(
     parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso_HIGH_heat_load_1-50_hours_storage_0-24_temperature_hot_50-100.pkl",
+    "data/fpc/FPC_KBHDP_el_paso_HIGH_heat_load_1-50_hours_storage_1-24_temperature_hot_50-98.pkl",
 )
 surrogate_filename_high = dataset_filename_high.replace(".pkl", ".json")
 
-dataset_filename_really_high = os.path.join(
-    parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_1-100_hours_storage_0-24_temperature_hot_50-100.pkl",
-)
-surrogate_filename_really_high = dataset_filename_really_high.replace(".pkl", ".json")
+# dataset_filename_really_high = os.path.join(
+#     parent_dir,
+#     "data/fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_1-100_hours_storage_0-24_temperature_hot_50-100.pkl",
+# )
+# surrogate_filename_really_high = dataset_filename_really_high.replace(".pkl", ".json")
 
 
 def build_system():
@@ -85,7 +85,6 @@ def build_system():
 
     m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
 
-    m.fs.fpc = FlowsheetBlock(dynamic=False)
 
     return m
 
@@ -96,7 +95,7 @@ def build_fpc_low(m):
     print(f'\n{"=======> BUILDING FPC SYSTEM -- LOW RANGE <=======":^60}\n')
 
     input_bounds = dict(
-        heat_load=[0.1, 10], hours_storage=[0, 24], temperature_hot=[50, 102]
+        heat_load=[0.1, 10], hours_storage=[1, 24], temperature_hot=[50, 98]
     )
 
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
@@ -127,7 +126,7 @@ def build_fpc_mid(m):
     print(f'\n{"=======> BUILDING FPC SYSTEM -- MID RANGE <=======":^60}\n')
 
     input_bounds = dict(
-        heat_load=[1, 25], hours_storage=[0, 24], temperature_hot=[50, 102]
+        heat_load=[1, 25], hours_storage=[1, 24], temperature_hot=[50, 98]
     )
 
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
@@ -158,7 +157,7 @@ def build_fpc_high(m):
     print(f'\n{"=======> BUILDING FPC SYSTEM -- HIGH RANGE <=======":^60}\n')
 
     input_bounds = dict(
-        heat_load=[1, 50], hours_storage=[0, 24], temperature_hot=[50, 102]
+        heat_load=[1, 50], hours_storage=[1, 24], temperature_hot=[50, 98]
     )
 
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
@@ -183,35 +182,35 @@ def build_fpc_high(m):
     )
 
 
-def build_fpc_really_high(m):
-    energy = m.fs.energy
+# def build_fpc_really_high(m):
+#     energy = m.fs.energy
 
-    print(f'\n{"=======> BUILDING FPC SYSTEM -- REALLY HIGH RANGE <=======":^60}\n')
+#     print(f'\n{"=======> BUILDING FPC SYSTEM -- REALLY HIGH RANGE <=======":^60}\n')
 
-    input_bounds = dict(
-        heat_load=[1, 100], hours_storage=[0, 24], temperature_hot=[50, 102]
-    )
+#     input_bounds = dict(
+#         heat_load=[1, 100], hours_storage=[1, 24], temperature_hot=[50, 98]
+#     )
 
-    input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
-    input_variables = {
-        "labels": ["heat_load", "hours_storage", "temperature_hot"],
-        "bounds": input_bounds,
-        "units": input_units,
-    }
+#     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+#     input_variables = {
+#         "labels": ["heat_load", "hours_storage", "temperature_hot"],
+#         "bounds": input_bounds,
+#         "units": input_units,
+#     }
 
-    output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
-    output_variables = {
-        "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
-        "units": output_units,
-    }
+#     output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+#     output_variables = {
+#         "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+#         "units": output_units,
+#     }
 
-    energy.FPC = FlatPlateSurrogate(
-        surrogate_model_file=surrogate_filename_really_high,
-        dataset_filename=dataset_filename_really_high,
-        input_variables=input_variables,
-        output_variables=output_variables,
-        scale_training_data=True,
-    )
+#     energy.FPC = FlatPlateSurrogate(
+#         surrogate_model_file=surrogate_filename_really_high,
+#         dataset_filename=dataset_filename_really_high,
+#         input_variables=input_variables,
+#         output_variables=output_variables,
+#         scale_training_data=True,
+#     )
 
 
 def init_fpc(blk):
@@ -429,8 +428,16 @@ if __name__ == "__main__":
 
     add_fpc_costing(m)
     results = solve(m)
-    m.fs.energy.FPC.heat_annual.display()
     report_fpc(m)
-    m.fs.energy.FPC.display()
-    m.fs.energy.FPC.storage_volume.display()
-    m.fs.energy.FPC.number_collectors.display()
+
+    m = build_system()
+
+    # build_fpc_really_high(m)
+    build_fpc_high(m)
+    set_fpc_op_conditions(m, hours_storage=24, heat_load=20, temperature_hot=65)
+    add_FPC_scaling(m, m.fs.energy.FPC)
+    init_fpc(m.fs.energy)
+
+    add_fpc_costing(m)
+    results = solve(m)
+    report_fpc(m)
