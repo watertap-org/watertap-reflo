@@ -25,6 +25,17 @@ from watertap_contrib.reflo.solar_models.surrogate.flat_plate.flat_plate_surroga
     FlatPlateSurrogate,
 )
 
+__all__ = [
+    "plot_contour",
+    "run_pysam_fpc_scaled_draw_sweep",
+    "plot_pysam_fpc_scaled_draw_sweep",
+    "plot_pysam_fpc_time_series",
+    "build_and_run_fpc_surrogate",
+    "run_fpc_sweep",
+    "run_reflo_pysam_fpc_comparison", 
+    "run_reflo_pysam_fpc_comparison_sweep",
+]
+
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
 param_file = os.path.join(__location__, "fpc/solar_water_heating-kbhdp.json")
