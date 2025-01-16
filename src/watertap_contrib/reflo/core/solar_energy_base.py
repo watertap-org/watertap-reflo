@@ -86,6 +86,15 @@ class SolarEnergyBaseData(UnitModelBlockData):
         ),
     )
     CONFIG.declare(
+        "surrogate_filename_save",
+        ConfigValue(
+            default=None,
+            domain=str,
+            description="Filename used to save surrogate model to .json",
+            doc="""Filename used to save surrogate model file to .json""",
+        ),
+    )
+    CONFIG.declare(
         "dataset_filename",
         ConfigValue(
             default=None,
@@ -276,12 +285,20 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self.output_labels,
             self.input_bounds,
         )
+        if self.config.surrogate_filename_save is None:
+            self.surrogate_filename_save = self.config.dataset_filename.replace(
+                ".pkl", ""
+            )
+            for k, v in self.input_bounds.items():
+                self.surrogate_filename_save += f"_{k}_{v[0]}_{v[1]}"
+        else:
+            self.surrogate_filename_save = self.config.surrogate_filename_save.replace(
+                ".json", ""
+            )
 
-        self.surrogate_file = self.config.dataset_filename.replace(".pkl", "")
-        for k, v in self.input_bounds.items():
-            self.surrogate_file += f"_{k}_{v[0]}_{v[1]}"
-
-        _ = self.surrogate.save_to_file(self.surrogate_file + ".json", overwrite=True)
+        _ = self.surrogate.save_to_file(
+            self.surrogate_filename_save + ".json", overwrite=True
+        )
 
         sys.stdout = oldstdout
 
@@ -384,12 +401,12 @@ class SolarEnergyBaseData(UnitModelBlockData):
         sys.stdout = stream
 
         if self.config.surrogate_model_file is not None:
-            self.surrogate_file = self.config.surrogate_model_file
+            self.surrogate_model_file = self.config.surrogate_model_file
 
         self.log.info("Loading surrogate.")
 
         self.surrogate_blk = SurrogateBlock(concrete=True)
-        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
+        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_model_file)
         self.surrogate_blk.build_model(
             self.surrogate,
             input_vars=self.surrogate_inputs,
