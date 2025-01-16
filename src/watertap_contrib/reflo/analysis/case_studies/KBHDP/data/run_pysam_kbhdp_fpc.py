@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -9,6 +9,7 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
+
 import os
 import json
 import time
@@ -27,11 +28,11 @@ import PySAM.Swh as swh
 
 __all__ = [
     "read_module_datafile",
-    "load_config",
-    "setup_model",
-    "run_model",
-    "setup_and_run",
-    "run_pysam_kbhdp_fpc",
+    "load_pysam_fpc_config",
+    "setup_pysam_fpc_model",
+    "run_pysam_fpc_model",
+    "setup_and_run_fpc",
+    "run_pysam_kbhdp_fpc_sweep",
 ]
 
 
@@ -46,7 +47,7 @@ def read_module_datafile(file_name):
     return data
 
 
-def load_config(modules, file_names=None, module_data=None):
+def load_pysam_fpc_config(modules, file_names=None, module_data=None):
     """
     Loads parameter values into PySAM modules, either from files or supplied dicts
 
@@ -90,7 +91,7 @@ def system_capacity_computed(tech_model):
     return system_capacity
 
 
-def setup_model(
+def setup_pysam_fpc_model(
     temperatures,
     weather_file=None,
     weather_data=None,
@@ -128,7 +129,7 @@ def setup_model(
     return tech_model
 
 
-def run_model(
+def run_pysam_fpc_model(
     tech_model,
     heat_load_mwt=None,
     hours_storage=None,
@@ -319,18 +320,18 @@ def run_model(
         return results
 
 
-def setup_and_run(
+def setup_and_run_fpc(
     temperatures, weather_file, config_data, heat_load, hours_storage, temperature_hot
 ):
 
-    tech_model = setup_model(
+    tech_model = setup_pysam_fpc_model(
         temperatures, weather_file=weather_file, config_data=config_data
     )
-    result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
+    result = run_pysam_fpc_model(tech_model, heat_load, hours_storage, temperature_hot)
     return result
 
 
-def run_pysam_kbhdp_fpc(
+def run_pysam_kbhdp_fpc_sweep(
     heat_loads=np.linspace(1, 25, 25),
     hours_storages=np.linspace(0, 12, 13),
     temperature_hots=np.arange(50, 102, 2),
@@ -360,7 +361,7 @@ def run_pysam_kbhdp_fpc(
 
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
-    tech_model = setup_model(
+    tech_model = setup_pysam_fpc_model(
         temperatures=temperatures,
         weather_file=weather_file,
         config_data=config_data,
@@ -381,7 +382,7 @@ def run_pysam_kbhdp_fpc(
                     (temperatures, weather_file, config_data, *args)
                     for args in arguments
                 ]
-                results = pool.starmap(setup_and_run, args)
+                results = pool.starmap(setup_and_run_fpc, args)
             time_stop = time.process_time()
             print("Multiprocessing time:", time_stop - time_start, "\n")
 
@@ -406,7 +407,7 @@ def run_pysam_kbhdp_fpc(
                 for th in temperature_hots
             ]
             for heat_load, hours_storage, temperature_hot in comb:
-                result = run_model(
+                result = run_pysam_fpc_model(
                     tech_model, heat_load, hours_storage, temperature_hot
                 )
                 data.append(
@@ -432,7 +433,7 @@ if __name__ == "__main__":
     #     "T_amb": 18,
     # }
     # config_data = read_module_datafile(param_file)
-    # result = setup_and_run(
+    # result = setup_and_run_fpc(
     #     temperatures, weather_file, config_data, 1, 1, 98
     # )
     # print(result)
@@ -447,7 +448,7 @@ if __name__ == "__main__":
 
     # dataset_filename = f"fpc/FPC_KBHDP_el_paso_LOW_heat_load_{float(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
 
-    # run_pysam_kbhdp_fpc(
+    # run_pysam_kbhdp_fpc_sweep(
     #     heat_loads=heat_loads,
     #     hours_storages=hours_storages,
     #     temperature_hots=temperature_hots,
@@ -487,7 +488,7 @@ if __name__ == "__main__":
 
     # dataset_filename = f"fpc/FPC_KBHDP_el_paso_MID_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
 
-    # run_pysam_kbhdp_fpc(
+    # run_pysam_kbhdp_fpc_sweep(
     #     heat_loads=heat_loads,
     #     hours_storages=hours_storages,
     #     temperature_hots=temperature_hots,
@@ -527,7 +528,7 @@ if __name__ == "__main__":
 
     # dataset_filename = f"fpc/FPC_KBHDP_el_paso_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
 
-    # run_pysam_kbhdp_fpc(
+    # run_pysam_kbhdp_fpc_sweep(
     #     heat_loads=heat_loads,
     #     hours_storages=hours_storages,
     #     temperature_hots=temperature_hots,
@@ -566,7 +567,7 @@ if __name__ == "__main__":
     temperature_hots = np.arange(50, 100, 2)
     dataset_filename = f"fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
 
-    run_pysam_kbhdp_fpc(
+    run_pysam_kbhdp_fpc_sweep(
         heat_loads=heat_loads,
         hours_storages=hours_storages,
         temperature_hots=temperature_hots,

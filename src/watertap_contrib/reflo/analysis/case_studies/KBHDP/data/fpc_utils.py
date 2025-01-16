@@ -133,13 +133,13 @@ def run_pysam_fpc_scaled_draw_sweep(
 
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
-    tech_model = setup_model(
+    tech_model = setup_pysam_fpc_model(
         temperatures=temperatures,
         weather_file=weather_file,
         config_data=config_data,
     )
     # run with scaled_draw=None to find the current calculated value for scaled_draw as the upperbound for the sweep
-    _, tech_model = run_model(
+    _, tech_model = run_pysam_fpc_model(
         tech_model,
         heat_load_mwt=heat_load_mwt,
         hours_storage=hours_storage,
@@ -159,12 +159,12 @@ def run_pysam_fpc_scaled_draw_sweep(
 
         if "solar_resource_file" in config_data:
             del config_data["solar_resource_file"]
-        tech_model = setup_model(
+        tech_model = setup_pysam_fpc_model(
             temperatures=temperatures,
             weather_file=weather_file,
             config_data=config_data,
         )
-        _, tech_model = run_model(
+        _, tech_model = run_pysam_fpc_model(
             tech_model,
             heat_load_mwt=heat_load_mwt,
             hours_storage=hours_storage,
@@ -400,12 +400,12 @@ def run_reflo_pysam_fpc_comparison(
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
 
-    tech_model = setup_model(
+    tech_model = setup_pysam_fpc_model(
         temperatures=temperatures,
         weather_file=weather_file,
         config_data=config_data,
     )
-    result, tech_model = run_model(
+    result, tech_model = run_pysam_fpc_model(
         tech_model,
         heat_load_mwt=heat_load,
         hours_storage=hours_storage,
