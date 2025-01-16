@@ -35,7 +35,7 @@ model_name = "PhysicalTroughIPHLCOHCalculator"
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 config_files = [
-    os.path.join(__location__, "cst/trough_physical_process_heat-reflo.json"),
+    os.path.join(__location__, "cst/trough_physical_process_heat-kbhdp.json"),
 ]
 weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
 
