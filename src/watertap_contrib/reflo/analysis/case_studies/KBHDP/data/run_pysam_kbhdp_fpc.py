@@ -303,7 +303,9 @@ def run_pysam_fpc_model(
     heat_annual = tech_model.value(
         "annual_Q_deliv"
     )  # [kWh] does not include electric heat, includes losses
-    electricity_annual = sum(tech_model.value("P_pump"))  # [kWh]
+    electricity_annual = sum(tech_model.value("P_pump")) + sum(
+        tech_model.Outputs.Q_aux
+    )  # [kWh]
     frac_electricity_annual = (
         electricity_annual / heat_annual
     )  # [-] for analysis only, plant beneficial if < 1
@@ -434,7 +436,7 @@ if __name__ == "__main__":
     # }
     # config_data = read_module_datafile(param_file)
     # result = setup_and_run_fpc(
-    #     temperatures, weather_file, config_data, 1, 1, 98
+    #     temperatures, weather_file, config_data, 1,24, 80
     # )
     # print(result)
     # assert False
@@ -562,10 +564,12 @@ if __name__ == "__main__":
     # )
 
     # REALLY HIGH
-    heat_loads = np.linspace(50, 100, 25)
-    hours_storages = np.linspace(1, 24, 24)
-    temperature_hots = np.arange(50, 100, 2)
-    dataset_filename = f"fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
+    heat_loads = np.linspace(1, 100, 100)
+    hours_storages = np.linspace(6, 24, 19)
+    temperature_hots = np.arange(70, 100, 2)
+    # print(len(heat_loads) * len(hours_storages) * len(temperature_hots))
+    # assert False
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-with_aux_heating.pkl"
 
     run_pysam_kbhdp_fpc_sweep(
         heat_loads=heat_loads,
@@ -575,7 +579,7 @@ if __name__ == "__main__":
     )
 
     input_bounds = dict(
-        heat_load=[1, 100], hours_storage=[1, 24], temperature_hot=[50, 98]
+        heat_load=[1, 100], hours_storage=[6, 24], temperature_hot=[70, 98]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
