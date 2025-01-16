@@ -13,9 +13,7 @@
 
 # Import Pyomo libraries
 from pyomo.environ import (
-    ConcreteModel,
     check_optimal_termination,
-    assert_optimal_termination,
     Var,
     Constraint,
     Expression,
@@ -32,15 +30,12 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
     FlowsheetBlock,
-    UnitModelCostingBlock,
 )
 from idaes.core.util.exceptions import InitializationError, ConfigurationError
 import idaes.core.util.scaling as iscale
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.util.tables import create_stream_table_dataframe
 import idaes.logger as idaeslog
-from idaes.core.util.constants import Constants
 
 from watertap.core import InitializationMixin, ControlVolume0DBlock
 from watertap.core.solvers import get_solver
@@ -456,7 +451,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             else:
                 # Deactivate contraint that links energy flow between effects
                 linking_constr = getattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    self, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
                 linking_constr.deactivate()
                 eff.effect.initialize(**init_args)

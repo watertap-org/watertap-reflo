@@ -10,9 +10,13 @@ from pyomo.environ import (
 import os
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+<<<<<<< HEAD
 # from idaes.core.solvers import get_solver
 
 from watertap.core.solvers import get_solver
+=======
+from idaes.core.solvers import get_solver
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
 from watertap.core.util.model_diagnostics.infeasible import *
 from idaes.core.util.scaling import *
@@ -32,13 +36,22 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
 )
 
+<<<<<<< HEAD
 __all__ = [
     "build_system",
+=======
+import pickle
+
+__all__ = [
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
     "build_cst",
     "init_cst",
     "set_cst_op_conditions",
     "add_cst_costing",
+<<<<<<< HEAD
     "calc_costing",
+=======
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
     "report_cst",
     "report_cst_costing",
 ]
@@ -62,6 +75,7 @@ def build_cst(blk, __file__=None):
 
     if __file__ == None:
         cwd = os.getcwd()
+<<<<<<< HEAD
         __file__ = cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\trough\\"
 
     # dataset_filename = os.path.join(
@@ -82,6 +96,32 @@ def build_cst(blk, __file__=None):
     )
 
     input_bounds = dict(heat_load=[100, 500], hours_storage=[0, 26])
+=======
+        __file__ = cwd + r"\src\watertap_contrib\reflo\analysis\case_studies\permian\data\cst\\"
+
+    dataset_filename = os.path.join(
+        os.path.dirname(__file__), r"trough_permian_data_heat_load_1_50_hours_storage_0_24.pkl"
+    )
+
+    # Updating pickle file output column names
+    with open(dataset_filename, 'rb') as f:
+        df = pickle.load(f)
+
+    # Rename the columns
+    df.rename(columns={'annual_energy': 'heat_annual'}, inplace=True)
+    df.rename(columns={'electrical_load': 'electricity_annual'}, inplace=True)
+
+    # Save the modified DataFrame back as a pickle
+    with open(dataset_filename, 'wb') as f:
+        pickle.dump(df, f)
+
+    surrogate_filename = os.path.join(
+        os.path.dirname(__file__),
+        r"trough_permian_data_heat_load_1_50_hours_storage_0_24.json",
+    )
+
+    input_bounds = dict(heat_load=[1, 50], hours_storage=[0, 24])
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
     input_units = dict(heat_load="MW", hours_storage="hour")
     input_variables = {
         "labels": ["heat_load", "hours_storage"],
@@ -106,19 +146,30 @@ def build_cst(blk, __file__=None):
 
 def init_cst(blk):
     # Fix input variables for initialization
+<<<<<<< HEAD
     blk.unit.hours_storage.fix()
     blk.unit.heat_load.fix()
     blk.unit.initialize()
 
     # blk.unit.heat_load.unfix()
 
+=======
+    blk.unit.initialize()
+
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
+<<<<<<< HEAD
 def set_cst_op_conditions(blk, hours_storage=6):
     blk.unit.hours_storage.fix(hours_storage)
+=======
+def set_cst_op_conditions(blk, heat_load = 10, hours_storage=6):
+    blk.unit.hours_storage.fix(hours_storage)
+    blk.unit.heat_load.fix(heat_load)
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
 
 def add_cst_costing(blk, costing_block):
@@ -126,7 +177,10 @@ def add_cst_costing(blk, costing_block):
 
 
 def calc_costing(m, blk):
+<<<<<<< HEAD
     blk.costing.heat_cost.set_value(0)
+=======
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
     blk.costing.cost_process()
     blk.costing.initialize()
 
@@ -206,12 +260,17 @@ def report_cst_costing(m, blk):
 if __name__ == "__main__":
 
     solver = get_solver()
+<<<<<<< HEAD
     # solver = SolverFactory("ipopt")
+=======
+    solver = SolverFactory("ipopt")
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
     m = build_system()
 
     build_cst(m.fs.cst)
 
+<<<<<<< HEAD
     init_cst(m.fs.cst)
 
     set_cst_op_conditions(m.fs.cst)
@@ -227,9 +286,20 @@ if __name__ == "__main__":
     print('last solve')
     results = solver.solve(m)
     assert_optimal_termination(results)
+=======
+    set_cst_op_conditions(m.fs.cst)
+    init_cst(m.fs.cst)
+
+    add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
+    calc_costing(m, m.fs)
+    results = solver.solve(m)
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
     print(degrees_of_freedom(m))
     report_cst(m, m.fs.cst.unit)
     report_cst_costing(m, m.fs)
 
+<<<<<<< HEAD
     # m.fs.costing.used_flows.display()
+=======
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0

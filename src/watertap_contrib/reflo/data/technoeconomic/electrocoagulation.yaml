@@ -196,10 +196,14 @@ permian:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
+<<<<<<< HEAD
       value: 0.7
+=======
+      value: 0.11
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
       units: dimensionless
     silica:
-      value: 0.7
+      value: 0.95
       units: dimensionless
   capital_cost:
     cost_factor: TPEC
@@ -236,4 +240,8 @@ permian:
       units: USD_2007/Mgallons
     capital_floc_b_parameter:
       value: 177335
+<<<<<<< HEAD
       units: USD_2007
+=======
+      units: USD_2007
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0

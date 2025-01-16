@@ -55,6 +55,7 @@ rho = 1000 * pyunits.kg / pyunits.m**3
 
 __all__ = [
     "build_cartridge_filtration",
+    "set_cart_filt_scaling",
     "set_cart_filt_op_conditions",
     "add_cartridge_filtration_costing",
     "init_cart_filt",
@@ -166,7 +167,20 @@ def set_system_operating_conditions(m, Qin=5):
     calculate_scaling_factors(m)
 
 
-def set_cart_filt_op_conditions(m, blk):
+def set_cart_filt_scaling(m, blk, calc_blk_scaling_factors=False):
+    set_scaling_factor(blk.unit.energy_electric_flow_vol_inlet, 1e4)
+
+    # Calculate scaling factors only for CF block if in full case study flowsheet
+    # so we don't prematurely set scaling factors
+    if calc_blk_scaling_factors:
+        calculate_scaling_factors(blk)
+
+    # otherwise calculate all scaling factors
+    else:
+        calculate_scaling_factors(m)
+
+
+def set_cart_filt_op_conditions(m, blk, **kwargs):
 
     # data = m.db.get_unit_operation_parameters("chemical_addition")
     blk.unit.load_parameters_from_database()

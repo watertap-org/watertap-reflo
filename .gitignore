@@ -150,3 +150,10 @@ auto-save-list
 
 # other
 *.json
+*.h5
+*.svg
+*.jpg
+*.csv
+*.png
+*.pkl
+*.rtf

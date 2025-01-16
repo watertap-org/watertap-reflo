@@ -170,6 +170,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
     def build(self):
         super().build()
+        self.log = idaeslog.getLogger(self.name)
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
         self._tech_type = None
@@ -236,9 +237,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
         if callable(self._scaling):
             self._scaling(self)
 
-    def create_rbf_surrogate(
-        self,
-    ):
+    def create_rbf_surrogate(self):
 
         # Capture long output
         stream = StringIO()
@@ -257,8 +256,11 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self.trainer.config.basis_function = "gaussian"  # default = gaussian
         self.trainer.config.solution_method = "algebraic"  # default = algebraic
         self.trainer.config.regularization = True  # default = True
-
+        self.log.info(
+            f"Training RBF Surrogate with {self.trainer.config.basis_function} basis function and {self.trainer.config.solution_method} solution method."
+        )
         self.trained_rbf = self.trainer.train_surrogate()
+        self.log.info(f"Training Complete.")
 
         try:
             os.remove("solution.pickle")
@@ -382,6 +384,8 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         if self.config.surrogate_model_file is not None:
             self.surrogate_file = self.config.surrogate_model_file
+
+        self.log.info("Loading surrogate.")
 
         self.surrogate_blk = SurrogateBlock(concrete=True)
         self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)

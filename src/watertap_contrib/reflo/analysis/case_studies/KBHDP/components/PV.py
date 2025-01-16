@@ -1,3 +1,4 @@
+import os
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -46,9 +47,27 @@ def build_system():
 def build_pv(m):
     energy = m.fs.energy
 
+    parent_dir = os.path.abspath(
+        os.path.join(os.path.abspath(__file__), "..", "..", "..", "..", "..")
+    )
+
+    surrogate_dir = os.path.join(
+        parent_dir,
+        "solar_models",
+        "surrogate",
+        "pv",
+    )
+
+    dataset_filename = os.path.join(surrogate_dir, "data", "dataset.pkl")
+
+    surrogate_filename = os.path.join(
+        surrogate_dir,
+        "pv_surrogate.json",
+    )
+
     energy.pv = PVSurrogate(
-        surrogate_model_file="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/pv_surrogate.json",
-        dataset_filename="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/solar_models/surrogate/pv/data/dataset.pkl",
+        surrogate_model_file=surrogate_filename,
+        dataset_filename=dataset_filename,
         input_variables={
             "labels": ["design_size"],
             "bounds": {"design_size": [1, 200000]},
@@ -270,3 +289,18 @@ if __name__ == "__main__":
     initialize(m)
     solve(m, debug=True)
     print(m.fs.energy.pv.display())
+
+    print(
+        f"{f'Design Size (W):':<30s}{value(pyunits.convert(m.fs.energy.pv.design_size, to_units=pyunits.watt)):<10,.1f}"
+    )
+    print(
+        f"{f'Direct Cost Per Watt ($/W):':<30s}{value(m.fs.energy.costing.pv_surrogate.cost_per_watt_module):<10,.1f}"
+    )
+    # print(f"{f'Direct Cost Should Be ($):':<30s}{value(pyunits.convert(m.fs.energy.pv.design_size, to_units=pyunits.watt))*value(m.fs.energy.costing.pv_surrogate.cost_per_watt_module):<10,.1f}")
+    print(
+        f"{f'Direct Cost Currently Is ($):':<30s}{value(m.fs.energy.pv.costing.capital_cost):<10,.1f}"
+    )
+
+    # print(m.fs.energy.pv.costing.direct_capital_cost_constraint.pprint())
+    # print(m.fs.energy.pv.design_size())
+    # print(m.fs.energy.costing.pv_surrogate.cost_per_watt_module())

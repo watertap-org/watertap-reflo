@@ -1,4 +1,3 @@
-import pathlib
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -64,15 +63,6 @@ __all__ = [
     "report_EC",
     "print_EC_costing_breakdown",
 ]
-
-from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
-
-from watertap_contrib.reflo.core import REFLODatabase
-
-rho = 1000 * pyunits.kg / pyunits.m**3
-reflo_dir = pathlib.Path(__file__).resolve().parents[4]
-
-case_study_yaml = f"{reflo_dir}/data/technoeconomic/kbhdp_case_study.yaml"
 
 
 def propagate_state(arc, detailed=True):
@@ -173,6 +163,7 @@ def build_ec(m, blk, prop_package=None):
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 def build_system():
     """Function to create concrete model for individual unit model flowsheet"""
     m = ConcreteModel()
@@ -216,6 +207,8 @@ def set_system_operating_conditions(m):
         m.tds * flow_in
     )  # kg/m3 * m3/s = kg/s
 =======
+=======
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 def set_system_operating_conditions(m):
     """This function sets the system operating conditions for individual unit model flowsheet"""
 
@@ -223,12 +216,16 @@ def set_system_operating_conditions(m):
     m.fs.feed.properties[0].flow_mass_comp["tds"].fix(2.143156)  # kg/m3 * m3/s = kg/s
     m.fs.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
     # # initialize feed
+<<<<<<< HEAD
 >>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
+=======
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
 
 def set_ec_operating_conditions(m, blk, conv=5e3):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
+<<<<<<< HEAD
 <<<<<<< HEAD
 
     blk.ec.load_parameters_from_database(use_default_removal=True)
@@ -280,6 +277,8 @@ def set_ec_operating_conditions(m, blk, conv=5e3):
     # blk.ec.overpotential_k1.fix(430)
     # blk.ec.overpotential_k2.fix(1000)
 =======
+=======
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
     print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
 
     blk.ec.load_parameters_from_database(use_default_removal=True)
@@ -295,7 +294,10 @@ def set_ec_operating_conditions(m, blk, conv=5e3):
     # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
     # blk.ec.overpotential.fix(2)
     print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
+<<<<<<< HEAD
 >>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
+=======
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
 
 def set_scaling(m, blk):
@@ -390,7 +392,6 @@ def init_ec(m, blk, solver=None):
 def add_system_costing(m):
     """Add system level costing components"""
     m.fs.costing = ZeroOrderCosting()
-    m.fs.costing.base_currency = pyunits.USD_2022
     add_ec_costing(m, m.fs.EC)
     calc_costing(m, m.fs.EC)
 
@@ -523,6 +524,7 @@ if __name__ == "__main__":
     results = solve(m, debug=True)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     add_system_costing(m)
 
     solver = get_solver()
@@ -541,3 +543,8 @@ if __name__ == "__main__":
     print_EC_costing_breakdown(m.fs.EC)
     m.fs.EC.ec.conductivity.display()
 >>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
+=======
+    report_EC(m.fs.EC)
+    print_EC_costing_breakdown(m.fs.EC)
+    m.fs.EC.ec.conductivity.display()
+>>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
