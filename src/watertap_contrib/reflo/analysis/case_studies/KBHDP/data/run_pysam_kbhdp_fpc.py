@@ -128,12 +128,31 @@ def setup_model(
     return tech_model
 
 
-def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_hot=None):
+def run_model(
+    tech_model,
+    heat_load_mwt=None,
+    hours_storage=None,
+    temperature_hot=None,
+    temp_lb_thresh=1,
+    temp_ub_thresh=None,
+    scaled_draw_min=1,
+    num_scaled_draw_pts=200,
+    temp_frac=0.05,
+    return_tech_model=False,
+):
     """
-    :param tech_model: PySAM technology model
-    :param heat_load_mwt: [MWt]
-    :param hours_storage: [hr]
-    :param temperature_hot: [C]
+
+    Function to run PySAM SolarWaterHeating model with custom inputs.
+    Will find scaled_draw to use such that the temperature delivered is within a range of the temperature setpoint.
+
+    :param tech_model: PySAM SolarWaterHeating model
+    :param heat_load_mwt: System design capacity [MWt]
+    :param hours_storage: Hours of storage to include [hr]
+    :param temperature_hot: Hot temperature setpoint [C]
+    :param temp_lb_thresh: Absolute temperature difference below temperature_hot to accept design
+    :param temp_ub_thresh: Absolute temperature difference above temperature_hot to accept design
+    :param scaled_draw_min: minimum scaled_draw value to start search
+    :num_scaled_draw_pts: Number of scaled draw points to try
     """
     cp_water = 4.181  # [kJ/kg-K]
     density_water = 1000  # [kg/m3]
@@ -144,9 +163,8 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     T_cold = tech_model.value("custom_mains")[0]  # [C]
     heat_load = heat_load_mwt * 1e3 if heat_load_mwt is not None else None  # [kWt]
 
-    print(
-        f"Running:\n\tHeat Load = {heat_load_mwt}\n\tHours Storage = {hours_storage}\n\tTemperature Hot = {temperature_hot}"
-    )
+    if temp_ub_thresh is None:
+        temp_ub_thresh = temp_lb_thresh
 
     if heat_load is not None:
         # Set heat load (system capacity)
@@ -181,7 +199,16 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     mdot_hot = (
         tech_model.value("system_capacity") / (cp_water * (T_hot - T_cold)) * 3600
     )  # [kg/hr]
-    tech_model.value("scaled_draw", 8760 * (mdot_hot,))  # [kg/hr]
+    T_tank_max = T_hot * (1 + temp_frac)
+    if T_tank_max > 99:
+        T_tank_max = 99
+    tech_model.value(
+        "T_tank_max", T_tank_max
+    )  # [C], max tank temperature is the temperature we want
+    # if scaled_draw is None:
+    #     tech_model.value("scaled_draw", 8760 * (mdot_hot,))  # [kg/hr]
+    # else:
+    #     tech_model.value("scaled_draw", 8760 * (scaled_draw,))  # [kg/hr]
 
     # Set pipe diameter and pump power
     pipe_length = pipe_length_fixed + pipe_length_per_collector * tech_model.value(
@@ -191,7 +218,86 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     pumping_power = pump_power_per_collector * tech_model.value("ncoll")
     tech_model.value("pump_power", pumping_power)  # [W]
 
-    tech_model.execute()
+    # tech_model.execute()
+
+    assert tech_model.value("T_set") == temperature_hot
+
+    temp_delivered = 0
+
+    sd = scaled_draw_min
+    lb = temperature_hot - temp_lb_thresh
+    ub = temperature_hot + temp_ub_thresh
+    increment = mdot_hot / num_scaled_draw_pts
+    num_runs = 0
+
+    # while not lb < temp_delivered < ub:
+    for sd in np.linspace(scaled_draw_min, mdot_hot, num_scaled_draw_pts):
+        tech_model.value("scaled_draw", 8760 * (sd,))
+        tech_model.execute()
+        temp_delivered = np.mean(tech_model.Outputs.T_deliv)
+        num_runs += 1
+
+        # print(f"Run {num_runs}")
+        # print(f"Testing scaled draw = {sd:.2f} kg/hr...")
+        # print(f"Temperature Delivered = {temp_delivered:.2f} C\n")
+        if temp_delivered < lb:
+            break
+        if lb < temp_delivered < ub:
+            break
+
+    if not lb < temp_delivered < ub:
+        # scaled draw interval was probably high
+        # rerun again with 10x more points
+        for sd in np.linspace(scaled_draw_min, mdot_hot, num_scaled_draw_pts * 10):
+
+            tech_model.value("scaled_draw", 8760 * (sd,))
+            tech_model.execute()
+            temp_delivered = np.mean(tech_model.Outputs.T_deliv)
+            num_runs += 1
+
+            # print(f"Run {num_runs}")
+            # print(f"Testing scaled draw = {sd:.2f} kg/hr...")
+            # print(f"Temperature Delivered = {temp_delivered:.2f} C\n")
+            if temp_delivered < lb:
+                break
+            if lb < temp_delivered < ub:
+                break
+
+    if not lb < temp_delivered < ub:
+        # scaled draw interval was probably high
+        # rerun again with 10x more points
+        for sd in np.linspace(scaled_draw_min, mdot_hot, num_scaled_draw_pts * 100):
+
+            tech_model.value("scaled_draw", 8760 * (sd,))
+            tech_model.execute()
+            temp_delivered = np.mean(tech_model.Outputs.T_deliv)
+            num_runs += 1
+
+            # print(f"Run {nu./;ure Delivered = {temp_delivered:.2f} C\n")
+            if temp_delivered < lb:
+                break
+            if lb < temp_delivered < ub:
+                break
+
+    if not lb < temp_delivered < ub:
+        msg = f"Final design results in delivered temperature that is outside the bounds.\n"
+        msg += (
+            f"For {heat_load_mwt} MW, {hours_storage} hrs storage, {temperature_hot} C:"
+        )
+        msg += f"Delivered temperature {temp_delivered:.2f} C is not between {lb:.2f} C and {ub:.2f} C with scaled_draw {sd:.2f} kg/hr.\n"
+        msg += "Try setting more num_scaled_draw_pts and rerunning."
+        raise RuntimeError(msg)
+
+    print(f"Running:")
+    print(f"\tHeat Load = {heat_load_mwt} MW")
+    print(f"\tHours Storage = {hours_storage} hr")
+    print(f"\tTemperature Set Point = {temperature_hot} C")
+    print(f"\tTemperature Delivered = {np.mean(tech_model.Outputs.T_deliv):.2f} C")
+    print(
+        f"\tScaled Draw = {tech_model.value('scaled_draw')[0]:.2f} kg/hr ({num_runs} points ran)"
+    )
+    print(f"\tAnnual Heat Delivered {tech_model.value('annual_Q_deliv'):.2f} kWh")
+    print(f"")
 
     heat_annual = tech_model.value(
         "annual_Q_deliv"
@@ -200,12 +306,17 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
     frac_electricity_annual = (
         electricity_annual / heat_annual
     )  # [-] for analysis only, plant beneficial if < 1
-
-    return {
+    results = {
         "heat_annual": heat_annual,  # [kWh] annual net thermal energy in year 1
         "electricity_annual": electricity_annual,  # [kWhe]
-        "system_capacity_actual": system_capacity_actual
+        "system_capacity_actual": system_capacity_actual,
+        "scaled_draw": np.mean(tech_model.Outputs.draw),
+        "temperature_delivered": np.mean(tech_model.Outputs.T_deliv),
     }
+    if return_tech_model:
+        return results, tech_model
+    else:
+        return results
 
 
 def setup_and_run(
@@ -217,160 +328,6 @@ def setup_and_run(
     )
     result = run_model(tech_model, heat_load, hours_storage, temperature_hot)
     return result
-
-
-def plot_contour(
-    df, x_label, y_label, z_label, units=None, grid=False, countour_lines=False
-):
-    def _set_aspect(ax, aspect):
-        x_left, x_right = ax.get_xlim()
-        y_low, y_high = ax.get_ylim()
-        ax.set_aspect(abs((x_right - x_left) / (y_low - y_high)) * aspect)
-
-    levels = 25
-    df2 = df[[x_label, y_label, z_label]].pivot([y_label, x_label, z_label])
-    y = df2.index.values
-    x = df2.columns.values
-    z = df2.values
-    fig, ax = plt.subplots(1, 1)
-    cs = ax.contourf(x, y, z, levels=levels)
-    if countour_lines:
-        cl = ax.contour(x, y, z, colors="black", levels=levels)
-        ax.clabel(cl, colors="black", fmt="%#.4g")
-    if grid:
-        ax.grid(color="black")
-    _set_aspect(ax, 0.5)
-    fig.colorbar(cs)
-
-    if units is None:
-        x_units, y_units, z_units = "", "", ""
-    else:
-        x_units, y_units, z_units = ["  [" + unit + "]" for unit in units]
-    ax.set_xlabel(x_label + x_units)
-    ax.set_ylabel(y_label + y_units)
-    ax.set_title(z_label + z_units)
-    plt.show()
-
-
-def plot_3d(df, x_label, y_label, z_label, units=None):
-    fig = plt.figure(figsize=(8, 6))
-    ax = fig.add_subplot(1, 1, 1, projection="3d")
-    surf = ax.plot_trisurf(
-        df[x_label], df[y_label], df[z_label], cmap=plt.cm.viridis, linewidth=0.2
-    )
-
-    if units is None:
-        x_units, y_units, z_units = "", "", ""
-    else:
-        x_units, y_units, z_units = ["  [" + unit + "]" for unit in units]
-    ax.set_xlabel(x_label + x_units)
-    ax.set_ylabel(y_label + y_units)
-    ax.set_title(z_label + z_units)
-    plt.show()
-
-
-def plot_2d(df, x_label, y_label, units=None):
-    fig = plt.figure(figsize=(8, 6))
-    ax = fig.add_subplot(1, 1, 1)
-    surf = ax.plot(df[x_label], df[y_label])
-
-    if units is None:
-        x_units, y_units = "", ""
-    else:
-        x_units, y_units = ["  [" + unit + "]" for unit in units]
-    ax.set_xlabel(x_label + x_units)
-    ax.set_ylabel(y_label + y_units)
-    plt.show()
-
-
-def plot_contours(df):
-    plot_contour(
-        df.query("temperature_hot == 70"),
-        "heat_load",
-        "hours_storage",
-        "heat_annual",
-        units=["MWt", "hr", "kWht"],
-    )
-    plot_contour(
-        df.query("hours_storage == 12"),
-        "heat_load",
-        "temperature_hot",
-        "heat_annual",
-        units=["MWt", "C", "kWht"],
-    )
-    plot_contour(
-        df.query("heat_load == 500"),
-        "hours_storage",
-        "temperature_hot",
-        "heat_annual",
-        units=["hr", "C", "kWht"],
-    )
-    plot_contour(
-        df.query("temperature_hot == 70"),
-        "heat_load",
-        "hours_storage",
-        "electricity_annual",
-        units=["MWt", "hr", "kWhe"],
-    )
-    plot_contour(
-        df.query("hours_storage == 12"),
-        "heat_load",
-        "temperature_hot",
-        "electricity_annual",
-        units=["MWt", "C", "kWhe"],
-    )
-    plot_contour(
-        df.query("heat_load == 500"),
-        "hours_storage",
-        "temperature_hot",
-        "electricity_annual",
-        units=["hr", "C", "kWhe"],
-    )
-
-
-def plot_3ds(df):
-    plot_3d(
-        df.query("temperature_hot == 70"),
-        "heat_load",
-        "hours_storage",
-        "heat_annual",
-        units=["MWt", "hr", "kWht"],
-    )
-    plot_3d(
-        df.query("hours_storage == 12"),
-        "heat_load",
-        "temperature_hot",
-        "heat_annual",
-        units=["MWt", "C", "kWht"],
-    )
-    plot_3d(
-        df.query("heat_load == 6"),
-        "hours_storage",
-        "temperature_hot",
-        "heat_annual",
-        units=["hr", "C", "kWht"],
-    )
-    plot_3d(
-        df.query("temperature_hot == 70"),
-        "heat_load",
-        "hours_storage",
-        "electricity_annual",
-        units=["MWt", "hr", "kWhe"],
-    )
-    plot_3d(
-        df.query("hours_storage == 6"),
-        "heat_load",
-        "temperature_hot",
-        "electricity_annual",
-        units=["MWt", "C", "kWhe"],
-    )
-    plot_3d(
-        df.query("heat_load == 6"),
-        "hours_storage",
-        "temperature_hot",
-        "electricity_annual",
-        units=["hr", "C", "kWhe"],
-    )
 
 
 def run_pysam_kbhdp_fpc(
@@ -468,15 +425,26 @@ def run_pysam_kbhdp_fpc(
 
 if __name__ == "__main__":
 
+    # temperatures = {
+    #     "T_cold": 20,
+    #     "T_hot": 70,  # this will be overwritten by temperature_hot value
+    #     "T_amb": 18,
+    # }
+    # config_data = read_module_datafile(param_file)
+    # result = setup_and_run(
+    #     temperatures, weather_file, config_data, 1, 1, 98
+    # )
+    # print(result)
+    # assert False
     # LOW
     heat_loads_lb = np.linspace(0.1, 0.9, 9)
     heat_loads_ub = np.linspace(1, 10, 10)
     heat_loads = heat_loads_lb.tolist() + heat_loads_ub.tolist()
 
-    hours_storages = np.linspace(0, 24, 25)
-    temperature_hots = np.arange(50, 102, 2)
+    hours_storages = np.linspace(1, 24, 24)
+    temperature_hots = np.arange(50, 100, 2)
 
-    dataset_filename = f"fpc/FPC_KBHDP_el_paso_LOW_heat_load_{float(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}.pkl"
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_LOW_heat_load_{float(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
 
     run_pysam_kbhdp_fpc(
         heat_loads=heat_loads,
@@ -486,7 +454,7 @@ if __name__ == "__main__":
     )
 
     input_bounds = dict(
-        heat_load=[0.1, 10], hours_storage=[0, 24], temperature_hot=[50, 100]
+        heat_load=[0.1, 10], hours_storage=[1, 24], temperature_hot=[50, 100]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -513,10 +481,10 @@ if __name__ == "__main__":
 
     # MID
     heat_loads = np.linspace(1, 25, 25)
-    hours_storages = np.linspace(0, 24, 25)
-    temperature_hots = np.arange(50, 102, 2)
+    hours_storages = np.linspace(1, 24, 25)
+    temperature_hots = np.arange(50, 100, 2)
 
-    dataset_filename = f"fpc/FPC_KBHDP_el_paso_MID_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}.pkl"
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_MID_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
 
     run_pysam_kbhdp_fpc(
         heat_loads=heat_loads,
@@ -526,7 +494,7 @@ if __name__ == "__main__":
     )
 
     input_bounds = dict(
-        heat_load=[1, 25], hours_storage=[0, 24], temperature_hot=[50, 100]
+        heat_load=[1, 25], hours_storage=[1, 24], temperature_hot=[50, 98]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -553,10 +521,10 @@ if __name__ == "__main__":
 
     # HIGH
     heat_loads = np.linspace(1, 50, 50)
-    hours_storages = np.linspace(0, 24, 25)
-    temperature_hots = np.arange(50, 102, 2)
+    hours_storages = np.linspace(1, 24, 24)
+    temperature_hots = np.arange(50, 100, 2)
 
-    dataset_filename = f"fpc/FPC_KBHDP_el_paso_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}.pkl"
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
 
     run_pysam_kbhdp_fpc(
         heat_loads=heat_loads,
@@ -566,7 +534,7 @@ if __name__ == "__main__":
     )
 
     input_bounds = dict(
-        heat_load=[1, 50], hours_storage=[0, 24], temperature_hot=[50, 100]
+        heat_load=[1, 50], hours_storage=[1, 24], temperature_hot=[50, 98]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -587,15 +555,15 @@ if __name__ == "__main__":
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
+        surrogate_filename_save=dataset_filename.replace(".pkl", ""),
         scale_training_data=True,
     )
 
     # REALLY HIGH
     heat_loads = np.linspace(1, 100, 100)
-    hours_storages = np.linspace(0, 24, 25)
-    temperature_hots = np.arange(50, 102, 2)
-    dataset_filename = f"fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}.pkl"
-
+    hours_storages = np.linspace(1, 24, 24)
+    temperature_hots = np.arange(50, 100, 2)
+    dataset_filename = f"fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_{int(min(heat_loads))}-{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}-{int(max(hours_storages))}_temperature_hot_{int(min(temperature_hots))}-{int(max(temperature_hots))}-rerun.pkl"
 
     run_pysam_kbhdp_fpc(
         heat_loads=heat_loads,
@@ -605,7 +573,7 @@ if __name__ == "__main__":
     )
 
     input_bounds = dict(
-        heat_load=[1, 100], hours_storage=[0, 24], temperature_hot=[50, 100]
+        heat_load=[1, 100], hours_storage=[1, 24], temperature_hot=[50, 98]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -627,5 +595,6 @@ if __name__ == "__main__":
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
+        surrogate_filename_save=dataset_filename.replace(".pkl", ""),
         scale_training_data=True,
     )
