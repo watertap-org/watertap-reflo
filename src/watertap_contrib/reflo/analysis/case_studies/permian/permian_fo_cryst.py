@@ -561,7 +561,7 @@ if __name__ == "__main__":
     permian_fo_config = {
     "feed_vol_flow": 0.22, # initial value for fo model setup
     "feed_TDS_mass": 0.119, # mass fraction, 0.119 is about 130 g/L
-    "recovery_ratio": 0.36,
+    "recovery_ratio": 0.41,
     "RO_recovery_ratio":1,  # RO recovery ratio
     "NF_recovery_ratio":0.8,  # Nanofiltration recovery ratio
     "feed_temperature":25,
@@ -683,16 +683,16 @@ if __name__ == "__main__":
     LCOWs =[]
     failed= []
 
-    rr = [ 0.30, 0.32, 0.36, 0.38, 0.4,0.43, 0.45]
+    rr = [ 0.30, 0.32, 0.36, 0.38,0.43, 0.45]
     strong_draw_mass = [i*0.03 + 0.80 for i in range(6)]
     yields = [0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
     nacl_prices = [0, -0.01, -0.02, -0.03,-0.04,-0.05,-0.06,-0.07,-0.08]
 
-    for v in nacl_prices:
+    for v in rr:
         permian_fo_config = {
     "feed_vol_flow": 0.22, # initial value for fo model setup
     "feed_TDS_mass": 0.119, # mass fraction, 0.119 is about 130 g/L
-    "recovery_ratio": 0.45,
+    "recovery_ratio": v,
     "RO_recovery_ratio":1,  # RO recovery ratio
     "NF_recovery_ratio":0.8,  # Nanofiltration recovery ratio
     "feed_temperature":25,
@@ -711,7 +711,7 @@ if __name__ == "__main__":
     "nacl_yield": 0.9, # Yield
     }
         permian_cost_config = {
-    "nacl_recovery_price": v
+    "nacl_recovery_price": 0
         }
         
         try:
@@ -741,11 +741,11 @@ if __name__ == "__main__":
 
         # fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 10290.711324821756
         fo_heat_cost = 0.02 * value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow) * 8766
-        chem_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][0])
-        ec_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][1])
-        filt_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][2])
-        fo_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][3])
-        cryst_elec_cost = 0.07 * sum([value(m.fs.treatment.costing._registered_flows['electricity'][i]) for i in [4,5,6,7]]) * 10290.711324821756
+        chem_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][0])
+        ec_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][1])
+        filt_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][2])
+        fo_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][3])
+        cryst_elec_cost = 0.07 * sum([value(m.fs.treatment.costing._registered_flows['electricity'][i]) for i in [4,5,6,7]]) * 8766
         cryst_heat_cost = 0.02 * sum([value(m.fs.treatment.costing._registered_flows['heat'][i]) for i in [1]]) * 8766
         cryst_nacl_revenue = -0.07 * value(m.fs.treatment.costing._registered_flows['NaCl_recovered'][0]) * 8766
 
@@ -767,6 +767,11 @@ if __name__ == "__main__":
         fo_capexs.append(fo_capex*capital_recovery_rate/flow_vol)
         cryst_capexs.append(cryst_capex*capital_recovery_rate/flow_vol)
 
+        # chem_opexs.append((chem_opex     ) /flow_vol)
+        # ec_opexs.append(  (ec_opex       ) /flow_vol)
+        # filt_opexs.append((filt_opex )/flow_vol)
+        # fo_opexs.append(  (fo_opex    ) /flow_vol)
+        # cryst_opexs.append( (cryst_opex   ) /flow_vol)
         chem_opexs.append((chem_opex + h2o2_cost    +chem_elec_cost) /flow_vol)
         ec_opexs.append(  (ec_opex   + alum_cost    +ec_elec_cost) /flow_vol)
         filt_opexs.append((filt_opex + filt_elec_cost)/flow_vol)
@@ -783,8 +788,8 @@ if __name__ == "__main__":
 
 #%% Make plots
 import matplotlib.pyplot as plt
-
-plt.stackplot(nacl_prices, NaCls,
+# ec_opexs = [i*0.1 for i in ec_opexs]
+plt.stackplot(rr, NaCls,
             chem_capexs, chem_opexs,
             ec_capexs, ec_opexs,
             filt_capexs, filt_opexs,
@@ -796,7 +801,7 @@ plt.stackplot(nacl_prices, NaCls,
                     'Cart filt CAPEX', 'Cart filt OPEX',
                     'FO CAPEX', 'FO OPEX',
                     'Cryst CAPEX', 'Cryst OPEX',
-                    # 'Elec', 'Heat','Aluminum','H2O2'
+                    'Elec', 'Heat','Aluminum','H2O2'
                     ],
             hatch =['','', '\\\\',
                     '', '\\\\',
@@ -818,10 +823,10 @@ plt.stackplot(nacl_prices, NaCls,
 plt.rcParams['figure.dpi']=300
 
 # Show the legend
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol =2,prop={'size': 6})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.34), ncol =2,prop={'size': 8})
 
 plt.ylabel('LCOW ($/m3)')
-plt.xlabel('NaCl prices ($/kg)')
+plt.xlabel('FO recovery rate')
 plt.title('')
 # Display the chart
 plt.show()
