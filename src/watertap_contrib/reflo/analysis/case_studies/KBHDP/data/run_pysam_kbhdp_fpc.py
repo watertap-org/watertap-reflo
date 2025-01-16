@@ -289,16 +289,16 @@ def run_pysam_fpc_model(
         msg += "Try setting more num_scaled_draw_pts and rerunning."
         raise RuntimeError(msg)
 
-    print(f"Running:")
-    print(f"\tHeat Load = {heat_load_mwt} MW")
-    print(f"\tHours Storage = {hours_storage} hr")
-    print(f"\tTemperature Set Point = {temperature_hot} C")
-    print(f"\tTemperature Delivered = {np.mean(tech_model.Outputs.T_deliv):.2f} C")
-    print(
-        f"\tScaled Draw = {tech_model.value('scaled_draw')[0]:.2f} kg/hr ({num_runs} points ran)"
-    )
-    print(f"\tAnnual Heat Delivered {tech_model.value('annual_Q_deliv'):.2f} kWh")
-    print(f"")
+    # print(f"Running:")
+    # print(f"\tHeat Load = {heat_load_mwt} MW")
+    # print(f"\tHours Storage = {hours_storage} hr")
+    # print(f"\tTemperature Set Point = {temperature_hot} C")
+    # print(f"\tTemperature Delivered = {np.mean(tech_model.Outputs.T_deliv):.2f} C")
+    # print(
+    #     f"\tScaled Draw = {tech_model.value('scaled_draw')[0]:.2f} kg/hr ({num_runs} points ran)"
+    # )
+    # print(f"\tAnnual Heat Delivered {tech_model.value('annual_Q_deliv'):.2f} kWh")
+    # print(f"")
 
     heat_annual = tech_model.value(
         "annual_Q_deliv"
