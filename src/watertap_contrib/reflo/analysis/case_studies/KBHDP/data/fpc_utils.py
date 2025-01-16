@@ -32,7 +32,7 @@ __all__ = [
     "plot_pysam_fpc_time_series",
     "build_and_run_fpc_surrogate",
     "run_fpc_sweep",
-    "run_reflo_pysam_fpc_comparison", 
+    "run_reflo_pysam_fpc_comparison",
     "run_reflo_pysam_fpc_comparison_sweep",
 ]
 
@@ -144,7 +144,7 @@ def run_pysam_fpc_scaled_draw_sweep(
         heat_load_mwt=heat_load_mwt,
         hours_storage=hours_storage,
         temperature_hot=temperature_hot,
-        scaled_draw=None,
+        return_tech_model=True,
     )
     scaled_draws = np.linspace(1, tech_model.value("scaled_draw")[0], num_pts).tolist()
 
@@ -241,7 +241,9 @@ def plot_pysam_fpc_scaled_draw_sweep(df, xcol="scaled_draw"):
     ax.legend()
 
 
-def plot_pysam_fpc_time_series(tech_model, starting_week=15, num_weeks=1):
+def plot_pysam_fpc_time_series(
+    tech_model, surr_heat=None, treat_heat_req=None, starting_week=15, num_weeks=1
+):
     """
     Plot time-series results from FPC PySAM for:
         1. Temperature
@@ -252,6 +254,9 @@ def plot_pysam_fpc_time_series(tech_model, starting_week=15, num_weeks=1):
     start = 168 * starting_week
     end = start + (168 * num_weeks)
 
+    figs = list()
+    axs = list()
+
     fig, ax = plt.subplots()
 
     ax.plot(
@@ -260,17 +265,41 @@ def plot_pysam_fpc_time_series(tech_model, starting_week=15, num_weeks=1):
     ax.legend()
     ax.set(xlabel="Time [hr]", ylabel="Temperature [C]")
 
+    figs.append(fig)
+    axs.append(ax)
+
     fig, ax = plt.subplots()
     ax.plot(tech_model.Outputs.draw[start:end], label="Draw Flow")
     ax.legend()
     ax.set(xlabel="Time [hr]", ylabel="Draw Flow [kg/hr]")
+    figs.append(fig)
+    axs.append(ax)
 
     fig, ax = plt.subplots()
     ax.plot(tech_model.Outputs.Q_loss[start:end], label="Heat Loss")
     ax.plot(tech_model.Outputs.Q_deliv[start:end], label="Heat Delivered")
     ax.plot(tech_model.Outputs.Q_aux[start:end], label="Auxiliary Heat Required")
+    
+    if surr_heat is not None:
+        ax.plot(
+            [surr_heat for _ in tech_model.Outputs.Q_aux[start:end]],
+            ls=":",
+            color="k",
+            label="Heat Delivered by Surrogate",
+        )
+    if treat_heat_req is not None:
+        ax.plot(
+            [treat_heat_req for _ in tech_model.Outputs.Q_aux[start:end]],
+            ls=":",
+            color="r",
+            label="Heat Required for Treatment",
+        )
     ax.legend()
     ax.set(xlabel="Time [hr]", ylabel="Heat [kW]")
+    figs.append(fig)
+    axs.append(ax)
+
+    return figs, axs
 
 
 def build_and_run_fpc_surrogate(
@@ -393,7 +422,7 @@ def run_reflo_pysam_fpc_comparison(
     temperature_hot=None,
     surrogate_model_file=None,
     dataset_filename=None,
-    **kwargs,
+    **fpc_build_kwargs,
 ):
     config_data = read_module_datafile(param_file)
 
@@ -420,7 +449,7 @@ def run_reflo_pysam_fpc_comparison(
         surrogate_model_file=surrogate_model_file,
         dataset_filename=dataset_filename,
         heat_cost=0,
-        **kwargs,
+        **fpc_build_kwargs,
     )
     heat_annual_diff_rel = (m.fs.FPC.heat_annual() - result["heat_annual"]) / result[
         "heat_annual"
