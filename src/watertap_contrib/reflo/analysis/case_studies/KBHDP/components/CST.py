@@ -39,11 +39,19 @@ __all__ = [
     "report_cst_costing",
 ]
 
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+parent_dir = os.path.abspath(os.path.join(__location__, ".."))
+dataset_filename = os.path.join(
+    parent_dir,
+    "data/cst/trough_data_heat_load_1_100_hours_storage_0_24.pkl",
+)
+surrogate_filename = dataset_filename.replace(".pkl", ".json")
 
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = EnergyCosting()
+    m.fs.energy = Block()
 
     m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
 
@@ -52,23 +60,13 @@ def build_system():
     return m
 
 
-def build_cst(blk, __file__=None):
+def build_cst(m):
+
+    energy = m.fs.energy
 
     print(f'\n{"=======> BUILDING CST SYSTEM <=======":^60}\n')
 
-    if __file__ == None:
-        cwd = os.getcwd()
-        __file__ = cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\trough\\"
-
-    dataset_filename = os.path.join(
-        os.path.dirname(__file__), r"data\test_trough_data.pkl"
-    )
-    surrogate_filename = os.path.join(
-        os.path.dirname(__file__),
-        r"data\test_trough_data_heat_load_100_500_hours_storage_0_26.json",
-    )
-
-    input_bounds = dict(heat_load=[100, 500], hours_storage=[0, 26])
+    input_bounds = dict(heat_load=[1, 100], hours_storage=[0, 24])
     input_units = dict(heat_load="MW", hours_storage="hour")
     input_variables = {
         "labels": ["heat_load", "hours_storage"],
@@ -82,8 +80,10 @@ def build_cst(blk, __file__=None):
         "units": output_units,
     }
 
-    blk.unit = TroughSurrogate(
+    energy.trough = TroughSurrogate(
         surrogate_model_file=surrogate_filename,
+        # surrogate_model_file=None,
+        surrogate_filename_save=dataset_filename.replace(".pkl", ""),
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -91,13 +91,13 @@ def build_cst(blk, __file__=None):
     )
 
 
-def init_cst(blk):
+def init_cst(blk, hours_storage=24, heat_load=10):
     # Fix input variables for initialization
-    blk.unit.hours_storage.fix()
-    blk.unit.heat_load.fix()
-    blk.unit.initialize()
+    blk.trough.hours_storage.fix(hours_storage)
+    blk.trough.heat_load.fix(heat_load)
+    blk.trough.initialize()
 
-    blk.unit.heat_load.unfix()
+    # blk.trough.heat_load.unfix()
 
 
 def set_system_op_conditions(m):
@@ -105,20 +105,22 @@ def set_system_op_conditions(m):
 
 
 def set_cst_op_conditions(blk, hours_storage=6):
-    blk.unit.hours_storage.fix(hours_storage)
+    blk.trough.hours_storage.fix(hours_storage)
 
 
-def add_cst_costing(blk, costing_block):
-    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
+def add_cst_costing(m, costing_block=None):
+    if costing_block is None:
+        costing_block = m.fs.costing
+    m.fs.energy.trough.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
 
 
 def calc_costing(m, blk):
-    blk.costing.heat_cost.set_value(0)
-    blk.costing.cost_process()
-    blk.costing.initialize()
+    m.fs.costing.electricity_cost.set_value(0.07)
+    m.fs.costing.cost_process()
+    m.fs.costing.initialize()
 
     # TODO: Connect to the treatment volume
-    blk.costing.add_LCOW(m.fs.system_capacity)
+    m.fs.costing.add_LCOH()
 
 
 def report_cst(m, blk):
@@ -150,7 +152,7 @@ def report_cst_costing(m, blk):
     print("\n")
 
     print(
-        f'{"LCOW":<30s}{value(blk.costing.LCOW):<20,.2f}{pyunits.get_units(blk.costing.LCOW)}'
+        f'{"LCOH":<30s}{value(blk.costing.LCOH):<20,.5f}{pyunits.get_units(blk.costing.LCOH)}'
     )
 
     print(
@@ -197,19 +199,23 @@ if __name__ == "__main__":
 
     m = build_system()
 
-    build_cst(m.fs.cst)
+    build_cst(m)
+    set_cst_op_conditions(m.fs.energy)
 
-    init_cst(m.fs.cst)
+    init_cst(m.fs.energy)
 
-    set_cst_op_conditions(m.fs.cst)
 
-    add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
+    add_cst_costing(m, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-    m.fs.costing.aggregate_flow_heat.fix(-70000)
+    # m.fs.costing.aggregate_flow_heat.fix(-70000)
     results = solver.solve(m)
-
+    assert_optimal_termination(results)
     print(degrees_of_freedom(m))
-    report_cst(m, m.fs.cst.unit)
+    report_cst(m, m.fs.energy.trough)
     report_cst_costing(m, m.fs)
+    # m.fs.
+    # # m.fs.costing.display()
+    # m.fs.energy.trough.display()
 
-    # m.fs.costing.used_flows.display()
+    m.fs.costing.display()
+    m.fs.costing.used_flows.display()
