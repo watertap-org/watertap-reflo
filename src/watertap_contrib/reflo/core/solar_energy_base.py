@@ -289,8 +289,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self.surrogate_filename_save = self.config.dataset_filename.replace(
                 ".pkl", ""
             )
-            for k, v in self.input_bounds.items():
-                self.surrogate_filename_save += f"_{k}_{v[0]}_{v[1]}"
         else:
             self.surrogate_filename_save = self.config.surrogate_filename_save.replace(
                 ".json", ""
