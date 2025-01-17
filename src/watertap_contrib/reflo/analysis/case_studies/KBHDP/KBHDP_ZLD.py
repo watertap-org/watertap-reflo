@@ -60,7 +60,27 @@ def propagate_state(arc, detailed=False):
         print("\n")
 
 
-def main():
+def build_and_run_primary_treatment(water_recovery=0.8):
+    m = build_primary_system()
+    add_primary_connections(m)
+    set_primary_operating_conditions(m)
+    print(f"dof = {degrees_of_freedom(m)}")
+    add_primary_system_scaling(m)
+    init_primary_system(m)
+    m.fs.membrane_area_objective = Objective(
+        expr=m.fs.treatment.RO.stage[1].module.area
+    )
+    print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
+    m.fs.water_recovery.fix(water_recovery)
+    print(f"dof = {degrees_of_freedom(m)}")
+
+
+def build_and_run_primary_treatment(
+    water_recovery=0.8,
+    fixed_pressure=None,
+    ro_mem_area=None,
+    objective=None,
+):
 
     m = build_primary_system()
     add_primary_connections(m)
@@ -68,7 +88,14 @@ def main():
     print(f"dof = {degrees_of_freedom(m)}")
     add_primary_system_scaling(m)
     init_primary_system(m)
-    # optimize()
+    optimize(
+        m,
+        water_recovery=water_recovery,
+        fixed_pressure=fixed_pressure,
+        ro_mem_area=ro_mem_area,
+        objective=objective,
+    )
+    results = solve(m)
 
     return m
 
@@ -583,11 +610,9 @@ def optimize(
     water_recovery=0.5,
     fixed_pressure=None,
     ro_mem_area=None,
-    grid_frac=None,
     objective="LCOW",
 ):
     treatment = m.fs.treatment
-    # energy = m.fs.energy
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
 
     if objective == "LCOW":
@@ -635,11 +660,6 @@ def optimize(
         for idx, stage in treatment.RO.stage.items():
             stage.module.area.unfix()
             stage.module.area.setub(1e6)
-
-    if grid_frac is not None:
-        m.fs.costing.frac_elec_from_grid.fix(grid_frac)
-        m.fs.energy.pv.design_size.unfix()
-        m.fs.energy.pv.annual_energy.unfix()
 
 
 def report_MCAS_stream_conc(m, stream):
@@ -746,7 +766,7 @@ def display_costing_breakdown(m):
     print(
         f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
-    print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}\n')
+    print(f'{"LCOW":<34s}{f"${m.fs.treatment.costing.LCOW():<25.3f}"}{"$/m3":<25s}\n')
 
     print_EC_costing_breakdown(m.fs.treatment.EC)
     print_UF_costing_breakdown(m.fs.treatment.UF)
@@ -756,15 +776,6 @@ def display_costing_breakdown(m):
 
 
 if __name__ == "__main__":
-    file_dir = os.path.dirname(os.path.abspath(__file__))
-    m = main()
-
-    # solver = get_solver()
-    # results = solver.solve(m)
-    results = solve(m)
-    # m.fs.water_recovery.display()
-    # m.fs.water_recovery.fix
-    # add_treatment_costing(m)
-    # m.fs.treatment.costing.initialize()
-    # results = solve(m)
-    # display_costing_breakdown(m)
+    m = build_and_run_primary_treatment()
+    m.fs.water_recovery.display()
+    
