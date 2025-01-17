@@ -1,3 +1,4 @@
+import os
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -8,7 +9,6 @@ from pyomo.environ import (
     SolverFactory,
     check_optimal_termination,
 )
-import os
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.solvers import get_solver
@@ -47,6 +47,7 @@ __all__ = [
     "report_fpc",
     "print_FPC_costing_breakdown",
 ]
+
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 parent_dir = os.path.abspath(os.path.join(__location__, ".."))
 weather_file = os.path.join(parent_dir, "data/el_paso_texas-KBHDP-weather.csv")
@@ -236,10 +237,10 @@ def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80, heat_load=10):
 def add_fpc_costing(m, costing_block=None):
     energy = m.fs.energy
     if costing_block is None:
-        energy.costing = EnergyCosting()
+        costing_block = m.fs.costing
 
     energy.FPC.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=energy.costing,
+        flowsheet_costing_block=costing_block,
     )
 
 
@@ -427,6 +428,10 @@ if __name__ == "__main__":
     init_fpc(m.fs.energy)
 
     add_fpc_costing(m)
+    m.fs.costing.cost_process()
+    m.fs.costing.initialize()
+    
+    # m.fs.costing.add_LCOH()
     results = solve(m)
     report_fpc(m)
 
@@ -439,5 +444,11 @@ if __name__ == "__main__":
     init_fpc(m.fs.energy)
 
     add_fpc_costing(m)
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOH()
     results = solve(m)
-    report_fpc(m)
+    # report_fpc(m)
+    m.fs.costing.display()
+    m.fs.costing.used_flows.display()
+    # m.fs.energy.FPC.display()
+    m.fs.costing.LCOH.display()
