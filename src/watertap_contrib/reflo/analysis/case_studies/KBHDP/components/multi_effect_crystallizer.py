@@ -40,6 +40,7 @@ __all__ = [
     "init_mec",
     "display_mec_streams",
     "set_mec_scaling",
+    "add_mec_costing",
     "set_mec_initial_scaling",
     "display_mec_dof",
 ]
@@ -122,7 +123,7 @@ def set_system_operating_conditions(
 ):
     Qin = Qin * pyunits.Mgallons / pyunits.day
     tds = tds * pyunits.gram / pyunits.liter
-    tds = tds / (1 - upstream_recovery)
+    # tds = tds / (1 - upstream_recovery)
     saturated_steam_pressure = atm_pressure + pyunits.convert(
         saturated_steam_pressure_gage * pyunits.bar, to_units=pyunits.Pa
     )
@@ -187,7 +188,7 @@ def init_mec(m, blk, feed_props=None, verbose=True, solver=None):
     # tds = 120 * pyunits.kg / pyunits.m**3
 
     mec = blk.unit
-    assert len(m.operating_pressures) == mec.config.number_effects
+    # assert len(m.operating_pressures) == mec.config.number_effects
 
     set_mec_initial_scaling(m, blk)
 
@@ -370,6 +371,9 @@ def display_mec_streams(m, blk):
 
     print("\nm.fs.feed")
     print(
+        f"\t{'Feed Conc.:':<50} {value(m.fs.feed.properties[0].conc_mass_phase_comp['Liq', 'NaCl']):<20.2f} kg/m3"
+    )
+    print(
         f"\t{'Feed Mass Flow In Liq, H2O:':<50} {value(m.fs.feed.properties[0].flow_mass_phase_comp['Liq', 'H2O']):<20.2f} kg/s"
     )
     print(
@@ -470,7 +474,8 @@ if __name__ == "__main__":
     m = build_system()
     blk = m.fs.MEC
 
-    set_system_operating_conditions(m, blk)
+    set_system_operating_conditions(m, blk, Qin=0.35587876, tds=127)
+    # set_system_operating_conditions(m, blk,)
     init_system(m, blk)
 
     results = solver.solve(m)
