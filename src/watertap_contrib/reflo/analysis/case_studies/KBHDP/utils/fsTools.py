@@ -407,3 +407,178 @@ def auto_scale_bad_vars(
 
         print("auto scaled", rescaled_var_count)
     iscale.calculate_scaling_factors(m)
+
+### ALL FUNCTIONS MOVED HERE FROM KBHDP_ZLD 1/17/2025 -KAS
+
+
+# def propagate_state(arc, detailed=False):
+#     _prop_state(arc)
+
+#     if detailed:
+#         print(
+#             f"\nPropogation of {arc.source.name} to {arc.destination.name} successful."
+#         )
+#         arc.source.display()
+#         print(arc.destination.name)
+#         arc.destination.display()
+#         print("\n")
+# def display_system_stream_table(m):
+#     treatment = m.fs.treatment
+#     print("\n\n-------------------- SYSTEM STREAM TABLE --------------------\n\n")
+#     print(
+#         f'{"NODE":<20s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
+#     )
+#     print(
+#         f'{"Feed":<20s}{treatment.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(treatment.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}'
+#     )
+#     display_flow_table(treatment.RO)
+#     print("\n\n")
+
+
+# def display_system_build(blk):
+#     blocks = []
+#     for v in blk.component_data_objects(ctype=Block, active=True, descend_into=False):
+#         print(v)
+
+
+
+# def report_MCAS_stream_conc(m, stream):
+#     solute_set = m.fs.MCAS_properties.solute_set
+#     print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
+#     print(f'{"Component":<15s}{"Conc.":<10s}{"Units":10s}')
+#     for i in solute_set:
+#         print(
+#             f"{i:<15s}: {stream.conc_mass_phase_comp['Liq', i].value:<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp['Liq', i])}"
+#         )
+#     print(
+#         f'{"Overall TDS":<15s}: {sum(value(stream.conc_mass_phase_comp["Liq", i]) for i in solute_set):<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp["Liq", "Ca_2+"])}'
+#     )
+#     print(
+#         f"{'Vol. Flow Rate':<15s}: {stream.flow_mass_phase_comp['Liq', 'H2O'].value:<10.3f}{pyunits.get_units(stream.flow_mass_phase_comp['Liq', 'H2O'])}"
+#     )
+
+
+# def report_stream_ion_conc(m, stream):
+#     print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
+#     for ion_conc in stream.conc_mass_phase_comp:
+#         print(
+#             f"{ion_conc[1]:<15s}: {stream.conc_mass_phase_comp[ion_conc].value:<10.3f}{str(pyunits.get_units(stream.conc_mass_phase_comp[ion_conc]))}"
+#         )
+
+
+# def report_pump(m, pump):
+#     print(f"\n\n-------------------- SYSTEM PUMP --------------------\n\n")
+#     print(
+#         f'{"Pump Pressure":<30s}{value(pyunits.convert(pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+#     )
+#     print(
+#         f'{"Pump Work":<30s}{value(pyunits.convert(pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}'
+#     )
+
+
+# def print_system_scaling_report(m):
+#     badly_scaled_var_list = iscale.list_badly_scaled_variables(m)
+#     if len(badly_scaled_var_list) > 0:
+#         print("Variables are not scaled well")
+#         print(
+#             f'{"Variable":<83s}{"Val":<15s}{"Val Scale":<10s}{"SF":<10s}{"Diff":<10s}'
+#         )
+#         print("Treatment:")
+#         [
+#             print(
+#                 f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+#             )
+#             for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+#             if var.name.split(".")[1] == "treatment"
+#         ]
+#         print("Energy:")
+#         [
+#             print(
+#                 f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+#             )
+#             for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+#             if var.name.split(".")[1] == "energy"
+#         ]
+#         print("Costing:")
+#         [
+#             print(
+#                 f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+#             )
+#             for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+#             if var.name.split(".")[1] == "costing"
+#         ]
+
+#         # for var in badly_scaled_var_list:
+#         #     keys = var[0].name.split(".")
+#         #     val_scale = -1 * calc_scale(var[1])
+#         #     sf_scale = -1 * calc_scale(iscale.get_scaling_factor(var[0]))
+#         #     scale_diff = val_scale - sf_scale
+#         #     print(f"{var[0].name:<80s}{val_scale:<10.1f}{sf_scale:<10.1f}{scale_diff:<10.1f}")
+#         #     print(f"{var[0].name:<80s}{var[1]}")
+#         # [print(i[0].name, i[1]) for i in badly_scaled_var_list]
+#         # [print(f'Variable: {var.name:<80s} Value Scale:{-1*calc_scale(val):<5.1f} Scale Factor:{-1*calc_scale(iscale.get_scaling_factor(var))}') for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)]
+#     else:
+#         print("Variables are scaled well")
+
+
+
+
+# def display_costing_breakdown(m):
+#     header = f'\n{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
+#     print(header)
+#     print(
+#         f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
+#     )
+#     print(f'{"LCOW":<34s}{f"${m.fs.treatment.costing.LCOW():<25.3f}"}{"$/m3":<25s}\n')
+
+#     print_EC_costing_breakdown(m.fs.treatment.EC)
+#     print_UF_costing_breakdown(m.fs.treatment.UF)
+#     print_RO_costing_breakdown(m.fs.treatment.RO)
+#     # print_DWI_costing_breakdown(m.fs.treatment.DWI)
+#     # print_PV_costing_breakdown(m.fs.energy.pv)
+
+
+# def set_prob_for_box_solve(m):
+#     treatment = m.fs.treatment
+#     # m.fs.water_recovery.unfix()
+#     # m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(75e5)
+#     treatment.pump.control_volume.properties_out[0].pressure.unfix()
+#     for idx, stage in treatment.RO.stage.items():
+#         stage.module.recovery_vol_phase[0.0, "Liq"].fix(0.5)
+
+
+# def box_solve_problem(m):
+#     set_prob_for_box_solve(m)
+#     breakdown_dof(m, detailed=False)
+#     fsTools.standard_solve(
+#         m,
+#         tee=True,
+#         check_close_to_bounds=True,
+#         check_var_scailing=True,
+#         check_dofs=True,
+#         expected_DOFs=0,
+#     )
+
+
+
+# def get_scaling_factors(m):
+#     for var in [m.fs.treatment.costing.aggregate_flow_electricity]:
+#         val = value(var)
+#         scale = calc_scale(val)
+#         sf = get_scaling_factor(var)
+#         if sf is None:
+#             sf = scale
+#             set_scaling_factor(var, sf)
+
+#         print(f"{var.name:<50s}{val:<20.3f}{scale:<20.3f}{sf:<20.3f}")
+
+
+
+# def display_unfixed_vars(blk, report=True):
+#     print("\n\n-------------------- UNFIXED VARIABLES --------------------\n\n")
+#     print(f'{"BLOCK":<40s}{"UNFIXED VARIABLES":<30s}')
+#     print(f"{blk.name:<40s}{number_unused_variables(blk)}")
+#     for v in blk.component_data_objects(ctype=Block, active=True, descend_into=True):
+#         print(f"{v.name:<40s}{number_unused_variables(v)}")
+#         for v2 in unused_variables_set(v):
+#             print(f"\t{v2.name:<40s}")
