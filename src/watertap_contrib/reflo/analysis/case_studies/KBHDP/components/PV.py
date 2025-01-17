@@ -34,6 +34,15 @@ __all__ = [
     "report_PV",
 ]
 
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+parent_dir = os.path.abspath(os.path.join(__location__, ".."))
+
+# NOTE: this is the same surrogate and data as is in solar_models/surrogate/pv
+dataset_filename = os.path.join(
+    parent_dir,
+    "data/pv/pv_surrogate-kbhdp.pkl",
+)
+surrogate_filename = dataset_filename.replace(".pkl", ".json")
 
 def build_system():
     m = ConcreteModel()
@@ -44,28 +53,12 @@ def build_system():
     return m
 
 
-def build_pv(m):
-    energy = m.fs.energy
+def build_pv(m, energy_blk=None):
+    
+    if energy_blk is None:
+        energy_blk = m.fs.energy
 
-    parent_dir = os.path.abspath(
-        os.path.join(os.path.abspath(__file__), "..", "..", "..", "..", "..")
-    )
-
-    surrogate_dir = os.path.join(
-        parent_dir,
-        "solar_models",
-        "surrogate",
-        "pv",
-    )
-
-    dataset_filename = os.path.join(surrogate_dir, "data", "dataset.pkl")
-
-    surrogate_filename = os.path.join(
-        surrogate_dir,
-        "pv_surrogate.json",
-    )
-
-    energy.pv = PVSurrogate(
+    energy_blk.pv = PVSurrogate(
         surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables={
