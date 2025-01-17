@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import PySAM.TroughPhysicalProcessHeat as iph
 
 __all__ = [
-    "read_module_datafile",
+    "read_trough_module_datafile",
     "load_pysam_trough_config",
     "setup_pysam_trough_model",
     "run_pysam_trough_model",
@@ -40,7 +40,7 @@ config_files = [
 weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
 
 
-def read_module_datafile(file_name):
+def read_trough_module_datafile(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
     return data
@@ -59,7 +59,7 @@ def load_pysam_trough_config(modules, file_names=None, module_data=None):
     for i in range(len(modules)):
         if file_names is not None:
             assert len(file_names) == len(modules)
-            data = read_module_datafile(file_names[i])
+            data = read_trough_module_datafile(file_names[i])
         elif module_data is not None:
             assert len(module_data) == len(modules)
             data = module_data[i]
@@ -162,12 +162,13 @@ def run_pysam_trough_model(
         "electrical_load": electrical_load,  # [kWhe]
     }
     if return_tech_model:
-        return results, tech_model
+        return results, modules, tech_model
     else:
         return results
 
 
-def setup_and_run_trough(model_name, weather_file, config_data, heat_load, hours_storage):
+def setup_and_run_trough(weather_file, config_data, heat_load, hours_storage):
+    model_name = "PhysicalTroughIPHLCOHCalculator"
     modules = setup_pysam_trough_model(
         model_name, weather_file=weather_file, config_data=config_data
     )
@@ -183,7 +184,7 @@ def run_pysam_kbhdp_trough_sweep(
     dataset_filename="",
 ):
 
-    config_data = [read_module_datafile(config_file) for config_file in config_files]
+    config_data = [read_trough_module_datafile(config_file) for config_file in config_files]
     del config_data[0]["file_name"]  # remove weather filename
 
     # output dataset for surrogate training
