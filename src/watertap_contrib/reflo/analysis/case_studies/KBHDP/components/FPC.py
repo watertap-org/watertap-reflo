@@ -429,6 +429,7 @@ if __name__ == "__main__":
 
     add_fpc_costing(m)
     m.fs.costing.cost_process()
+    m.fs.costing.add_LCOH()
     m.fs.costing.initialize()
     
     # m.fs.costing.add_LCOH()
@@ -446,9 +447,7 @@ if __name__ == "__main__":
     add_fpc_costing(m)
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOH()
+    m.fs.costing.initialize()
     results = solve(m)
-    # report_fpc(m)
-    m.fs.costing.display()
-    m.fs.costing.used_flows.display()
-    # m.fs.energy.FPC.display()
-    m.fs.costing.LCOH.display()
+    # m.fs.costing.LCOH.display()
+    m.fs.energy.FPC.display()
