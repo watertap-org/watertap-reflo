@@ -390,11 +390,11 @@ def run_permian_FO(operating_condition,
 
     # scaling (based on grid participation), setup order
     # deactivate constraints, 
-    m.fs.costing = REFLOSystemCosting()
-    m.fs.costing.cost_process()
-    m.fs.costing.add_annual_water_production(flow_vol)
-    m.fs.costing.add_LCOW(flow_vol)
-    m.fs.costing.initialize()
+    # m.fs.costing = REFLOSystemCosting()
+    # m.fs.costing.cost_process()
+    # m.fs.costing.add_annual_water_production(flow_vol)
+    # m.fs.costing.add_LCOW(flow_vol)
+    # m.fs.costing.initialize()
     
 
     print(f"DOF after add costing: {degrees_of_freedom(m)}")
@@ -407,7 +407,7 @@ if __name__ == "__main__":
     permian_fo_config = {
     "feed_vol_flow": 0.22, # initial value for fo model setup
     "feed_TDS_mass": 0.119, # mass fraction, 0.119 is about 130 g/L
-    "recovery_ratio": 0.45,
+    "recovery_ratio": 0.44,
     "RO_recovery_ratio":1,  # RO recovery ratio
     "NF_recovery_ratio":0.8,  # Nanofiltration recovery ratio
     "feed_temperature":25,
@@ -515,7 +515,7 @@ if __name__ == "__main__":
     LCOWs =[]
     failed= []
 
-    rr = [ 0.2,0.24,0.28,0.32,0.35,0.4,0.44, 0.45]
+    rr = [ 0.21,0.24,0.28,0.32,0.35,0.4,0.44, ]
     strong_draw_mass = [i*0.03 + 0.80 for i in range(6)]
 
     for v in rr:
@@ -527,7 +527,7 @@ if __name__ == "__main__":
     "NF_recovery_ratio":0.8,  # Nanofiltration recovery ratio
     "feed_temperature":25,
     "strong_draw_temp":25,  # Strong draw solution inlet temperature (C)
-    "strong_draw_mass_frac": 0.85,  # Strong draw solution mass fraction
+    "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
     "product_draw_mass_frac": 0.01,   # FO product draw solution mass fraction
     "HX1_cold_out_temp": 78 + 273.15, # HX1 coldside outlet temperature
     "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
@@ -542,6 +542,7 @@ if __name__ == "__main__":
                         )
         except:
             failed.append(v)
+            continue
 
         lcow = value(m.fs.treatment.costing.LCOW)
         capex_total = value(m.fs.treatment.costing.total_capital_cost)
@@ -585,11 +586,17 @@ if __name__ == "__main__":
         fo_capexs.append(fo_capex*capital_recovery_rate/flow_vol)
         dwi_capexs.append(dwi_capex*capital_recovery_rate/flow_vol)
 
-        chem_opexs.append((chem_opex + h2o2_cost    +chem_elec_cost) /flow_vol)
-        ec_opexs.append(  (ec_opex   + alum_cost    +ec_elec_cost) /flow_vol)
-        filt_opexs.append((filt_opex + filt_elec_cost)/flow_vol)
-        fo_opexs.append(  (fo_opex   + fo_elec_cost + fo_heat_cost) /flow_vol)
-        dwi_opexs.append( (dwi_opex  + dwi_elec_cost) /flow_vol)
+        chem_opexs.append((chem_opex ) /flow_vol)
+        ec_opexs.append(  (ec_opex   ) /flow_vol)
+        filt_opexs.append((filt_opex )/flow_vol)
+        fo_opexs.append(  (fo_opex  ) /flow_vol)
+        dwi_opexs.append( (dwi_opex ) /flow_vol)
+
+        # chem_opexs.append((chem_opex + h2o2_cost    +chem_elec_cost) /flow_vol)
+        # ec_opexs.append(  (ec_opex   + alum_cost    +ec_elec_cost) /flow_vol)
+        # filt_opexs.append((filt_opex + filt_elec_cost)/flow_vol)
+        # fo_opexs.append(  (fo_opex   + fo_elec_cost + fo_heat_cost) /flow_vol)
+        # dwi_opexs.append( (dwi_opex  + dwi_elec_cost) /flow_vol)
 
         elecs.append(elec_cost/flow_vol)
         heats.append(heat_cost/flow_vol)
@@ -600,7 +607,8 @@ if __name__ == "__main__":
 
 #%%
     import matplotlib.pyplot as plt
-
+    alums = [i*0.05 for i in alums]
+    # ec_opexs = [i * 0.05 for i in ec_opexs]
     plt.stackplot(rr,
                 chem_capexs, chem_opexs,
                 ec_capexs, ec_opexs,
@@ -620,7 +628,7 @@ if __name__ == "__main__":
                         '', '\\\\',
                         '', '\\\\',
                         '', '\\\\',
-                        # '','','','',
+                        '','','','',
                         ],
                 colors=['gray','gray',
                         'tomato', 'tomato',

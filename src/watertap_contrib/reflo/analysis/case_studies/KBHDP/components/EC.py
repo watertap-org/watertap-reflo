@@ -162,53 +162,6 @@ def build_ec(m, blk, prop_package=None):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-def build_system():
-    """Function to create concrete model for individual unit model flowsheet"""
-    m = ConcreteModel()
-    m.db = REFLODatabase()
-
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = WaterParameterBlockZO(solute_list=["tds"])
-
-    m.fs.feed = Feed(property_package=m.fs.properties)
-
-    m.fs.EC = FlowsheetBlock(dynamic=False)
-
-    build_ec(m, m.fs.EC)
-
-    m.fs.feed_to_unit = Arc(
-        source=m.fs.feed.outlet,
-        destination=m.fs.EC.feed.inlet,
-    )
-
-    TransformationFactory("network.expand_arcs").apply_to(m)
-
-    return m
-
-
-def set_system_operating_conditions(m):
-    """This function sets the system operating conditions for individual unit model flowsheet"""
-
-    input = {
-        "q (m3/s)": 0.175,
-        "tds (g/l)": 12,
-    }
-
-    flow_in = input["q (m3/s)"] * pyunits.m**3 / pyunits.s
-    flow_in_mass = flow_in * (1000 * pyunits.kg / pyunits.m**3)  # kg/s
-
-    tds = input["tds (g/l)"] * pyunits.g / pyunits.liter
-    m.tds = pyunits.convert(tds, to_units=pyunits.kg / pyunits.m**3)
-
-    m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(flow_in_mass)
-    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(
-        m.tds * flow_in
-    )  # kg/m3 * m3/s = kg/s
-=======
-=======
->>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 def set_system_operating_conditions(m):
     """This function sets the system operating conditions for individual unit model flowsheet"""
 
@@ -216,69 +169,11 @@ def set_system_operating_conditions(m):
     m.fs.feed.properties[0].flow_mass_comp["tds"].fix(2.143156)  # kg/m3 * m3/s = kg/s
     m.fs.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
     # # initialize feed
-<<<<<<< HEAD
->>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
-=======
->>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
 
 def set_ec_operating_conditions(m, blk, conv=5e3):
     """Set EC operating conditions"""
     # Check if the set up of the ec inputs is correct
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-    blk.ec.load_parameters_from_database(use_default_removal=True)
-
-    # input = {
-    #     "gap (cm)": 0.5,
-    #     "thickness (cm)": 0.1,
-    #     "ret_time (s)": 25,
-    #     "dose (mg/L)": 2.95,
-    #     "anode_area (cm2)": 184,
-    #     "cd (A/m2)": 500,
-    # }
-
-    # gap = pyunits.convert(input["gap (cm)"] * pyunits.cm, to_units=pyunits.m)()
-    # e_thick = pyunits.convert(
-    #     input["thickness (cm)"] * pyunits.cm, to_units=pyunits.m
-    # )()
-    # time = pyunits.convert(
-    #     input["ret_time (s)"] * pyunits.seconds, to_units=pyunits.minutes
-    # )()
-
-    conv = 5e3 * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
-
-    cond = pyunits.convert(
-        pyunits.convert(m.tds, to_units=pyunits.mg / pyunits.liter) / conv,
-        to_units=pyunits.S / pyunits.m,
-    )
-    blk.ec.conductivity.fix(cond)
-
-    # ec_dose = input["dose (mg/L)"] * pyunits.mg / pyunits.liter
-    # ec_dose = pyunits.convert(
-    #     input["dose (mg/L)"] * pyunits.mg / pyunits.liter,
-    #     to_units=pyunits.kg / pyunits.liter,
-    # )
-
-    # anode_area = pyunits.convert(
-    #     input["anode_area (cm2)"] * pyunits.cm**2, to_units=pyunits.m**2
-    # )
-
-    # blk.ec.electrode_thick.fix(e_thick)
-    # blk.ec.electrode_gap.fix(gap)
-
-    # blk.ec.current_density.fix(input["cd (A/m2)"])
-    # blk.ec.metal_dose.fix(ec_dose)
-
-    # if blk.ec.config.electrode_material == "aluminum":
-    #     blk.ec.current_efficiency.fix(1)
-
-    # blk.ec.overpotential_k1.fix(430)
-    # blk.ec.overpotential_k2.fix(1000)
-=======
-=======
->>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
     print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
 
     blk.ec.load_parameters_from_database(use_default_removal=True)
@@ -294,10 +189,6 @@ def set_ec_operating_conditions(m, blk, conv=5e3):
     # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
     # blk.ec.overpotential.fix(2)
     print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
-<<<<<<< HEAD
->>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
-=======
->>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
 
 
 def set_scaling(m, blk):
@@ -523,28 +414,6 @@ if __name__ == "__main__":
     m.fs.objective_lcow = Objective(expr=m.fs.costing.LCOW)
     results = solve(m, debug=True)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    add_system_costing(m)
-
-    solver = get_solver()
-    results = solver.solve(m)
-
-    # m.fs.objective_lcow = Objective(expr = m.fs.costing.LCOW)
-    # results = solver.solve(m)
-
-    # print(m.fs.objective_lcow())
-    # report_EC(m.fs.EC)
-    # m.fs.EC.ec.display()
-    # m.fs.costing.display()
-    print(f"LCOW = {m.fs.costing.LCOW()}")
-=======
     report_EC(m.fs.EC)
     print_EC_costing_breakdown(m.fs.EC)
     m.fs.EC.ec.conductivity.display()
->>>>>>> 322fa4ff98970cc8c8f0e80d4174efd55ce7d6e5
-=======
-    report_EC(m.fs.EC)
-    print_EC_costing_breakdown(m.fs.EC)
-    m.fs.EC.ec.conductivity.display()
->>>>>>> 6042e3a42f94b089becf28ad10040bc8705baef0
