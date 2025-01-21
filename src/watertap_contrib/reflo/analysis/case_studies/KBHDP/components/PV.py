@@ -44,6 +44,7 @@ dataset_filename = os.path.join(
 )
 surrogate_filename = dataset_filename.replace(".pkl", ".json")
 
+
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -54,7 +55,7 @@ def build_system():
 
 
 def build_pv(m, energy_blk=None):
-    
+
     if energy_blk is None:
         energy_blk = m.fs.energy
 
@@ -96,12 +97,26 @@ def set_pv_constraints(m, focus="Size"):
     m.fs.energy.pv.initialize()
 
 
-def add_pv_costing(m, blk):
-    energy = m.fs.energy
-    energy.costing = EnergyCosting()
+# def add_pv_costing(m, blk, costing_blk=None):
+#     energy = m.fs.energy
+#     if costing_blk is None:
+#         energy.costing = EnergyCosting()
 
-    energy.pv.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=energy.costing,
+#     blk.costing = UnitModelCostingBlock(
+#         flowsheet_costing_block=costing_blk,
+#     )
+
+
+def add_pv_costing(m, blk, costing_blk=None):
+    energy = m.fs.energy
+
+    if costing_blk is None:
+        if not hasattr(energy, "costing"):
+            energy.costing = EnergyCosting()
+        costing_blk = energy.costing
+
+    blk.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=costing_blk,
     )
 
 
@@ -140,7 +155,7 @@ def report_PV(m):
         f'{"System Agg. Flow Electricity":<30s}{value(m.fs.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
     )
     print(
-        f'{"PV Agg. Flow Elec.":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}'
+        f'{"PV Design Size":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}'
     )
     print(
         f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
@@ -149,9 +164,6 @@ def report_PV(m):
     print(
         f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.0f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}'
     )
-    # print(
-    #     f'{"Treatment Annual Energy":<30s}{value(m.fs.annual_treatment_energy):<10,.0f}{"kWh/yr"}'
-    # )
     print("\n")
     print(
         f'{"PV Annual Generation":<25s}{f"{pyunits.convert(m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
@@ -184,10 +196,6 @@ def report_PV(m):
     print(
         f'{"Electricity Cost":<29s}{f"${value(m.fs.costing.total_electric_operating_cost):<10,.0f}"}{"$/yr":<10s}'
     )
-
-    # print(m.fs.energy.pv.annual_energy.display())
-    # # print(m.fs.energy.pv.costing.annual_generation.display())
-    # print(m.fs.costing.total_electric_operating_cost.display())
 
 
 def breakdown_dof(blk):
