@@ -217,7 +217,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             if self.config.dataset_bounds == dict():
                 self.dataset_bounds = self.input_bounds
             else:
-                self.datset_bounds = self.config.dataset_bounds
+                self.dataset_bounds = self.config.dataset_bounds
 
     def initialize(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
