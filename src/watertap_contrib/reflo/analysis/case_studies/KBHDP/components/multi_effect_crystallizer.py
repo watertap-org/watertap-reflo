@@ -51,6 +51,7 @@ def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
+    m.fs.costing.heat_cost.fix(0.01)
     m.fs.properties = NaClParameterBlock()
     m.fs.vapor_properties = WaterParameterBlock()
 
@@ -117,7 +118,7 @@ def set_system_operating_conditions(
     upstream_recovery=0.9,  # assumed
     crystallizer_yield=0.5,
     saturated_steam_pressure_gage=3,
-    heat_transfer_coefficient=0.1,
+    heat_transfer_coefficient=1.3,
     eps=1e-8,
     **kwargs,
 ):
@@ -349,7 +350,8 @@ def add_mec_costing(m, blk, flowsheet_costing_block=None):
     if flowsheet_costing_block is None:
         flowsheet_costing_block = m.fs.costing
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=flowsheet_costing_block
+        flowsheet_costing_block=flowsheet_costing_block,
+        costing_method_arguments={"cost_work_as": "heat"}
     )
 
 
@@ -481,4 +483,4 @@ if __name__ == "__main__":
     results = solver.solve(m)
     assert_optimal_termination(results)
     display_mec_streams(m, blk)
-    m.fs.costing.LCOW.display()
+    m.fs.costing.display()
