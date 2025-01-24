@@ -75,6 +75,7 @@ def cost_flat_plate(blk):
     flat_plate_params = blk.costing_package.flat_plate
     flat_plate = blk.unit_model
     make_capital_cost_var(blk)
+    blk.costing_package.add_cost_factor(blk, None)
     make_fixed_operating_cost_var(blk)
 
     blk.direct_capital_cost = pyo.Var(
