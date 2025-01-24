@@ -1,9 +1,13 @@
 import os
 import math
+from functools import partial
+from collections import defaultdict
 from pyomo.environ import (
     ConcreteModel,
     value,
+    Set,
     Var,
+    SolverFactory,
     Constraint,
     Objective,
     NonNegativeReals,
@@ -48,6 +52,9 @@ _log = idaeslog.getLogger(__name__)
 
 __all__ = [
     "build_md_system",
+    "build_and_run_kbhdp_zld",
+    "build_and_run_md_system",
+    "build_and_run_mec_system",
     "set_md_operating_conditions",
     "init_md_system",
     "build_and_run_primary_treatment",
@@ -142,6 +149,8 @@ def build_primary_system():
         == m.fs.product.properties[0].flow_vol
     )
 
+    add_primary_treatment_costing(m)
+
     return m
 
 
@@ -186,70 +195,6 @@ def build_primary_treatment(m):
     build_ec(m, m.fs.EC, prop_package=m.fs.ZO_properties)
     build_UF(m, m.fs.UF, prop_package=m.fs.ZO_properties)
     build_ro(m, m.fs.RO, prop_package=m.fs.RO_properties)
-
-    # m.fs.units = [
-    #     m.fs.feed,
-    #     treatment.EC,
-    #     treatment.UF,
-    #     treatment.pump,
-    #     treatment.RO,
-    #     treatment.product,
-    #     treatment.sludge,
-    # ]
-
-
-
-# def build_primary_treatment(m):
-#     """
-#     Build treatment train through RO.
-#     """
-#     treatment = m.fs.treatment = Block()
-
-#     treatment.feed = Feed(property_package=m.fs.MCAS_properties)
-#     treatment.product = Product(property_package=m.fs.RO_properties)
-#     treatment.sludge = Product(property_package=m.fs.ZO_properties)
-#     treatment.UF_waste = Product(property_package=m.fs.ZO_properties)
-#     treatment.brine = Product(property_package=m.fs.MD_properties)
-
-#     treatment.EC = FlowsheetBlock(dynamic=False)
-#     treatment.UF = FlowsheetBlock(dynamic=False)
-#     treatment.pump = Pump(property_package=m.fs.RO_properties)
-#     treatment.RO = FlowsheetBlock(dynamic=False)
-
-#     treatment.MCAS_to_TDS_translator = Translator_MCAS_to_TDS(
-#         inlet_property_package=m.fs.MCAS_properties,
-#         outlet_property_package=m.fs.ZO_properties,
-#         has_phase_equilibrium=False,
-#         outlet_state_defined=False,
-#     )
-
-#     treatment.TDS_to_NaCl_translator = Translator_TDS_to_NACL(
-#         inlet_property_package=m.fs.ZO_properties,
-#         outlet_property_package=m.fs.RO_properties,
-#         has_phase_equilibrium=False,
-#         outlet_state_defined=True,
-#     )
-
-#     treatment.RO_brine_to_MD_translator = Translator_NaCl_to_TDS(
-#         inlet_property_package=m.fs.RO_properties,
-#         outlet_property_package=m.fs.MD_properties,
-#         has_phase_equilibrium=False,
-#         outlet_state_defined=False,
-#     )
-
-#     build_ec(m, treatment.EC, prop_package=m.fs.ZO_properties)
-#     build_UF(m, treatment.UF, prop_package=m.fs.ZO_properties)
-#     build_ro(m, treatment.RO, prop_package=m.fs.RO_properties)
-
-#     m.fs.units = [
-#         treatment.feed,
-#         treatment.EC,
-#         treatment.UF,
-#         treatment.pump,
-#         treatment.RO,
-#         treatment.product,
-#         treatment.sludge,
-#     ]
 
 
 def add_primary_connections(m):
@@ -354,20 +299,27 @@ def add_constraints(m):
     )
 
 
-def add_treatment_costing(m):
-    treatment = m.fs.treatment
-    treatment.costing = TreatmentCosting()
+def add_primary_treatment_costing(m):
 
-    treatment.pump.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=treatment.costing,
+    m.fs.costing = TreatmentCosting()
+    m.fs.costing.electricity_cost.fix(
+        pyunits.convert(
+            0.066 * pyunits.USD_2023 / pyunits.kWh,
+            to_units=pyunits.USD_2018 / pyunits.kWh,
+        )
+    )
+    m.fs.costing.heat_cost.fix(0.01660)
+
+    m.fs.pump.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
     )
 
-    add_ec_costing(m, treatment.EC, treatment.costing)
-    add_UF_costing(m, treatment.UF, treatment.costing)
-    add_ro_costing(m, treatment.RO, treatment.costing)
+    add_ec_costing(m, m.fs.EC, m.fs.costing)
+    add_UF_costing(m, m.fs.UF, m.fs.costing)
+    add_ro_costing(m, m.fs.RO, m.fs.costing)
 
-    treatment.costing.cost_process()
-    treatment.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase["Liq"])
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol_phase["Liq"])
 
 
 def add_primary_system_scaling(m):
@@ -559,6 +511,14 @@ def build_md_system(Qin=4, Cin=12, water_recovery=0.5):
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
 
+    m.fs.costing.electricity_cost.fix(
+        pyunits.convert(
+            0.066 * pyunits.USD_2023 / pyunits.kWh,
+            to_units=pyunits.USD_2018 / pyunits.kWh,
+        )
+    )
+    m.fs.costing.heat_cost.fix(0.01660)
+
     m.inlet_flow_rate = pyunits.convert(
         Qin * pyunits.Mgallons / pyunits.day, to_units=pyunits.m**3 / pyunits.s
     )
@@ -664,7 +624,7 @@ def build_and_run_mec_system(
     set_mec_operating_conditions(m, Qin=Qin, tds=Cin, **mec_kwargs)
     init_mec_system(m)
     results = solve(m)
-    display_mec_streams(m, m.fs.MEC)
+    # display_mec_streams(m, m.fs.MEC)
     return m
 
 
@@ -672,6 +632,15 @@ def build_mec_system(number_effects=4):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
+
+    m.fs.costing.electricity_cost.fix(
+        pyunits.convert(
+            0.066 * pyunits.USD_2023 / pyunits.kWh,
+            to_units=pyunits.USD_2018 / pyunits.kWh,
+        )
+    )
+    m.fs.costing.heat_cost.fix(0.01660)
+    
     m.fs.properties = CrystallizerParameterBlock()
     m.fs.vapor_properties = WaterParameterBlock()
 
@@ -869,20 +838,20 @@ def optimize(
             stage.module.area.unfix()
             stage.module.area.setub(1e6)
 
+
 ############################################################
 ############################################################
 #################### FULL ZLD TRAIN ########################
 ############################################################
 ############################################################
 
+
 def build_and_run_kbhdp_zld(primary_kwargs=dict()):
 
     m1 = build_and_run_primary_treatment(**primary_kwargs)
 
     flow_to_md = value(m1.fs.brine.flow_mgd)
-    tds_to_md = value(
-        m1.fs.brine.properties[0].conc_mass_phase_comp["Liq", "TDS"]
-    )
+    tds_to_md = value(m1.fs.brine.properties[0].conc_mass_phase_comp["Liq", "TDS"])
 
     m_md = build_and_run_md_system(Qin=flow_to_md, Cin=tds_to_md)
 
@@ -901,33 +870,163 @@ def build_and_run_kbhdp_zld(primary_kwargs=dict()):
 
     m_mec = build_and_run_mec_system(mec_kwargs=mec_kwargs)
 
-    m_mec.fs.costing.display()
+    # m_mec.fs.costing.display()
 
-    build_agg_model(m1, m_md, m_mec)
+    m_agg = build_agg_model(m1, m_md, m_mec)
+
+    print(f" dof = {degrees_of_freedom(m_agg)}")
+    solver = SolverFactory("ipopt")
+    results = solver.solve(m_agg)
+    print(f"termination {results.solver.termination_condition}")
+    m_agg.fs.costing.display()
+    m_agg.fs.costing.LCOW.display()
 
     return m1, m_md, m_mec
 
 
+
+def build_agg_costing_blk(
+    b,
+    models=None,
+    base_currency=None,
+    base_period=pyunits.year,
+    inlet_flow=None,
+    product_flow=None,
+    disposal_flow=None,
+):
+    if base_currency is None:
+        base_currency = pyunits.USD_2023
+
+    b.models = models
+    b.base_currency = base_currency
+    b.base_period = base_period
+    b.capital_recovery_factor = (
+        value(models[0].fs.costing.capital_recovery_factor) * b.base_period**-1
+    )
+    b.electricity_cost = value(models[0].fs.costing.electricity_cost)
+    b.heat_cost = value(models[0].fs.costing.heat_cost)
+
+    for m in models:
+        assert value(m.fs.costing.capital_recovery_factor) == value(
+            b.capital_recovery_factor
+        )
+        assert value(m.fs.costing.electricity_cost) == b.electricity_cost
+        assert value(m.fs.costing.heat_cost) == b.heat_cost
+
+    b.registered_unit_costing = Set()
+    b.flow_types = Set()
+    b.used_flows = Set()
+    b.registered_flows = defaultdict(list)
+    b.registered_flow_costs = defaultdict(list)
+    b.defined_flows = defaultdict(list)
+
+    for m in models:
+        m.fs.costing.total_capital_cost.display()
+        agg_flow_cost = getattr(m.fs.costing, "aggregate_flow_costs")
+        # agg_flow_cost.display()
+
+        for f in m.fs.costing.flow_types:
+            if f not in b.flow_types:
+                b.flow_types.add(f)
+
+        for f in m.fs.costing.used_flows:
+
+            if f not in b.used_flows:
+                b.used_flows.add(f)
+
+            if f in m.fs.costing._registered_flows.keys():
+                b.registered_flows[f].extend(m.fs.costing._registered_flows[f])
+                b.registered_flow_costs[f].append(value(agg_flow_cost[f]))
+        for e in m.fs.costing._registered_unit_costing:
+            b.registered_unit_costing.add(e)
+
+    b.total_capital_cost = Var(initialize=1e6, units=b.base_currency)
+
+    @b.Constraint()
+    def eq_total_capital_cost(blk):
+        return blk.total_capital_cost == sum(
+            value(m.fs.costing.total_capital_cost) for m in models
+        )
+
+    # b.total_capital_cost_constraint = Constraint(
+    #     expr=
+    # )
+    b.total_operating_cost = Var(initialize=1e4, units=b.base_currency / b.base_period)
+
+    @b.Constraint()
+    def eq_total_operating_cost(blk):
+        return blk.total_operating_cost == sum(
+            value(m.fs.costing.total_operating_cost) for m in models
+        )
+
+    b.aggregate_flow_costs = Var(b.used_flows)
+
+    @b.Constraint(b.used_flows)
+    def eq_aggregate_flow_cost(blk, f):
+        return blk.aggregate_flow_costs[f] == value(sum(blk.registered_flow_costs[f]))
+
+    def agg_flow_rule(blk, f, funits):
+        e = 0
+        for flow in blk.registered_flows[f]:
+            e += value(pyo.units.convert(flow, to_units=funits))
+        agg_flow = getattr(blk, f"aggregate_flow_{f}")
+        return agg_flow == e
+
+    for k, f in b.registered_flows.items():
+        funits = pyunits.get_units(f[0])
+        agg_var = Var(units=funits, doc=f"Aggregate flow for {k}")
+        b.add_component(f"aggregate_flow_{k}", agg_var)
+        agg_const = Constraint(rule=partial(agg_flow_rule, f=k, funits=funits))
+        b.add_component(f"aggregate_flow_{k}_constraint", agg_const)
+
+    @b.Expression()
+    def LCOW(blk):
+        numerator = (
+            blk.total_capital_cost * blk.capital_recovery_factor
+            + blk.total_operating_cost
+        )
+        denominator = pyunits.convert(
+            product_flow * pyunits.m**3 / pyunits.s,
+            to_units=pyunits.m**3 / b.base_period,
+        )
+        return pyunits.convert(
+            numerator / denominator, to_units=b.base_currency / pyunits.m**3
+        )
+
+
 def build_agg_model(m1, m_md, m_mec):
+
+    m1.name = "primary"
+    m_md.name = "MD"
+    m_mec.name = "MEC"
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
 
-    m.fs.flow_in = Var(initialize=1, bounds=(0, None))
-    m.fs.flow_treated = Var(initialize=0.5, bounds=(0, None))
-    m.fs.flow_waste = Var(initialize=0.5, bounds=(0, None))
+    m.fs.feed_flows = [m1.fs.feed.properties[0].flow_vol_phase["Liq"]]
+    m.fs.product_flows = [
+        m1.fs.product.properties[0].flow_vol_phase["Liq"],
+        m_md.fs.product.properties[0].flow_vol_phase["Liq"],
+        m_mec.fs.product.properties[0].flow_vol_phase["Liq"],
+    ]
 
     m.fs.costing = Block()
 
-    m.fs.costing.total_capital_cost = Var(initialize=1e6, bounds=(0, None))
-    m.fs.costing.total_operating_cost = Var(initialize=1e6, bounds=(0, None))
+    m.fs.flow_in = Expression(expr=sum(value(f) for f in m.fs.feed_flows))
+    m.fs.flow_treated = Expression(expr=sum(value(f) for f in m.fs.product_flows))
+    m.fs.flow_waste = Expression(expr=m.fs.flow_in - m.fs.flow_treated)
+    m.fs.system_recovery = Expression(expr=m.fs.flow_treated / m.fs.flow_in)
 
-    # TODO: aggregate used flows
-    #       aggregate capital costs
-    #       aggregate operating costs
+    build_agg_costing_blk(
+        m.fs.costing,
+        models=[m1, m_md, m_mec],
+        # inlet_flows=m.fs.inlet_flows,
+        product_flow=m.fs.flow_treated,
+    )
 
-    # for mm in [m, m_md, m_mec]:
-    #     mm.fs.costing.used_flows.display()
+
+    return m
+
 
 
 def build_energy(m):
