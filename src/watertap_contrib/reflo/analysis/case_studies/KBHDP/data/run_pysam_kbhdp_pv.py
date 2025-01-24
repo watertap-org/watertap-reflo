@@ -86,20 +86,27 @@ def run_pv_single_owner(
         raise ValueError("design_size input must be provided")
     tech_model = modules[0]
     cash_model = modules[3]
-    inverters, num_inverters, num_parallel = _size_pv_array(
+    size_pv_array = _size_pv_array(
         tech_model, design_size=design_size, desired_dcac_ratio=desired_dcac_ratio
     )
+    # inverters, num_inverters, num_parallel = _size_pv_array(
+    #     tech_model, design_size=design_size, desired_dcac_ratio=desired_dcac_ratio
+    # )
     print(
-        f"\nRunning PySAM model {pysam_model_config} for design size = {design_size} kW...\n"
+        f"\nRunning PySAM model {pysam_model_config} for design size = {design_size:.2f} kW...\n"
     )
-    tech_model.value("inverter_count", num_inverters)
-    tech_model.value("subarray1_nstrings", num_parallel)
+    tech_model.value("inverter_count", size_pv_array["inverter_count"])
+    tech_model.value("subarray1_nstrings", size_pv_array["number_strings"])
+    
+    # tech_model.value("inverter_count", num_inverters)
+    # tech_model.value("subarray1_nstrings", num_parallel)
+
+    # BUG Dec 2024: cec_gamma_r was a required parameter but wasn't provided by default config
     # Courtesy of Google AI:
-    # The "cec_gamma_r" maximum power point temperature coefficient, t
-    # ypically found on a solar panel datasheet, represents the percentage change
+    # The "cec_gamma_r" maximum power point temperature coefficient, typically
+    # found on a solar panel datasheet, represents the percentage change
     # in maximum power output per degree Celsius change in temperature, usually
     # expressed as a negative value ranging from around -0.3% to -0.5% per degree Celsius.
-    # BUG Dec 2024: cec_gamma_r was a required parameter but wasn't provided by default config
     tech_model.value("cec_gamma_r", -0.3)
 
     for param, val in tech_model_kwargs.items():
@@ -121,7 +128,7 @@ def run_pv_single_owner(
     # dc_capacity_factor = tech_model.Outputs.capacity_factor
     # ac_capacity_factor = tech_model.Outputs.capacity_factor_ac
     # lcoe_real = cash_model.Outputs.lcoe_real
-    return tech_model, cash_model
+    return tech_model, cash_model, size_pv_array
 
 
 def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
@@ -220,6 +227,9 @@ def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
         num_inverters = ceil(((num_series * num_parallel * mod_power)) / inv_power)
     num_inverters = max(1, num_inverters)
     total_modules = num_series * num_parallel
+    total_module_area = total_modules * tech_model.value("spe_area")  # [m2]
+    total_module_area = total_module_area * 0.000247105 # m2 to [acre]
+    land_area = total_module_area / tech_model.value("subarray1_gcr")  # assumes land_area_multiplier = 1
     total_ac_capacity = inv_power * num_inverters / 1000
     total_dc_inverter_capacity = inv_dc_power * num_inverters / 1000
 
@@ -245,9 +255,11 @@ def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
 
     size_pv_array = {
         "inverter_count": num_inverters,
-        "subarray1_modules_per_string": num_series,
-        "subarray1_nstrings": num_parallel,
+        "number_modules_per_string": num_series,
+        "number_strings": num_parallel,
         "total_modules": total_modules,
+        "total_module_area": total_module_area,
+        "land_req": land_area,
         "system_capacity": nameplate_dc,
         "total_inverter_capacity": total_ac_capacity,
         "total_dc_inverter_capacity": total_dc_inverter_capacity,
@@ -256,7 +268,8 @@ def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
     if not all([num_inverters, num_parallel]):
         raise ValueError("One of inverters, num_inverters, num_parallel is None.")
 
-    return inverters, num_inverters, num_parallel
+    # return inverters, num_inverters, num_parallel
+    return size_pv_array
 
 
 def _flatten_dict(d):
@@ -288,24 +301,34 @@ def _spe_power(spe_eff_level, spe_rad_level, spe_area):
     return spe_eff_level / 100 * spe_rad_level * spe_area
 
 
-def setup_and_run(design_size, pysam_model_config):
+def setup_and_run_pv(design_size, pysam_model_config, return_tech_model=False):
     modules = setup_pv_single_owner(pysam_model_config)
-    tech_model, cash_model = run_pv_single_owner(
+    tech_model, cash_model, size_pv_array = run_pv_single_owner(
         modules, pysam_model_config, design_size=design_size
     )
     annual_energy = tech_model.Outputs.annual_energy  # kWh
-    # hourly_energy = tech_model.Outputs.gen # kW
+    # electricity_annual = tech_model.Outputs.gen # kW
     # hourly_energy = [x if x > 0 else 0 for x in hourly_energy]
     # dc_capacity_factor = tech_model.Outputs.capacity_factor
     # ac_capacity_factor = tech_model.Outputs.capacity_factor_ac
-    # lcoe_real = cash_model.Outputs.lcoe_real
+
     cash_model.execute()
-    land_req = cash_model.LandLease.land_area
-    result = {"electricity_annual": annual_energy, "land_req": land_req}
-    print(f"Design Size {design_size} completed.")
-    print(f"\tAnnual Energy = {annual_energy} kWh")
-    print(f"\tLand Required = {land_req} acre\n")
-    return result
+    # lcoe_real = cash_model.Outputs.lcoe_real
+
+    result = size_pv_array
+    result["annual_energy"] = annual_energy
+    result["lcoe_real"] = cash_model.Outputs.lcoe_real
+    result["ac_capacity_factor"] = tech_model.Outputs.capacity_factor_ac
+    result["dc_capacity_factor"] = tech_model.Outputs.capacity_factor
+    # result = {"electricity_annual": electricity_annual, "land_req": land_req}
+    print(f"Design Size {design_size:.1f} kW completed.")
+    print(f"\tAnnual Energy = {annual_energy:.2f} kWh")
+    print(f"\tLand Required = {result['land_req']:.2f} acre\n")
+
+    if return_tech_model:
+        return result, tech_model
+    else:
+        return result
 
 
 def run_pysam_kbhdp_pv(
@@ -313,6 +336,7 @@ def run_pysam_kbhdp_pv(
     dataset_filename=None,
     save_data=True,
     use_multiprocessing=True,
+    processes=8,
     pysam_model_config="FlatPlatePVSingleOwner",
 ):
     if dataset_filename is None:
@@ -324,38 +348,33 @@ def run_pysam_kbhdp_pv(
         # args = [(ds, *a) for ds in design_sizes]
         # print(args)
         # assert False
-        with multiprocessing.Pool(processes=6) as pool:
+        with multiprocessing.Pool(processes=processes) as pool:
             args = [(ds, pysam_model_config) for ds in design_sizes]
-            results = pool.starmap(setup_and_run, args)
+            results = pool.starmap(setup_and_run_pv, args)
         df_results = pd.DataFrame(results)
         df = pd.concat(
             [
                 df,
-                df_results[
-                    [
-                        "electricity_annual",
-                        "land_req", 
-                    ]
-                ],
+                df_results
             ],
             axis=1,
         )
     else:
         data = list()
         for ds in design_sizes:
-            result = setup_and_run(ds, pysam_model_config)
-            data.append([ds, result["electricity_annual"], result["land_req"]])
+            result = setup_and_run_pv(ds, pysam_model_config)
+            data.append([ds] + [result.values()])
         df = pd.DataFrame(
-            data, columns=["design_size", "electricity_annual", "land_req"]
+            data, columns=["design_size"] + result.keys()
         )
     if save_data:
         df.to_pickle(dataset_filename)
 
 
 if __name__ == "__main__":
-    design_sizes = np.linspace(15, 15000, 10)
+    design_sizes = np.linspace(100000, 150000, 3)
     print(design_sizes)
     run_pysam_kbhdp_pv(
-        design_sizes=design_sizes, dataset_filename="test", use_multiprocessing=False
+        design_sizes=design_sizes, dataset_filename="test.pkl", use_multiprocessing=False
     )
     
