@@ -93,7 +93,8 @@ def build_pv_surrogate_cost_param_block(blk):
     build_rule=build_pv_surrogate_cost_param_block, parameter_block_name="pv_surrogate"
 )
 def cost_pv_surrogate(blk):
-
+    
+    blk.costing_package.has_electricity_generation = True
     global_params = blk.costing_package
     pv_params = blk.costing_package.pv_surrogate
     make_capital_cost_var(blk)
