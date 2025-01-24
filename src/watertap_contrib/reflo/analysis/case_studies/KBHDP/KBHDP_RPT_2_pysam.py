@@ -129,7 +129,7 @@ def build_sweep(
         m.fs.energy.FPC.heat_load.fix(heat_load_required)
 
     elif heat_load is not None:
-        pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
+        pysam_results = run_pysam_fpc(m, heat_load=heat_load)
         m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
         m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
         m.fs.energy.FPC.heat_load.fix(heat_load)
@@ -138,7 +138,7 @@ def build_sweep(
         heat_load = value(
             pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.MW)
         )
-        pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
+        pysam_results = run_pysam_fpc(m, heat_load=heat_load)
         m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
         m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
         m.fs.energy.FPC.heat_load.fix(heat_load)
