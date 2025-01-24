@@ -243,7 +243,7 @@ def init_system(m, solver=None):
 
 
 def init_ec(m, blk, solver=None):
-    """Initialize IX model"""
+    """Initialize EC model"""
 
     if solver is None:
         solver = get_solver()

@@ -41,8 +41,8 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.data import *
 
 __all__ = [
     "build_fpc_pysam",
-    "add_pysam_FPC_model", 
-    "run_pysam_fpc_model", 
+    "add_pysam_fpc_model", 
+    "run_pysam_fpc", 
     "get_fpc_heat_load", 
     "init_fpc",
     "set_fpc_pysam_op_conditions",
@@ -77,11 +77,11 @@ def build_system():
 
 def build_fpc_pysam(m):
     m.fs.energy.FPC = FlatPlatePySAM(solar_model_type="pysam")
-    add_pysam_FPC_model(m)
+    add_pysam_fpc_model(m)
     # run_pysam_fpc_model(tech_model)
 
 
-def add_pysam_FPC_model(m):
+def add_pysam_fpc_model(m):
 
     temperatures = {
         "T_cold": 20,
@@ -94,16 +94,16 @@ def add_pysam_FPC_model(m):
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
 
-    m.tech_model = setup_model(
+    m.tech_model = setup_pysam_fpc_model(
         temperatures=temperatures,
         weather_file=weather_file,
         config_data=config_data,
     )
 
 
-def run_pysam_fpc_model(m, heat_load=60):
+def run_pysam_fpc(m, heat_load=60):
 
-    results = run_model(
+    results = run_pysam_fpc_model(
         m.tech_model,
         heat_load_mwt=heat_load,
         hours_storage=m.hours_storage,

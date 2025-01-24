@@ -110,7 +110,8 @@ def results_dict_append(
         for c in components:
             for v in b.component_objects(c):
                 if v.is_indexed():
-                    idx = [*v._index_set]
+                    # print(v.name)
+                    # idx = [*v._index_set]
                     for i, vv in v.items():
                         if vv.name in results_dict.keys():
                             if (
