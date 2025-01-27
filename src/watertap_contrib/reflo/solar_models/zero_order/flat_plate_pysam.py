@@ -45,20 +45,15 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
 
         self.heat_load = Var(
             initialize=1,
-            # mutable=True,
             bounds=(0, None),
             units=pyunits.megawatt,
         )
         self.heat_annual = Var(
             initialize=1,
-            # mutable=True,
-            # bounds=(0, None),
             units=pyunits.kWh,
         )
         self.electricity_annual = Var(
             initialize=1,
-            # mutable=True,
-            # bounds=(0, None),
             units=pyunits.kWh,
         )
         self.hours_storage = Param(

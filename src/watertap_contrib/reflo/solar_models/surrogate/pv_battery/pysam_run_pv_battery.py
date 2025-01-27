@@ -220,6 +220,7 @@ def set_battery_options(
     dispatch_manual_sched=None,
     **kwargs,
 ):
+    # see: https://nrel-pysam.readthedocs.io/en/main/modules/Battery.html#PySAM.Battery.Battery.BatteryDispatch
 
     if dispatch_manual_sched is None:
         dispatch_manual_sched = default_dispatch_manual_sched

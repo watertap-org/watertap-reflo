@@ -27,8 +27,10 @@ class PhotovoltaicData(SolarEnergyBaseData):
     """
 
     CONFIG = SolarEnergyBaseData.CONFIG()
+    CONFIG.solar_model_type = "pysam"
 
     def build(self):
+        # self.config.solar_model_type = "pysam"
         super().build()
 
         self._tech_type = "photovoltaic"
