@@ -41,9 +41,9 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.data import *
 
 __all__ = [
     "build_fpc_pysam",
-    "add_pysam_fpc_model", 
-    "run_pysam_fpc", 
-    "get_fpc_heat_load", 
+    "add_pysam_fpc_model",
+    "run_pysam_fpc",
+    "get_fpc_heat_load",
     "init_fpc",
     "set_fpc_pysam_op_conditions",
     "add_fpc_pysam_costing",
@@ -118,13 +118,17 @@ def get_fpc_heat_load(m, heat_annual_desired, heat_load_start=5, increment_heat_
     Use to get the heat_load input required to
     get the desired annual heat output (heat_annual)
     """
-    pysam_results = run_pysam_fpc_model(m, heat_load=heat_load_start)
+    pysam_results = run_pysam_fpc(m, heat_load=heat_load_start)
     heat_annual_fpc = pysam_results["heat_annual"]
     heat_load = heat_load_start
     while heat_annual_fpc < heat_annual_desired:
         heat_load += increment_heat_load
-        pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
+        print(f"Trying FPC heat load = {heat_load:.2f} MW...")
+        pysam_results = run_pysam_fpc(m, heat_load=heat_load)
         heat_annual_fpc = pysam_results["heat_annual"]
+        print(f"Heat annual desired = {heat_annual_desired:.2f} kWh")
+        print(f"Heat annual calculated = {heat_annual_fpc:.2f} kWh")
+        print(f"Calc/Desired = {heat_annual_fpc/heat_annual_desired:.2f} kWh\n")
     heat_load_required = heat_load
     return heat_load_required, pysam_results
 
@@ -305,7 +309,7 @@ if __name__ == "__main__":
         pyunits.convert(m.fs.aggregate_flow_heat_treatment, to_units=pyunits.MW)
     )
 
-    pysam_results = run_pysam_fpc_model(m, heat_load=heat_load)
+    pysam_results = run_pysam_fpc(m, heat_load=heat_load)
     m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
     m.fs.energy.FPC.electricity_annual.fix(pysam_results["electricity_annual"])
     m.fs.energy.FPC.heat_load.fix(heat_load)
@@ -320,7 +324,7 @@ if __name__ == "__main__":
     )
 
     heat_load_required, pysam_results = get_fpc_heat_load(
-        m, heat_annual_required, increment_heat_load=1
+        m, heat_annual_required, heat_load_start=100, increment_heat_load=2
     )
     print(heat_annual_required, pysam_results["heat_annual"], heat_load_required)
     m.fs.energy.FPC.heat_annual.fix(pysam_results["heat_annual"])
