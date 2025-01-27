@@ -1,7 +1,11 @@
 from pprint import pprint
-
+import numpy as np
+import pandas as pd
 from pyomo.environ import (
     ConcreteModel,
+    TerminationCondition,
+    Objective,
+    Constraint,
     value,
     Var,
     assert_optimal_termination,
@@ -120,6 +124,7 @@ def build_kbhdp_mec(
         eff.effect.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
         eff.effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
         eff.effect.properties_in[0].conc_mass_phase_comp[...]
+        eff.effect.properties_out[0].conc_mass_phase_comp[...]
 
         eff.effect.crystallization_yield["NaCl"].fix(crystallizer_yield)
         eff.effect.crystal_growth_rate.fix()
@@ -129,11 +134,11 @@ def build_kbhdp_mec(
         eff.effect.pressure_operating.fix(
             pyunits.convert(op_pressure * pyunits.bar, to_units=pyunits.Pa)
         )
-        eff.effect.overall_heat_transfer_coefficient.fix(0.1)
+        eff.effect.overall_heat_transfer_coefficient.fix(1.3)
 
     first_effect = m.fs.mec.effects[1].effect
 
-    first_effect.overall_heat_transfer_coefficient.fix(0.1)
+    first_effect.overall_heat_transfer_coefficient.fix(1.3)
     first_effect.heating_steam[0].pressure_sat
     first_effect.heating_steam[0].dh_vap_mass
     first_effect.heating_steam.calculate_state(
@@ -271,15 +276,145 @@ def build_kbhdp_mec(
     return m
 
 
+def get_model_performance(m):
+    # Print result
+    effs = [m.fs.mec.effects[1].effect, 
+            m.fs.mec.effects[2].effect,
+            m.fs.mec.effects[3].effect,
+            m.fs.mec.effects[4].effect]
+    effect_names = ["Effect 1", "Effect 2", "Effect 3", "Effect 4"]
+
+    feed_salinities = [
+        i.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].value for i in effs
+    ]
+    feed_flow_rates = [
+        sum(
+            i.properties_in[0].flow_mass_phase_comp["Liq", j].value
+            for j in ["H2O", "NaCl"]
+        )
+        for i in effs
+    ]
+    feed_vol_flow_rates = [
+        i.properties_in[0].flow_vol_phase["Liq"].value * 1000 for i in effs
+    ]
+    temp_operating = [i.temperature_operating.value - 273.15 for i in effs]
+    temp_vapor_cond = [
+        i.properties_pure_water[0].temperature.value - 273.15 for i in effs
+    ]
+    p_operating = [i.pressure_operating.value / 1e5 for i in effs]
+    water_prod = [
+        i.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"].value for i in effs
+    ]
+    solid_prod = [
+        i.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"].value for i in effs
+    ]
+    liquid_prod = [
+        sum(
+            i.properties_out[0].flow_mass_phase_comp["Liq", j].value
+            for j in ["H2O", "NaCl"]
+        )
+        for i in effs
+    ]
+    liquid_flow_rate = [
+        i.properties_out[0].flow_vol_phase["Liq"].value * 1000 for i in effs
+    ]
+
+    liquid_salinity = [
+        i.properties_out[0].conc_mass_phase_comp["Liq", "NaCl"].value for i in effs
+    ]
+    power_required = [i.work_mechanical[0].value for i in effs]
+    power_provided = [i.energy_flow_superheated_vapor.value for i in effs]
+    vapor_enth = [
+        i.properties_vapor[0].dh_vap_mass_solvent.value
+        * i.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"].value
+        for i in effs
+    ]
+    STEC = [
+        i.work_mechanical[0].value
+        / i.properties_in[0].flow_vol_phase["Liq"].value
+        / 3600
+        for i in effs
+    ]
+
+    overall_STEC = (
+        effs[1].work_mechanical[0].value
+        / sum(i.properties_in[0].flow_vol_phase["Liq"].value for i in effs)
+        / 3600
+    )
+
+    area = [i.heat_exchanger_area.value for i in effs]
+
+    model_output = np.array(
+        [
+            feed_flow_rates,
+            feed_vol_flow_rates,
+            feed_salinities,
+            temp_operating,
+            temp_vapor_cond,
+            p_operating,
+            water_prod,
+            solid_prod,
+            liquid_prod,
+            liquid_flow_rate,
+            liquid_salinity,
+            power_required,
+            power_provided,
+            vapor_enth,
+            STEC,
+            area,
+        ]
+    )
+
+    data_table = pd.DataFrame(
+        data=model_output,
+        columns=effect_names,
+        index=[
+            "Feed mass flow rate (kg/s)",
+            "Feed volumetric flow rate (L/s)",
+            "Feed salinities (g/L)",
+            "Operating temperature (C)",
+            "Vapor condensation temperature (C)",
+            "Operating pressure (bar)",
+            "Water production (kg/s)",
+            "Solid production (kg/s)",
+            "Liquid waste (kg/s)",
+            "Liquid waste volumetric flow rate (L/s)",
+            "Liquid waste salinity (g/L)",
+            "Thermal energy requirement (kW)",
+            "Thermal energy available from vapor (kW)",
+            "Vapor enthalpy (kJ)",
+            "STEC (kWh/m3 feed)",
+            "Heat transfer area (m2)",
+        ],
+    )
+
+    overall_performance = {
+        "Capacity (m3/day)": sum(feed_vol_flow_rates) * 86400 / 1000,
+        "Feed brine salinity (g/L)": effs[1].properties_in[0]
+        .conc_mass_phase_comp["Liq", "NaCl"]
+        .value,
+        "Total brine disposed (kg/s)": sum(feed_flow_rates),
+        "Total water production (kg/s)": sum(water_prod),
+        "Total solids collected (kg/s)": sum(solid_prod),
+        "Total waste water remained (kg/s)": sum(liquid_prod),
+        "Initial thermal energy consumption (kW)": effs[1].work_mechanical[
+            0
+        ].value,
+        "Overall STEC (kWh/m3 feed)": overall_STEC,
+        "Total heat transfer area (m2)": sum(i.heat_exchanger_area.value for i in effs),
+    }
+
+    return data_table, overall_performance
+
 if __name__ == "__main__":
 
     m = build_kbhdp_mec(
         # m=m
-        flow_in=2.8,  # MGD
-        # kbhdp_salinity=12,  # g/L
+        flow_in=1,  # MGD
+        kbhdp_salinity=230,  # g/L
         # assumed_lssro_recovery=0.95,
         # number_effects=4,
-        crystallizer_yield=0.8,
+        crystallizer_yield=0.9,
         # eps=1e-12,
         # saturated_steam_pressure_gage=3,
         # heat_transfer_coefficient=0.1
@@ -289,10 +424,62 @@ if __name__ == "__main__":
     print('')
     print('here')
     print('')
-    m.fs.mec.inlet.display()
     assert degrees_of_freedom(m) == 0
     try:
         results = solver.solve(m)
         assert_optimal_termination(results)
     except:
         print("Failed")
+    overall_STEC = (
+    m.fs.mec.effects[1].effect.work_mechanical[0].value
+    / sum(m.fs.mec.effects[i].effect.properties_in[0].flow_vol_phase["Liq"].value for i in m.fs.mec.Effects)
+    /3600)
+    total_area = sum(m.fs.mec.effects[i].effect.heat_exchanger_area for i in m.fs.mec.Effects)
+    
+    print(value(overall_STEC))
+    print(value(total_area))
+
+    data_table, performance = get_model_performance(m)
+
+    m.fs.mec.effects[1].effect.pressure_operating.unfix()
+    m.fs.mec.effects[1].effect.pressure_operating.setub(0.5 * 1e5)
+    m.fs.mec.effects[2].effect.pressure_operating.unfix()
+    m.fs.mec.effects[3].effect.pressure_operating.unfix()
+    m.fs.mec.effects[4].effect.pressure_operating.unfix()
+    m.fs.mec.effects[4].effect.pressure_operating.setlb(0.022 * 1e5)
+
+    @m.Constraint(m.fs.mec.Effects,
+                  doc="Pressure decreasing")
+    def pressure_bound1(b, j):
+        if j<4:
+            return (b.fs.mec.effects[j+1].effect.pressure_operating 
+                    <= b.fs.mec.effects[j].effect.pressure_operating
+            )
+        else:
+            return Constraint.Skip
+
+    @m.Constraint(m.fs.mec.Effects,
+                    doc="Temperature difference")
+    def temp_bound1(b, j):
+        if j<4:
+            return (
+                b.fs.mec.effects[j+1].effect.temperature_operating
+                >= b.fs.mec.effects[j].effect.temperature_operating - 12
+            )
+        else:
+            return Constraint.Skip
+        
+    overall_STEC = (
+    m.fs.mec.effects[1].effect.work_mechanical[0].value
+    / sum(m.fs.mec.effects[i].effect.properties_in[0].flow_vol_phase["Liq"].value for i in m.fs.mec.Effects)
+    /3600)
+    total_area = sum(m.fs.mec.effects[i].effect.heat_exchanger_area for i in m.fs.mec.Effects)
+    m.fs.objective = Objective(expr=total_area)
+
+    optimization_results = solver.solve(m, tee=False)
+    assert (
+        optimization_results.solver.termination_condition
+        == TerminationCondition.optimal
+    )
+
+    data_table2, performance2 = get_model_performance(m)
