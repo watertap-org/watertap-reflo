@@ -433,12 +433,12 @@ if __name__ == "__main__":
     h2o2_cost = value(m.fs.treatment.costing.aggregate_flow_costs["hydrogen_peroxide"])
 
 
-    chem_elec_cost = 0.07 * value(m.fs.treatment.chem_addition.unit.electricity[0]) * 10290.711324821756
-    ec_elec_cost = 0.07 * value(m.fs.treatment.ec.unit.costing.electricity_flow) * 10290.711324821756
-    filt_elec_cost = 0.07 * value(m.fs.treatment.cart_filt.unit.electricity[0]) * 10290.711324821756
-    fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 10290.711324821756
+    chem_elec_cost = 0.07 * value(m.fs.treatment.chem_addition.unit.electricity[0]) * 8766
+    ec_elec_cost = 0.07 * value(m.fs.treatment.ec.unit.costing.electricity_flow) * 8766
+    filt_elec_cost = 0.07 * value(m.fs.treatment.cart_filt.unit.electricity[0]) * 8766
+    fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 8766
     fo_heat_cost = 0.02 * value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow) * 8766
-    dwi_elec_cost = 0.07 * value(m.fs.treatment.DWI.costing.pumping_power_required) * 10290.711324821756
+    dwi_elec_cost = 0.07 * value(m.fs.treatment.DWI.costing.pumping_power_required) * 8766
 
     print('LCOW                     ', lcow)
 
@@ -493,7 +493,7 @@ if __name__ == "__main__":
     LCOWs =[]
     failed= []
 
-    rr = [ 0.21,0.24,0.28,0.32,0.35,0.4,0.44, ]
+    rr = [ 0.2,0.24,0.28,0.32,0.35,0.4,0.44, 0.45]
     strong_draw_mass = [i*0.03 + 0.80 for i in range(6)]
 
     for v in rr:
@@ -540,11 +540,11 @@ if __name__ == "__main__":
 
         # fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 10290.711324821756
         fo_heat_cost = 0.02 * value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow) * 8766
-        chem_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][0])
-        ec_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][1])
-        filt_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][2])
-        fo_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][3])
-        dwi_elec_cost = 0.07 * 10290.711324821756 * value(m.fs.treatment.costing._registered_flows["electricity"][4])
+        chem_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][0])
+        ec_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][1])
+        filt_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][2])
+        fo_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][3])
+        dwi_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][4])
 
 
         var_opex_total = value(m.fs.treatment.costing.total_variable_operating_cost)
@@ -621,7 +621,7 @@ if __name__ == "__main__":
     plt.rcParams['figure.dpi']=300
 
     # Show the legend
-    plt.legend(loc='upper right', ncol =2,prop={'size': 6})
+    plt.legend(loc='upper right',  bbox_to_anchor=(0.5, 1.34), ncol =2,prop={'size': 8})
 
     plt.ylabel('LCOW ($/m3)')
     plt.xlabel('FO recovery rate')
