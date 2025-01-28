@@ -241,11 +241,11 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
                 @effect.Constraint(doc="Heat transfer equation for first effect")
                 def eq_heat_transfer_effect_1(b):
-                    return (
-                        b.work_mechanical[0]
-                        == pyunits.convert(b.overall_heat_transfer_coefficient
+                    return b.work_mechanical[0] == pyunits.convert(
+                        b.overall_heat_transfer_coefficient
                         * b.heat_exchanger_area
-                        * b.delta_temperature[0], to_units=pyunits.kJ * pyunits.s**-1)
+                        * b.delta_temperature[0],
+                        to_units=pyunits.kJ * pyunits.s**-1,
                     )
 
                 @effect.Constraint(doc="Calculate mass flow rate of heating steam")
@@ -298,7 +298,10 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
                 energy_flow_constr = Constraint(
                     expr=effect.work_mechanical[0]
-                    == pyunits.convert(prev_effect.energy_flow_superheated_vapor, to_units=pyunits.kJ * pyunits.s**-1),
+                    == pyunits.convert(
+                        prev_effect.energy_flow_superheated_vapor,
+                        to_units=pyunits.kJ * pyunits.s**-1,
+                    ),
                     doc=f"Energy supplied to effect {n}",
                 )
                 self.add_component(
