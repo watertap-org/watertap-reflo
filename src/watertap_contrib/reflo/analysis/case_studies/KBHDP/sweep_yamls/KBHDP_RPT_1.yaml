@@ -1,48 +1,156 @@
 KBHDP_RPT_1_water_recovery_sweep:
   build_defaults:
-    elec_price: 0.066
     water_recovery: 0.80
     ro_mem_area: 20000
+    # grid_frac: 0.99
+    elec_price: 0.08
   sweep_param_loop:
-    water_recovery:
+    Water Recovery:
       type: LinearSample
       param: fs.water_recovery
       lower_limit: 0.5
       upper_limit: 0.8
       num_samples: 11
-KBHDP_RPT_1_disposal_cost_sweep:
+# KBHDP_RPT_1_elec_price_sweep:
+#   build_defaults:
+#     elec_price: 0.08
+#     # water_recovery: 0.80
+#     # ro_mem_area: 20000
+#   sweep_param_loop:
+#     Electricity Cost:
+#       type: LinearSample
+#       param: fs.costing.electricity_cost_buy
+#       lower_limit: 0.05
+#       upper_limit: 0.15
+#       num_samples: 11
+# KBHDP_RPT_1_pv_cost_sweep:
+#   build_defaults:
+#     elec_price: 0.08
+#     # water_recovery: 0.80
+#     # ro_mem_area: 20000
+#   sweep_param_loop:
+#     PV Cost Per Watt:
+#       type: LinearSample
+#       param: fs.energy.costing.pv_surrogate.cost_per_watt_module
+#       lower_limit: 0
+#       upper_limit: 0.3
+#       num_samples: 11
+KBHDP_RPT_1_aluminum_cost_sweep:
   build_defaults:
-    elec_price: 0.066
     water_recovery: 0.80
     ro_mem_area: 20000
+    # grid_frac: 0.99
+    elec_price: 0.08
   sweep_param_loop:
-    water_recovery:
+    Aluminum Cost:
+      type: LinearSample
+      param: fs.treatment.costing.aluminum_cost
+      lower_limit: 1
+      upper_limit: 5
+      num_samples: 9
+KBHDP_RPT_1_sludge_price_sweep:
+  build_defaults:
+    water_recovery: 0.80
+    ro_mem_area: 20000
+    # grid_frac: 0.99
+    elec_price: 0.08
+  sweep_param_loop:
+    EC Sludge Disposal Cost:
+      type: LinearSample
+      param: fs.treatment.costing.electrocoagulation.sludge_handling_cost[kbhdp]
+      lower_limit: 0
+      upper_limit: 0.1
+      num_samples: 11
+KBHDP_RPT_1_injection_price_sweep:
+  build_defaults:
+    water_recovery: 0.80
+    ro_mem_area: 20000
+    # grid_frac: 0.99
+    elec_price: 0.08
+  sweep_param_loop:
+    Brine Injection Cost:
       type: LinearSample
       param: fs.treatment.costing.deep_well_injection.dwi_lcow
-      lower_limit: 0.05
-      upper_limit: 0.1
-      num_samples: 6
-KBHDP_RPT_1_annual_energy_sweep:
-  build_defaults:
-    elec_price: 0.066
-    water_recovery: 0.80
-    ro_mem_area: 20000
-  sweep_param_loop:
-    annual_energy:
-      type: LinearSample
-      param: fs.energy.pv.annual_energy
-      lower_limit: 1000000
-      upper_limit: 15000000
-      num_samples: 5
-KBHDP_RPT_1_elec_price_sweep:
-  build_defaults:
-    elec_price: 0.066
-    water_recovery: 0.80
-    ro_mem_area: 20000
-  sweep_param_loop:
-    fs.costing.elec_cost_buy:
-      type: LinearSample
-      param: fs.costing.electricity_cost_buy
-      lower_limit: 0.05
-      upper_limit: 0.35
+      lower_limit: 0
+      upper_limit: 1
       num_samples: 11
+# KBHDP_RPT_1_recovery_vs_electricity_map:
+#   build_defaults:
+#       elec_price: 0.066
+#       water_recovery: 0.80
+#       ro_mem_area: 20000
+#       grid_frac: 0
+#   sweep_param_loop:
+#     map_sweep:
+#       water_recovery:
+#         type: LinearSample
+#         param: fs.water_recovery
+#         lower_limit: 0.5
+#         upper_limit: 0.8
+#         num_samples: 11
+#       fs.costing.elec_cost_buy:
+#         type: LinearSample
+#         param: fs.costing.electricity_cost_buy
+#         lower_limit: 0.05
+#         upper_limit: 0.15
+#         num_samples: 11
+# KBHDP_RPT_1_electricity_vs_PV_map:
+#   build_defaults:
+#       elec_price: 0.15
+#       water_recovery: 0.80
+#       ro_mem_area: 20000
+#       grid_frac: 0.5
+#   sweep_param_loop:
+#     map_sweep:
+#       PV Cost Per Watt:
+#         type: LinearSample
+#         param: fs.energy.costing.pv_surrogate.cost_per_watt_module
+#         lower_limit: 0.2
+#         upper_limit: 1
+#         num_samples: 9
+#       Electricity Cost:
+#         type: LinearSample
+#         param: fs.costing.electricity_cost_buy
+#         lower_limit: 0.05
+#         upper_limit: 0.25
+#         num_samples: 11
+# KBHDP_RPT_1_aluminum_cost_vs_sludge_cost_map:
+#   build_defaults:
+#       elec_price: 0.066
+#       water_recovery: 0.80
+#       ro_mem_area: 20000
+#       grid_frac: 0.5
+#   sweep_param_loop:
+#     map_sweep:
+#       Aluminum Cost:
+#         type: LinearSample
+#         param: fs.treatment.costing.aluminum_cost
+#         lower_limit: 1
+#         upper_limit: 5
+#         num_samples: 9
+#       EC Sludge Disposal Cost:
+#         type: LinearSample
+#         param: fs.treatment.costing.electrocoagulation.sludge_handling_cost[kbhdp]
+#         lower_limit: 0
+#         upper_limit: 0.1
+#         num_samples: 11
+# KBHDP_RPT_1_electricity_cost_vs_brine_cost_map:
+#   build_defaults:
+#       elec_price: 0.066
+#       # water_recovery: 0.80
+#       # ro_mem_area: 20000
+#       # grid_frac: 0.5
+#   sweep_param_loop:
+#     map_sweep:
+#       Electricity Cost:
+#         type: LinearSample
+#         param: fs.costing.electricity_cost_buy
+#         lower_limit: 0.05
+#         upper_limit: 0.15
+#         num_samples: 11
+#       Brine Injection Cost:
+#         type: LinearSample
+#         param: fs.treatment.costing.deep_well_injection.dwi_lcow
+#         lower_limit: 0
+#         upper_limit: 1
+#         num_samples: 11
