@@ -22,6 +22,7 @@ from watertap_contrib.reflo.core import REFLODatabase
 import idaes.logger as idaeslog
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from idaes.models.unit_models import Product, Feed
 from idaes.core.util.model_statistics import *
 from watertap_contrib.reflo.costing import (
@@ -57,61 +58,24 @@ def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     m = build_system(RE=True)
-    display_system_build(m)
+    display_system_build(m.fs.treatment)
+    display_system_build(m.fs.energy)
     add_connections(m)
-    add_constraints(m)
+    # add_constraints(m)
     set_operating_conditions(m)
     apply_scaling(m)
     init_system(m)
-    add_costing(m)
-    scale_costing(m)
-    # box_solve_problem(m)
-    # solve(m, debug=True)
+
+    print(m.fs.treatment.MD.display())
+    # add_costing(m)
     # scale_costing(m)
-    optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=None, objective="LCOT")
-    solve(m, debug=False)
-    # # display_flow_table(m)
-    # display_system_stream_table(m)
-    # report_RO(m, m.fs.treatment.RO)
-    # # # # # report_pump(m, m.fs.treatment.pump)
-    # # report_PV(m)
-    # # # # # m.fs.treatment.costing.display()
-    # # # # # m.fs.energy.costing.display()""
-    # # # # # m.fs.costing.display()
-    # display_costing_breakdown(m)
-    # # # # # print(m.fs.energy.pv.display())
-    # # # print_system_scaling_report(m)
-    report_PV(m)
-    # print(m.fs.energy.pv.display())
+    # box_solve_problem(m)
+    solve(m, debug=True)
 
-    return m
+    # scale_costing(m)
 
-
-def build_sweep(
-    grid_frac=None,
-    elec_price=None,
-    water_recovery=None,
-    ro_mem_area=None,
-    objective="LCOT",
-):
-
-    m = build_system(RE=True)
-    display_system_build(m)
-    add_connections(m)
-    add_constraints(m)
-    set_operating_conditions(m)
-    apply_scaling(m)
-    init_system(m)
-    add_costing(m)
-    scale_costing(m)
-    optimize(
-        m,
-        ro_mem_area=ro_mem_area,
-        water_recovery=water_recovery,
-        grid_frac=grid_frac,
-        elec_price=elec_price,
-        objective=objective,
-    )
+    # optimize(m, ro_mem_area=None, water_recovery=0.8, grid_frac=None, objective="LCOW")
+    # solve(m, debug=True)
 
     return m
 
@@ -137,15 +101,10 @@ def build_system(RE=True):
 
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
+    m.fs.MD_properties = SeawaterParameterBlock()
 
     build_treatment(m)
-    # if RE:
-    #     print('Building System with Renewable Energy')
-    #     m.fs.RE = RE
     build_energy(m)
-    # else:
-    #     print('Building System without Renewable Energy')
-    #     m.fs.RE = RE
 
     return m
 
@@ -162,7 +121,7 @@ def build_treatment(m):
     treatment.UF = FlowsheetBlock(dynamic=False)
     treatment.pump = Pump(property_package=m.fs.RO_properties)
     treatment.RO = FlowsheetBlock(dynamic=False)
-    treatment.DWI = FlowsheetBlock(dynamic=False)
+    treatment.MD = FlowsheetBlock(dynamic=False)
 
     treatment.MCAS_to_TDS_translator = Translator_MCAS_to_TDS(
         inlet_property_package=m.fs.MCAS_properties,
@@ -178,10 +137,17 @@ def build_treatment(m):
         outlet_state_defined=True,
     )
 
+    treatment.NaCl_to_TDS_translator = Translator_NaCl_to_TDS(
+        inlet_property_package=m.fs.RO_properties,
+        outlet_property_package=m.fs.MD_properties,
+        has_phase_equilibrium=False,
+        outlet_state_defined=True,
+    )
+
     build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
     build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
-    build_ro(m, treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
-    build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
+    build_ro(m, treatment.RO, prop_package=m.fs.RO_properties)
+    build_md(m, treatment.MD, prop_package=m.fs.MD_properties)
 
     m.fs.units = [
         treatment.feed,
@@ -189,8 +155,8 @@ def build_treatment(m):
         treatment.UF,
         treatment.pump,
         treatment.RO,
-        treatment.DWI,
-        # treatment.product,
+        treatment.MD,
+        treatment.product,
         treatment.sludge,
     ]
 
@@ -210,6 +176,13 @@ def build_treatment(m):
     )
     m.fs.RO_properties.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
+    )
+
+    m.fs.MD_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
+    )
+    m.fs.MD_properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e2, index=("Liq", "TDS")
     )
 
 
@@ -266,9 +239,14 @@ def add_connections(m):
         destination=treatment.product.inlet,
     )
 
-    treatment.ro_to_dwi = Arc(
+    treatment.ro_to_translator = Arc(
         source=treatment.RO.disposal.outlet,
-        destination=treatment.DWI.feed.inlet,
+        destination=treatment.NaCl_to_TDS_translator.inlet,
+    )
+
+    treatment.translator_to_md = Arc(
+        source=treatment.NaCl_to_TDS_translator.outlet,
+        destination=treatment.MD.feed.inlet,
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -298,10 +276,10 @@ def add_treatment_costing(m):
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
     )
+
     add_ec_costing(m, treatment.EC, treatment.costing)
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_ro_costing(m, treatment.RO, treatment.costing)
-    add_DWI_costing(m, treatment.DWI, treatment.costing)
 
     treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
     treatment.costing.total_investment_factor.fix(1)
@@ -320,7 +298,6 @@ def add_energy_costing(m):
     )
 
     energy.costing.cost_process()
-    energy.costing.add_LCOE()
     energy.costing.initialize()
 
 
@@ -337,7 +314,6 @@ def add_costing(m):
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
-    m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
 
     m.fs.costing.initialize()
 
@@ -518,7 +494,7 @@ def init_treatment(m, verbose=True, solver=None):
     assert_no_degrees_of_freedom(m)
     treatment.feed.initialize(optarg=optarg)
     propagate_state(treatment.feed_to_translator)
-    report_MCAS_stream_conc(m, treatment.feed.properties[0.0])
+
     treatment.MCAS_to_TDS_translator.initialize(optarg=optarg)
     propagate_state(treatment.translator_to_EC)
 
@@ -538,11 +514,16 @@ def init_treatment(m, verbose=True, solver=None):
 
     init_ro_system(m, treatment.RO)
     propagate_state(treatment.ro_to_product)
-    # propagate_state(treatment.ro_to_dwi)
+    propagate_state(treatment.ro_to_translator)
 
-    treatment.product.initialize(optarg=optarg)
-    init_DWI(m, treatment.DWI)
-    display_system_stream_table(m)
+    treatment.NaCl_to_TDS_translator.initialize(optarg=optarg)
+    propagate_state(treatment.translator_to_md)
+
+    init_md(treatment.MD)
+    # TODO: Continue from here
+    # treatment.product.initialize(optarg=optarg)
+    # # init_DWI(m, treatment.DWI)
+    # display_system_stream_table(m)
 
 
 def init_system(m, verbose=True, solver=None):
@@ -622,7 +603,6 @@ def optimize(
     fixed_pressure=None,
     ro_mem_area=None,
     grid_frac=None,
-    elec_price=None,
     objective="LCOW",
 ):
     treatment = m.fs.treatment
@@ -631,8 +611,6 @@ def optimize(
 
     if objective == "LCOW":
         m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
-    elif objective == "LCOT":
-        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
     else:
         m.fs.membrane_area_objective = Objective(expr=treatment.RO.stage[1].module.area)
 
@@ -664,12 +642,8 @@ def optimize(
 
     if ro_mem_area is not None:
         print(f"\n------- Fixed RO Membrane Area at {ro_mem_area} -------\n")
-        # for idx, stage in treatment.RO.stage.items():
-        #     stage.module.area.fix(ro_mem_area)
-        treatment.RO.total_membrane_area.fix(ro_mem_area)
         for idx, stage in treatment.RO.stage.items():
-            stage.module.area.unfix()
-            stage.module.area.setub(1e6)
+            stage.module.area.fix(ro_mem_area)
     else:
         lower_bound = 1e3
         upper_bound = 2e5
@@ -685,24 +659,6 @@ def optimize(
         m.fs.costing.frac_elec_from_grid.fix(grid_frac)
         m.fs.energy.pv.design_size.unfix()
         m.fs.energy.pv.annual_energy.unfix()
-
-    if elec_price is not None:
-        m.fs.costing.frac_elec_from_grid.unfix()
-        m.fs.energy.pv.design_size.unfix()
-        m.fs.energy.pv.annual_energy.unfix()
-
-    for idx, stage in treatment.RO.stage.items():
-        stage.module.width.setub(5000)
-        stage.module.feed_side.velocity[0, 0].unfix()
-        stage.module.feed_side.velocity[0, 1].setlb(0.0)
-        stage.module.feed_side.K.setlb(1e-6)
-        stage.module.feed_side.friction_factor_darcy.setub(50)
-        stage.module.flux_mass_phase_comp.setub(1)
-        # stage.module.flux_mass_phase_comp.setlb(1e-5)
-        stage.module.feed_side.cp_modulus.setub(10)
-        stage.module.rejection_phase_comp.setlb(1e-4)
-        stage.module.feed_side.N_Re.setlb(1)
-        stage.module.recovery_mass_phase_comp.setlb(1e-7)
 
 
 def report_MCAS_stream_conc(m, stream):
@@ -797,9 +753,9 @@ def display_system_stream_table(m):
     print("\n\n")
 
 
-def display_system_build(m):
+def display_system_build(blk):
     blocks = []
-    for v in m.fs.component_data_objects(ctype=Block, active=True, descend_into=False):
+    for v in blk.component_data_objects(ctype=Block, active=True, descend_into=False):
         print(v)
 
 
@@ -814,7 +770,7 @@ def display_costing_breakdown(m):
     print_EC_costing_breakdown(m.fs.treatment.EC)
     print_UF_costing_breakdown(m.fs.treatment.UF)
     print_RO_costing_breakdown(m.fs.treatment.RO)
-    print_DWI_costing_breakdown(m.fs.treatment.DWI)
+    # print_DWI_costing_breakdown(m.fs.treatment.DWI)
     print_PV_costing_breakdown(m.fs.energy.pv)
 
 

@@ -44,13 +44,22 @@ __all__ = [
     "report_fpc",
     "print_FPC_costing_breakdown",
 ]
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+parent_dir = os.path.abspath(os.path.join(__location__, ".."))
+weather_file = os.path.join(parent_dir, "el_paso_texas-KBHDP-weather.csv")
+param_file = os.path.join(parent_dir, "swh-kbhdp.json")
+dataset_filename = os.path.join(parent_dir, "data/FPC_KBHDP_el_paso.pkl")
+surrogate_filename = os.path.join(
+    parent_dir,
+    "data/FPC_KBHDP_el_paso_heat_load_1_25_hours_storage_0_12_temperature_hot_50_102.json",
+)
 
 
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = EnergyCosting()
-    energy = m.fs.energy = Block()
+    m.fs.energy = Block()
 
     m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
 
@@ -63,27 +72,9 @@ def build_fpc(m):
     energy = m.fs.energy
 
     print(f'\n{"=======> BUILDING FPC SYSTEM <=======":^60}\n')
-    parent_dir = os.path.abspath(
-        os.path.join(os.path.abspath(__file__), "..", "..", "..", "..", "..")
-    )
-
-    surrogate_dir = os.path.join(
-        parent_dir,
-        "solar_models",
-        "surrogate",
-        "flat_plate",
-        "data",
-    )
-
-    dataset_filename = os.path.join(surrogate_dir, "FPC_Heat_Load.pkl")
-
-    surrogate_filename = os.path.join(
-        surrogate_dir,
-        "flat_plate_data_heat_load_1_400_heat_load_1_400_hours_storage_0_27_temperature_hot_50_102.json",
-    )
 
     input_bounds = dict(
-        heat_load=[1, 400], hours_storage=[0, 27], temperature_hot=[50, 102]
+        heat_load=[1, 25], hours_storage=[0, 12], temperature_hot=[50, 102]
     )
     input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
     input_variables = {
@@ -108,8 +99,7 @@ def build_fpc(m):
 
 
 def init_fpc(blk):
-    energy = m.fs.energy
-    energy.FPC.initialize()
+    blk.FPC.initialize()
 
 
 def set_system_op_conditions(m):
@@ -118,14 +108,14 @@ def set_system_op_conditions(m):
 
 def set_fpc_op_conditions(m, hours_storage=6, temperature_hot=80):
     energy = m.fs.energy
+    # energy.FPC.load_surrogate()
+
     energy.FPC.hours_storage.fix(hours_storage)
     # Assumes the hot temperature to the inlet of a 'MD HX'
     energy.FPC.temperature_hot.fix(temperature_hot)
     # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     energy.FPC.temperature_cold.set_value(20)
-    energy.FPC.heat_load.fix(1)
-
-    energy.FPC.initialize()
+    energy.FPC.heat_load.fix(10)
 
 
 def add_fpc_costing(m, costing_block=None):
@@ -137,8 +127,6 @@ def add_fpc_costing(m, costing_block=None):
         flowsheet_costing_block=energy.costing,
     )
 
-    # constraint_scaling_transform(energy.costing.fixed_operating_cost_constraint, 1e-6)
-
 
 def add_FPC_scaling(m, blk):
     set_scaling_factor(blk.heat_annual_scaled, 1e2)
@@ -147,15 +135,6 @@ def add_FPC_scaling(m, blk):
 
     constraint_scaling_transform(blk.heat_constraint, 1e-3)
     constraint_scaling_transform(blk.electricity_constraint, 1e-4)
-
-
-def calc_costing(m):
-    blk.costing.heat_cost.set_value(0)
-    blk.costing.cost_process()
-    blk.costing.initialize()
-
-    # TODO: Connect to the treatment volume
-    # blk.costing.add_LCOW(m.fs.system_capacity)
 
 
 def breakdown_dof(blk):
@@ -322,21 +301,14 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
 if __name__ == "__main__":
 
     solver = get_solver()
-    solver = SolverFactory("ipopt")
+    # solver = SolverFactory("ipopt")
 
     m = build_system()
 
     build_fpc(m)
     set_fpc_op_conditions(m)
     add_FPC_scaling(m, m.fs.energy.FPC)
-    init_fpc(m)
+    init_fpc(m.fs.energy)
 
     add_fpc_costing(m)
-    # calc_costing(m, m.fs)
-    # m.fs.costing.aggregate_flow_heat.fix(-4000)
-    results = solve(m, debug=True)
-
-    # # print(degrees_of_freedom(m))
-    # report_fpc(m)
-    # print(m.fs.energy.FPC.costing.display())
-    # print_FPC_costing_breakdown(m, m.fs.energy.FPC)
+    results = solve(m)

@@ -221,7 +221,7 @@ def set_softener_op_conditions(
     soft.removal_efficiency.fix()
     # ...then refix non important ones
     for comp in non_important_comps:
-        m.fs.softener.unit.removal_efficiency[comp].fix(non_important_removals)
+        soft.removal_efficiency[comp].fix(non_important_removals)
 
     prop_out = soft.properties_out[0.0]
     # prop_out.temperature.fix(293)
@@ -239,19 +239,23 @@ def set_softener_op_conditions(
     soft.retention_time_sed.fix(120)
     soft.retention_time_recarb.fix(20)
     soft.frac_mass_water_recovery.fix(0.99)
-    soft.vel_gradient_mix.fix(300)
-    soft.vel_gradient_floc.fix(50)
 
     # soft.removal_efficiency["SiO2"].fix(0)
     # soft.CO2_CaCO3.fix(0.10)
+
+    # soft.sedimentation_overflow.fix()
+
+    soft.CO2_CaCO3.fix(0.063)
 
     # # soft.excess_CaO.fix(0)
     # soft.CO2_second_basin.fix(0)
     # soft.Na2CO3_dosing.fix(0)
     soft.MgCl2_dosing.fix(0)
+    soft.vel_gradient_mix.fix(300)
+    soft.vel_gradient_floc.fix(50)
 
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener.unit)}")
+    print(f"Softener Degrees of Freedom: {degrees_of_freedom(soft)}")
     # assert False
 
 
@@ -288,9 +292,11 @@ def set_scaling(m):
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
 
 
-def add_softener_costing(m, blk):
+def add_softener_costing(m, blk, costing_blk=None):
+    if costing_blk is None:
+        costing_blk = m.fs.costing
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=m.fs.costing,
+        flowsheet_costing_block=costing_blk,
     )
 
     # m.fs.costing.cost_process()
@@ -306,7 +312,11 @@ def init_system(blk, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
-    # assert_no_degrees_of_freedom(m)
+
+    if degrees_of_freedom(m) != 0:
+        breakdown_dof(m.fs.softener, detailed=True)
+    assert_no_degrees_of_freedom(m)
+    breakdown_dof(m.fs.softener, detailed=True)
     print("\n\n")
 
     m.fs.feed.initialize()
@@ -336,8 +346,8 @@ def init_softener(m, blk, verbose=True, solver=None):
         "\n\n-------------------- INITIALIZING WATER SOFTENER --------------------\n\n"
     )
     # assert_units_consistent(m)
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
+    # print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+    # print(f"Softener Degrees of Freedom: {degrees_of_freedom(m.fs.softener)}")
     blk.initialize()
     # try:
     #     blk.initialize()
@@ -482,50 +492,90 @@ def print_softening_costing_breakdown(blk):
     )
 
 
+def breakdown_dof(blk, detailed=False):
+    all_vars = [
+        v for v in blk.component_data_objects(ctype=Var, active=True, descend_into=True)
+    ]
+    equalities = [c for c in activated_equalities_generator(blk)]
+    active_vars = variables_in_activated_equalities_set(blk)
+    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
+    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
+    print("\n ===============DOF Breakdown================\n")
+    print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
+
+    if detailed:
+        # print(f"Activated Variables: ({len(active_vars)})")
+        # for v in active_vars:
+        #     print(f"   {v}")
+        # print(f"Activated Equalities: ({len(equalities)})")
+        # for c in equalities:
+        #     print(f"   {c}")
+
+        print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
+        for v in fixed_active_vars:
+            print(f"   {v}")
+
+        print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
+        for v in unfixed_active_vars:
+            # subsystem = v.name.split(".")[1]
+            # if subsystem == "treatment":
+            #     component = v.name.split(".")[2]
+            #     if (component != "RO") and (component != "EC"):
+            # print(f"   {v}")
+            print(f"   {v}")
+        print("\n")
+    print(f" {f' Active Vars':<30s}{len(active_vars)}")
+    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
+    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
+    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+
+
 # calculate_variable_from_constraint
 if __name__ == "__main__":
-    from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.utils import check_jac
+    # from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.utils import check_jac
 
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_system()
 
     soft = m.fs.softener.unit
-    soft.properties_out[0].conc_mass_phase_comp[...]
-    soft.sedimentation_overflow.fix()
-    soft.CO2_CaCO3.fix(0.063)
-    soft.ca_eff_target.fix(0.01)
-    soft.mg_eff_target.fix(0.01)
+    # soft.properties_out[0].conc_mass_phase_comp[...]
+    # # soft.sedimentation_overflow.fix()
+    # # soft.CO2_CaCO3.fix(0.063)
+    # soft.ca_eff_target.fix(0.01)
+    # soft.mg_eff_target.fix(0.01)
 
     set_system_operating_conditions(m)
     set_softener_op_conditions(m, m.fs.softener.unit)
     print(f"\n\n\n\n\nDOF = {degrees_of_freedom(m)}\n\n\n\n")
 
-    add_softener_costing(m, m.fs.softener)
-    m.fs.costing.cost_process()
-    m.fs.costing.initialize()
+    # add_softener_costing(m, m.fs.softener)
+    # m.fs.costing.cost_process()
+    # m.fs.costing.initialize()
 
-    m.fs.costing.add_LCOW(0.2 * m.fs.softener.unit.properties_in[0].flow_vol)
-    m.fs.obj = Objective(expr=m.fs.costing.LCOW)
+    # m.fs.costing.add_LCOW(0.2 * m.fs.softener.unit.properties_in[0].flow_vol)
+    # m.fs.obj = Objective(expr=m.fs.costing.LCOW)
     init_system(m)
     solve(m)
 
-    print_softening_costing_breakdown(m.fs.softener)
-    print(f'{"Softening LCOW":<35s}{f"${m.fs.costing.LCOW():<25,.2f}"}')
-    report_softener(m, m.fs.softener.unit)
-    # print(m.fs.costing.display())
-    print(
-        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.feed.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
-    )
-    print(
-        f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.0f}"}'
-    )
-    print(
-        f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.0f}"}'
-    )
-    for flow in m.fs.costing.aggregate_flow_costs:
-        print(
-            f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():<25,.3f}"}'
-        )
+    print(m.fs.softener.display())
+
+    # print_softening_costing_breakdown(m.fs.softener)
+    # print(f'{"Softening LCOW":<35s}{f"${m.fs.costing.LCOW():<25,.2f}"}')
+    # report_softener(m, m.fs.softener.unit)
+    # # print(m.fs.costing.display())
+    # print(
+    #     f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.feed.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
+    # )
+    # print(
+    #     f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.0f}"}'
+    # )
+    # print(
+    #     f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.0f}"}'
+    # )
+    # for flow in m.fs.costing.aggregate_flow_costs:
+    #     print(
+    #         f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():<25,.3f}"}'
+    #     )
     # assert_units_consistent(soft)
     # print(pyunits.get_units(soft.Mg_CaCO3))
     # assert False

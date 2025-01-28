@@ -283,7 +283,6 @@ def init_ec(m, blk, solver=None):
 def add_system_costing(m):
     """Add system level costing components"""
     m.fs.costing = ZeroOrderCosting()
-    m.fs.costing.base_currency = pyunits.USD_2022
     add_ec_costing(m, m.fs.EC)
     calc_costing(m, m.fs.EC)
 
