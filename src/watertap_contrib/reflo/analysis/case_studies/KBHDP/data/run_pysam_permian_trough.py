@@ -19,9 +19,11 @@ import time
 import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
+# import PySAM.TroughPhysicalIph as iph
 import PySAM.TroughPhysicalProcessHeat as iph
 import PySAM.IphToLcoefcr as iph_to_lcoefcr
 import PySAM.Lcoefcr as lcoefcr
+import os
 
 
 def read_module_datafile(file_name):
@@ -84,9 +86,8 @@ def setup_model(
     config_data=None,
 ):
     tech_model = iph.new()
-    post_model = iph_to_lcoefcr.from_existing(tech_model, model_name)
-    cash_model = lcoefcr.from_existing(tech_model, model_name)
-    modules = [tech_model, post_model, cash_model]
+    modules = [tech_model]
+
     load_config(modules, config_files, config_data)
     if weather_file is not None:
         tech_model.Weather.file_name = weather_file
@@ -95,37 +96,20 @@ def setup_model(
     else:
         raise Exception("Either weather_file or weather_data must be specified.")
 
-    # Determine storage cost component
-    capital_cost_orig = cash_model.value("capital_cost")
-    storage_cost_orig = tes_cost(tech_model)
-    capital_cost_minus_storage = capital_cost_orig - storage_cost_orig
-    capital_cost_minus_storage_per_kW = capital_cost_minus_storage / system_capacity(
-        tech_model
-    )
-
-    fixed_operating_cost_per_kW = cash_model.value(
-        "fixed_operating_cost"
-    ) / system_capacity(tech_model)
-
     return {
         "tech_model": tech_model,
-        "post_model": post_model,
-        "cash_model": cash_model,
-        "capital_cost_minus_storage_per_kW": capital_cost_minus_storage_per_kW,
-        "fixed_operating_cost_per_kW": fixed_operating_cost_per_kW,
     }
 
 
 def run_model(modules, heat_load=None, hours_storage=None):
     tech_model = modules["tech_model"]
-    post_model = modules["post_model"]
-    cash_model = modules["cash_model"]
 
     if heat_load is not None:
         tech_model.value("q_pb_design", heat_load)
     if hours_storage is not None:
         tech_model.value("tshours", hours_storage)
     tech_model.execute()
+    
 
     # NOTE: freeze_protection_field can sometimes be nan (when it should be 0) and this causes other nan's
     #  Thus, freeze_protection, annual_energy and capacity_factor must be calculated manually
@@ -140,45 +124,19 @@ def run_model(modules, heat_load=None, hours_storage=None):
     freeze_protection_tes = 0 if isnan(freeze_protection_tes) else freeze_protection_tes
     freeze_protection = freeze_protection_field + freeze_protection_tes
     annual_energy = (
-        tech_model.Outputs.annual_gross_energy - freeze_protection
+        tech_model.Outputs.annual_energy - freeze_protection
     )  # [kWht] net, does not include that used for freeze protection
     capacity_factor = (
         annual_energy / (tech_model.value("q_pb_design") * 1e3 * 8760) * 100
     )  # [%]
     electrical_load = tech_model.Outputs.annual_electricity_consumption  # [kWhe]
 
-    post_model.value(
-        "fixed_operating_cost",
-        modules["fixed_operating_cost_per_kW"] * system_capacity(tech_model),
-    )
-    post_model.execute()
-
-    cash_model.value(
-        "annual_energy", annual_energy
-    )  # override the linked value from the tech model, which could be nan
-    cash_model.value(
-        "capital_cost",
-        modules["capital_cost_minus_storage_per_kW"] * system_capacity(tech_model)
-        + tes_cost(tech_model),
-    )
-    cash_model.execute()
-
-    lcoh = cash_model.Outputs.lcoe_fcr  # [$/kWht]
-    capital_cost = cash_model.value("capital_cost")  # [$]
-    fixed_operating_cost = cash_model.value(
-        "fixed_operating_cost"
-    )  # [$] more than shown in UI, includes electricity purchases
-    variable_operating_cost = cash_model.value("variable_operating_cost")  # [$]
 
     return {
         "annual_energy": annual_energy,  # [kWh] annual net thermal energy in year 1
         "freeze_protection": freeze_protection,  # [kWht]
         "capacity_factor": capacity_factor,  # [%] capacity factor
         "electrical_load": electrical_load,  # [kWhe]
-        "lcoh": lcoh,  # [$/kWht] LCOH
-        "capital_cost": capital_cost,  # [$]
-        "fixed_operating_cost": fixed_operating_cost,  # [$]
-        "variable_operating_cost": variable_operating_cost,  # [$]
     }
 
 
@@ -235,50 +193,30 @@ def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True)
 #########################################################################################################
 if __name__ == "__main__":
     model_name = "PhysicalTroughIPHLCOHCalculator"
+    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
     config_files = [
-        join(dirname(__file__), "trough_physical_process_heat-reflo.json"),
-        join(dirname(__file__), "iph_to_lcoefcr-reflo.json"),
-        join(dirname(__file__), "lcoefcr-reflo.json"),
+        os.path.join(__location__,  "cst/trough_physical_process_heat-reflo.json"),
     ]
-    weather_file = join(
-        dirname(__file__), "permian_basin_32.5002_-103.0001_32.305_-102.638_psm3-tmy_60_tmy.csv"
+    weather_file = os.path.join(
+        __location__,  "el_paso_texas-KBHDP-weather.csv"
     )
-    dataset_filename = join(
-        dirname(__file__), "permian_basin_trough_data.pkl"
+    dataset_filename =  os.path.join(
+        __location__,  "cst/trough_data_heat_load_1_100_hours_storage_0_24.pkl"
     )  # output dataset for surrogate training
 
-    # modules = setup_model(model_name, weather_file, config_files=config_files)
     config_data = [read_module_datafile(config_file) for config_file in config_files]
     del config_data[0]["file_name"]  # remove weather filename
-    # modules = setup_model(model_name, weather_file, config_data=config_data)
-
-    # Run default model
-    # result = run_model(modules, heat_load=None, hours_storage=None)
-
-    # Run model at specific parameters
-    # result = run_model(modules, heat_load=600, hours_storage=3)
-
-    # Run model conducive to multiprocessing
-    # weather_data = utils.read_weather_data(weather_file)    # passing of weather data not yet enabled
-    # result_check = setup_and_run(model_name, weather_file, config_data, heat_load=600, hours_storage=3)
-
-    # # Load and plot saved df
-    # df = pd.read_pickle('pickle_multiproc2.pkl')
-    # plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)      # annual energy
-    # plot_3d(df, 0, 1, 3, grid=False, countour_lines=False)      # capacity factor
-    # plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)      # LCOH
+    
 
     # Run parametrics via multiprocessing
     data = []
-    # heat_loads =        np.arange(100, 1100, 100)
-    # hours_storages =    np.arange(0, 27, 3)
-    heat_loads = np.arange(5, 105, 25)  # [MWt]
-    hours_storages = np.arange(0, 25, 1)  # [hr]
-    # heat_loads =        np.arange(100, 300, 100)
-    # hours_storages =    np.arange(0, 6, 3)
+    heat_loads = np.linspace(1, 100, 100)  # [MWt]
+    hours_storages = np.linspace(0, 24, 25)  # [hr]
+    # hot_tank_set_point = np.arange(80, 160, 10)  # [C]
     arguments = list(product(heat_loads, hours_storages))
     df = pd.DataFrame(arguments, columns=["heat_load", "hours_storage"])
-
+    
     time_start = time.process_time()
     with multiprocessing.Pool(processes=6) as pool:
         args = [(model_name, weather_file, config_data, *args) for args in arguments]
@@ -287,11 +225,7 @@ if __name__ == "__main__":
     print("Multiprocessing time:", time_stop - time_start, "\n")
 
     df_results = pd.DataFrame(results)
-    df_results["total_cost"] = (
-        df_results["capital_cost"]
-        + df_results["fixed_operating_cost"]
-        + df_results["variable_operating_cost"]
-    )
+
     df = pd.concat(
         [
             df,
@@ -301,11 +235,6 @@ if __name__ == "__main__":
                     "freeze_protection",
                     "capacity_factor",
                     "electrical_load",
-                    "lcoh",
-                    "capital_cost",
-                    "fixed_operating_cost",
-                    "variable_operating_cost",
-                    "total_cost",
                 ]
             ],
         ],
@@ -313,37 +242,9 @@ if __name__ == "__main__":
     )
     df.to_pickle(dataset_filename)
 
-    # # Run parametrics
-    # data = []
-    # # heat_loads =        np.arange(5, 115, 10)       # [MWt]
-    # # heat_loads =        np.arange(100, 1100, 25)   # [MWt]
-    # # hours_storages =    np.arange(0, 27, 1)         # [hr]
-    # heat_loads =        np.arange(100, 1100, 100)   # [MWt]
-    # hours_storages =    np.arange(0, 27, 3)         # [hr]
-    # comb = [(hl, hs) for hl in heat_loads for hs in hours_storages]
-    # for heat_load, hours_storage in comb:
-    #     result = run_model(modules, heat_load, hours_storage)
-    #     total_cost = result['capital_cost'] + result['fixed_operating_cost'] + result['variable_operating_cost']
-    #     data.append([
-    #         heat_load,
-    #         hours_storage,
-    #         result['annual_energy'],
-    #         result['capacity_factor'],
-    #         result['lcoh'],
-    #         total_cost,
-    #     ])
-    # df = pd.DataFrame(data, columns=[
-    #     'heat_load',
-    #     'hours_storage',
-    #     'annual_energy',
-    #     'capacity_factor',
-    #     'lcoh',
-    #     'total_cost'])
-
-    # df.to_pickle('pickle_filename5.pkl')
     plot_3d(df, 0, 1, 2, grid=False, countour_lines=False)  # annual energy
     plot_3d(df, 0, 1, 4, grid=False, countour_lines=False)  # capacity factor
     plot_3d(df, 0, 1, 6, grid=False, countour_lines=False)  # lcoh
 
-    x = 1  # for breakpoint
+    # x = 1  # for breakpoint
     pass

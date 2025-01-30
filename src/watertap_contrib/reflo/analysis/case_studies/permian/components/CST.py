@@ -10,7 +10,9 @@ from pyomo.environ import (
 import os
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.solvers import get_solver
+# from idaes.core.solvers import get_solver
+
+from watertap.core.solvers import get_solver
 
 from watertap.core.util.model_diagnostics.infeasible import *
 from idaes.core.util.scaling import *
@@ -30,13 +32,13 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
 )
 
-import pickle
-
 __all__ = [
+    "build_system",
     "build_cst",
     "init_cst",
     "set_cst_op_conditions",
     "add_cst_costing",
+    "calc_costing",
     "report_cst",
     "report_cst_costing",
 ]
@@ -60,30 +62,26 @@ def build_cst(blk, __file__=None):
 
     if __file__ == None:
         cwd = os.getcwd()
-        __file__ = cwd + r"\src\watertap_contrib\reflo\analysis\case_studies\permian\data\cst\\"
+        __file__ = cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\trough\\"
 
+    # dataset_filename = os.path.join(
+    #     os.path.dirname(__file__), r"data\test_trough_data.pkl"
+    # )
+    # surrogate_filename = os.path.join(
+    #     os.path.dirname(__file__),
+    #     r"data\test_trough_data_heat_load_100_500_hours_storage_0_26.json",
+    # )
+
+    # path for mac
     dataset_filename = os.path.join(
-        os.path.dirname(__file__), r"trough_kbhdp_data_heat_load_1_100_hours_storage_0_24.pkl"
+        os.path.dirname(__file__), "permian/data/test_trough_data.pkl"
     )
-    
-    # Updating pickle file output column names
-    with open(dataset_filename, 'rb') as f:
-        df = pickle.load(f)
-
-    # Rename the columns
-    df.rename(columns={'annual_energy': 'heat_annual'}, inplace=True)
-    df.rename(columns={'electrical_load': 'electricity_annual'}, inplace=True)
-
-    # Save the modified DataFrame back as a pickle
-    with open(dataset_filename, 'wb') as f:
-        pickle.dump(df, f)
-
     surrogate_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_kbhdp_data_heat_load_1_100_hours_storage_0_24.json",
+        "permian/data/test_trough_data_heat_load_100_500_hours_storage_0_26.json",
     )
 
-    input_bounds = dict(heat_load=[1, 100], hours_storage=[0, 24])
+    input_bounds = dict(heat_load=[100, 500], hours_storage=[0, 26])
     input_units = dict(heat_load="MW", hours_storage="hour")
     input_variables = {
         "labels": ["heat_load", "hours_storage"],
@@ -108,16 +106,19 @@ def build_cst(blk, __file__=None):
 
 def init_cst(blk):
     # Fix input variables for initialization
+    blk.unit.hours_storage.fix()
+    blk.unit.heat_load.fix()
     blk.unit.initialize()
+
+    # blk.unit.heat_load.unfix()
 
 
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_cst_op_conditions(blk, heat_load = 10, hours_storage=6):
+def set_cst_op_conditions(blk, hours_storage=6):
     blk.unit.hours_storage.fix(hours_storage)
-    blk.unit.heat_load.fix(heat_load)
 
 
 def add_cst_costing(blk, costing_block):
@@ -125,6 +126,7 @@ def add_cst_costing(blk, costing_block):
 
 
 def calc_costing(m, blk):
+    blk.costing.heat_cost.set_value(0)
     blk.costing.cost_process()
     blk.costing.initialize()
 
@@ -204,20 +206,30 @@ def report_cst_costing(m, blk):
 if __name__ == "__main__":
 
     solver = get_solver()
-    solver = SolverFactory("ipopt")
+    # solver = SolverFactory("ipopt")
 
     m = build_system()
 
     build_cst(m.fs.cst)
 
-    set_cst_op_conditions(m.fs.cst)
     init_cst(m.fs.cst)
 
+    set_cst_op_conditions(m.fs.cst)
+
+    print('first solve')
+
+    results = solver.solve(m)
+
+    m.fs.cst.unit.heat_load.unfix()
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
+    m.fs.costing.aggregate_flow_heat.fix(-70000)
+    print('last solve')
     results = solver.solve(m)
+    assert_optimal_termination(results)
 
     print(degrees_of_freedom(m))
     report_cst(m, m.fs.cst.unit)
     report_cst_costing(m, m.fs)
 
+    # m.fs.costing.used_flows.display()
