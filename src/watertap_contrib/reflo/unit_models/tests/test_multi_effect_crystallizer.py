@@ -441,9 +441,6 @@ class TestMultiEffectCrystallizer_2Effects:
                 assert hasattr(eff.effect, e)
             for c in effect_constr:
                 assert hasattr(eff.effect, c)
-            assert hasattr(eff.effect, f"eq_delta_temperature_inlet_effect_{n}")
-            assert hasattr(eff.effect, f"eq_delta_temperature_outlet_effect_{n}")
-            assert hasattr(eff.effect, f"eq_heat_transfer_effect_{n}")
             if n == 1:
                 assert number_variables(eff.effect) == 154
                 assert number_total_constraints(eff.effect) == 128
@@ -454,10 +451,13 @@ class TestMultiEffectCrystallizer_2Effects:
                 assert hasattr(eff.effect, "eq_heating_steam_flow_rate")
             if n != 1:
                 assert number_variables(eff.effect) == 148
-                assert number_total_constraints(eff.effect) == 126
-                assert number_unused_variables(eff.effect) == 0
+                assert number_total_constraints(eff.effect) == 122
+                assert number_unused_variables(eff.effect) == 4
+                assert hasattr(m.fs.unit, f"eq_delta_temperature_inlet_effect_{n}")
+                assert hasattr(m.fs.unit, f"eq_delta_temperature_outlet_effect_{n}")
+                assert hasattr(m.fs.unit, f"eq_heat_transfer_effect_{n}")
                 assert hasattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    m.fs.unit, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
 
         assert number_variables(m) == 461
@@ -476,10 +476,7 @@ class TestMultiEffectCrystallizer_2Effects:
         # Fixing flow rates into individual effects will reduce DOF...
         for n, eff in m.fs.unit.effects.items():
             eff.effect.properties_in[0].flow_mass_phase_comp.fix()
-            if n == 1:
-                assert degrees_of_freedom(eff.effect) == 0
-            else:
-                assert degrees_of_freedom(eff.effect) == 3
+            assert degrees_of_freedom(eff.effect) == 0
         # ... and result in an overspecified model.
         assert degrees_of_freedom(m) == -2
 
@@ -557,12 +554,12 @@ class TestMultiEffectCrystallizer_2Effects:
                     .is_fixed()
                 )
                 linking_constr = getattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    m.fs.unit, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
                 assert linking_constr.active
                 assert eff.effect.overall_heat_transfer_coefficient.is_fixed()
                 assert value(eff.effect.overall_heat_transfer_coefficient) == htc
-                assert degrees_of_freedom(eff.effect) == 3
+                assert degrees_of_freedom(eff.effect) == 1
 
     @pytest.mark.component
     def test_solve(self, MEC2_frame):
@@ -969,9 +966,6 @@ class TestMultiEffectCrystallizer_3Effects:
                 assert hasattr(eff.effect, e)
             for c in effect_constr:
                 assert hasattr(eff.effect, c)
-            assert hasattr(eff.effect, f"eq_delta_temperature_inlet_effect_{n}")
-            assert hasattr(eff.effect, f"eq_delta_temperature_outlet_effect_{n}")
-            assert hasattr(eff.effect, f"eq_heat_transfer_effect_{n}")
             if n == 1:
                 assert number_variables(eff.effect) == 154
                 assert number_total_constraints(eff.effect) == 128
@@ -982,10 +976,13 @@ class TestMultiEffectCrystallizer_3Effects:
                 assert hasattr(eff.effect, "eq_heating_steam_flow_rate")
             if n != 1:
                 assert number_variables(eff.effect) == 148
-                assert number_total_constraints(eff.effect) == 126
-                assert number_unused_variables(eff.effect) == 0
+                assert number_total_constraints(eff.effect) == 122
+                assert number_unused_variables(eff.effect) == 4
+                assert hasattr(m.fs.unit, f"eq_delta_temperature_inlet_effect_{n}")
+                assert hasattr(m.fs.unit, f"eq_delta_temperature_outlet_effect_{n}")
+                assert hasattr(m.fs.unit, f"eq_heat_transfer_effect_{n}")
                 assert hasattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    m.fs.unit, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
 
         assert number_variables(m) == 609
@@ -1010,10 +1007,7 @@ class TestMultiEffectCrystallizer_3Effects:
         ].unfix()
         assert degrees_of_freedom(m) == 0
         for n, eff in m.fs.unit.effects.items():
-            if n == 1:
-                assert degrees_of_freedom(eff.effect) == 0
-            else:
-                assert degrees_of_freedom(eff.effect) == 3
+            assert degrees_of_freedom(eff.effect) == 0
         m.fs.unit.control_volume.properties_in[0].flow_mass_phase_comp[
             "Liq", "H2O"
         ].fix()
@@ -1097,12 +1091,12 @@ class TestMultiEffectCrystallizer_3Effects:
                     .is_fixed()
                 )
                 linking_constr = getattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    m.fs.unit, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
                 assert linking_constr.active
                 assert eff.effect.overall_heat_transfer_coefficient.is_fixed()
                 assert value(eff.effect.overall_heat_transfer_coefficient) == htc
-                assert degrees_of_freedom(eff.effect) == 3
+                assert degrees_of_freedom(eff.effect) == 1
 
     @pytest.mark.component
     def test_solve(self, MEC3_frame):
@@ -1512,9 +1506,6 @@ class TestMultiEffectCrystallizer_4Effects:
                 assert hasattr(eff.effect, e)
             for c in effect_constr:
                 assert hasattr(eff.effect, c)
-            assert hasattr(eff.effect, f"eq_delta_temperature_inlet_effect_{n}")
-            assert hasattr(eff.effect, f"eq_delta_temperature_outlet_effect_{n}")
-            assert hasattr(eff.effect, f"eq_heat_transfer_effect_{n}")
             if n == 1:
                 assert number_variables(eff.effect) == 154
                 assert number_total_constraints(eff.effect) == 128
@@ -1525,10 +1516,13 @@ class TestMultiEffectCrystallizer_4Effects:
                 assert hasattr(eff.effect, "eq_heating_steam_flow_rate")
             if n != 1:
                 assert number_variables(eff.effect) == 148
-                assert number_total_constraints(eff.effect) == 126
-                assert number_unused_variables(eff.effect) == 0
+                assert number_total_constraints(eff.effect) == 122
+                assert number_unused_variables(eff.effect) == 4
+                assert hasattr(m.fs.unit, f"eq_delta_temperature_inlet_effect_{n}")
+                assert hasattr(m.fs.unit, f"eq_delta_temperature_outlet_effect_{n}")
+                assert hasattr(m.fs.unit, f"eq_heat_transfer_effect_{n}")
                 assert hasattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    m.fs.unit, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
 
         assert number_variables(m) == 757
@@ -1554,10 +1548,7 @@ class TestMultiEffectCrystallizer_4Effects:
         ].unfix()
         assert degrees_of_freedom(m) == 0
         for n, eff in m.fs.unit.effects.items():
-            if n == 1:
-                assert degrees_of_freedom(eff.effect) == 0
-            else:
-                assert degrees_of_freedom(eff.effect) == 3
+            assert degrees_of_freedom(eff.effect) == 0
         m.fs.unit.control_volume.properties_in[0].flow_mass_phase_comp[
             "Liq", "H2O"
         ].fix()
@@ -1641,12 +1632,12 @@ class TestMultiEffectCrystallizer_4Effects:
                     .is_fixed()
                 )
                 linking_constr = getattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    m.fs.unit, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
                 assert linking_constr.active
                 assert eff.effect.overall_heat_transfer_coefficient.is_fixed()
                 assert value(eff.effect.overall_heat_transfer_coefficient) == htc
-                assert degrees_of_freedom(eff.effect) == 3
+                assert degrees_of_freedom(eff.effect) == 1
 
     @pytest.mark.component
     def test_solve(self, MEC4_frame):
@@ -2060,6 +2051,101 @@ class TestMultiEffectCrystallizer_4Effects:
             "capital_cost_crystallizer_effect_4": 688515.45,
             "capital_cost_heat_exchanger_effect_4": 551803.75,
             "capital_cost_effect_4": 620159.6,
+        }
+
+        for v, r in eff_costing_dict.items():
+            cv = getattr(m.fs.unit.costing, v)
+            if cv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(cv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(cv), rel=1e-3) == r
+
+    @pytest.mark.component
+    def test_costing_work_as_steam(self):
+
+        m = build_mec4()
+
+        for _, eff in m.fs.unit.effects.items():
+            eff.effect.crystal_median_length.fix(0.6e-3)
+            eff.effect.crystal_growth_rate.fix(5e-9)
+
+        self.test_calculate_scaling(m)
+
+        m.fs.unit.initialize()
+
+        assert degrees_of_freedom(m) == 0
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        m.fs.costing = TreatmentCosting()
+        # set heat and electricity costs to be non-zero
+        m.fs.costing.heat_cost.set_value(0.01)
+        m.fs.costing.electricity_cost.fix(0.07)
+        m.fs.costing.base_currency = pyunits.USD_2021
+        m.fs.unit.costing = UnitModelCostingBlock(
+            flowsheet_costing_block=m.fs.costing,
+            costing_method_arguments={"cost_work_as": "heat"},
+        )
+
+        m.fs.costing.nacl_recovered.cost.set_value(-0.024)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(m.fs.unit.total_flow_vol_in)
+        m.fs.costing.add_specific_energy_consumption(
+            m.fs.unit.total_flow_vol_in, name="SEC"
+        )
+        results = solver.solve(m)
+
+        assert_optimal_termination(results)
+
+        assert not hasattr(m.fs.costing, "aggregate_flow_steam")
+
+        sys_costing_dict = {
+            "aggregate_capital_cost": 4934127.42,
+            "aggregate_flow_electricity": 8.4612,
+            "aggregate_flow_NaCl_recovered": 0.299999,
+            "aggregate_flow_heat": 1915.44,
+            "aggregate_flow_costs": {
+                "electricity": 6095.09,
+                "NaCl_recovered": -269822.09,
+                "heat": 148989.56,
+            },
+            "aggregate_direct_capital_cost": 2467063.71,
+            "total_capital_cost": 4934127.42,
+            "total_operating_cost": 33286.38,
+            "maintenance_labor_chemical_operating_cost": 148023.82,
+            "total_fixed_operating_cost": 148023.82,
+            "total_variable_operating_cost": -114737.44,
+            "total_annualized_cost": 585691.30,
+            "LCOW": 5.1441,
+            "SEC": 0.65144,
+        }
+
+        for v, r in sys_costing_dict.items():
+            cv = getattr(m.fs.costing, v)
+            if cv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(cv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(cv), rel=1e-3) == r
+
+        eff_costing_dict = {
+            "capital_cost": 4934127.42,
+            "cost_factor": 2.0,
+            "direct_capital_cost": 2467063.71,
+            "capital_cost_crystallizer_effect_1": 701221.05,
+            "capital_cost_heat_exchanger_effect_1": 234213.59,
+            "capital_cost_effect_1": 467717.32,
+            "capital_cost_crystallizer_effect_2": 667484.84,
+            "capital_cost_heat_exchanger_effect_2": 558948.69,
+            "capital_cost_effect_2": 613216.76,
+            "capital_cost_crystallizer_effect_3": 640779.56,
+            "capital_cost_heat_exchanger_effect_3": 954745.08,
+            "capital_cost_effect_3": 797762.32,
+            "capital_cost_crystallizer_effect_4": 624930.83,
+            "capital_cost_heat_exchanger_effect_4": 551803.75,
+            "capital_cost_effect_4": 588367.2,
         }
 
         for v, r in eff_costing_dict.items():
