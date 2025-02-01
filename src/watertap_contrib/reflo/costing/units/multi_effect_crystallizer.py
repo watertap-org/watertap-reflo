@@ -23,6 +23,11 @@ class MultiEffectCrystallizerCostType(StrEnum):
     volume_basis = "volume_basis"
 
 
+class WorkCostType(StrEnum):
+    heat = "heat"
+    steam = "steam"
+
+
 def build_recovered_nacl_cost_param_block(blk):
 
     blk.cost = pyo.Param(
@@ -126,7 +131,9 @@ def build_multi_effect_crystallizer_cost_param_block(blk):
     parameter_block_name="multi_effect_crystallizer",
 )
 def cost_multi_effect_crystallizer(
-    blk, cost_type=MultiEffectCrystallizerCostType.mass_basis
+    blk,
+    cost_type=MultiEffectCrystallizerCostType.mass_basis,
+    cost_work_as=WorkCostType.steam,
 ):
     """
     Function for costing the forced circulation crystallizer by the mass flow of produced crystals.
@@ -134,12 +141,15 @@ def cost_multi_effect_crystallizer(
 
     Args:
         cost_type: Option for crystallizer cost function type - volume or mass basis
+        cost_work_as: Option for costing the work done in first effect as either the cost of the steam or the cost
+                      of heat to produce the steam
     """
     global costing_package
 
     costing_package = blk.costing_package
     make_capital_cost_var(blk)
     costing_package.add_cost_factor(blk, "TIC")
+    costing_package.cost_work_as = cost_work_as
 
     if cost_type == MultiEffectCrystallizerCostType.mass_basis:
         effect_costing_method = cost_crystallizer_effect_by_crystal_mass
@@ -352,7 +362,13 @@ def _cost_effect_flows(effect, effect_number):
     )
 
     if effect_number == 1:
-        costing_package.cost_flow(
-            effect.heating_steam[0].flow_vol_phase["Vap"],
-            "steam",
-        )
+        if costing_package.cost_work_as == WorkCostType.steam:
+            costing_package.cost_flow(
+                effect.heating_steam[0].flow_vol_phase["Vap"],
+                "steam",
+            )
+        if costing_package.cost_work_as == WorkCostType.heat:
+            costing_package.cost_flow(
+                pyo.units.convert(effect.work_mechanical[0], to_units=pyo.units.kW),
+                "heat",
+            )
