@@ -247,7 +247,7 @@ class CrystallizerEffectData(CrystallizationData):
                     pyunits.convert(
                         b.heating_steam[0].dh_vap_mass
                         * b.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"],
-                        o_units=pyunits.kJ * pyunits.s**-1,
+                        to_units=pyunits.kJ * pyunits.s**-1,
                     )
                 )
 
