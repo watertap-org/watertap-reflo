@@ -16,9 +16,6 @@ from idaes.core.solvers import get_solver
 
 from idaes.core.util.scaling import *
 from idaes.core.util.model_statistics import *
-from watertap_contrib.reflo.solar_models.surrogate.flat_plate.flat_plate_surrogate import (
-    FlatPlateSurrogate,
-)
 
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
