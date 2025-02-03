@@ -1,5 +1,6 @@
 from pyomo.environ import (
     ConcreteModel,
+    Var,
     value,
     assert_optimal_termination,
     units as pyunits,
@@ -38,7 +39,6 @@ __all__ = [
     "init_cst",
     "set_cst_op_conditions",
     "add_cst_costing",
-    "calc_costing",
     "report_cst",
     "report_cst_costing",
 ]
@@ -49,20 +49,20 @@ def build_system():
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = EnergyCosting()
 
-    m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
+    # m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
 
     m.fs.cst = FlowsheetBlock(dynamic=False)
 
     return m
 
 
-def build_cst(blk, __file__=None):
+def build_cst(blk,):
 
     print(f'\n{"=======> BUILDING CST SYSTEM <=======":^60}\n')
 
-    if __file__ == None:
-        cwd = os.getcwd()
-        __file__ = cwd + r"\src\watertap_contrib\reflo\solar_models\surrogate\trough\\"
+    # if __file__ == None:
+    #     cwd = os.getcwd()
+    # __file__ = os.path.dirname(os.getcwd())
 
     # dataset_filename = os.path.join(
     #     os.path.dirname(__file__), r"data\test_trough_data.pkl"
@@ -74,14 +74,15 @@ def build_cst(blk, __file__=None):
 
     # path for mac
     dataset_filename = os.path.join(
-        os.path.dirname(__file__), "permian/data/test_trough_data.pkl"
-    )
+        os.path.dirname(os.path.dirname(__file__)), 
+        "data/cst/trough_permian_data_heat_load_1_50_hours_storage_0_24.pkl"
+        )
     surrogate_filename = os.path.join(
-        os.path.dirname(__file__),
-        "permian/data/test_trough_data_heat_load_100_500_hours_storage_0_26.json",
+        os.path.dirname(os.path.dirname(__file__)),
+        "data/cst/trough_permian_data_heat_load_1_50_hours_storage_0_24.json"
     )
 
-    input_bounds = dict(heat_load=[100, 500], hours_storage=[0, 26])
+    input_bounds = dict(heat_load=[1, 50], hours_storage=[0, 24])
     input_units = dict(heat_load="MW", hours_storage="hour")
     input_variables = {
         "labels": ["heat_load", "hours_storage"],
@@ -104,10 +105,11 @@ def build_cst(blk, __file__=None):
     )
 
 
-def init_cst(blk):
+def init_cst(blk, storage, heat_load):
     # Fix input variables for initialization
-    blk.unit.hours_storage.fix()
-    blk.unit.heat_load.fix()
+    blk.unit.hours_storage.fix(storage) # hr
+    blk.unit.heat_load.fix(heat_load) # MW
+    calculate_scaling_factors(blk)
     blk.unit.initialize()
 
     # blk.unit.heat_load.unfix()
@@ -212,9 +214,9 @@ if __name__ == "__main__":
 
     build_cst(m.fs.cst)
 
-    init_cst(m.fs.cst)
+    init_cst(m.fs.cst, storage = 12, heat_load=25)
 
-    set_cst_op_conditions(m.fs.cst)
+    # set_cst_op_conditions(m.fs.cst)
 
     print('first solve')
 
@@ -223,13 +225,19 @@ if __name__ == "__main__":
     m.fs.cst.unit.heat_load.unfix()
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-    m.fs.costing.aggregate_flow_heat.fix(-70000)
+    m.fs.costing.aggregate_flow_heat.fix(-5000)
+    # m.fs.costing.add_LCOH()
+
     print('last solve')
+
     results = solver.solve(m)
     assert_optimal_termination(results)
 
-    print(degrees_of_freedom(m))
+    # print(degrees_of_freedom(m))
     report_cst(m, m.fs.cst.unit)
     report_cst_costing(m, m.fs)
 
-    # m.fs.costing.used_flows.display()
+    m.fs.costing.used_flows.display()
+
+
+
