@@ -80,12 +80,13 @@ def main():
     init_system(m)
     add_costing(m)
     optimize(m, ro_mem_area=None, water_recovery=0.6)
-    solve(m, debug=True)
+    solve(m, debug=False)
 
-    print(m.fs.treatment.product.display())
-    print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
-    print(m.fs.treatment.costing.display())
-    print(m.fs.treatment.costing.LCOW.display())
+    # print(m.fs.treatment.product.display())
+    # print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
+    # print(m.fs.treatment.costing.display())
+    # print(m.fs.treatment.costing.LCOW.display())
+    print(m.fs.treatment.costing.aggregate_flow_costs.display())
 
 
 def build_system():
@@ -290,7 +291,7 @@ def add_costing(m):
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_ro_costing(m, treatment.RO, treatment.costing)
     add_DWI_costing(m, treatment.DWI, treatment.costing)
-
+    m.fs.treatment.costing.electricity_cost.fix(0.066)
     # treatment.costing.cost_process()
     # treatment.costing.initialize()
 
@@ -466,6 +467,7 @@ def optimize(
     water_recovery=0.5,
     fixed_pressure=None,
     ro_mem_area=None,
+    elec_price=None,
     objective="LCOW",
 ):
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
@@ -508,6 +510,9 @@ def optimize(
         for idx, stage in treatment.RO.stage.items():
             stage.module.area.unfix()
             stage.module.area.setub(1e6)
+
+    if elec_price is not None:
+        m.fs.treatment.costing.electricity_cost.fix(elec_price)
 
 
 def solve(model, solver=None, tee=False, raise_on_failure=True, debug=False):

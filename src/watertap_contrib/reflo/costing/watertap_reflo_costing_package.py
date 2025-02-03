@@ -567,6 +567,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         # Calculate fraction of electricity from grid when an electricity generating unit is present
         if energy_cost.has_electricity_generation:
+            print('Detected Energy Generation')
             elec_gen_unit = self._get_electricity_generation_unit()
             self.frac_elec_from_grid_constraint = pyo.Constraint(
                 expr=(
@@ -583,6 +584,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
 
         else:
+            print('Did Not Detected Energy Generation')
             self.frac_elec_from_grid.fix(1)
 
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):

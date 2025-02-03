@@ -31,7 +31,7 @@ def check_jac(m, print_extreme_jacobian_values=True):
         )
         for val, con, var in extreme_entries:
             if val >= 100:
-                print(val, con.name, var.name, value(var), calc_scale(value(var)))
+                print(val, var.name, value(var), calc_scale(value(var)), iscale.get_scaling_factor(var))
         print("--------------------------")
         print("Extreme Jacobian columns:")
         extreme_cols = iscale.extreme_jacobian_columns(
