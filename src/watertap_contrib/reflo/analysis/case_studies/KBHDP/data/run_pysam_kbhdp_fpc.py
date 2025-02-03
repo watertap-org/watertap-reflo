@@ -28,7 +28,6 @@ import PySAM.Swh as swh
 
 __all__ = [
     "read_module_datafile",
-    "load_pysam_fpc_config",
     "setup_pysam_fpc_model",
     "run_pysam_fpc_model",
     "setup_and_run_fpc",
@@ -45,36 +44,6 @@ def read_module_datafile(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
     return data
-
-
-def load_pysam_fpc_config(modules, file_names=None, module_data=None):
-    """
-    Loads parameter values into PySAM modules, either from files or supplied dicts
-
-    :param modules: List of PySAM modules
-    :param file_names: List of JSON file paths containing parameter values for respective modules
-    :param module_data: List of dictionaries containing parameter values for respective modules
-
-    :returns: no return value
-    """
-    for i in range(len(modules)):
-        if file_names is not None:
-            assert len(file_names) == len(modules)
-            data = read_module_datafile(file_names[i])
-        elif module_data is not None:
-            assert len(module_data) == len(modules)
-            data = module_data[i]
-        else:
-            raise Exception("Either file_names or module_data must be assigned.")
-
-        missing_values = []  # for debugging
-        for k, v in data.items():
-            if k != "number_inputs":
-                try:
-                    modules[i].value(k, v)
-                except:
-                    missing_values.append(k)
-        pass
 
 
 def system_capacity_computed(tech_model):
@@ -95,7 +64,6 @@ def setup_pysam_fpc_model(
     temperatures,
     weather_file=None,
     weather_data=None,
-    config_file=None,
     config_data=None,
 ):
 
@@ -429,17 +397,17 @@ def run_pysam_kbhdp_fpc_sweep(
 
 if __name__ == "__main__":
 
-    # temperatures = {
-    #     "T_cold": 20,
-    #     "T_hot": 70,  # this will be overwritten by temperature_hot value
-    #     "T_amb": 18,
-    # }
-    # config_data = read_module_datafile(param_file)
-    # result = setup_and_run_fpc(
-    #     temperatures, weather_file, config_data, 1,24, 80
-    # )
-    # print(result)
-    # assert False
+    temperatures = {
+        "T_cold": 20,
+        "T_hot": 70,  # this will be overwritten by temperature_hot value
+        "T_amb": 18,
+    }
+    config_data = read_module_datafile(param_file)
+    result = setup_and_run_fpc(
+        temperatures, weather_file, config_data, 1, 24, 80
+    )
+    print(result)
+    assert False
     # LOW
     # heat_loads_lb = np.linspace(0.1, 0.9, 9)
     # heat_loads_ub = np.linspace(1, 10, 10)
