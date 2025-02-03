@@ -335,7 +335,7 @@ def add_energy_costing(m, CST_config):
 
 
     energy.cst.unit.heat_load.unfix()
-    # energy.costing.aggregate_flow_heat.fix(CST_config["heat_flow"])
+    energy.costing.aggregate_flow_heat.fix(CST_config["heat_flow"])
 
 
 def run_permian_FO(operating_condition,
@@ -374,7 +374,7 @@ def run_permian_FO(operating_condition,
     m.fs.costing.heat_cost_buy.fix(heat_price)
     m.fs.costing.electricity_cost_buy.set_value(electricity_price)
     m.fs.costing.cost_process()
-    m.fs.costing.frac_heat_from_grid.fix(0.05)
+    # m.fs.costing.frac_heat_from_grid.fix(0.05)
 
     m.fs.costing.initialize()
     m.fs.costing.add_LCOH()
@@ -408,7 +408,7 @@ if __name__ == "__main__":
     CST_config = {
         "storage":12, # hr
         "heat_load":25, # MW
-        "heat_flow": -8700, # kW
+        "heat_flow": -8000, # kW
     }
 
     operating_condition = {
@@ -623,59 +623,59 @@ if __name__ == "__main__":
     print('failed',failed)
 
 #%%
-    import matplotlib.pyplot as plt
-    # alums = [i*0.05 for i in alums]
-    # ec_opexs = [i * 0.05 for i in ec_opexs]
-    solar_size_MW = [i/(-1000) for i in solar_size]
-    plt.stackplot(solar_size_MW,
-                chem_capexs, chem_opexs,
-                ec_capexs, ec_opexs,
-                filt_capexs, filt_opexs,
-                fo_capexs, fo_opexs,
-                dwi_capexs, dwi_opexs,
-                solar_capexs, solar_opexs,
-                elecs, heats, alums, h2o2s,
-                labels=['Chem add CAPEX', 'Chem add OPEX',
-                        'EC CAPEX', 'EC OPEX',
-                        'Cart filt CAPEX', 'Cart filt OPEX',
-                        'FO CAPEX', 'FO OPEX',
-                        'DWI CAPEX', 'DWI OPEX',
-                        'Solar CAPEX', 'Solar OPEX',
-                        'Elec', 'Heat purchased','Aluminum','H2O2',
-                        ],
-                hatch =['', '\\\\',
-                        '', '\\\\',
-                        '', '\\\\',
-                        '', '\\\\',
-                        '', '\\\\',
-                        '', '\\\\',
-                        '','','','',
-                        ],
-                colors=['gray','gray',
-                        'tomato', 'tomato',
-                        'sandybrown','sandybrown',
-                        'khaki','khaki',
-                        'lightgreen','lightgreen',
-                        'firebrick', 'firebrick',
-                        'gold','indianred','royalblue','darkviolet'
-                        ],
-                edgecolor='black',
-                      )
+import matplotlib.pyplot as plt
+# alums = [i*0.05 for i in alums]
+# ec_opexs = [i * 0.05 for i in ec_opexs]
+solar_size_MW = [i/(-1000) for i in solar_size]
+plt.stackplot(solar_size_MW,
+            chem_capexs, chem_opexs,
+            ec_capexs, ec_opexs,
+            filt_capexs, filt_opexs,
+            fo_capexs, fo_opexs,
+            dwi_capexs, dwi_opexs,
+            solar_capexs, solar_opexs,
+            elecs, heats, alums, h2o2s,
+            labels=['Chem add CAPEX', 'Chem add OPEX',
+                    'EC CAPEX', 'EC OPEX',
+                    'Cart filt CAPEX', 'Cart filt OPEX',
+                    'FO CAPEX', 'FO OPEX',
+                    'DWI CAPEX', 'DWI OPEX',
+                    'Solar CAPEX', 'Solar OPEX',
+                    'Elec', 'Heat purchased','Aluminum','H2O2',
+                    ],
+            hatch =['', '\\\\',
+                    '', '\\\\',
+                    '', '\\\\',
+                    '', '\\\\',
+                    '', '\\\\',
+                    '', '\\\\',
+                    '','','','',
+                    ],
+            colors=['gray','gray',
+                    'tomato', 'tomato',
+                    'sandybrown','sandybrown',
+                    'khaki','khaki',
+                    'lightgreen','lightgreen',
+                    'firebrick', 'firebrick',
+                    'gold','indianred','royalblue','darkviolet'
+                    ],
+            edgecolor='black',
+                    )
 
-    plt.rcParams['figure.dpi']=300
+plt.rcParams['figure.dpi']=300
 
-    # Show the legend
-    plt.legend(loc='upper right',  bbox_to_anchor=(1, 1.2), ncol =4 ,prop={'size': 8})
+# Show the legend
+plt.legend(loc='upper right',  bbox_to_anchor=(1, 1.2), ncol =4 ,prop={'size': 8})
 
-    plt.ylabel('LCOW ($/m3)')
-    plt.xlabel('Solar size (MW)')
-    plt.title('')
-    # Display the chart
-    plt.show()
+plt.ylabel('LCOW ($/m3)')
+plt.xlabel('Solar size (MW)')
+plt.title('')
+# Display the chart
+plt.show()
 
 # %%
-    fig, ax1 = plt.subplots()
-    ax1.plot(solar_size_MW, LCOHs, 'b-', label='LCOH')
-    ax1.set_xlabel('Solar size (MW)')
-    ax1.set_ylabel('LCOH ($/kWh-th)', color='k')
+fig, ax1 = plt.subplots()
+ax1.plot(solar_size_MW, LCOHs, 'b-', label='LCOH')
+ax1.set_xlabel('Solar size (MW)')
+ax1.set_ylabel('LCOH ($/kWh-th)', color='k')
 # %%

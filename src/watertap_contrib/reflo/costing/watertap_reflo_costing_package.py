@@ -591,8 +591,8 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             self.has_heat_flows = True
             self.frac_heat_from_grid = pyo.Var(
                 initialize=0,
-                domain=pyo.NonNegativeReals,
-                bounds=(0, 1.00001),
+                domain=pyo.Reals,
+                bounds=(None, 1.00001),
                 doc="Fraction of heat from grid",
                 units=pyo.units.dimensionless,
             )
