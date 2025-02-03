@@ -1,3 +1,5 @@
+import os
+import numpy as np
 from pyomo.environ import (
     ConcreteModel,
     value,
@@ -7,7 +9,7 @@ from pyomo.environ import (
     Constraint,
     SolverFactory,
 )
-import os
+
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.solvers import get_solver
@@ -26,84 +28,113 @@ from watertap_contrib.reflo.costing import (
     EnergyCosting,
 )
 from watertap_contrib.reflo.solar_models.zero_order import TroughPySAM
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.data.run_pysam_kbhdp_trough import *
 
 __all__ = [
-    "build_cst",
-    "init_cst",
-    "set_cst_op_conditions",
-    "add_cst_costing",
-    "report_cst",
-    "report_cst_costing",
+    "build_trough_pysam",
+    "add_pysam_trough_model",
+    "set_trough_pysam_op_conditions",
+    "add_pysam_trough_costing",
+    "run_pysam_trough",
+    "report_trough",
+    "report_trough_costing",
 ]
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 parent_dir = os.path.abspath(os.path.join(__location__, ".."))
-dataset_filename = os.path.join(
-    parent_dir,
-    "data/cst/trough_data_heat_load_1_100_hours_storage_0_24.pkl",
+weather_file = os.path.join(parent_dir, "data/el_paso_texas-KBHDP-weather.csv")
+param_file = os.path.join(
+    parent_dir, "data/cst/trough_physical_process_heat-kbhdp.json"
 )
-surrogate_filename = dataset_filename.replace(".pkl", ".json")
+
+
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = EnergyCosting()
     m.fs.energy = Block()
 
-    # m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
-
-    # m.fs.cst = FlowsheetBlock(dynamic=False)
+    m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
+    m.fs.aggregate_flow_heat_treatment = Var(
+        initialize=18000,  # about what is required for RPT2
+        bounds=(0, None),
+        units=pyunits.kilowatt,
+        doc="Represents steady-state heat requirement of treatment system",
+    )
 
     return m
 
 
-def build_cst_pysam(m, energy_blk=None):
+def build_trough_pysam(m, energy_blk=None):
 
     if energy_blk is None:
         energy_blk = m.fs.energy
 
-    # energy = m.fs.energy
-
     print(f'\n{"=======> BUILDING CST SYSTEM <=======":^60}\n')
-
-    # input_bounds = dict(heat_load=[1, 100], hours_storage=[0, 24])
-
     energy_blk.trough = TroughPySAM(solar_model_type="pysam")
+    add_pysam_trough_model(m)
 
 
-def init_cst(blk, hours_storage=24, heat_load=10):
-    # Fix input variables for initialization
-    blk.trough.hours_storage.fix(hours_storage)
-    blk.trough.heat_load.fix(heat_load)
-    blk.trough.initialize()
+def add_pysam_trough_model(m):
+    config_data = read_trough_module_datafile(param_file)
 
-    # blk.trough.heat_load.unfix()
+    m.tech_model = setup_pysam_trough_model(
+        weather_file=weather_file, config_data=config_data
+    )
 
 
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
+    m.fs.aggregate_flow_heat_treatment.fix()
 
 
-def set_cst_op_conditions(blk, hours_storage=6):
-    blk.trough.hours_storage.fix(hours_storage)
+def set_trough_pysam_op_conditions(m, hours_storage=24):
+    # These are just initial values
+    m.fs.energy.trough.heat_load.fix(10)
+    m.fs.energy.trough.electricity_annual.fix(1e5)
+    m.fs.energy.trough.heat_annual.fix(1e5)
+    
+    m.hours_storage = hours_storage
+    m.fs.energy.trough.hours_storage.fix(hours_storage)
 
 
-def add_cst_costing(m, costing_block=None):
+def add_pysam_trough_costing(m, costing_block=None):
     if costing_block is None:
         costing_block = m.fs.costing
-    m.fs.energy.trough.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
+    m.fs.energy.trough.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=costing_block
+    )
+    costing_block.cost_process()
+
+def run_pysam_trough(m, heat_load=None):
+
+    results = run_pysam_trough_model(
+        m.tech_model,
+        heat_load=heat_load,
+        hours_storage=m.hours_storage
+    )
+    return results
 
 
-def calc_costing(m, blk):
-    m.fs.costing.electricity_cost.fix(0.07)
-    m.fs.costing.cost_process()
-    m.fs.costing.initialize()
+def get_trough_heat_load(m, heat_annual_desired, heat_load_start=5, increment_heat_load=2):
+    pysam_results = run_pysam_trough(m, heat_load=heat_load_start)
+    heat_annual_trough = pysam_results["annual_energy"]
+    heat_load = heat_load_start
+    while heat_annual_trough < heat_annual_desired:
+        heat_load += increment_heat_load
+        print(f"Trying Trough heat load = {heat_load:.2f} MW...")
+        pysam_results = run_pysam_trough(m, heat_load=heat_load)
+        heat_annual_trough = pysam_results["annual_energy"]
+        if np.isnan(heat_annual_trough):
+            continue
+        print(f"Heat annual desired = {heat_annual_desired:.2f} kWh")
+        print(f"Heat annual calculated = {heat_annual_trough:.2f} kWh")
+        print(f"Calc/Desired = {heat_annual_trough/heat_annual_desired:.2f} kWh\n")
+    heat_load_required = heat_load
+    return heat_load_required, pysam_results
 
-    # TODO: Connect to the treatment volume
-    # m.fs.costing.add_LCOH()
-
-
-def report_cst(m, blk):
-    # blk = m.fs.cst
+def report_trough(m, blk):
+    # blk = m.fs.trough
     print(f"\n\n-------------------- CST Report --------------------\n")
     print("\n")
 
@@ -126,7 +157,8 @@ def report_cst(m, blk):
     )
 
 
-def report_cst_costing(m, blk):
+def report_trough_costing(m, blk):
+
     print(f"\n\n-------------------- CST Costing Report --------------------\n")
     print("\n")
 
@@ -135,19 +167,19 @@ def report_cst_costing(m, blk):
     # )
 
     print(
-        f'{"Capital Cost":<30s}{value(blk.costing.total_capital_cost):<20,.2f}{pyunits.get_units(blk.costing.total_capital_cost)}'
+        f'{"Capital Cost":<30s}{value(blk.costing.capital_cost):<20,.2f}{pyunits.get_units(blk.costing.capital_cost)}'
     )
 
     print(
-        f'{"Fixed Operating Cost":<30s}{value(blk.costing.total_fixed_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_fixed_operating_cost)}'
+        f'{"Fixed Operating Cost":<30s}{value(blk.costing.fixed_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.fixed_operating_cost)}'
     )
 
     print(
-        f'{"Variable Operating Cost":<30s}{value(blk.costing.total_variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_variable_operating_cost)}'
+        f'{"Variable Operating Cost":<30s}{value(blk.costing.variable_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.variable_operating_cost)}'
     )
 
     print(
-        f'{"Total Operating Cost":<30s}{value(blk.costing.total_operating_cost):<20,.2f}{pyunits.get_units(blk.costing.total_operating_cost)}'
+        f'{"Total Operating Cost":<30s}{value(m.fs.costing.total_operating_cost):<20,.2f}{pyunits.get_units(m.fs.costing.total_operating_cost)}'
     )
 
     # print(
@@ -178,26 +210,35 @@ if __name__ == "__main__":
 
     m = build_system()
 
-    build_cst(m)
-    set_cst_op_conditions(m.fs.energy)
+    build_trough_pysam(m)
 
-    init_cst(m.fs.energy, heat_load=50)
+    set_trough_pysam_op_conditions(m)
+    add_pysam_trough_costing(m, costing_block=m.fs.costing)
+    set_system_op_conditions(m)
+    print(f"dof = {degrees_of_freedom(m)}")
 
-
-    add_cst_costing(m, costing_block=m.fs.costing)
-    calc_costing(m, m.fs)
-    # m.fs.costing.aggregate_flow_heat.fix(-70000)
-    # m.fs.energy.trough.heat_load.unfix()
-    # m.fs.energy.trough.heat_annual.fix(0.52714)
-    print(f" dof = {degrees_of_freedom(m)}")
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-    print(degrees_of_freedom(m))
-    report_cst(m, m.fs.energy.trough)
-    report_cst_costing(m, m.fs)
-    # m.fs.
-    # # m.fs.costing.display()
-    m.fs.energy.trough.display()
+    heat_load = value(
+        pyunits.convert(m.fs.aggregate_flow_heat_treatment, to_units=pyunits.MW)
+    )
     
-    # m.fs.costing.display()
-    # m.fs.costing.used_flows.display()
+    pysam_results = run_pysam_trough(m, heat_load=heat_load)
+    m.fs.energy.trough.heat_annual.fix(pysam_results["annual_energy"])
+    m.fs.energy.trough.electricity_annual.fix(pysam_results["electrical_load"])
+    m.fs.energy.trough.heat_load.fix(heat_load)
+
+    heat_annual_required = value(
+        pyunits.convert(
+            m.fs.aggregate_flow_heat_treatment, to_units=pyunits.kWh * pyunits.year**-1
+        )
+    )
+    heat_load_required, pysam_results = get_trough_heat_load(
+        m, heat_annual_required, heat_load_start=29, increment_heat_load=0.25
+    )
+    m.fs.energy.trough.heat_annual.fix(pysam_results["annual_energy"])
+    m.fs.energy.trough.electricity_annual.fix(pysam_results["electrical_load"])
+    m.fs.energy.trough.heat_load.fix(heat_load_required)
+    results = solver.solve(m)
+
+    report_trough_costing(m, m.fs.energy.trough)
+    m.fs.energy.trough.costing.display()
+
