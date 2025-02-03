@@ -24,7 +24,6 @@ import PySAM.TroughPhysicalProcessHeat as iph
 
 __all__ = [
     "read_trough_module_datafile",
-    "load_pysam_trough_config",
     "setup_pysam_trough_model",
     "run_pysam_trough_model",
     "setup_and_run_trough",
@@ -33,10 +32,7 @@ __all__ = [
 
 model_name = "PhysicalTroughIPHLCOHCalculator"
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-
-config_files = [
-    os.path.join(__location__, "cst/trough_physical_process_heat-kbhdp.json"),
-]
+param_file = os.path.join(__location__, "cst/trough_physical_process_heat-kbhdp.json")
 weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
 
 
@@ -46,82 +42,35 @@ def read_trough_module_datafile(file_name):
     return data
 
 
-def load_pysam_trough_config(modules, file_names=None, module_data=None):
-    """
-    Loads parameter values into PySAM modules, either from files or supplied dicts
-
-    :param modules: List of PySAM modules
-    :param file_names: List of JSON file paths containing parameter values for respective modules
-    :param module_data: List of dictionaries containing parameter values for respective modules
-
-    :returns: no return value
-    """
-    for i in range(len(modules)):
-        if file_names is not None:
-            assert len(file_names) == len(modules)
-            data = read_trough_module_datafile(file_names[i])
-        elif module_data is not None:
-            assert len(module_data) == len(modules)
-            data = module_data[i]
-        else:
-            raise Exception("Either file_names or module_data must be assigned.")
-
-        missing_values = []  # for debugging
-        for k, v in data.items():
-            if k != "number_inputs":
-                try:
-                    modules[i].value(k, v)
-                except:
-                    missing_values.append(k)
-        pass
-
-
-def tes_cost(tech_model):
-    storage_cost_specific = 62  # [$/kWht] borrowed from physical power trough
-    tes_thermal_capacity = (
-        tech_model.value("q_pb_design") * 1e3 * tech_model.value("tshours")
-    )  # [kWht]
-    return tes_thermal_capacity * storage_cost_specific
-
-
-def system_capacity(tech_model):
-    return (
-        tech_model.value("q_pb_design")
-        * tech_model.value("specified_solar_multiple")
-        * 1e3
-    )  # [kW]
-
-
 def setup_pysam_trough_model(
-    model_name,
     weather_file=None,
-    weather_data=None,
-    config_files=None,
-    config_data=None,
+    config_data=None
 ):
-    tech_model = iph.new()
-    modules = [tech_model]
 
-    load_pysam_trough_config(modules, config_files, config_data)
+    tech_model = iph.new()
+
+    for k, v in config_data.items():
+        try:
+            tech_model.value(k, v)
+        except:
+            pass
+
+
     if weather_file is not None:
         tech_model.Weather.file_name = weather_file
-    elif weather_data is not None:
-        tech_model.Weather.solar_resource_data = weather_data
-    else:
-        raise Exception("Either weather_file or weather_data must be specified.")
 
-    return {
-        "tech_model": tech_model,
-    }
+    # return {
+    #     "tech_model": tech_model,
+    # }
+    return tech_model
 
 
 def run_pysam_trough_model(
-    modules,
+    tech_model,
     heat_load=None,
     hours_storage=None,
     return_tech_model=False,
 ):
-    tech_model = modules["tech_model"]
 
     if heat_load is not None:
         tech_model.value("q_pb_design", heat_load)
@@ -169,10 +118,10 @@ def run_pysam_trough_model(
 
 def setup_and_run_trough(weather_file, config_data, heat_load, hours_storage):
     model_name = "PhysicalTroughIPHLCOHCalculator"
-    modules = setup_pysam_trough_model(
-        model_name, weather_file=weather_file, config_data=config_data
+    tech_model = setup_pysam_trough_model(
+        weather_file=weather_file, config_data=config_data
     )
-    result = run_pysam_trough_model(modules, heat_load, hours_storage)
+    result = run_pysam_trough_model(tech_model, heat_load, hours_storage)
     return result
 
 
@@ -184,8 +133,7 @@ def run_pysam_kbhdp_trough_sweep(
     dataset_filename="",
 ):
 
-    config_data = [read_trough_module_datafile(config_file) for config_file in config_files]
-    del config_data[0]["file_name"]  # remove weather filename
+    config_data = read_trough_module_datafile(param_file)
 
     # output dataset for surrogate training
     dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
@@ -195,7 +143,7 @@ def run_pysam_kbhdp_trough_sweep(
 
     time_start = time.process_time()
     with multiprocessing.Pool(processes=processes) as pool:
-        args = [(model_name, weather_file, config_data, *args) for args in arguments]
+        args = [(weather_file, config_data, *args) for args in arguments]
         results = pool.starmap(setup_and_run_trough, args)
     time_stop = time.process_time()
     print("Multiprocessing time:", time_stop - time_start, "\n")
@@ -222,13 +170,21 @@ def run_pysam_kbhdp_trough_sweep(
 
 if __name__ == "__main__":
 
-    heat_loads = np.linspace(1, 10, 3)  # [MWt]
-    hours_storages = np.linspace(0, 24, 3)  # [hr]
-    # dataset_filename = f"trough_data_heat_load_{int(min(heat_loads))}_{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}_{int(max(hours_storages))}.pkl"
-    dataset_filename = "test.pkl"
+    config_data = read_trough_module_datafile(param_file)
 
-    run_pysam_kbhdp_trough_sweep(
-        heat_loads=heat_loads,
-        hours_storages=hours_storages,
-        dataset_filename=dataset_filename,
+    modules = setup_pysam_trough_model(
+        weather_file=weather_file, config_data=config_data
     )
+    
+    result, modules, tech_model = run_pysam_trough_model(modules, 5, 6, return_tech_model=True)
+
+    # heat_loads = np.linspace(1, 10, 3)  # [MWt]
+    # hours_storages = np.linspace(0, 24, 3)  # [hr]
+    # # dataset_filename = f"trough_data_heat_load_{int(min(heat_loads))}_{int(max(heat_loads))}_hours_storage_{int(min(hours_storages))}_{int(max(hours_storages))}.pkl"
+    # dataset_filename = "test.pkl"
+
+    # run_pysam_kbhdp_trough_sweep(
+    #     heat_loads=heat_loads,
+    #     hours_storages=hours_storages,
+    #     dataset_filename=dataset_filename,
+    # )
