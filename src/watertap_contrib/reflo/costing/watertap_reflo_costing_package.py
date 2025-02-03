@@ -858,10 +858,10 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         if not hasattr(treat_cost, "LCOW"):
             treat_cost.add_LCOW(flow_rate, name="LCOW")
-        
-        self.LCOT = pyo.Expression(expr = treat_cost.LCOW)
 
-        add_object_reference(self, name, getattr(treat_cost, 'LCOW'))
+        self.LCOT = pyo.Expression(expr=treat_cost.LCOW)
+
+        add_object_reference(self, name, getattr(treat_cost, "LCOW"))
 
     def add_LCOH(self):
         """
