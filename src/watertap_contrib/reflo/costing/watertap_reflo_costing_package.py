@@ -233,7 +233,6 @@ class EnergyCostingData(REFLOCostingData):
         super().build_process_costs()
 
     def build_LCOE_params(self):
-
         def rule_yearly_electricity_production(b, y):
             if y == 0:
                 return b.yearly_electricity_production[y] == pyo.units.convert(
@@ -269,7 +268,6 @@ class EnergyCostingData(REFLOCostingData):
             set_scaling_factor(self.lifetime_electricity_production, 1e-4)
 
     def build_LCOH_params(self):
-
         def rule_yearly_heat_production(b, y):
             if y == 0:
                 return b.yearly_heat_production[y] == pyo.units.convert(

@@ -82,7 +82,6 @@ def create_input_arrays(
     temperature_col=None,  # column from weather_data to use as temperature input data
     wind_velocity_col=None,  # column from weather_data to use as wind velocity input data
 ):
-
     def generate_continuous_day_series():
         # Days in each month for non-leap year
         days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -163,9 +162,11 @@ def get_solar_still_daily_water_yield(
     if len(blk.weather_data) > 8760:
         blk.weather_data = blk.weather_data.loc[:8760]
 
-    blk.ambient_temp_by_hr, blk.irradiance_by_hr, blk.wind_vel_by_hr = (
-        create_input_arrays(blk, **kwargs)
-    )
+    (
+        blk.ambient_temp_by_hr,
+        blk.irradiance_by_hr,
+        blk.wind_vel_by_hr,
+    ) = create_input_arrays(blk, **kwargs)
 
     len_data_hr = len(blk.irradiance_by_hr)
 
