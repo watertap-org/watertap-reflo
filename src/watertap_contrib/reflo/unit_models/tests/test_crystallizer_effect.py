@@ -110,7 +110,7 @@ def build_effect():
     eff.crystal_growth_rate.fix()
     eff.souders_brown_constant.fix()
     eff.crystal_median_length.fix()
-    eff.overall_heat_transfer_coefficient.fix(0.1)
+    eff.overall_heat_transfer_coefficient.fix(100)
 
     eff.pressure_operating.fix(operating_pressure_eff * pyunits.bar)
 
@@ -226,19 +226,19 @@ class TestCrystallizerEffect:
         m = effect_frame
 
         m.fs.properties.set_default_scaling(
-            "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
+            "flow_mass_phase_comp", 1, index=("Liq", "H2O")
         )
         m.fs.properties.set_default_scaling(
-            "flow_mass_phase_comp", 1e-1, index=("Liq", "NaCl")
+            "flow_mass_phase_comp", 1, index=("Liq", "NaCl")
         )
         m.fs.properties.set_default_scaling(
-            "flow_mass_phase_comp", 1e-1, index=("Vap", "H2O")
+            "flow_mass_phase_comp", 1, index=("Vap", "H2O")
         )
         m.fs.properties.set_default_scaling(
-            "flow_mass_phase_comp", 1e-1, index=("Sol", "NaCl")
+            "flow_mass_phase_comp", 1, index=("Sol", "NaCl")
         )
         m.fs.vapor_properties.set_default_scaling(
-            "flow_mass_phase_comp", 1e-1, index=("Vap", "H2O")
+            "flow_mass_phase_comp", 1, index=("Vap", "H2O")
         )
         m.fs.vapor_properties.set_default_scaling(
             "flow_mass_phase_comp", 1, index=("Liq", "H2O")
@@ -320,10 +320,12 @@ class TestCrystallizerEffect:
                     * m.fs.unit.properties_solids[0].dh_crystallization_mass_comp[
                         "NaCl"
                     ]
-                    + m.fs.unit.work_mechanical[0]
+                    + pyunits.convert(
+                        m.fs.unit.work_mechanical[0], to_units=pyunits.J * pyunits.s**-1
+                    )
                 )
             )
-            <= 1e-2
+            <= 1e-2 * 1e3
         )
 
     @pytest.mark.unit
@@ -332,25 +334,25 @@ class TestCrystallizerEffect:
 
         eff_dict = {
             "product_volumetric_solids_fraction": 0.132975,
-            "temperature_operating": 359.48,
-            "dens_mass_magma": 281.24,
-            "dens_mass_slurry": 1298.23,
+            "temperature_operating": 359.4,
+            "dens_mass_magma": 281.2434,
+            "dens_mass_slurry": 1298.2382,
             "work_mechanical": {0.0: 1704.47},
-            "diameter_crystallizer": 1.0799,
-            "height_slurry": 1.073,
-            "height_crystallizer": 1.883,
+            "diameter_crystallizer": 1.07996,
+            "height_slurry": 1.07307,
+            "height_crystallizer": 1.8830,
             "magma_circulation_flow_vol": 0.119395,
-            "relative_supersaturation": {"NaCl": 0.567038},
-            "t_res": 1.0228,
-            "volume_suspension": 0.982965,
+            "relative_supersaturation": {"NaCl": 0.56703},
+            "t_res": 1.022821,
+            "volume_suspension": 0.98296,
             "eq_max_allowable_velocity": 2.6304,
-            "eq_vapor_space_height": 0.809971,
+            "eq_vapor_space_height": 0.80997,
             "eq_minimum_height_diameter_ratio": 1.6199,
-            "energy_flow_superheated_vapor": 1518.73,
+            "energy_flow_superheated_vapor": 1518733.4,
             "delta_temperature_in": {0.0: 57.39},
-            "delta_temperature_out": {0.0: 123.72},
-            "delta_temperature": {0.0: 86.31},
-            "heat_exchanger_area": 197.47,
+            "delta_temperature_out": {0.0: 123.7},
+            "delta_temperature": {0.0: 86.3139},
+            "heat_exchanger_area": 197.474,
         }
 
         for v, r in eff_dict.items():
@@ -400,8 +402,7 @@ class TestCrystallizerEffect:
         sys_costing_dict = {
             "aggregate_capital_cost": 868242.67,
             "aggregate_flow_electricity": 2.1715,
-            "aggregate_flow_NaCl_recovered": 0.075,
-            "aggregate_flow_steam": 0.383078,
+            "aggregate_flow_steam": 0.38307,
             "aggregate_flow_costs": {
                 "electricity": 1564.26,
                 "NaCl_recovered": -67456.42,
@@ -415,7 +416,21 @@ class TestCrystallizerEffect:
             "total_variable_operating_cost": -9125.25,
             "total_annualized_cost": 114126.95,
             "LCOW": 4.0094,
+            "LCOW_component_direct_capex": {"fs.unit": 1.7074},
+            "LCOW_component_indirect_capex": {"fs.unit": 1.7074},
+            "LCOW_component_fixed_opex": {"fs.unit": 0.91508},
+            "LCOW_component_variable_opex": {"fs.unit": -0.320584},
+            "LCOW_aggregate_direct_capex": {"CrystallizerEffect": 1.7074},
+            "LCOW_aggregate_indirect_capex": {"CrystallizerEffect": 1.7074},
+            "LCOW_aggregate_fixed_opex": {"CrystallizerEffect": 0.91508},
+            "LCOW_aggregate_variable_opex": {
+                "CrystallizerEffect": -0.320584,
+                "electricity": 0.054954,
+                "NaCl_recovered": -2.3698,
+                "steam": 1.9943,
+            },
             "SEC": 0.66875,
+            "SEC_component": {"fs.unit": 0.66875},
         }
 
         for v, r in sys_costing_dict.items():
@@ -448,4 +463,9 @@ class TestCrystallizerEffect:
             == 0.383078
         )
 
-        assert value(m.fs.unit.heating_steam[0].flow_vol_phase["Liq"]) == 0
+        assert (
+            pytest.approx(
+                value(m.fs.unit.heating_steam[0].flow_vol_phase["Liq"]), rel=1e-8
+            )
+            == 0
+        )
