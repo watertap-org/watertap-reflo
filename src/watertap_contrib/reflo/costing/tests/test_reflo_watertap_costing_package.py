@@ -492,7 +492,6 @@ class TestCostingPackagesDefault:
 
 
 class TestElectricityGenOnlyWithHeat:
-
     @pytest.fixture(scope="class")
     def energy_gen_only_with_heat(self):
 
@@ -629,7 +628,6 @@ class TestElectricityGenOnlyWithHeat:
 
 
 class TestElectricityGenOnlyNoHeat:
-
     @pytest.fixture(scope="class")
     def elec_gen_only_no_heat(self):
 
@@ -899,7 +897,6 @@ class TestHeatGenOnly:
 
 
 class TestElectricityAndHeatGen:
-
     @pytest.fixture(scope="class")
     def heat_and_elec_gen(self):
 

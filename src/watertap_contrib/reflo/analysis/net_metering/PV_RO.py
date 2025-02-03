@@ -210,12 +210,12 @@ def initialize_treatment(m, water_recovery=0.5):
     ro.feed_side.velocity[0, 0].fix(0.55)  # crossflow velocity (m/s)
     # ro.feed_side.velocity[0, 0].unfix() # crossflow velocity (m/s)
 
-    ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"] = (
-        p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]()
-    )
-    ro.feed_side.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"] = (
-        p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]()
-    )
+    ro.feed_side.properties_in[0].flow_mass_phase_comp[
+        "Liq", "H2O"
+    ] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]()
+    ro.feed_side.properties_in[0].flow_mass_phase_comp[
+        "Liq", "NaCl"
+    ] = p1.control_volume.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]()
     ro.feed_side.properties_in[0].temperature = feed.properties[0].temperature()
     ro.feed_side.properties_in[0].pressure = p1.control_volume.properties_out[
         0

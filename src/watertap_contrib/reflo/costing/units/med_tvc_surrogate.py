@@ -150,7 +150,8 @@ def cost_med_tvc_surrogate(blk):
         dist.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.day
     )
     blk.capacity_dimensionless = pyo.units.convert(
-        blk.capacity * pyo.units.day * pyo.units.m**-3, to_units=pyo.units.dimensionless
+        blk.capacity * pyo.units.day * pyo.units.m**-3,
+        to_units=pyo.units.dimensionless,
     )
 
     blk.annual_dist_production = pyo.units.convert(
