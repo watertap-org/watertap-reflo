@@ -170,8 +170,7 @@ class DeepWellInjectionData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.dimensionless,
             )
             pipe_diameter = (
-                b.pipe_diameter_coeff
-                * flow_mgd_dimensionless**b.pipe_diameter_exponent
+                b.pipe_diameter_coeff * flow_mgd_dimensionless**b.pipe_diameter_exponent
             )
             return smooth_bound(pipe_diameter, 2, 24) * pyunits.inches
 

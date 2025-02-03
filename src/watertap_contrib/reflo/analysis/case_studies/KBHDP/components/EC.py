@@ -202,12 +202,8 @@ def set_scaling(m, blk):
     m.fs.properties.set_default_scaling(
         "flow_mass_comp", 10**-scale_flow, index=("H2O")
     )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_comp", 10**-scale_tds, index=("tds")
-    )
-    m.fs.properties.set_default_scaling(
-        "flow_mass_comp", 10**-scale_tss, index=("tss")
-    )
+    m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tds, index=("tds"))
+    m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tss, index=("tss"))
     calculate_scaling_factors(m)
 
 

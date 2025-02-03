@@ -218,9 +218,9 @@ def get_solar_still_daily_water_yield(
     blk.salinity[0] = blk.initial_salinity
     blk.salinity[1] = blk.initial_salinity
     blk.excess_salinity[0] = blk.initial_salinity
-    blk.excess_salinity[
-        1
-    ] = blk.initial_salinity  # Salinity without maximum solublity (g/l)
+    blk.excess_salinity[1] = (
+        blk.initial_salinity
+    )  # Salinity without maximum solublity (g/l)
 
     blk.depth[0] = blk.initial_water_depth
     blk.depth[1] = blk.initial_water_depth

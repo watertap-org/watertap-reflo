@@ -698,9 +698,9 @@ class LTMEDData(UnitModelBlockData):
         var_dict = {}
         var_dict["Gained output ratio"] = self.gain_output_ratio
         var_dict["Thermal power requirement (kW)"] = self.thermal_power_requirement
-        var_dict[
-            "Specific thermal energy consumption (kWh/m3)"
-        ] = self.specific_energy_consumption_thermal
+        var_dict["Specific thermal energy consumption (kWh/m3)"] = (
+            self.specific_energy_consumption_thermal
+        )
         var_dict["Feed water volumetric flow rate"] = self.feed_props[0].flow_vol_phase[
             "Liq"
         ]

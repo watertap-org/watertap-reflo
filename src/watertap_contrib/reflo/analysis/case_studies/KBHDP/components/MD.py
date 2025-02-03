@@ -394,9 +394,7 @@ def md_output(blk, n_time_points, model_options):
         / pyunits.h
     )
 
-    brine_flow_rate = pyunits.convert(
-        brine_production_rate, pyunits.m**3 / pyunits.day
-    )
+    brine_flow_rate = pyunits.convert(brine_production_rate, pyunits.m**3 / pyunits.day)
 
     brine_salinity = pyunits.convert(
         active_blks[-1].fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"],

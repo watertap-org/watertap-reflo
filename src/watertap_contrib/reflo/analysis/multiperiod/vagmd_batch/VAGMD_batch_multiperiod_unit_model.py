@@ -216,9 +216,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
                 self.mp.get_active_process_blocks()[
                     -1
                 ].fs.specific_energy_consumption_thermal
-                * pyunits.convert(
-                    b.system_capacity, to_units=pyunits.m**3 / pyunits.h
-                )
+                * pyunits.convert(b.system_capacity, to_units=pyunits.m**3 / pyunits.h)
             )
 
         @self.Constraint(
@@ -229,9 +227,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
                 self.mp.get_active_process_blocks()[
                     -1
                 ].fs.specific_energy_consumption_electric
-                * pyunits.convert(
-                    b.system_capacity, to_units=pyunits.m**3 / pyunits.h
-                )
+                * pyunits.convert(b.system_capacity, to_units=pyunits.m**3 / pyunits.h)
             )
 
         super().calculate_scaling_factors()
