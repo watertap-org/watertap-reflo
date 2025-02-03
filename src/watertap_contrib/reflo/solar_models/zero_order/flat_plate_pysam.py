@@ -33,7 +33,7 @@ __author__ = "Kurban Sitterley"
 
 
 @declare_process_block_class("FlatPlatePySAM")
-class FlatPlateSurrogateData(SolarEnergyBaseData):
+class FlatPlatePySAMData(SolarEnergyBaseData):
     """
     PySAM model for flat plate.
     """
@@ -48,14 +48,17 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             bounds=(0, None),
             units=pyunits.megawatt,
         )
+
         self.heat_annual = Var(
             initialize=1,
             units=pyunits.kWh,
         )
+
         self.electricity_annual = Var(
             initialize=1,
             units=pyunits.kWh,
         )
+        
         self.hours_storage = Param(
             initialize=1,
             mutable=True,
