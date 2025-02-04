@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -945,7 +945,7 @@ class TestElectricityAndHeatGen:
         assert hasattr(m.fs.energy.costing, "LCOE")
         assert hasattr(m.fs.energy.costing, "LCOH")
         # treatment metrics on TreatmentCosting
-        assert not hasattr(m.fs.treatment.costing, "LCOT")
+        assert hasattr(m.fs.treatment.costing, "LCOT")
         assert hasattr(m.fs.treatment.costing, "SEEC")
         assert hasattr(m.fs.treatment.costing, "STEC")
 
@@ -1089,6 +1089,116 @@ def test_no_energy_treatment_block():
         match="REFLOSystemCosting package requires a EnergyCosting block but one was not found\\.",
     ):
         m.fs.costing = REFLOSystemCosting()
+
+
+@pytest.mark.component
+def test_add_LCOW_and_LCOT_to_treatment_and_system_costing():
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = SeawaterParameterBlock()
+
+    #### TREATMENT BLOCK
+    m.fs.treatment = Block()
+    m.fs.treatment.costing = TreatmentCosting()
+    m.fs.treatment.costing.base_currency = pyunits.USD_2011
+
+    m.fs.treatment.unit = DummyTreatmentUnit(property_package=m.fs.properties)
+    m.fs.treatment.unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.treatment.costing
+    )
+
+    m.fs.treatment.unit.design_var_a.fix()
+    m.fs.treatment.unit.design_var_b.fix()
+    m.fs.treatment.unit.electricity_consumption.fix(110)
+    m.fs.treatment.unit.heat_consumption.fix(250)
+
+    m.fs.treatment.costing.cost_process()
+    # add_LCOW and add_LCOT to TreatmentCosting before adding to REFLOSystemCosting.
+    # At this point, LCOW and LCOT are parameters on TreatmentCosting.
+    m.fs.treatment.costing.add_LCOW(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
+    m.fs.treatment.costing.add_LCOT(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
+    LCOT_id = id(m.fs.treatment.costing.LCOT)
+    LCOW_id = id(m.fs.treatment.costing.LCOW)
+
+    #### ENERGY BLOCK
+    m.fs.energy = Block()
+    m.fs.energy.costing = EnergyCosting()
+    m.fs.energy.costing.base_currency = pyunits.USD_2011
+    m.fs.energy.heat_unit = DummyHeatUnit()
+    m.fs.energy.elec_unit = DummyElectricityUnit()
+    m.fs.energy.heat_unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.energy.costing
+    )
+    m.fs.energy.elec_unit.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.energy.costing
+    )
+    m.fs.energy.heat_unit.heat.fix(50)
+    m.fs.energy.elec_unit.electricity.fix(100)
+    m.fs.energy.costing.cost_process()
+
+    #### SYSTEM COSTING
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.cost_process()
+
+    #### SCALING
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
+    )
+    m.fs.properties.set_default_scaling(
+        "flow_mass_phase_comp", 1e-1, index=("Liq", "TDS")
+    )
+    calculate_scaling_factors(m)
+
+    #### INITIALIZE
+    m.fs.treatment.unit.properties.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): 0.4381,
+            ("conc_mass_phase_comp", ("Liq", "TDS")): 20,
+            ("temperature", None): 293,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
+    )
+
+    assert degrees_of_freedom(m) == 0
+
+    m.fs.treatment.unit.initialize()
+    m.fs.treatment.costing.initialize()
+    m.fs.energy.costing.initialize()
+    m.fs.costing.initialize()
+    m.fs.costing.add_LCOE()
+    m.fs.costing.add_LCOH()
+    m.fs.costing.add_specific_electric_energy_consumption(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
+    m.fs.costing.add_specific_thermal_energy_consumption(
+        m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
+    m.fs.costing.add_LCOW(m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"])
+    m.fs.costing.add_LCOT(m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"])
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+
+    # check that we have created new objects and
+    # not just references to LCOW and LCOT
+    assert id(m.fs.costing.LCOT) != LCOT_id
+    assert id(m.fs.costing.LCOW) != LCOW_id
+    # check that LCOW doesn't exist anymore on treatment costing
+    assert not hasattr(m.fs.treatment.costing, "LCOW")
+    assert hasattr(m.fs.treatment.costing, "_LCOW_flow_rate")
+    assert (
+        m.fs.treatment.costing._LCOW_flow_rate
+        is m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
+    )
+    assert m.fs.costing.LCOT is m.fs.treatment.costing.LCOT
+    assert m.fs.costing.LCOE is m.fs.energy.costing.LCOE
+    assert m.fs.costing.LCOH is m.fs.energy.costing.LCOH
 
 
 @pytest.mark.component
