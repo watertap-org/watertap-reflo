@@ -29,6 +29,7 @@ __all__ = [
     "train_pv_surrogate",
     "set_pv_constraints",
     "add_pv_scaling",
+    "add_pv_costing",
     "add_pv_costing_scaling",
     "print_PV_costing_breakdown",
     "report_PV",

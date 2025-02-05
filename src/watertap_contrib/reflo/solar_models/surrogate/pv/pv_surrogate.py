@@ -98,8 +98,8 @@ class PVSurrogateData(SolarEnergyBaseData):
         self.init_data = pd.DataFrame(
             {
                 "design_size": [value(self.design_size)],
-                "annual_energy": [value(self.annual_energy)],
-                "land_req": [value(self.land_req)],
+                # "annual_energy": [value(self.annual_energy)],
+                # "land_req": [value(self.land_req)],
             }
         )
         self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
