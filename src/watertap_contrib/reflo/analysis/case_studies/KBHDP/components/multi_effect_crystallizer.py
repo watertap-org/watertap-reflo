@@ -182,8 +182,10 @@ def init_mec(m, blk, feed_props=None, verbose=True, solver=None):
     feed_props.flow_vol_phase
     feed_props.parent_block().initialize()
 
-    total_flow = (feed_props.flow_mass_phase_comp["Liq", "H2O"] 
-                    + feed_props.flow_mass_phase_comp["Liq", "NaCl"])
+    total_flow = (
+        feed_props.flow_mass_phase_comp["Liq", "H2O"]
+        + feed_props.flow_mass_phase_comp["Liq", "NaCl"]
+    )
     unit_water_flow = feed_props.flow_mass_phase_comp["Liq", "H2O"] / total_flow
     unit_NaCl_flow = feed_props.flow_mass_phase_comp["Liq", "NaCl"] / total_flow
     # tds = 120 * pyunits.kg / pyunits.m**3
@@ -200,7 +202,7 @@ def init_mec(m, blk, feed_props=None, verbose=True, solver=None):
 
     flow_mass_phase_water_per = unit_water_flow * pyunits.kg / pyunits.s
     flow_mass_phase_salt_per = unit_NaCl_flow * pyunits.kg / pyunits.s
-    
+
     saturated_steam_pressure = atm_pressure + pyunits.convert(
         m.saturated_steam_pressure_gage * pyunits.bar, to_units=pyunits.Pa
     )
@@ -222,7 +224,7 @@ def init_mec(m, blk, feed_props=None, verbose=True, solver=None):
         eff.effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
         eff.effect.properties_in[0].conc_mass_phase_comp[...]
 
-        eff.effect.crystallization_yield["NaCl"].fix(m.crystallizer_yield)
+        eff.effect.crystallization_yield["NaCl"].fix(m.crystallization_yield)
         eff.effect.crystal_growth_rate.fix()
         eff.effect.souders_brown_constant.fix()
         eff.effect.crystal_median_length.fix()
@@ -351,7 +353,7 @@ def add_mec_costing(m, blk, flowsheet_costing_block=None):
         flowsheet_costing_block = m.fs.costing
     blk.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=flowsheet_costing_block,
-        costing_method_arguments={"cost_work_as": "heat"}
+        costing_method_arguments={"cost_work_as": "heat"},
     )
 
 

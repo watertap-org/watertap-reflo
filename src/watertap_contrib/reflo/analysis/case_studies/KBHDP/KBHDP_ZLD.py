@@ -1,5 +1,7 @@
 import os
-import math
+import numpy as np
+import pandas as pd
+from scipy.optimize import curve_fit
 from functools import partial
 from collections import defaultdict
 from pyomo.environ import (
@@ -7,6 +9,7 @@ from pyomo.environ import (
     value,
     Set,
     Var,
+    Param,
     SolverFactory,
     Constraint,
     Objective,
@@ -14,6 +17,7 @@ from pyomo.environ import (
     TransformationFactory,
     Block,
     check_optimal_termination,
+    assert_optimal_termination,
     units as pyunits,
 )
 from pyomo.util.check_units import assert_units_consistent
@@ -47,6 +51,10 @@ from watertap_contrib.reflo.costing import (
 from watertap_contrib.reflo.core import REFLODatabase
 from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.FPC import *
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
+    build_results_dict,
+    results_dict_append,
+)
 
 _log = idaeslog.getLogger(__name__)
 
@@ -279,23 +287,6 @@ def set_treatment_scaling(m):
     )
     m.fs.RO_properties.set_default_scaling(
         "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
-    )
-
-
-def add_constraints(m):
-    treatment = m.fs.treatment
-
-    m.fs.water_recovery = Var(
-        initialize=0.5,
-        bounds=(0, 0.99),
-        domain=NonNegativeReals,
-        units=pyunits.dimensionless,
-        doc="System Water Recovery",
-    )
-
-    m.fs.eq_water_recovery = Constraint(
-        expr=treatment.feed.properties[0].flow_vol * m.fs.water_recovery
-        == treatment.product.properties[0].flow_vol
     )
 
 
@@ -620,15 +611,16 @@ def build_and_run_mec_system(
     number_effects=4,
     mec_kwargs=dict(),
 ):
-    m = build_mec_system(number_effects=number_effects)
-    set_mec_operating_conditions(m, Qin=Qin, tds=Cin, **mec_kwargs)
+    m = build_mec_system(number_effects=number_effects, **mec_kwargs)
+    set_mec_operating_conditions(m, Qin=Qin, Cin=Cin, **mec_kwargs)
     init_mec_system(m)
     results = solve(m)
+
     # display_mec_streams(m, m.fs.MEC)
     return m
 
 
-def build_mec_system(number_effects=4):
+def build_mec_system(number_effects=4, nacl_recovered_cost=None, **kwargs):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
@@ -640,7 +632,8 @@ def build_mec_system(number_effects=4):
         )
     )
     m.fs.costing.heat_cost.fix(0.01660)
-    
+    m.nacl_recovered_cost = nacl_recovered_cost
+
     m.fs.properties = CrystallizerParameterBlock()
     m.fs.vapor_properties = WaterParameterBlock()
 
@@ -651,6 +644,9 @@ def build_mec_system(number_effects=4):
     m.fs.MEC = mec = FlowsheetBlock(dynamic=False)
 
     build_mec(m, m.fs.MEC, number_effects=number_effects)
+
+    # if nacl_recovered_cost is not None:
+    # m.fs.costing.nacl_recovered.cost.set_value(nacl_recovered_cost)
 
     m.fs.feed_to_unit = Arc(source=m.fs.feed.outlet, destination=mec.unit.inlet)
 
@@ -666,11 +662,11 @@ def build_mec_system(number_effects=4):
 def set_mec_operating_conditions(
     m,
     Qin=None,  # MGD
-    tds=None,  # g/L
+    Cin=None,  # g/L
     flow_mass_water=None,
     flow_mass_tds=None,
     operating_pressures=[0.45, 0.25, 0.208, 0.095],
-    crystallizer_yield=0.5,
+    crystallization_yield=0.5,
     saturated_steam_pressure_gage=3,
     heat_transfer_coefficient=0.1,
     **kwargs,
@@ -683,7 +679,7 @@ def set_mec_operating_conditions(
     )
 
     m.operating_pressures = operating_pressures
-    m.crystallizer_yield = crystallizer_yield
+    m.crystallization_yield = crystallization_yield
     m.heat_transfer_coefficient = heat_transfer_coefficient
     m.saturated_steam_pressure = saturated_steam_pressure
     m.saturated_steam_pressure_gage = saturated_steam_pressure_gage
@@ -698,8 +694,8 @@ def set_mec_operating_conditions(
         m.flow_mass_water = flow_mass_water
         m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_water)
     if flow_mass_tds is None:
-        tds = tds * pyunits.gram / pyunits.liter
-        m.flow_mass_tds = pyunits.convert(Qin * tds, to_units=pyunits.kg / pyunits.s)
+        Cin = Cin * pyunits.gram / pyunits.liter
+        m.flow_mass_tds = pyunits.convert(Qin * Cin, to_units=pyunits.kg / pyunits.s)
         m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "NaCl"].fix(m.flow_mass_tds)
     else:
         m.flow_mass_tds = flow_mass_tds
@@ -731,8 +727,13 @@ def init_mec_system(m):
     m.fs.solids.initialize()
 
     add_mec_costing(m, m.fs.MEC)
+
+    if m.nacl_recovered_cost is not None:
+        m.fs.costing.nacl_recovered.cost.set_value(m.nacl_recovered_cost)
+
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol_phase["Liq"])
+
     m.fs.costing.initialize()
 
 
@@ -841,19 +842,196 @@ def optimize(
 
 ############################################################
 ############################################################
+#################### ENERGY ################################
+############################################################
+############################################################
+
+
+def build_and_run_zld_energy_model(
+    m1,
+    m_md,
+    m_mec,
+    frac_heat_from_grid=0.5,
+    frac_elec_from_grid=0.5,
+    heat_load_start=10,
+    increment_heat_load=1,
+    design_size_start=1000,
+    design_size_end=10000,
+    increment_design_size=10,
+    hours_storage=24,
+    **kwargs,
+):
+    # global surr_results
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.frac_heat_from_grid = Param(initialize=frac_heat_from_grid)
+    m.fs.frac_elec_from_grid = Param(initialize=frac_elec_from_grid)
+    # energy = m.fs.energy = Block()
+    m.fs.costing = EnergyCosting()
+
+    build_pv(m, energy_blk=m.fs)
+    m.fs.pv.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
+    )
+
+    build_trough_pysam(m, energy_blk=m.fs)
+    m.fs.trough.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+    set_trough_pysam_op_conditions(m, m.fs, hours_storage=hours_storage)
+
+    # Find heat load for trough
+    heat_annual_required = value(
+        pyunits.convert(
+            (m_md.fs.costing.aggregate_flow_heat + m_mec.fs.costing.aggregate_flow_heat)
+            * frac_heat_from_grid,
+            to_units=pyunits.kWh * pyunits.year**-1,
+        )
+    )
+    # heat_load_required, pysam_results = get_trough_heat_load(
+    #     m,
+    #     heat_annual_required,
+    #     heat_load_start=heat_load_start,
+    #     increment_heat_load=increment_heat_load,
+    # )
+    print(kwargs, sep="\n")
+    heat_load_required, pysam_results = get_zld_trough_heat_load(
+        m, heat_annual_required, **kwargs
+    )
+    m.fs.trough.slope_of_fit = Param(initialize=pysam_results["slope"])
+    m.fs.trough.heat_annual.fix(pysam_results["annual_energy"])
+    m.fs.trough.electricity_annual.fix(pysam_results["electrical_load"])
+    m.fs.trough.heat_load.fix(heat_load_required)
+
+    # presolve the trough model to get the electricity requirement
+    results = solve(m.fs.trough)
+    assert_optimal_termination(results)
+
+    design_sizes = np.arange(
+        design_size_start,
+        design_size_end + increment_design_size,
+        increment_design_size,
+    )
+
+    init_data = pd.DataFrame({"design_size": design_sizes})
+    surr_results = m.fs.pv.surrogate.evaluate_surrogate(init_data)
+    surr_results["design_size"] = design_sizes
+
+    electricity_annual_required = value(
+        pyunits.convert(
+            (
+                m1.fs.costing.aggregate_flow_electricity
+                + m_md.fs.costing.aggregate_flow_electricity
+                + m_mec.fs.costing.aggregate_flow_electricity
+                + m.fs.trough.electricity
+            )
+            * frac_elec_from_grid,
+            to_units=pyunits.kWh * pyunits.year**-1,
+        )
+    )
+
+    i = 0
+    annual_energy = surr_results.loc[i].annual_energy
+    while annual_energy < electricity_annual_required:
+        i += 1
+        if i > max(surr_results.index):
+            raise ValueError()
+        annual_energy = surr_results.loc[i].annual_energy
+        design_size = surr_results.loc[i].design_size
+
+    m.fs.pv.design_size.fix(design_size)
+    assert degrees_of_freedom(m) == 0
+
+    m.fs.costing.cost_process()
+
+    results = solve(m)
+    assert_optimal_termination(results)
+
+    return m, pysam_results
+
+
+def get_zld_trough_heat_load(
+    m,
+    heat_annual_required,
+    heat_load_to_fit=50,
+    fit_guess=False,
+    slope=None,
+    lb=0.98,
+    ub=1.02,
+    **kwargs,
+):
+
+    def heat_annual_linear(heat_load, slope):
+        return heat_load * slope
+
+    if slope is None:
+        fit_guess = True
+
+    if fit_guess:
+        pysam_results = run_pysam_trough(m, heat_load=heat_load_to_fit)
+
+        x = [0, heat_load_to_fit]  # input heat_load in MW
+        y = [0, pysam_results["annual_energy"]]  # PySAM heat_annual in kWh
+
+        popt, _ = curve_fit(heat_annual_linear, x, y)
+        slope = popt[0]
+
+    # heat_annual_required = heat_load * slope
+    heat_load_guess = heat_annual_required / slope
+    pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
+    heat_annual_guess = pysam_results["annual_energy"]
+    # ratio = heat_annual_required / heat_annual_guess
+    # heat_load_guess *= ratio
+    # pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
+    pysam_results["slope"] = slope
+
+    if (
+        not lb * heat_annual_required
+        < pysam_results["annual_energy"]
+        < heat_annual_required * ub
+    ):
+        msg = "The calculated heat_annual is not within the acceptable bounds:"
+        msg += f"\n\t{lb * heat_annual_required:.2f} < {heat_annual_guess:.2f} < {heat_annual_required * ub:2f}"
+        msg += "\nTrying again."
+        # raise ValueError(msg)
+        print(msg)
+        heat_load_required, pysam_results = get_trough_heat_load(
+            m,
+            heat_annual_required,
+            heat_load_to_fit=heat_load_guess,
+            lb=lb,
+            ub=ub,
+            **kwargs,
+        )
+
+    msg = "Found acceptable heat_load!!"
+    msg += f"\n\t{lb * heat_annual_required:.2f} < {heat_annual_guess:.2f} < {heat_annual_required * ub:2f}"
+    print(msg)
+
+    heat_load_required = heat_load_guess
+
+    return heat_load_required, pysam_results
+
+
+############################################################
+############################################################
 #################### FULL ZLD TRAIN ########################
 ############################################################
 ############################################################
 
 
-def build_and_run_kbhdp_zld(primary_kwargs=dict()):
+def build_and_run_kbhdp_zld(
+    primary_kwargs=dict(),
+    md_kwargs=dict(),
+    mec_op_kwargs=dict(),
+    en_kwargs=dict(),
+):
 
     m1 = build_and_run_primary_treatment(**primary_kwargs)
 
     flow_to_md = value(m1.fs.brine.flow_mgd)
     tds_to_md = value(m1.fs.brine.properties[0].conc_mass_phase_comp["Liq", "TDS"])
 
-    m_md = build_and_run_md_system(Qin=flow_to_md, Cin=tds_to_md)
+    m_md = build_and_run_md_system(Qin=flow_to_md, Cin=tds_to_md, **md_kwargs)
 
     flow_to_mec = value(m_md.fs.disposal.flow_mgd)
     tds_to_mec = value(
@@ -867,12 +1045,20 @@ def build_and_run_kbhdp_zld(primary_kwargs=dict()):
         m_md.fs.disposal.properties[0].flow_mass_phase_comp["Liq", "TDS"]
     )
     mec_kwargs = dict(flow_mass_water=flow_mass_water, flow_mass_tds=flow_mass_tds)
+    mec_kwargs.update(mec_op_kwargs)
 
     m_mec = build_and_run_mec_system(mec_kwargs=mec_kwargs)
 
     # m_mec.fs.costing.display()
+    m_en, pysam_results = build_and_run_zld_energy_model(
+        m1,
+        m_md,
+        m_mec,
+        slope=5495407.843363707,  # fit with 50 MW heat_load, 24 hr storage
+        **en_kwargs,
+    )
 
-    m_agg = build_agg_model(m1, m_md, m_mec)
+    m_agg = build_agg_model(m1, m_md, m_mec, m_en)
 
     print(f" dof = {degrees_of_freedom(m_agg)}")
     solver = SolverFactory("ipopt")
@@ -881,8 +1067,7 @@ def build_and_run_kbhdp_zld(primary_kwargs=dict()):
     m_agg.fs.costing.display()
     m_agg.fs.costing.LCOW.display()
 
-    return m1, m_md, m_mec
-
+    return m1, m_md, m_mec, m_en, m_agg
 
 
 def build_agg_costing_blk(
@@ -907,6 +1092,8 @@ def build_agg_costing_blk(
     b.heat_cost = value(models[0].fs.costing.heat_cost)
 
     for m in models:
+        if m.name == "energy":
+            continue
         assert value(m.fs.costing.capital_recovery_factor) == value(
             b.capital_recovery_factor
         )
@@ -937,6 +1124,7 @@ def build_agg_costing_blk(
             if f in m.fs.costing._registered_flows.keys():
                 b.registered_flows[f].extend(m.fs.costing._registered_flows[f])
                 b.registered_flow_costs[f].append(value(agg_flow_cost[f]))
+
         for e in m.fs.costing._registered_unit_costing:
             b.registered_unit_costing.add(e)
 
@@ -948,9 +1136,6 @@ def build_agg_costing_blk(
             value(m.fs.costing.total_capital_cost) for m in models
         )
 
-    # b.total_capital_cost_constraint = Constraint(
-    #     expr=
-    # )
     b.total_operating_cost = Var(initialize=1e4, units=b.base_currency / b.base_period)
 
     @b.Constraint()
@@ -993,12 +1178,27 @@ def build_agg_costing_blk(
             numerator / denominator, to_units=b.base_currency / pyunits.m**3
         )
 
+    @b.Expression()
+    def LCOT(blk):
+        numerator = (
+            blk.total_capital_cost * blk.capital_recovery_factor
+            + blk.total_operating_cost
+        )
+        denominator = pyunits.convert(
+            product_flow * pyunits.m**3 / pyunits.s,
+            to_units=pyunits.m**3 / b.base_period,
+        )
+        return pyunits.convert(
+            numerator / denominator, to_units=b.base_currency / pyunits.m**3
+        )
 
-def build_agg_model(m1, m_md, m_mec):
+
+def build_agg_model(m1, m_md, m_mec, m_en):
 
     m1.name = "primary"
     m_md.name = "MD"
     m_mec.name = "MEC"
+    m_en.name = "energy"
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -1019,118 +1219,106 @@ def build_agg_model(m1, m_md, m_mec):
 
     build_agg_costing_blk(
         m.fs.costing,
-        models=[m1, m_md, m_mec],
+        models=[m1, m_md, m_mec, m_en],
         # inlet_flows=m.fs.inlet_flows,
         product_flow=m.fs.flow_treated,
     )
 
-
     return m
-
-
-
-def build_energy(m):
-    energy = m.fs.energy = Block()
-    build_pv(m)
-    build_fpc_mid(m)
-
-
-def add_energy_costing(m):
-    energy = m.fs.energy
-    energy.costing = EnergyCosting()
-    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
-    m.fs.energy.costing.electricity_cost.fix(elec_cost)
-
-    energy.pv.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=energy.costing,
-    )
-
-    energy.costing.cost_process()
-    energy.costing.initialize()
 
 
 if __name__ == "__main__":
 
-    m1, m_md, m_mec = build_and_run_kbhdp_zld()
-    # build_and_run_mec_system()
+    save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/KBHDP/ZLD/zld_sweep_results"
 
-    # m1.fs.water_recovery.display()
-    # m_md.fs.disposal.properties[0].display()
+    primary_kwargs = dict(water_recovery=0.82)
+    md_kwargs = dict(water_recovery=0.70)
+    mec_op_kwargs = dict(crystallization_yield=0.5, nacl_recovered_cost=-0.05)
+    en_kwargs = dict(frac_heat_from_grid=0.6, frac_elec_from_grid=0.25)
+    m1, m_md, m_mec, m_en, m_agg = build_and_run_kbhdp_zld(
+        primary_kwargs=primary_kwargs,
+        md_kwargs=md_kwargs,
+        mec_op_kwargs=mec_op_kwargs,
+        en_kwargs=en_kwargs,
+    )
 
-    pass
+    # m_mec.fs.costing.nacl_recovered.cost.display()
+    # m_mec.fs.costing.aggregate_flow_costs.display()
 
-    # _treatment()
-    # m1.fs.water_recovery.display()
-    # m1.fs.treatment.brine.properties[0].display()
-    # m = build_md_system(Qin=value(m1.fs.treatment.brine.flow_mgd), Cin=value(m1.fs.treatment.brine.properties[0].conc_mass_phase_comp["Liq", "TDS"]))
+    skips = [
+        "diffus_phase",
+        "diffus_param",
+        "dens_mass_param",
+        "dh_vap_w_param",
+        "cp_phase_param",
+        "pressure_sat_param_psatw",
+        "enth_mass_param",
+        "osm_coeff_param",
+        "bpe_",
+        "TIC",
+        "TPEC",
+    ]
 
-    # # m = build_md_system(Qin=1, Cin=60)
+    # rd_mec = build_results_dict(m_mec, skips=skips)
+    # rd_mec = results_dict_append(m_mec, rd_mec)
+    # for k, v in rd_mec.items():
+    #     if "_recovered" in k:
+    #         print(v)
 
-    # set_md_operating_conditions(m)
-    # init_md_system(m)
+    rd_1 = build_results_dict(m1, skips=skips)
+    rd_md = build_results_dict(m_md, skips=skips)
+    rd_mec = build_results_dict(m_mec, skips=skips)
+    rd_en = build_results_dict(m_en, skips=skips)
+    rd_agg = build_results_dict(m_agg, skips=skips)
 
-    # # m.fs.feed.properties[0].display()
+    for cy in [0.5, 0.9]:
+        mec_op_kwargs["crystallization_yield"] = cy
+        m1, m_md, m_mec, m_en, m_agg = build_and_run_kbhdp_zld(
+            primary_kwargs=primary_kwargs,
+            md_kwargs=md_kwargs,
+            mec_op_kwargs=mec_op_kwargs,
+            en_kwargs=en_kwargs,
+        )
 
-    # results = solve(m, tee=False)
+        rd_1 = results_dict_append(m1, rd_1)
+        rd_md = results_dict_append(m_md, rd_md)
+        rd_mec = results_dict_append(m_mec, rd_mec)
+        rd_en = results_dict_append(m_en, rd_en)
+        rd_agg = results_dict_append(m_agg, rd_agg)
 
-    # m.fs.feed.properties[0].flow_vol_phase
-    # m.fs.md.feed.properties[0].flow_vol_phase
-    # m.fs.disposal.properties[0].flow_vol_phase
-    # m.fs.disposal.properties[0].conc_mass_phase_comp
+    df_1 = pd.DataFrame.from_dict(rd_1)
+    df_1.rename(
+        columns={c: c.replace("fs", "m1.fs") for c in df_1.columns}, inplace=True
+    )
+    df_md = pd.DataFrame.from_dict(rd_md)
+    df_md.rename(
+        columns={c: c.replace("fs", "md.fs") for c in df_md.columns}, inplace=True
+    )
+    df_mec = pd.DataFrame.from_dict(rd_mec)
+    df_mec.rename(
+        columns={c: c.replace("fs", "m_mec.fs") for c in df_mec.columns}, inplace=True
+    )
+    df_en = pd.DataFrame.from_dict(rd_en)
+    df_en.rename(
+        columns={c: c.replace("fs", "m_en.fs") for c in df_en.columns}, inplace=True
+    )
+    df_agg = pd.DataFrame.from_dict(rd_agg)
+    df_agg.rename(
+        columns={c: c.replace("fs", "m_agg.fs") for c in df_agg.columns}, inplace=True
+    )
 
-    # m.fs.md.unit.add_costing_module(m.fs.costing)
+    df_1.to_csv(f"{save_path}/test_1.csv", index=False)
+    df_md.to_csv(f"{save_path}/test_md.csv", index=False)
+    df_mec.to_csv(f"{save_path}/test_mec.csv", index=False)
+    df_en.to_csv(f"{save_path}/test_en.csv", index=False)
+    df_agg.to_csv(f"{save_path}/test_agg.csv", index=False)
 
-    # m.fs.costing.cost_process()
-    # m.fs.costing.initialize()
+    df_combo = pd.concat([df_1, df_md, df_mec, df_en, df_agg])
 
-    # prod_flow = pyunits.convert(
-    #     m.fs.product.properties[0].flow_vol_phase["Liq"],
-    #     to_units=pyunits.m**3 / pyunits.day,
-    # )
+    df_combo.to_csv(f"{save_path}/test_combo.csv", index=False)
 
-    # m.fs.costing.add_annual_water_production(prod_flow)
-    # m.fs.costing.add_LCOW(prod_flow)
-    # print("\nSystem Degrees of Freedom:", degrees_of_freedom(m), "\n")
-
-    # assert degrees_of_freedom(m) == 0
-
-    # results = solve(m)
-    # print("\n--------- Cost solve Completed ---------\n")
-
-    # print(
-    #     "Inlet flow rate in m3/day:",
-    #     value(
-    #         pyunits.convert(
-    #             m.fs.feed.properties[0].flow_vol_phase["Liq"],
-    #             pyunits.m**3 / pyunits.day,
-    #         )
-    #     ),
-    # )
-    # report_MD(m, m.fs.md)
-    # report_md_costing(m, m.fs)
-
-    # print("\n")
-    # print(
-    #     f'Sys Feed Flow Rate: {value(pyunits.convert(m.fs.feed.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
-    # )
-    # print(
-    #     f'MD  Feed Flow Rate: {value(pyunits.convert(m.fs.md.feed.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
-    # )
-    # print(
-    #     f'Sys Perm Flow Rate: {value(pyunits.convert(m.fs.product.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
-    # )
-    # print(
-    #     f'MD  Perm Flow Rate: {value(pyunits.convert(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
-    # )
-    # print(
-    #     f'Sys Conc Flow Rate: {value(pyunits.convert(m.fs.disposal.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
-    # )
-    # print(
-    #     f'MD  Conc Flow Rate: {value(pyunits.convert(m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"], pyunits.m ** 3 / pyunits.day)):<10.2f} m3/day'
-    # )
-    # print(
-    #     f'Calculated Recovery: {value(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"] / (m.fs.md.permeate.properties[0].flow_vol_phase["Liq"] + m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"])):<10.2f}'
-    # )
-    # # m1.fs.treatment.brine.properties[0].flow_vol_phase.display()
-    # m.fs.feed.properties[0].flow_vol_phase.display()
-    # m.fs.md.feed.properties[0].flow_vol_phase.display()
+    # m_en.fs.costing.display()
+    m1.fs.water_recovery.display()
+    m_mec.fs.MEC.unit.effects[2].effect.crystallization_yield.display()
+    print(m_md.water_recovery)
+    m_agg.fs.system_recovery.display()
