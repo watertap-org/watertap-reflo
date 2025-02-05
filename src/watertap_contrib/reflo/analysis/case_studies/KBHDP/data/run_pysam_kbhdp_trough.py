@@ -22,6 +22,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import PySAM.TroughPhysicalProcessHeat as iph
 
+__author__ = "Kurban Sitterley"
+
 __all__ = [
     "read_trough_module_datafile",
     "setup_pysam_trough_model",
@@ -35,16 +37,14 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 param_file = os.path.join(__location__, "cst/trough_physical_process_heat-kbhdp.json")
 weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
 
+
 def read_trough_module_datafile(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
     return data
 
 
-def setup_pysam_trough_model(
-    weather_file=None,
-    config_data=None
-):
+def setup_pysam_trough_model(weather_file=None, config_data=None):
 
     tech_model = iph.new()
 
@@ -53,7 +53,6 @@ def setup_pysam_trough_model(
             tech_model.value(k, v)
         except:
             pass
-
 
     if weather_file is not None:
         tech_model.Weather.file_name = weather_file
@@ -67,15 +66,15 @@ def run_pysam_trough_model(
     hours_storage=None,
     return_tech_model=False,
     temperature_hot=200,
-    verbosity=0, # 0 - no PySAM log; 1 - include PySAM log
+    verbosity=0,  # 0 - no PySAM log; 1 - include PySAM log
 ):
-    # Trough Physical SAM Documentation: 
+    # Trough Physical SAM Documentation:
     # https://nrel-pysam.readthedocs.io/en/main/modules/TroughPhysicalIph.html
 
     if heat_load is None:
         raise RuntimeError("heat_load must be specified.")
     # From SAM inputs browser: q_pb_design = Heat sink thermal power
-    tech_model.value("q_pb_design", heat_load) 
+    tech_model.value("q_pb_design", heat_load)
     if hours_storage is None:
         raise RuntimeError("hours_storage must be specified.")
     # From SAM inputs browswer: tshours = Hours of storage at design point
@@ -105,12 +104,16 @@ def run_pysam_trough_model(
     )
     freeze_protection = freeze_protection_field + freeze_protection_tes
     annual_energy = (
+        sum(tech_model.Outputs.gen) - freeze_protection
+    )  # [kWht] net, does not include that used for freeze protection
+    annual_energy_2 = (
         tech_model.Outputs.annual_energy - freeze_protection
     )  # [kWht] net, does not include that used for freeze protection
     capacity_factor = (
         annual_energy / (tech_model.value("q_pb_design") * 1e3 * 8760) * 100
     )  # [%]
     electrical_load = tech_model.Outputs.annual_electricity_consumption  # [kWhe]
+    print(f"\tAnnual Heat Delivered {annual_energy_2:.2f} kWh")
     print(f"\tAnnual Heat Delivered {annual_energy:.2f} kWh")
     results = {
         "annual_energy": annual_energy,  # [kWh] annual net thermal energy in year 1
@@ -183,8 +186,15 @@ if __name__ == "__main__":
     tech_model = setup_pysam_trough_model(
         weather_file=weather_file, config_data=config_data
     )
-    
-    result, tech_model = run_pysam_trough_model(tech_model, 5, 6, return_tech_model=True)
+
+    result, tech_model = run_pysam_trough_model(
+        tech_model, 8.12, 24, return_tech_model=True
+    )
+    result, tech_model = run_pysam_trough_model(
+        tech_model, 1, 6, return_tech_model=True
+    )
+    # result, tech_model = run_pysam_trough_model(tech_model, 50, 12, return_tech_model=True)
+    # result, tech_model = run_pysam_trough_model(tech_model, 100, 24, return_tech_model=True)
 
     # heat_loads = np.linspace(1, 10, 3)  # [MWt]
     # hours_storages = np.linspace(0, 24, 3)  # [hr]
