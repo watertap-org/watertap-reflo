@@ -36,6 +36,7 @@ __all__ = [
     "set_trough_pysam_op_conditions",
     "add_pysam_trough_costing",
     "run_pysam_trough",
+    "get_trough_heat_load",
     "report_trough",
     "report_trough_costing",
 ]
@@ -88,14 +89,14 @@ def set_system_op_conditions(m):
     m.fs.aggregate_flow_heat_treatment.fix()
 
 
-def set_trough_pysam_op_conditions(m, hours_storage=24):
+def set_trough_pysam_op_conditions(m, blk, hours_storage=24):
     # These are just initial values
-    m.fs.energy.trough.heat_load.fix(10)
-    m.fs.energy.trough.electricity_annual.fix(1e5)
-    m.fs.energy.trough.heat_annual.fix(1e5)
+    blk.trough.heat_load.fix(10)
+    blk.trough.electricity_annual.fix(1e5)
+    blk.trough.heat_annual.fix(1e5)
     
     m.hours_storage = hours_storage
-    m.fs.energy.trough.hours_storage.fix(hours_storage)
+    blk.trough.hours_storage.fix(hours_storage)
 
 
 def add_pysam_trough_costing(m, costing_block=None):
