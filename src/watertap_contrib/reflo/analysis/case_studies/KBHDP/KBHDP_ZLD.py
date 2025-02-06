@@ -8,6 +8,7 @@ from collections import defaultdict
 from pyomo.environ import (
     ConcreteModel,
     value,
+    Any,
     Set,
     Var,
     Param,
@@ -89,10 +90,17 @@ def build_and_run_primary_treatment(
     fixed_pressure=None,
     ro_mem_area=None,
     objective=None,
+    electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+    heat_cost=0.01660,
+    aluminum_cost=2.23,
     **kwargs,
 ):
 
     m = build_primary_system()
+    add_primary_treatment_costing(m)
+    m.fs.costing.electricity_cost.fix(electricity_cost)
+    m.fs.costing.heat_cost.fix(heat_cost)
+    m.fs.costing.aluminum_cost.fix(aluminum_cost)
     add_primary_connections(m)
     set_primary_operating_conditions(m, Qin=Qin)
     add_primary_system_scaling(m)
@@ -157,8 +165,6 @@ def build_primary_system():
         expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
         == m.fs.product.properties[0].flow_vol
     )
-
-    add_primary_treatment_costing(m)
 
     return m
 
@@ -459,9 +465,17 @@ def init_primary_system(m, verbose=True, solver=None):
 ############################################################
 
 
-def build_and_run_md_system(Qin=1, Cin=60, water_recovery=0.5):
+def build_and_run_md_system(
+    Qin=1,
+    Cin=60,
+    water_recovery=0.5,
+    electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+    heat_cost=0.01660,
+):
 
     m = build_md_system(Qin=Qin, Cin=Cin, water_recovery=water_recovery)
+    m.fs.costing.electricity_cost.fix(electricity_cost)
+    m.fs.costing.heat_cost.fix(heat_cost)
     set_md_operating_conditions(m)
     init_md_system(m)
 
@@ -493,6 +507,20 @@ def build_and_run_md_system(Qin=1, Cin=60, water_recovery=0.5):
     assert degrees_of_freedom(m) == 0
 
     results = solve(m)
+
+    # For reporting purposes
+    m.fs.costing.md_capital_cost = Param(
+        initialize=value(m.fs.md.unit.costing.capital_cost), mutable=True
+    )
+    m.fs.costing.md_fixed_operating_cost = Param(
+        initialize=value(m.fs.md.unit.costing.fixed_operating_cost), mutable=True
+    )
+    m.fs.costing.md_module_cost = Param(
+        initialize=value(m.fs.md.unit.costing.module_cost), mutable=True
+    )
+    m.fs.costing.md_other_capital_cost = Param(
+        initialize=value(m.fs.md.unit.costing.other_capital_cost), mutable=True
+    )
 
     return m
 
@@ -610,9 +638,15 @@ def build_and_run_mec_system(
     Qin=None,
     Cin=None,
     number_effects=4,
+    electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+    heat_cost=0.01660,
     mec_kwargs=dict(),
+    **kwargs,
 ):
     m = build_mec_system(number_effects=number_effects, **mec_kwargs)
+
+    m.fs.costing.electricity_cost.fix(electricity_cost)
+    m.fs.costing.heat_cost.fix(heat_cost)
     set_mec_operating_conditions(m, Qin=Qin, Cin=Cin, **mec_kwargs)
     init_mec_system(m)
     results = solve(m)
@@ -854,12 +888,13 @@ def build_and_run_zld_energy_model(
     m_mec,
     frac_heat_from_grid=0.5,
     frac_elec_from_grid=0.5,
-    heat_load_start=10,
-    increment_heat_load=1,
     design_size_start=1000,
     design_size_end=10000,
     increment_design_size=10,
     hours_storage=24,
+    pv_cost_per_watt_module=0.41,
+    cst_cost_per_capacity_capital=560,
+    cst_cost_per_storage_capital=62,
     **kwargs,
 ):
     # global surr_results
@@ -879,6 +914,14 @@ def build_and_run_zld_energy_model(
     build_trough_pysam(m, energy_blk=m.fs)
     m.fs.trough.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
     set_trough_pysam_op_conditions(m, m.fs, hours_storage=hours_storage)
+
+    m.fs.costing.pv_surrogate.cost_per_watt_module.fix(pv_cost_per_watt_module)
+    m.fs.costing.trough_surrogate.cost_per_capacity_capital.fix(
+        cst_cost_per_capacity_capital
+    )
+    m.fs.costing.trough_surrogate.cost_per_storage_capital.fix(
+        cst_cost_per_storage_capital
+    )
 
     # Find heat load for trough
     if frac_heat_from_grid != 1:
@@ -969,6 +1012,15 @@ def get_zld_trough_heat_load(
     max_tries=3,
     **kwargs,
 ):
+    def _fit_guess():
+        pysam_results = run_pysam_trough(m, heat_load=heat_load_to_fit)
+
+        x = [0, heat_load_to_fit]  # input heat_load in MW
+        y = [0, pysam_results["annual_energy"]]  # PySAM heat_annual in kWh
+
+        popt, _ = curve_fit(heat_annual_linear, x, y)
+        slope = popt[0]
+        return slope
 
     def heat_annual_linear(heat_load, slope):
         return heat_load * slope
@@ -982,32 +1034,52 @@ def get_zld_trough_heat_load(
         fit_guess = True
 
     if fit_guess:
-        pysam_results = run_pysam_trough(m, heat_load=heat_load_to_fit)
-
-        x = [0, heat_load_to_fit]  # input heat_load in MW
-        y = [0, pysam_results["annual_energy"]]  # PySAM heat_annual in kWh
-
-        popt, _ = curve_fit(heat_annual_linear, x, y)
-        slope = popt[0]
+        slope = _fit_guess()
 
     # heat_annual_required = heat_load * slope
     heat_load_guess = heat_annual_required / slope
     pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
     heat_annual_guess = pysam_results["annual_energy"]
 
-    if np.isnan(heat_annual_guess):
-        heat_load_guess *= 0.98
+    if (
+        not lb * heat_annual_required
+        < pysam_results["annual_energy"]
+        < heat_annual_required * ub
+    ):
+        ratio = heat_annual_required / heat_annual_guess
+        heat_load_guess *= ratio
         pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
         heat_annual_guess = pysam_results["annual_energy"]
 
-    if np.isnan(heat_annual_guess):
-        heat_load_guess *= 0.98
-        pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
-        heat_annual_guess = pysam_results["annual_energy"]
+        # if (
+        #     not lb * heat_annual_required
+        #     < pysam_results["annual_energy"]
+        #     < heat_annual_required * ub
+        # ):
+        #     ratio = heat_annual_required / heat_annual_guess
+        #     heat_load_guess *= ratio
+        #     pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
+        #     heat_annual_guess = pysam_results["annual_energy"]
 
-    # ratio = heat_annual_required / heat_annual_guess
-    # heat_load_guess *= ratio
-    # pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
+        #     if (
+        #         not lb * heat_annual_required
+        #         < pysam_results["annual_energy"]
+        #         < heat_annual_required * ub
+        #     ):
+        #         ratio = heat_annual_required / heat_annual_guess
+        #         heat_load_guess *= ratio
+        #         pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
+        #         heat_annual_guess = pysam_results["annual_energy"]
+
+    # if np.isnan(heat_annual_guess):
+    #     heat_load_guess *= 0.98
+    #     pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
+    #     heat_annual_guess = pysam_results["annual_energy"]
+
+    # if np.isnan(heat_annual_guess):
+    #     heat_load_guess *= 0.98
+    #     pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
+    #     heat_annual_guess = pysam_results["annual_energy"]
     pysam_results["slope"] = slope
 
     if (
@@ -1026,19 +1098,21 @@ def get_zld_trough_heat_load(
             pysam_results["annual_energy"] = heat_annual_required
             return heat_load_required, pysam_results
 
-        msg += "\nTrying again."
-        print(msg)
-        heat_load_required, pysam_results = get_zld_trough_heat_load(
-            m,
-            heat_annual_required,
-            heat_load_to_fit=heat_load_guess,
-            slope=slope,
-            lb=lb,
-            ub=ub,
-            tries=tries,
-            **kwargs,
-        )
-
+        else:
+            msg += "\nTrying again."
+            print(msg)
+            heat_load_required, pysam_results = get_zld_trough_heat_load(
+                m,
+                heat_annual_required,
+                heat_load_to_fit=heat_load_guess * ub,
+                slope=None,
+                fit_guess=True,
+                lb=lb,
+                ub=ub,
+                tries=tries,
+                **kwargs,
+            )
+    heat_annual_guess = pysam_results["annual_energy"]
     msg = f"Found acceptable heat_load after {tries} tries!!"
     msg += f"\n\t{lb * heat_annual_required:.2f} < {heat_annual_guess:.2f} < {heat_annual_required * ub:2f}"
     print(msg)
@@ -1085,7 +1159,7 @@ def build_and_run_kbhdp_zld(
     mec_kwargs = dict(flow_mass_water=flow_mass_water, flow_mass_tds=flow_mass_tds)
     mec_kwargs.update(mec_op_kwargs)
 
-    m_mec = build_and_run_mec_system(mec_kwargs=mec_kwargs)
+    m_mec = build_and_run_mec_system(mec_kwargs=mec_kwargs, **mec_op_kwargs)
 
     m_mec.fs.crystallization_yield = Param(
         initialize=value(
@@ -1133,11 +1207,22 @@ def build_agg_costing_blk(
     b.models = models
     b.base_currency = base_currency
     b.base_period = base_period
-    b.capital_recovery_factor = (
-        value(models[0].fs.costing.capital_recovery_factor) * b.base_period**-1
+    b.capital_recovery_factor = Param(
+        initialize=(value(models[0].fs.costing.capital_recovery_factor)),
+        units=b.base_period**-1,
     )
-    b.electricity_cost = value(models[0].fs.costing.electricity_cost)
-    b.heat_cost = value(models[0].fs.costing.heat_cost)
+    b.total_investment_factor = Param(
+        initialize=(value(models[0].fs.costing.total_investment_factor)),
+        units=b.base_period**-1,
+    )
+    b.utilization_factor = Param(
+        initialize=value(models[0].fs.costing.utilization_factor)
+    )
+    b.electricity_cost = Param(initialize=value(models[0].fs.costing.electricity_cost))
+    b.heat_cost = Param(initialize=value(models[0].fs.costing.heat_cost))
+    b.maintenance_labor_chemical_factor = Param(
+        initialize=value(models[0].fs.costing.maintenance_labor_chemical_factor)
+    )
 
     for m in models:
         if m.name == "energy":
@@ -1145,15 +1230,22 @@ def build_agg_costing_blk(
         assert value(m.fs.costing.capital_recovery_factor) == value(
             b.capital_recovery_factor
         )
-        assert value(m.fs.costing.electricity_cost) == b.electricity_cost
-        assert value(m.fs.costing.heat_cost) == b.heat_cost
+        assert value(m.fs.costing.electricity_cost) == value(b.electricity_cost)
+        assert value(m.fs.costing.heat_cost) == value(b.heat_cost)
+        assert value(m.fs.costing.total_investment_factor) == value(
+            b.total_investment_factor
+        )
+        assert value(m.fs.costing.maintenance_labor_chemical_factor) == value(
+            b.maintenance_labor_chemical_factor
+        )
 
     b.registered_unit_costing = Set()
     b.flow_types = Set()
     b.used_flows = Set()
     b.registered_flows = defaultdict(list)
     b.registered_flow_costs = defaultdict(list)
-    b.defined_flows = defaultdict(list)
+    b.used_flow_costs = dict()
+    b.all_used_flow_costs = dict()
 
     for m in models:
         agg_flow_cost = getattr(m.fs.costing, "aggregate_flow_costs")
@@ -1162,35 +1254,57 @@ def build_agg_costing_blk(
             if f not in b.flow_types:
                 b.flow_types.add(f)
 
+        b.all_used_flow_costs[m.name] = defaultdict(list)
+
         for f in m.fs.costing.used_flows:
 
             if f not in b.used_flows:
                 b.used_flows.add(f)
+                used_flow_cost = getattr(m.fs.costing, f"{f}_cost")
+                b.used_flow_costs[f] = used_flow_cost
 
             if f in m.fs.costing._registered_flows.keys():
                 b.registered_flows[f].extend(m.fs.costing._registered_flows[f])
                 b.registered_flow_costs[f].append(value(agg_flow_cost[f]))
 
-        for e in m.fs.costing._registered_unit_costing:
-            b.registered_unit_costing.add(e)
+            used_flow_cost = getattr(m.fs.costing, f"{f}_cost")
+            b.all_used_flow_costs[m.name][f].append(used_flow_cost)
 
-    b.total_capital_cost = Var(initialize=1e6, units=b.base_currency)
+        for ruc in m.fs.costing._registered_unit_costing:
+            b.registered_unit_costing.add(ruc)
+
+    b.total_capital_cost = Var(
+        initialize=1e6, units=b.base_currency, bounds=(None, None)
+    )
 
     @b.Constraint()
     def eq_total_capital_cost(blk):
         return blk.total_capital_cost == sum(
-            value(m.fs.costing.total_capital_cost) for m in models
+            value(
+                pyunits.convert(
+                    m.fs.costing.total_capital_cost, to_units=b.base_currency
+                )
+            )
+            for m in models
         )
 
-    b.total_operating_cost = Var(initialize=1e4, units=b.base_currency / b.base_period)
+    b.total_operating_cost = Var(
+        initialize=1e4, units=b.base_currency / b.base_period, bounds=(None, None)
+    )
 
     @b.Constraint()
     def eq_total_operating_cost(blk):
         return blk.total_operating_cost == sum(
-            value(m.fs.costing.total_operating_cost) for m in models
+            value(
+                pyunits.convert(
+                    m.fs.costing.total_operating_cost,
+                    to_units=b.base_currency / b.base_period,
+                )
+            )
+            for m in models
         )
 
-    b.aggregate_flow_costs = Var(b.used_flows)
+    b.aggregate_flow_costs = Var(b.used_flows, bounds=(None, None))
 
     @b.Constraint(b.used_flows)
     def eq_aggregate_flow_cost(blk, f):
@@ -1238,6 +1352,149 @@ def build_agg_costing_blk(
             numerator / denominator, to_units=b.base_currency / pyunits.m**3
         )
 
+    flow_rate = product_flow * pyunits.m**3 / pyunits.s
+
+    denominator = (
+        pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / base_period)
+        * b.utilization_factor
+    )
+    direct_capex_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - direct CAPEX",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    indirect_capex_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - indirect CAPEX",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    fixed_opex_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - fixed OPEX",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    variable_opex_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - variable OPEX",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    flow_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - chem/material/energy flows",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    flow_lcows_check = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - chem/material/energy flows",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    unit_capex_lcows = Expression(
+        Any,
+        doc=f"Unit CAPEX-based LCOWs",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    unit_opex_lcows = Expression(
+        Any,
+        doc=f"Unit OPEX-based LCOWs",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    b.add_component("LCOW_component_direct_capex", direct_capex_lcows)
+    b.add_component("LCOW_component_indirect_capex", indirect_capex_lcows)
+    b.add_component("LCOW_component_fixed_opex", fixed_opex_lcows)
+    b.add_component("LCOW_component_variable_opex", variable_opex_lcows)
+    b.add_component("LCOW_flow", flow_lcows)
+    b.add_component("LCOW_flow_check", flow_lcows_check)
+    b.add_component("LCOW_capex", unit_capex_lcows)
+    b.add_component("LCOW_opex", unit_opex_lcows)
+
+    for u in b.registered_unit_costing:
+        # print(u.name)
+        direct_capex_numerator = 0 * base_currency / base_period
+        indirect_capex_numerator = 0 * base_currency / base_period
+        fixed_opex_numerator = 0 * base_currency / base_period
+        variable_opex_numerator = 0 * base_currency / base_period
+        total_capex_numerator = 0 * base_currency / base_period
+        total_opex_numerator = 0 * base_currency / base_period
+        if hasattr(u, "capital_cost"):
+            direct_capital_cost = pyo.units.convert(
+                u.direct_capital_cost, to_units=base_currency
+            )
+
+            capital_cost = pyo.units.convert(u.capital_cost, to_units=base_currency)
+
+            direct_capex_numerator += b.capital_recovery_factor * direct_capital_cost
+            capex_numerator = b.capital_recovery_factor * (
+                b.total_investment_factor * capital_cost
+            )
+            indirect_capex_numerator += capex_numerator - direct_capex_numerator
+
+            total_capex_numerator += capex_numerator
+            # total_capex_numerator += indirect_capex_numerator
+
+            fixed_opex_numerator += b.maintenance_labor_chemical_factor * capital_cost
+        if hasattr(u, "fixed_operating_cost"):
+            fixed_opex_numerator += pyo.units.convert(
+                u.fixed_operating_cost, to_units=base_currency / base_period
+            )
+
+        total_opex_numerator += fixed_opex_numerator
+
+        if hasattr(u, "variable_operating_cost"):
+            variable_opex_numerator += pyo.units.convert(
+                u.variable_operating_cost, to_units=base_currency / base_period
+            )
+            total_opex_numerator += variable_opex_numerator
+        
+        if ".pump" in u.unit_model.name:
+            unit_model_name = "pump"
+        elif ".EC." in u.unit_model.name:
+            unit_model_name = "EC"
+        elif ".UF." in u.unit_model.name:
+            unit_model_name = "UF"
+        elif ".RO." in u.unit_model.name:
+            unit_model_name = "RO"
+        elif ".md." in u.unit_model.name:
+            unit_model_name = "MD"
+        elif ".MEC." in u.unit_model.name:
+            unit_model_name = "MEC"
+        elif ".pv" in u.unit_model.name:
+            unit_model_name = "PV"
+        elif ".trough" in u.unit_model.name:
+            unit_model_name = "CST"
+        else:
+            raise ValueError()
+
+        direct_capex_lcows[unit_model_name] = direct_capex_numerator / denominator
+        indirect_capex_lcows[unit_model_name] = indirect_capex_numerator / denominator
+        fixed_opex_lcows[unit_model_name] = fixed_opex_numerator / denominator
+        variable_opex_lcows[unit_model_name] = variable_opex_numerator / denominator
+        unit_capex_lcows[unit_model_name] = total_capex_numerator / denominator
+        unit_opex_lcows[unit_model_name] = total_opex_numerator / denominator
+
+    for f, fc in b.aggregate_flow_costs.items():
+        i = fc / denominator
+        flow_lcows[f] = i
+
+    for ftype, flows in b.registered_flows.items():
+        # part of total_variable_operating_cost
+        print()
+        print(ftype)
+        print()
+
+        cost_var = b.used_flow_costs[ftype]
+        for flow_expr in flows:
+            if any(
+                s in flow_expr.to_string()
+                for s in ["fs.pv.electricity", "fs.trough.heat"]
+            ):
+                continue
+            # print(flow_expr.to_string())
+            flow_cost = pyo.units.convert(
+                flow_expr * cost_var, to_units=base_currency / base_period
+            )
+            i = (flow_cost * b.utilization_factor) / denominator
+            flow_lcows_check[ftype] += i
+
 
 def build_agg_model(m1, m_md, m_mec, m_en):
 
@@ -1273,16 +1530,6 @@ def build_agg_model(m1, m_md, m_mec, m_en):
     return m
 
 
-def main():
-    run_kbhdp_zld_sweep()
-    # ro_recovery = [0.6, 0.7, 0.8, 0.85]
-    # md_recovery = [0.5, 0.6, 0.7]
-    # cryst_yields = [0.5, 0.6, 0.7, 0.8, 0.9]
-    # nacl_recov_cost = [-0.05, -0.025, -0.01, 0]
-    # frac_elec_from_grid = [0, 0.25, 0.5, 0.75]
-    # frac_heat_from_grid = [0, 0.25, 0.5, 0.75]
-
-
 def run_kbhdp_zld_sweep(
     ro_recovery=0.8,
     md_recovery=0.7,
@@ -1290,6 +1537,13 @@ def run_kbhdp_zld_sweep(
     nacl_recov_cost=-0.025,
     frac_elec_from_grid=0.5,
     frac_heat_from_grid=0.5,
+    aluminum_cost=2.23,
+    electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+    heat_cost=0.01660,
+    pv_cost=0.41,
+    trough_cost=560,
+    storage_cost=62,
+    file_append=""
 ):
 
     import idaes.logger as idaeslogger
@@ -1333,11 +1587,42 @@ def run_kbhdp_zld_sweep(
         frac_elec_from_grid = [frac_elec_from_grid]
     if not isinstance(frac_heat_from_grid, list):
         frac_heat_from_grid = [frac_heat_from_grid]
+    if not isinstance(electricity_cost, list):
+        electricity_cost = [electricity_cost]
+    if not isinstance(heat_cost, list):
+        heat_cost = [heat_cost]
+    if not isinstance(pv_cost, list):
+        pv_cost = [pv_cost]
+    if not isinstance(trough_cost, list):
+        trough_cost = [trough_cost]
+    if not isinstance(storage_cost, list):
+        storage_cost = [storage_cost]
+    if not isinstance(aluminum_cost, list):
+        aluminum_cost = [aluminum_cost]
 
-    primary_kwargs = dict(water_recovery=0.8)
-    md_kwargs = dict(water_recovery=0.7)
-    mec_op_kwargs = dict(crystallization_yield=0.8, nacl_recovered_cost=-0.025)
-    en_kwargs = dict(frac_heat_from_grid=0.5, frac_elec_from_grid=0.5)
+    primary_kwargs = dict(
+        water_recovery=0.8,
+        electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+        heat_cost=0.01660,
+    )
+    md_kwargs = dict(
+        water_recovery=0.7,
+        electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+        heat_cost=0.01660,
+    )
+    mec_op_kwargs = dict(
+        crystallization_yield=0.8,
+        nacl_recovered_cost=-0.025,
+        electricity_cost=0.04988670259431006,
+        heat_cost=0.01660,
+    )
+    en_kwargs = dict(
+        frac_heat_from_grid=0.5,
+        frac_elec_from_grid=0.5,
+        pv_cost_per_watt_module=0.41,
+        cst_cost_per_capacity_capital=560,
+        cst_cost_per_storage_capital=62,
+    )
 
     m1, m_md, m_mec, m_en, m_agg = build_and_run_kbhdp_zld(
         primary_kwargs=primary_kwargs,
@@ -1368,6 +1653,8 @@ def run_kbhdp_zld_sweep(
         "nacl_recovered_cost",
         "frac_elec_from_grid",
         "frac_heat_from_grid",
+        "electricity_cost",
+        "heat_cost",
     ]
     # rd_mec = build_results_dict(m_mec, skips=skips)
     # rd_mec = results_dict_append(m_mec, rd_mec)
@@ -1387,6 +1674,8 @@ def run_kbhdp_zld_sweep(
         rd["nacl_recovered_cost"].append(value(m_mec.fs.nacl_recovered_cost))
         rd["frac_elec_from_grid"].append(value(m_en.fs.frac_elec_from_grid))
         rd["frac_heat_from_grid"].append(value(m_en.fs.frac_heat_from_grid))
+        rd["electricity_cost"].append(value(m_agg.fs.costing.electricity_cost))
+        rd["heat_cost"].append(value(m_agg.fs.costing.heat_cost))
         return rd
 
     rd_1 = build_results_dict(m1, skips=skips)
@@ -1400,61 +1689,108 @@ def run_kbhdp_zld_sweep(
     rd_agg = build_results_dict(m_agg, skips=skips)
     rd_agg = add_merge_cols(rd_agg)
 
-    # ro_recovery = [0.6, 0.7, 0.8, 0.85]
-    # md_recovery = [0.5, 0.6, 0.7]
-    # cryst_yields = [0.5, 0.6, 0.7, 0.8, 0.9]
-    # nacl_recov_cost = [-0.05, -0.025, -0.01, 0]
-    # frac_elec_from_grid = [0, 0.25, 0.5, 0.75]
-    # frac_heat_from_grid = [0, 0.25, 0.5, 0.75]
-
-    # ro_recovery = [0.6]
-    # md_recovery = [0.8]
-    # cryst_yields = [0.5]
-    # nacl_recov_cost = [-0.05]
-    # frac_elec_from_grid = [0]
-    # frac_heat_from_grid = [0, 0.25]
-
     for ro in ro_recovery:
         for md in md_recovery:
             for cy in cryst_yields:
                 for nrc in nacl_recov_cost:
                     for fe in frac_elec_from_grid:
                         for fh in frac_heat_from_grid:
+                            for ec in electricity_cost:
+                                for hc in heat_cost:
+                                    for pc in pv_cost:
+                                        for tc in trough_cost:
+                                            for sc in storage_cost:
+                                                for al in aluminum_cost:
 
-                            primary_kwargs = dict(water_recovery=ro)
-                            md_kwargs = dict(water_recovery=md)
-                            mec_op_kwargs = dict(
-                                crystallization_yield=cy, nacl_recovered_cost=nrc
-                            )
-                            en_kwargs = dict(
-                                frac_heat_from_grid=fh, frac_elec_from_grid=fe
-                            )
+                                                    primary_kwargs = dict(
+                                                        water_recovery=ro,
+                                                        electricity_cost=ec,
+                                                        heat_cost=hc,
+                                                        aluminum_cost=al,
+                                                    )
+                                                    md_kwargs = dict(
+                                                        water_recovery=md,
+                                                        electricity_cost=ec,
+                                                        heat_cost=hc,
+                                                    )
+                                                    mec_op_kwargs = dict(
+                                                        crystallization_yield=cy,
+                                                        nacl_recovered_cost=nrc,
+                                                        electricity_cost=ec,
+                                                        heat_cost=hc,
+                                                    )
+                                                    en_kwargs = dict(
+                                                        frac_heat_from_grid=fh,
+                                                        frac_elec_from_grid=fe,
+                                                        pv_cost_per_watt_module=pc,
+                                                        cst_cost_per_capacity_capital=tc,
+                                                        cst_cost_per_storage_capital=sc,
+                                                    )
 
-                            m1, m_md, m_mec, m_en, m_agg = build_and_run_kbhdp_zld(
-                                primary_kwargs=primary_kwargs,
-                                md_kwargs=md_kwargs,
-                                mec_op_kwargs=mec_op_kwargs,
-                                en_kwargs=en_kwargs,
-                            )
+                                                    m1, m_md, m_mec, m_en, m_agg = (
+                                                        build_and_run_kbhdp_zld(
+                                                            primary_kwargs=primary_kwargs,
+                                                            md_kwargs=md_kwargs,
+                                                            mec_op_kwargs=mec_op_kwargs,
+                                                            en_kwargs=en_kwargs,
+                                                        )
+                                                    )
 
-                            rd_1 = results_dict_append(m1, rd_1)
-                            rd_1 = append_merge_cols(rd_1, m1, m_md, m_mec, m_en, m_agg)
-                            rd_md = results_dict_append(m_md, rd_md)
-                            rd_md = append_merge_cols(
-                                rd_md, m1, m_md, m_mec, m_en, m_agg
-                            )
-                            rd_mec = results_dict_append(m_mec, rd_mec)
-                            rd_mec = append_merge_cols(
-                                rd_mec, m1, m_md, m_mec, m_en, m_agg
-                            )
-                            rd_en = results_dict_append(m_en, rd_en)
-                            rd_en = append_merge_cols(
-                                rd_en, m1, m_md, m_mec, m_en, m_agg
-                            )
-                            rd_agg = results_dict_append(m_agg, rd_agg)
-                            rd_agg = append_merge_cols(
-                                rd_agg, m1, m_md, m_mec, m_en, m_agg
-                            )
+                                                    rd_1 = results_dict_append(m1, rd_1)
+                                                    rd_1 = append_merge_cols(
+                                                        rd_1,
+                                                        m1,
+                                                        m_md,
+                                                        m_mec,
+                                                        m_en,
+                                                        m_agg,
+                                                    )
+                                                    rd_md = results_dict_append(
+                                                        m_md, rd_md
+                                                    )
+                                                    rd_md = append_merge_cols(
+                                                        rd_md,
+                                                        m1,
+                                                        m_md,
+                                                        m_mec,
+                                                        m_en,
+                                                        m_agg,
+                                                    )
+                                                    rd_mec = results_dict_append(
+                                                        m_mec, rd_mec
+                                                    )
+                                                    rd_mec = append_merge_cols(
+                                                        rd_mec,
+                                                        m1,
+                                                        m_md,
+                                                        m_mec,
+                                                        m_en,
+                                                        m_agg,
+                                                    )
+                                                    rd_en = results_dict_append(
+                                                        m_en, rd_en
+                                                    )
+                                                    rd_en = append_merge_cols(
+                                                        rd_en,
+                                                        m1,
+                                                        m_md,
+                                                        m_mec,
+                                                        m_en,
+                                                        m_agg,
+                                                    )
+                                                    rd_agg = results_dict_append(
+                                                        m_agg, rd_agg
+                                                    )
+                                                    rd_agg = append_merge_cols(
+                                                        rd_agg,
+                                                        m1,
+                                                        m_md,
+                                                        m_mec,
+                                                        m_en,
+                                                        m_agg,
+                                                    )
+
+    # return rd_1, rd_md, rd_mec, rd_en, rd_agg, m1, m_md, m_mec, m_en, m_agg
 
     df_1 = pd.DataFrame.from_dict(rd_1)
     df_1.rename(
@@ -1479,20 +1815,25 @@ def run_kbhdp_zld_sweep(
 
     timestr = time.strftime("%Y%m%d-%H%M%S")
 
-    df_1.to_csv(f"{save_path}/test_1_{timestr}.csv", index=False)
-    df_md.to_csv(f"{save_path}/test_md_{timestr}.csv", index=False)
-    df_mec.to_csv(f"{save_path}/test_mec_{timestr}.csv", index=False)
-    df_en.to_csv(f"{save_path}/test_en_{timestr}.csv", index=False)
-    df_agg.to_csv(f"{save_path}/test_agg_{timestr}.csv", index=False)
+    df_1.to_csv(f"{save_path}/kbhdp_zld_1_{timestr}.csv", index=False)
+    df_md.to_csv(f"{save_path}/kbhdp_zld_md_{timestr}.csv", index=False)
+    df_mec.to_csv(f"{save_path}/kbhdp_zld_mec_{timestr}.csv", index=False)
+    df_en.to_csv(f"{save_path}/kbhdp_zld_en_{timestr}.csv", index=False)
+    df_agg.to_csv(f"{save_path}/kbhdp_zld_agg_{timestr}.csv", index=False)
 
     df_combo = pd.merge(df_1, df_md, on=merge_cols)
     df_combo = pd.merge(df_combo, df_mec, on=merge_cols)
     df_combo = pd.merge(df_combo, df_en, on=merge_cols)
     df_combo = pd.merge(df_combo, df_agg, on=merge_cols)
 
-    df_combo.to_csv(f"{save_path}/test_combo_{timestr}.csv", index=False)
+    df_combo.to_csv(f"{save_path}/kbhdp_zld_combo_{timestr}_{file_append}.csv", index=False)
 
     print("COMPLETED")
+    return df_combo
+
+
+def main():
+    run_kbhdp_zld_sweep()
 
 
 if __name__ == "__main__":
