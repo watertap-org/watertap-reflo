@@ -224,7 +224,7 @@ def init_mec(m, blk, feed_props=None, verbose=True, solver=None):
         eff.effect.properties_in[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
         eff.effect.properties_in[0].conc_mass_phase_comp[...]
 
-        eff.effect.crystallization_yield["NaCl"].fix(m.crystallization_yield)
+        eff.effect.crystallization_yield["NaCl"].fix(m.crystallizer_yield)
         eff.effect.crystal_growth_rate.fix()
         eff.effect.souders_brown_constant.fix()
         eff.effect.crystal_median_length.fix()
