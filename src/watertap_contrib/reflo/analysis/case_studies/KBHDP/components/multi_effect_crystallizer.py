@@ -116,7 +116,7 @@ def set_system_operating_conditions(
     tds=12,  # g/L
     operating_pressures=[0.45, 0.25, 0.208, 0.095],
     upstream_recovery=0.9,  # assumed
-    crystallizer_yield=0.5,
+    crystallization_yield=0.7,
     saturated_steam_pressure_gage=3,
     heat_transfer_coefficient=1.3,
     eps=1e-8,
@@ -133,7 +133,7 @@ def set_system_operating_conditions(
     m.flow_mass_tds = pyunits.convert(Qin * tds, to_units=pyunits.kg / pyunits.s)
     m.upstream_recovery = upstream_recovery
     m.operating_pressures = operating_pressures
-    m.crystallizer_yield = crystallizer_yield
+    m.crystallization_yield = crystallization_yield
     m.heat_transfer_coefficient = heat_transfer_coefficient
     m.saturated_steam_pressure = saturated_steam_pressure
     m.saturated_steam_pressure_gage = saturated_steam_pressure_gage
@@ -485,4 +485,4 @@ if __name__ == "__main__":
     results = solver.solve(m)
     assert_optimal_termination(results)
     display_mec_streams(m, blk)
-    m.fs.costing.display()
+    # m.fs.costing.display()
