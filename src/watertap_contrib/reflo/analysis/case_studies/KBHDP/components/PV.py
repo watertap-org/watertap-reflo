@@ -116,8 +116,11 @@ def add_pv_costing(m, blk, costing_blk=None):
             energy.costing = EnergyCosting()
         costing_blk = energy.costing
 
-    blk.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=costing_blk,
+    energy.pv.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=energy.costing,
+        costing_method_arguments={
+            "cost_method": "simple"
+        }
     )
 
 
@@ -133,9 +136,12 @@ def add_pv_scaling(m, blk):
 
 
 def add_pv_costing_scaling(m, blk):
-    pv = blk
 
-    iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-5)
+    # iscale.set_scaling_factor(blk.system_capacity, 1e-5)
+    iscale.set_scaling_factor(blk.yearly_electricity_production, 1e7)
+    iscale.set_scaling_factor(blk.lifetime_electricity_production, 1e8)
+    iscale.set_scaling_factor(blk.aggregate_flow_electricity, 1e3)
+    # iscale.constraint_scaling_transform(blk.lifetime_electricity_production_constraint, 1e2)
 
 
 def print_PV_costing_breakdown(pv):
@@ -153,7 +159,7 @@ def report_PV(m):
         f'{"Land Requirement":<30s}{value(m.fs.energy.pv.land_req):<10.1f}{pyunits.get_units(m.fs.energy.pv.land_req)}'
     )
     print(
-        f'{"System Agg. Flow Electricity":<30s}{value(m.fs.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
+        f'{"System Agg. Flow Electricity":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
     )
     print(
         f'{"PV Design Size":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}'
@@ -290,14 +296,17 @@ if __name__ == "__main__":
     iscale.calculate_scaling_factors(m)
     initialize(m)
     solve(m, debug=True)
-    print(m.fs.energy.pv.display())
-
     print(
         f"{f'Design Size (W):':<30s}{value(pyunits.convert(m.fs.energy.pv.design_size, to_units=pyunits.watt)):<10,.1f}"
     )
-    print(
-        f"{f'Direct Cost Per Watt ($/W):':<30s}{value(m.fs.energy.costing.pv_surrogate.cost_per_watt_module):<10,.1f}"
-    )
+    if m.fs.energy.pv.costing.cost_method == "simple":
+        print(
+            f"{f'Cost Per Watt ($/W):':<30s}{value(m.fs.energy.costing.pv_surrogate.cost_per_watt_installed):<10,.1f}"
+        )
+    else:
+        print(
+            f"{f'Cost Per Watt Module ($/W):':<30s}{value(m.fs.energy.costing.pv_surrogate.cost_per_watt_module):<10,.1f}"
+        )
     # print(f"{f'Direct Cost Should Be ($):':<30s}{value(pyunits.convert(m.fs.energy.pv.design_size, to_units=pyunits.watt))*value(m.fs.energy.costing.pv_surrogate.cost_per_watt_module):<10,.1f}")
     print(
         f"{f'Direct Cost Currently Is ($):':<30s}{value(m.fs.energy.pv.costing.capital_cost):<10,.1f}"
