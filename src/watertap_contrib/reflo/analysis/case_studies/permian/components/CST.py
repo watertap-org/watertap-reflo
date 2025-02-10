@@ -63,7 +63,7 @@ def build_cst(blk, __file__=None):
         __file__ = cwd + r"\src\watertap_contrib\reflo\analysis\case_studies\permian\data\cst\\"
 
     dataset_filename = os.path.join(
-        os.path.dirname(__file__), r"trough_permian_data_heat_load_1_50_hours_storage_0_24.pkl"
+        os.path.dirname(__file__), r"trough_permian_data_heat_load_1_100_hours_storage_24.pkl"
     )
 
     # Updating pickle file output column names
@@ -80,13 +80,13 @@ def build_cst(blk, __file__=None):
 
     surrogate_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_permian_data_heat_load_1_50_hours_storage_0_24.json",
+        r"trough_permian_data_heat_load_1_100_hours_storage_24.json",
     )
 
-    input_bounds = dict(heat_load=[1, 50], hours_storage=[0, 24])
-    input_units = dict(heat_load="MW", hours_storage="hour")
+    input_bounds = dict(heat_load=[1, 100])#, hours_storage=[23, 24])
+    input_units = dict(heat_load="MW")#, hours_storage="hour")
     input_variables = {
-        "labels": ["heat_load", "hours_storage"],
+        "labels": ["heat_load"],# "hours_storage"],
         "bounds": input_bounds,
         "units": input_units,
     }
@@ -98,11 +98,12 @@ def build_cst(blk, __file__=None):
     }
 
     blk.unit = TroughSurrogate(
-        surrogate_model_file=surrogate_filename,
+        # surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
+        # number_samples = 90,
     )
 
 

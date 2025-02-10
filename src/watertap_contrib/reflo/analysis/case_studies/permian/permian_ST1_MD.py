@@ -52,9 +52,10 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import (
     WaterParameterBlock as SteamParameterBlock,
 )
-from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting
+from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting, REFLOSystemCosting
 from watertap_contrib.reflo.analysis.case_studies.permian.components import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.MD import *
+from watertap_contrib.reflo.analysis.case_studies.permian.components.CST import *
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
@@ -73,11 +74,11 @@ __all__ = [
 ]
 
 # TODO:
+# Add back CST
 # Update membrane type and MD recovery
 
 
 def get_stream_density(Qin=5, tds=130, **kwargs):
-    # global rho
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -101,8 +102,6 @@ def get_stream_density(Qin=5, tds=130, **kwargs):
         * pyunits.kg
         / pyunits.m**3
     )
-
-    # rho = m.fs.feed_sw.properties[0].dens_mass_phase["Liq"]
 
     return rho
 
@@ -240,6 +239,15 @@ def build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
+    # Build energy block
+    m.fs.energy = energy = Block()
+    m.fs.energy.cst = FlowsheetBlock()
+    build_cst(m.fs.energy.cst)
+
+    # Add treatment costing 
+    m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
+    m.fs.energy.costing = EnergyCosting()
+
     return m
 
 
@@ -264,28 +272,7 @@ def set_operating_conditions_st1_md(m, rho, Qin=5, tds=130, **kwargs):
     set_ec_operating_conditions(m, m.fs.treatment.EC, **kwargs)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
 
-
-def add_treatment_costing_st1_md(m):
-
-    m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
-    add_chem_addition_costing(
-        m, m.fs.treatment.chem_addition, flowsheet_costing_block=m.fs.treatment.costing
-    )
-    add_ec_costing(m, m.fs.treatment.EC, flowsheet_costing_block=m.fs.treatment.costing)
-    add_cartridge_filtration_costing(
-        m, m.fs.treatment.cart_filt, flowsheet_costing_block=m.fs.treatment.costing
-    )
-
-    add_dwi_costing(
-        m, m.fs.treatment.DWI, flowsheet_costing_block=m.fs.treatment.costing
-    )
-
-    m.fs.treatment.md.unit.add_costing_module(m.fs.treatment.costing)
-
-    m.fs.treatment.costing.cost_process()
-    m.fs.treatment.costing.add_annual_water_production(
-        m.fs.treatment.product.properties[0].flow_vol
-    )
+    set_cst_op_conditions(m.fs.energy.cst,hours_storage=24)
 
 
 def set_permian_pretreatment_scaling_st1_md(
@@ -520,33 +507,54 @@ def init_system_st1_md(m, **kwargs):
     treat.product.properties[0].conc_mass_phase_comp
     treat.product.initialize()
 
+    init_cst(m.fs.energy.cst)
 
-# def get_density(m, Qin=5, tds=130, **kwargs):
 
-#     Qin = Qin * pyunits.Mgallons / pyunits.day
-#     flow_in = pyunits.convert(Qin, to_units=pyunits.m**3 / pyunits.s)
 
-#     treat = m.fs.treatment
-#     treat.feed_sw = Feed(property_package=m.fs.properties_feed)
-#     m.fs.treatment.feed_sw.properties.calculate_state(
-#         var_args={
-#             ("flow_vol_phase", "Liq"): flow_in,
-#             ("conc_mass_phase_comp", ("Liq", "TDS")): tds * pyunits.g / pyunits.liter,
-#             ("temperature", None): 300,
-#             ("pressure", None): 101325,
-#         },
-#         hold_state=True,
-#     )
+def add_costing_st1_md(m, heat_price=0.018, electricity_price=0.0626):
+   
+    add_chem_addition_costing(
+        m, m.fs.treatment.chem_addition, flowsheet_costing_block=m.fs.treatment.costing
+    )
+    add_ec_costing(m, m.fs.treatment.EC, flowsheet_costing_block=m.fs.treatment.costing)
+    add_cartridge_filtration_costing(
+        m, m.fs.treatment.cart_filt, flowsheet_costing_block=m.fs.treatment.costing
+    )
+    add_dwi_costing(
+        m, m.fs.treatment.DWI, flowsheet_costing_block=m.fs.treatment.costing
+    )
+    m.fs.treatment.md.unit.add_costing_module(m.fs.treatment.costing)
 
-#     m.fs.treatment.feed_sw.initialize()
+    m.fs.treatment.costing.cost_process()
+    m.fs.treatment.costing.add_annual_water_production(
+        m.fs.treatment.product.properties[0].flow_vol
+    )
+    m.fs.treatment.costing.add_LCOW(
+        m.fs.treatment.product.properties[0].flow_vol
+    )
 
-#     rho = m.fs.treatment.feed_sw.properties[0].dens_mass_phase["Liq"]
-#     rho_water = m.fs.treatment.feed_sw.properties[0].dens_mass_solvent
+    # Add energy costing
 
-#     print(m.fs.treatment.feed_sw.properties[0].dens_mass_phase.display())
-#     print(m.fs.treatment.feed_sw.properties[0].dens_mass_solvent.display())
+    add_cst_costing(m.fs.energy.cst, m.fs.energy.costing)
 
-#     return [rho, rho_water]
+    m.fs.energy.costing.cost_process()
+    m.fs.energy.costing.add_LCOH()
+
+    # Add system costing
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.heat_cost_buy.fix(heat_price)
+    m.fs.costing.electricity_cost_buy.set_value(electricity_price)
+    m.fs.costing.cost_process()
+
+    m.fs.costing.add_LCOT(m.fs.treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOH()
+
+    print("\n--------- INITIALIZING SYSTEM COSTING ---------\n")
+    
+    m.fs.energy.costing.initialize()
+    m.fs.treatment.costing.initialize()
+    m.fs.costing.initialize()
+
 
 
 def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
@@ -568,15 +576,15 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     init_system_st1_md(m)
     print(f"DOF = {degrees_of_freedom(m)}")
 
+    # Unfix CST heat
+    m.fs.energy.cst.unit.heat_load.unfix() 
+
     results = solver.solve(m)
     print_infeasible_constraints(m)
     assert_optimal_termination(results)
 
     print("\n--------- Before costing solve Completed ---------\n")
     report_MD(m, treat.md)
-
-    # Add costing
-    add_treatment_costing_st1_md(m)
 
     iscale.calculate_scaling_factors(m.fs.treatment.md.unit.mp)
     if (
@@ -612,13 +620,14 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
             1e6,
         )
 
-    treat.costing.initialize()
+    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
+    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
 
-    flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
-    treat.costing.electricity_cost.fix(0.0626)
-    treat.costing.heat_cost.set_value(0.018)
-    treat.costing.add_LCOW(flow_vol)
-    treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+    # Add costing  
+    add_costing_st1_md(m)
+
+    m.fs.energy.cst.unit.heat_load.fix()
+    m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)  
 
     try:
         results = solver.solve(m)
@@ -628,7 +637,8 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     assert_optimal_termination(results)
     print("\n--------- After costing solve Completed ---------\n")
 
-    print(f"LCOW = {m.fs.treatment.costing.LCOW()}")
+    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
+    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
 
     return m
 
@@ -643,7 +653,7 @@ if __name__ == "__main__":
     system_recovery = (
         treat.product.properties[0].flow_vol() / treat.feed.properties[0].flow_vol()
     )
-
+    print("\n")
     print(f"Pretreatment Recovery: {system_recovery:.2f}")
 
     print(

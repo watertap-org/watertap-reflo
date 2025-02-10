@@ -202,7 +202,7 @@ if __name__ == "__main__":
         __location__,  "carlsbad_NM_weather_tmy-2023-full.csv"
     )
     dataset_filename =  os.path.join(
-        __location__,  "cst/trough_data_heat_load_1_50.pkl"
+        __location__,  "cst/trough_data_heat_load_1_50_hours_storage_20_24.pkl"
     )  # output dataset for surrogate training
 
     config_data = [read_module_datafile(config_file) for config_file in config_files]
@@ -211,11 +211,11 @@ if __name__ == "__main__":
     
     # Run parametrics via multiprocessing
     data = []
-    heat_loads = np.linspace(1, 50, 50)  # [MWt]
-    hours_storages = np.linspace(0, 24, 25)  # [hr]
+    heat_loads = np.linspace(1, 50, 100)  # [MWt]
+    # hours_storages = np.linspace(20, 24, 5)  # [hr]
     # hot_tank_set_point = np.arange(80, 160, 10)  # [C]
-    arguments = list(product(heat_loads, hours_storages))
-    df = pd.DataFrame(arguments, columns=["heat_load", "hours_storage"])
+    arguments = list(product(heat_loads)) #, hours_storages))
+    df = pd.DataFrame(arguments, columns=["heat_load"]) #, "hours_storage"])
     
     time_start = time.process_time()
     with multiprocessing.Pool(processes=6) as pool:
