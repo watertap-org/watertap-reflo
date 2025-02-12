@@ -60,22 +60,26 @@ def build_cst(blk, __file__=None):
 
     if __file__ == None:
         cwd = os.getcwd()
-        __file__ = cwd + r"\src\watertap_contrib\reflo\analysis\case_studies\permian\data\cst\\"
+        __file__ = (
+            cwd
+            + r"\src\watertap_contrib\reflo\analysis\case_studies\permian\data\cst\\"
+        )
 
     dataset_filename = os.path.join(
-        os.path.dirname(__file__), r"trough_kbhdp_data_heat_load_1_100_hours_storage_0_24.pkl"
+        os.path.dirname(__file__),
+        r"trough_kbhdp_data_heat_load_1_100_hours_storage_0_24.pkl",
     )
-    
+
     # Updating pickle file output column names
-    with open(dataset_filename, 'rb') as f:
+    with open(dataset_filename, "rb") as f:
         df = pickle.load(f)
 
     # Rename the columns
-    df.rename(columns={'annual_energy': 'heat_annual'}, inplace=True)
-    df.rename(columns={'electrical_load': 'electricity_annual'}, inplace=True)
+    df.rename(columns={"annual_energy": "heat_annual"}, inplace=True)
+    df.rename(columns={"electrical_load": "electricity_annual"}, inplace=True)
 
     # Save the modified DataFrame back as a pickle
-    with open(dataset_filename, 'wb') as f:
+    with open(dataset_filename, "wb") as f:
         pickle.dump(df, f)
 
     surrogate_filename = os.path.join(
@@ -115,7 +119,7 @@ def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_cst_op_conditions(blk, heat_load = 10, hours_storage=6):
+def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
     blk.unit.hours_storage.fix(hours_storage)
     blk.unit.heat_load.fix(heat_load)
 
@@ -220,4 +224,3 @@ if __name__ == "__main__":
     print(degrees_of_freedom(m))
     report_cst(m, m.fs.cst.unit)
     report_cst_costing(m, m.fs)
-

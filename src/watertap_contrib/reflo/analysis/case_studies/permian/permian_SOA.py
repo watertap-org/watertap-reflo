@@ -89,7 +89,9 @@ def build_and_run_permian_SOA(
     # results = solve_permian_SOA(m_pre)
     # m.fs.treatment.product.display()
     flow_to_mvc = Qin * value(m_pre.fs.treatment.EC.unit.recovery_frac_mass_H2O[0])
-    flow_to_mvc = flow_to_mvc * value(m_pre.fs.treatment.cart_filt.unit.recovery_frac_mass_H2O[0])
+    flow_to_mvc = flow_to_mvc * value(
+        m_pre.fs.treatment.cart_filt.unit.recovery_frac_mass_H2O[0]
+    )
     tds_to_mvc = value(
         pyunits.convert(
             m_pre.fs.treatment.product.properties[0].conc_mass_phase_comp["Liq", "TDS"],
@@ -133,14 +135,18 @@ def build_and_run_permian_SOA(
     # print(f"Flow to DWI: {flow_to_dwi} MGD")
     # print(f"TDS to DWI: {tds_to_dwi} g/L")
 
-    product_flow = value(pyunits.convert(
-        m_mvc.fs.product.properties[0].flow_vol_phase["Liq"],
-        to_units=pyunits.m**3 / pyunits.year,
-    ))
-    product_flow_mgd = value(pyunits.convert(
-        m_mvc.fs.product.properties[0].flow_vol_phase["Liq"],
-        to_units=pyunits.Mgallons / pyunits.day,
-    ))
+    product_flow = value(
+        pyunits.convert(
+            m_mvc.fs.product.properties[0].flow_vol_phase["Liq"],
+            to_units=pyunits.m**3 / pyunits.year,
+        )
+    )
+    product_flow_mgd = value(
+        pyunits.convert(
+            m_mvc.fs.product.properties[0].flow_vol_phase["Liq"],
+            to_units=pyunits.Mgallons / pyunits.day,
+        )
+    )
     system_recovery = product_flow_mgd / Qin
     flow_to_product = product_flow_mgd
 
@@ -357,20 +363,24 @@ if __name__ == "__main__":
     # # m = build_and_run_permian_SOA(Qin=5, tds=105)
     mvc_col_dict = dict()
     for c in results_df_mvc.columns:
-        mvc_col_dict[c] = c.replace("fs.MVC.", "MVC.").replace("fs.costing", "MVC_costing")
+        mvc_col_dict[c] = c.replace("fs.MVC.", "MVC.").replace(
+            "fs.costing", "MVC_costing"
+        )
     results_df_mvc.rename(columns=mvc_col_dict, inplace=True)
-    
+
     dwi_col_dict = dict()
     for c in results_df_dwi.columns:
-        dwi_col_dict[c] = c.replace("fs.DWI.", "DWI.").replace("fs.costing", "DWI_costing")
+        dwi_col_dict[c] = c.replace("fs.DWI.", "DWI.").replace(
+            "fs.costing", "DWI_costing"
+        )
     results_df_dwi.rename(columns=dwi_col_dict, inplace=True)
-#     results_df.rename(
-#     columns={
-#         "fs.costing.LCOW": "system_LCOW",
-#         "fs.costing.total_capital_cost": "system_total_capital_cost",
-#         "fs.costing.total_operating_cost": "system_total_operating_cost",
-#     }, inplace=True
-# )
+    #     results_df.rename(
+    #     columns={
+    #         "fs.costing.LCOW": "system_LCOW",
+    #         "fs.costing.total_capital_cost": "system_total_capital_cost",
+    #         "fs.costing.total_operating_cost": "system_total_operating_cost",
+    #     }, inplace=True
+    # )
     results_merged = pd.merge(
         results_df, results_df_pre, on=["flow_mgd", "tds", "rerun"]
     )
@@ -381,4 +391,6 @@ if __name__ == "__main__":
         results_merged, results_df_dwi, on=["flow_mgd", "tds", "rerun"]
     )
 
-    results_merged.to_csv(f"{save_dir}/permian_soa_results_MERGED_{timestr}.csv", index=False)
+    results_merged.to_csv(
+        f"{save_dir}/permian_soa_results_MERGED_{timestr}.csv", index=False
+    )

@@ -52,7 +52,11 @@ from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import (
     WaterParameterBlock as SteamParameterBlock,
 )
-from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting, REFLOSystemCosting
+from watertap_contrib.reflo.costing import (
+    TreatmentCosting,
+    EnergyCosting,
+    REFLOSystemCosting,
+)
 from watertap_contrib.reflo.analysis.case_studies.permian.components import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.MD import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.CST import *
@@ -244,7 +248,7 @@ def build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
     m.fs.energy.cst = FlowsheetBlock()
     build_cst(m.fs.energy.cst)
 
-    # Add treatment costing 
+    # Add treatment costing
     m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     m.fs.energy.costing = EnergyCosting()
 
@@ -272,7 +276,7 @@ def set_operating_conditions_st1_md(m, rho, Qin=5, tds=130, **kwargs):
     set_ec_operating_conditions(m, m.fs.treatment.EC, **kwargs)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
 
-    set_cst_op_conditions(m.fs.energy.cst,hours_storage=24)
+    set_cst_op_conditions(m.fs.energy.cst, hours_storage=24)
 
 
 def set_permian_pretreatment_scaling_st1_md(
@@ -434,15 +438,11 @@ def set_permian_pretreatment_scaling_st1_md(
 
     # DWI
     set_scaling_factor(
-        m.fs.treatment.DWI.unit.properties[0].flow_mass_phase_comp[
-            "Liq", "H2O"
-        ],
+        m.fs.treatment.DWI.unit.properties[0].flow_mass_phase_comp["Liq", "H2O"],
         1e-3,
     )
     set_scaling_factor(
-        m.fs.treatment.DWI.unit.properties[0].flow_mass_phase_comp[
-            "Liq", "TDS"
-        ],
+        m.fs.treatment.DWI.unit.properties[0].flow_mass_phase_comp["Liq", "TDS"],
         1e-1,
     )
 
@@ -510,9 +510,8 @@ def init_system_st1_md(m, **kwargs):
     init_cst(m.fs.energy.cst)
 
 
-
 def add_costing_st1_md(m, heat_price=0.018, electricity_price=0.0626):
-   
+
     add_chem_addition_costing(
         m, m.fs.treatment.chem_addition, flowsheet_costing_block=m.fs.treatment.costing
     )
@@ -529,9 +528,7 @@ def add_costing_st1_md(m, heat_price=0.018, electricity_price=0.0626):
     m.fs.treatment.costing.add_annual_water_production(
         m.fs.treatment.product.properties[0].flow_vol
     )
-    m.fs.treatment.costing.add_LCOW(
-        m.fs.treatment.product.properties[0].flow_vol
-    )
+    m.fs.treatment.costing.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
 
     # Add energy costing
 
@@ -550,14 +547,13 @@ def add_costing_st1_md(m, heat_price=0.018, electricity_price=0.0626):
     m.fs.costing.add_LCOH()
 
     print("\n--------- INITIALIZING SYSTEM COSTING ---------\n")
-    
+
     m.fs.energy.costing.initialize()
     m.fs.treatment.costing.initialize()
     m.fs.costing.initialize()
 
 
-
-def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
+def run_permian_st1_md(Qin=5, tds=130, water_recovery=0.3, **kwargs):
     """
     Run Permian pretreatment flowsheet
     """
@@ -577,7 +573,7 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     print(f"DOF = {degrees_of_freedom(m)}")
 
     # Unfix CST heat
-    m.fs.energy.cst.unit.heat_load.unfix() 
+    m.fs.energy.cst.unit.heat_load.unfix()
 
     results = solver.solve(m)
     print_infeasible_constraints(m)
@@ -620,14 +616,14 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
             1e6,
         )
 
-    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
-    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+    print("CST Heat load:", value(m.fs.energy.cst.unit.heat_load))
+    print("CST Heat:", value(m.fs.energy.cst.unit.heat))
 
-    # Add costing  
+    # Add costing
     add_costing_st1_md(m)
 
     m.fs.energy.cst.unit.heat_load.fix()
-    m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)  
+    m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)
 
     try:
         results = solver.solve(m)
@@ -637,15 +633,15 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     assert_optimal_termination(results)
     print("\n--------- After costing solve Completed ---------\n")
 
-    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
-    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+    print("CST Heat load:", value(m.fs.energy.cst.unit.heat_load))
+    print("CST Heat:", value(m.fs.energy.cst.unit.heat))
 
     return m
 
 
 if __name__ == "__main__":
 
-    m = run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.1)
+    m = run_permian_st1_md(Qin=5, tds=130, water_recovery=0.1)
     treat = m.fs.treatment
     report_MD(m, treat.md)
     print(f"DOF = {degrees_of_freedom(m)}")

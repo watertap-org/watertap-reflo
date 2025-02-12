@@ -280,6 +280,7 @@ def init_md(blk, verbose=True, solver=None):
             ),
             to_units=pyunits.m**3 / pyunits.s,
         )
+
     @blk.Constraint(
         doc="Assign the concentrate concentration to its respective state junction"
     )

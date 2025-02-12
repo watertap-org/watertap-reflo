@@ -164,13 +164,13 @@ def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
     )
 
     treat.sw_to_nacl_product = Translator_SW_to_NaCl(
-        inlet_property_package = m.fs.properties_feed,
-        outlet_property_package= m.fs.properties_NaCl,
+        inlet_property_package=m.fs.properties_feed,
+        outlet_property_package=m.fs.properties_NaCl,
     )
 
     treat.sw_to_nacl_disposal = Translator_SW_to_NaCl(
-        inlet_property_package = m.fs.properties_feed,
-        outlet_property_package= m.fs.properties_NaCl,
+        inlet_property_package=m.fs.properties_feed,
+        outlet_property_package=m.fs.properties_NaCl,
     )
 
     treat.disposal_NaCl_mixer = Mixer(
@@ -183,8 +183,8 @@ def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
     )
 
     treat.norm_feed = Normalizer_Cryst(
-        inlet_property_package = m.fs.properties_NaCl,
-        outlet_property_package= m.fs.properties_NaCl,
+        inlet_property_package=m.fs.properties_NaCl,
+        outlet_property_package=m.fs.properties_NaCl,
     )
 
     treat.chem_addition = FlowsheetBlock(dynamic=False)
@@ -198,7 +198,6 @@ def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
 
     treat.md = FlowsheetBlock(dynamic=False)
     build_md(m, treat.md, m.fs.properties_feed)
-
 
     # BUILD PRODUCT STREAM
     # feed > chem_addition > EC > cart_filt > ZO_to_SW_translator > desal unit > product
@@ -242,8 +241,8 @@ def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
     )
 
     treat.disposal_ZO_mix_to_nacl_translator = Arc(
-        source=treat.disposal_ZO_mixer.outlet, 
-        destination=treat.zo_mix_to_nacl_disposal.inlet
+        source=treat.disposal_ZO_mixer.outlet,
+        destination=treat.zo_mix_to_nacl_disposal.inlet,
     )
 
     treat.md_disposal_to_nacl_translator = Arc(
@@ -262,7 +261,8 @@ def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
     )
 
     treat.mixer_to_normalized_feed = Arc(
-        source=treat.disposal_NaCl_mixer.outlet, destination=treat.norm_feed.inlet,
+        source=treat.disposal_NaCl_mixer.outlet,
+        destination=treat.norm_feed.inlet,
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -303,10 +303,11 @@ def add_treatment_costing_st2_md(m):
         m, m.fs.treatment.cart_filt, flowsheet_costing_block=m.fs.treatment.costing
     )
 
-    
     m.fs.treatment.md.unit.add_costing_module(m.fs.treatment.costing)
 
-    add_mec_costing(m, m.fs.treatment.mec, flowsheet_costing_block=m.fs.treatment.costing)
+    add_mec_costing(
+        m, m.fs.treatment.mec, flowsheet_costing_block=m.fs.treatment.costing
+    )
 
     m.fs.treatment.costing.cost_process()
     m.fs.treatment.costing.add_annual_water_production(
@@ -481,11 +482,11 @@ def init_system_st2_md(m, **kwargs):
 
     init_ec(m, treat.EC)
     propagate_state(treat.ec_to_cart_filt)
-    propagate_state(treat.ec_to_disposal_mix) 
+    propagate_state(treat.ec_to_disposal_mix)
 
     init_cart_filt(m, treat.cart_filt)
     propagate_state(treat.cart_filt_to_translator)
-    propagate_state(treat.cart_filt_to_disposal_mix) 
+    propagate_state(treat.cart_filt_to_disposal_mix)
 
     treat.disposal_ZO_mixer.initialize()
     propagate_state(treat.disposal_ZO_mix_to_nacl_translator)
@@ -521,7 +522,9 @@ def init_system_st2_md(m, **kwargs):
     propagate_state(treat.mixer_to_normalized_feed)
 
 
-def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.3,**kwargs):
+def run_permian_st2_md(
+    permian_cryst_config, Qin=5, tds=130, water_recovery=0.3, **kwargs
+):
     """
     Run Permian pretreatment flowsheet
     """
@@ -548,48 +551,50 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.
     report_MD(m, treat.md)
 
     treat.mec = FlowsheetBlock(dynamic=False)
-    build_mec(m, treat.mec, 
-              prop_package = m.fs.properties_NaCl,
-              prop_package_vapor = m.fs.properties_vapor
-            )
-    
-    set_mec_op_conditions(m, 
-                          treat.mec,
-                          operating_pressures=permian_cryst_config["operating_pressures"],
-                          nacl_yield=permian_cryst_config["nacl_yield"])
+    build_mec(
+        m,
+        treat.mec,
+        prop_package=m.fs.properties_NaCl,
+        prop_package_vapor=m.fs.properties_vapor,
+    )
+
+    set_mec_op_conditions(
+        m,
+        treat.mec,
+        operating_pressures=permian_cryst_config["operating_pressures"],
+        nacl_yield=permian_cryst_config["nacl_yield"],
+    )
     init_mec(m, treat.mec)
 
     unfix_mec(treat.mec)
 
-
     treat.cryst_feed_H2O_constraint = Constraint(
-    expr = treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"]
+        expr=treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"]
         == treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]
     )
     treat.cryst_feed_NaCl_constraint = Constraint(
-    expr = treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
+        expr=treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
         == treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
     )
     treat.cryst_feed_temp_constraint = Constraint(
-    expr = treat.mec.unit.inlet.temperature[0]
+        expr=treat.mec.unit.inlet.temperature[0]
         == treat.norm_feed.outlet.temperature[0]
     )
     treat.cryst_feed_pressure_constraint = Constraint(
-    expr = treat.mec.unit.inlet.pressure[0]
-        == treat.norm_feed.outlet.pressure[0]
+        expr=treat.mec.unit.inlet.pressure[0] == treat.norm_feed.outlet.pressure[0]
     )
 
-    print("Water",treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
-    print("Nacl",treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]())
-    print("Temp",treat.norm_feed.outlet.temperature[0]())
-    print("Pressure",treat.norm_feed.outlet.pressure[0]())
+    print("Water", treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
+    print("Nacl", treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]())
+    print("Temp", treat.norm_feed.outlet.temperature[0]())
+    print("Pressure", treat.norm_feed.outlet.pressure[0]())
 
     # mec_rescaling(treat.mec,
     #               flow_mass_phase_water_total = treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
 
     treat.denorm_cryst_product = Denormalizer_Cryst(
-        inlet_property_package = m.fs.properties_NaCl,
-        outlet_property_package= m.fs.properties_NaCl,
+        inlet_property_package=m.fs.properties_NaCl,
+        outlet_property_package=m.fs.properties_NaCl,
     )
 
     treat.product_NaCl_mixer = Mixer(
@@ -604,40 +609,42 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.
     treat.product = Product(property_package=m.fs.properties_NaCl)
 
     treat.cryst_product_to_denomalizer = Arc(
-        source=treat.mec.unit.outlet, destination=treat.denorm_cryst_product.inlet,
-    ) # (8)
+        source=treat.mec.unit.outlet,
+        destination=treat.denorm_cryst_product.inlet,
+    )  # (8)
     treat.md_translator_to_product_NaCl_mixer = Arc(
-        source=treat.sw_to_nacl_product.outlet, destination=treat.product_NaCl_mixer.md_product,
-    ) # (7)
+        source=treat.sw_to_nacl_product.outlet,
+        destination=treat.product_NaCl_mixer.md_product,
+    )  # (7)
     treat.cryst_denomalizer_to_product_NaCl_mixer = Arc(
-        source=treat.denorm_cryst_product.outlet, destination=treat.product_NaCl_mixer.cryst_product,
-    ) # (9)
+        source=treat.denorm_cryst_product.outlet,
+        destination=treat.product_NaCl_mixer.cryst_product,
+    )  # (9)
     treat.product_NaCl_mixer_to_product = Arc(
-        source=treat.product_NaCl_mixer.outlet, destination=treat.product.inlet,
-    ) # (10)
+        source=treat.product_NaCl_mixer.outlet,
+        destination=treat.product.inlet,
+    )  # (10)
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
     treat.sw_to_nacl_product.outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
     treat.sw_to_nacl_product.outlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(0)
     treat.sw_to_nacl_product.initialize()
-    
+
     propagate_state(treat.cryst_product_to_denomalizer)
     treat.denorm_cryst_product.initialize()
-    
+
     propagate_state(treat.md_translator_to_product_NaCl_mixer)
     propagate_state(treat.cryst_denomalizer_to_product_NaCl_mixer)
 
     treat.product_NaCl_mixer.outlet.pressure[0].fix()
     treat.product_NaCl_mixer.initialize()
-    
+
     propagate_state(treat.product_NaCl_mixer_to_product)
 
-    
     treat.product.properties[0].flow_vol
     treat.product.properties[0].flow_vol_phase
     treat.product.initialize()
-
 
     print(f"DOF = {degrees_of_freedom(m)}")
     results = solver.solve(m)
@@ -645,8 +652,7 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.
     assert_optimal_termination(results)
 
     print(m.fs.treatment.product.display())
-    
-    
+
     # Add costing
     add_treatment_costing_st2_md(m)
 
@@ -708,13 +714,19 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.
 if __name__ == "__main__":
 
     permian_cryst_config = {
-    "operating_pressures": [0.4455, 0.2758, 0.1651, 0.095], # Operating pressure of each effect (bar)
-    "nacl_yield": 0.7, # Yield
+        "operating_pressures": [
+            0.4455,
+            0.2758,
+            0.1651,
+            0.095,
+        ],  # Operating pressure of each effect (bar)
+        "nacl_yield": 0.7,  # Yield
     }
 
-    m = run_permian_st2_md(Qin=5, tds=130, water_recovery = 0.1,
-                           permian_cryst_config=permian_cryst_config)
-    
+    m = run_permian_st2_md(
+        Qin=5, tds=130, water_recovery=0.1, permian_cryst_config=permian_cryst_config
+    )
+
     treat = m.fs.treatment
     report_MD(m, treat.md)
     print(f"DOF = {degrees_of_freedom(m)}")

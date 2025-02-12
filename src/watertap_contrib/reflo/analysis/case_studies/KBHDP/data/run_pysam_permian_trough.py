@@ -19,6 +19,7 @@ import time
 import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
+
 # import PySAM.TroughPhysicalIph as iph
 import PySAM.TroughPhysicalProcessHeat as iph
 import PySAM.IphToLcoefcr as iph_to_lcoefcr
@@ -109,7 +110,6 @@ def run_model(modules, heat_load=None, hours_storage=None):
     if hours_storage is not None:
         tech_model.value("tshours", hours_storage)
     tech_model.execute()
-    
 
     # NOTE: freeze_protection_field can sometimes be nan (when it should be 0) and this causes other nan's
     #  Thus, freeze_protection, annual_energy and capacity_factor must be calculated manually
@@ -130,7 +130,6 @@ def run_model(modules, heat_load=None, hours_storage=None):
         annual_energy / (tech_model.value("q_pb_design") * 1e3 * 8760) * 100
     )  # [%]
     electrical_load = tech_model.Outputs.annual_electricity_consumption  # [kWhe]
-
 
     return {
         "annual_energy": annual_energy,  # [kWh] annual net thermal energy in year 1
@@ -193,21 +192,20 @@ def plot_3d(df, x_index=0, y_index=1, z_index=2, grid=True, countour_lines=True)
 #########################################################################################################
 if __name__ == "__main__":
     model_name = "PhysicalTroughIPHLCOHCalculator"
-    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    __location__ = os.path.realpath(
+        os.path.join(os.getcwd(), os.path.dirname(__file__))
+    )
 
     config_files = [
-        os.path.join(__location__,  "cst/trough_physical_process_heat-reflo.json"),
+        os.path.join(__location__, "cst/trough_physical_process_heat-reflo.json"),
     ]
-    weather_file = os.path.join(
-        __location__,  "el_paso_texas-KBHDP-weather.csv"
-    )
-    dataset_filename =  os.path.join(
-        __location__,  "cst/trough_data_heat_load_1_100_hours_storage_0_24.pkl"
+    weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
+    dataset_filename = os.path.join(
+        __location__, "cst/trough_data_heat_load_1_100_hours_storage_0_24.pkl"
     )  # output dataset for surrogate training
 
     config_data = [read_module_datafile(config_file) for config_file in config_files]
     del config_data[0]["file_name"]  # remove weather filename
-    
 
     # Run parametrics via multiprocessing
     data = []
@@ -216,7 +214,7 @@ if __name__ == "__main__":
     # hot_tank_set_point = np.arange(80, 160, 10)  # [C]
     arguments = list(product(heat_loads, hours_storages))
     df = pd.DataFrame(arguments, columns=["heat_load", "hours_storage"])
-    
+
     time_start = time.process_time()
     with multiprocessing.Pool(processes=6) as pool:
         args = [(model_name, weather_file, config_data, *args) for args in arguments]

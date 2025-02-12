@@ -51,24 +51,21 @@ class TroughSurrogateData(SolarEnergyBaseData):
         self.get_surrogate_data()
 
         self.row_spacing = Param(
-            initialize= 15,
-            units= pyunits.m,
-            mutable = True,
+            initialize=15,
+            units=pyunits.m,
+            mutable=True,
             doc="Spacing between rows of collectors ",
         )
 
         self.maximum_sca_width = Param(
-            initialize= 8.2,
-            units= pyunits.m,
-            mutable = True,
-            doc= "Width of solar collector assembly (sca) aperture",
+            initialize=8.2,
+            units=pyunits.m,
+            mutable=True,
+            doc="Width of solar collector assembly (sca) aperture",
         )
 
         self.land_area = Var(
-            initialize = 0,
-            units = pyunits.acre,
-            bounds = (0, None),
-            doc = "Land area in acres"
+            initialize=0, units=pyunits.acre, bounds=(0, None), doc="Land area in acres"
         )
 
         self.heat_annual = Expression(
@@ -107,10 +104,10 @@ class TroughSurrogateData(SolarEnergyBaseData):
         # Solar Field Area (acres) = Actual Aperture (m²) × Row Spacing (m) / Maximum SCA Width (m) × 0.0002471 (acres/m²)
 
         self.land_area_constraint = Constraint(
-            expr = self.land_area 
+            expr=self.land_area
             == pyunits.convert(
                 self.total_aperture_area * self.row_spacing / self.maximum_sca_width,
-                to_units= pyunits.acre
+                to_units=pyunits.acre,
             )
         )
 

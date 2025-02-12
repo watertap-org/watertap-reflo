@@ -22,8 +22,9 @@ import matplotlib.pyplot as plt
 import PySAM.TroughPhysicalIph as iph
 import os
 
-#TODO:
+# TODO:
 # Annual energy for year 1 is a little different than that calculated in SAM
+
 
 def read_module_datafile(file_name):
     with open(file_name, "r") as file:
@@ -115,7 +116,7 @@ def run_model(modules, heat_load=None, hours_storage=None):
 
     electrical_load = tech_model.Outputs.annual_electricity_consumption  # [kWhe]
     solar_multiplier = tech_model.Outputs.solar_mult
-    total_aperture_reflective_area = tech_model.Outputs.total_aperture #[m2]
+    total_aperture_reflective_area = tech_model.Outputs.total_aperture  # [m2]
     nloops = tech_model.Outputs.nLoops
 
     return {
@@ -126,45 +127,46 @@ def run_model(modules, heat_load=None, hours_storage=None):
         "solar_multiplier": solar_multiplier,
         "total_aperture_area": total_aperture_reflective_area,
         "number_loops": nloops,
-     
     }
 
-def setup_and_run(model_name, weather_file, config_data, heat_load):#, hours_storage):
+
+def setup_and_run(
+    model_name, weather_file, config_data, heat_load
+):  # , hours_storage):
     modules = setup_model(
         model_name, weather_file=weather_file, config_data=config_data
     )
-    result = run_model(modules, heat_load)#S, hours_storage)
+    result = run_model(modules, heat_load)  # S, hours_storage)
     return result
-
 
 
 #########################################################################################################
 if __name__ == "__main__":
     # Model name is not relevant in WaterTAP-REFLO package because cost is calculated using REFLO costing packages
     model_name = "TroughPhysicalIph_PhysicalTroughIPHLCOHCalculator"
-    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    __location__ = os.path.realpath(
+        os.path.join(os.getcwd(), os.path.dirname(__file__))
+    )
 
     config_files = [
-        os.path.join(__location__,  "cst/trough_physical_iph-reflo.json"),
+        os.path.join(__location__, "cst/trough_physical_iph-reflo.json"),
     ]
-    weather_file = os.path.join(
-        __location__,  "carlsbad_NM_weather_tmy-2023-full.csv"
-    )
-    dataset_filename =  os.path.join(
-        __location__,  "cst/trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.pkl"
+    weather_file = os.path.join(__location__, "carlsbad_NM_weather_tmy-2023-full.csv")
+    dataset_filename = os.path.join(
+        __location__,
+        "cst/trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.pkl",
     )  # output dataset for surrogate training
 
     config_data = [read_module_datafile(config_file) for config_file in config_files]
     del config_data[0]["file_name"]  # remove weather filename
-    
 
     # Run parametrics via multiprocessing
     data = []
     heat_loads = np.linspace(1, 50, 100)  # [MWt]
     # hours_storages = np.linspace(20, 24, 5)  # [hr]
-    arguments = list(product(heat_loads)) #, hours_storages))
-    df = pd.DataFrame(arguments, columns=["heat_load"]) #, "hours_storage"])
-    
+    arguments = list(product(heat_loads))  # , hours_storages))
+    df = pd.DataFrame(arguments, columns=["heat_load"])  # , "hours_storage"])
+
     time_start = time.process_time()
     with multiprocessing.Pool(processes=6) as pool:
         args = [(model_name, weather_file, config_data, *args) for args in arguments]

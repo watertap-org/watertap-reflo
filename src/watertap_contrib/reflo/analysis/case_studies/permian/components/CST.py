@@ -6,7 +6,7 @@ from pyomo.environ import (
     Block,
     Constraint,
     SolverFactory,
-    Param
+    Param,
 )
 import os
 
@@ -61,22 +61,25 @@ def build_cst(blk, __file__=None):
 
     if __file__ == None:
         cwd = os.getcwd()
-        __file__ = cwd + "/src/watertap_contrib/reflo/analysis/case_studies/permian/data/cst/"
+        __file__ = (
+            cwd + "/src/watertap_contrib/reflo/analysis/case_studies/permian/data/cst/"
+        )
 
     dataset_filename = os.path.join(
-        os.path.dirname(__file__), r"trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.pkl"
+        os.path.dirname(__file__),
+        r"trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.pkl",
     )
 
     # Updating pickle file output column names
-    with open(dataset_filename, 'rb') as f:
+    with open(dataset_filename, "rb") as f:
         df = pickle.load(f)
 
     # Rename the columns
-    df.rename(columns={'annual_energy': 'heat_annual'}, inplace=True)
-    df.rename(columns={'electrical_load': 'electricity_annual'}, inplace=True)
+    df.rename(columns={"annual_energy": "heat_annual"}, inplace=True)
+    df.rename(columns={"electrical_load": "electricity_annual"}, inplace=True)
 
     # Save the modified DataFrame back as a pickle
-    with open(dataset_filename, 'wb') as f:
+    with open(dataset_filename, "wb") as f:
         pickle.dump(df, f)
 
     surrogate_filename = os.path.join(
@@ -84,17 +87,25 @@ def build_cst(blk, __file__=None):
         r"trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.json",
     )
 
-    input_bounds = dict(heat_load=[1, 50])#, hours_storage=[23, 24])
-    input_units = dict(heat_load="MW")#, hours_storage="hour")
+    input_bounds = dict(heat_load=[1, 50])  # , hours_storage=[23, 24])
+    input_units = dict(heat_load="MW")  # , hours_storage="hour")
     input_variables = {
-        "labels": ["heat_load"],# "hours_storage"],
+        "labels": ["heat_load"],  # "hours_storage"],
         "bounds": input_bounds,
         "units": input_units,
     }
 
-    output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh",total_aperture_area_scaled="m**2")
+    output_units = dict(
+        heat_annual_scaled="kWh",
+        electricity_annual_scaled="kWh",
+        total_aperture_area_scaled="m**2",
+    )
     output_variables = {
-        "labels": ["heat_annual_scaled", "electricity_annual_scaled", "total_aperture_area_scaled"],
+        "labels": [
+            "heat_annual_scaled",
+            "electricity_annual_scaled",
+            "total_aperture_area_scaled",
+        ],
         "units": output_units,
     }
 
@@ -111,11 +122,7 @@ def build_cst(blk, __file__=None):
         print("Hours of storage is already any input parameter")
     else:
         print("Creating hours of storage parameter")
-        blk.unit.hours_storage = Param(
-            initialize = 24,
-            units=pyunits.h,
-            mutable = True
-        )
+        blk.unit.hours_storage = Param(initialize=24, units=pyunits.h, mutable=True)
 
 
 def init_cst(blk):
@@ -127,19 +134,18 @@ def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_cst_op_conditions(blk, heat_load = 10, hours_storage=6):
-    
-    if (isinstance(m.fs.cst.unit.hours_storage, pyo.Param)):
+def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
+
+    if isinstance(m.fs.cst.unit.hours_storage, pyo.Param):
         blk.unit.hours_storage.set_value(hours_storage)
 
-    if (isinstance(m.fs.cst.unit.hours_storage, pyo.Var)):
+    if isinstance(m.fs.cst.unit.hours_storage, pyo.Var):
         blk.unit.hours_storage.fix(hours_storage)
     blk.unit.heat_load.fix(heat_load)
 
 
 def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
-    
 
 
 def calc_costing(m, blk):
@@ -213,8 +219,6 @@ def report_cst_costing(m, blk):
     # )
 
 
-
-
 if __name__ == "__main__":
 
     solver = get_solver()
@@ -224,7 +228,7 @@ if __name__ == "__main__":
 
     build_cst(m.fs.cst)
 
-    set_cst_op_conditions(m.fs.cst,heat_load=50,hours_storage=24)
+    set_cst_op_conditions(m.fs.cst, heat_load=50, hours_storage=24)
     init_cst(m.fs.cst)
 
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
@@ -244,18 +248,27 @@ if __name__ == "__main__":
     )
 
     m.fs.costing.add_LCOH()
-    print("LCOH:",m.fs.costing.LCOH())
-    print("Hours of storage:",m.fs.cst.unit.hours_storage())
+    print("LCOH:", m.fs.costing.LCOH())
+    print("Hours of storage:", m.fs.cst.unit.hours_storage())
     print("Aperture area:", m.fs.cst.unit.total_aperture_area())
 
     print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
 
     # Calcualating LCOH like SAM
-    cost =  m.fs.costing
-    lcoh  =  (cost.total_capital_cost * cost.capital_recovery_factor + cost.total_operating_cost)/m.fs.cst.unit.heat_annual
+    cost = m.fs.costing
+    lcoh = (
+        cost.total_capital_cost * cost.capital_recovery_factor
+        + cost.total_operating_cost
+    ) / m.fs.cst.unit.heat_annual
 
     print("\nManual LCOH check\n")
-    print("CRF:",cost.capital_recovery_factor())
-    print("Numerator:", (cost.total_capital_cost * cost.capital_recovery_factor + cost.total_operating_cost)())
-    print("Denominator:",m.fs.cst.unit.heat_annual())
-    print('Calculated LCOH:', lcoh())
+    print("CRF:", cost.capital_recovery_factor())
+    print(
+        "Numerator:",
+        (
+            cost.total_capital_cost * cost.capital_recovery_factor
+            + cost.total_operating_cost
+        )(),
+    )
+    print("Denominator:", m.fs.cst.unit.heat_annual())
+    print("Calculated LCOH:", lcoh())
