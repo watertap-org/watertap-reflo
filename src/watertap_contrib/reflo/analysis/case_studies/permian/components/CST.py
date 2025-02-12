@@ -6,6 +6,7 @@ from pyomo.environ import (
     Block,
     Constraint,
     SolverFactory,
+    Param
 )
 import os
 
@@ -60,10 +61,10 @@ def build_cst(blk, __file__=None):
 
     if __file__ == None:
         cwd = os.getcwd()
-        __file__ = cwd + r"\src\watertap_contrib\reflo\analysis\case_studies\permian\data\cst\\"
+        __file__ = cwd + "/src/watertap_contrib/reflo/analysis/case_studies/permian/data/cst/"
 
     dataset_filename = os.path.join(
-        os.path.dirname(__file__), r"trough_permian_data_heat_load_1_100_hours_storage_24.pkl"
+        os.path.dirname(__file__), r"trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.pkl"
     )
 
     # Updating pickle file output column names
@@ -80,10 +81,10 @@ def build_cst(blk, __file__=None):
 
     surrogate_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_permian_data_heat_load_1_100_hours_storage_24.json",
+        r"trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.json",
     )
 
-    input_bounds = dict(heat_load=[1, 100])#, hours_storage=[23, 24])
+    input_bounds = dict(heat_load=[1, 50])#, hours_storage=[23, 24])
     input_units = dict(heat_load="MW")#, hours_storage="hour")
     input_variables = {
         "labels": ["heat_load"],# "hours_storage"],
@@ -91,20 +92,30 @@ def build_cst(blk, __file__=None):
         "units": input_units,
     }
 
-    output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh")
+    output_units = dict(heat_annual_scaled="kWh", electricity_annual_scaled="kWh",total_aperture_area_scaled="m**2")
     output_variables = {
-        "labels": ["heat_annual_scaled", "electricity_annual_scaled"],
+        "labels": ["heat_annual_scaled", "electricity_annual_scaled", "total_aperture_area_scaled"],
         "units": output_units,
     }
 
     blk.unit = TroughSurrogate(
-        # surrogate_model_file=surrogate_filename,
+        surrogate_model_file=surrogate_filename,
+        # surrogate_filename_save=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
-        # number_samples = 90,
     )
+
+    if hasattr(blk.unit, "hours_storage"):
+        print("Hours of storage is already any input parameter")
+    else:
+        print("Creating hours of storage parameter")
+        blk.unit.hours_storage = Param(
+            initialize = 24,
+            units=pyunits.h,
+            mutable = True
+        )
 
 
 def init_cst(blk):
@@ -117,16 +128,24 @@ def set_system_op_conditions(m):
 
 
 def set_cst_op_conditions(blk, heat_load = 10, hours_storage=6):
-    blk.unit.hours_storage.fix(hours_storage)
+    
+    if (isinstance(m.fs.cst.unit.hours_storage, pyo.Param)):
+        blk.unit.hours_storage.set_value(hours_storage)
+
+    if (isinstance(m.fs.cst.unit.hours_storage, pyo.Var)):
+        blk.unit.hours_storage.fix(hours_storage)
     blk.unit.heat_load.fix(heat_load)
 
 
 def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
+    
 
 
 def calc_costing(m, blk):
     blk.costing.cost_process()
+    # Updated to be 0 because this factor is not included in SAM
+    blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.initialize()
 
     # TODO: Connect to the treatment volume
@@ -193,13 +212,7 @@ def report_cst_costing(m, blk):
     #     f'{"Heat Cost":<30s}{value(blk.costing.aggregate_flow_costs["heat"]):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_costs["heat"])}'
     # )
 
-    # print(
-    #     f'{"Elec Flow":<30s}{value(blk.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_electricity)}'
-    # )
 
-    # print(
-    #     f'{"Elec Cost":<30s}{value(blk.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(blk.costing.aggregate_flow_costs["electricity"])}'
-    # )
 
 
 if __name__ == "__main__":
@@ -211,7 +224,7 @@ if __name__ == "__main__":
 
     build_cst(m.fs.cst)
 
-    set_cst_op_conditions(m.fs.cst)
+    set_cst_op_conditions(m.fs.cst,heat_load=50,hours_storage=24)
     init_cst(m.fs.cst)
 
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
@@ -222,3 +235,27 @@ if __name__ == "__main__":
     report_cst(m, m.fs.cst.unit)
     report_cst_costing(m, m.fs)
 
+    print(
+        f'{"Elec Flow":<30s}{value(m.fs.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_electricity)}'
+    )
+
+    print(
+        f'{"Elec Cost":<30s}{value(m.fs.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_costs["electricity"])}'
+    )
+
+    m.fs.costing.add_LCOH()
+    print("LCOH:",m.fs.costing.LCOH())
+    print("Hours of storage:",m.fs.cst.unit.hours_storage())
+    print("Aperture area:", m.fs.cst.unit.total_aperture_area())
+
+    print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
+
+    # Calcualating LCOH like SAM
+    cost =  m.fs.costing
+    lcoh  =  (cost.total_capital_cost * cost.capital_recovery_factor + cost.total_operating_cost)/m.fs.cst.unit.heat_annual
+
+    print("\nManual LCOH check\n")
+    print("CRF:",cost.capital_recovery_factor())
+    print("Numerator:", (cost.total_capital_cost * cost.capital_recovery_factor + cost.total_operating_cost)())
+    print("Denominator:",m.fs.cst.unit.heat_annual())
+    print('Calculated LCOH:', lcoh())
