@@ -136,10 +136,10 @@ def set_system_op_conditions(m):
 
 def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
 
-    if isinstance(m.fs.cst.unit.hours_storage, pyo.Param):
+    if isinstance(m.fs.cst.unit.hours_storage, Param):
         blk.unit.hours_storage.set_value(hours_storage)
 
-    if isinstance(m.fs.cst.unit.hours_storage, pyo.Var):
+    if isinstance(m.fs.cst.unit.hours_storage, Var):
         blk.unit.hours_storage.fix(hours_storage)
     blk.unit.heat_load.fix(heat_load)
 
