@@ -114,10 +114,7 @@ def results_dict_append(
                     # idx = [*v._index_set]
                     for i, vv in v.items():
                         if vv.name in results_dict.keys():
-                            if (
-                                vv.name in appended
-                                or vv.name not in results_dict.keys()
-                            ):
+                            if vv.name in appended:
                                 continue
                             try:
                                 results_dict[vv.name].append(value(vv))
@@ -126,7 +123,7 @@ def results_dict_append(
                                 pass
                 else:
                     if v.name in results_dict.keys():
-                        if v.name in appended or v.name not in results_dict.keys():
+                        if v.name in appended:
                             continue
                         try:
                             results_dict[v.name].append(value(v))
