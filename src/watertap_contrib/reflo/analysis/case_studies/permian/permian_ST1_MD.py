@@ -539,6 +539,7 @@ def add_costing_st1_md(m, heat_price=0.018, electricity_price=0.0626):
     add_cst_costing(m.fs.energy.cst, m.fs.energy.costing)
 
     m.fs.energy.costing.cost_process()
+    m.fs.energy.costing.maintenance_labor_chemical_factor.fix(0)
     m.fs.energy.costing.add_LCOH()
 
     # Add system costing
@@ -556,6 +557,7 @@ def add_costing_st1_md(m, heat_price=0.018, electricity_price=0.0626):
     m.fs.treatment.costing.initialize()
     m.fs.costing.initialize()
 
+    print("\n--------- INITIALIZING SYSTEM COSTING COMPLETE---------\n")
 
 
 def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
@@ -637,14 +639,18 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
             1e6,
         )
 
+    print("\n--------- CST Inputs Completed ---------\n")
     print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
     print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+    print("\n")
 
     # Add costing  
     add_costing_st1_md(m)
 
+    results = solver.solve(m)
+
     m.fs.energy.cst.unit.heat_load.fix()
-    m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)  
+    # m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)  
 
     try:
         results = solver.solve(m)
@@ -662,11 +668,11 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
 
 if __name__ == "__main__":
 
-    tds = 130
-    Qin = 5
+    tds = 200
+    Qin = 9
     water_recovery = 0.5
 
-    m = run_permian_st1_md(Qin=Qin, tds=tds, water_recovery = water_recovery )
+    m = run_permian_st1_md(Qin=Qin, tds=tds, water_recovery = water_recovery)
     treat = m.fs.treatment
     report_MD(m, treat.md)
     print(f"DOF = {degrees_of_freedom(m)}")
@@ -674,51 +680,75 @@ if __name__ == "__main__":
     system_recovery = (
         treat.product.properties[0].flow_vol() / treat.feed.properties[0].flow_vol()
     )
+
+    print(f"\n\n-------------------- System Cost Report --------------------\n")
     print("\n")
-    print(f"Pretreatment Recovery: {system_recovery:.2f}")
 
     print(
-        f"Inlet flow_vol: {treat.feed.properties[0].flow_vol():.5f} {pyunits.get_units(treat.feed.properties[0].flow_vol)}"
-    )
-    print(
-        f'Inlet TDS conc: {treat.feed.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.feed.properties[0].conc_mass_comp["tds"])}'
+        f'{"Treatment LCOW":<30s}{value(m.fs.treatment.costing.LCOW):<10.2f}{pyunits.get_units(m.fs.treatment.costing.LCOW)}'
     )
 
+    # print("\n")
+    # print(
+    #     f'{"Energy LCOH":<30s}{value(m.fs.energy.costing.LCOH):<10.2f}{pyunits.get_units(m.fs.energy.costing.LCOH)}'
+    # )
+
+    print("\n")
     print(
-        f'EC feed TDS conc: {treat.EC.feed.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.EC.feed.properties[0].conc_mass_comp["tds"])}'
+        f'{"System LCOT":<30s}{value(m.fs.costing.LCOT) :<10.2f}{pyunits.get_units(m.fs.costing.LCOT)}'
     )
 
-    print(
-        f'EC product TDS conc: {treat.EC.product.properties[0].conc_mass_comp["tds"]():.2f} { pyunits.get_units(treat.EC.product.properties[0].conc_mass_comp["tds"])}'
-    )
+    print(f"\n\n-------------------- Pretreatment Report --------------------\n")
 
+    print("\n")
     print(
-        f'EC disposal TDS conc: {treat.EC.disposal.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.EC.disposal.properties[0].conc_mass_comp["tds"])}'
-    )
-
-    print(
-        f'CF feed TDS conc: {treat.cart_filt.product.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
+        f'{"Pretreatment Recovery":<30s}{system_recovery:.2f}'
     )
 
     print(
-        f'Product TDS conc: {treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]():.2f} {pyunits.get_units(treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]())}'
+        f'{"Inlet flow_vol":<30s} {treat.feed.properties[0].flow_vol():<10.2f} {pyunits.get_units(treat.feed.properties[0].flow_vol)}'
+    )
+    print(
+        f'{"Inlet TDS conc":<30s} {treat.feed.properties[0].conc_mass_comp["tds"]():<10.2f} {pyunits.get_units(treat.feed.properties[0].conc_mass_comp["tds"])}'
     )
 
     print(
-        f'Product flow_vol: {treat.product.properties[0].flow_vol_phase["Liq"]():.2f} {pyunits.get_units(treat.product.properties[0].flow_vol_phase["Liq"])}'
+        f'{"EC feed TDS conc":<30s} {treat.EC.feed.properties[0].conc_mass_comp["tds"]():.<10.2f} {pyunits.get_units(treat.EC.feed.properties[0].conc_mass_comp["tds"])}'
     )
 
     print(
-        f'DWI flow_vol: {treat.DWI.unit.properties[0].flow_vol_phase["Liq"]():.6f} {pyunits.get_units(treat.DWI.unit.properties[0].flow_vol_phase["Liq"])}'
+        f'{"EC product TDS conc":<30s} {treat.EC.product.properties[0].conc_mass_comp["tds"]():<10.2f} { pyunits.get_units(treat.EC.product.properties[0].conc_mass_comp["tds"])}'
     )
 
     print(
-        f'DWI TDS conc: {treat.DWI.unit.properties[0].conc_mass_phase_comp["Liq", "TDS"]():.2f} {pyunits.get_units(treat.DWI.unit.properties[0].conc_mass_phase_comp["Liq", "TDS"])}'
+        f'{"EC disposal TDS conc":<30s} {treat.EC.disposal.properties[0].conc_mass_comp["tds"]():<10.2f} {pyunits.get_units(treat.EC.disposal.properties[0].conc_mass_comp["tds"])}'
     )
-    print(f"DWI pressure: {treat.DWI.feed.properties[0].pressure()} Pa")
 
     print(
-        f"Translator pressure: {treat.disposal_SW_mixer.zo_mixer_state[0].pressure()} Pa"
+        f'{"CF feed TDS conc":<30s} {treat.cart_filt.product.properties[0].conc_mass_comp["tds"]():<10.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'{"Product TDS conc":<30s} {treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]():.<10.2f} {pyunits.get_units(treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]())}'
+    )
+
+    print(
+        f'{"Product flow_vol":<30s} {treat.product.properties[0].flow_vol_phase["Liq"]():<10.2f} {pyunits.get_units(treat.product.properties[0].flow_vol_phase["Liq"])}'
+    )
+
+    print(
+        f'{"DWI flow_vol":<30s} {treat.DWI.unit.properties[0].flow_vol_phase["Liq"]():<10.2f} {pyunits.get_units(treat.DWI.unit.properties[0].flow_vol_phase["Liq"])}'
+    )
+
+    print(
+        f'{"DWI TDS conc":<30s} {treat.DWI.unit.properties[0].conc_mass_phase_comp["Liq", "TDS"]():<10.2f} {pyunits.get_units(treat.DWI.unit.properties[0].conc_mass_phase_comp["Liq", "TDS"])}'
+    )
+    print(
+        f'{"DWI pressure":<30s} {treat.DWI.feed.properties[0].pressure()} Pa'
+        )
+
+    print(
+        f'{"Translator pressure":<30s} {treat.disposal_SW_mixer.zo_mixer_state[0].pressure()} Pa'
     )
 
     print(

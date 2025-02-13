@@ -110,12 +110,14 @@ def build_cst(blk, __file__=None):
     }
 
     blk.unit = TroughSurrogate(
-        # surrogate_model_file=surrogate_filename,
-        surrogate_filename_save=surrogate_filename,
+        surrogate_model_file=surrogate_filename,
+        # surrogate_filename_save=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
+        number_samples = 100,
+        
     )
 
     if hasattr(blk.unit, "hours_storage"):
@@ -130,20 +132,21 @@ def init_cst(blk):
     blk.unit.initialize()
 
 
+
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
 def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
 
-    if isinstance(m.fs.cst.unit.hours_storage, pyo.Param):
+    if isinstance(blk.unit.hours_storage, pyo.Param):
         blk.unit.hours_storage.set_value(hours_storage)
         pass
 
-    if isinstance(m.fs.cst.unit.hours_storage, pyo.Var):
+    if isinstance(blk.unit.hours_storage, pyo.Var):
         blk.unit.hours_storage.fix(hours_storage)
-    blk.unit.heat_load.fix(heat_load)
 
+    blk.unit.heat_load.fix(heat_load)
 
 def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
@@ -154,9 +157,6 @@ def calc_costing(m, blk):
     # Updated to be 0 because this factor is not included in SAM
     blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.initialize()
-
-    # TODO: Connect to the treatment volume
-    # blk.costing.add_LCOW(m.fs.system_capacity)
 
 
 def report_cst(m, blk):
@@ -229,12 +229,16 @@ if __name__ == "__main__":
 
     build_cst(m.fs.cst)
 
-    set_cst_op_conditions(m.fs.cst, heat_load=50, hours_storage=24)
+    set_cst_op_conditions(m.fs.cst, heat_load=87.79, hours_storage=24)
     init_cst(m.fs.cst)
 
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-    results = solver.solve(m)
+
+    try:
+        results = solver.solve(m)
+    except:
+        print_infeasible_constraints(m)
 
     print(degrees_of_freedom(m))
     report_cst(m, m.fs.cst.unit)
@@ -252,6 +256,7 @@ if __name__ == "__main__":
     print("LCOH:", m.fs.costing.LCOH())
     print("Hours of storage:", m.fs.cst.unit.hours_storage())
     print("Aperture area:", m.fs.cst.unit.total_aperture_area())
+    print("Land area:", m.fs.cst.unit.land_area())
 
     print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
 

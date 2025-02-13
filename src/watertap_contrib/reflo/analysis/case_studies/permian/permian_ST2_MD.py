@@ -53,7 +53,7 @@ from idaes.core import MaterialBalanceType
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 
-from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting
+from watertap_contrib.reflo.costing import TreatmentCosting,  EnergyCosting, REFLOSystemCosting
 from watertap_contrib.reflo.analysis.case_studies.permian.components import *
 from watertap_contrib.reflo.analysis.case_studies.permian import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.MD import *
@@ -62,6 +62,7 @@ from watertap_contrib.reflo.analysis.case_studies.permian.components.translator_
 from watertap_contrib.reflo.analysis.case_studies.permian.components.normalizer_cryst import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.denormalizer_cryst import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.multi_effect_crystallizer import *
+from watertap_contrib.reflo.analysis.case_studies.permian.components.CST import *
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
@@ -268,6 +269,15 @@ def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
+    # Build energy block
+    m.fs.energy = energy = Block()
+    m.fs.energy.cst = FlowsheetBlock()
+    build_cst(m.fs.energy.cst)
+
+    # Add treatment costing 
+    m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
+    m.fs.energy.costing = EnergyCosting()
+
     return m
 
 
@@ -292,8 +302,10 @@ def set_operating_conditions_st2_md(m, rho, Qin=5, tds=130, **kwargs):
     set_ec_operating_conditions(m, m.fs.treatment.EC, **kwargs)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
 
+    set_cst_op_conditions(m.fs.energy.cst,hours_storage=24)
 
-def add_treatment_costing_st2_md(m):
+
+def add_costing_st2_md(m,heat_price=0.018, electricity_price=0.0626):
 
     m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     add_chem_addition_costing(
@@ -303,17 +315,39 @@ def add_treatment_costing_st2_md(m):
     add_cartridge_filtration_costing(
         m, m.fs.treatment.cart_filt, flowsheet_costing_block=m.fs.treatment.costing
     )
-
     
     m.fs.treatment.md.unit.add_costing_module(m.fs.treatment.costing)
 
     add_mec_costing(m, m.fs.treatment.mec, flowsheet_costing_block=m.fs.treatment.costing)
 
     m.fs.treatment.costing.cost_process()
-    m.fs.treatment.costing.add_annual_water_production(
-        m.fs.treatment.product.properties[0].flow_vol
-    )
+    m.fs.treatment.costing.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
 
+    # Add energy costing
+
+    add_cst_costing(m.fs.energy.cst, m.fs.energy.costing)
+
+    m.fs.energy.costing.cost_process()
+    m.fs.energy.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.energy.costing.add_LCOH()
+
+    # Add system costing
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.heat_cost_buy.fix(heat_price)
+    m.fs.costing.electricity_cost_buy.set_value(electricity_price)
+    m.fs.costing.cost_process()
+
+    m.fs.costing.add_LCOT(m.fs.treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOH()
+
+    print("\n--------- INITIALIZING SYSTEM COSTING ---------\n")
+    
+    m.fs.energy.costing.initialize()
+    m.fs.treatment.costing.initialize()
+    m.fs.costing.initialize()
+
+    print("\n--------- INITIALIZING SYSTEM COSTING COMPLETE---------\n")
+    
 
 def set_permian_pretreatment_scaling_st2_md(
     m, calclate_m_scaling_factors=False, **kwargs
@@ -521,6 +555,8 @@ def init_system_st2_md(m, **kwargs):
 
     propagate_state(treat.mixer_to_normalized_feed)
 
+    init_cst(m.fs.energy.cst)
+
 
 def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     """
@@ -647,11 +683,11 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.
     
     propagate_state(treat.product_NaCl_mixer_to_product)
 
-    
     treat.product.properties[0].flow_vol
     treat.product.properties[0].flow_vol_phase
     treat.product.initialize()
 
+    m.fs.energy.cst.unit.heat_load.unfix()
 
     print(f"DOF = {degrees_of_freedom(m)}")
     results = solver.solve(m)
@@ -659,17 +695,18 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.
     assert_optimal_termination(results)
 
     # print(m.fs.treatment.product.display())
+    print("\n--------- CST Inputs Completed ---------\n")
+
+    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
+    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+    print("\n")
     
     # Add costing
-    add_treatment_costing_st2_md(m)
+    add_costing_st2_md(m, heat_price=0.018, electricity_price=0.0626)
 
-    treat.costing.initialize()
+    results = solver.solve(m)
 
-    flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
-    treat.costing.electricity_cost.fix(0.0626)
-    treat.costing.heat_cost.set_value(0.018)
-    treat.costing.add_LCOW(flow_vol)
-    treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+    m.fs.energy.cst.unit.heat_load.fix()
 
     try:
         results = solver.solve(m)
@@ -690,9 +727,9 @@ if __name__ == "__main__":
     "operating_pressures": [0.4455, 0.2758, 0.1651, 0.095], # Operating pressure of each effect (bar)
     "nacl_yield": 0.9 # Yield
     }
-    tds = 200
-    Qin = 9
-    water_recovery = 0.5
+    tds = 130
+    Qin = 5
+    water_recovery = 0.1
 
     m = run_permian_st2_md(Qin=Qin, tds=tds, water_recovery = water_recovery,
                            permian_cryst_config=permian_cryst_config)
@@ -701,47 +738,72 @@ if __name__ == "__main__":
     report_MD(m, treat.md)
     print(f"DOF = {degrees_of_freedom(m)}")
 
-    # system_recovery = (
-    #     treat.product.properties[0].flow_vol() / treat.feed.properties[0].flow_vol()
-    # )
-
-    # print(f"Pretreatment Recovery: {system_recovery:.2f}")
-
-    print(
-        f"Inlet flow_vol: {treat.feed.properties[0].flow_vol():.5f} {pyunits.get_units(treat.feed.properties[0].flow_vol)}"
-    )
-    print(
-        f'Inlet TDS conc: {treat.feed.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.feed.properties[0].conc_mass_comp["tds"])}'
+    system_recovery = (
+        treat.product.properties[0].flow_vol() / treat.feed.properties[0].flow_vol()
     )
 
-    print(
-        f'EC feed TDS conc: {treat.EC.feed.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.EC.feed.properties[0].conc_mass_comp["tds"])}'
-    )
+    print(f"\n\n-------------------- System Cost Report --------------------\n")
+    print("\n")
 
     print(
-        f'EC product TDS conc: {treat.EC.product.properties[0].conc_mass_comp["tds"]():.2f} { pyunits.get_units(treat.EC.product.properties[0].conc_mass_comp["tds"])}'
+        f'{"Treatment LCOW":<30s}{value(m.fs.treatment.costing.LCOW):<10.2f}{pyunits.get_units(m.fs.treatment.costing.LCOW)}'
     )
 
-    print(
-        f'EC disposal TDS conc: {treat.EC.disposal.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.EC.disposal.properties[0].conc_mass_comp["tds"])}'
-    )
-
-    print(
-        f'CF feed TDS conc: {treat.cart_filt.product.properties[0].conc_mass_comp["tds"]():.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
-    )
-
+    # print("\n")
     # print(
-    #     f'Product TDS conc: {treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]():.2f} {pyunits.get_units(treat.product.properties[0].conc_mass_phase_comp["Liq", "TDS"]())}'
+    #     f'{"Energy LCOH":<30s}{value(m.fs.energy.costing.LCOH):<10.2f}{pyunits.get_units(m.fs.energy.costing.LCOH)}'
     # )
 
-    # print(
-    #     f'Product flow_vol: {treat.product.properties[0].flow_vol_phase["Liq"]():.2f} {pyunits.get_units(treat.product.properties[0].flow_vol_phase["Liq"])}'
-    # )
-
+    print("\n")
     print(
-        f"Translator pressure: {treat.disposal_NaCl_mixer.zo_mixer_state[0].pressure()} Pa"
+        f'{"System LCOT":<30s}{value(m.fs.costing.LCOT) :<10.2f}{pyunits.get_units(m.fs.costing.LCOT)}'
     )
 
-    # print(
-    #     f'{"Aggregated Heat Cost":<30s}{value(m.fs.treatment.costing.aggregate_flow_costs["heat"]):<20,.2f}{pyunits.get_units(m.fs.treatment.costing.aggregate_flow_costs["heat"])}'
-    # )
+    print("\n--------- CST Inputs Completed ---------\n")
+
+    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
+    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+    print("\n")
+
+
+    print(f"\n\n-------------------- Pretreatment Report --------------------\n")
+
+    print("\n")
+    print(
+        f'{"Pretreatment Recovery":<30s}{system_recovery:.2f}'
+    )
+
+    print(
+        f'{"Inlet flow_vol":<30s} {treat.feed.properties[0].flow_vol():<10.2f} {pyunits.get_units(treat.feed.properties[0].flow_vol)}'
+    )
+    print(
+        f'{"Inlet TDS conc":<30s} {treat.feed.properties[0].conc_mass_comp["tds"]():<10.2f} {pyunits.get_units(treat.feed.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'{"EC feed TDS conc":<30s} {treat.EC.feed.properties[0].conc_mass_comp["tds"]():.<10.2f} {pyunits.get_units(treat.EC.feed.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'{"EC product TDS conc":<30s} {treat.EC.product.properties[0].conc_mass_comp["tds"]():<10.2f} { pyunits.get_units(treat.EC.product.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'{"EC disposal TDS conc":<30s} {treat.EC.disposal.properties[0].conc_mass_comp["tds"]():<10.2f} {pyunits.get_units(treat.EC.disposal.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'{"CF feed TDS conc":<30s} {treat.cart_filt.product.properties[0].conc_mass_comp["tds"]():<10.2f} {pyunits.get_units(treat.cart_filt.product.properties[0].conc_mass_comp["tds"])}'
+    )
+
+    print(
+        f'{"Product TDS conc":<30s} {treat.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"]():.<10.2f} {pyunits.get_units(treat.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"]())}'
+    )
+
+    print(
+        f'{"Product flow_vol":<30s} {treat.product.properties[0].flow_vol_phase["Liq"]():<10.2f} {pyunits.get_units(treat.product.properties[0].flow_vol_phase["Liq"])}'
+    )
+
+    print(
+        f'{"Aggregated Heat Cost":<30s}{value(m.fs.treatment.costing.aggregate_flow_costs["heat"]):<20,.2f}{pyunits.get_units(m.fs.treatment.costing.aggregate_flow_costs["heat"])}'
+    )
