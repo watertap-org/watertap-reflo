@@ -26,7 +26,7 @@ class PVSurrogateCostMethod(StrEnum):
     simple = "simple"
 
 
-def cost_pv_surrogate(blk, cost_method=PVSurrogateCostMethod.detailed):
+def cost_pv_surrogate(blk, cost_method=PVSurrogateCostMethod.simple):
     blk.cost_method = cost_method
     if cost_method == PVSurrogateCostMethod.detailed:
         cost_pv_surrogate_detailed(blk)
@@ -262,12 +262,6 @@ def cost_pv_surrogate_simple(blk):
         bounds=(0, None),
         doc="Land costs of PV system",
     )
-
-    # blk.direct_capital_cost_constraint = pyo.Constraint(
-    #     expr=blk.direct_capital_cost
-    #     == pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
-    #     * pv_params.cost_per_watt_installed
-    # )
 
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
