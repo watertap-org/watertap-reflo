@@ -67,7 +67,7 @@ def build_cst(blk, __file__=None):
 
     dataset_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.pkl",
+        r"trough_permian_heat_load_1_100_hours_storage_24_T_loop_out_300.pkl",
     )
 
     # Updating pickle file output column names
@@ -84,10 +84,10 @@ def build_cst(blk, __file__=None):
 
     surrogate_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_permian_heat_load_1_50_hours_storage_24_T_loop_out_300.json",
+        r"trough_permian_heat_load_1_100_hours_storage_24_T_loop_out_300.json",
     )
 
-    input_bounds = dict(heat_load=[1, 50])  # , hours_storage=[23, 24])
+    input_bounds = dict(heat_load=[1, 100])  # , hours_storage=[23, 24])
     input_units = dict(heat_load="MW")  # , hours_storage="hour")
     input_variables = {
         "labels": ["heat_load"],  # "hours_storage"],
@@ -130,19 +130,20 @@ def init_cst(blk):
     blk.unit.initialize()
 
 
+
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
 def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
 
-    if isinstance(m.fs.cst.unit.hours_storage, pyo.Param):
+    if isinstance(blk.unit.hours_storage, pyo.Param):
         blk.unit.hours_storage.set_value(hours_storage)
 
-    if isinstance(m.fs.cst.unit.hours_storage, pyo.Var):
+    if isinstance(blk.unit.hours_storage, pyo.Var):
         blk.unit.hours_storage.fix(hours_storage)
-    blk.unit.heat_load.fix(heat_load)
 
+    blk.unit.heat_load.fix(heat_load)
 
 def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
@@ -153,9 +154,6 @@ def calc_costing(m, blk):
     # Updated to be 0 because this factor is not included in SAM
     blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.initialize()
-
-    # TODO: Connect to the treatment volume
-    # blk.costing.add_LCOW(m.fs.system_capacity)
 
 
 def report_cst(m, blk):
@@ -233,7 +231,15 @@ if __name__ == "__main__":
 
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-    results = solver.solve(m)
+
+    print("Direct cost:", m.fs.cst.unit.costing.direct_cost())
+
+    # assert False
+
+    try:
+        results = solver.solve(m)
+    except:
+        print_close_to_bounds(m)
 
     print(degrees_of_freedom(m))
     report_cst(m, m.fs.cst.unit)
@@ -251,6 +257,7 @@ if __name__ == "__main__":
     print("LCOH:", m.fs.costing.LCOH())
     print("Hours of storage:", m.fs.cst.unit.hours_storage())
     print("Aperture area:", m.fs.cst.unit.total_aperture_area())
+    print("Land area:", m.fs.cst.unit.land_area())
 
     print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
 

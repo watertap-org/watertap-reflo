@@ -39,14 +39,14 @@ def build_trough_surrogate_cost_param_block(blk):
 
     blk.cost_per_heat_sink = pyo.Var(
         initialize=120,
-        units=costing.base_currency / pyo.units.kWh,
+        units=costing.base_currency / pyo.units.kW,
         bounds=(0, None),
         doc="Cost for expenses related to installation of the heat sink, including labor and equipment per kWh (thermal) heat load",
     )
 
     blk.cost_per_balance_of_plant = pyo.Var(
         initialize=90,
-        units=costing.base_currency / pyo.units.kWh,
+        units=costing.base_currency / pyo.units.kW,
         bounds=(0, None),
         doc="Cost per thermal kilowatt of heat sink capacity for expenses related to installation of the heat sink, including labor and equipment",
     )
@@ -88,7 +88,7 @@ def build_trough_surrogate_cost_param_block(blk):
 
     blk.variable_operating_by_generation = pyo.Var(
         initialize=0.002,
-        units=costing.base_currency / (pyo.units.kWh * costing.base_period),
+        units=costing.base_currency / (pyo.units.kWh),
         bounds=(0, None),
         doc="Variable operating cost of trough plant per kWh generated",
     )

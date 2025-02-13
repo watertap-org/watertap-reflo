@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     # Run parametrics via multiprocessing
     data = []
-    heat_loads = np.linspace(1, 100, 100)  # [MWt]
+    heat_loads = np.linspace(1, 100, 200)  # [MWt]
     # hours_storages = np.linspace(20, 24, 5)  # [hr]
     arguments = list(product(heat_loads))  # , hours_storages))
     df = pd.DataFrame(arguments, columns=["heat_load"])  # , "hours_storage"])
