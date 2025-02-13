@@ -189,7 +189,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
     CONFIG.declare(
         "rbf_solution_method",
         ConfigValue(
-            default="gaussian",
+            default="algebraic",
             description="Solution method to use for PysmoRBFTrainer config",
             doc=""""Solution method to use for PysmoRBFTrainer config""",
         ),
