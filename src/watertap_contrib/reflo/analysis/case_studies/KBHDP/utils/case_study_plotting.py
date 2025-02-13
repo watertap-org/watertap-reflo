@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 from pyomo.environ import value, units as pyunits
@@ -5,6 +6,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 color_dict = {
     "Oxidation": '#1f77b4',
@@ -249,8 +251,8 @@ def case_study_stacked_plot(
 
 if __name__ == "__main__":
         
-    f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/KBHDP/ZLD/test_stacked_plot.csv"
-    df = pd.read_csv(f)
+    test_file = f"{__location__}/test_stacked_plot.csv"
+    df = pd.read_csv(test_file)
     df = df[df["fs.costing.electricity_cost"] == 0.049886703].copy()
     
     xcol = "fs.costing.electricity_cost"
