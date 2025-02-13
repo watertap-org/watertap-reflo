@@ -1,4 +1,6 @@
 import os
+import multiprocessing
+import itertools
 import time
 import numpy as np
 import pandas as pd
@@ -74,7 +76,82 @@ __all__ = [
     "add_primary_system_scaling",
     "set_primary_operating_conditions",
     "init_primary_treatment",
+    "run_kbhdp_base_case",
 ]
+
+electricity_cost_base = 0.04988670259431006  # equivalent to 0.066 in USD2023
+heat_cost_base = 0.0166
+
+skips = [
+    "diffus_phase",
+    "diffus_param",
+    "dens_mass_param",
+    "dh_vap_w_param",
+    "cp_phase_param",
+    "pressure_sat_param_psatw",
+    "enth_mass_param",
+    "osm_coeff_param",
+    "visc_d_param",
+    "therm_cond_phase_param",
+    "pressure_sat_param",
+    "bpe_",
+    "TIC",
+    "TPEC",
+    "blocks[",
+    "yearly_heat_production",
+    "yearly_electricity_production",
+    "cp_param_NaCl_liq",
+    "_translator",
+    "permeate_side",
+    "properties_interface",
+    "material_flow_dx",
+    "._flow_terms",
+    "pressure_dx",
+    "MCAS_properties",
+    "cp_param_NaCl_solid",
+    "cp_vap_param",
+    "temp_sat_solvent",
+    "m_mec.fs.properties",
+    "cp_mass_phase",
+]
+
+merge_cols = [
+    "ro_recovery",
+    "md_recovery",
+    "crystallization_yield",
+    "nacl_recovered_cost",
+    "frac_elec_from_grid",
+    "frac_heat_from_grid",
+    "electricity_cost",
+    "heat_cost",
+]
+
+
+save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/ZLD_results"
+import idaes.logger as idaeslogger
+import warnings
+
+warnings.filterwarnings("ignore")
+
+idaeslogger.getLogger("ideas.core").setLevel("CRITICAL")
+idaeslogger.getLogger("ideas.core.util.scaling").setLevel("CRITICAL")
+idaeslogger.getLogger("idaes.init").setLevel("CRITICAL")
+idaeslogger.getLogger("idaes.watertap.core.util.initialization").setLevel("CRITICAL")
+idaeslogger.getLogger("idaes.watertap.property_models.seawater_prop_pack").setLevel(
+    "CRITICAL"
+)
+idaeslogger.getLogger("idaes.apps.grid_integration.multiperiod.multiperiod").setLevel(
+    "CRITICAL"
+)
+idaeslogger.getLogger("idaes.core.util.scaling").setLevel("CRITICAL")
+idaeslogger.getLogger("idaes.core.base.costing_base").setLevel("CRITICAL")
+idaeslogger.getLogger(
+    "idaes.watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_multiperiod_unit_model"
+).setLevel("CRITICAL")
+idaeslogger.getLogger("idaes.watertap.property_models.water_prop_pack").setLevel(
+    "CRITICAL"
+)
+idaeslogger.getLogger("idaes.core.base.property_meta").setLevel("CRITICAL")
 
 
 ############################################################
@@ -90,8 +167,8 @@ def build_and_run_primary_treatment(
     fixed_pressure=None,
     ro_mem_area=None,
     objective=None,
-    electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
-    heat_cost=0.01660,
+    electricity_cost=electricity_cost_base,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+    heat_cost=heat_cost_base,
     aluminum_cost=2.23,
     **kwargs,
 ):
@@ -213,7 +290,6 @@ def build_primary_treatment(m):
 
 
 def add_primary_connections(m):
-    # treatment = m.fs.treatment
 
     m.fs.feed_to_translator = Arc(
         source=m.fs.feed.outlet,
@@ -300,13 +376,8 @@ def set_treatment_scaling(m):
 def add_primary_treatment_costing(m):
 
     m.fs.costing = TreatmentCosting()
-    m.fs.costing.electricity_cost.fix(
-        pyunits.convert(
-            0.066 * pyunits.USD_2023 / pyunits.kWh,
-            to_units=pyunits.USD_2018 / pyunits.kWh,
-        )
-    )
-    m.fs.costing.heat_cost.fix(0.01660)
+    m.fs.costing.electricity_cost.fix(electricity_cost_base)
+    m.fs.costing.heat_cost.fix(heat_cost_base)
 
     m.fs.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.costing,
@@ -468,9 +539,9 @@ def init_primary_system(m, verbose=True, solver=None):
 def build_and_run_md_system(
     Qin=1,
     Cin=60,
-    water_recovery=0.5,
-    electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
-    heat_cost=0.01660,
+    water_recovery=0.7,
+    electricity_cost=electricity_cost_base,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+    heat_cost=heat_cost_base,
 ):
 
     m = build_md_system(Qin=Qin, Cin=Cin, water_recovery=water_recovery)
@@ -531,13 +602,8 @@ def build_md_system(Qin=4, Cin=12, water_recovery=0.5):
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
 
-    m.fs.costing.electricity_cost.fix(
-        pyunits.convert(
-            0.066 * pyunits.USD_2023 / pyunits.kWh,
-            to_units=pyunits.USD_2018 / pyunits.kWh,
-        )
-    )
-    m.fs.costing.heat_cost.fix(0.01660)
+    m.fs.costing.electricity_cost.fix(electricity_cost_base)
+    m.fs.costing.heat_cost.fix(heat_cost_base)
 
     m.inlet_flow_rate = pyunits.convert(
         Qin * pyunits.Mgallons / pyunits.day, to_units=pyunits.m**3 / pyunits.s
@@ -638,8 +704,8 @@ def build_and_run_mec_system(
     Qin=None,
     Cin=None,
     number_effects=4,
-    electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
-    heat_cost=0.01660,
+    electricity_cost=electricity_cost_base,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+    heat_cost=heat_cost_base,
     mec_kwargs=dict(),
     **kwargs,
 ):
@@ -660,13 +726,8 @@ def build_mec_system(number_effects=4, nacl_recovered_cost=None, **kwargs):
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
 
-    m.fs.costing.electricity_cost.fix(
-        pyunits.convert(
-            0.066 * pyunits.USD_2023 / pyunits.kWh,
-            to_units=pyunits.USD_2018 / pyunits.kWh,
-        )
-    )
-    m.fs.costing.heat_cost.fix(0.01660)
+    m.fs.costing.electricity_cost.fix(electricity_cost_base)
+    m.fs.costing.heat_cost.fix(heat_cost_base)
     m.nacl_recovered_cost = nacl_recovered_cost
 
     m.fs.properties = CrystallizerParameterBlock()
@@ -679,9 +740,6 @@ def build_mec_system(number_effects=4, nacl_recovered_cost=None, **kwargs):
     m.fs.MEC = mec = FlowsheetBlock(dynamic=False)
 
     build_mec(m, m.fs.MEC, number_effects=number_effects)
-
-    # if nacl_recovered_cost is not None:
-    # m.fs.costing.nacl_recovered.cost.set_value(nacl_recovered_cost)
 
     m.fs.feed_to_unit = Arc(source=m.fs.feed.outlet, destination=mec.unit.inlet)
 
@@ -886,24 +944,24 @@ def build_and_run_zld_energy_model(
     m1,
     m_md,
     m_mec,
-    frac_heat_from_grid=0.5,
-    frac_elec_from_grid=0.5,
+    frac_heat_from_grid=1,
+    frac_elec_from_grid=1,
     design_size_start=1000,
     design_size_end=10000,
     increment_design_size=10,
     hours_storage=24,
-    pv_cost_per_watt_module=0.41,
+    pv_cost_per_watt_installed=1.6,
     cst_cost_per_capacity_capital=560,
     cst_cost_per_storage_capital=62,
     **kwargs,
 ):
-    # global surr_results
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
+
     m.fs.frac_heat_from_grid = Param(initialize=frac_heat_from_grid)
     m.fs.frac_elec_from_grid = Param(initialize=frac_elec_from_grid)
-    # energy = m.fs.energy = Block()
+
     m.fs.costing = EnergyCosting()
 
     build_pv(m, energy_blk=m.fs)
@@ -915,7 +973,7 @@ def build_and_run_zld_energy_model(
     m.fs.trough.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
     set_trough_pysam_op_conditions(m, m.fs, hours_storage=hours_storage)
 
-    m.fs.costing.pv_surrogate.cost_per_watt_module.fix(pv_cost_per_watt_module)
+    m.fs.costing.pv_surrogate.cost_per_watt_installed.fix(pv_cost_per_watt_installed)
     m.fs.costing.trough_surrogate.cost_per_capacity_capital.fix(
         cst_cost_per_capacity_capital
     )
@@ -944,6 +1002,7 @@ def build_and_run_zld_energy_model(
         m.fs.trough.electricity_annual.fix(pysam_results["electrical_load"])
         m.fs.trough.heat_load.fix(heat_load_required)
     else:
+        pysam_results = None
         m.fs.trough.slope_of_fit = Param(initialize=0)
         m.fs.trough.heat_annual.fix(0)
         m.fs.trough.electricity_annual.fix(0)
@@ -989,6 +1048,7 @@ def build_and_run_zld_energy_model(
 
         m.fs.pv.design_size.fix(design_size)
     else:
+        m.fs.pv.design_size.setlb(None)
         m.fs.pv.design_size.fix(0)
     assert degrees_of_freedom(m) == 0
 
@@ -1036,7 +1096,6 @@ def get_zld_trough_heat_load(
     if fit_guess:
         slope = _fit_guess()
 
-    # heat_annual_required = heat_load * slope
     heat_load_guess = heat_annual_required / slope
     pysam_results = run_pysam_trough(m, heat_load=heat_load_guess)
     heat_annual_guess = pysam_results["annual_energy"]
@@ -1444,7 +1503,7 @@ def build_agg_costing_blk(
                 u.variable_operating_cost, to_units=base_currency / base_period
             )
             total_opex_numerator += variable_opex_numerator
-        
+
         if ".pump" in u.unit_model.name:
             unit_model_name = "pump"
         elif ".EC." in u.unit_model.name:
@@ -1477,9 +1536,9 @@ def build_agg_costing_blk(
 
     for ftype, flows in b.registered_flows.items():
         # part of total_variable_operating_cost
-        print()
-        print(ftype)
-        print()
+        # print()
+        # print(ftype)
+        # print()
 
         cost_var = b.used_flow_costs[ftype]
         for flow_expr in flows:
@@ -1530,50 +1589,106 @@ def build_agg_model(m1, m_md, m_mec, m_en):
     return m
 
 
+def add_merge_cols(rd):
+    for mc in merge_cols:
+        rd[mc] = list()
+    return rd
+
+
+def append_merge_cols(rd, m1, m_md, m_mec, m_en, m_agg):
+    rd["ro_recovery"].append(value(m1.fs.water_recovery))
+    rd["md_recovery"].append(value(m_md.fs.md_recovery))
+    rd["crystallization_yield"].append(value(m_mec.fs.crystallization_yield))
+    rd["nacl_recovered_cost"].append(value(m_mec.fs.nacl_recovered_cost))
+    rd["frac_elec_from_grid"].append(value(m_en.fs.frac_elec_from_grid))
+    rd["frac_heat_from_grid"].append(value(m_en.fs.frac_heat_from_grid))
+    rd["electricity_cost"].append(value(m_agg.fs.costing.electricity_cost))
+    rd["heat_cost"].append(value(m_agg.fs.costing.heat_cost))
+    return rd
+
+
+def run_kbhdp_base_case():
+    # base case conditions
+    global rd_1, rd_md, rd_mec, rd_en, rd_agg
+
+    primary_kwargs = dict(
+        water_recovery=0.8,
+        electricity_cost=electricity_cost_base,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+        heat_cost=heat_cost_base,
+    )
+    md_kwargs = dict(
+        water_recovery=0.7,
+        electricity_cost=electricity_cost_base,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+        heat_cost=heat_cost_base,
+    )
+    mec_op_kwargs = dict(
+        crystallization_yield=0.9,
+        nacl_recovered_cost=0,
+        electricity_cost=electricity_cost_base,
+        heat_cost=heat_cost_base,
+    )
+    en_kwargs = dict(
+        frac_heat_from_grid=1,
+        frac_elec_from_grid=1,
+        pv_cost_per_watt_installed=1.6,
+        cst_cost_per_capacity_capital=560,
+        cst_cost_per_storage_capital=62,
+    )
+
+    m1, m_md, m_mec, m_en, m_agg = build_and_run_kbhdp_zld(
+        primary_kwargs=primary_kwargs,
+        md_kwargs=md_kwargs,
+        mec_op_kwargs=mec_op_kwargs,
+        en_kwargs=en_kwargs,
+    )
+
+    # build results dict and append baseline results
+
+    rd_1 = build_results_dict(m1, skips=skips)
+    rd_1 = add_merge_cols(rd_1)
+    # rd_1 = results_dict_append(m1, rd_1)
+    # rd_1 = append_merge_cols(rd_1, m1, m_md, m_mec, m_en, m_agg)
+
+    rd_md = build_results_dict(m_md, skips=skips)
+    rd_md = add_merge_cols(rd_md)
+    # rd_md = results_dict_append(m_md, rd_md)
+    # rd_md = append_merge_cols(rd_md, m1, m_md, m_mec, m_en, m_agg)
+
+    rd_mec = build_results_dict(m_mec, skips=skips)
+    rd_mec = add_merge_cols(rd_mec)
+    # rd_mec = results_dict_append(m_mec, rd_mec)
+    # rd_mec = append_merge_cols(rd_mec, m1, m_md, m_mec, m_en, m_agg)
+
+    rd_en = build_results_dict(m_en, skips=skips)
+    rd_en = add_merge_cols(rd_en)
+    # rd_en = results_dict_append(m_en, rd_en)
+    # rd_en = append_merge_cols(rd_en, m1, m_md, m_mec, m_en, m_agg)
+
+    rd_agg = build_results_dict(m_agg, skips=skips)
+    rd_agg = add_merge_cols(rd_agg)
+    # rd_agg = results_dict_append(m_agg, rd_agg)
+    # rd_agg = append_merge_cols(rd_agg, m1, m_md, m_mec, m_en, m_agg)
+
+    return rd_1, rd_md, rd_mec, rd_en, rd_agg
+
+
 def run_kbhdp_zld_sweep(
     ro_recovery=0.8,
     md_recovery=0.7,
-    cryst_yields=0.8,
-    nacl_recov_cost=-0.025,
-    frac_elec_from_grid=0.5,
-    frac_heat_from_grid=0.5,
+    cryst_yields=0.9,
+    nacl_recov_cost=-0,
+    frac_elec_from_grid=0,
+    frac_heat_from_grid=0,
     aluminum_cost=2.23,
-    electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
-    heat_cost=0.01660,
-    pv_cost=0.41,
+    electricity_cost=electricity_cost_base,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+    heat_cost=heat_cost_base,
+    pv_cost=1.6,
     trough_cost=560,
     storage_cost=62,
-    file_append=""
+    file_append="",
 ):
 
-    import idaes.logger as idaeslogger
-    import warnings
-
-    warnings.filterwarnings("ignore")
-
-    idaeslogger.getLogger("ideas.core").setLevel("CRITICAL")
-    idaeslogger.getLogger("ideas.core.util.scaling").setLevel("CRITICAL")
-    idaeslogger.getLogger("idaes.init").setLevel("CRITICAL")
-    idaeslogger.getLogger("idaes.watertap.core.util.initialization").setLevel(
-        "CRITICAL"
-    )
-    idaeslogger.getLogger("idaes.watertap.property_models.seawater_prop_pack").setLevel(
-        "CRITICAL"
-    )
-    idaeslogger.getLogger(
-        "idaes.apps.grid_integration.multiperiod.multiperiod"
-    ).setLevel("CRITICAL")
-    idaeslogger.getLogger("idaes.core.util.scaling").setLevel("CRITICAL")
-    idaeslogger.getLogger("idaes.core.base.costing_base").setLevel("CRITICAL")
-    idaeslogger.getLogger(
-        "idaes.watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_multiperiod_unit_model"
-    ).setLevel("CRITICAL")
-    idaeslogger.getLogger("idaes.watertap.property_models.water_prop_pack").setLevel(
-        "CRITICAL"
-    )
-    idaeslogger.getLogger("idaes.core.base.property_meta").setLevel("CRITICAL")
-
-    save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/KBHDP/ZLD/zld_sweep_results"
+    # save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/KBHDP/ZLD/zld_sweep_results"
 
     if not isinstance(ro_recovery, list):
         ro_recovery = [ro_recovery]
@@ -1600,26 +1715,28 @@ def run_kbhdp_zld_sweep(
     if not isinstance(aluminum_cost, list):
         aluminum_cost = [aluminum_cost]
 
+    # base case conditions
+
     primary_kwargs = dict(
         water_recovery=0.8,
-        electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
-        heat_cost=0.01660,
+        electricity_cost=electricity_cost_base,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+        heat_cost=heat_cost_base,
     )
     md_kwargs = dict(
         water_recovery=0.7,
-        electricity_cost=0.04988670259431006,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
-        heat_cost=0.01660,
+        electricity_cost=electricity_cost_base,  # USD_2018 / kWh, equivalent to 0.066 USD_2023/kWh
+        heat_cost=heat_cost_base,
     )
     mec_op_kwargs = dict(
-        crystallization_yield=0.8,
-        nacl_recovered_cost=-0.025,
-        electricity_cost=0.04988670259431006,
-        heat_cost=0.01660,
+        crystallization_yield=0.9,
+        nacl_recovered_cost=0,
+        electricity_cost=electricity_cost_base,
+        heat_cost=heat_cost_base,
     )
     en_kwargs = dict(
-        frac_heat_from_grid=0.5,
-        frac_elec_from_grid=0.5,
-        pv_cost_per_watt_module=0.41,
+        frac_heat_from_grid=0,
+        frac_elec_from_grid=0,
+        pv_cost_per_watt_installed=1.6,
         cst_cost_per_capacity_capital=560,
         cst_cost_per_storage_capital=62,
     )
@@ -1630,64 +1747,38 @@ def run_kbhdp_zld_sweep(
         mec_op_kwargs=mec_op_kwargs,
         en_kwargs=en_kwargs,
     )
-
-    skips = [
-        "diffus_phase",
-        "diffus_param",
-        "dens_mass_param",
-        "dh_vap_w_param",
-        "cp_phase_param",
-        "pressure_sat_param_psatw",
-        "enth_mass_param",
-        "osm_coeff_param",
-        "bpe_",
-        "TIC",
-        "TPEC",
-        "blocks[",
-    ]
-
-    merge_cols = [
-        "ro_recovery",
-        "md_recovery",
-        "crystallization_yield",
-        "nacl_recovered_cost",
-        "frac_elec_from_grid",
-        "frac_heat_from_grid",
-        "electricity_cost",
-        "heat_cost",
-    ]
     # rd_mec = build_results_dict(m_mec, skips=skips)
     # rd_mec = results_dict_append(m_mec, rd_mec)
     # for k, v in rd_mec.items():
     #     if "_recovered" in k:
     #         print(v)
 
-    def add_merge_cols(rd):
-        for mc in merge_cols:
-            rd[mc] = list()
-        return rd
-
-    def append_merge_cols(rd, m1, m_md, m_mec, m_en, m_agg):
-        rd["ro_recovery"].append(value(m1.fs.water_recovery))
-        rd["md_recovery"].append(value(m_md.fs.md_recovery))
-        rd["crystallization_yield"].append(value(m_mec.fs.crystallization_yield))
-        rd["nacl_recovered_cost"].append(value(m_mec.fs.nacl_recovered_cost))
-        rd["frac_elec_from_grid"].append(value(m_en.fs.frac_elec_from_grid))
-        rd["frac_heat_from_grid"].append(value(m_en.fs.frac_heat_from_grid))
-        rd["electricity_cost"].append(value(m_agg.fs.costing.electricity_cost))
-        rd["heat_cost"].append(value(m_agg.fs.costing.heat_cost))
-        return rd
+    # build results dict and append baseline results
 
     rd_1 = build_results_dict(m1, skips=skips)
     rd_1 = add_merge_cols(rd_1)
+    rd_1 = results_dict_append(m1, rd_1)
+    rd_1 = append_merge_cols(rd_1, m1, m_md, m_mec, m_en, m_agg)
+
     rd_md = build_results_dict(m_md, skips=skips)
     rd_md = add_merge_cols(rd_md)
+    rd_md = results_dict_append(m_md, rd_md)
+    rd_md = append_merge_cols(rd_md, m1, m_md, m_mec, m_en, m_agg)
+
     rd_mec = build_results_dict(m_mec, skips=skips)
     rd_mec = add_merge_cols(rd_mec)
+    rd_mec = results_dict_append(m_mec, rd_mec)
+    rd_mec = append_merge_cols(rd_mec, m1, m_md, m_mec, m_en, m_agg)
+
     rd_en = build_results_dict(m_en, skips=skips)
     rd_en = add_merge_cols(rd_en)
+    rd_en = results_dict_append(m_en, rd_en)
+    rd_en = append_merge_cols(rd_en, m1, m_md, m_mec, m_en, m_agg)
+
     rd_agg = build_results_dict(m_agg, skips=skips)
     rd_agg = add_merge_cols(rd_agg)
+    rd_agg = results_dict_append(m_agg, rd_agg)
+    rd_agg = append_merge_cols(rd_agg, m1, m_md, m_mec, m_en, m_agg)
 
     for ro in ro_recovery:
         for md in md_recovery:
@@ -1722,7 +1813,7 @@ def run_kbhdp_zld_sweep(
                                                     en_kwargs = dict(
                                                         frac_heat_from_grid=fh,
                                                         frac_elec_from_grid=fe,
-                                                        pv_cost_per_watt_module=pc,
+                                                        pv_cost_per_watt_installed=pc,
                                                         cst_cost_per_capacity_capital=tc,
                                                         cst_cost_per_storage_capital=sc,
                                                     )
@@ -1826,7 +1917,9 @@ def run_kbhdp_zld_sweep(
     df_combo = pd.merge(df_combo, df_en, on=merge_cols)
     df_combo = pd.merge(df_combo, df_agg, on=merge_cols)
 
-    df_combo.to_csv(f"{save_path}/kbhdp_zld_combo_{timestr}_{file_append}.csv", index=False)
+    df_combo.to_csv(
+        f"{save_path}/kbhdp_zld_combo_{timestr}_{file_append}.csv", index=False
+    )
 
     print("COMPLETED")
     return df_combo
@@ -1836,5 +1929,428 @@ def main():
     run_kbhdp_zld_sweep()
 
 
+def run_kbhdp_zld_mp(
+    primary_kwargs_input,
+    md_kwargs_input,
+    mec_kwargs_input,
+    en_kwargs_input,
+    rd_1,
+    rd_md,
+    rd_mec,
+    rd_en,
+    rd_agg,
+    electricity_cost,
+    heat_cost,
+):
+
+    primary_kwargs = dict(
+        water_recovery=0.8,
+        electricity_cost=electricity_cost,
+        aluminum_cost=2.23,
+        heat_cost=heat_cost,
+    )
+    md_kwargs = dict(
+        water_recovery=0.7,
+        electricity_cost=electricity_cost,
+        heat_cost=heat_cost,
+    )
+    mec_op_kwargs = dict(
+        crystallization_yield=0.9,
+        nacl_recovered_cost=0,
+        electricity_cost=electricity_cost,
+        heat_cost=heat_cost,
+    )
+    en_kwargs = dict(
+        frac_heat_from_grid=1,
+        frac_elec_from_grid=1,
+        pv_cost_per_watt_installed=1.6,
+        cst_cost_per_capacity_capital=560,
+        cst_cost_per_storage_capital=62,
+    )
+
+    for k, v in primary_kwargs.items():
+        if k in primary_kwargs_input.keys():
+            primary_kwargs[k] = primary_kwargs_input[k]
+
+    for k, v in md_kwargs.items():
+        if k in md_kwargs_input.keys():
+            md_kwargs[k] = md_kwargs_input[k]
+
+    for k, v in mec_op_kwargs.items():
+        if k in mec_kwargs_input.keys():
+            mec_op_kwargs[k] = mec_kwargs_input[k]
+
+    for k, v in en_kwargs.items():
+        if k in en_kwargs_input.keys():
+            en_kwargs[k] = en_kwargs_input[k]
+
+    m1, m_md, m_mec, m_en, m_agg = build_and_run_kbhdp_zld(
+        primary_kwargs=primary_kwargs,
+        md_kwargs=md_kwargs,
+        mec_op_kwargs=mec_op_kwargs,
+        en_kwargs=en_kwargs,
+    )
+
+    col_replace = ["m1.fs", "m_md.fs", "m_mec.fs", "m_en.fs", "m_agg.fs"]
+
+    for i, (rd, m, cr) in enumerate(
+        zip(
+            [rd_1, rd_md, rd_mec, rd_en, rd_agg],
+            [m1, m_md, m_mec, m_en, m_agg],
+            col_replace,
+        )
+    ):
+
+        rd = results_dict_append(m, rd)
+        rd = append_merge_cols(rd, m1, m_md, m_mec, m_en, m_agg)
+
+        if i == 0:
+            df = pd.DataFrame.from_dict(rd)
+            df.rename(
+                columns={c: c.replace("fs", cr) for c in df.columns}, inplace=True
+            )
+        else:
+            df1 = pd.DataFrame.from_dict(rd)
+            df1.rename(
+                columns={c: c.replace("fs", cr) for c in df1.columns}, inplace=True
+            )
+
+            df = pd.merge(df, df1, on=merge_cols)
+
+    return df
+
+
+def run_elec_heat_cost_sweep(num_pts=5):
+
+    # base case treatment energy component sweep
+    min_rel = 0.5
+    max_rel = 1.25
+
+    ### PV cost per watt
+    al_cost_base = 2.23
+
+    aluminum_cost = np.linspace(
+        al_cost_base * min_rel, al_cost_base * max_rel, num_pts
+    ).tolist()
+
+    ### NaCl recovery cost
+    nacl_recov_cost = [-0.05, -0.025, 0]
+
+    ### electricity cost
+    elec_cost = np.linspace(
+        electricity_cost_base * min_rel, electricity_cost_base * max_rel, num_pts
+    ).tolist()
+    elec_cost.append(electricity_cost_base)
+
+    ### heat cost
+    heat_cost = np.linspace(
+        heat_cost_base * min_rel, heat_cost_base * max_rel, num_pts
+    ).tolist()
+    heat_cost.append(heat_cost_base)
+
+    ro_recovery = [0.6, 0.7, 0.8]
+    md_recovery = [0.6, 0.7, 0.75]
+    cryst_yield = [0.7, 0.8, 0.9]
+
+    rd_1, rd_md, rd_mec, rd_en, rd_agg = run_kbhdp_base_case()
+
+    primary_inputs = [{}]
+    md_inputs = [{}]
+    mec_inputs = [{}]
+    en_inputs = [{}]
+
+    # for ac in aluminum_cost:
+    #     for nrc in nacl_recov_cost:
+    # for ec in elec_cost:
+    #     for hc in heat_cost:
+    # for ro in ro_recovery:
+    #     for ac in aluminum_cost:
+
+    #         primary_inputs.append(
+    #             dict(
+    #                 water_recovery=ro,
+    #                 aluminum_cost=ac,
+    #                 # electricity_cost=ec,
+    #                 # heat_cost=hc,
+    #             )
+    #         )
+
+    # for md in md_recovery:
+
+    #     md_inputs.append(
+    #         dict(
+    #             water_recovery=md,
+    #             # electricity_cost=ec,
+    #             # heat_cost=hc,
+    #         )
+    #     )
+
+    # for cy in cryst_yield:
+    #     for nrc in nacl_recov_cost:
+    #         mec_inputs.append(
+    #             dict(
+    #                 crystallization_yield=cy,
+    #                 nacl_recovered_cost=nrc,
+    #                 # electricity_cost=ec,
+    #                 # heat_cost=hc,
+    #             )
+    #         )
+
+    # en_inputs.append({})
+    d1 = {"a": 1}
+    d2 = {"b": 1}
+    d3 = {"c": 1}
+    d4 = {"d": 1}
+    d5 = {"e": 1}
+
+    args = list(
+        itertools.product(
+            primary_inputs,
+            md_inputs,
+            mec_inputs,
+            en_inputs,
+            *[[rd] for rd in [rd_1, rd_md, rd_mec, rd_en, rd_agg]],
+            # *[[rd] for rd in [d1, d2, d3, d4, d5]],
+            *[elec_cost],
+            *[heat_cost],
+        )
+    )
+    # import pprint
+    # import sys
+    # pprint.pprint(primary_inputs)
+    # pprint.pprint(args[:10])
+    # print(len(args))
+    # print(sys.getsizeof(args) * 1e-9)
+    # print(multiprocessing.cpu_count())
+    # assert False
+
+    with multiprocessing.Pool(processes=8) as pool:
+        results = pool.starmap(run_kbhdp_zld_mp, args)
+    df_results = pd.concat(results)
+
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    # save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/ZLD_results"
+    df_results.to_csv(
+        f"{save_path}/kbhdp_zld_results_electricity_heat_cost_sweep_{timestr}.csv",
+        index=False,
+    )
+
+
+def run_recov_chem_mat_cost_sweep(num_pts=5):
+
+    min_rel = 0.5
+    max_rel = 1.25
+
+    ### electricity cost
+    elec_cost = []
+    elec_cost.append(electricity_cost_base)
+
+    ### heat cost
+    heat_cost = []
+    heat_cost.append(heat_cost_base)
+
+    ### PV cost per watt
+    al_cost_base = 2.23
+
+    aluminum_cost = np.linspace(
+        al_cost_base * min_rel, al_cost_base * max_rel, num_pts
+    ).tolist()
+
+    ### NaCl recovery cost
+    nacl_recov_cost = [-0.05, -0.025, 0]
+
+    ro_recovery = [0.6, 0.7, 0.8]
+    md_recovery = [0.5, 0.6, 0.7]
+    cryst_yield = [0.7, 0.8, 0.9]
+
+    rd_1, rd_md, rd_mec, rd_en, rd_agg = run_kbhdp_base_case()
+
+    primary_inputs = [{}]
+    md_inputs = [{}]
+    mec_inputs = [{}]
+    en_inputs = [{}]
+
+    for ro in ro_recovery:
+        for ac in aluminum_cost:
+
+            primary_inputs.append(
+                dict(
+                    aluminum_cost=ac,
+                    water_recovery=ro,
+                )
+            )
+
+    for md in md_recovery:
+
+        md_inputs.append(
+            dict(
+                water_recovery=md,
+            )
+        )
+
+    for cy in cryst_yield:
+        for nrc in nacl_recov_cost:
+            mec_inputs.append(
+                dict(
+                    crystallization_yield=cy,
+                    nacl_recovered_cost=nrc,
+                )
+            )
+
+    # d1 = {"a": 1}
+    # d2 = {"b": 1}
+    # d3 = {"c": 1}
+    # d4 = {"d": 1}
+    # d5 = {"e": 1}
+
+    args = list(
+        itertools.product(
+            primary_inputs,
+            md_inputs,
+            mec_inputs,
+            en_inputs,
+            *[[rd] for rd in [rd_1, rd_md, rd_mec, rd_en, rd_agg]],
+            # *[[rd] for rd in [d1, d2, d3, d4, d5]],
+            *[elec_cost],
+            *[heat_cost],
+        )
+    )
+    # import pprint
+    # import sys
+    # pprint.pprint(primary_inputs)
+    # pprint.pprint(args)
+    # print(len(args))
+    # print(sys.getsizeof(args) * 1e-9)
+    # print(multiprocessing.cpu_count())
+    # assert False
+
+    with multiprocessing.Pool(processes=9) as pool:
+        results = pool.starmap(run_kbhdp_zld_mp, args)
+    df_results = pd.concat(results)
+
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    # save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/ZLD_results"
+    df_results.to_csv(
+        f"{save_path}/kbhdp_zld_results_recovery_alum_cost_nacl_recov_cost_sweep_{timestr}.csv",
+        index=False,
+    )
+
+
+def run_energy_param_sweep(num_pts=4):
+
+    # base case treatment energy component sweep
+    min_rel = 0.5
+    max_rel = 1.25
+
+    ### PV cost per watt
+    pv_cost_base = 1.6
+
+    pv_cost = np.linspace(
+        pv_cost_base * min_rel, pv_cost_base * max_rel, num_pts
+    ).tolist()
+    pv_cost.append(pv_cost_base)
+
+    ### Trough cost per watt
+    trough_cost_base = 560
+
+    trough_cost = np.linspace(
+        trough_cost_base * min_rel, trough_cost_base * max_rel, num_pts
+    ).tolist()
+    trough_cost.append(trough_cost_base)
+
+    ### Trough storage cost per watt
+    storage_cost_base = 62
+
+    storage_cost = np.linspace(
+        storage_cost_base * min_rel, storage_cost_base * max_rel, num_pts
+    ).tolist()
+    storage_cost.append(storage_cost_base)
+
+    ### frac elec from grid
+    frac_elec_from_grid = [0.5, 0.25, 0]
+    ### frac heat from grid
+    frac_heat_from_grid = [0.5, 0.25, 0]
+
+    ### electricity cost
+    # elec_cost = np.linspace(
+    #     electricity_cost_base * min_rel, electricity_cost_base * max_rel, num_pts
+    # ).tolist()
+    # elec_cost.append(electricity_cost_base)
+    # # elec_cost = list()
+
+    # ### heat cost
+
+    # heat_cost = np.linspace(
+    #     heat_cost_base * min_rel, heat_cost_base * max_rel, num_pts
+    # ).tolist()
+    # heat_cost.append(heat_cost_base)
+    # heat_cost = list()
+
+    rd_1, rd_md, rd_mec, rd_en, rd_agg = run_kbhdp_base_case()
+
+    primary_inputs = [{}]
+    md_inputs = [{}]
+    mec_inputs = [{}]
+    en_inputs = [{}]
+
+    for pc in pv_cost:
+        for tc in trough_cost:
+            for sc in storage_cost:
+                for fe in frac_elec_from_grid:
+                    for fh in frac_heat_from_grid:
+                        en_inputs.append(
+                            dict(
+                                pv_cost_per_watt_installed=pc,
+                                cst_cost_per_capacity_capital=tc,
+                                cst_cost_per_storage_capital=sc,
+                                frac_elec_from_grid=fe,
+                                frac_heat_from_grid=fh,
+                            )
+                        )
+
+    ### electricity cost
+    elec_cost = []
+    elec_cost.append(electricity_cost_base)
+
+    ### heat cost
+    heat_cost = []
+    heat_cost.append(heat_cost_base)
+
+    args = list(
+        itertools.product(
+            primary_inputs,
+            md_inputs,
+            mec_inputs,
+            en_inputs,
+            *[[rd] for rd in [rd_1, rd_md, rd_mec, rd_en, rd_agg]],
+            *[elec_cost],
+            *[heat_cost],
+        )
+    )
+
+    # import pprint
+    # import sys
+    # # pprint.pprint(primary_inputs)
+    # # pprint.pprint(args[:10])
+    # print( len(args))
+    # print(len(args) / 8 / 60)  # hr
+    # print(sys.getsizeof(args) * 1e-9)
+    # assert False
+
+    with multiprocessing.Pool(processes=8) as pool:
+        results = pool.starmap(run_kbhdp_zld_mp, args)
+    df_results = pd.concat(results)
+
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+
+    df_results.to_csv(
+        f"{save_path}/kbhdp_zld_results_pv_trough_storage_cost_frac_from_grid_sweep-{timestr}.csv", index=False
+    )
+
+
 if __name__ == "__main__":
-    main()
+    # main()
+
+    # run_elec_heat_cost_sweep()
+    run_recov_chem_mat_cost_sweep()
+    # run_energy_param_sweep()
