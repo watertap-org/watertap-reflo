@@ -662,7 +662,11 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
 
 if __name__ == "__main__":
 
-    m = run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.1)
+    tds = 130
+    Qin = 5
+    water_recovery = 0.5
+
+    m = run_permian_st1_md(Qin=Qin, tds=tds, water_recovery = water_recovery )
     treat = m.fs.treatment
     report_MD(m, treat.md)
     print(f"DOF = {degrees_of_freedom(m)}")
