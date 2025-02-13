@@ -54,6 +54,7 @@ from watertap.property_models.water_prop_pack import (
 )
 from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting, REFLOSystemCosting
 from watertap_contrib.reflo.analysis.case_studies.permian.components import *
+from watertap_contrib.reflo.analysis.case_studies.permian import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.MD import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.CST import *
 
@@ -563,10 +564,26 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     """
     rho = get_stream_density(Qin, tds)
 
-    m = build_permian_st1_md(rho=rho, water_recovery=water_recovery)
+    m_pretreatment = build_and_run_permian_pretreatment(Qin=5)
+
+    print(
+        f"Pretreatment Product Flow: {pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)():.4f} m3/s"
+    )
+
+    print(
+        f"Pretreatment Product Flow: {pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].conc_mass_phase_comp['Liq', 'TDS'],to_units=pyunits.g / pyunits.L,)():.4f} g/L"
+    )
+
+    md_flow = pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)
+    md_conc = pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].conc_mass_phase_comp['Liq', 'TDS'],to_units=pyunits.g / pyunits.L,)
+
+    # build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=None)
+
+    m = build_permian_st1_md(Q_md=md_flow(), Cin=md_conc(), water_recovery=water_recovery, rho=rho)
     treat = m.fs.treatment
 
-    set_operating_conditions_st1_md(m, rho)
+    # set_operating_conditions_st1_md(m, rho, Qin=5, tds=130, **kwargs)
+    set_operating_conditions_st1_md(m, rho, Qin, tds)
     set_permian_pretreatment_scaling_st1_md(
         m, calclate_m_scaling_factors=True
     )  # Doesn't solve without this even before costing

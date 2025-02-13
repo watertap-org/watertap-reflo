@@ -55,6 +55,7 @@ from watertap.core.util.initialization import *
 
 from watertap_contrib.reflo.costing import TreatmentCosting, EnergyCosting
 from watertap_contrib.reflo.analysis.case_studies.permian.components import *
+from watertap_contrib.reflo.analysis.case_studies.permian import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.MD import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.translator_zo_to_nacl import *
 from watertap_contrib.reflo.analysis.case_studies.permian.components.translator_sw_to_nacl import *
@@ -521,16 +522,29 @@ def init_system_st2_md(m, **kwargs):
     propagate_state(treat.mixer_to_normalized_feed)
 
 
-def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.3,**kwargs):
+def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     """
     Run Permian pretreatment flowsheet
     """
     rho = get_stream_density(Qin, tds)
 
-    m = build_permian_st2_md(rho=rho, water_recovery=water_recovery)
+    m_pretreatment = build_and_run_permian_pretreatment(Qin=5)
+
+    print(
+        f"Pretreatment Product Flow: {pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)():.4f} m3/s"
+    )
+
+    print(
+        f"Pretreatment Product Flow: {pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].conc_mass_phase_comp['Liq', 'TDS'],to_units=pyunits.g / pyunits.L,)():.4f} g/L"
+    )
+
+    md_flow = pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)
+    md_conc = pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].conc_mass_phase_comp['Liq', 'TDS'],to_units=pyunits.g / pyunits.L,)
+
+    m = build_permian_st2_md(Q_md=md_flow(), Cin=md_conc(), water_recovery=water_recovery, rho=rho)
     treat = m.fs.treatment
 
-    set_operating_conditions_st2_md(m, rho)
+    set_operating_conditions_st2_md(m, rho, Qin, tds)
     set_permian_pretreatment_scaling_st2_md(
         m, calclate_m_scaling_factors=True
     )  # Doesn't solve without this even before costing
@@ -644,45 +658,10 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, water_recovery = 0.
     # print_infeasible_constraints(m)
     assert_optimal_termination(results)
 
-    print(m.fs.treatment.product.display())
-    
+    # print(m.fs.treatment.product.display())
     
     # Add costing
     add_treatment_costing_st2_md(m)
-
-    # iscale.calculate_scaling_factors(m.fs.treatment.md.unit.mp)
-    # if (
-    #     iscale.get_scaling_factor(
-    #         m.fs.treatment.md.unit.overall_thermal_power_requirement
-    #     )
-    #     is None
-    # ):
-    #     iscale.set_scaling_factor(
-    #         m.fs.treatment.md.unit.overall_thermal_power_requirement, 1e-6
-    #     )
-
-    # if (
-    #     iscale.get_scaling_factor(m.fs.treatment.md.unit.overall_elec_power_requirement)
-    #     is None
-    # ):
-    #     iscale.set_scaling_factor(
-    #         m.fs.treatment.md.unit.overall_elec_power_requirement, 1e-4
-    #     )
-
-    # if (
-    #     iscale.get_scaling_factor(
-    #         m.fs.treatment.md.unit.mp.get_active_process_blocks()[
-    #             -1
-    #         ].fs.vagmd.system_capacity
-    #     )
-    #     is None
-    # ):
-    #     iscale.set_scaling_factor(
-    #         m.fs.treatment.md.unit.mp.get_active_process_blocks()[
-    #             -1
-    #         ].fs.vagmd.system_capacity,
-    #         1e6,
-    #     )
 
     treat.costing.initialize()
 
@@ -709,10 +688,13 @@ if __name__ == "__main__":
 
     permian_cryst_config = {
     "operating_pressures": [0.4455, 0.2758, 0.1651, 0.095], # Operating pressure of each effect (bar)
-    "nacl_yield": 0.7, # Yield
+    "nacl_yield": 0.9 # Yield
     }
+    tds = 200
+    Qin = 9
+    water_recovery = 0.5
 
-    m = run_permian_st2_md(Qin=5, tds=130, water_recovery = 0.1,
+    m = run_permian_st2_md(Qin=Qin, tds=tds, water_recovery = water_recovery,
                            permian_cryst_config=permian_cryst_config)
     
     treat = m.fs.treatment
