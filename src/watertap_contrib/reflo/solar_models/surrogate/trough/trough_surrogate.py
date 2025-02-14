@@ -80,7 +80,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         self.total_aperture_area = Expression(
             expr=self.total_aperture_area_scaled / self.total_aperture_area_scaling,
-            doc="Annual electricity consumed by trough in kWh",
+            doc="Total aperture area required in m2",
         )
 
         if self.config.surrogate_model_file is not None:
