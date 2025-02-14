@@ -42,6 +42,7 @@ from idaes.core.util.model_statistics import *
 from idaes.core.util.initialization import propagate_state
 
 from watertap.core.solvers import get_solver
+# from idaes.core.solvers import get_solver
 from watertap_contrib.reflo.core.wt_reflo_database import REFLODatabase
 from watertap.core.zero_order_properties import WaterParameterBlock as ZO
 
@@ -511,7 +512,6 @@ def init_system_st1_md(m, **kwargs):
     init_cst(m.fs.energy.cst)
 
 
-
 def add_costing_st1_md(m, heat_price=0.018, electricity_price=0.0626):
    
     add_chem_addition_costing(
@@ -579,12 +579,9 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
     md_flow = pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)
     md_conc = pyunits.convert(m_pretreatment.fs.treatment.product.properties[0].conc_mass_phase_comp['Liq', 'TDS'],to_units=pyunits.g / pyunits.L,)
 
-    # build_permian_st1_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=None)
-
     m = build_permian_st1_md(Q_md=md_flow(), Cin=md_conc(), water_recovery=water_recovery, rho=rho)
     treat = m.fs.treatment
 
-    # set_operating_conditions_st1_md(m, rho, Qin=5, tds=130, **kwargs)
     set_operating_conditions_st1_md(m, rho, Qin, tds)
     set_permian_pretreatment_scaling_st1_md(
         m, calclate_m_scaling_factors=True
@@ -639,17 +636,21 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
             1e6,
         )
 
-    print("\n--------- CST Inputs Completed ---------\n")
+    print("\n--------- CST Inputs Calculated ---------\n")
     print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
     print('CST Heat:', value(m.fs.energy.cst.unit.heat))
     print("\n")
 
+    m.fs.energy.cst.unit.heat_load.fix()
+    init_cst(m.fs.energy.cst)
+
+    report_cst(m, m.fs.energy.cst.unit)
+    results = solver.solve(m)
+    
+    # assert False
     # Add costing  
     add_costing_st1_md(m)
-
-    results = solver.solve(m)
-
-    m.fs.energy.cst.unit.heat_load.fix()
+    add_cst_costing_scaling(m, m.fs.energy.cst.unit)
     # m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)  
 
     try:
@@ -668,14 +669,17 @@ def run_permian_st1_md(Qin=5, tds=130, water_recovery = 0.3, **kwargs):
 
 if __name__ == "__main__":
 
-    tds = 200
-    Qin = 9
-    water_recovery = 0.5
+    tds = 130
+    Qin = 5
+    water_recovery = 0.1
 
     m = run_permian_st1_md(Qin=Qin, tds=tds, water_recovery = water_recovery)
     treat = m.fs.treatment
     report_MD(m, treat.md)
-    print(f"DOF = {degrees_of_freedom(m)}")
+
+    print(f"\nDOF = {degrees_of_freedom(m)}")
+
+    report_cst(m, m.fs.energy.cst.unit)
 
     system_recovery = (
         treat.product.properties[0].flow_vol() / treat.feed.properties[0].flow_vol()
