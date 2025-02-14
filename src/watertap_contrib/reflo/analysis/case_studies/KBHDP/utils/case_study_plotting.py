@@ -49,7 +49,9 @@ def case_study_stacked_plot(
     label_fontsize=16,
     tick_fontsize=14,
     add_legend=True,
-    leg_kwargs=dict(bbox_to_anchor=(1, 1), loc="upper left"),
+    leg_kwargs=dict(loc="best", frameon=False, ncol=4, handlelength=1,
+            handleheight=1, labelspacing=0.2,
+            columnspacing=0.9)
 ):
 
     if flow_hatch is None:
@@ -226,6 +228,7 @@ def case_study_stacked_plot(
 
     if (fig, ax) == (None, None):
         fig, ax = plt.subplots(figsize=figsize)
+        fig.set_size_inches(5, 5, forward=True)
 
     ax.stackplot(
         df.index,
@@ -243,6 +246,8 @@ def case_study_stacked_plot(
     ax.set_xlabel(ax_dict["xlabel"], fontsize=label_fontsize)
     ax.set_ylabel(ax_dict["ylabel"], fontsize=label_fontsize)
     ax.tick_params(axis="both", labelsize=tick_fontsize)
+    ax.set_xlim(df.index.min(), df.index.max())
+    ax.set_ylim(0, np.ceil(max(actual_lcow)))
 
     plt.tight_layout()
 
