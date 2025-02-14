@@ -8,27 +8,27 @@ from matplotlib.patches import Patch
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-color_dict = {
-    "Oxidation": '#1f77b4',
-    "Chem. Soft": '#ff7f0e',
-    "EC": '#2ca02c',
-    "UF": '#d62728',
-    "RO": '#9467bd',
-    "Pump": "#e377c2",
-    "MD": '#8c564b',
-    "LT-MED": 'lightsteelblue',
-    "MEC": "cyan",
-    "DWI": "tan",
-    "FO": "teal", 
-    "PV": "yellow",
-    "CST": "xkcd:melon",
-    "FPC": "aquamarine",
-    "aluminum": 'lightgray',
-    "electricity": "deepskyblue",
-    "heat": "deeppink",
-    "NaCl_recovered": "lawngreen"
-}
+unit_list = [
+    'EC',
+    'UF',
+    "RO",
+    "Pump",
+    "MD",
+    "LT-MED",
+    "MEC",
+    "DWI",
+    "FO",
+    "PV",
+    "CST",
+    "FPC",
+    "aluminum",
+    "electricity",
+    "Chem. Softening",
+    "Heat",
+]
 
+colors =  plt.cm.tab20(np.arange(len(unit_list)).astype(int))
+color_dict = dict(zip(unit_list, colors))
 
 def case_study_stacked_plot(
     df,
@@ -38,7 +38,7 @@ def case_study_stacked_plot(
     xcol=None,
     flow_col=None,  # column to be used as denominator in LCOW calculations, assumed to be in m3/s
     unit_dict=dict(),  # (unit name: unit location)
-    agg_flows=list(), # list of aggregated flows
+    agg_flows=list(),  # list of aggregated flows
     figsize=(6, 4),
     color_dict=None,
     capex_hatch="",
@@ -250,11 +250,11 @@ def case_study_stacked_plot(
 
 
 if __name__ == "__main__":
-        
+
     test_file = f"{__location__}/test_stacked_plot.csv"
     df = pd.read_csv(test_file)
     df = df[df["fs.costing.electricity_cost"] == 0.049886703].copy()
-    
+
     xcol = "fs.costing.electricity_cost"
     xcol = "fs.water_recovery"
 
@@ -272,7 +272,7 @@ if __name__ == "__main__":
         "electricity",
         # "heat",
     ]
-    
+
     ax_dict = dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)")
 
     fig, ax = case_study_stacked_plot(
