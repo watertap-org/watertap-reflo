@@ -38,6 +38,7 @@ __all__ = [
     "init_cst",
     "set_cst_op_conditions",
     "add_cst_costing",
+    "add_cst_cost_scaling",
     "report_cst",
     "report_cst_costing",
 ]
@@ -67,7 +68,7 @@ def build_cst(blk, __file__=None):
 
     dataset_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_kbhdp_heat_load_1_50_hours_storage_24_T_loop_out_300.pkl",
+        r"trough_kbhdp_heat_load_1_100_hours_storage_24_T_loop_out_300.pkl",
     )
 
     # Updating pickle file output column names
@@ -84,7 +85,7 @@ def build_cst(blk, __file__=None):
 
     surrogate_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_kbhdp_heat_load_1_50_hours_storage_24_T_loop_out_300.json",
+        r"trough_kbhdp_heat_load_1_100_hours_storage_24_T_loop_out_300.json",
     )
 
     input_bounds = dict(heat_load=[1, 50])  # , hours_storage=[23, 24])
@@ -154,8 +155,10 @@ def calc_costing(m, blk):
     blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.initialize()
 
-    # TODO: Connect to the treatment volume
-    # blk.costing.add_LCOW(m.fs.system_capacity)
+def add_cst_costing_scaling(m,blk):
+    constraint_scaling_transform(blk.costing.direct_cost_constraint, 1e-8)
+    constraint_scaling_transform(blk.costing.indirect_cost_constraint, 1e-6)
+    constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)
 
 
 def report_cst(m, blk):
@@ -231,11 +234,21 @@ if __name__ == "__main__":
     set_cst_op_conditions(m.fs.cst, heat_load=50, hours_storage=24)
     init_cst(m.fs.cst)
 
+    results = solver.solve(m)
+    report_cst(m, m.fs.cst.unit)
+
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
-    results = solver.solve(m)
+
+    add_cst_costing_scaling(m, m.fs.cst.unit)
+
+    try:
+        results = solver.solve(m)
+    except:
+        print_infeasible_constraints(m)
 
     print(degrees_of_freedom(m))
+
     report_cst(m, m.fs.cst.unit)
     report_cst_costing(m, m.fs)
 
