@@ -9,10 +9,10 @@ from pyomo.environ import (
     Param,
 )
 import os
-
+import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.solvers import get_solver
-
+# from idaes.core.solvers import get_solver
+from watertap.core.solvers import get_solver
 from watertap.core.util.model_diagnostics.infeasible import *
 from idaes.core.util.scaling import *
 
@@ -38,6 +38,7 @@ __all__ = [
     "init_cst",
     "set_cst_op_conditions",
     "add_cst_costing",
+    "add_cst_costing_scaling",
     "report_cst",
     "report_cst_costing",
 ]
@@ -116,7 +117,6 @@ def build_cst(blk, __file__=None):
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
-        number_samples = 100,
         
     )
 
@@ -158,6 +158,10 @@ def calc_costing(m, blk):
     blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.initialize()
 
+def add_cst_costing_scaling(m,blk):
+    constraint_scaling_transform(blk.costing.direct_cost_constraint, 1e-8)
+    constraint_scaling_transform(blk.costing.indirect_cost_constraint, 1e-6)
+    constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)
 
 def report_cst(m, blk):
     # blk = m.fs.cst
@@ -166,6 +170,14 @@ def report_cst(m, blk):
 
     print(
         f'{"Heat load":<30s}{value(blk.heat_load):<20,.2f}{pyunits.get_units(blk.heat_load)}'
+    )
+
+    print(
+        f'{"Hours storage":<30s}{value(blk.hours_storage):<20,.2f}{pyunits.get_units(blk.hours_storage)}'
+    )
+
+    print(
+        f'{"Aperture area":<30s}{value(blk.total_aperture_area):<20,.2f}{pyunits.get_units(blk.total_aperture_area)}'
     )
 
     print(
@@ -180,6 +192,10 @@ def report_cst(m, blk):
 
     print(
         f'{"Electricity":<30s}{value(blk.electricity):<20,.2f}{pyunits.get_units(blk.electricity)}'
+    )
+
+    print(
+        f'{"Land Area":<30s}{value(blk.land_area):<20,.2f}{pyunits.get_units(blk.land_area)}'
     )
 
 
@@ -223,17 +239,22 @@ def report_cst_costing(m, blk):
 if __name__ == "__main__":
 
     solver = get_solver()
-    solver = SolverFactory("ipopt")
 
     m = build_system()
 
     build_cst(m.fs.cst)
 
-    set_cst_op_conditions(m.fs.cst, heat_load=87.79, hours_storage=24)
+    set_cst_op_conditions(m.fs.cst, heat_load=87.7751, hours_storage=24)
+
     init_cst(m.fs.cst)
+
+    results = solver.solve(m)
+    report_cst(m, m.fs.cst.unit)
 
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
     calc_costing(m, m.fs)
+
+    add_cst_costing_scaling(m, m.fs.cst.unit)
 
     try:
         results = solver.solve(m)
@@ -241,6 +262,7 @@ if __name__ == "__main__":
         print_infeasible_constraints(m)
 
     print(degrees_of_freedom(m))
+
     report_cst(m, m.fs.cst.unit)
     report_cst_costing(m, m.fs)
 
@@ -254,10 +276,9 @@ if __name__ == "__main__":
 
     m.fs.costing.add_LCOH()
     print("LCOH:", m.fs.costing.LCOH())
-    print("Hours of storage:", m.fs.cst.unit.hours_storage())
-    print("Aperture area:", m.fs.cst.unit.total_aperture_area())
-    print("Land area:", m.fs.cst.unit.land_area())
 
+    print("Direct cost:", m.fs.cst.unit.costing.direct_cost())    
+    print("Indirect cost:", m.fs.cst.unit.costing.indirect_cost())    
     print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
 
     # Calcualating LCOH like SAM
