@@ -38,7 +38,7 @@ __all__ = [
     "init_cst",
     "set_cst_op_conditions",
     "add_cst_costing",
-    "add_cst_cost_scaling",
+    "add_cst_costing_scaling",
     "report_cst",
     "report_cst_costing",
 ]
