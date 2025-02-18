@@ -81,7 +81,7 @@ __all__ = [
     "run_sequential_decomposition",
 ]
 
-electricity_cost_base = 0.0434618999 # USD_2018/kWh equivalent to 0.0575 USD_2023/kWh
+electricity_cost_base = 0.0434618999  # USD_2018/kWh equivalent to 0.0575 USD_2023/kWh
 heat_cost_base = 0.00894
 
 solver = get_solver()
@@ -93,12 +93,23 @@ rho = 1000 * pyunits.kg / pyunits.m**3
 _log = idaeslog.getLogger("permian_MVC")
 
 
-def build_and_run_mvc(recovery=0.5, Qin=4.9, tds=118, **kwargs):
+def build_and_run_mvc(
+    recovery=0.5,
+    Qin=4.9,
+    tds=118,
+    electricity_cost=electricity_cost_base,
+    heat_cost=heat_cost_base,
+    **kwargs,
+):
 
     m = build_mvc_system(recovery=recovery)
+    m.fs.costing.electricity_cost.fix(electricity_cost)
+    m.fs.costing.heat_cost.fix(heat_cost)
     mvc = m.fs.MVC
+
     m.fs.optimal_solve_mvc = Var(initialize=0)
     m.fs.optimal_solve_mvc.fix()
+
     set_system_operating_conditions(m, Qin=Qin, tds=tds, feed_temp=25)
     set_mvc_operating_conditions(m, mvc)
     set_mvc_scaling(m, mvc)
@@ -169,9 +180,11 @@ def solve_mvc(m):
 
 
 def build_mvc_system(recovery=0.5, **kwargs):
+
     m = ConcreteModel()
     m.recovery_mass = recovery
     m.recovery_vol = recovery
+
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
     m.fs.costing.electricity_cost.fix(electricity_cost_base)
