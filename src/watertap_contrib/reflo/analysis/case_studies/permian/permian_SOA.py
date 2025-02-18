@@ -2,9 +2,12 @@ import pandas as pd
 import numpy as np
 import time
 import pathlib
+from collections import defaultdict
+from functools import partial
 from pyomo.environ import (
     ConcreteModel,
     value,
+    Any,
     TransformationFactory,
     Param,
     Var,
@@ -144,79 +147,82 @@ def build_and_run_permian_SOA(
     system_recovery = product_flow_mgd / Qin
     flow_to_product = product_flow_mgd
 
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.costing = Block()
-    m.fs.optimal_solve_system = Var(initialize=1)
-    m.fs.optimal_solve_system.fix(1)
+    m = build_agg_model(m_pre, m_mvc, m_dwi)
+    # assert False
 
-    m.fs.recovery = Var(initialize=recovery)
-    m.fs.recovery.fix()
-    m.fs.system_recovery = Var(initialize=system_recovery)
-    m.fs.system_recovery.fix()
-    m.fs.flow_mgd = Var(initialize=Qin)
-    m.fs.flow_mgd.fix()
-    m.fs.flow_to_mvc = Var(initialize=flow_to_mvc)
-    m.fs.flow_to_mvc.fix()
-    m.fs.flow_to_dwi = Var(initialize=flow_to_dwi)
-    m.fs.flow_to_dwi.fix()
-    m.fs.flow_to_product = Var(initialize=flow_to_product)
-    m.fs.flow_to_product.fix()
+    # m = ConcreteModel()
+    # m.fs = FlowsheetBlock(dynamic=False)
+    # m.fs.costing = Block()
+    # m.fs.optimal_solve_system = Var(initialize=1)
+    # m.fs.optimal_solve_system.fix(1)
 
-    m.fs.tds = Var(initialize=tds)
-    m.fs.tds.fix()
-    m.fs.tds_to_mvc = Var(initialize=tds_to_mvc)
-    m.fs.tds_to_mvc.fix()
-    m.fs.tds_to_dwi = Var(initialize=tds_to_dwi)
-    m.fs.tds_to_dwi.fix()
+    # m.fs.recovery = Var(initialize=recovery)
+    # m.fs.recovery.fix()
+    # m.fs.system_recovery = Var(initialize=system_recovery)
+    # m.fs.system_recovery.fix()
+    # m.fs.flow_mgd = Var(initialize=Qin)
+    # m.fs.flow_mgd.fix()
+    # m.fs.flow_to_mvc = Var(initialize=flow_to_mvc)
+    # m.fs.flow_to_mvc.fix()
+    # m.fs.flow_to_dwi = Var(initialize=flow_to_dwi)
+    # m.fs.flow_to_dwi.fix()
+    # m.fs.flow_to_product = Var(initialize=flow_to_product)
+    # m.fs.flow_to_product.fix()
 
-    m.fs.costing.total_capital_cost = Var(
-        initialize=1e6, bounds=(0, None), units=pyunits.USD_2023
-    )
-    m.fs.costing.pretreatment_capital_cost = Var(
-        initialize=m_pre.fs.treatment.costing.total_capital_cost(), bounds=(0, None)
-    )
-    m.fs.costing.MVC_capital_cost = Var(
-        initialize=m_mvc.fs.costing.total_capital_cost(), bounds=(0, None)
-    )
-    m.fs.costing.DWI_capital_cost = Var(
-        initialize=m_dwi.fs.costing.total_capital_cost(), bounds=(0, None)
-    )
-    m.fs.costing.LCOW = Var(initialize=5, bounds=(0, None))
+    # m.fs.tds = Var(initialize=tds)
+    # m.fs.tds.fix()
+    # m.fs.tds_to_mvc = Var(initialize=tds_to_mvc)
+    # m.fs.tds_to_mvc.fix()
+    # m.fs.tds_to_dwi = Var(initialize=tds_to_dwi)
+    # m.fs.tds_to_dwi.fix()
 
-    m.fs.costing.pretreatment_capital_cost.fix()
-    m.fs.costing.MVC_capital_cost.fix()
-    m.fs.costing.DWI_capital_cost.fix()
+    # m.fs.costing.total_capital_cost = Var(
+    #     initialize=1e6, bounds=(0, None), units=pyunits.USD_2023
+    # )
+    # m.fs.costing.pretreatment_capital_cost = Var(
+    #     initialize=m_pre.fs.treatment.costing.total_capital_cost(), bounds=(0, None)
+    # )
+    # m.fs.costing.MVC_capital_cost = Var(
+    #     initialize=m_mvc.fs.costing.total_capital_cost(), bounds=(0, None)
+    # )
+    # m.fs.costing.DWI_capital_cost = Var(
+    #     initialize=m_dwi.fs.costing.total_capital_cost(), bounds=(0, None)
+    # )
+    # m.fs.costing.LCOW = Var(initialize=5, bounds=(0, None))
 
-    m.fs.costing.aggregate_flow_electricity = Expression(
-        expr=m_pre.fs.treatment.costing.aggregate_flow_electricity()
-        + m_mvc.fs.costing.aggregate_flow_electricity()
-        # + m_dwi.fs.costing.aggregate_flow_electricity()
-    )
-    m.fs.costing.total_operating_cost = Expression(
-        expr=m_pre.fs.treatment.costing.total_operating_cost()
-        + m_mvc.fs.costing.total_operating_cost()
-        + m_dwi.fs.costing.total_operating_cost(),
-    )
-    m.fs.costing.annualized_capital_cost = Expression(
-        expr=m.fs.costing.total_capital_cost
-        * m_dwi.fs.costing.capital_recovery_factor()
-    )
+    # m.fs.costing.pretreatment_capital_cost.fix()
+    # m.fs.costing.MVC_capital_cost.fix()
+    # m.fs.costing.DWI_capital_cost.fix()
 
-    m.fs.costing.total_capital_cost_constr = Constraint(
-        expr=m.fs.costing.total_capital_cost
-        == m.fs.costing.pretreatment_capital_cost
-        + m.fs.costing.MVC_capital_cost
-        + m.fs.costing.DWI_capital_cost
-    )
+    # m.fs.costing.aggregate_flow_electricity = Expression(
+    #     expr=m_pre.fs.treatment.costing.aggregate_flow_electricity()
+    #     + m_mvc.fs.costing.aggregate_flow_electricity()
+    #     # + m_dwi.fs.costing.aggregate_flow_electricity()
+    # )
+    # m.fs.costing.total_operating_cost = Expression(
+    #     expr=m_pre.fs.treatment.costing.total_operating_cost()
+    #     + m_mvc.fs.costing.total_operating_cost()
+    #     + m_dwi.fs.costing.total_operating_cost(),
+    # )
+    # m.fs.costing.annualized_capital_cost = Expression(
+    #     expr=m.fs.costing.total_capital_cost
+    #     * m_dwi.fs.costing.capital_recovery_factor()
+    # )
 
-    numerator = m.fs.costing.annualized_capital_cost + m.fs.costing.total_operating_cost
+    # m.fs.costing.total_capital_cost_constr = Constraint(
+    #     expr=m.fs.costing.total_capital_cost
+    #     == m.fs.costing.pretreatment_capital_cost
+    #     + m.fs.costing.MVC_capital_cost
+    #     + m.fs.costing.DWI_capital_cost
+    # )
 
-    m.fs.costing.LCOW_constr = Constraint(
-        expr=m.fs.costing.LCOW
-        == (m.fs.costing.annualized_capital_cost + m.fs.costing.total_operating_cost)
-        / product_flow
-    )
+    # numerator = m.fs.costing.annualized_capital_cost + m.fs.costing.total_operating_cost
+
+    # m.fs.costing.LCOW_constr = Constraint(
+    #     expr=m.fs.costing.LCOW
+    #     == (m.fs.costing.annualized_capital_cost + m.fs.costing.total_operating_cost)
+    #     / product_flow
+    # )
 
     # m_mvc.fs.costing.LCOW.display()
     # results = solver.solve(m)
@@ -245,6 +251,354 @@ def build_and_run_permian_SOA(
         f"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
     )
     return m, m_pre, m_mvc, m_dwi
+
+
+def build_agg_costing_blk(
+    b,
+    models=None,
+    base_currency=None,
+    base_period=pyunits.year,
+    inlet_flow=None,
+    product_flow=None,
+    disposal_flow=None,
+):
+    if base_currency is None:
+        base_currency = pyunits.USD_2023
+
+    b.models = models
+    b.costing_blks = []
+    for m in b.models:
+        print(f"\n\n\n{m.name}\n\n\n")
+        if m.name == "pretreatment":
+            # continue
+            costing_blk = m.fs.treatment.costing
+        else:
+            costing_blk = m.fs.costing
+        b.costing_blks.append(costing_blk)
+    b.base_currency = base_currency
+    b.base_period = base_period
+    b.capital_recovery_factor = Param(
+        initialize=(value(b.costing_blks[0].capital_recovery_factor)),
+        units=b.base_period**-1,
+    )
+    b.total_investment_factor = Param(
+        initialize=(value(b.costing_blks[0].total_investment_factor)),
+        units=b.base_period**-1,
+    )
+    b.utilization_factor = Param(
+        initialize=value(b.costing_blks[0].utilization_factor)
+    )
+    b.electricity_cost = Param(initialize=value(b.costing_blks[0].electricity_cost))
+    b.heat_cost = Param(initialize=value(b.costing_blks[0].heat_cost))
+    b.maintenance_labor_chemical_factor = Param(
+        initialize=value(b.costing_blks[0].maintenance_labor_chemical_factor)
+    )
+
+    for costing_blk in b.costing_blks:
+        # print(f"\n\n\n{m.name}\n\n\n")
+        # if m.name == "pretreatment":
+        #     # continue
+        #     costing_blk = m.fs.treatment.costing
+        # else:
+        #     costing_blk = m.fs.costing
+        assert value(costing_blk.capital_recovery_factor) == value(
+            b.capital_recovery_factor
+        )
+        assert value(costing_blk.electricity_cost) == value(b.electricity_cost)
+        assert value(costing_blk.heat_cost) == value(b.heat_cost)
+        assert value(costing_blk.total_investment_factor) == value(
+            b.total_investment_factor
+        )
+        assert value(costing_blk.maintenance_labor_chemical_factor) == value(
+            b.maintenance_labor_chemical_factor
+        )
+
+    b.registered_unit_costing = Set()
+    b.flow_types = Set()
+    b.used_flows = Set()
+    b.registered_flows = defaultdict(list)
+    b.registered_flow_costs = defaultdict(list)
+    b.used_flow_costs = dict()
+    b.all_used_flow_costs = dict()
+
+    for costing_blk in b.costing_blks:
+        # print(f"\n\n\n{m.name}\n\n\n")
+        # if m.name == "pretreatment":
+        #     # continue
+        #     costing_blk = m.fs.treatment.costing
+        # else:
+        #     costing_blk = m.fs.costing
+        agg_flow_cost = getattr(costing_blk, "aggregate_flow_costs")
+
+        for f in costing_blk.flow_types:
+            if f not in b.flow_types:
+                b.flow_types.add(f)
+
+        b.all_used_flow_costs[m.name] = defaultdict(list)
+
+        for f in costing_blk.used_flows:
+
+            if f not in b.used_flows:
+                b.used_flows.add(f)
+                used_flow_cost = getattr(costing_blk, f"{f}_cost")
+                b.used_flow_costs[f] = used_flow_cost
+
+            if f in costing_blk._registered_flows.keys():
+                b.registered_flows[f].extend(costing_blk._registered_flows[f])
+                b.registered_flow_costs[f].append(value(agg_flow_cost[f]))
+
+            used_flow_cost = getattr(costing_blk, f"{f}_cost")
+            b.all_used_flow_costs[m.name][f].append(used_flow_cost)
+
+        for ruc in costing_blk._registered_unit_costing:
+            b.registered_unit_costing.add(ruc)
+
+    b.total_capital_cost = Var(
+        initialize=1e6, units=b.base_currency, bounds=(None, None)
+    )
+
+    @b.Constraint()
+    def eq_total_capital_cost(blk):
+        return blk.total_capital_cost == sum(
+            value(
+                pyunits.convert(
+                    cb.total_capital_cost, to_units=b.base_currency
+                )
+            )
+            for cb in blk.costing_blks
+        )
+
+    b.total_operating_cost = Var(
+        initialize=1e4, units=b.base_currency / b.base_period, bounds=(None, None)
+    )
+
+    @b.Constraint()
+    def eq_total_operating_cost(blk):
+        return blk.total_operating_cost == sum(
+            value(
+                pyunits.convert(
+                    cb.total_operating_cost,
+                    to_units=b.base_currency / b.base_period,
+                )
+            )
+            for cb in blk.costing_blks
+        )
+
+    b.aggregate_flow_costs = Var(b.used_flows, bounds=(None, None))
+
+    @b.Constraint(b.used_flows)
+    def eq_aggregate_flow_cost(blk, f):
+        return blk.aggregate_flow_costs[f] == value(sum(blk.registered_flow_costs[f]))
+
+    def agg_flow_rule(blk, f, funits):
+        e = 0
+        for flow in blk.registered_flows[f]:
+            e += value(pyunits.convert(flow, to_units=funits))
+        agg_flow = getattr(blk, f"aggregate_flow_{f}")
+        return agg_flow == e
+
+    for k, f in b.registered_flows.items():
+        funits = pyunits.get_units(f[0])
+        agg_var = Var(units=funits, doc=f"Aggregate flow for {k}")
+        b.add_component(f"aggregate_flow_{k}", agg_var)
+        agg_const = Constraint(rule=partial(agg_flow_rule, f=k, funits=funits))
+        b.add_component(f"aggregate_flow_{k}_constraint", agg_const)
+
+    @b.Expression()
+    def LCOW(blk):
+        numerator = (
+            blk.total_capital_cost * blk.capital_recovery_factor
+            + blk.total_operating_cost
+        )
+        denominator = pyunits.convert(
+            product_flow * pyunits.m**3 / pyunits.s,
+            to_units=pyunits.m**3 / b.base_period,
+        )
+        return pyunits.convert(
+            numerator / denominator, to_units=b.base_currency / pyunits.m**3
+        )
+
+    @b.Expression()
+    def LCOT(blk):
+        numerator = (
+            blk.total_capital_cost * blk.capital_recovery_factor
+            + blk.total_operating_cost
+        )
+        denominator = pyunits.convert(
+            product_flow * pyunits.m**3 / pyunits.s,
+            to_units=pyunits.m**3 / b.base_period,
+        )
+        return pyunits.convert(
+            numerator / denominator, to_units=b.base_currency / pyunits.m**3
+        )
+
+    flow_rate = product_flow * pyunits.m**3 / pyunits.s
+
+    denominator = (
+        pyunits.convert(flow_rate, to_units=pyunits.m**3 / base_period)
+        * b.utilization_factor
+    )
+    direct_capex_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - direct CAPEX",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    indirect_capex_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - indirect CAPEX",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    fixed_opex_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - fixed OPEX",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    variable_opex_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - variable OPEX",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    flow_lcows = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - chem/material/energy flows",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    flow_lcows_check = Expression(
+        Any,
+        doc=f"Levelized Cost of Water - chem/material/energy flows",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    unit_capex_lcows = Expression(
+        Any,
+        doc=f"Unit CAPEX-based LCOWs",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    unit_opex_lcows = Expression(
+        Any,
+        doc=f"Unit OPEX-based LCOWs",
+        initialize=0 * base_currency / pyunits.m**3,
+    )
+    b.add_component("LCOW_component_direct_capex", direct_capex_lcows)
+    b.add_component("LCOW_component_indirect_capex", indirect_capex_lcows)
+    b.add_component("LCOW_component_fixed_opex", fixed_opex_lcows)
+    b.add_component("LCOW_component_variable_opex", variable_opex_lcows)
+    b.add_component("LCOW_flow", flow_lcows)
+    b.add_component("LCOW_flow_check", flow_lcows_check)
+    b.add_component("LCOW_capex", unit_capex_lcows)
+    b.add_component("LCOW_opex", unit_opex_lcows)
+
+    for u in b.registered_unit_costing:
+        # print(u.name)
+        direct_capex_numerator = 0 * base_currency / base_period
+        indirect_capex_numerator = 0 * base_currency / base_period
+        fixed_opex_numerator = 0 * base_currency / base_period
+        variable_opex_numerator = 0 * base_currency / base_period
+        total_capex_numerator = 0 * base_currency / base_period
+        total_opex_numerator = 0 * base_currency / base_period
+        if hasattr(u, "capital_cost"):
+            direct_capital_cost = pyunits.convert(
+                u.direct_capital_cost, to_units=base_currency
+            )
+
+            capital_cost = pyunits.convert(u.capital_cost, to_units=base_currency)
+
+            direct_capex_numerator += b.capital_recovery_factor * direct_capital_cost
+            capex_numerator = b.capital_recovery_factor * (
+                b.total_investment_factor * capital_cost
+            )
+            indirect_capex_numerator += capex_numerator - direct_capex_numerator
+
+            total_capex_numerator += capex_numerator
+            # total_capex_numerator += indirect_capex_numerator
+
+            fixed_opex_numerator += b.maintenance_labor_chemical_factor * capital_cost
+        if hasattr(u, "fixed_operating_cost"):
+            fixed_opex_numerator += pyunits.convert(
+                u.fixed_operating_cost, to_units=base_currency / base_period
+            )
+
+        total_opex_numerator += fixed_opex_numerator
+
+        if hasattr(u, "variable_operating_cost"):
+            variable_opex_numerator += pyunits.convert(
+                u.variable_operating_cost, to_units=base_currency / base_period
+            )
+            total_opex_numerator += variable_opex_numerator
+
+        if ".chem_addition" in u.unit_model.name:
+            unit_model_name = "chem_addition"
+        elif ".EC." in u.unit_model.name:
+            unit_model_name = "EC"
+        elif ".cart_filt." in u.unit_model.name:
+            unit_model_name = "cart_filt"
+        elif ".MVC." in u.unit_model.name:
+            unit_model_name = "MVC"
+        elif ".DWI." in u.unit_model.name:
+            unit_model_name = "DWI"
+        else:
+            raise ValueError()
+
+        direct_capex_lcows[unit_model_name] = direct_capex_numerator / denominator
+        indirect_capex_lcows[unit_model_name] = indirect_capex_numerator / denominator
+        fixed_opex_lcows[unit_model_name] = fixed_opex_numerator / denominator
+        variable_opex_lcows[unit_model_name] = variable_opex_numerator / denominator
+        unit_capex_lcows[unit_model_name] = total_capex_numerator / denominator
+        unit_opex_lcows[unit_model_name] = total_opex_numerator / denominator
+
+    for f, fc in b.aggregate_flow_costs.items():
+        i = fc / denominator
+        flow_lcows[f] = i
+
+    for ftype, flows in b.registered_flows.items():
+        # part of total_variable_operating_cost
+        # print()
+        # print(ftype)
+        # print()
+
+        cost_var = b.used_flow_costs[ftype]
+        for flow_expr in flows:
+            if any(
+                s in flow_expr.to_string()
+                for s in ["fs.pv.electricity", "fs.trough.heat"]
+            ):
+                continue
+            # print(flow_expr.to_string())
+            flow_cost = pyunits.convert(
+                flow_expr * cost_var, to_units=base_currency / base_period
+            )
+            i = (flow_cost * b.utilization_factor) / denominator
+            flow_lcows_check[ftype] += i
+
+
+def build_agg_model(m_pre, m_mvc, m_dwi):
+
+    m_pre.name = "pretreatment"
+    m_mvc.name = "MVC"
+    m_dwi.name = "DWI"
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+
+    m.fs.feed_flows = [m_pre.fs.treatment.feed.properties[0].flow_vol]
+    m.fs.product_flows = [
+        m_mvc.fs.product.properties[0].flow_vol_phase["Liq"]
+    ]
+
+    m.fs.costing = Block()
+
+    m.fs.flow_in = Expression(expr=sum(value(f) for f in m.fs.feed_flows))
+    m.fs.flow_treated = Expression(expr=sum(value(f) for f in m.fs.product_flows))
+    m.fs.flow_waste = Expression(expr=m.fs.flow_in - m.fs.flow_treated)
+    m.fs.system_recovery = Expression(expr=m.fs.flow_treated / m.fs.flow_in)
+
+    build_agg_costing_blk(
+        m.fs.costing,
+        models=[m_pre, m_mvc, m_dwi],
+        # inlet_flows=m.fs.inlet_flows,
+        product_flow=m.fs.flow_treated,
+    )
+
+    return m
 
 
 def solve_permian_SOA(m):
