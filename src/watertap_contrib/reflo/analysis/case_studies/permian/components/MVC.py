@@ -81,6 +81,9 @@ __all__ = [
     "run_sequential_decomposition",
 ]
 
+electricity_cost_base = 0.0434618999 # USD_2018/kWh equivalent to 0.0575 USD_2023/kWh
+heat_cost_base = 0.00894
+
 solver = get_solver()
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[4]
@@ -171,9 +174,8 @@ def build_mvc_system(recovery=0.5, **kwargs):
     m.recovery_vol = recovery
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
-    m.fs.costing.electricity_cost.fix(0.0626)
-    # m.fs.costing.electricity_cost.fix(0.1)
-    m.fs.costing.heat_cost.fix(0.01)
+    m.fs.costing.electricity_cost.fix(electricity_cost_base)
+    m.fs.costing.heat_cost.fix(heat_cost_base)
 
     m.fs.properties_feed = SeawaterParameterBlock()
     m.fs.properties_vapor = SteamParameterBlock()
