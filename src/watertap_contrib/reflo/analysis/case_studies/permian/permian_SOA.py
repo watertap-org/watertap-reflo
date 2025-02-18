@@ -58,7 +58,6 @@ from watertap.property_models.multicomp_aq_sol_prop_pack import (
 )
 
 # from watertap.costing.zero_order_costing import ZeroOrderCosting
-# from watertap_contrib.reflo.kurby import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
@@ -73,6 +72,7 @@ from watertap_contrib.reflo.costing import (
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import *
 from watertap_contrib.reflo.analysis.case_studies.permian import *
 from watertap_contrib.reflo.unit_models.deep_well_injection import DeepWellInjection
+from watertap_contrib.reflo.analysis.case_studies.permian.utils.results_dict import build_results_dict, results_dict_append
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
@@ -613,9 +613,11 @@ def solve_permian_SOA(m):
 
 if __name__ == "__main__":
 
-    from watertap_contrib.reflo.kurby import *
+    
 
     m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=5, tds=130)
+    tmp_results_dict = build_results_dict(m)
+    assert False
 
     # results_dict = build_results_dict(m)
     # results_dict["flow_mgd"] = list()
