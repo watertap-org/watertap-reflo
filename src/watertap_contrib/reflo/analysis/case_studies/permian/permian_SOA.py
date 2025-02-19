@@ -114,6 +114,7 @@ reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 rho = 1125 * pyunits.kg / pyunits.m**3
 rho_water = 995 * pyunits.kg / pyunits.m**3
+
 electricity_cost_base = 0.0434618999  # USD_2018/kWh equivalent to 0.0575 USD_2023/kWh
 heat_cost_base = 0.00894
 
@@ -138,7 +139,6 @@ def build_and_run_permian_SOA(
         heat_cost=heat_cost,
         **kwargs,
     )
-
 
     flow_to_mvc = Qin * value(m_pre.fs.treatment.EC.unit.recovery_frac_mass_H2O[0])
     flow_to_mvc = flow_to_mvc * value(
@@ -562,30 +562,42 @@ def run_permian_SOA_recovery_sweep(num_pts=5):
 
     m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
 
-    rd, rd_pre, rd_mvc, rd_dwi = build_rds(m, m_pre, m_mvc, m_dwi, merge_cols=["recovery"])
+    rd, rd_pre, rd_mvc, rd_dwi = build_rds(
+        m, m_pre, m_mvc, m_dwi, merge_cols=["recovery"]
+    )
 
     for r in recoveries:
         m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(recovery=r)
-        rd, rd_pre, rd_mvc, rd_dwi = append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dict={"recovery": r})
-    
+        rd, rd_pre, rd_mvc, rd_dwi = append_rds(
+            m,
+            m_pre,
+            m_mvc,
+            m_dwi,
+            rd,
+            rd_pre,
+            rd_mvc,
+            rd_dwi,
+            merge_col_dict={"recovery": r},
+        )
+
     col_replace = ["m_agg.fs", "m_pre.fs", "m_mvc.fs", "m_dwi.fs"]
     for i, (r, cr) in enumerate(zip([rd, rd_pre, rd_mvc, rd_dwi], col_replace)):
 
         if i == 0:
             df = pd.DataFrame.from_dict(r)
-            
+
             df.rename(
                 columns={c: c.replace("fs", cr) for c in df.columns}, inplace=True
             )
-            print(cr , len(df))
+            print(cr, len(df))
         else:
             df1 = pd.DataFrame.from_dict(r)
             df1.rename(
                 columns={c: c.replace("fs", cr) for c in df1.columns}, inplace=True
             )
             df = pd.merge(df, df1, on=["recovery"])
-            print(cr , len(df), len(df1))
-    
+            print(cr, len(df), len(df1))
+
     df.to_csv("permian_SOA_mvc_recovery_sweep.csv", index=False)
 
 
@@ -608,30 +620,42 @@ def run_permian_SOA_electricity_sweep(num_pts=5):
 
     m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
 
-    rd, rd_pre, rd_mvc, rd_dwi = build_rds(m, m_pre, m_mvc, m_dwi, merge_cols=["electricity_cost"])
+    rd, rd_pre, rd_mvc, rd_dwi = build_rds(
+        m, m_pre, m_mvc, m_dwi, merge_cols=["electricity_cost"]
+    )
 
     for ec in elec_cost:
         m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(electricity_cost=ec)
-        rd, rd_pre, rd_mvc, rd_dwi = append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dict={"electricity_cost": ec})
-    
+        rd, rd_pre, rd_mvc, rd_dwi = append_rds(
+            m,
+            m_pre,
+            m_mvc,
+            m_dwi,
+            rd,
+            rd_pre,
+            rd_mvc,
+            rd_dwi,
+            merge_col_dict={"electricity_cost": ec},
+        )
+
     col_replace = ["m_agg.fs", "m_pre.fs", "m_mvc.fs", "m_dwi.fs"]
     for i, (r, cr) in enumerate(zip([rd, rd_pre, rd_mvc, rd_dwi], col_replace)):
 
         if i == 0:
             df = pd.DataFrame.from_dict(r)
-            
+
             df.rename(
                 columns={c: c.replace("fs", cr) for c in df.columns}, inplace=True
             )
-            print(cr , len(df))
+            print(cr, len(df))
         else:
             df1 = pd.DataFrame.from_dict(r)
             df1.rename(
                 columns={c: c.replace("fs", cr) for c in df1.columns}, inplace=True
             )
             df = pd.merge(df, df1, on=["electricity_cost"])
-            print(cr , len(df), len(df1))
-    
+            print(cr, len(df), len(df1))
+
     df.to_csv("permian_SOA_electricity_cost_sweep.csv", index=False)
 
 
@@ -645,12 +669,12 @@ def build_rds(m, m_pre, m_mvc, m_dwi, merge_cols=[]):
     for r in [rd, rd_pre, rd_mvc, rd_dwi]:
         for mc in merge_cols:
             r[mc] = list()
-    
+
     return rd, rd_pre, rd_mvc, rd_dwi
-    
+
 
 def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dict={}):
-    
+
     rd = results_dict_append(m, rd)
     rd_pre = results_dict_append(m_pre, rd_pre)
     rd_mvc = results_dict_append(m_mvc, rd_mvc)
@@ -659,16 +683,49 @@ def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dic
     for r in [rd, rd_pre, rd_mvc, rd_dwi]:
         for c, v in merge_col_dict.items():
             r[c].append(v)
-    
 
     return rd, rd_pre, rd_mvc, rd_dwi
 
 
-
 if __name__ == "__main__":
-    
+
     # run_permian_SOA_electricity_sweep()
-    run_permian_SOA_recovery_sweep()
+    # run_permian_SOA_recovery_sweep()
+
+    import matplotlib.pyplot as plt
+    from watertap_contrib.reflo.analysis.case_studies.permian.utils.case_study_plotting import (
+        case_study_stacked_plot,
+    )
+
+    f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/permian_SOA_electricity_cost_sweep.csv"
+    df = pd.read_csv(f)
+    unit_dict = {
+        "H2O2 Addition": "m_pre.fs.treatment.chem_addition.unit",
+        "EC": "m_pre.fs.treatment.EC.unit",
+        "CF": "m_pre.fs.treatment.cart_filt.unit",
+        "MVC": "m_mvc.fs.MVC",
+        "DWI": "m_dwi.fs.DWI.unit",
+    }
+    agg_flows = [
+        "hydrogen_peroxide",
+        "electricity",
+        "aluminum",
+        # "heat",
+    ]
+    xcol = "electricity_cost"
+    flow_col = "m_agg.fs.flow_treated"
+    ax_dict = dict(xlabel="Electricity Price ($/kWh)", ylabel="LCOW (\$/m$^3$)")
+    case_study_stacked_plot(
+        df,
+        xcol=xcol,
+        flow_col=flow_col,
+        costing_blk="m_agg.fs.costing",
+        unit_dict=unit_dict,
+        ax_dict=ax_dict,
+        agg_flows=agg_flows,
+    )
+
+    plt.show()
 
     # m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=5, tds=130)
 
@@ -688,7 +745,7 @@ if __name__ == "__main__":
     # for i, (r, cr) in enumerate(zip([rd, rd_pre, rd_mvc, rd_dwi], col_replace)):
     #     if i == 0:
     #         df = pd.DataFrame.from_dict(r)
-            
+
     #         df.rename(
     #             columns={c: c.replace("fs", cr) for c in df.columns}, inplace=True
     #         )
@@ -700,7 +757,7 @@ if __name__ == "__main__":
     #         )
     #         df = pd.merge(df, df1, on=["electricity_cost"])
     #         print(cr , len(df), len(df1))
-    
+
     # df.to_csv("test_permian_SOA_agg.csv", index=False)
     # assert False
 
