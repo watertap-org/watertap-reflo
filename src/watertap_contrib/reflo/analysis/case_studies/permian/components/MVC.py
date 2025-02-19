@@ -989,6 +989,18 @@ def add_mvc_costing(m, blk, flowsheet_costing_block=None):
         flowsheet_costing_block=flowsheet_costing_block
     )
 
+    blk.costing = Block()
+    blk.costing.capital_cost = Expression(
+        expr=blk.evaporator.costing.capital_cost
+        + blk.evaporator.costing.capital_cost
+        + blk.compressor.costing.capital_cost
+        + blk.pump_feed.costing.capital_cost
+        + blk.pump_distillate.costing.capital_cost
+        + blk.pump_brine.costing.capital_cost
+        + blk.hx_brine.costing.capital_cost
+        + blk.hx_distillate.costing.capital_cost
+    )
+
     # m.fs.costing.TIC.fix(2)
     # m.fs.costing.electricity_cost = 0.1  # 0.15
     flowsheet_costing_block.heat_exchanger.material_factor_cost.fix(5)
@@ -1234,6 +1246,17 @@ def scale_mvc_costs(m, blk):
 
 if __name__ == "__main__":
     m = build_and_run_mvc(recovery=0.5, Qin=5.01, tds=130)
+    blk = m.fs.MVC
+    # blk.evaporator.costing.display()
+    # blk.compressor.costing.display()
+
+    # blk.pump_feed.costing.display()
+    # blk.pump_distillate.costing.display()
+    # blk.pump_brine.costing.display()
+    # blk.hx_distillate.costing.display()
+    # blk.hx_brine.costing.display()
+    # blk.mixer_feed.costing.display()
+    blk.costing.capital_cost.display()
     # m.fs.MVC.recovery_vol.display()
     # m.fs.costing.total_capital_cost.display()
     # m.fs.costing.total_operating_cost.display()
