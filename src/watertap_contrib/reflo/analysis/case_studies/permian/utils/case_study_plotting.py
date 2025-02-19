@@ -9,8 +9,10 @@ from matplotlib.patches import Patch
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 unit_list = [
-    'EC',
-    'UF',
+    "Chem. Softening",
+    "H2O2 Addition",
+    "EC",
+    "UF",
     "RO",
     "Pump",
     "MD",
@@ -21,14 +23,26 @@ unit_list = [
     "PV",
     "CST",
     "FPC",
-    "aluminum",
-    "electricity",
-    "Chem. Softening",
-    "Heat",
+    "CF",
+    "MVC",
 ]
 
-colors =  plt.cm.tab20(np.arange(len(unit_list)).astype(int))
-color_dict = dict(zip(unit_list, colors))
+flow_list = [
+    "electricity",
+    "heat",
+    "hydrogen_peroxide",
+    "aluminum",
+    "soda_ash",
+    "lime", 
+    "CO2",
+    "mgcl2",
+]
+
+unit_colors = plt.cm.tab20(np.arange(len(unit_list)).astype(int))
+unit_color_dict_default = dict(zip(unit_list, unit_colors))
+
+flow_colors = plt.cm.Dark2(np.arange(len(flow_list)).astype(int))
+flow_color_dict_default = dict(zip(flow_list, flow_colors))
 
 def case_study_stacked_plot(
     df,
@@ -40,7 +54,8 @@ def case_study_stacked_plot(
     unit_dict=dict(),  # (unit name: unit location)
     agg_flows=list(),  # list of aggregated flows
     figsize=(6, 4),
-    color_dict=None,
+    unit_color_dict=unit_color_dict_default,
+    flow_color_dict=flow_color_dict_default,
     capex_hatch="",
     opex_hatch="\\\\\\",
     flow_hatch="..",
@@ -49,16 +64,19 @@ def case_study_stacked_plot(
     label_fontsize=16,
     tick_fontsize=14,
     add_legend=True,
-    leg_kwargs=dict(loc="best", frameon=False, ncol=4, handlelength=1,
-            handleheight=1, labelspacing=0.2,
-            columnspacing=0.9)
+    leg_kwargs=dict(
+        loc="best",
+        frameon=False,
+        ncol=4,
+        handlelength=1,
+        handleheight=1,
+        labelspacing=0.2,
+        columnspacing=0.9,
+    ),
 ):
 
     if flow_hatch is None:
         flow_hatch = capex_hatch
-
-    if color_dict is None:
-        raise ValueError("Must provide color_dict")
 
     global_params = [
         "maintenance_labor_chemical_factor",
@@ -87,6 +105,7 @@ def case_study_stacked_plot(
     # assert len(df[flow_col].unique()) == 1
 
     df.set_index(xcol, inplace=True)
+    df.sort_values(by=[xcol], inplace=True)
 
     for x, row in df.iterrows():
 
@@ -113,13 +132,14 @@ def case_study_stacked_plot(
             unit_capex = 0
 
             try:
+                print(f"{b}.costing.capital_cost")
                 unit_capex += (
                     row.loc[f"{b}.costing.capital_cost"]
                     * costing_params["total_investment_factor"]
                 )  # USD2023
 
             except KeyError:
-                # print(f"No CAPEX for {u} found.")
+                print(f"No CAPEX for {u} found.")
                 pass
 
             total_capex += unit_capex  # $
@@ -144,13 +164,13 @@ def case_study_stacked_plot(
             try:
                 unit_opex_total += row.loc[f"{b}.costing.fixed_operating_cost"]
             except KeyError:
-                # print(f"No Fixed OPEX for {u} found.")
+                print(f"No Fixed OPEX for {u} found.")
                 pass
 
             try:
                 unit_opex_total += row.loc[f"{b}.costing.variable_operating_cost"]
             except KeyError:
-                # print(f"No Variable OPEX for {u} found.")
+                print(f"No Variable OPEX for {u} found.")
                 pass
 
             total_opex += unit_opex_total  # $ / year
@@ -173,7 +193,7 @@ def case_study_stacked_plot(
                 )  # $ / m3
                 agg_flow_lcow[flow].append(flow_lcow)
             except KeyError:
-                # print(f"No aggregate cost for {flow} found.")
+                print(f"No aggregate cost for {flow} found.")
                 pass
 
             total_lcow += flow_lcow
@@ -202,11 +222,11 @@ def case_study_stacked_plot(
     for flow in agg_flows:
         stacked_cols.append(agg_flow_lcow[flow])
         stacked_labels.append(flow.replace("_", " ").title())
-        stacked_colors.append(color_dict[flow])
+        stacked_colors.append(flow_color_dict[flow])
         stacked_hatch.append(flow_hatch)
         legend_elements.append(
             Patch(
-                facecolor=color_dict[flow],
+                facecolor=flow_color_dict[flow],
                 label=flow.replace("_", " ").title(),
                 hatch=flow_hatch,
                 edgecolor="k",
@@ -218,13 +238,13 @@ def case_study_stacked_plot(
             stacked_cols.append(capex_lcow[u])
             stacked_labels.append(f"{u} CAPEX")
             stacked_hatch.append(capex_hatch)
-            stacked_colors.append(color_dict[u])
+            stacked_colors.append(unit_color_dict[u])
         if u in opex_lcow.keys():
             stacked_cols.append(opex_lcow[u])
             stacked_labels.append(f"{u} OPEX")
             stacked_hatch.append(opex_hatch)
-            stacked_colors.append(color_dict[u])
-        legend_elements.append(Patch(facecolor=color_dict[u], label=u, edgecolor="k"))
+            stacked_colors.append(unit_color_dict[u])
+        legend_elements.append(Patch(facecolor=unit_color_dict[u], label=u, edgecolor="k"))
 
     if (fig, ax) == (None, None):
         fig, ax = plt.subplots(figsize=figsize)
@@ -289,7 +309,6 @@ if __name__ == "__main__":
         ax_dict=ax_dict,
         opex_hatch="\\\\\\",
         flow_hatch="..",
-        color_dict=color_dict,
     )
 
     plt.show()
