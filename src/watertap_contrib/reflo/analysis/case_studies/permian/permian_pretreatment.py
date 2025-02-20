@@ -71,6 +71,9 @@ __all__ = [
     "build_and_run_permian_pretreatment",
 ]
 
+electricity_cost_base = 0.0434618999  # USD_2018/kWh. equivalent to 0.0575 USD_2023/kWh
+heat_cost_base = 0.00894
+
 
 def get_stream_density(Qin=5, tds=130, **kwargs):
 
@@ -497,7 +500,13 @@ def solve_permian_pretreatment(m):
         print_infeasible_constraints(m)
 
 
-def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
+def build_and_run_permian_pretreatment(
+    Qin=5,
+    tds=130,
+    electricity_cost=electricity_cost_base,
+    heat_cost=heat_cost_base,
+    **kwargs,
+):
     """
     Run Permian pretreatment flowsheet
     """
@@ -506,7 +515,7 @@ def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
     m = build_permian_pretreatment(rho=rho)
     m.rho = rho
     m.fs.optimal_solve_pre = Var(initialize=1)
-    m.fs.rho = Var(initialize=rho())
+    m.fs.rho = Var(initialize=value(rho))
     m.fs.rho.fix()
     treat = m.fs.treatment
 
@@ -520,9 +529,12 @@ def build_and_run_permian_pretreatment(Qin=5, tds=130, **kwargs):
     print(f"DOF = {degrees_of_freedom(m)}")
 
     flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
-    treat.costing.electricity_cost.fix(0.0626)
     treat.costing.add_LCOW(flow_vol)
     treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+
+    treat.costing.heat_cost.fix(heat_cost)
+    treat.costing.electricity_cost.fix(electricity_cost)
+    
     treat.costing.initialize()
 
     print(f"DOF = {degrees_of_freedom(m)}")

@@ -81,6 +81,9 @@ __all__ = [
     "run_sequential_decomposition",
 ]
 
+electricity_cost_base = 0.0434618999  # USD_2018/kWh equivalent to 0.0575 USD_2023/kWh
+heat_cost_base = 0.00894
+
 solver = get_solver()
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[4]
@@ -90,12 +93,23 @@ rho = 1000 * pyunits.kg / pyunits.m**3
 _log = idaeslog.getLogger("permian_MVC")
 
 
-def build_and_run_mvc(recovery=0.5, Qin=4.9, tds=118, **kwargs):
+def build_and_run_mvc(
+    recovery=0.5,
+    Qin=4.9,
+    tds=118,
+    electricity_cost=electricity_cost_base,
+    heat_cost=heat_cost_base,
+    **kwargs,
+):
 
     m = build_mvc_system(recovery=recovery)
+    m.fs.costing.electricity_cost.fix(electricity_cost)
+    m.fs.costing.heat_cost.fix(heat_cost)
     mvc = m.fs.MVC
+
     m.fs.optimal_solve_mvc = Var(initialize=0)
     m.fs.optimal_solve_mvc.fix()
+
     set_system_operating_conditions(m, Qin=Qin, tds=tds, feed_temp=25)
     set_mvc_operating_conditions(m, mvc)
     set_mvc_scaling(m, mvc)
@@ -166,14 +180,15 @@ def solve_mvc(m):
 
 
 def build_mvc_system(recovery=0.5, **kwargs):
+
     m = ConcreteModel()
     m.recovery_mass = recovery
     m.recovery_vol = recovery
+
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
-    m.fs.costing.electricity_cost.fix(0.0626)
-    # m.fs.costing.electricity_cost.fix(0.1)
-    m.fs.costing.heat_cost.fix(0.01)
+    m.fs.costing.electricity_cost.fix(electricity_cost_base)
+    m.fs.costing.heat_cost.fix(heat_cost_base)
 
     m.fs.properties_feed = SeawaterParameterBlock()
     m.fs.properties_vapor = SteamParameterBlock()
@@ -974,6 +989,18 @@ def add_mvc_costing(m, blk, flowsheet_costing_block=None):
         flowsheet_costing_block=flowsheet_costing_block
     )
 
+    blk.costing = Block()
+    blk.costing.capital_cost = Expression(
+        expr=blk.evaporator.costing.capital_cost
+        + blk.evaporator.costing.capital_cost
+        + blk.compressor.costing.capital_cost
+        + blk.pump_feed.costing.capital_cost
+        + blk.pump_distillate.costing.capital_cost
+        + blk.pump_brine.costing.capital_cost
+        + blk.hx_brine.costing.capital_cost
+        + blk.hx_distillate.costing.capital_cost
+    )
+
     # m.fs.costing.TIC.fix(2)
     # m.fs.costing.electricity_cost = 0.1  # 0.15
     flowsheet_costing_block.heat_exchanger.material_factor_cost.fix(5)
@@ -1219,6 +1246,17 @@ def scale_mvc_costs(m, blk):
 
 if __name__ == "__main__":
     m = build_and_run_mvc(recovery=0.5, Qin=5.01, tds=130)
+    blk = m.fs.MVC
+    # blk.evaporator.costing.display()
+    # blk.compressor.costing.display()
+
+    # blk.pump_feed.costing.display()
+    # blk.pump_distillate.costing.display()
+    # blk.pump_brine.costing.display()
+    # blk.hx_distillate.costing.display()
+    # blk.hx_brine.costing.display()
+    # blk.mixer_feed.costing.display()
+    blk.costing.capital_cost.display()
     # m.fs.MVC.recovery_vol.display()
     # m.fs.costing.total_capital_cost.display()
     # m.fs.costing.total_operating_cost.display()

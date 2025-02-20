@@ -48,11 +48,9 @@ from watertap_contrib.reflo.costing.units.deep_well_injection import (
     blm_costing_params_dict,
 )
 
-
-# reflo_dir = pathlib.Path(__file__).resolve().parents[4]
-# case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
 rho = 1000 * pyunits.kg / pyunits.m**3
-
+electricity_cost_base = 0.0434618999 # USD_2018/kWh equivalent to 0.0575 USD_2023/kWh
+heat_cost_base = 0.00894
 
 __all__ = [
     "build_dwi",
@@ -64,26 +62,29 @@ __all__ = [
 ]
 
 
-def build_and_run_dwi(Qin=5, tds=130, **kwargs):
+def build_and_run_dwi(Qin=5, tds=130, electricity_cost=electricity_cost_base, heat_cost=heat_cost_base, **kwargs):
 
     m = build_system()
+
     m.fs.optimal_solve_dwi = Var(initialize=1)
     m.fs.optimal_solve_dwi.fix()
     m.fs.feed.properties[0].conc_mass_phase_comp
+
     add_dwi_costing(m, m.fs.DWI)
+    m.fs.costing.electricity_cost.fix(electricity_cost)
+    m.fs.costing.heat_cost.fix(heat_cost)
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(m.fs.feed.properties[0].flow_vol_phase["Liq"])
+
     set_system_operating_conditions(m, Qin=Qin, tds=tds, **kwargs)
     print(f"dof = {degrees_of_freedom(m)}")
     init_system(m, m.fs.DWI)
 
     solver = get_solver()
     results = solver.solve(m)
-    # assert_optimal_termination(results)
+
     if not check_optimal_termination(results):
         m.fs.optimal_solve_dwi.fix(0)
-    # m.fs.feed.properties[0].conc_mass_phase_comp.display()
-    # print(f"LCOW = {m.fs.costing.LCOW()}")
 
     return m
 
@@ -188,7 +189,11 @@ def add_dwi_costing(m, blk, flowsheet_costing_block=None):
             "cost_method": "as_opex"
         },  # could be "as_capex" or "blm"
     )
-    flowsheet_costing_block.deep_well_injection.dwi_lcow.set_value(0.1)
+    # From 2-18-2025 email from Pei referencing this report:
+    # https://www.env.nm.gov/wp-content/uploads/2024/11/NMED-Revised-Draft-Feasibility-Study-112224.pdf
+    
+    dwi_cost = value(pyunits.convert(1 * pyunits.USD_2023 / pyunits.bbl, to_units=pyunits.USD_2023 / pyunits.m**3))
+    flowsheet_costing_block.deep_well_injection.dwi_lcow.set_value(dwi_cost)
 
 
 def report_DWI(m, blk):
@@ -211,7 +216,7 @@ def print_DWI_costing_breakdown(m, blk):
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = build_and_run_dwi(Qin=5, tds=130)
-
+    m.fs.costing.LCOW.display()
     # m = build_system()
     # add_dwi_costing(m, m.fs.DWI)
     # m.fs.costing.cost_process()
