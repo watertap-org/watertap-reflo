@@ -377,13 +377,13 @@ def report_MD(m, blk):
     # )
 
     print(
-        f'{"Number of modules:":<30s}{value(active_blks[-1].fs.vagmd.num_modules):<10.2f}'
+        f'{"Number of modules:":<30s}{value(active_blks[-1].fs.vagmd.num_modules):<20.2f}'
     )
 
     print(f'{"Membrane type":<30s}{active_blks[-1].fs.vagmd.config.module_type}')
 
     print(
-        f'{"Accumulated recovery":<30s}{value(active_blks[-1].fs.acc_recovery_ratio):<10.2f}{pyunits.get_units(active_blks[-1].fs.acc_recovery_ratio)}'
+        f'{"Accumulated recovery":<30s}{value(active_blks[-1].fs.acc_recovery_ratio):<20.2f}{pyunits.get_units(active_blks[-1].fs.acc_recovery_ratio)}'
     )
 
     perm_flow = pyunits.convert(
@@ -392,7 +392,7 @@ def report_MD(m, blk):
     )
 
     print(
-        f'{"Permeate flow rate":<30s}{value(perm_flow):<10,.2f}{pyunits.get_units(perm_flow)}'
+        f'{"Permeate flow rate":<30s}{value(perm_flow):<20,.2f}{pyunits.get_units(perm_flow)}'
     )
 
     conc_flow = pyunits.convert(
@@ -401,11 +401,11 @@ def report_MD(m, blk):
     )
 
     print(
-        f'{"Concentrate flow rate":<30s}{value(conc_flow):<10,.2f}{pyunits.get_units(conc_flow)}'
+        f'{"Concentrate flow rate":<30s}{value(conc_flow):<20,.2f}{pyunits.get_units(conc_flow)}'
     )
 
     print(
-        f'{"Concentrate concentration":<30s}{value(blk.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"]):<10.2f}{pyunits.get_units(blk.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
+        f'{"Concentrate concentration":<30s}{value(blk.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"]):<20.2f}{pyunits.get_units(blk.concentrate.properties[0].conc_mass_phase_comp["Liq","TDS"])}'
     )
 
     # prod_flow = pyunits.convert(
@@ -427,19 +427,19 @@ def report_MD(m, blk):
     # )
 
     print(
-        f'{"STEC":<30s}{value(active_blks[-1].fs.specific_energy_consumption_thermal):<10.2f}{pyunits.get_units(active_blks[-1].fs.specific_energy_consumption_thermal)}'
+        f'{"STEC":<30s}{value(active_blks[-1].fs.specific_energy_consumption_thermal):<20.2f}{pyunits.get_units(active_blks[-1].fs.specific_energy_consumption_thermal)}'
     )
 
     print(
-        f'{"SEC":<30s}{value(active_blks[-1].fs.specific_energy_consumption_electric):<10.2f}{pyunits.get_units(active_blks[-1].fs.specific_energy_consumption_electric)}'
+        f'{"SEC":<30s}{value(active_blks[-1].fs.specific_energy_consumption_electric):<20.2f}{pyunits.get_units(active_blks[-1].fs.specific_energy_consumption_electric)}'
     )
 
     print(
-        f'{"Overall thermal requirement":<30s}{value(blk.unit.overall_thermal_power_requirement):<10.2f}{pyunits.get_units(blk.unit.overall_thermal_power_requirement)}'
+        f'{"Overall thermal requirement":<30s}{value(blk.unit.overall_thermal_power_requirement):<20,.2f}{pyunits.get_units(blk.unit.overall_thermal_power_requirement)}'
     )
 
     print(
-        f'{"Overall elec requirement":<30s}{value(blk.unit.overall_elec_power_requirement):<10.2f}{pyunits.get_units(blk.unit.overall_elec_power_requirement)}'
+        f'{"Overall elec requirement":<30s}{value(blk.unit.overall_elec_power_requirement):<20,.2f}{pyunits.get_units(blk.unit.overall_elec_power_requirement)}'
     )
 
 

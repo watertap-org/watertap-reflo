@@ -283,7 +283,7 @@ if __name__ == "__main__":
     product = fo.product_props[0]
 
     # System specifications
-    recovery_ratio = 0.5 # Assumed FO recovery ratio
+    recovery_ratio = 0.87 # Assumed FO recovery ratio
     nanofiltration_recovery_ratio = 0.8  # Nanofiltration recovery ratio
     dp_brine = 0  # Required pressure over brine osmotic pressure (Pa)
     heat_mixing = 75.6  # Heat of mixing in the membrane (MJ/m3 separated water)
@@ -291,7 +291,7 @@ if __name__ == "__main__":
     separator_temp_loss = 1  # Temperature loss in the separator (K)
     feed_temperature = 25  # Feed water temperature (C)
     feed_vol_flow = 0.22  # Feed water volumetric flow rate (m3/s)
-    feed_TDS_mass = 0.119  # TDS mass fraction of feed
+    feed_TDS_mass = 0.039  # TDS mass fraction of feed
     strong_draw_temp = 25  # Strong draw solution inlet temperature (C)
     strong_draw_mass_frac = 0.95  # Strong draw solution mass fraction
     product_draw_mas_frac = 0.01  # Mass fraction of draw in the product water
@@ -321,7 +321,7 @@ if __name__ == "__main__":
     # Specify product water properties
     fo.product_props.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            ("flow_vol_phase", "Liq"): feed_vol_flow * recovery_ratio / (1-nanofiltration_recovery_ratio),
             (
                 "mass_frac_phase_comp",
                 ("Liq", "DrawSolution"),
@@ -361,7 +361,7 @@ if __name__ == "__main__":
             (
                 "mass_frac_phase_comp",
                 ("Liq", "DrawSolution"),
-            ): strong_draw_mass_frac,
+            ): 0.5,
             ("temperature", None): strong_draw_temp + 273.15,
             ("pressure", None): 101325,
         },
@@ -411,30 +411,30 @@ if __name__ == "__main__":
     for i in badly_scaled_var_lst:
         print(i[0].name, ":", i[0].value, iscale.get_scaling_factor(i[0]), i[1])
 
-    print('')
-    print('scaling factors after init:')
-    vars_test = [m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "H2O"],
-                 m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "TDS"],
-                 m.fs.fo.feed_props[0].flow_vol_phase["Liq"],
-                 m.fs.fo.brine_props[0].flow_mass_phase_comp["Liq", "H2O"],
-                 m.fs.fo.brine_props[0].flow_mass_phase_comp["Liq", "TDS"],
-                 m.fs.fo.brine_props[0].flow_vol_phase["Liq"],
-                 m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
-                 m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
-                 m.fs.fo.weak_draw_props[0].flow_vol_phase["Liq"],
-                 m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
-                 m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
-                 m.fs.fo.strong_draw_props[0].flow_vol_phase["Liq"],
-                 m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"],
-                 m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
-                 m.fs.fo.product_props[0].flow_vol_phase["Liq"],
-                 m.fs.fo.reg_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
-                 m.fs.fo.reg_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
-                 m.fs.fo.reg_draw_props[0].flow_vol_phase["Liq"],
-                 ]
+    # print('')
+    # print('scaling factors after init:')
+    # vars_test = [m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "H2O"],
+    #              m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "TDS"],
+    #              m.fs.fo.feed_props[0].flow_vol_phase["Liq"],
+    #              m.fs.fo.brine_props[0].flow_mass_phase_comp["Liq", "H2O"],
+    #              m.fs.fo.brine_props[0].flow_mass_phase_comp["Liq", "TDS"],
+    #              m.fs.fo.brine_props[0].flow_vol_phase["Liq"],
+    #              m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
+    #              m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
+    #              m.fs.fo.weak_draw_props[0].flow_vol_phase["Liq"],
+    #              m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
+    #              m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
+    #              m.fs.fo.strong_draw_props[0].flow_vol_phase["Liq"],
+    #              m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"],
+    #              m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
+    #              m.fs.fo.product_props[0].flow_vol_phase["Liq"],
+    #              m.fs.fo.reg_draw_props[0].flow_mass_phase_comp["Liq", "H2O"],
+    #              m.fs.fo.reg_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"],
+    #              m.fs.fo.reg_draw_props[0].flow_vol_phase["Liq"],
+    #              ]
     
-    for v in vars_test:
-        print(v.name, round(v.value, 2), round(iscale.get_scaling_factor(v), 6), round(v.value *iscale.get_scaling_factor(v),3 ))
+    # for v in vars_test:
+    #     print(v.name, round(v.value, 2), round(iscale.get_scaling_factor(v), 6), round(v.value *iscale.get_scaling_factor(v),3 ))
 
     strong_draw_mass = strong_draw_mass_frac  # Strong draw solution mass fraction
     product_draw_mass = product_draw_mas_frac  # Mass fraction of draw in the product water
@@ -444,14 +444,15 @@ if __name__ == "__main__":
     try:
         results = solver.solve(m)
         assert_optimal_termination(results)
+        print('brine salinity: ', m.fs.fo.brine_props[0].conc_mass_phase_comp["Liq","TDS"].value)
     except:
         from watertap.core.util.model_diagnostics.infeasible import *
         print_infeasible_constraints(m)
         print_variables_close_to_bounds(m)
         print("SOLVE FAILED")        
     
-    print('')
-    print('scaling factors after solve:')
+    # print('')
+    # print('scaling factors after solve:')
 
-    for v in vars_test:
-        print(v.name, round(v.value * iscale.get_scaling_factor(v), 2))
+    # for v in vars_test:
+    #     print(v.name, round(v.value * iscale.get_scaling_factor(v), 2))

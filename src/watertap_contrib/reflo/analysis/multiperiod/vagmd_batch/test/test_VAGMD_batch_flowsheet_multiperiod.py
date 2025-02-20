@@ -508,3 +508,54 @@ class TestVAGMDbatchAS26C72L_Open:
         assert overall_performance[
             "Specific electric energy consumption (kWh/m3)"
         ] == pytest.approx(0.3545, rel=1e-3)
+
+if __name__ == '__main__':
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+
+    model_input = {
+        "dt": None,
+        "system_capacity": 1000,
+        "feed_flow_rate": 600,
+        "evap_inlet_temp": 80,
+        "cond_inlet_temp": 25,
+        "feed_temp": 25,
+        "feed_salinity": 35,
+        "initial_batch_volume": 50,
+        "recovery_ratio": 0.724,
+        "module_type": "AS26C7.2L",
+        "cooling_system_type": "closed",
+        "cooling_inlet_temp": 25,
+    }
+    m.fs.VAGMD = VAGMDbatchSurrogate(model_input=model_input)
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+    overall_performance, data_table = m.fs.VAGMD.get_model_performance()
+
+    vagmd = m.fs.VAGMD.mp.get_active_process_blocks()[-1].fs.vagmd
+
+    m.fs.costing = TreatmentCosting()
+    # set heat and electricity costs to be non-zero
+    m.fs.costing.heat_cost.set_value(0.01)
+    m.fs.costing.electricity_cost.fix(0.07)
+    m.fs.costing.base_currency = pyunits.USD_2020
+
+    m.fs.VAGMD.add_costing_module(m.fs.costing)
+
+    # Fix some global costing params for better comparison to Pyomo model
+    m.fs.costing.total_investment_factor.fix(1)
+    m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.costing.capital_recovery_factor.fix(0.08764)
+    m.fs.costing.wacc.unfix()
+
+    m.fs.costing.cost_process()
+    m.fs.costing.add_annual_water_production(vagmd.system_capacity)
+    m.fs.costing.add_LCOW(vagmd.system_capacity)
+
+    assert degrees_of_freedom(m) == 0
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+
+    print('LCOW:', value(m.fs.costing.LCOW))
+    data_table.to_csv('md_results.csv')

@@ -55,30 +55,32 @@ class Translator_Draw_to_SW_Data(TranslatorData):
 
         super().build()
 
-        @self.Constraint(doc="Isothermal")
-        def eq_temperature(b):
-            return b.properties_in[0].temperature == b.properties_out[0].temperature
+        # @self.Constraint(doc="Isothermal")
+        # def eq_temperature(b):
+        #     return b.properties_in[0].temperature == b.properties_out[0].temperature
 
-        @self.Constraint(doc="Isobaric")
-        def eq_pressure(b):
-            return b.properties_in[0].pressure == b.properties_out[0].pressure
+        # @self.Constraint(doc="Isobaric")
+        # def eq_pressure(b):
+        #     return b.properties_in[0].pressure == b.properties_out[0].pressure
 
         @self.Constraint(
+            self.flowsheet().time,
             doc="Equality mass flow water equation",
         )
-        def eq_flow_mass_water(b):
+        def eq_flow_mass_water(b,t):
             return (
-                b.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
-                == b.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]
+                b.properties_in[t].flow_mass_phase_comp["Liq", "H2O"]
+                == b.properties_out[t].flow_mass_phase_comp["Liq", "H2O"]
             )
 
         @self.Constraint(
+            self.flowsheet().time,
             doc="Equality mass flow TDS equation",
         )
-        def eq_flow_mass_tds(b):
+        def eq_flow_mass_tds(b,t):
             return (
-                b.properties_in[0].flow_mass_phase_comp["Liq", "DrawSolution"]
-                == b.properties_out[0].flow_mass_phase_comp["Liq", "TDS"]
+                b.properties_in[t].flow_mass_phase_comp["Liq", "DrawSolution"]
+                == b.properties_out[t].flow_mass_phase_comp["Liq", "TDS"]
             )
 
     def initialize_build(

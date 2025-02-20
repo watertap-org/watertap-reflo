@@ -1,4 +1,3 @@
-#%%
 import pathlib
 from pyomo.environ import (
     ConcreteModel,
@@ -102,7 +101,7 @@ def build_permian_FO(permian_fo_config):
         outlet_property_package= m.fs.properties_feed,
     )
 
-    # Add components
+    # # Add components
     treat.chem_addition = FlowsheetBlock(dynamic=False)
     build_chem_addition(m, treat.chem_addition)
 
@@ -420,8 +419,8 @@ def run_permian_FO(operating_condition,
     # flow_vol = treat.FO.fs.S2.fresh_water_state[0].flow_vol_phase["Liq"]
 
     treat.costing.base_currency = pyunits.USD_2023
-    treat.costing.electricity_cost.fix(0.07)
-    treat.costing.heat_cost.fix(0.02)
+    treat.costing.electricity_cost.fix(0.0575)
+    treat.costing.heat_cost.fix(0.00894)
     treat.costing.add_LCOW(flow_vol)
     treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
     treat.costing.initialize()
@@ -430,19 +429,19 @@ def run_permian_FO(operating_condition,
     # deactivate constraints, 
     heat_price = 0.01    # $/kWh-th
     electricity_price = 0.07 # $/kWh-e
-    m.fs.costing = REFLOSystemCosting()
-    m.fs.costing.heat_cost_buy.fix(heat_price)
-    m.fs.costing.electricity_cost_buy.set_value(electricity_price)
-    m.fs.costing.cost_process()
+    # m.fs.costing = REFLOSystemCosting()
+    # m.fs.costing.heat_cost_buy.fix(heat_price)
+    # m.fs.costing.electricity_cost_buy.set_value(electricity_price)
+    # m.fs.costing.cost_process()
 
     # m.fs.energy.cst.unit.heat_load.unfix()
     # m.fs.energy.costing.aggregate_flow_heat.unfix()
     # m.fs.costing.frac_heat_from_grid.fix(0.05)
 
-    m.fs.costing.initialize()
-    m.fs.costing.add_LCOH()
-    m.fs.costing.add_LCOW(flow_vol)
-    m.fs.costing.add_LCOT(flow_vol)
+    # m.fs.costing.initialize()
+    # m.fs.costing.add_LCOH()
+    # m.fs.costing.add_LCOW(flow_vol)
+    # m.fs.costing.add_LCOT(flow_vol)
 
 
     print(f"DOF after add costing: {degrees_of_freedom(m)}")
@@ -455,10 +454,11 @@ def run_permian_FO(operating_condition,
 if __name__ == "__main__":
     fail=[]
     heat=[]
+    fo_feed=[]
     brine=[]
     grid_frac =[]
-    # for rr in [0.4 + 0.02*i for i in range(25)]:
-    rr = 0.55
+    # for rr in [0.52 + 0.005*i for i in range(8)]:
+    rr = 0.4
     permian_fo_config = {
     "feed_vol_flow": 0.22, # initial value for fo model setup
     "feed_TDS_mass": 0.039, # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
@@ -488,316 +488,13 @@ if __name__ == "__main__":
                     permian_fo_config,
                     CST_config,
                     )
-    heat.append((rr,value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)))
+    # heat.append((rr,value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)))
+    fo_feed.append((rr, value(m.fs.treatment.FO.fs.fo.feed_props[0].conc_mass_phase_comp["Liq","TDS"])))
     brine.append((rr, value(m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp["Liq","TDS"])))
         # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
-        # print(brine)
     # except:
+    #     fo_feed.append((rr,'fail'))
     #     brine.append((rr,'fail'))
-    #     heat.append((rr,'fail'))
-        # grid_frac.append((rr,'fail'))
+            # heat.append((rr,'fail'))
+            # grid_frac.append((rr,'fail'))
         
-    
-    #%%
-    lcot = value(m.fs.treatment.costing.LCOW)
-    lcow = value(m.fs.costing.LCOW)
-    lcoh = value(m.fs.costing.LCOH)
-    capex_total = value(m.fs.treatment.costing.total_capital_cost)
-    chem_capex = m.fs.treatment.chem_addition.unit.costing.capital_cost()
-    filt_capex = m.fs.treatment.cart_filt.unit.costing.capital_cost()
-    ec_capex = m.fs.treatment.ec.unit.costing.capital_cost()
-    fo_capex = m.fs.treatment.FO.fs.fo.costing.capital_cost()
-    dwi_capex = m.fs.treatment.DWI.costing.capital_cost()
-
-    opex_total = value(m.fs.treatment.costing.total_operating_cost)
-    fix_opex = value(m.fs.treatment.costing.maintenance_labor_chemical_operating_cost)
-    chem_opex = chem_capex * 0.03
-    filt_opex = filt_capex * 0.03
-    ec_opex = ec_capex * 0.03
-    fo_opex = fo_capex * 0.03
-    dwi_opex = dwi_capex * 0.03
-
-    # fo_opex = m.fs.treatment.FO.fs.fo.costing.fixed_operating_cost()
-    # dwi_opex = m.fs.treatment.DWI.costing.fixed_operating_cost()
-
-
-    var_opex_total = value(m.fs.treatment.costing.total_variable_operating_cost)
-    elec_cost = value(m.fs.treatment.costing.aggregate_flow_costs["electricity"])
-    heat_cost = value(m.fs.treatment.costing.aggregate_flow_costs["heat"])
-    alum_cost = value(m.fs.treatment.costing.aggregate_flow_costs["aluminum"])
-    h2o2_cost = value(m.fs.treatment.costing.aggregate_flow_costs["hydrogen_peroxide"])
-    heat_purchased = value(m.fs.costing.total_heat_operating_cost)
-
-    chem_elec_cost = 0.07 * value(m.fs.treatment.chem_addition.unit.electricity[0]) * 8766
-    ec_elec_cost = 0.07 * value(m.fs.treatment.ec.unit.costing.electricity_flow) * 8766
-    filt_elec_cost = 0.07 * value(m.fs.treatment.cart_filt.unit.electricity[0]) * 8766
-    fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 8766
-    fo_heat_cost = 0.02 * value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow) * 8766
-    dwi_elec_cost = 0.07 * value(m.fs.treatment.DWI.costing.pumping_power_required) * 8766
-
-    capital_recovery_rate = value(m.fs.treatment.costing.capital_recovery_factor)
-    flow_vol = value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
-                                        to_units=pyunits.m**3/pyunits.year))
-
-    print('LCOW                     ', lcow)
-
-    print('TOTAL CAPEX              ', capex_total)
-    print('    chem_addition capex     ', chem_capex)
-    print('    elec_coag capex       ', ec_capex)
-    print('    cart_filtration capex ', filt_capex)
-    print('    FO capex              ', fo_capex)
-    print('    DWI capex             ', dwi_capex)
-    print('')
-
-    print('TOTAL OPEX           ', opex_total)
-    print('     Total fixed OPEX ', fix_opex)
-    print('           chem_opex    ', chem_opex)
-    print('           filt_opex   ', filt_opex)
-    print('           ec_opex     ', ec_opex)
-    print('           fo_opex    ', fo_opex)
-    print('           dwi_opex   ', dwi_opex)
-    print('')
-    print('     TOTAL VAR OPEX      ', var_opex_total)
-    print('           Elec cost      ', elec_cost)
-    print('                chem elec      ', chem_elec_cost)
-    print('                ec elec   ', ec_elec_cost)
-    print('                filt elec    ', filt_elec_cost)
-    print('                FO elec   ', fo_elec_cost)
-    print('                DWI elec   ', dwi_elec_cost)
-    print('')
-    print('           Heat cost     ', heat_cost)
-    print('                FO heat  ', fo_heat_cost)
-    print('')
-    print('           Al cost       ', alum_cost)
-    print('           H2O2 cost      ', h2o2_cost)
-
-#%% Export csv
-    import pandas as pd
-    import os
-    results = {
-        "LCOT ($/m3)": [lcot],
-        "LCOH ($/kWh)": [lcoh],
-        "LCOW ($/m3)": [lcow],
-        "Total CAPEX ($)": [capex_total],
-        "Total fixed OPEX ($)": [fix_opex],
-        "Total variable OPEX ($)": [var_opex_total],
-        "CAPEX - chemical addition ($/m3)": [chem_capex*capital_recovery_rate/flow_vol],
-        "CAPEX - catridge filtration ($/m3)": [filt_capex*capital_recovery_rate/flow_vol],
-        "CAPEX - EC ($/m3)": [ec_capex*capital_recovery_rate/flow_vol],
-        "CAPEX - FO ($/m3)": [fo_capex*capital_recovery_rate/flow_vol],
-        "CAPEX - DWI ($/m3)": [dwi_capex*capital_recovery_rate/flow_vol],
-        "OPEX - chemical addition ($/m3)": [chem_opex/flow_vol],
-        "OPEX - catridge filtration ($/m3)": [filt_opex/flow_vol],
-        "OPEX - EC ($/m3)": [ec_opex/flow_vol],
-        "OPEX - FO ($/m3)": [fo_opex/flow_vol],
-        "OPEX - DWI ($/m3)": [dwi_opex/flow_vol],
-        "Electricity cost ($/m3)": [elec_cost/flow_vol],
-        "Purchased heat cost ($/m3)": [heat_purchased/flow_vol],
-        "Aluminum cost ($/m3)": [alum_cost/flow_vol],
-        "H2O2 cost ($/m3)": [h2o2_cost/flow_vol],
-
-        }
-     
-    df = pd.DataFrame(results)
-    df_transposed = df.T
-
-    filename = f"results_csv/Permian_FO_DWI_{operating_condition['feed_vol_flow']}MGD_{operating_condition['feed_tds']}TDS.csv"
-    outpath = os.path.join(
-        os.path.dirname(__file__), 
-        filename
-        )
-
-    df_transposed.to_csv(outpath)
-    print(f'csv created for FO_DWI at {filename}')
-    
-
-    #%%
-    chem_capexs = []
-    ec_capexs = []
-    filt_capexs = []
-    fo_capexs = []
-    dwi_capexs = []
-    solar_capexs = []
-
-    chem_opexs =[]
-    ec_opexs = []
-    filt_opexs = []
-    fo_opexs = []
-    dwi_opexs = []
-    solar_opexs = []
-
-    elecs = []
-    heats = []
-    alums = []
-    h2o2s = []
-
-    LCOWs =[]
-    LCOHs = []
-    LCOTs = []
-    failed= []
-
-    rr = [ 0.2,0.24,0.28,0.32,0.35,0.4,0.44]
-    solar_size = [-1000, -2000, -3000, -4000, -7000,-8000,-9000]
-
-    strong_draw_mass = [i*0.03 + 0.80 for i in range(6)]
-
-    for v in solar_size:
-        permian_fo_config = {
-    "feed_vol_flow": 0.22, # initial value for fo model setup
-    "feed_TDS_mass": 0.035, # mass fraction, 0.119 is about 130 g/L
-    "recovery_ratio": 0.44,
-    "RO_recovery_ratio":1,  # RO recovery ratio
-    "NF_recovery_ratio":0.8,  # Nanofiltration recovery ratio
-    "feed_temperature":25,
-    "strong_draw_temp":25,  # Strong draw solution inlet temperature (C)
-    "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-    "product_draw_mass_frac": 0.01,   # FO product draw solution mass fraction
-    "HX1_cold_out_temp": 78 + 273.15, # HX1 coldside outlet temperature
-    "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-    }
-        operating_condition = {
-    "feed_vol_flow": 5, # MGD
-    "feed_tds": 130 # g/L
-    }
-        CST_config = {
-        "storage":12, # hr
-        "heat_load":25, # MW
-        "heat_flow": v, # kW
-    }
-        try:
-            m = run_permian_FO(operating_condition,
-                        permian_fo_config,
-                        CST_config,
-                        )
-        except:
-            failed.append(v)
-            continue
-
-        lcow = value(m.fs.costing.LCOW)
-        lcoh = value(m.fs.costing.LCOH)
-        lcot = value(m.fs.costing.LCOT)
-        capex_total = value(m.fs.treatment.costing.total_capital_cost)
-        chem_capex = m.fs.treatment.chem_addition.unit.costing.capital_cost()
-        filt_capex = m.fs.treatment.cart_filt.unit.costing.capital_cost()
-        ec_capex = m.fs.treatment.ec.unit.costing.capital_cost()
-        fo_capex = m.fs.treatment.FO.fs.fo.costing.capital_cost()
-        dwi_capex = m.fs.treatment.DWI.costing.capital_cost()
-        solar_capex = m.fs.energy.costing.total_capital_cost()
-
-        opex_total = value(m.fs.treatment.costing.total_operating_cost)
-        fix_opex = value(m.fs.treatment.costing.maintenance_labor_chemical_operating_cost)
-        chem_opex = chem_capex * 0.03
-        filt_opex = filt_capex * 0.03
-        ec_opex = ec_capex * 0.03
-        fo_opex = fo_capex * 0.03
-        dwi_opex = dwi_capex * 0.03
-        solar_opex = value(m.fs.energy.costing.total_operating_cost)
-
-        # fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 10290.711324821756
-        fo_heat_cost = 0.02 * value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow) * 8766
-        chem_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][0])
-        ec_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][1])
-        filt_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][2])
-        fo_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][3])
-        dwi_elec_cost = 0.07 * 8766 * value(m.fs.treatment.costing._registered_flows["electricity"][4])
-
-
-        var_opex_total = value(m.fs.treatment.costing.total_variable_operating_cost)
-        elec_cost = value(m.fs.treatment.costing.aggregate_flow_costs["electricity"])
-        heat_cost = value(m.fs.treatment.costing.aggregate_flow_costs["heat"])
-        alum_cost = value(m.fs.treatment.costing.aggregate_flow_costs["aluminum"])
-        h2o2_cost = value(m.fs.treatment.costing.aggregate_flow_costs["hydrogen_peroxide"])
-        heat_purchased = value(m.fs.costing.total_heat_operating_cost)
-
-        capital_recovery_rate = value(m.fs.treatment.costing.capital_recovery_factor)
-        flow_vol = value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
-                                         to_units=pyunits.m**3/pyunits.year))
-
-        LCOWs.append(lcow)
-        LCOHs.append(lcoh)
-        LCOTs.append(lcot)
-        chem_capexs.append(chem_capex*capital_recovery_rate/flow_vol)
-        ec_capexs.append(ec_capex*capital_recovery_rate/flow_vol)
-        filt_capexs.append(filt_capex*capital_recovery_rate/flow_vol)
-        fo_capexs.append(fo_capex*capital_recovery_rate/flow_vol)
-        dwi_capexs.append(dwi_capex*capital_recovery_rate/flow_vol)
-        solar_capexs.append(solar_capex*capital_recovery_rate/flow_vol)
-
-        chem_opexs.append((chem_opex ) /flow_vol)
-        ec_opexs.append(  (ec_opex   ) /flow_vol)
-        filt_opexs.append((filt_opex )/flow_vol)
-        fo_opexs.append(  (fo_opex  ) /flow_vol)
-        dwi_opexs.append( (dwi_opex ) /flow_vol)
-        solar_opexs.append( solar_opex / flow_vol)
-
-        # chem_opexs.append((chem_opex + h2o2_cost    +chem_elec_cost) /flow_vol)
-        # ec_opexs.append(  (ec_opex   + alum_cost    +ec_elec_cost) /flow_vol)
-        # filt_opexs.append((filt_opex + filt_elec_cost)/flow_vol)
-        # fo_opexs.append(  (fo_opex   + fo_elec_cost + fo_heat_cost) /flow_vol)
-        # dwi_opexs.append( (dwi_opex  + dwi_elec_cost) /flow_vol)
-
-        elecs.append(elec_cost/flow_vol)
-        # heats.append(heat_cost/flow_vol)
-        heats.append(heat_purchased/flow_vol)
-        alums.append(alum_cost/flow_vol)
-        h2o2s.append(h2o2_cost/flow_vol)
-    
-    print('failed',failed)
-
-#%%
-import matplotlib.pyplot as plt
-# alums = [i*0.05 for i in alums]
-# ec_opexs = [i * 0.05 for i in ec_opexs]
-solar_size_MW = [i/(-1000) for i in solar_size]
-plt.stackplot(solar_size_MW,
-            chem_capexs, chem_opexs,
-            ec_capexs, ec_opexs,
-            filt_capexs, filt_opexs,
-            fo_capexs, fo_opexs,
-            dwi_capexs, dwi_opexs,
-            solar_capexs, solar_opexs,
-            elecs, heats, alums, h2o2s,
-            labels=['Chem add CAPEX', 'Chem add OPEX',
-                    'EC CAPEX', 'EC OPEX',
-                    'Cart filt CAPEX', 'Cart filt OPEX',
-                    'FO CAPEX', 'FO OPEX',
-                    'DWI CAPEX', 'DWI OPEX',
-                    'Solar CAPEX', 'Solar OPEX',
-                    'Elec', 'Heat purchased','Aluminum','H2O2',
-                    ],
-            hatch =['', '\\\\',
-                    '', '\\\\',
-                    '', '\\\\',
-                    '', '\\\\',
-                    '', '\\\\',
-                    '', '\\\\',
-                    '','','','',
-                    ],
-            colors=['gray','gray',
-                    'tomato', 'tomato',
-                    'sandybrown','sandybrown',
-                    'khaki','khaki',
-                    'lightgreen','lightgreen',
-                    'firebrick', 'firebrick',
-                    'gold','indianred','royalblue','darkviolet'
-                    ],
-            edgecolor='black',
-                    )
-
-plt.rcParams['figure.dpi']=300
-
-# Show the legend
-plt.legend(loc='upper right',  bbox_to_anchor=(1, 1.2), ncol =4 ,prop={'size': 8})
-
-plt.ylabel('LCOW ($/m3)')
-plt.xlabel('Solar size (MW)')
-plt.title('')
-# Display the chart
-plt.show()
-
-# %%
-fig, ax1 = plt.subplots()
-ax1.plot(solar_size_MW, LCOHs, 'b-', label='LCOH')
-ax1.set_xlabel('Solar size (MW)')
-ax1.set_ylabel('LCOH ($/kWh-th)', color='k')
-# %%

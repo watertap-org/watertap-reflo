@@ -287,7 +287,7 @@ def add_fo(
     # Specify strong draw solution properties
     fo.strong_draw_props.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            ("flow_vol_phase", "Liq"): feed_vol_flow ,
             ("mass_frac_phase_comp", ("Liq", "DrawSolution")): strong_draw_mass,
             ("temperature", None): strong_draw_temp + 273.15,
             ("pressure", None): 101325,
@@ -300,7 +300,7 @@ def add_fo(
     # Specify product water properties
     fo.product_props.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            ("flow_vol_phase", "Liq"): feed_vol_flow * recovery_ratio / (1-NF_recovery_ratio),
             ("mass_frac_phase_comp", ("Liq", "DrawSolution")): product_draw_mass,
             ("temperature", None): separation_temp - separator_temp_loss + 273.15,
             ("pressure", None): 101325,
@@ -448,36 +448,29 @@ def fix_dof_and_initialize(
     m.fs.S2.inlet.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
     )
+
+    
     m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
         * (1 - NF_recovery_ratio)
     )
     m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
-        * (1 - NF_recovery_ratio)
     )
     m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
         * NF_recovery_ratio
         * (1 - RO_recovery_ratio)
     )
-    m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
-        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
-        * NF_recovery_ratio
-        * (1 - RO_recovery_ratio)
-    )
+    m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = 0
     m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
         * NF_recovery_ratio
         * RO_recovery_ratio
     )
-    m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
-        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
-        * NF_recovery_ratio
-        * RO_recovery_ratio
-    )
-    m.fs.S2.initialize()
+    m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = 0
 
+    m.fs.S2.initialize()
     # Initialize mixer M1
     m.fs.M1.weak_draw.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value
@@ -792,50 +785,51 @@ if __name__ == "__main__":
 
                     ]
     
-    scenarios = [0.12]
+    scenarios = [0.55]
 
     df_results = pd.DataFrame(index = output_items, columns=scenarios)
 
-    failed = []
-    for TDS in scenarios:
+    brine = []
+    for v in scenarios:
         m = build_fo_trevi_flowsheet(
-            recovery_ratio=0.45,  # Assumed FO recovery ratio
-            RO_recovery_ratio=0.9,  # RO recovery ratio
+            recovery_ratio=v,  # Assumed FO recovery ratio
+            RO_recovery_ratio=1,  # RO recovery ratio
             NF_recovery_ratio=0.8,  # Nanofiltration recovery ratio
             dp_brine=0,  # Required pressure over brine osmotic pressure (Pa)
             heat_mixing=75.6,  # Heat of mixing in the membrane (MJ/m3 product)
             separation_temp=90,  # Separation temperature of the draw solution (C)
             separator_temp_loss=1,  # Temperature loss in the separator (K)
-            feed_temperature=13,  # Feed water temperature (C)
+            feed_temperature=25,  # Feed water temperature (C)
             feed_vol_flow=0.22,  # Feed water volumetric flow rate (m3/s)
-            feed_TDS_mass=TDS,  # TDS mass fraction of feed
-            strong_draw_temp=20,  # Strong draw solution inlet temperature (C)
-            strong_draw_mass=0.95,  # Strong draw solution mass fraction
+            feed_TDS_mass=0.039,  # TDS mass fraction of feed
+            strong_draw_temp=25,  # Strong draw solution inlet temperature (C)
+            strong_draw_mass=0.90,  # Strong draw solution mass fraction
             product_draw_mass=0.01,  # Mass fraction of draw in the product water
         )
         try:
             fix_dof_and_initialize(
                 m,
-                strong_draw_mass_frac=0.95,
+                strong_draw_mass_frac=0.90,
                 product_draw_mass_frac=0.01,
-                RO_recovery_ratio=0.9,
+                RO_recovery_ratio=1,
                 NF_recovery_ratio=0.8,
             )  # same input as above
         except:
-            print('failed', TDS)
+            print('failed', v)
 
         # # Specify the temperature of the weak draw solution and product water after going through HX1
         m.fs.HX1.area.unfix()
         m.fs.HX2.area.unfix()
-        m.fs.HX1.weak_draw_outlet.temperature[0].fix(80 + 273.15)
-        m.fs.HX1.product_water_outlet.temperature[0].fix(28 + 273.15)
+        m.fs.HX1.weak_draw_outlet.temperature[0].fix(78 + 273.15)
+        m.fs.HX1.product_water_outlet.temperature[0].fix(32 + 273.15)
 
         try:
             results = solver.solve(m)
             assert_optimal_termination(results)
+            brine.append((v, value(m.fs.fo.brine_props[0].conc_mass_phase_comp['Liq',"TDS"])))
         except:
-            failed.append(TDS)
-            print(TDS, "SOLVE FAILED")       
+            brine.append((v, 'failed'))
+            print(v, "SOLVE FAILED")       
 
         fo_results = [
             m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "H2O"].value,
@@ -917,7 +911,7 @@ if __name__ == "__main__":
         ]
 
 
-        df_results[TDS] = fo_results
+        df_results[v] = fo_results
 
     csv_outfile = '/Users/zhuoranzhang/Documents/SETO/Data&Results/FO_results.csv'
  
@@ -926,5 +920,3 @@ if __name__ == "__main__":
                         'display.max_columns', None,
                         ):
         print(df_results)
-    print('failed', failed)
-

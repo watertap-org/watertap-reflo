@@ -268,3 +268,42 @@ class TestVAGMDbatch:
         assert cost_performance["Overall LCOW ($/m3)"] == pytest.approx(
             1.66306, rel=1e-3
         )
+
+if __name__ == '__main__':
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    model_input = {
+        "n_time_points": 90,
+        "med_feed_salinity": 35,
+        "med_feed_temp": 25,
+        "med_steam_temp": 80,
+        "med_capacity": 1.5,
+        "med_recovery_ratio": 0.5,
+        "md_feed_flow_rate": 600,
+        "md_evap_inlet_temp": 80,
+        "md_cond_inlet_temp": 25,
+        "md_module_type": "AS26C7.2L",
+        "md_cooling_system_type": "closed",
+        "md_cooling_inlet_temp": 25,
+        "md_high_brine_salinity": False,
+        "dt": 60,
+        "batch_volume": 50,
+    }
+    m.fs.semibatch = MEDVAGMDsemibatch(model_input=model_input)
+    m.fs.semibatch.calculate_scaling_factors()
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+
+    semibatch = m.fs.semibatch
+    # Specify target system capacity
+    semibatch.target_system_capacity.fix(1000)
+    semibatch.add_costing_packages()
+
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+
+    overall_performance, data_table = m.fs.semibatch.get_model_performance()
+    cost_performance = semibatch.get_costing_performance()
+
+    data_table.to_csv('med_md_results.csv')

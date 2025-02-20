@@ -7,7 +7,7 @@
 	"T_loop_in_des" : 90,
 	"T_loop_out" : 150,
 	"q_pb_design" : 5.1879099999999996,
-	"tshours" : 6,
+	"tshours" : 24,
 	"nSCA" : 4,
 	"nHCEt" : 4,
 	"nColt" : 4,
