@@ -17,6 +17,7 @@ import idaes.core.util.scaling as iscale
 from idaes.core import MaterialFlowBasis
 from idaes.core.util.scaling import (
     calculate_scaling_factors,
+    set_scaling_factor,
 )
 import idaes.logger as idaeslogger
 from idaes.core.util.exceptions import InitializationError
@@ -75,8 +76,8 @@ def build_permian_FO(permian_fo_config):
     m.fs.treatment = treat = Block()
     m.fs.energy = energy = Block()
 
-    # m.fs.energy.cst = FlowsheetBlock()
-    # build_cst(m.fs.energy.cst)
+    m.fs.energy.cst = FlowsheetBlock()
+    build_cst(m.fs.energy.cst)
 
     m.fs.properties = ZO(solute_list=["tds"])
     m.fs.properties_feed = SeawaterParameterBlock()
@@ -123,9 +124,8 @@ def build_permian_FO(permian_fo_config):
                                         strong_draw_mass  =permian_fo_config["strong_draw_mass_frac"],  
                                         )
 
-    treat.DWI = DeepWellInjection(
-        property_package=m.fs.properties_feed, injection_well_depth=5000
-    )
+    treat.DWI = FlowsheetBlock(dynamic=False)
+    build_dwi(m, treat.DWI, prop_package=m.fs.properties_feed)
 
     treat.disposal_SW_mixer = Mixer(
         property_package=m.fs.properties_feed,
@@ -182,7 +182,7 @@ def build_permian_FO(permian_fo_config):
         source=treat.FO.fs.fo.brine, destination=treat.disposal_SW_mixer.fo_disposal,
     ) # (5)
     treat.SW_mixer_to_DWI = Arc(
-        source=treat.disposal_SW_mixer.outlet, destination=treat.DWI.inlet,
+        source=treat.disposal_SW_mixer.outlet, destination=treat.DWI.feed.inlet,
     ) # (6)
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -201,7 +201,7 @@ def set_operating_conditions(m, operating_condition, **kwargs):
         Qin * tds * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.s
     )
 
-    m.fs.treatment.feed.properties[0].flow_mass_comp["H2O"].fix(flow_mass_water)
+    m.fs.treatment.feed.properties[0].flow_mass_comp["H2O"].fix(flow_mass_water - flow_mass_tds)
     m.fs.treatment.feed.properties[0].flow_mass_comp["tds"].fix(flow_mass_tds)
 
     m.fs.treatment.feed.properties[0].conc_mass_comp[...]
@@ -217,36 +217,42 @@ def set_permian_scaling(m, **kwargs):
 
     m.fs.properties.set_default_scaling(
         "flow_mass_comp",
-        1 / value(flow_mass_water),
+        # 1 / value(flow_mass_water),
+        1e-2,
         index=("H2O"),
     )
 
     m.fs.properties.set_default_scaling(
         "flow_mass_comp",
-        1 / value(flow_mass_tds),
+        # 1 / value(flow_mass_tds),
+        0.1,
         index=("tds"),
     )
 
     m.fs.properties_feed.set_default_scaling(
         "flow_mass_phase_comp",
-        1 / value(flow_mass_water),
+        # 1 / value(flow_mass_water),
+        0.1,
         index=("Liq", "H2O")
     )
     m.fs.properties_feed.set_default_scaling(
         "flow_mass_phase_comp",
-        1 / value(flow_mass_tds),
+        # 1 / value(flow_mass_tds),
+        1e-2,
         index=("Liq", "TDS")
     )
 
     m.fs.properties_draw.set_default_scaling(
         "flow_mass_phase_comp",
-        1 / value(flow_mass_water),
+        # 1 / value(flow_mass_water),
+        0.1,
         index=("Liq", "H2O")
     )
 
     m.fs.properties_draw.set_default_scaling(
         "flow_mass_phase_comp",
-        1 / value(flow_mass_water),
+        # 1 / value(flow_mass_water),
+        0.1,
         index=("Liq", "DrawSolution")
     )
 
@@ -356,13 +362,13 @@ def init_system(m, permian_fo_config, CST_config):
     treat.disposal_SW_mixer.initialize()
     propagate_state(arc = treat.SW_mixer_to_DWI)
 
-    treat.DWI.properties[0].temperature.fix()
-    treat.DWI.properties[0].pressure.fix()
-    treat.DWI.initialize()
+    treat.DWI.unit.properties[0].temperature.fix()
+    treat.DWI.unit.properties[0].pressure.fix()
+    init_dwi(m, treat.DWI)
 
-    # init_cst(m.fs.energy.cst, 
-    #          storage=CST_config['storage'], 
-    #          heat_load=CST_config['heat_load'])
+    init_cst(m.fs.energy.cst, 
+             storage=CST_config['storage'], 
+             heat_load=CST_config['heat_load'])
 
 def add_treatment_costing(m):
 
@@ -393,6 +399,7 @@ def add_energy_costing(m, CST_config):
 
     energy.costing.heat_cost.set_value(0)
     energy.costing.cost_process()
+    energy.costing.maintenance_labor_chemical_factor.fix(0)
     energy.costing.initialize()
 
 
@@ -460,6 +467,7 @@ if __name__ == "__main__":
     heat=[]
     brine=[]
     grid_frac =[]
+    LCOW = []
     permian_fo_config = {
     "feed_vol_flow": 0.22, # initial value for fo model setup
     "feed_TDS_mass": 0.039, # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
@@ -488,7 +496,7 @@ if __name__ == "__main__":
                             permian_fo_config,
                             CST_config,)
     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-    recovery_ratios = [0.4 + 0.01*i for i in range(21)]
+    recovery_ratios = [0.4, 0.42, 0.44, 0.46, 0.47,0.48,0.485, 0.49, 0.5, 0.51,0.52,0.53,0.54,0.545,0.55,0.555,0.56]
     results_dict['fo_recovery_ratio'] = []
 
     for rr in recovery_ratios:
@@ -527,11 +535,13 @@ if __name__ == "__main__":
             results_dict['fo_recovery_ratio'].append(rr)
             heat.append((rr,value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)))
             brine.append((rr, value(m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp["Liq","TDS"])))
+            LCOW.append((rr, 100*value(m.fs.treatment.costing.LCOW)))
             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
         # print(brine)
         except:
             brine.append((rr,'fail'))
             heat.append((rr,'fail'))
+            LCOW.append((rr,'fail'))
             # grid_frac.append((rr,'fail'))
     
     df = pd.DataFrame.from_dict(results_dict)
@@ -549,16 +559,17 @@ if __name__ == "__main__":
 
     unit_dict = {
         "H2O2 Addition": "fs.treatment.chem_addition.unit.costing",
-        "EC": "fs.treatment.ec.unit.costing.",
+        "EC": "fs.treatment.ec.unit.costing",
         "CF": "fs.treatment.cart_filt.unit.costing",
         "FO": "fs.treatment.FO.fs.fo.costing",
-        "DWI": "fs.treatment.DWI.costing",
+        "DWI": "fs.treatment.DWI.unit.costing",
     }
 
     agg_flows = {
         "Aluminum": "aluminum",
         "Electricity": "electricity",
         "Heat": "heat",
+        "H2O2": "hydrogen_peroxide",
     }
 
     ax_dict = dict(xlabel="FO Recovery Ratio (%)", ylabel="LCOW (\$/m$^3$)")
@@ -577,7 +588,7 @@ if __name__ == "__main__":
         leg_kwargs=dict(
             loc="upper right",
             frameon=False,
-            ncol=4,
+            ncol=3,
             handlelength=1,
             handleheight=1,
             labelspacing=0.2,
@@ -585,16 +596,47 @@ if __name__ == "__main__":
         ),
     )
 
-    #%%
+        #%%
+
+    permian_fo_config = {
+    "feed_vol_flow": 0.22, # initial value for fo model setup
+    "feed_TDS_mass": 0.039, # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+    "recovery_ratio": 0.56,
+    "RO_recovery_ratio":1,  # RO recovery ratio
+    "NF_recovery_ratio":0.8,  # Nanofiltration recovery ratio
+    "feed_temperature":25,
+    "strong_draw_temp":25,  # Strong draw solution inlet temperature (C)
+    "strong_draw_mass_frac":0.9,  # Strong draw solution mass fraction
+    "product_draw_mass_frac": 0.01,   # FO product draw solution mass fraction
+    "HX1_cold_out_temp": 78 + 273.15, # HX1 coldside outlet temperature
+    "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    CST_config = {
+        "storage":12, # hr
+        "heat_load":25, # MW
+        "heat_flow": -5000, # kW
+    }
+
+    operating_condition = {
+    "feed_vol_flow": 5, # MGD
+    "feed_tds": 130 # g/L
+    }
+    m = run_permian_FO(operating_condition,
+                            permian_fo_config,
+                            CST_config,)
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+
     lcot = value(m.fs.treatment.costing.LCOW)
-    lcow = value(m.fs.costing.LCOW)
-    lcoh = value(m.fs.costing.LCOH)
+    # lcow = value(m.fs.costing.LCOW)
+    # lcoh = value(m.fs.costing.LCOH)
     capex_total = value(m.fs.treatment.costing.total_capital_cost)
     chem_capex = m.fs.treatment.chem_addition.unit.costing.capital_cost()
     filt_capex = m.fs.treatment.cart_filt.unit.costing.capital_cost()
     ec_capex = m.fs.treatment.ec.unit.costing.capital_cost()
     fo_capex = m.fs.treatment.FO.fs.fo.costing.capital_cost()
-    dwi_capex = m.fs.treatment.DWI.costing.capital_cost()
+    dwi_capex = m.fs.treatment.DWI.unit.costing.capital_cost()
 
     opex_total = value(m.fs.treatment.costing.total_operating_cost)
     fix_opex = value(m.fs.treatment.costing.maintenance_labor_chemical_operating_cost)
@@ -613,20 +655,20 @@ if __name__ == "__main__":
     heat_cost = value(m.fs.treatment.costing.aggregate_flow_costs["heat"])
     alum_cost = value(m.fs.treatment.costing.aggregate_flow_costs["aluminum"])
     h2o2_cost = value(m.fs.treatment.costing.aggregate_flow_costs["hydrogen_peroxide"])
-    heat_purchased = value(m.fs.costing.total_heat_operating_cost)
+    # heat_purchased = value(m.fs.costing.total_heat_operating_cost)
 
     chem_elec_cost = 0.07 * value(m.fs.treatment.chem_addition.unit.electricity[0]) * 8766
     ec_elec_cost = 0.07 * value(m.fs.treatment.ec.unit.costing.electricity_flow) * 8766
     filt_elec_cost = 0.07 * value(m.fs.treatment.cart_filt.unit.electricity[0]) * 8766
     fo_elec_cost = 0.07 * value(m.fs.treatment.FO.fs.fo.costing.electricity_flow) * 8766
     fo_heat_cost = 0.02 * value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow) * 8766
-    dwi_elec_cost = 0.07 * value(m.fs.treatment.DWI.costing.pumping_power_required) * 8766
+    # dwi_elec_cost = 0.07 * value(m.fs.treatment.DWI.unit.costing.pumping_power_required) * 8766
 
     capital_recovery_rate = value(m.fs.treatment.costing.capital_recovery_factor)
     flow_vol = value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
                                         to_units=pyunits.m**3/pyunits.year))
 
-    print('LCOW                     ', lcow)
+    print('LCOW                     ', lcot)
 
     print('TOTAL CAPEX              ', capex_total)
     print('    chem_addition capex     ', chem_capex)
@@ -650,7 +692,7 @@ if __name__ == "__main__":
     print('                ec elec   ', ec_elec_cost)
     print('                filt elec    ', filt_elec_cost)
     print('                FO elec   ', fo_elec_cost)
-    print('                DWI elec   ', dwi_elec_cost)
+    # print('                DWI elec   ', dwi_elec_cost)
     print('')
     print('           Heat cost     ', heat_cost)
     print('                FO heat  ', fo_heat_cost)

@@ -149,7 +149,7 @@ def case_study_stacked_plot(
                 )  # USD2023
 
             except KeyError:
-                print(f"No CAPEX for {u} found.")
+                print(f"No CAPEX for {u} found at {b}.capital_cost.")
                 pass
 
             total_capex += unit_capex  # $
@@ -174,13 +174,13 @@ def case_study_stacked_plot(
             try:
                 unit_opex_total += row.loc[f"{b}.fixed_operating_cost"]
             except KeyError:
-                print(f"No Fixed OPEX for {u} found.")
+                print(f"No Fixed OPEX for {u} found at: {b}.fixed_operating_cost")
                 pass
 
             try:
                 unit_opex_total += row.loc[f"{b}.variable_operating_cost"]
             except KeyError:
-                print(f"No Variable OPEX for {u} found.")
+                print(f"No Variable OPEX for {u} found at: {b}.variable_operating_cost")
                 pass
 
             total_opex += unit_opex_total  # $ / year
@@ -277,7 +277,6 @@ def case_study_stacked_plot(
     if (fig, ax) == (None, None):
         fig, ax = plt.subplots(figsize=figsize)
         fig.set_size_inches(5, 5, forward=True)
-
     ax.stackplot(
         df.index,
         stacked_cols,
