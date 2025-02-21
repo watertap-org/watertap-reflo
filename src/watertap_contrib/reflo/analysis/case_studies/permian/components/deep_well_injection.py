@@ -192,7 +192,7 @@ def add_dwi_costing(m, blk, flowsheet_costing_block=None):
     # From 2-18-2025 email from Pei referencing this report:
     # https://www.env.nm.gov/wp-content/uploads/2024/11/NMED-Revised-Draft-Feasibility-Study-112224.pdf
     
-    dwi_cost = value(pyunits.convert(1 * pyunits.USD_2023 / pyunits.bbl, to_units=pyunits.USD_2023 / pyunits.m**3))
+    dwi_cost = value(pyunits.convert(8.38 * pyunits.USD_2023 / pyunits.bbl, to_units=pyunits.USD_2023 / pyunits.m**3))
     flowsheet_costing_block.deep_well_injection.dwi_lcow.set_value(dwi_cost)
 
 
