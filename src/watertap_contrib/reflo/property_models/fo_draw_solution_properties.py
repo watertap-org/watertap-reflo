@@ -119,22 +119,22 @@ class FODrawSolutionParameterBlockData(PhysicalParameterBlock):
 
         # osmotic coefficient parameters, equation derived from experimental data
         self.osm_coeff_param_0 = Param(
-            initialize=-2.31586e5,
+            initialize=-1.24602e5,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 0",
         )
         self.osm_coeff_param_1 = Param(
-            initialize=9.16006e6,
+            initialize=6.39608e6,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 1",
         )
         self.osm_coeff_param_2 = Param(
-            initialize=-3.25759e7,
+            initialize=-2.81942e7,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 2",
         )
         self.osm_coeff_param_3 = Param(
-            initialize=5.75176e7,
+            initialize=7.37766e7,
             units=pyunits.Pa,
             doc="Osmotic coefficient parameter 3",
         )

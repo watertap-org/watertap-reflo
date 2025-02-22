@@ -474,10 +474,15 @@ class ForwardOsmosisZOData(UnitModelBlockData):
             if p == "Liq" and j == "H2O":
                 state_args_brine["flow_mass_phase_comp"][(p, j)] = (
                     state_args["flow_mass_phase_comp"][(p, j)]
-                    * (1 - blk.recovery_ratio / blk.nanofiltration_recovery_ratio)
+                    * (1 - blk.recovery_ratio )
                     * pyunits.kg
                     / pyunits.s
                 )
+            elif p == "Liq" and j == "TDS":
+                state_args_brine["flow_mass_phase_comp"][(p, j)] = (
+                    state_args["flow_mass_phase_comp"][(p, j)]
+                )
+
 
         blk.brine_props.initialize(
             outlvl=outlvl,
@@ -510,7 +515,7 @@ class ForwardOsmosisZOData(UnitModelBlockData):
                     state_args["flow_mass_phase_comp"][(p, j)]
                     * blk.recovery_ratio
                     / blk.nanofiltration_recovery_ratio
-                    * 1.5  # Approximated ratio of the weak draw flow to the feed flow
+                    * 2  # Approximated ratio of the weak draw flow to the feed flow
                     * pyunits.kg
                     / pyunits.s
                 )
@@ -536,7 +541,7 @@ class ForwardOsmosisZOData(UnitModelBlockData):
             elif p == "Liq" and j == "H2O":
                 state_args_strong_draw["flow_mass_phase_comp"][(p, j)] = (
                     state_args_weak_draw["flow_mass_phase_comp"][(p, "DrawSolution")]
-                    * 0.25  # typical draw : water in strong draw solution
+                    * 0.15  # typical draw : water in strong draw solution
                 )
 
         blk.strong_draw_props.initialize(
@@ -587,7 +592,7 @@ class ForwardOsmosisZOData(UnitModelBlockData):
             solver=solver,
             state_args=state_args_product,
         )
-
+        
         # Check degree of freedom
         assert degrees_of_freedom(blk) == 0
 

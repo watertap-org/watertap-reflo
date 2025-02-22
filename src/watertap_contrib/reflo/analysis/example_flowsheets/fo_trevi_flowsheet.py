@@ -287,7 +287,7 @@ def add_fo(
     # Specify strong draw solution properties
     fo.strong_draw_props.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            ("flow_vol_phase", "Liq"): feed_vol_flow ,
             ("mass_frac_phase_comp", ("Liq", "DrawSolution")): strong_draw_mass,
             ("temperature", None): strong_draw_temp + 273.15,
             ("pressure", None): 101325,
@@ -300,7 +300,7 @@ def add_fo(
     # Specify product water properties
     fo.product_props.calculate_state(
         var_args={
-            ("flow_vol_phase", "Liq"): feed_vol_flow,
+            ("flow_vol_phase", "Liq"): feed_vol_flow * recovery_ratio / (1-NF_recovery_ratio),
             ("mass_frac_phase_comp", ("Liq", "DrawSolution")): product_draw_mass,
             ("temperature", None): separation_temp - separator_temp_loss + 273.15,
             ("pressure", None): 101325,
@@ -391,16 +391,15 @@ def fix_dof_and_initialize(
     }
     state_args_HX1_cold = {
         "flow_mass_phase_comp": {
-            ("Liq", "H2O"): m.fs.S1.to_HX1.flow_mass_phase_comp[0, "Liq", "H2O"].value,
-            ("Liq", "DrawSolution"): m.fs.S1.to_HX1.flow_mass_phase_comp[
-                0, "Liq", "DrawSolution"
-            ].value,
+            ("Liq", "H2O"): m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value / 2,
+            ("Liq", "DrawSolution"): m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value / 2,
         },
         "temperature": m.fs.S1.to_HX1.temperature[0].value,
         "pressure": m.fs.S1.to_HX1.pressure[0].value,
     }
+
     m.fs.HX1.initialize(
-        state_args_1=state_args_HX1_hot, state_args_2=state_args_HX1_cold
+        # state_args_1=state_args_HX1_hot, state_args_2=state_args_HX1_cold
     )
     # Cold side has liquid separation
     m.fs.HX1.cold_side.properties_out[0].liquid_separation.fix(1)
@@ -414,10 +413,10 @@ def fix_dof_and_initialize(
 
     state_args_HX2_hot = {
         "flow_mass_phase_comp": {
-            ("Liq", "H2O"): m.fs.fo.reg_draw_props[0]
+            ("Liq", "H2O"): m.fs.fo.strong_draw_props[0]
             .flow_mass_phase_comp["Liq", "H2O"]
             .value,
-            ("Liq", "DrawSolution"): m.fs.fo.reg_draw_props[0]
+            ("Liq", "DrawSolution"): m.fs.fo.strong_draw_props[0]
             .flow_mass_phase_comp["Liq", "DrawSolution"]
             .value,
         },
@@ -426,16 +425,15 @@ def fix_dof_and_initialize(
     }
     state_args_HX2_cold = {
         "flow_mass_phase_comp": {
-            ("Liq", "H2O"): m.fs.S1.to_HX2.flow_mass_phase_comp[0, "Liq", "H2O"].value,
-            ("Liq", "DrawSolution"): m.fs.S1.to_HX2.flow_mass_phase_comp[
-                0, "Liq", "DrawSolution"
-            ].value,
+            ("Liq", "H2O"): m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value / 2,
+            ("Liq", "DrawSolution"): m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value / 2,
         },
         "temperature": m.fs.S1.to_HX2.temperature[0].value,
         "pressure": m.fs.S1.to_HX2.pressure[0].value,
     }
+
     m.fs.HX2.initialize(
-        state_args_1=state_args_HX2_hot, state_args_2=state_args_HX2_cold
+        # state_args_1=state_args_HX2_hot, state_args_2=state_args_HX2_cold
     )
     # Cold side has liquid separation
     m.fs.HX2.cold_side.properties_out[0].liquid_separation.fix(1)
@@ -450,36 +448,29 @@ def fix_dof_and_initialize(
     m.fs.S2.inlet.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
     )
+
+    
     m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
         * (1 - NF_recovery_ratio)
     )
     m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
-        * (1 - NF_recovery_ratio)
     )
     m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
         * NF_recovery_ratio
         * (1 - RO_recovery_ratio)
     )
-    m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
-        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
-        * NF_recovery_ratio
-        * (1 - RO_recovery_ratio)
-    )
+    m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = 0
     m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value
         * NF_recovery_ratio
         * RO_recovery_ratio
     )
-    m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = (
-        m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value
-        * NF_recovery_ratio
-        * RO_recovery_ratio
-    )
-    m.fs.S2.initialize()
+    m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value = 0
 
+    m.fs.S2.initialize()
     # Initialize mixer M1
     m.fs.M1.weak_draw.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
         m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value
@@ -629,3 +620,303 @@ def get_flowsheet_performance(m):
     }
 
     return overall_performance, operational_parameters
+
+
+if __name__ == "__main__":
+    from watertap.core.solvers import get_solver
+    from pyomo.environ import assert_optimal_termination
+    from idaes.core.util.model_statistics import (
+    degrees_of_freedom,
+)
+    from idaes.core.util.scaling import (
+        calculate_scaling_factors,
+        unscaled_variables_generator,
+        unscaled_constraints_generator,
+        badly_scaled_var_generator,
+    )
+    solver = get_solver()
+
+    # m = build_fo_trevi_flowsheet(
+    #     recovery_ratio=0.30,  # Assumed FO recovery ratio
+    #     RO_recovery_ratio=0.9,  # RO recovery ratio
+    #     NF_recovery_ratio=0.8,  # Nanofiltration recovery ratio
+    #     dp_brine=0,  # Required pressure over brine osmotic pressure (Pa)
+    #     heat_mixing=75.6,  # Heat of mixing in the membrane (MJ/m3 product)
+    #     separation_temp=90,  # Separation temperature of the draw solution (C)
+    #     separator_temp_loss=1,  # Temperature loss in the separator (K)
+    #     feed_temperature=25,  # Feed water temperature (C)
+    #     feed_vol_flow=0.22,  # Feed water volumetric flow rate (m3/s)
+    #     feed_TDS_mass=0.119,  # TDS mass fraction of feed
+    #     strong_draw_temp=20,  # Strong draw solution inlet temperature (C)
+    #     strong_draw_mass=0.95,  # Strong draw solution mass fraction
+    #     product_draw_mass=0.01,  # Mass fraction of draw in the product water
+    # )
+
+    # fix_dof_and_initialize(
+    #     m,
+    #     strong_draw_mass_frac=0.95,
+    #     product_draw_mass_frac=0.01,
+    #     RO_recovery_ratio=0.9,
+    #     NF_recovery_ratio=0.8,
+    # )  # same input as above
+
+    # # # Specify the temperature of the weak draw solution and product water after going through HX1
+    # m.fs.HX1.area.unfix()
+    # m.fs.HX2.area.unfix()
+    # m.fs.HX1.weak_draw_outlet.temperature.fix(80 + 273.15)
+    # m.fs.HX1.product_water_outlet.temperature.fix(28 + 273.15)
+
+    # print('dof', degrees_of_freedom(m))
+    # print('')
+    # print('badly scaled variable after init')
+    # badly_scaled_var_lst = list(badly_scaled_var_generator(m))
+    # for i in badly_scaled_var_lst:
+    #     print(i[0].name, ":", i[0].value, iscale.get_scaling_factor(i[0]), i[1])
+    # try:
+    #     results = solver.solve(m)
+    #     assert_optimal_termination(results)
+    # except:
+    #     from watertap.core.util.model_diagnostics.infeasible import *
+    #     print_infeasible_constraints(m)
+    #     print_variables_close_to_bounds(m)
+    #     print("SOLVE FAILED")
+    
+
+    # from idaes.core import UnitModelCostingBlock
+    # from watertap_contrib.reflo.costing import TreatmentCosting
+    # # Add cost package of Trevi FO system
+    # m.fs.costing = TreatmentCosting()
+    # m.fs.costing.base_currency = pyunits.USD_2021
+
+    # m.fs.costing.heat_cost.set_value(0.01)
+    # m.fs.costing.electricity_cost.fix(0.07)
+    # # Create cost block for FO
+    # m.fs.fo.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+
+    # # Add LCOW component
+    # m.fs.costing.cost_process()
+    # m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+    # m.fs.costing.add_annual_water_production(m.fs.system_capacity)
+    # m.fs.costing.add_LCOW(m.fs.system_capacity)
+
+    # results = solver.solve(m)
+    # assert_optimal_termination(results)
+    # overall_performance, operational_parameters = get_flowsheet_performance(m)
+
+    import csv
+    import pandas as pd
+
+    output_items = ['FO_feed_H2O',
+                    'FO_feed_TDS',
+                    'FO_feed_TDS_frac',
+                    'FO_feed_vol',
+                    'FO_feed_temp',
+
+                    'FO_brine_H2O',
+                    'FO_brine_TDS',
+                    'FO_brine_TDS_frac',
+                    'FO_brine_vol',
+                    'FO_brine_temp',
+
+                    'FO_weak_H2O',
+                    'FO_weak_Draw',
+                    'FO_weak_Draw_frac',
+                    'FO_weak_Draw_vol',
+                    'FO_weak_temp',
+
+                    'FO_strong_H2O',
+                    'FO_strong_Draw',
+                    'FO_strong_Draw_frac',
+                    'FO_strong_Draw_vol',
+                    'FO_strong_temp',
+
+                    'FO_product_H2O',
+                    'FO_product_Draw',
+                    'FO_product_Draw_frac',
+                    'FO_product_Draw_vol',
+                    'FO_product_temp',
+                    
+                    'S2_NF_reject_H2O',
+                    'S2_NF_reject_Draw',
+                    'S2_NF_reject_temp',
+
+                    'S2_RO_reject_H2O',
+                    'S2_RO_reject_Draw',
+                    'S2_RO_reject_temp',
+
+                    'S2_fresh_H2O',
+                    'S2_fresh_Draw',
+                    'S2_fresh_temp',
+
+                    'S1_HX1_H2O',
+                    'S1_HX1_Draw',
+                    'S1_HX1_temp',
+
+                    'S1_HX2_H2O',
+                    'S1_HX2_Draw',
+                    'S1_HX2_temp',
+
+                    'HX1_cold_H2O',
+                    'HX1_cold_Draw',
+                    'HX1_cold_in_temp',
+                    'HX1_cold_out_temp',
+
+                    'HX1_hot_H2O',
+                    'HX1_hot_Draw',
+                    'HX1_hot_in_temp',
+                    'HX1_hot_out_temp',
+
+                    'HX2_cold_H2O',
+                    'HX2_cold_Draw',
+                    'HX2_cold_in_temp',
+                    'HX2_cold_out_temp',
+
+                    'HX2_hot_H2O',
+                    'HX2_hot_Draw',
+                    'HX2_hot_in_temp',
+                    'HX2_hot_out_temp',
+
+                    'HX1 area',
+                    'HX2 area',
+
+                    "Heater 1 heat load",
+                    "Heater 2 heat load", 
+                    "Cooler heat load",
+
+                    ]
+    
+    scenarios = [0.55]
+
+    df_results = pd.DataFrame(index = output_items, columns=scenarios)
+
+    brine = []
+    for v in scenarios:
+        m = build_fo_trevi_flowsheet(
+            recovery_ratio=v,  # Assumed FO recovery ratio
+            RO_recovery_ratio=1,  # RO recovery ratio
+            NF_recovery_ratio=0.8,  # Nanofiltration recovery ratio
+            dp_brine=0,  # Required pressure over brine osmotic pressure (Pa)
+            heat_mixing=75.6,  # Heat of mixing in the membrane (MJ/m3 product)
+            separation_temp=90,  # Separation temperature of the draw solution (C)
+            separator_temp_loss=1,  # Temperature loss in the separator (K)
+            feed_temperature=25,  # Feed water temperature (C)
+            feed_vol_flow=0.22,  # Feed water volumetric flow rate (m3/s)
+            feed_TDS_mass=0.039,  # TDS mass fraction of feed
+            strong_draw_temp=25,  # Strong draw solution inlet temperature (C)
+            strong_draw_mass=0.90,  # Strong draw solution mass fraction
+            product_draw_mass=0.01,  # Mass fraction of draw in the product water
+        )
+        try:
+            fix_dof_and_initialize(
+                m,
+                strong_draw_mass_frac=0.90,
+                product_draw_mass_frac=0.01,
+                RO_recovery_ratio=1,
+                NF_recovery_ratio=0.8,
+            )  # same input as above
+        except:
+            print('failed', v)
+
+        # # Specify the temperature of the weak draw solution and product water after going through HX1
+        m.fs.HX1.area.unfix()
+        m.fs.HX2.area.unfix()
+        m.fs.HX1.weak_draw_outlet.temperature[0].fix(78 + 273.15)
+        m.fs.HX1.product_water_outlet.temperature[0].fix(32 + 273.15)
+
+        try:
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            brine.append((v, value(m.fs.fo.brine_props[0].conc_mass_phase_comp['Liq',"TDS"])))
+        except:
+            brine.append((v, 'failed'))
+            print(v, "SOLVE FAILED")       
+
+        fo_results = [
+            m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "TDS"].value,
+            m.fs.fo.feed_props[0].mass_frac_phase_comp["Liq", "TDS"].value * 1000,
+            m.fs.fo.feed_props[0].flow_vol_phase["Liq"].value,
+            m.fs.fo.feed_props[0].temperature.value - 273.15,
+
+            m.fs.fo.brine_props[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.fo.brine_props[0].flow_mass_phase_comp["Liq", "TDS"].value,
+            m.fs.fo.brine_props[0].mass_frac_phase_comp["Liq", "TDS"].value* 1000,
+            m.fs.fo.brine_props[0].flow_vol_phase["Liq"].value,
+            m.fs.fo.brine_props[0].temperature.value - 273.15,
+
+            m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.fo.weak_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value,
+            m.fs.fo.weak_draw_props[0].mass_frac_phase_comp["Liq", "DrawSolution"].value* 100,
+            m.fs.fo.weak_draw_props[0].flow_vol_phase["Liq"].value,
+            m.fs.fo.weak_draw_props[0].temperature.value - 273.15,
+
+            m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.fo.strong_draw_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value,
+            m.fs.fo.strong_draw_props[0].mass_frac_phase_comp["Liq", "DrawSolution"].value* 100,
+            m.fs.fo.strong_draw_props[0].flow_vol_phase["Liq"].value,
+            m.fs.fo.strong_draw_props[0].temperature.value - 273.15,
+
+            m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.fo.product_props[0].flow_mass_phase_comp["Liq", "DrawSolution"].value,
+            m.fs.fo.product_props[0].mass_frac_phase_comp["Liq", "DrawSolution"].value* 100,
+            m.fs.fo.product_props[0].flow_vol_phase["Liq"].value,
+            m.fs.fo.product_props[0].temperature.value - 273.15,
+
+            m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value,
+            m.fs.S2.NF_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value,
+            m.fs.S2.NF_reject.temperature[0].value - 273.15,
+
+            m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "H2O"].value,
+            m.fs.S2.RO_reject.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value,
+            m.fs.S2.RO_reject.temperature[0].value - 273.15,
+
+            m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "H2O"].value,
+            m.fs.S2.fresh_water.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value,
+            m.fs.S2.fresh_water.temperature[0].value - 273.15,
+
+            m.fs.S1.to_HX1.flow_mass_phase_comp[0, "Liq", "H2O"].value,
+            m.fs.S1.to_HX1.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value,
+            m.fs.S1.to_HX1.temperature[0].value - 273.15,
+
+            m.fs.S1.to_HX2.flow_mass_phase_comp[0, "Liq", "H2O"].value,
+            m.fs.S1.to_HX2.flow_mass_phase_comp[0, "Liq", "DrawSolution"].value,
+            m.fs.S1.to_HX2.temperature[0].value - 273.15,
+
+            m.fs.HX1.cold_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.HX1.cold_side.properties_in[0].flow_mass_phase_comp["Liq", "DrawSolution"].value,
+            m.fs.HX1.cold_side.properties_in[0].temperature.value - 273.15,
+            m.fs.HX1.cold_side.properties_out[0].temperature.value - 273.15,
+
+            m.fs.HX1.hot_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.HX1.hot_side.properties_in[0].flow_mass_phase_comp["Liq", "DrawSolution"].value,
+            m.fs.HX1.hot_side.properties_in[0].temperature.value - 273.15,
+            m.fs.HX1.hot_side.properties_out[0].temperature.value - 273.15,
+
+            m.fs.HX2.cold_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.HX2.cold_side.properties_in[0].flow_mass_phase_comp["Liq", "DrawSolution"].value,
+            m.fs.HX2.cold_side.properties_in[0].temperature.value - 273.15,
+            m.fs.HX2.cold_side.properties_out[0].temperature.value - 273.15,
+
+            m.fs.HX2.hot_side.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].value,
+            m.fs.HX2.hot_side.properties_in[0].flow_mass_phase_comp["Liq", "DrawSolution"].value,
+            m.fs.HX2.hot_side.properties_in[0].temperature.value - 273.15,
+            m.fs.HX2.hot_side.properties_out[0].temperature.value - 273.15,
+
+            m.fs.HX1.area.value,
+            m.fs.HX2.area.value,
+
+            m.fs.H1.heat_duty[0].value,
+            m.fs.H2.heat_duty[0].value,
+            m.fs.Cooler.heat_duty[0].value,            
+        ]
+
+
+        df_results[v] = fo_results
+
+    csv_outfile = '/Users/zhuoranzhang/Documents/SETO/Data&Results/FO_results.csv'
+ 
+    df_results.to_csv(csv_outfile)
+    with pd.option_context('display.max_rows', None,
+                        'display.max_columns', None,
+                        ):
+        print(df_results)
