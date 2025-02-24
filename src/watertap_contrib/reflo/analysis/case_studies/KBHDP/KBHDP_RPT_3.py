@@ -121,7 +121,7 @@ def main(
         m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
 
     # For reporting purposes
-    m.fs.treatment.md.unit.costing.capital_cost = Param(
+    m.fs.treatment.md.unit.capital_cost = Param(
         initialize=value(m.fs.treatment.md.unit.costing.capital_cost), mutable=True
     )
     m.fs.treatment.md.unit.fixed_operating_cost = Param(
@@ -213,6 +213,8 @@ def add_treatment_costing(m, heat_price=0.01, electricity_price=0.07, treatment_
     )
     # Treatment costing
     treatment_costing_block.cost_process()
+    treatment_costing_block.heat_cost.fix(heat_price)
+    treatment_costing_block.electricity_cost.fix(electricity_price)
 
     treatment_costing_block.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
     
@@ -608,10 +610,10 @@ if __name__ == "__main__":
 
 
     m = main(
-        water_recovery=0.8,
+        water_recovery=0.7,
         heat_price=0.0166,
         electricity_price=0.066,
-        grid_frac_heat=0.5,
+        grid_frac_heat=1,
         hours_storage=24,
         cost_per_area_collector=600,
         cost_per_volume_storage=2000,
