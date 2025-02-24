@@ -73,7 +73,7 @@ surrogate_filename_high = dataset_filename_high.replace(".pkl", ".json")
 
 dataset_filename_really_high = os.path.join(
     parent_dir,
-    "data/fpc/FPC_KBHDP_el_paso_REALLY_HIGH_heat_load_1-100_hours_storage_0-24_temperature_hot_50-100.pkl",
+    "data/fpc/FPC_KBHDP_el_paso_heat_load_1-100_hours_storage_6-24_temperature_hot_70-98-with_aux_heating.pkl",
 )
 surrogate_filename_really_high = dataset_filename_really_high.replace(".pkl", ".json")
 
