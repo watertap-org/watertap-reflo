@@ -23,6 +23,8 @@ from pyomo.environ import (
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In
 
+from idaes.core.util.misc import add_object_reference
+
 # IDAES imports
 from idaes.core import (
     declare_process_block_class,
@@ -449,6 +451,8 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
         vagmd.costing = UnitModelCostingBlock(
             flowsheet_costing_block=flowsheet_costing_block
         )
+
+        add_object_reference(self, "costing", vagmd.costing)
 
         # Overwrite the thermal and electric energy flow with the accumulated values
         vagmd.costing.costing_package.cost_flow(

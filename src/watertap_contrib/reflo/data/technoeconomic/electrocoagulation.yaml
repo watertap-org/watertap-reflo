@@ -37,7 +37,7 @@ default:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-      value: 0.08
+      value: 0.11
       units: dimensionless
   capital_cost:
     cost_factor: TPEC
