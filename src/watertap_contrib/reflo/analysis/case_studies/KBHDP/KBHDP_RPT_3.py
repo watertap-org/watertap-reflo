@@ -93,13 +93,13 @@ def main(
     apply_scaling(m)
     init_system(m, m.fs)
 
-    m.fs.energy.FPC.heat_load.unfix()
+    # m.fs.energy.FPC.heat_load.unfix()
     _ = solve(m.fs.treatment.md, tee=False)
     _ = solve(m, raise_on_failure=False, tee=False)
     
-    m.fs.energy.FPC.heat_load.fix()
+    # m.fs.energy.FPC.heat_load.fix()
    
-    _ = solve(m)
+    # _ = solve(m)
 
     report_MD(m, m.fs.treatment.md)
 
@@ -613,7 +613,7 @@ if __name__ == "__main__":
         water_recovery=0.7,
         heat_price=0.0166,
         electricity_price=0.066,
-        grid_frac_heat=1,
+        grid_frac_heat=0.5,
         hours_storage=24,
         cost_per_area_collector=600,
         cost_per_volume_storage=2000,
