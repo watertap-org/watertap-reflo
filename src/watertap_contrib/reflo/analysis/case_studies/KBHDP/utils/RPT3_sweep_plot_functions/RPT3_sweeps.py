@@ -60,7 +60,7 @@ if __name__ == "__main__":
     input_dict = {
         'water_recovery':0.7,
         'heat_price':0.0166,
-        "electricity_price":0.066,
+        "electricity_price":0.04989,
         'grid_frac_heat':0.5,
         'hours_storage':24,
         'cost_per_area_collector':600,
@@ -74,13 +74,13 @@ if __name__ == "__main__":
     #############################################################################################
     
     sweep_type = "grid_frac_heat"
-    only_plot = True
+    only_plot = False
 
     xcol_dict = {
         "water_recovery":"fs.water_recovery",
         "heat_price": "fs.costing.heat_cost_buy",
-        "hours_storage": "fs.energy.FPC.hours_storage",
-        "grid_frac_heat": "fs.costing.frac_heat_from_grid",
+        "hours_storage":"fs.energy.FPC.hours_storage",
+        "grid_frac_heat":"fs.costing.frac_heat_from_grid",
         "dwi_lcow": "fs.treatment.costing.deep_well_injection.dwi_lcow",
         "cost_per_area_collector":"fs.energy.costing.flat_plate.cost_per_area_collector",
         "cost_per_volume_storage":"fs.energy.costing.flat_plate.cost_per_volume_storage",

@@ -157,7 +157,7 @@ def case_study_stacked_plot(
             ) / denominator  # $ / m3
             total_lcow += unit_capex_lcow  # $ / m3
 
-            if unit_capex_lcow != 0:
+            if unit_capex_lcow >= 1e-20:
                 capex_lcow[u].append(unit_capex_lcow)
 
             ### OPEX

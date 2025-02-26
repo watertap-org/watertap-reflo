@@ -104,7 +104,32 @@ def main(
     report_MD(m, m.fs.treatment.md)
 
     if grid_frac_heat == 1:
-        add_treatment_costing(m,heat_price=heat_price, electricity_price=electricity_price)
+        add_treatment_only_costing(m,heat_price=heat_price, electricity_price=electricity_price)
+        _ = solve(m)
+
+        m.fs.energy.FPC.heat_load.unfix()
+        m.fs.costing.frac_heat_from_grid.fix(0.95)
+
+        if dwi_lcow!= None:
+            m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
+
+        results = solve(m)
+
+        # Update fs.costing block results for only treatment costs
+        # Update total heat/electric operating to be treatment aggregate_flow_costs
+        m.fs.costing.total_heat_operating_cost = m.fs.treatment.costing.aggregate_flow_costs['heat']
+        m.fs.costing.total_electric_operating_cost = m.fs.treatment.costing.aggregate_flow_costs['electricity']
+        
+        # Update the total_capital, total_operating
+        m.fs.energy.FPC.costing.capital_cost.fix(1e-5)
+        m.fs.energy.FPC.costing.fixed_operating_cost.fix(1e-5)
+
+        # Update LCOT to be LCOW
+        m.fs.costing.LCOT.fix(m.fs.treatment.costing.LCOW())
+
+        m.fs.costing.frac_heat_from_grid.fix(1)
+
+
     else:
         add_costing(m,heat_price=heat_price, electricity_price=electricity_price)
         _ = solve(m)
@@ -117,8 +142,11 @@ def main(
         m.fs.energy.costing.flat_plate.cost_per_area_collector.fix(cost_per_area_collector)
         m.fs.energy.costing.flat_plate.cost_per_volume_storage.fix(cost_per_volume_storage)
 
-    if dwi_lcow!= None:
-        m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
+        if dwi_lcow!= None:
+            m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
+
+        results = solve(m)
+
 
     # For reporting purposes
     m.fs.treatment.md.unit.capital_cost = Param(
@@ -134,7 +162,7 @@ def main(
         initialize=value(m.fs.treatment.md.unit.costing.other_capital_cost), mutable=True
     )
 
-    results = solve(m)
+    
     
     return m
 
@@ -200,11 +228,15 @@ def add_connections(m):
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
-def add_treatment_costing(m, heat_price=0.01, electricity_price=0.07, treatment_costing_block=None, energy_costing_block=None):
+def add_treatment_only_costing(m, heat_price=0.01, electricity_price=0.07, treatment_costing_block=None, energy_costing_block=None):
+
     if treatment_costing_block is None:
         treatment_costing_block = m.fs.treatment.costing
     if energy_costing_block is None:
         energy_costing_block = m.fs.energy.costing
+
+
+    add_fpc_costing(m, costing_block=energy_costing_block)
 
     m.fs.treatment.md.unit.add_costing_module(treatment_costing_block)
 
@@ -212,11 +244,32 @@ def add_treatment_costing(m, heat_price=0.01, electricity_price=0.07, treatment_
         m.fs.treatment, m.fs.treatment.dwi, costing_blk=treatment_costing_block
     )
     # Treatment costing
-    treatment_costing_block.cost_process()
+   
     treatment_costing_block.heat_cost.fix(heat_price)
     treatment_costing_block.electricity_cost.fix(electricity_price)
-
+    treatment_costing_block.cost_process()
     treatment_costing_block.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
+    
+    # Energy costing
+    energy_costing_block.cost_process()
+
+    # System costing
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.heat_cost_buy.fix(heat_price)
+    m.fs.costing.electricity_cost_buy.set_value(electricity_price)
+    m.fs.costing.cost_process()
+
+    print("\n--------- INITIALIZING SYSTEM COSTING ---------\n")
+
+    treatment_costing_block.initialize()
+    energy_costing_block.initialize()
+    m.fs.costing.initialize()
+
+    m.fs.costing.add_annual_water_production(
+        m.fs.treatment.product.properties[0].flow_vol
+    )
+    m.fs.costing.add_LCOT(m.fs.treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOH()
     
 
 
@@ -610,10 +663,10 @@ if __name__ == "__main__":
 
 
     m = main(
-        water_recovery=0.7,
+        water_recovery=0.4,
         heat_price=0.0166,
-        electricity_price=0.066,
-        grid_frac_heat=0.5,
+        electricity_price=0.04989,
+        grid_frac_heat=1,
         hours_storage=24,
         cost_per_area_collector=600,
         cost_per_volume_storage=2000,
