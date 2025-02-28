@@ -57,12 +57,12 @@ def import_data(data_manager):
             },
             {
                 "filekey": "fs.energy.costing.flat_plate.cost_per_area_collector",
-                "return_key": "fs.energy.costing.flat_plate.cost_per_area_collector",
+                "return_key": "FPC Cost Per Area",
                 # "units": "USD/kWh",
             },
             {
-                "filekey": "fs.energy.costing.pv_surrogate.cost_per_watt_module",
-                "return_key": "PV Cost Per Watt",
+                "filekey": "fs.energy.costing.pv_surrogate.cost_per_watt_installed",
+                "return_key": "PV Cost Per Watt Installed",
                 # "units": "USD/kWh",
             },
             {
@@ -102,7 +102,7 @@ def import_data(data_manager):
             },
             {
                 "filekey": "fs.costing.frac_heat_from_grid",
-                "return_key": "fs.costing.frac_heat_from_grid",
+                "return_key": "Grid Heat Fraction",
                 # "units": "USD/m**3",
             },
             {

@@ -42,7 +42,7 @@ from watertap.property_models.water_prop_pack import WaterParameterBlock as vapo
 _log = idaeslog.getLogger(__name__)
 
 
-def propagate_state(arc, detailed=False):
+def propagate_state(arc, detailed=True):
     _prop_state(arc)
 
     if detailed:
@@ -66,33 +66,58 @@ def main():
     init_system(m)
     add_costing(m)
     scale_costing(m)
-    # box_solve_problem(m)
-    m.fs.energy.FPC.heat_load.unfix()
-    solve(m, debug=False)
-    m.fs.energy.FPC.heat_load.fix(25)
+    box_solve_problem(m)
     solve(m, debug=False)
 
-    optimize(m, objective="LCOT", grid_frac_heat=0.05)
+    optimize(
+        m,
+        water_recovery=0.45,
+        # heat_price=0.01,
+        grid_frac_heat=0.5,
+    )
+    solve(m, debug=True)
 
-    print(f"Degrees of Feedom: {degrees_of_freedom(m)}")
-    solve(m, raise_on_failure=False, debug=False, tee=False)
-    # display_system_stream_table(m)
-    # report_LTMED(m)
-    # report_pump(m, m.fs.treatment.pump)
-    # report_fpc(m)
-
+    # TODO: Investigate why FPC Heat Load is so much more than the heat demand of the LTMED
+    display_system_stream_table(m)
+    report_LTMED(m)
+    report_pump(m, m.fs.treatment.pump)
+    report_fpc(m)
+    print("\n")
+    print(
+        f'{"LTMED Heat Demand":<40s}{value(pyunits.convert(m.fs.treatment.LTMED.unit.thermal_power_requirement, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.treatment.LTMED.unit.thermal_power_requirement, to_units=pyunits.MW))}'
+    )
+    print(
+        f'{"Heat Load FPC":<40s}{value(m.fs.energy.FPC.heat_load):<5.1f}{pyunits.get_units(m.fs.energy.FPC.heat_load)}'
+    )
+    print(
+        f'{"Heat Flow FPC":<40s}{value(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW))}'
+    )
+    print(
+        f'{"Load Utilization %":<40s}{(100*value(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW)))/(value(pyunits.convert(m.fs.energy.FPC.heat_load, to_units=pyunits.MW))):<5.1f}{"%"}'
+    )
+    print("\n")
+    print(
+        f'{"Aggregate Flow Heat Treatment":<40s}{value(pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
+    )
+    print(
+        f'{"Aggregate Flow Heat Energy":<40s}{value(pyunits.convert(m.fs.energy.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.energy.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
+    )
+    print(
+        f'{"Aggregate Flow Heat Grid":<40s}{value(pyunits.convert(m.fs.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
+    )
+    print(
+        f'{"Fracion of Heat From Grid":<40s}{100*value(m.fs.costing.frac_heat_from_grid):<5.1f}{"%"}'
+    )
     # m.fs.costing.LCOW.display()
-    # m.fs.energy.costing.LCOH.display()
+    # # # m.fs.energy.costing.LCOH.display()
     # m.fs.costing.LCOT.display()
-    # display_costing_breakdown(m)
+    # # # display_costing_breakdown(m)
 
     return m
 
 
 def build_sweep(
-    grid_frac_heat=None,
-    heat_price=None,
-    water_recovery=None,
+    grid_frac_heat=None, heat_price=None, water_recovery=None, objective="LCOT"
 ):
     m = build_system(RE=True)
     add_connections(m)
@@ -101,18 +126,15 @@ def build_sweep(
     apply_scaling(m)
     init_system(m)
     add_costing(m)
-    # scale_costing(m)
-    # box_solve_problem(m)
-    m.fs.energy.FPC.heat_load.unfix()
-    solve(m, debug=False)
-    m.fs.energy.FPC.heat_load.fix(10)
+    scale_costing(m)
+    box_solve_problem(m)
     solve(m, debug=False)
     optimize(
         m,
-        water_recovery=None,
+        water_recovery=water_recovery,
         grid_frac_heat=grid_frac_heat,
         heat_price=heat_price,
-        objective="LCOT",
+        objective=objective,
     )
 
     return m
@@ -122,7 +144,7 @@ def build_system(RE=True):
     m = ConcreteModel()
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
-
+    m.fs.has_RE = RE
     m.fs.MCAS_properties = MCASParameterBlock(
         solute_list=[
             "Alkalinity_2-",
@@ -137,12 +159,14 @@ def build_system(RE=True):
         material_flow_basis=MaterialFlowBasis.mass,
     )
 
+    # m.fs.RO_properties = NaClParameterBlock()
     m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
     m.fs.liquid_prop = SeawaterParameterBlock()
     m.fs.vapor_prop = vapor_prop()
 
     build_treatment(m)
-    build_energy(m)
+    if RE is True:
+        build_energy(m)
 
     return m
 
@@ -203,16 +227,23 @@ def build_treatment(m):
     m.fs.UF_properties.set_default_scaling("flow_mass_comp", 1e5, index=("tss"))
 
     m.fs.liquid_prop.set_default_scaling(
-        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "H2O")
     )
     m.fs.liquid_prop.set_default_scaling(
-        "flow_mass_phase_comp", 1e2, index=("Liq", "NaCl")
+        "flow_mass_phase_comp", 1, index=("Liq", "TDS")
+    )
+
+    m.fs.vapor_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e-3, index=("Liq", "H2O")
+    )
+    m.fs.vapor_prop.set_default_scaling(
+        "flow_mass_phase_comp", 1e6, index=("Liq", "TDS")
     )
 
 
 def build_energy(m):
     energy = m.fs.energy = Block()
-    build_fpc_really_high(m)
+    build_fpc(m)
 
 
 def add_connections(m):
@@ -263,10 +294,11 @@ def add_connections(m):
         destination=treatment.product.inlet,
     )
 
-    treatment.LTMED_to_dwi = Arc(
-        source=treatment.LTMED.disposal.outlet,
-        destination=treatment.DWI.feed.inlet,
-    )
+    if m.fs.treatment.DWI in m.fs.units:
+        treatment.LTMED_to_dwi = Arc(
+            source=treatment.LTMED.disposal.outlet,
+            destination=treatment.DWI.feed.inlet,
+        )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
@@ -291,8 +323,6 @@ def add_constraints(m):
 def add_treatment_costing(m):
     treatment = m.fs.treatment
     treatment.costing = TreatmentCosting()
-    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
-    treatment.costing.electricity_cost.fix(elec_cost)
 
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
@@ -300,7 +330,12 @@ def add_treatment_costing(m):
     add_ec_costing(m, treatment.EC, treatment.costing)
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_LTMED_costing(m, treatment.LTMED, treatment.costing)
-    add_DWI_costing(m, treatment.DWI, treatment.costing)
+
+    if m.fs.treatment.DWI in m.fs.units:
+        add_DWI_costing(m, treatment.DWI, treatment.costing)
+
+    treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
+    treatment.costing.total_investment_factor.fix(1)
 
     treatment.costing.cost_process()
     treatment.costing.initialize()
@@ -309,32 +344,28 @@ def add_treatment_costing(m):
 def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
-
-    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
-    m.fs.energy.costing.electricity_cost.fix(elec_cost)
-
     add_fpc_costing(m, energy.costing)
 
     energy.costing.cost_process()
-    # energy.costing.add_LCOH()
+    energy.costing.add_LCOH()
     energy.costing.initialize()
 
 
 def add_costing(m):
     treatment = m.fs.treatment
-    energy = m.fs.energy
-
     add_treatment_costing(m)
-    add_energy_costing(m)
 
-    m.fs.costing = REFLOSystemCosting()
-    m.fs.costing.electricity_cost_buy.set_value(0.066)
-    m.fs.costing.heat_cost_buy.set_value(0.00894)
-    m.fs.costing.cost_process()
+    if m.fs.has_RE:
+        add_energy_costing(m)
+        m.fs.costing = REFLOSystemCosting()
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
+    else:
+        m.fs.costing = REFLOCosting()
+        m.fs.costing.cost_process()
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
-    m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
 
     m.fs.costing.initialize()
 
@@ -353,15 +384,25 @@ def get_scaling_factors(m):
 
 def scale_costing(m):
     treatment = m.fs.treatment
-    energy = m.fs.energy
+
     # TBD
+    if m.fs.has_RE:
+        energy = m.fs.energy
+        add_fpc_costing_scaling(m, energy.costing)
+        # iscale.set_scaling_factor(m.fs.energy.costing.yearly_heat_production, 1e-6)
+        # iscale.set_scaling_factor(m.fs.energy.costing.lifetime_heat_production, 1e-8)
+        # print(m.fs.costing.display())
 
-    print(m.fs.costing.display())
+        # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_electricity_sold, 0)
+        # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_heat_sold, 0)
+        iscale.set_scaling_factor(
+            m.fs.costing.aggregate_flow_electricity_purchased, 1e4
+        )
 
-    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_electricity_sold, 0)
-    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_heat_sold, 0)
-    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_heat_purchased, 1e-6)
-
+    # iscale.set_scaling_factor(m.fs.energy.costing.yearly_heat_production, 1e-6)
+    # iscale.set_scaling_factor(m.fs.energy.costing.yearly_heat_production, 1e-6)
+    # iscale.set_scaling_factor(m.fs.energy.costing.yearly_heat_production, 1e-6)
+    # iscale.set_scaling_factor(m.fs.energy.costing.yearly_heat_production, 1e-6)
     # iscale.constraint_scaling_transform(m.fs.costing.aggregate_electricity_balance, 0)
     # iscale.constraint_scaling_transform(m.fs.costing.aggregate_heat_balance, 0)
     # iscale.constraint_scaling_transform(m.fs.costing.aggregate_heat_complement, 0)
@@ -378,10 +419,6 @@ def apply_system_scaling(m):
     iscale.set_scaling_factor(
         m.fs.treatment.UF_waste.properties[0.0].flow_mass_comp["tds"], 1e3
     )
-
-    iscale.set_scaling_factor(
-        m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3
-    )
     iscale.set_scaling_factor(
         m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3
     )
@@ -390,9 +427,18 @@ def apply_system_scaling(m):
 def apply_scaling(m):
 
     add_ec_scaling(m, m.fs.treatment.EC)
-    add_UF_scaling(m.fs.treatment.UF)
-    add_LTMED_scaling(m, m.fs.treatment.LTMED)
-    add_FPC_scaling(m, m.fs.energy.FPC)
+
+    if m.fs.treatment.UF in m.fs.units:
+        add_UF_scaling(m.fs.treatment.UF)
+
+    if m.fs.treatment.LTMED in m.fs.units:
+        add_LTMED_scaling(m, m.fs.treatment.LTMED)
+
+    if m.fs.treatment.DWI in m.fs.units:
+        add_DWI_scaling(m, m.fs.treatment.DWI)
+
+    if m.fs.has_RE:
+        add_FPC_scaling(m, m.fs.energy.FPC)
     apply_system_scaling(m)
     iscale.calculate_scaling_factors(m)
 
@@ -491,7 +537,9 @@ def set_operating_conditions(m, RO_pressure=101325):
     treatment.pump.efficiency_pump.fix(pump_efi)
     treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
     set_LTMED_operating_conditions(treatment.LTMED)
-    set_fpc_op_conditions(m)
+
+    if m.fs.has_RE:
+        set_fpc_op_conditions(m)
 
 
 def init_treatment(m, verbose=True, solver=None):
@@ -526,11 +574,12 @@ def init_treatment(m, verbose=True, solver=None):
 
     init_LTMED(m, treatment.LTMED)
     propagate_state(treatment.LTMED_to_product)
-
-    propagate_state(treatment.LTMED_to_dwi)
-
     treatment.product.initialize(optarg=optarg)
-    init_DWI(m, treatment.DWI)
+
+    if m.fs.treatment.DWI in m.fs.units:
+        propagate_state(treatment.LTMED_to_dwi)
+        init_DWI(m, treatment.DWI)
+
     # display_system_stream_table(m)
 
 
@@ -543,11 +592,11 @@ def init_system(m, verbose=True, solver=None):
     init_treatment(m)
 
 
-def solve(m, solver=None, tee=False, raise_on_failure=False, debug=False):
+def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
     # ---solving---
     if solver is None:
         solver = get_solver()
-        solver.options["max_iter"] = 2000
+        solver.options["max_iter"] = 3000
 
     print("\n--------- SOLVING ---------\n")
 
@@ -560,8 +609,9 @@ def solve(m, solver=None, tee=False, raise_on_failure=False, debug=False):
             print("\n--------- TREATMENT ---------\n")
             check_jac(m.fs.treatment)
 
-            print("\n--------- ENERGY ---------\n")
-            check_jac(m.fs.energy)
+            if m.fs.has_RE:
+                print("\n--------- ENERGY ---------\n")
+                check_jac(m.fs.energy)
 
             print("\n--------- COSTING ---------\n")
             check_jac(m.fs.costing)
@@ -579,6 +629,10 @@ def solve(m, solver=None, tee=False, raise_on_failure=False, debug=False):
         print_infeasible_constraints(m)
         print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
         print_close_to_bounds(m)
+        print(m.fs.treatment.LTMED.unit.brine_props[0.0].flow_vol_phase.display())
+        print(m.fs.treatment.LTMED.unit.feed_props[0].flow_vol_phase.display())
+        print(m.fs.treatment.LTMED.unit.distillate_props[0.0].flow_vol_phase.display())
+        print(m.fs.treatment.LTMED.unit.recovery_vol_phase.display())
 
         raise RuntimeError(msg)
     else:
@@ -603,6 +657,7 @@ def box_solve_problem(m):
         tee=True,
         check_close_to_bounds=True,
         check_var_scailing=True,
+        auto_rescale=False,
         check_dofs=True,
         expected_DOFs=0,
     )
@@ -617,8 +672,10 @@ def optimize(
     objective="LCOT",
 ):
     treatment = m.fs.treatment
-    energy = m.fs.energy
+    if m.fs.has_RE:
+        energy = m.fs.energy
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
+    assert_no_degrees_of_freedom(m)
 
     if objective == "LCOW":
         m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
@@ -629,19 +686,30 @@ def optimize(
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
         m.fs.treatment.LTMED.unit.recovery_vol_phase[0.0, "Liq"].unfix()
         m.fs.water_recovery.fix(water_recovery)
-
-    if grid_frac_heat is not None:
-        energy.FPC.heat_load.unfix()
-        energy.FPC.hours_storage.unfix()
-        m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
+    else:
+        lower_bound = 0.35
+        upper_bound = 0.49
+        print(f"\n------- Unfixed Recovery -------")
+        print(f"Lower Bound: {lower_bound}")
+        print(f"Upper Bound: {upper_bound}")
+        m.fs.treatment.LTMED.unit.recovery_vol_phase[0.0, "Liq"].unfix()
+        m.fs.water_recovery.unfix()
+        m.fs.water_recovery.setlb(lower_bound)
+        m.fs.water_recovery.setub(upper_bound)
 
     if heat_price is not None:
         energy.FPC.heat_load.unfix()
-        energy.FPC.hours_storage.unfix()
+        # energy.FPC.hours_storage.unfix()
         m.fs.costing.frac_heat_from_grid.unfix()
         m.fs.costing.heat_cost_buy.fix(heat_price)
 
-    print(f"Degrees of Feedom: {degrees_of_freedom(m)}")
+    # BUG This is an issue
+    if grid_frac_heat is not None:
+        energy.FPC.heat_load.unfix()
+        # energy.FPC.hours_storage.fix(18)
+        m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
+
+    print(f"Degrees of Feedom @ Optimization: {degrees_of_freedom(m)}")
     assert degrees_of_freedom(m) >= 0
 
 
@@ -736,7 +804,8 @@ def display_system_stream_table(m):
     report_pump(m, treatment.pump)
     report_LTMED(m)
     report_DWI(treatment.DWI)
-    report_fpc(m)
+    if m.fs.has_RE:
+        report_fpc(m)
 
 
 def display_system_build(blk):
@@ -794,10 +863,3 @@ def display_costing_breakdown(m):
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = main()
-    m.fs.costing.LCOT.display()
-    m.fs.energy.FPC.heat_load.display()
-    m.fs.energy.FPC.hours_storage.display()
-    m.fs.energy.FPC.heat.display()
-    m.fs.treatment.costing.aggregate_flow_heat.display()
-    m.fs.costing.aggregate_flow_heat.display()
-    m.fs.costing.frac_heat_from_grid.display()

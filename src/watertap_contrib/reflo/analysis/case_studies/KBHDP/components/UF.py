@@ -133,6 +133,10 @@ def add_UF_costing(m, blk, costing_blk=None):
         costing_blk = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
+    # costing_blk.ultra_filtration.capital_a_parameter.fix(500000)
+    # costing_blk.total_investment_factor.fix(1)
+
+    # m.fs.costing.cost_process()
 
 
 def add_UF_scaling(blk):
