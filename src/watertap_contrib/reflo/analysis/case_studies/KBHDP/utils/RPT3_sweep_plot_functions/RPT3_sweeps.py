@@ -21,7 +21,7 @@ def plot_case_study(df,xcol,ax_dict):
     unit_dict = {
         "MD": "fs.treatment.md.unit",
         "DWI": "fs.treatment.dwi.unit.costing",
-        # "FPC": "fs.energy.FPC.costing",
+        "FPC": "fs.energy.FPC.costing",
     }
     agg_flows = {
         "Electricity":"electric",
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     sweep_dict = {
     'water_recovery':np.linspace(0.4,0.7,4),
     'heat_price': np.linspace(0.0083,0.02075,4),     # $/kwh
-    'grid_frac_heat':np.linspace(0.5,1,5),
+    'grid_frac_heat':np.linspace(0.5,0.9,5),
     'dwi_lcow':np.linspace(0.0294,0.073375,4),     # $/m3 treated water
     'cost_per_area_collector':np.linspace(300,750,4),  # $/m2
     'cost_per_volume_storage': np.linspace(1000,2500,4),    # $/m3
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         'water_recovery':0.7,
         'heat_price':0.0166,
         "electricity_price":0.04989,
-        'grid_frac_heat':1,
+        'grid_frac_heat':0.5,
         'hours_storage':24,
         'cost_per_area_collector':600,
         'cost_per_volume_storage':2000,
@@ -73,9 +73,9 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "water_recovery"
+    sweep_type = "heat_price"
     only_plot = False
-    only_plot = True
+    # only_plot = True
 
     xcol_dict = {
         "water_recovery":"fs.water_recovery",
@@ -152,7 +152,7 @@ if __name__ == "__main__":
             results_dict_test = results_dict_append(m, results_dict_test)
 
         if sweep_type!="water_recovery":
-            rec = input_dict['water_recovery']
+            rec = str(input_dict['water_recovery'])
         else:
             rec = 'var'
 
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         # df_T.to_csv("/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+sweep_type+ "_T.csv")
 
     if sweep_type!="water_recovery":
-        rec = input_dict['water_recovery']
+        rec = str(input_dict['water_recovery'])
     else:
         rec = 'var'
 
