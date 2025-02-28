@@ -85,8 +85,9 @@ def build_fpc(m):
         "units": output_units,
     }
 
+
     energy.FPC = FlatPlateSurrogate(
-        surrogate_model_file="/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/data/fpc/final_fpc_surrogate.json",
+        surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,

@@ -19,9 +19,9 @@ def plot_case_study(df,xcol,ax_dict):
     # df = df[df["fs.water_recovery"] == 0.8].copy()
 
     unit_dict = {
-        "FPC": "fs.energy.FPC.costing",
         "MD": "fs.treatment.md.unit",
         "DWI": "fs.treatment.dwi.unit.costing",
+        # "FPC": "fs.energy.FPC.costing",
     }
     agg_flows = {
         "Electricity":"electric",
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         'water_recovery':0.7,
         'heat_price':0.0166,
         "electricity_price":0.04989,
-        'grid_frac_heat':0.5,
+        'grid_frac_heat':1,
         'hours_storage':24,
         'cost_per_area_collector':600,
         'cost_per_volume_storage':2000,
@@ -73,8 +73,9 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "grid_frac_heat"
+    sweep_type = "water_recovery"
     only_plot = False
+    only_plot = True
 
     xcol_dict = {
         "water_recovery":"fs.water_recovery",
@@ -92,7 +93,7 @@ if __name__ == "__main__":
         "hours_storage": "Hours Storage (h)",
         "grid_frac_heat": "Grid Fraction (Heat)",
         "dwi_lcow": "DWI LCOW ($/m3)",
-        "cost_per_area_collector":"Collector Cost (\$/m$^3$)",
+        "cost_per_area_collector":"Collector Cost (\$/m$^2$)",
         "cost_per_volume_storage":"Thermal Storage Cost (\$/m$^3$)",
     }
 
@@ -150,12 +151,33 @@ if __name__ == "__main__":
             
             results_dict_test = results_dict_append(m, results_dict_test)
 
+        if sweep_type!="water_recovery":
+            rec = input_dict['water_recovery']
+        else:
+            rec = 'var'
+
+        if sweep_type!="grid_frac_heat":
+            grid_frac = str(input_dict['grid_frac_heat'])
+        else:
+            grid_frac = 'var'
+
         df = pd.DataFrame.from_dict(results_dict_test)
-        filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type + ".csv"
+        filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//" + sweep_type + "_grid_frac_"+grid_frac+"_recovery_"+rec+".csv"
         df.to_csv(filename)
         # df_T= pd.DataFrame.from_dict(results_dict_test, orient='index')
         # df_T.to_csv("/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+sweep_type+ "_T.csv")
 
-    filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type+ ".csv"    
+    if sweep_type!="water_recovery":
+        rec = input_dict['water_recovery']
+    else:
+        rec = 'var'
+
+    if sweep_type!="grid_frac_heat":
+        grid_frac = str(input_dict['grid_frac_heat'])
+    else:
+        grid_frac = 'var'
+
+    filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type + "_grid_frac_" + grid_frac + "_recovery_" + rec + ".csv" 
+    # filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type + ".csv" 
     df = pd.read_csv(filename).drop(columns="Unnamed: 0")
     plot_case_study(df, xcol=xcol_dict[sweep_type],ax_dict=ax_dict[sweep_type])
