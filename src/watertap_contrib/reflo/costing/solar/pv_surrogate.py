@@ -42,7 +42,7 @@ def build_pv_surrogate_cost_simple_param_block(blk):
     costing = blk.parent_block()
 
     blk.cost_per_watt_installed = pyo.Var(
-        initialize=0.8,
+        initialize=1.6,
         units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
         doc="Cost per watt for solar module installed",

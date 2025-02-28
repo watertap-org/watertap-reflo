@@ -29,21 +29,10 @@ __all__ = [
     "train_pv_surrogate",
     "set_pv_constraints",
     "add_pv_scaling",
-    "add_pv_costing",
     "add_pv_costing_scaling",
     "print_PV_costing_breakdown",
     "report_PV",
 ]
-
-__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-parent_dir = os.path.abspath(os.path.join(__location__, ".."))
-
-# NOTE: this is the same surrogate and data as is in solar_models/surrogate/pv
-dataset_filename = os.path.join(
-    parent_dir,
-    "data/pv/pv_surrogate-kbhdp.pkl",
-)
-surrogate_filename = dataset_filename.replace(".pkl", ".json")
 
 
 def build_system():
@@ -55,12 +44,28 @@ def build_system():
     return m
 
 
-def build_pv(m, energy_blk=None):
+def build_pv(m):
+    energy = m.fs.energy
 
-    if energy_blk is None:
-        energy_blk = m.fs.energy
+    parent_dir = os.path.abspath(
+        os.path.join(os.path.abspath(__file__), "..", "..", "..", "..", "..")
+    )
 
-    energy_blk.pv = PVSurrogate(
+    surrogate_dir = os.path.join(
+        parent_dir,
+        "solar_models",
+        "surrogate",
+        "pv",
+    )
+
+    dataset_filename = os.path.join(surrogate_dir, "data", "dataset.pkl")
+
+    surrogate_filename = os.path.join(
+        surrogate_dir,
+        "pv_surrogate.json",
+    )
+
+    energy.pv = PVSurrogate(
         surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables={
@@ -98,23 +103,9 @@ def set_pv_constraints(m, focus="Size"):
     m.fs.energy.pv.initialize()
 
 
-# def add_pv_costing(m, blk, costing_blk=None):
-#     energy = m.fs.energy
-#     if costing_blk is None:
-#         energy.costing = EnergyCosting()
-
-#     blk.costing = UnitModelCostingBlock(
-#         flowsheet_costing_block=costing_blk,
-#     )
-
-
-def add_pv_costing(m, blk, costing_blk=None):
+def add_pv_costing(m, blk):
     energy = m.fs.energy
-
-    if costing_blk is None:
-        if not hasattr(energy, "costing"):
-            energy.costing = EnergyCosting()
-        costing_blk = energy.costing
+    energy.costing = EnergyCosting()
 
     energy.pv.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
@@ -162,7 +153,7 @@ def report_PV(m):
         f'{"System Agg. Flow Electricity":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
     )
     print(
-        f'{"PV Design Size":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}'
+        f'{"PV Agg. Flow Elec.":<30s}{value(m.fs.energy.pv.design_size):<10.1f}{pyunits.get_units(m.fs.energy.pv.design_size)}'
     )
     print(
         f'{"Treatment Agg. Flow Elec.":<30s}{value(m.fs.treatment.costing.aggregate_flow_electricity):<10.1f}{"kW"}'
@@ -171,6 +162,9 @@ def report_PV(m):
     print(
         f'{"PV Annual Energy":<30s}{value(m.fs.energy.pv.annual_energy):<10,.0f}{pyunits.get_units(m.fs.energy.pv.annual_energy)}'
     )
+    # print(
+    #     f'{"Treatment Annual Energy":<30s}{value(m.fs.annual_treatment_energy):<10,.0f}{"kWh/yr"}'
+    # )
     print("\n")
     print(
         f'{"PV Annual Generation":<25s}{f"{pyunits.convert(m.fs.energy.pv.electricity, to_units=pyunits.kWh/pyunits.year)():<25,.0f}"}{"kWh/yr":<10s}'
@@ -203,6 +197,10 @@ def report_PV(m):
     print(
         f'{"Electricity Cost":<29s}{f"${value(m.fs.costing.total_electric_operating_cost):<10,.0f}"}{"$/yr":<10s}'
     )
+
+    # print(m.fs.energy.pv.annual_energy.display())
+    # # print(m.fs.energy.pv.costing.annual_generation.display())
+    # print(m.fs.costing.total_electric_operating_cost.display())
 
 
 def breakdown_dof(blk):

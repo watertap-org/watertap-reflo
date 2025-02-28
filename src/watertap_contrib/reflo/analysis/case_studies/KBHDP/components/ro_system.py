@@ -77,7 +77,6 @@ __all__ = [
     "build_ro_stage",
     "init_ro_system",
     "init_ro_stage",
-    "set_operating_conditions",
     "set_ro_system_operating_conditions",
     "add_ro_costing",
     "add_ro_scaling",
@@ -439,7 +438,7 @@ def set_operating_conditions(
     )
 
     m.fs.feed.properties[0].flow_vol_phase["Liq"]
-    m.fs.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
+    # m.fs.feed.properties[0].mass_frac_phase_comp["Liq", "NaCl"]
 
     m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value = (
         m.fs.feed_flow_mass.value * m.fs.feed_salinity.value / 1000
@@ -500,9 +499,9 @@ def add_ro_scaling(m, blk):
     print("Setting RO scaling")
     for idx, stage in blk.stage.items():
         module = stage.module
-        iscale.set_scaling_factor(module.area, 1e-5)
+        iscale.set_scaling_factor(module.area, 1e5)
         iscale.set_scaling_factor(module.feed_side.area, 1)
-        iscale.set_scaling_factor(module.width, 1e-4)
+        iscale.set_scaling_factor(module.width, 1e4)
         set_scaling_factor(module.length, 1e1)
         # set_scaling_factor(module.feed_side.velocity, 10)
         set_scaling_factor(module.feed_side.N_Sh_comp, 1e-4)
@@ -512,6 +511,8 @@ def add_ro_scaling(m, blk):
                 module.feed_side.properties[e].flow_mass_phase_comp["Liq", "NaCl"], 1
             )
             set_scaling_factor(module.feed_side.properties[e].dens_mass_phase["Liq"], 1)
+            # set_scaling_factor(module.feed_side.properties[e].dens_mass_phase["Liq"], 1e3)
+            set_scaling_factor(module.feed_side.properties[e].mass_frac_phase_comp["Liq", "NaCl"], 1e1)
 
         for temp_stream in [
             module.eq_permeate_isothermal,
