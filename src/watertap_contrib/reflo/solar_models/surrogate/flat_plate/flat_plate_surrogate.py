@@ -100,8 +100,8 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         )
 
         self.temperature_hot = Param(
-            initialize=80 + 273.15,  # defaults from SAM
-            units=pyunits.degK,
+            initialize=80,  # defaults from SAM
+            units=pyunits.dimensionless,
             mutable=True,
             doc="Hot temperature",
         )
@@ -138,7 +138,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
                     (self.hours_storage * self.heat_load)
                     / (
                         self.specific_heat_water
-                        * ((self.temperature_hot) - self.temperature_cold)
+                        * (((self.temperature_hot + 273.15) * pyunits.degK) - self.temperature_cold)
                         * self.dens_water
                     )
                 ),
