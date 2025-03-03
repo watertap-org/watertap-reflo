@@ -149,12 +149,12 @@ if __name__ == "__main__":
     )
 
     config_files = [
-        os.path.join(__location__, "cst/trough_physical_iph-reflo.json"),
+        os.path.join(__location__, "cst/trough_physical_iph_permian-reflo.json"),  # Updated the max HTF flowrate
     ]
     weather_file = os.path.join(__location__, "carlsbad_NM_weather_tmy-2023-full.csv")
     dataset_filename = os.path.join(
         __location__,
-        "cst/trough_permian_heat_load_1_100_hours_storage_24_T_loop_out_300.pkl",
+        "cst/trough_permian_heat_load_1_200_hours_storage_24_T_loop_out_300.pkl",
     )  # output dataset for surrogate training
 
     config_data = [read_module_datafile(config_file) for config_file in config_files]
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     # Run parametrics via multiprocessing
     data = []
-    heat_loads = np.linspace(1, 100, 200)  # [MWt]
+    heat_loads = np.linspace(1, 200, 300)  # [MWt]
     # hours_storages = np.linspace(20, 24, 5)  # [hr]
     arguments = list(product(heat_loads))  # , hours_storages))
     df = pd.DataFrame(arguments, columns=["heat_load"])  # , "hours_storage"])

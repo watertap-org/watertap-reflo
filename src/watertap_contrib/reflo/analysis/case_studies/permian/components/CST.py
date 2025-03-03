@@ -68,7 +68,7 @@ def build_cst(blk, __file__=None):
 
     dataset_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_permian_heat_load_1_100_hours_storage_24_T_loop_out_300.pkl",
+        r"trough_permian_heat_load_1_200_hours_storage_24_T_loop_out_300.pkl",
     )
 
     # Updating pickle file output column names
@@ -85,10 +85,10 @@ def build_cst(blk, __file__=None):
 
     surrogate_filename = os.path.join(
         os.path.dirname(__file__),
-        r"trough_permian_heat_load_1_100_hours_storage_24_T_loop_out_300.json",
+        r"trough_permian_heat_load_1_200_hours_storage_24_T_loop_out_300.json",
     )
 
-    input_bounds = dict(heat_load=[1, 100])  # , hours_storage=[23, 24])
+    input_bounds = dict(heat_load=[1, 200])  # , hours_storage=[23, 24])
     input_units = dict(heat_load="MW")  # , hours_storage="hour")
     input_variables = {
         "labels": ["heat_load"],  # "hours_storage"],
@@ -244,7 +244,7 @@ if __name__ == "__main__":
 
     build_cst(m.fs.cst)
 
-    set_cst_op_conditions(m.fs.cst, heat_load=87.7751, hours_storage=24)
+    set_cst_op_conditions(m.fs.cst, heat_load=200, hours_storage=24)
 
     init_cst(m.fs.cst)
 
@@ -275,11 +275,13 @@ if __name__ == "__main__":
     )
 
     m.fs.costing.add_LCOH()
-    print("LCOH:", m.fs.costing.LCOH())
+    print("\nLCOH:", m.fs.costing.LCOH())
 
     print("Direct cost:", m.fs.cst.unit.costing.direct_cost())    
     print("Indirect cost:", m.fs.cst.unit.costing.indirect_cost())    
     print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
+    print("Lifetime production:",m.fs.costing.lifetime_heat_production())
+    print("Annualized heat production:",m.fs.costing.lifetime_heat_production()/m.fs.costing.plant_lifetime())
 
     # Calcualating LCOH like SAM
     cost = m.fs.costing
