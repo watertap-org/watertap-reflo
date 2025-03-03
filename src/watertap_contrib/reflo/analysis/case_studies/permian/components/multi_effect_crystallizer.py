@@ -269,6 +269,7 @@ def add_mec_costing(m, blk, flowsheet_costing_block=None):
         flowsheet_costing_block = m.fs.costing
     blk.unit.costing = UnitModelCostingBlock(
             flowsheet_costing_block=flowsheet_costing_block,
+            costing_method_arguments={"cost_work_as": "heat"},
         )
 
 
