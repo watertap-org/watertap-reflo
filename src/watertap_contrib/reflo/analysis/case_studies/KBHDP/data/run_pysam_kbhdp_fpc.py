@@ -19,7 +19,7 @@ import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.Swh as swh
-import seaborn as sns
+# import seaborn as sns
 from idaes.core.solvers import get_solver
 from pyomo.environ import ConcreteModel, check_optimal_termination, units as pyunits
 from idaes.core import FlowsheetBlock
