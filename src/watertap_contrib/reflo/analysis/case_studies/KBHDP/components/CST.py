@@ -137,12 +137,15 @@ def set_system_op_conditions(m):
 
 def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
 
-    if isinstance(m.fs.cst.unit.hours_storage, Param):
+    if isinstance(blk.unit.hours_storage, Param):
         blk.unit.hours_storage.set_value(hours_storage)
+        pass
 
-    if isinstance(m.fs.cst.unit.hours_storage, Var):
+    if isinstance(blk.unit.hours_storage, Var):
         blk.unit.hours_storage.fix(hours_storage)
+
     blk.unit.heat_load.fix(heat_load)
+
 
 
 def add_cst_costing(blk, costing_block):
@@ -158,7 +161,7 @@ def calc_costing(m, blk):
 def add_cst_costing_scaling(m,blk):
     constraint_scaling_transform(blk.costing.direct_cost_constraint, 1e-8)
     constraint_scaling_transform(blk.costing.indirect_cost_constraint, 1e-6)
-    constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)
+    # constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)
 
 
 def report_cst(m, blk):
