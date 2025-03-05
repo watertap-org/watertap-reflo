@@ -451,9 +451,9 @@ def optimize_zld_ro(
         print(f"\n------- Unfixed Recovery -------")
         print(f"Lower Bound: {lower_bound}")
         print(f"Upper Bound: {upper_bound}")
-        m.fs.ro_water_recovery.unfix()
-        m.fs.ro_water_recovery.setlb(lower_bound)
-        m.fs.ro_water_recovery.setub(upper_bound)
+        m.fs.treatment.ro_water_recovery.unfix()
+        m.fs.treatment.ro_water_recovery.setlb(lower_bound)
+        m.fs.treatment.ro_water_recovery.setub(upper_bound)
 
     if fixed_pressure is not None:
         print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
@@ -623,6 +623,7 @@ def add_zld_mec(m,permian_cryst_config):
 
     mec_rescaling(m.fs,
                   flow_mass_phase_water_total = treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"](),
+                  flow_mass_phase_salt_total = treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"](),
                   )
     
 
@@ -681,22 +682,23 @@ def add_zld_mec(m,permian_cryst_config):
     treat.product.properties[0].flow_vol_phase
     treat.product.initialize()
 
+
 def add_zld_cst(m):
 
     m.fs.energy = Block()
     m.fs.energy.cst = FlowsheetBlock()
     build_cst(m.fs.energy.cst)
-
     set_cst_op_conditions(m.fs.energy.cst, hours_storage=24)
+    init_cst(m.fs.energy.cst)
 
 def add_zld_pv(m):
 
     build_pv(m)
     add_pv_scaling(m, m.fs.energy.pv)
-    set_pv_constraints(m, focus="Energy")
+    set_pv_constraints(m, focus="Size")
 
 
-def add_zld_costing(m,heat_price,electricity_price):
+def add_zld_treatment_costing(m,heat_price,electricity_price):
 
     # Add treatment costing
     treatment = m.fs.treatment
@@ -718,18 +720,10 @@ def add_zld_costing(m,heat_price,electricity_price):
 
     print("\n--------- Treatment Costing Initialization Complete ---------\n")
 
+def add_zld_heat_energy_costing(m,heat_price,electricity_price):
     # Add energy costing
     energy = m.fs.energy
-    energy.costing = EnergyCosting()
 
-    # energy.costing.has_electricity_generation = True
-
-    # energy.pv.costing = UnitModelCostingBlock(
-    #     flowsheet_costing_block=energy.costing,
-    #     costing_method_arguments={
-    #         "cost_method": "simple"
-    #     }
-    # )
     add_cst_costing(m.fs.energy.cst, m.fs.energy.costing)
     add_cst_costing_scaling(m,m.fs.energy.cst.unit)
 
@@ -738,13 +732,26 @@ def add_zld_costing(m,heat_price,electricity_price):
 
     print("\n--------- Energy Costing Initialization Complete ---------\n")
 
+def add_zld_electricity_energy_costing(m,heat_price,electricity_price):
+    energy = m.fs.energy
+
+    energy.costing.has_electricity_generation = True
+    m.fs.energy.pv.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.energy.costing,
+        costing_method_arguments={
+            "cost_method": "simple"
+        }
+    )
+
+
+def add_zld_system_energy_costing(m,heat_price,electricity_price):
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.heat_cost_buy.fix(heat_price)
     m.fs.costing.electricity_cost_buy.set_value(electricity_price)
     m.fs.costing.cost_process()
     m.fs.costing.initialize()
 
-    m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOT(m.fs.treatment.product.properties[0].flow_vol)
 
     print("\n--------- System Costing Initialization Complete ---------\n")
 
@@ -796,16 +803,27 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7):
     }
 
     add_zld_mec(m,permian_cryst_config)
+    
+    results = solve(m)
+
+    print(f"\nDOF after MEC = {degrees_of_freedom(m)}")
+    print("\n")
+
+    add_zld_treatment_costing(m,heat_price=0.0166,electricity_price=0.04989)
+    
     set_scaling_factor(
         m.fs.treatment.sw_to_nacl_product.properties_out[0].flow_mass_phase_comp[
             "Liq", "H2O"
         ],
         1e-2,
     )
-    results = solve(m)
-
-    print(f"\nDOF after MEC = {degrees_of_freedom(m)}")
-    print("\n")
+    
+    try:
+        results = solve(m)
+        print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
+        print("\n")
+    except:
+        print_infeasible_constraints(m)
 
     # Calculate required heat load and CST sizing
     add_zld_cst(m)
@@ -819,21 +837,22 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7):
     print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
     print('CST Heat:', value(m.fs.energy.cst.unit.heat))
     print("\n")
-
-    add_zld_costing(m,heat_price=0.0166,electricity_price=0.04989)
-    results = solve(m)
-
-    # assert False
+    
+    add_zld_pv(m)
+    m.fs.energy.costing = EnergyCosting()
+    add_zld_electricity_energy_costing(m,heat_price=0.0166,electricity_price=0.04989)
+    add_zld_heat_energy_costing(m,heat_price=0.0166,electricity_price=0.04989)
+    add_zld_system_energy_costing(m,heat_price=0.0166,electricity_price=0.04989)
+    
+    # CST heat load calculated
     m.fs.energy.cst.unit.heat_load.unfix()
     m.fs.costing.frac_heat_from_grid.fix(0.5)
-    
-    try:
-        results = solve(m)
-        print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
-        print("\n")
-    except:
-        print_infeasible_constraints(m)
 
+    m.fs.energy.pv.annual_energy.unfix()
+    m.fs.energy.pv.design_size.unfix()
+    m.fs.costing.frac_elec_from_grid.fix(0.9)
+    
+    results = solve(m)
     print("\n--------- CST Calculated ---------\n")
 
     print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
@@ -841,14 +860,17 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7):
     print("\n")
     print(f"\nDOF after CST sizing = {degrees_of_freedom(m)}")
     print("\n")
-    
-    # Fix CST and calculate PV
+
+    ## assert False
+    # ###### Fix CST and calculate PV ######
     m.fs.energy.cst.unit.heat_load.fix()
     m.fs.costing.frac_heat_from_grid.unfix()
 
-    add_zld_pv(m)
+
     m.fs.energy.pv.annual_energy.unfix()
+    m.fs.energy.pv.design_size.unfix()
     m.fs.costing.frac_elec_from_grid.fix(0.5)
+
     results = solve(m)
     print(f"\nDOF after PV sizing = {degrees_of_freedom(m)}")
 
@@ -856,10 +878,57 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7):
 
     kbhdp_zld_md_reporting_variables(m)
 
+    print("CST Heat load:", m.fs.energy.cst.unit.heat_load())
+    print("Heat grid fraction:",m.fs.costing.frac_heat_from_grid() )
+    print("PV design size:",m.fs.energy.pv.design_size())
+    print("PV annual energy:",m.fs.energy.pv.annual_energy())
+    print("Electricity grid fraction:",m.fs.costing.frac_elec_from_grid())
+
+    print("Electricity purchased:",m.fs.costing.aggregate_flow_electricity_purchased())
+    print("Electricity generated:",m.fs.energy.costing.aggregate_flow_electricity())
+    print("Electricity required:",m.fs.treatment.costing.aggregate_flow_electricity())
+
+
+    return m
+
+def recovery_check(m):
+    # RO recovery
+    ro_product = m.fs.treatment.RO.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]
+    ro_feed = m.fs.treatment.RO.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
+
+    print(
+        f'RO Recovery: {100 * (value(ro_product) / value(ro_feed)):<5.2f}%'
+    )
+
+    # MD recovery
+    md_feed = m.fs.treatment.RO.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"]
+    md_product = m.fs.treatment.md.permeate.properties[0.0].flow_mass_phase_comp["Liq","H2O"]
+
+    print(
+        f'MD Recovery: {100 * (value(md_product) / value(md_feed)):<5.2f}%'
+    )
+
+    # MEC recovery
+    mec_feed = m.fs.treatment.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"]
+    mec_product = m.fs.treatment.mec.unit.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]
+
+    print(
+        f'MEC Recovery: {100 * (value(mec_product) / value(mec_feed)):<5.2f}%'
+    )
+
+    # System recovery
+    system_product = m.fs.treatment.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]
+    print(
+        f'System Recovery: {100 * (value(system_product) / value(ro_feed)):<5.2f}%'
+    )
+    
+
 if __name__ == "__main__":
 
     m = zld_main(
-        ro_recovery=0.8,
+        ro_recovery=0.7,
         md_water_recovery=0.7,
         )
+    
+    recovery_check(m)
     
