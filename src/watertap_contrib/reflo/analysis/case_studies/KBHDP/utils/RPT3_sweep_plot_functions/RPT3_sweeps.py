@@ -19,9 +19,9 @@ def plot_case_study(df,xcol,ax_dict):
     # df = df[df["fs.water_recovery"] == 0.8].copy()
 
     unit_dict = {
-        "FPC": "fs.energy.FPC.costing",
         "MD": "fs.treatment.md.unit",
         "DWI": "fs.treatment.dwi.unit.costing",
+        "FPC": "fs.energy.FPC.costing",
     }
     agg_flows = {
         "Electricity":"electric",
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     sweep_dict = {
     'water_recovery':np.linspace(0.4,0.7,4),
     'heat_price': np.linspace(0.0083,0.02075,4),     # $/kwh
-    'grid_frac_heat':np.linspace(0.5,1,5),
+    'grid_frac_heat':np.linspace(0.5,0.9,5),
     'dwi_lcow':np.linspace(0.0294,0.073375,4),     # $/m3 treated water
     'cost_per_area_collector':np.linspace(300,750,4),  # $/m2
     'cost_per_volume_storage': np.linspace(1000,2500,4),    # $/m3
@@ -73,8 +73,9 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "grid_frac_heat"
+    sweep_type = "heat_price"
     only_plot = False
+    # only_plot = True
 
     xcol_dict = {
         "water_recovery":"fs.water_recovery",
@@ -92,7 +93,7 @@ if __name__ == "__main__":
         "hours_storage": "Hours Storage (h)",
         "grid_frac_heat": "Grid Fraction (Heat)",
         "dwi_lcow": "DWI LCOW ($/m3)",
-        "cost_per_area_collector":"Collector Cost (\$/m$^3$)",
+        "cost_per_area_collector":"Collector Cost (\$/m$^2$)",
         "cost_per_volume_storage":"Thermal Storage Cost (\$/m$^3$)",
     }
 
@@ -150,12 +151,33 @@ if __name__ == "__main__":
             
             results_dict_test = results_dict_append(m, results_dict_test)
 
+        if sweep_type!="water_recovery":
+            rec = str(input_dict['water_recovery'])
+        else:
+            rec = 'var'
+
+        if sweep_type!="grid_frac_heat":
+            grid_frac = str(input_dict['grid_frac_heat'])
+        else:
+            grid_frac = 'var'
+
         df = pd.DataFrame.from_dict(results_dict_test)
-        filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type + ".csv"
+        filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//" + sweep_type + "_grid_frac_"+grid_frac+"_recovery_"+rec+".csv"
         df.to_csv(filename)
         # df_T= pd.DataFrame.from_dict(results_dict_test, orient='index')
         # df_T.to_csv("/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+sweep_type+ "_T.csv")
 
-    filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type+ ".csv"    
+    if sweep_type!="water_recovery":
+        rec = str(input_dict['water_recovery'])
+    else:
+        rec = 'var'
+
+    if sweep_type!="grid_frac_heat":
+        grid_frac = str(input_dict['grid_frac_heat'])
+    else:
+        grid_frac = 'var'
+
+    filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type + "_grid_frac_" + grid_frac + "_recovery_" + rec + ".csv" 
+    # filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type + ".csv" 
     df = pd.read_csv(filename).drop(columns="Unnamed: 0")
     plot_case_study(df, xcol=xcol_dict[sweep_type],ax_dict=ax_dict[sweep_type])

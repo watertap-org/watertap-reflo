@@ -204,7 +204,7 @@ def build_system(grid_frac_heat, Qin=4, Cin=12, water_recovery=0.5):
     build_DWI(m, m.fs.treatment.dwi, m.fs.properties)
    
     # Logic to select the build for FPC
-    build_fpc_really_high(m)
+    build_fpc(m)
 
     return m
 

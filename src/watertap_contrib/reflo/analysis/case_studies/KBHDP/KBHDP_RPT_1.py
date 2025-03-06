@@ -68,10 +68,8 @@ def main():
     # box_solve_problem(m)
     # solve(m, debug=True)
     # scale_costing(m)
-    optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=None, objective="LCOT")
-    solve(m, debug=False)
-    m.fs.energy.costing.electricity_cost.fix(0)
-    solve(m, debug=False)
+    optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=0.5, objective="LCOW")
+    solve(m, debug=True)
     # # display_flow_table(m)
     # display_system_stream_table(m)
     # report_RO(m, m.fs.treatment.RO)
@@ -84,7 +82,9 @@ def main():
     # # # # # print(m.fs.energy.pv.display())
     # # # print_system_scaling_report(m)
     report_PV(m)
-    # print(m.fs.energy.pv.display())
+    report_pump(m, m.fs.treatment.pump)
+    print(m.fs.costing.frac_elec_from_grid.display())
+    print(m.fs.costing.aggregate_flow_electricity_purchased.display())
 
     return m
 
@@ -148,6 +148,8 @@ def build_system(RE=True):
     # else:
     #     print('Building System without Renewable Energy')
     #     m.fs.RE = RE
+
+    m.fs.RE = RE
 
     return m
 
@@ -312,11 +314,13 @@ def add_treatment_costing(m):
 def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
+    energy.costing.has_electricity_generation = m.fs.RE
 
-    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
-    m.fs.energy.costing.electricity_cost.fix(elec_cost)
     energy.pv.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
+        costing_method_arguments={
+            "cost_method": "simple"
+        }
     )
 
     energy.costing.cost_process()
@@ -333,8 +337,6 @@ def add_costing(m):
     add_energy_costing(m)
 
     m.fs.costing = REFLOSystemCosting()
-    m.fs.costing.electricity_cost_buy.set_value(0.066)
-    m.fs.costing.heat_cost_buy.set_value(0.00894)
     m.fs.costing.cost_process()
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
@@ -360,6 +362,7 @@ def scale_costing(m):
     treatment = m.fs.treatment
     energy = m.fs.energy
 
+    add_pv_costing_scaling(m, energy.costing)
     # iscale.set_scaling_factor(m.fs.energy.pv.electricity, 1e-5)
     # iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1/10000000)
     # # iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-10)
@@ -526,10 +529,13 @@ def init_treatment(m, verbose=True, solver=None):
 
     init_ec(m, treatment.EC)
     propagate_state(treatment.EC_to_UF)
+    propagate_state(treatment.EC_to_sludge)
+    treatment.sludge.initialize(optarg=optarg)
 
     init_UF(m, treatment.UF)
     propagate_state(treatment.UF_to_translator3)
     propagate_state(treatment.UF_to_waste)
+    treatment.UF_waste.initialize(optarg=optarg)
 
     treatment.TDS_to_NaCl_translator.initialize(optarg=optarg)
     propagate_state(treatment.translator_to_pump)
@@ -642,14 +648,14 @@ def optimize(
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
         m.fs.water_recovery.fix(water_recovery)
     else:
-        lower_bound = 0.01
-        upper_bound = 0.99
+        lower_bound = 0.5
+        upper_bound = 0.8
         print(f"\n------- Unfixed Recovery -------")
         print(f"Lower Bound: {lower_bound}")
         print(f"Upper Bound: {upper_bound}")
         m.fs.water_recovery.unfix()
-        m.fs.water_recovery.setlb(0.01)
-        m.fs.water_recovery.setub(0.99)
+        m.fs.water_recovery.setlb(lower_bound)
+        m.fs.water_recovery.setub(upper_bound)
 
     if fixed_pressure is not None:
         print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
@@ -823,17 +829,3 @@ def display_costing_breakdown(m):
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = main()
-    # m.fs.treatment.costing.aggregate_flow_electricity.display()
-    print(
-        pyunits.convert(
-            m.fs.treatment.costing.aggregate_flow_electricity,
-            to_units=pyunits.kWh / pyunits.year,
-        )()
-    )
-    print(
-        pyunits.convert(
-            m.fs.energy.costing.aggregate_flow_electricity,
-            to_units=pyunits.kWh / pyunits.year,
-        )()
-    )
-    # m.fs.energy.costing.aggregate_flow_electricity.display()
