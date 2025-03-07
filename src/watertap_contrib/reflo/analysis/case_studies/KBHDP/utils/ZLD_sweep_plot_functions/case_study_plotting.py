@@ -36,7 +36,9 @@ flow_list = [
     "lime", 
     "CO2",
     "mgcl2",
+    "NaCl_recovered"
 ]
+
 
 unit_colors = plt.cm.tab20(np.arange(len(unit_list)).astype(int))
 unit_color_dict_default = dict(zip(unit_list, unit_colors))
@@ -55,6 +57,7 @@ def case_study_stacked_plot(
     flow_col=None,  # column to be used as denominator in LCOW calculations, assumed to be in m3/s
     unit_dict=dict(),  # (unit name: unit location)
     agg_flows=dict(),  # dict of aggregated flows
+    revenue_flows = dict(),
     figsize=(6, 4),
     unit_color_dict=unit_color_dict_default,
     flow_color_dict=flow_color_dict_default,
@@ -93,6 +96,7 @@ def case_study_stacked_plot(
     opex_lcow = defaultdict(list)
     capex_lcow = defaultdict(list)
     agg_flow_lcow = defaultdict(list)
+    agg_rev_flow_lcow = defaultdict(list)
     actual_lcow = list()
     capex = list()
     opex = list()
@@ -187,6 +191,29 @@ def case_study_stacked_plot(
             total_lcow += unit_opex_lcow  # $ / m3
             total_annualized_cost += unit_opex_total  # $ / year
         
+        for rev_flow_label, rev_flow_name in revenue_flows.items():
+            rev_flow_lcow = 0
+            try:
+            # print(f"No aggregate cost for {flow_name} found.")
+            # pass
+            # First try to find it via aggregate_flow_costs
+                print("Treatment block aggregate flows", rev_flow_label)
+                total_flow_cost += row.loc[
+                    f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"
+                ]  # $ / year
+                total_annualized_cost += row.loc[
+                    f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"
+                ]
+                rev_flow_lcow += (
+                    row.loc[f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"] / denominator
+                )  # $ / m3
+                agg_rev_flow_lcow[rev_flow_name].append(rev_flow_lcow)
+            
+            except KeyError:
+                # print(f"No aggregate cost for {flow_name} found.")
+                # pass
+                raise ValueError(f"No cost for {flow_name} found.")
+
         for flow_label, flow_name in agg_flows.items():
             flow_lcow = 0
             try:
@@ -255,10 +282,29 @@ def case_study_stacked_plot(
     stacked_hatch = list()
     stacked_colors = list()
 
+    rev_stacked_cols = list()
+    rev_stacked_labels = list()
+    rev_stacked_hatch = list()
+    rev_stacked_colors = list()
+
     legend_elements = [
         Patch(facecolor="white", hatch=capex_hatch, label="CAPEX", edgecolor="k"),
         Patch(facecolor="white", hatch=opex_hatch, label="OPEX", edgecolor="k"),
     ]
+
+    for rev_flow_label, rev_flow_name in revenue_flows.items():
+        rev_stacked_cols.append(agg_rev_flow_lcow[rev_flow_name])
+        rev_stacked_labels.append(rev_flow_label)
+        rev_stacked_colors.append(flow_color_dict[rev_flow_name])
+        rev_stacked_hatch.append(flow_hatch)
+        legend_elements.append(
+            Patch(
+                facecolor=flow_color_dict[rev_flow_name],
+                label=rev_flow_label,
+                hatch=flow_hatch,
+                edgecolor="k",
+            )
+        )
 
     for flow_label, flow_name in agg_flows.items():
         stacked_cols.append(agg_flow_lcow[flow_name])
@@ -300,6 +346,20 @@ def case_study_stacked_plot(
         edgecolor="black",
     )
 
+    scatter_handle = ax.scatter(df.index,actual_lcow,c='black',label="Actual LCOW")
+
+    legend_elements.append(scatter_handle)
+
+    ax0 =ax.twinx()
+    ax0.stackplot(
+        df.index,
+        rev_stacked_cols,
+        # labels=stacked_labels,
+        hatch=rev_stacked_hatch,
+        colors=rev_stacked_colors,
+        edgecolor="black",
+    )
+
     if add_legend:
         ax.legend(handles=legend_elements, **leg_kwargs)
 
@@ -308,7 +368,13 @@ def case_study_stacked_plot(
     ax.set_ylabel(ax_dict["ylabel"], fontsize=label_fontsize)
     ax.tick_params(axis="both", labelsize=tick_fontsize)
     ax.set_xlim(df.index.min(), df.index.max())
-    # ax.set_ylim(0, np.ceil(max(actual_lcow))+2)
+    ax.set_ylim(-0.5, np.ceil(max(actual_lcow))+0.5)
+
+    ax0.set_xlim(df.index.min(), df.index.max())
+    ax0.set_ylim(-0.5,np.ceil(max(actual_lcow))+0.5)
+    ax0.set_yticks([])
+
+    print(denominator)
 
     plt.tight_layout()
 

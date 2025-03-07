@@ -34,6 +34,10 @@ def plot_case_study(df,xcol,ax_dict):
         "Aluminum":"aluminum",
     }
 
+    revenue_flows = {
+        "NaCl_recovered":"NaCl_recovered"
+    }
+
     ax_dict = dict(xlabel=ax_dict, ylabel="LCOW (\$/m$^3$)")
 
     fig, ax = case_study_stacked_plot(
@@ -41,6 +45,7 @@ def plot_case_study(df,xcol,ax_dict):
         unit_dict=unit_dict,
         global_costing_blk = "fs.treatment.costing",
         agg_flows=agg_flows,
+        revenue_flows =revenue_flows,
         xcol=xcol,
         flow_col=flow_col,
         ax_dict=ax_dict,
@@ -55,13 +60,13 @@ if __name__ == "__main__":
 
     sweep_dict = {
     'ro_water_recovery':[0.7,0.8],
-    'md_water_recovery':[0.7,0.7]
-    
+    'nacl_recovery_price':[0,-0.012,-0.024]
     }   
     
     input_dict = {
         'ro_water_recovery':0.8,
-        'md_water_recovery':0.7
+        'md_water_recovery':0.7,
+        'nacl_recovery_price':0
     }
 
 
@@ -69,18 +74,20 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "ro_water_recovery"
+    sweep_type = "nacl_recovery_price"
     only_plot = False
     only_plot = True
 
     xcol_dict = {
         "ro_water_recovery":"fs.treatment.ro_water_recovery",
         "md_water_recovery":"water_recovery",
+        "nacl_recovery_price":"fs.treatment.costing.nacl_recovered.cost"
     }
 
     ax_dict = {
         "ro_water_recovery": "RO Water Recovery (%)",
         "md_water_recovery": "MD Water Recovery (%)",
+        "nacl_recovery_price": "NaCl Recovery Price ($/kg)"
     }
 
 
@@ -109,7 +116,8 @@ if __name__ == "__main__":
         xcol = xcol_dict[sweep_type]
         m = zld_main(
                 ro_recovery= input_dict['ro_water_recovery'],
-                md_water_recovery= input_dict['md_water_recovery']
+                md_water_recovery= input_dict['md_water_recovery'],
+                nacl_recovery_price = input_dict['nacl_recovery_price']
                 )
         
         results_dict_test = build_results_dict(m, skips=skips)
@@ -120,26 +128,18 @@ if __name__ == "__main__":
             print(input_dict)
             m = zld_main(
                 ro_recovery= input_dict['ro_water_recovery'],
-                md_water_recovery = input_dict['md_water_recovery']
+                md_water_recovery = input_dict['md_water_recovery'],
+                nacl_recovery_price = input_dict['nacl_recovery_price']
                 )
             
             results_dict_test = results_dict_append(m, results_dict_test)
 
-        # if sweep_type!="water_recovery":
-        #     rec = str(input_dict['ro_water_recovery'])
-        # else:
-        #     rec = 'var'
 
         df = pd.DataFrame.from_dict(results_dict_test)
         filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/ZLD_sweep_results//" + sweep_type + ".csv"
         df.to_csv(filename)
         # df_T= pd.DataFrame.from_dict(results_dict_test, orient='index')
         # df_T.to_csv("/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+sweep_type+ "_T.csv")
-
-    # if sweep_type!="water_recovery":
-    #     rec = str(input_dict['water_recovery'])
-    # else:
-    #     rec = 'var'
 
 
     filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/ZLD_sweep_results//"+ sweep_type + ".csv" 
