@@ -122,7 +122,7 @@ solver = get_solver()
 
 __all__ = ["build_and_run_permian_SOA", "solve_permian_SOA"]
 
-
+save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/SOA_results"
 def build_and_run_permian_SOA(
     pretreatment_recovery=0.98,
     recovery=0.5,
@@ -556,9 +556,9 @@ def solve_permian_SOA(m):
     return results
 
 
-def run_permian_SOA_recovery_sweep(num_pts=5):
+def run_permian_SOA_recovery_sweep(num_pts=9):
 
-    recoveries = [0.4, 0.45, 0.5, 0.55, 0.6]
+    recoveries = [0.4, 0.425, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6]
 
     m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
 
@@ -598,10 +598,10 @@ def run_permian_SOA_recovery_sweep(num_pts=5):
             df = pd.merge(df, df1, on=["recovery"])
             print(cr, len(df), len(df1))
 
-    df.to_csv("permian_SOA_mvc_recovery_sweep.csv", index=False)
+    df.to_csv(f"{save_path}/permian_SOA_mvc_recovery_sweep-rerun_9pts.csv", index=False)
 
 
-def run_permian_SOA_electricity_sweep(num_pts=5):
+def run_permian_SOA_electricity_sweep(num_pts=9):
     # base case treatment energy component sweep
     min_rel = 0.5
     max_rel = 1.25
@@ -656,7 +656,57 @@ def run_permian_SOA_electricity_sweep(num_pts=5):
             df = pd.merge(df, df1, on=["electricity_cost"])
             print(cr, len(df), len(df1))
 
-    df.to_csv("permian_SOA_electricity_cost_sweep.csv", index=False)
+    df.to_csv(f"{save_path}/permian_SOA_electricity_cost_sweep-disposal_temp_ub_360.csv", index=False)
+    # return df
+
+
+def run_permian_SOA_salinity_flow_sweep():
+
+
+    tds = [100, 130, 200]
+    flows = [1, 5, 9]
+
+    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
+
+    rd, rd_pre, rd_mvc, rd_dwi = build_rds(
+        m, m_pre, m_mvc, m_dwi, merge_cols=["tds", "flow"]
+    )
+
+    for t in tds:
+        for flow in flows:
+            m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=flow, tds=t)
+            rd, rd_pre, rd_mvc, rd_dwi = append_rds(
+                m,
+                m_pre,
+                m_mvc,
+                m_dwi,
+                rd,
+                rd_pre,
+                rd_mvc,
+                rd_dwi,
+                merge_col_dict={"tds": t, "flow": flow},
+            )
+
+    col_replace = ["m_agg.fs", "m_pre.fs", "m_mvc.fs", "m_dwi.fs"]
+    for i, (r, cr) in enumerate(zip([rd, rd_pre, rd_mvc, rd_dwi], col_replace)):
+
+        if i == 0:
+            df = pd.DataFrame.from_dict(r)
+
+            df.rename(
+                columns={c: c.replace("fs", cr) for c in df.columns}, inplace=True
+            )
+            print(cr, len(df))
+        else:
+            df1 = pd.DataFrame.from_dict(r)
+            df1.rename(
+                columns={c: c.replace("fs", cr) for c in df1.columns}, inplace=True
+            )
+            df = pd.merge(df, df1, on=["tds", "flow"])
+            print(cr, len(df), len(df1))
+
+    df.to_csv(f"{save_path}/permian_SOA_flow_TDS_sweep.csv", index=False)
+    # return df
 
 
 def build_rds(m, m_pre, m_mvc, m_dwi, merge_cols=[]):
@@ -671,6 +721,7 @@ def build_rds(m, m_pre, m_mvc, m_dwi, merge_cols=[]):
             r[mc] = list()
 
     return rd, rd_pre, rd_mvc, rd_dwi
+
 
 
 def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dict={}):
@@ -689,43 +740,67 @@ def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dic
 
 if __name__ == "__main__":
 
+
+    # run_permian_SOA_salinity_flow_sweep()
     # run_permian_SOA_electricity_sweep()
     # run_permian_SOA_recovery_sweep()
+    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
 
-    import matplotlib.pyplot as plt
-    from watertap_contrib.reflo.analysis.case_studies.permian.utils.case_study_plotting import (
-        case_study_stacked_plot,
-    )
+    m_pre.fs.treatment.costing.aggregate_flow_electricity.display()
+    print(pyunits.convert(m_pre.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)())
+    print(pyunits.convert(1 * pyunits.kW, to_units=pyunits.MWh/pyunits.year)())
+    
+    # for b in m.fs.costing.registered_unit_costing:
+    #     print(b.name, b.capital_cost())
 
-    f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/permian_SOA_electricity_cost_sweep.csv"
-    df = pd.read_csv(f)
-    unit_dict = {
-        "H2O2 Addition": "m_pre.fs.treatment.chem_addition.unit",
-        "EC": "m_pre.fs.treatment.EC.unit",
-        "CF": "m_pre.fs.treatment.cart_filt.unit",
-        "MVC": "m_mvc.fs.MVC",
-        "DWI": "m_dwi.fs.DWI.unit",
-    }
-    agg_flows = [
-        "hydrogen_peroxide",
-        "electricity",
-        "aluminum",
-        # "heat",
-    ]
-    xcol = "electricity_cost"
-    flow_col = "m_agg.fs.flow_treated"
-    ax_dict = dict(xlabel="Electricity Price ($/kWh)", ylabel="LCOW (\$/m$^3$)")
-    case_study_stacked_plot(
-        df,
-        xcol=xcol,
-        flow_col=flow_col,
-        costing_blk="m_agg.fs.costing",
-        unit_dict=unit_dict,
-        ax_dict=ax_dict,
-        agg_flows=agg_flows,
-    )
 
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # from watertap_contrib.reflo.analysis.case_studies.permian.utils.case_study_plotting import (
+    #     case_study_stacked_plot,
+    # )
+
+    # f = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/SOA_results/permian_SOA_electricity_cost_sweep-disposal_temp_ub_360.csv"
+    
+    # df = pd.read_csv(f)
+
+    # unit_dict = {
+    #     "H2O2 Addition": "m_pre.fs.treatment.chem_addition.unit",
+    #     "EC": "m_pre.fs.treatment.EC.unit",
+    #     "CF": "m_pre.fs.treatment.cart_filt.unit",
+    #     "MVC": "m_mvc.fs.MVC",
+    #     "DWI": "m_dwi.fs.DWI.unit",
+    # }
+    # agg_flows = [
+    #     "hydrogen_peroxide",
+    #     "electricity",
+    #     "aluminum",
+    #     # "heat",
+    # ]
+    # xcol = "electricity_cost"
+    # flow_col = "m_agg.fs.flow_treated"
+    # ax_dict = dict(xlabel="Electricity Price ($/kWh)", ylabel="LCOW (\$/m$^3$)")
+    # leg_kwargs=dict(
+    #     loc="best",
+    #     frameon=False,
+    #     ncol=3,
+    #     handlelength=1,
+    #     handleheight=1,
+    #     labelspacing=0.2,
+    #     columnspacing=0.9,
+    # )
+    # fig, ax = case_study_stacked_plot(
+    #     df,
+    #     xcol=xcol,
+    #     flow_col=flow_col,
+    #     costing_blk="m_agg.fs.costing",
+    #     unit_dict=unit_dict,
+    #     ax_dict=ax_dict,
+    #     agg_flows=agg_flows,
+    #     leg_kwargs=leg_kwargs
+    # )
+    # ax.set_ylim([0, 25])
+
+    # plt.show()
 
     # m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=5, tds=130)
 
