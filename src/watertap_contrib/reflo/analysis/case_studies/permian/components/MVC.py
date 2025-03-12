@@ -145,7 +145,7 @@ def build_and_run_mvc(
     # m.fs.product.properties[0].conc_mass_phase_comp
     m.fs.product.initialize()
     m.fs.disposal.properties[0].flow_vol_phase
-    # m.fs.disposal.properties[0].conc_mass_phase_comp
+    m.fs.disposal.properties[0].conc_mass_phase_comp
 
     print(f"\n~~~~~FINAL MVC SOLVE~~~~")
     try:
@@ -773,6 +773,7 @@ def init_mvc(
 
     blk.pump_brine.control_volume.deltaP[0].unfix()
     blk.disposal.properties[0].pressure.fix(101325)
+    blk.disposal.properties[0].temperature.setub(360)
     # print(f"\ndof @ 3 blk = {degrees_of_freedom(blk)}\n")
     # print(f"\ndof @ 3 model = {degrees_of_freedom(m)}\n")
     # _log.info_high(f"terminatinon {results.solver.termination_condition}")
@@ -991,14 +992,19 @@ def add_mvc_costing(m, blk, flowsheet_costing_block=None):
 
     blk.costing = Block()
     blk.costing.capital_cost = Expression(
-        expr=blk.evaporator.costing.capital_cost
-        + blk.evaporator.costing.capital_cost
-        + blk.compressor.costing.capital_cost
-        + blk.pump_feed.costing.capital_cost
-        + blk.pump_distillate.costing.capital_cost
-        + blk.pump_brine.costing.capital_cost
-        + blk.hx_brine.costing.capital_cost
-        + blk.hx_distillate.costing.capital_cost
+        expr=sum(
+            pyunits.convert(cap, to_units=pyunits.USD_2023)
+            for cap in [
+                blk.evaporator.costing.capital_cost
+                + blk.compressor.costing.capital_cost
+                + blk.pump_feed.costing.capital_cost
+                + blk.pump_distillate.costing.capital_cost
+                + blk.pump_brine.costing.capital_cost
+                + blk.hx_brine.costing.capital_cost
+                + blk.hx_distillate.costing.capital_cost
+                + blk.mixer_feed.costing.capital_cost
+            ]
+        )
     )
 
     # m.fs.costing.TIC.fix(2)
@@ -1245,8 +1251,13 @@ def scale_mvc_costs(m, blk):
 
 
 if __name__ == "__main__":
-    m = build_and_run_mvc(recovery=0.5, Qin=5.01, tds=130)
+    m = build_and_run_mvc(recovery=0.48, Qin=4.9, tds=117.416)
     blk = m.fs.MVC
+    # recov = value(blk.product.properties[0].flow_vol_phase["Liq"])
+    m.fs.feed.properties[0].conc_mass_phase_comp.display()
+    m.fs.product.properties[0].conc_mass_phase_comp.display()
+    m.fs.disposal.properties[0].conc_mass_phase_comp.display()
+    # blk.recovery_vol.display()
     # blk.evaporator.costing.display()
     # blk.compressor.costing.display()
 
@@ -1256,7 +1267,7 @@ if __name__ == "__main__":
     # blk.hx_distillate.costing.display()
     # blk.hx_brine.costing.display()
     # blk.mixer_feed.costing.display()
-    blk.costing.capital_cost.display()
+    # blk.costing.capital_cost.display()
     # m.fs.MVC.recovery_vol.display()
     # m.fs.costing.total_capital_cost.display()
     # m.fs.costing.total_operating_cost.display()
