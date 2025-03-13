@@ -79,7 +79,8 @@ from pyomo.util.check_units import assert_units_consistent
 from watertap_contrib.reflo.unit_models.util.water_yield_calculation import (
     get_solar_still_daily_water_yield,
 )
-from watertap_contrib.reflo.kurby import *
+from watertap_contrib.reflo.analysis.case_studies.permian.utils import *
+
 solver = get_solver()
 
 skips = [
@@ -118,13 +119,23 @@ skips = [
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 weather_file = os.path.join(__location__, "data/carlsbad_NM_weather_tmy-2023-full.csv")
 
-
+rho = 1000 * pyunits.kg / pyunits.m**3
 electricity_cost_base = 0.0434618999  # USD_2018/kWh equivalent to 0.0575 USD_2023/kWh
 heat_cost_base = 0.00894
+save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/SS_results"
 
-def build_ss(initial_salinity=130):
 
-    rho = 1000 * pyunits.kg / pyunits.m**3
+def build_ss(initial_salinity=130, daily_water_production=14000):
+
+    daily_water_production = daily_water_production * pyunits.gallons / pyunits.day
+    flow_mass_in = pyunits.convert(
+        daily_water_production * rho, to_units=pyunits.kg / pyunits.s
+    )
+    flow_mass_tds = pyunits.convert(
+        daily_water_production * initial_salinity * pyunits.g / pyunits.liter,
+        to_units=pyunits.kg / pyunits.s,
+    )
+
     inlet_dict = {
         "solute_list": ["TDS"],
         "mw_data": {"TDS": 31.4038218e-3},
@@ -138,19 +149,9 @@ def build_ss(initial_salinity=130):
         length_basin=0.6,  # length of each side of basin (length=width); m
         irradiance_threshold=20,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
         temperature_col="Temperature",
-        wind_velocity_col="Wind Speed"
+        wind_velocity_col="Wind Speed",
     )
 
-    tds_conc = initial_salinity * pyunits.g / pyunits.liter
-    # daily_water_production = 100 * pyunits.m**3 / pyunits.day
-
-    flow_mass_in = pyunits.convert(
-        daily_water_production * rho, to_units=pyunits.kg / pyunits.s
-    )
-    flow_mass_tds = pyunits.convert(
-        daily_water_production * tds_conc, to_units=pyunits.kg / pyunits.s
-    )
-    
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = MCASParameterBlock(**inlet_dict)
@@ -161,38 +162,87 @@ def build_ss(initial_salinity=130):
     )
 
     m.fs.unit.properties_in[0].flow_vol_phase[...]
+    m.fs.unit.properties_out[0].flow_vol_phase[...]
     m.fs.unit.properties_in[0].conc_mass_phase_comp[...]
-    m.fs.unit.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
-        value(flow_mass_in)
+    # m.fs.unit.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_in)
+    # m.fs.unit.properties_in[0].flow_mass_phase_comp["Liq", "TDS"].fix(flow_mass_tds)
+    m.fs.unit.properties_in.calculate_state(
+        var_args={
+            ("flow_vol_phase", "Liq"): daily_water_production,
+            ("conc_mass_phase_comp", ("Liq", "TDS")): initial_salinity,
+            ("temperature", None): 298.15,
+            ("pressure", None): 101325,
+        },
+        hold_state=True,
     )
-    m.fs.unit.properties_in[0].flow_mass_phase_comp["Liq", "TDS"].fix(
-        value(flow_mass_tds)
-    )
-    m.fs.unit.properties_in[0].pressure.fix(101325)
-    m.fs.unit.properties_in[0].temperature.fix(293.15)
-
+    # m.fs.unit.properties_in[0].pressure.fix(101325)
+    # m.fs.unit.properties_in[0].temperature.fix(293.15)
 
     m.fs.costing = TreatmentCosting()
     m.fs.costing.electricity_cost.fix(electricity_cost_base)
     m.fs.costing.heat_cost.fix(heat_cost_base)
+    m.fs.costing.maintenance_labor_chemical_factor.fix(0) # unit model has own relationships/factor for this
+
     m.fs.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
     m.fs.costing.cost_process()
-    m.fs.costing.add_LCOW(
-        flow_rate=m.fs.unit.properties_out[0].flow_vol_phase["Liq"]
-    )
+    m.fs.costing.add_LCOW(flow_rate=m.fs.unit.properties_in[0].flow_vol_phase["Liq"])
+
     return m
+
+def run_permian_ss_water_production_tds_sweep():
+
+    m0 = build_ss()
+    rd = build_results_dict(m0, skips=skips)
+
+    water_prod = [7000, 10500, 14000, 17500, 21000]  # gallon per day
+    salinity = [100, 120, 130, 165, 200]
+
+    df = pd.DataFrame()
+
+    for wp in water_prod:
+        for salt in salinity:
+            rd = build_results_dict(m0, skips=skips)
+            m = build_ss(initial_salinity=salt, daily_water_production=wp)
+            m.fs.unit.initialize()
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            rd = results_dict_append(m, rd)
+            df = pd.concat([df, pd.DataFrame.from_dict(rd)])
+            print(f"\nSalinity: {salt} g/L")
+            print(f"Water production: {wp} gal/day")
+            print(f"LCOW: {m.fs.costing.LCOW()} $/m3\n")
+
+    df.to_csv(f"{save_path}/permian_SS_salinity_water_production_sweep.csv", index=False)
+
+def run_permian_ss_water_production_sweep():
+
+    m = build_ss()
+    rd = build_results_dict(m, skips=skips)
+
+    water_prod = [7000, 10500, 14000, 17500, 21000]  # gallon per day
+
+    for wp in water_prod:
+        m = build_ss(daily_water_production=wp)
+        m.fs.unit.initialize()
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+        rd = results_dict_append(m, rd)
+        print(f"Water production: {wp} gal/day")
+        print(f"LCOW: {m.fs.costing.LCOW()} $/m3")
+
+    df = pd.DataFrame.from_dict(rd)
+
+    df.to_csv(f"{save_path}/permian_SS_water_production_sweep.csv", index=False)
 
 
 if __name__ == "__main__":
-    
 
-    initial_salinity = 130
-    daily_water_production_gpd = 14000 * pyunits.gallons / pyunits.day
-    daily_water_production = pyunits.convert(daily_water_production_gpd, to_units=pyunits.m**3 / pyunits.day)
-    
+    run_permian_ss_water_production_tds_sweep()
 
-    m = build_ss(initial_salinity=initial_salinity)
-    m.fs.unit.initialize()
-    results = solver.solve(m)
-    assert_optimal_termination(results)
-    m.fs.costing.LCOW.display()
+    # m = build_ss()
+
+    # m.fs.unit.initialize()
+    # results = solver.solve(m)
+    # assert_optimal_termination(results)
+    # m.fs.costing.LCOW.display()
+    # m.fs.unit.properties_in[0].conc_mass_phase_comp.display()
