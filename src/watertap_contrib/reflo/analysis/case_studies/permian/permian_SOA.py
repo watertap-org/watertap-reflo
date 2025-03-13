@@ -660,6 +660,58 @@ def run_permian_SOA_electricity_sweep(num_pts=9):
     # return df
 
 
+def run_permian_SOA_salinity_flow_sweep_wide(recovery=0.5):
+
+
+    tds = [100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]
+    flows = [1, 2.5, 5, 7.5, 9]
+
+    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
+
+    rd, rd_pre, rd_mvc, rd_dwi = build_rds(
+        m, m_pre, m_mvc, m_dwi, merge_cols=["tds", "flow"]
+    )
+
+    for t in tds:
+        for flow in flows:
+            try:
+                m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=flow, tds=t, recovery=recovery)
+            except:
+                continue
+            rd, rd_pre, rd_mvc, rd_dwi = append_rds(
+                m,
+                m_pre,
+                m_mvc,
+                m_dwi,
+                rd,
+                rd_pre,
+                rd_mvc,
+                rd_dwi,
+                merge_col_dict={"tds": t, "flow": flow},
+            )
+
+    col_replace = ["m_agg.fs", "m_pre.fs", "m_mvc.fs", "m_dwi.fs"]
+    for i, (r, cr) in enumerate(zip([rd, rd_pre, rd_mvc, rd_dwi], col_replace)):
+
+        if i == 0:
+            df = pd.DataFrame.from_dict(r)
+
+            df.rename(
+                columns={c: c.replace("fs", cr) for c in df.columns}, inplace=True
+            )
+            print(cr, len(df))
+        else:
+            df1 = pd.DataFrame.from_dict(r)
+            df1.rename(
+                columns={c: c.replace("fs", cr) for c in df1.columns}, inplace=True
+            )
+            df = pd.merge(df, df1, on=["tds", "flow"])
+            print(cr, len(df), len(df1))
+
+    df.to_csv(f"{save_path}/permian_SOA_flow_TDS_sweep-wide-60pct-recovery.csv", index=False)
+    # return df
+
+
 def run_permian_SOA_salinity_flow_sweep():
 
 
@@ -740,15 +792,16 @@ def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dic
 
 if __name__ == "__main__":
 
+    run_permian_SOA_salinity_flow_sweep_wide(recovery=0.6)
 
     # run_permian_SOA_salinity_flow_sweep()
     # run_permian_SOA_electricity_sweep()
     # run_permian_SOA_recovery_sweep()
-    m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
+    # m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
 
-    m_pre.fs.treatment.costing.aggregate_flow_electricity.display()
-    print(pyunits.convert(m_pre.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)())
-    print(pyunits.convert(1 * pyunits.kW, to_units=pyunits.MWh/pyunits.year)())
+    # m_pre.fs.treatment.costing.aggregate_flow_electricity.display()
+    # print(pyunits.convert(m_pre.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)())
+    # print(pyunits.convert(1 * pyunits.kW, to_units=pyunits.MWh/pyunits.year)())
     
     # for b in m.fs.costing.registered_unit_costing:
     #     print(b.name, b.capital_cost())
