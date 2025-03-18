@@ -191,28 +191,29 @@ def case_study_stacked_plot(
             total_lcow += unit_opex_lcow  # $ / m3
             total_annualized_cost += unit_opex_total  # $ / year
         
-        for rev_flow_label, rev_flow_name in revenue_flows.items():
-            rev_flow_lcow = 0
-            try:
-            # print(f"No aggregate cost for {flow_name} found.")
-            # pass
-            # First try to find it via aggregate_flow_costs
-                print("Treatment block aggregate flows", rev_flow_label)
-                total_flow_cost += row.loc[
-                    f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"
-                ]  # $ / year
-                total_annualized_cost += row.loc[
-                    f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"
-                ]
-                rev_flow_lcow += (
-                    row.loc[f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"] / denominator
-                )  # $ / m3
-                agg_rev_flow_lcow[rev_flow_name].append(rev_flow_lcow)
-            
-            except KeyError:
+        if revenue_flows!=None:
+            for rev_flow_label, rev_flow_name in revenue_flows.items():
+                rev_flow_lcow = 0
+                try:
                 # print(f"No aggregate cost for {flow_name} found.")
                 # pass
-                raise ValueError(f"No cost for {flow_name} found.")
+                # First try to find it via aggregate_flow_costs
+                    print("Treatment block aggregate flows", rev_flow_label)
+                    total_flow_cost += row.loc[
+                        f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"
+                    ]  # $ / year
+                    total_annualized_cost += row.loc[
+                        f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"
+                    ]
+                    rev_flow_lcow += (
+                        row.loc[f"{global_costing_blk}.aggregate_flow_costs[{rev_flow_name}]"] / denominator
+                    )  # $ / m3
+                    agg_rev_flow_lcow[rev_flow_name].append(rev_flow_lcow)
+                
+                except KeyError:
+                    # print(f"No aggregate cost for {flow_name} found.")
+                    # pass
+                    raise ValueError(f"No cost for {flow_name} found.")
 
         for flow_label, flow_name in agg_flows.items():
             flow_lcow = 0
@@ -292,19 +293,20 @@ def case_study_stacked_plot(
         Patch(facecolor="white", hatch=opex_hatch, label="OPEX", edgecolor="k"),
     ]
 
-    for rev_flow_label, rev_flow_name in revenue_flows.items():
-        rev_stacked_cols.append(agg_rev_flow_lcow[rev_flow_name])
-        rev_stacked_labels.append(rev_flow_label)
-        rev_stacked_colors.append(flow_color_dict[rev_flow_name])
-        rev_stacked_hatch.append(flow_hatch)
-        legend_elements.append(
-            Patch(
-                facecolor=flow_color_dict[rev_flow_name],
-                label=rev_flow_label,
-                hatch=flow_hatch,
-                edgecolor="k",
+    if revenue_flows!=None:
+        for rev_flow_label, rev_flow_name in revenue_flows.items():
+            rev_stacked_cols.append(agg_rev_flow_lcow[rev_flow_name])
+            rev_stacked_labels.append(rev_flow_label)
+            rev_stacked_colors.append(flow_color_dict[rev_flow_name])
+            rev_stacked_hatch.append(flow_hatch)
+            legend_elements.append(
+                Patch(
+                    facecolor=flow_color_dict[rev_flow_name],
+                    label=rev_flow_label,
+                    hatch=flow_hatch,
+                    edgecolor="k",
+                )
             )
-        )
 
     for flow_label, flow_name in agg_flows.items():
         stacked_cols.append(agg_flow_lcow[flow_name])
@@ -350,15 +352,20 @@ def case_study_stacked_plot(
 
     legend_elements.append(scatter_handle)
 
-    ax0 =ax.twinx()
-    ax0.stackplot(
-        df.index,
-        rev_stacked_cols,
-        # labels=stacked_labels,
-        hatch=rev_stacked_hatch,
-        colors=rev_stacked_colors,
-        edgecolor="black",
-    )
+    if revenue_flows!=None:
+        ax0 =ax.twinx()
+        ax0.stackplot(
+            df.index,
+            rev_stacked_cols,
+            # labels=stacked_labels,
+            hatch=rev_stacked_hatch,
+            colors=rev_stacked_colors,
+            edgecolor="black",
+        )
+
+        ax0.set_xlim(df.index.min(), df.index.max())
+        ax0.set_ylim(-0.5,np.ceil(max(actual_lcow))+0.5)
+        ax0.set_yticks([])
 
     if add_legend:
         ax.legend(handles=legend_elements, **leg_kwargs)
@@ -370,9 +377,7 @@ def case_study_stacked_plot(
     ax.set_xlim(df.index.min(), df.index.max())
     ax.set_ylim(-0.5, np.ceil(max(actual_lcow))+0.5)
 
-    ax0.set_xlim(df.index.min(), df.index.max())
-    ax0.set_ylim(-0.5,np.ceil(max(actual_lcow))+0.5)
-    ax0.set_yticks([])
+    
 
     print(denominator)
 
