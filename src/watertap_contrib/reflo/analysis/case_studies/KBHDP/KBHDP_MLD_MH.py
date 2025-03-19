@@ -867,6 +867,10 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
 
     print("CST Heat load:", m.fs.energy.cst.unit.heat_load())
     print("Heat grid fraction:",m.fs.costing.frac_heat_from_grid() )
+    print("Heat purchased:",m.fs.costing.aggregate_flow_heat_purchased())
+    print("Heat generated:",m.fs.energy.costing.aggregate_flow_heat())
+    print("Heat required:",m.fs.treatment.costing.aggregate_flow_heat())
+    print("MD heat:", m.fs.treatment.md.unit.overall_thermal_power_requirement() )
     print("PV design size:",m.fs.energy.pv.design_size())
     print("PV annual energy:",m.fs.energy.pv.annual_energy())
     print("Electricity grid fraction:",m.fs.costing.frac_elec_from_grid())

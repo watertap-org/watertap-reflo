@@ -59,7 +59,7 @@ def plot_case_study(df,xcol,ax_dict):
 if __name__ == "__main__":
 
     sweep_dict = {
-    'ro_water_recovery':[0.7,0.8],
+    'ro_water_recovery':[0.5,0.6,0.7,0.8],
     'nacl_recovery_price':[0,-0.012,-0.024]
     }   
     

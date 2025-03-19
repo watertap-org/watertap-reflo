@@ -74,7 +74,7 @@ def kbhdp_zld_ro(ro_recovery=0.5):
     add_ro_recovery_constraint(m, m.fs.treatment.RO,ro_recovery)
     optimize_zld_ro(m, water_recovery=ro_recovery)
     solve(m, debug=False)
-
+    
     return m
 
 def add_ro_recovery_constraint(m, blk,ro_recovery):
@@ -554,10 +554,10 @@ def add_zld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
     
     m.water_recovery = md_water_recovery
 
-    m.fs.treatment.norm_feed = Normalizer_Cryst(
-        inlet_property_package = m.fs.properties_NaCl,
-        outlet_property_package= m.fs.properties_NaCl,
-    )
+    # m.fs.treatment.norm_feed = Normalizer_Cryst(
+    #     inlet_property_package = m.fs.properties_NaCl,
+    #     outlet_property_package= m.fs.properties_NaCl,
+    # )
 
     m.fs.treatment.sw_to_nacl_product = Translator_SW_to_NaCl(
         inlet_property_package = m.fs.properties_md,
@@ -581,9 +581,9 @@ def add_zld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
         destination=treat.sw_to_nacl_disposal.inlet,
     )
 
-    treat.nacl_translator_to_normalized_feed = Arc(
-        source=treat.sw_to_nacl_disposal.outlet, destination=treat.norm_feed.inlet,
-    )
+    # treat.nacl_translator_to_normalized_feed = Arc(
+    #     source=treat.sw_to_nacl_disposal.outlet, destination=treat.norm_feed.inlet,
+    # )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
@@ -596,7 +596,7 @@ def add_zld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
     treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(0)
     treat.sw_to_nacl_disposal.initialize()
 
-    propagate_state(treat.nacl_translator_to_normalized_feed)
+    # propagate_state(treat.nacl_translator_to_normalized_feed)
 
     results = solve(m.fs.treatment.md)
     results = solve(m)
@@ -629,38 +629,44 @@ def add_zld_mec(m,permian_cryst_config):
 
     unfix_mec(treat.mec)
 
-    treat.cryst_feed_H2O_constraint = Constraint(
-    expr = treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"]
-        == treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]
-    )
-    treat.cryst_feed_NaCl_constraint = Constraint(
-    expr = treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
-        == treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
-    )
-    treat.cryst_feed_temp_constraint = Constraint(
-    expr = treat.mec.unit.inlet.temperature[0]
-        == treat.norm_feed.outlet.temperature[0]
-    )
-    treat.cryst_feed_pressure_constraint = Constraint(
-    expr = treat.mec.unit.inlet.pressure[0]
-        == treat.norm_feed.outlet.pressure[0]
-    )
+    treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
+    treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]())
 
-    print("Water",treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
-    print("Nacl",treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]())
-    print("Temp",treat.norm_feed.outlet.temperature[0]())
-    print("Pressure",treat.norm_feed.outlet.pressure[0]())
+    treat.mec.unit.inlet.temperature[0].fix(treat.sw_to_nacl_disposal.outlet.temperature[0]())
+    treat.mec.unit.inlet.pressure[0].fix(treat.sw_to_nacl_disposal.outlet.pressure[0]())
 
-    mec_rescaling(m.fs,
-                  flow_mass_phase_water_total = treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"](),
-                  flow_mass_phase_salt_total = treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"](),
-                  )
+    # treat.cryst_feed_H2O_constraint = Constraint(
+    # expr = treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"]
+    #     == treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]
+    # )
+    # treat.cryst_feed_NaCl_constraint = Constraint(
+    # expr = treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
+    #     == treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
+    # )
+    # treat.cryst_feed_temp_constraint = Constraint(
+    # expr = treat.mec.unit.inlet.temperature[0]
+    #     == treat.norm_feed.outlet.temperature[0]
+    # )
+    # treat.cryst_feed_pressure_constraint = Constraint(
+    # expr = treat.mec.unit.inlet.pressure[0]
+    #     == treat.norm_feed.outlet.pressure[0]
+    # )
+
+    print("Water",treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
+    print("Nacl",treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]())
+    print("Temp",treat.sw_to_nacl_disposal.outlet.temperature[0]())
+    print("Pressure",treat.sw_to_nacl_disposal.outlet.pressure[0]())
+
+    # mec_rescaling(m.fs,
+    #               flow_mass_phase_water_total = treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"](),
+    #               flow_mass_phase_salt_total = treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"](),
+    #               )
     
 
-    treat.denorm_cryst_product = Denormalizer_Cryst(
-        inlet_property_package = m.fs.properties_NaCl,
-        outlet_property_package= m.fs.properties_NaCl,
-    )
+    # treat.denorm_cryst_product = Denormalizer_Cryst(
+    #     inlet_property_package = m.fs.properties_NaCl,
+    #     outlet_property_package= m.fs.properties_NaCl,
+    # )
 
     treat.product_NaCl_mixer = Mixer(
         property_package=m.fs.properties_NaCl,
@@ -673,22 +679,27 @@ def add_zld_mec(m,permian_cryst_config):
 
     treat.product = Product(property_package=m.fs.properties_NaCl)
 
-    treat.cryst_product_to_denomalizer = Arc(
-        source=treat.mec.unit.outlet, destination=treat.denorm_cryst_product.inlet,
-    ) 
+    # treat.cryst_product_to_denomalizer = Arc(
+    #     source=treat.mec.unit.outlet, destination=treat.denorm_cryst_product.inlet,
+    # ) 
     treat.md_translator_to_product_NaCl_mixer = Arc(
         source=treat.sw_to_nacl_product.outlet, destination=treat.product_NaCl_mixer.md_product,
     ) 
-    treat.cryst_denomalizer_to_product_NaCl_mixer = Arc(
-        source=treat.denorm_cryst_product.outlet, destination=treat.product_NaCl_mixer.cryst_product,
+    # treat.cryst_denomalizer_to_product_NaCl_mixer = Arc(
+    #     source=treat.denorm_cryst_product.outlet, destination=treat.product_NaCl_mixer.cryst_product,
+    # )
+
+    treat.cryst_to_product_NaCl_mixer = Arc(
+        source=treat.mec.unit.outlet, destination=treat.product_NaCl_mixer.cryst_product,
     )
+
     treat.ro_to_product_NaCl_mixer = Arc(
         source=treat.NaCl_cryst_product_translator.outlet, destination=treat.product_NaCl_mixer.ro_product,
     )  
 
     treat.product_NaCl_mixer_to_product = Arc(
         source=treat.product_NaCl_mixer.outlet, destination=treat.product.inlet,
-    ) # 
+    ) 
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
@@ -697,14 +708,16 @@ def add_zld_mec(m,permian_cryst_config):
 
     treat.sw_to_nacl_product.initialize()
     
-    propagate_state(treat.cryst_product_to_denomalizer)
-    treat.denorm_cryst_product.initialize()
+    # propagate_state(treat.cryst_product_to_denomalizer)
+    # treat.denorm_cryst_product.initialize()
     
     propagate_state(treat.md_translator_to_product_NaCl_mixer)
-    propagate_state(treat.cryst_denomalizer_to_product_NaCl_mixer)
+    propagate_state(treat.ro_to_product_NaCl_mixer)
+    # propagate_state(treat.cryst_denomalizer_to_product_NaCl_mixer)
+    propagate_state(treat.cryst_to_product_NaCl_mixer)
 
-    treat.product_NaCl_mixer.outlet.pressure[0].fix()
     treat.product_NaCl_mixer.initialize()
+    treat.product_NaCl_mixer.outlet.pressure[0].fix()
     
     propagate_state(treat.product_NaCl_mixer_to_product)
 
@@ -741,15 +754,19 @@ def add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_ro_costing(m, treatment.RO, treatment.costing)
 
-    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_floc_constraint, 1e-6)
-    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_reactor_constraint, 1e-3)
-    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_power_supply_constraint, 1e-6)
-    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_electrodes_constraint, 1e1)
+    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_floc_constraint, 1e-6)
+    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_reactor_constraint, 1e-3)
+    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_power_supply_constraint, 1e-6)
+    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_electrodes_constraint, 1e-3)
 
     m.fs.treatment.md.unit.add_costing_module(m.fs.treatment.costing)
 
     add_mec_costing(m, m.fs.treatment.mec, flowsheet_costing_block=m.fs.treatment.costing)
-    # treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
+
+    # constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_1_constraint,1e-7)
+    # constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_2_constraint,1e-7)
+    # constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_3_constraint,1e-7)
+    # constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_4_constraint,1e-7)
     
     treatment.costing.cost_process()
     treatment.costing.initialize()
@@ -807,8 +824,7 @@ def kbhdp_zld_md_reporting_variables(m):
 
 def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     m = kbhdp_zld_ro(ro_recovery)
-    # m.fs.treatment.EC.ec.display()
-    # assert False
+
     print(
         f'RO Recovery: {100 * (value(m.fs.treatment.RO.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]) / value(m.fs.treatment.RO.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"])):<5.2f}%'
     )
@@ -818,6 +834,13 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     ro_flow = pyunits.convert(m.fs.treatment.RO.feed.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)
     md_flow = pyunits.convert(m.fs.treatment.RO.disposal.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)
     md_conc = pyunits.convert(m.fs.treatment.RO.disposal.properties[0].conc_mass_phase_comp['Liq', 'NaCl'],to_units=pyunits.g / pyunits.L,)
+
+    
+    print("\n---------RO outputs after RO solve ---------\n")
+    for idx, stage in m.fs.treatment.RO.stage.items():
+        print('RO feed side velocity:',stage.module.feed_side.velocity[0, 0]())
+    
+    print('RO pump pressure:',m.fs.treatment.pump.control_volume.properties_out[0].pressure())
 
     print("RO flow:",ro_flow())
     print('MD flow:', md_flow())
@@ -837,13 +860,13 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     }
 
     add_zld_mec(m,permian_cryst_config)
-    results = solve(m)
+    results = solve(m.fs.treatment.mec)
 
     print(f"\nDOF after MEC = {degrees_of_freedom(m)}")
     print("\n")
 
     add_zld_treatment_costing(m,heat_price=0.0166,electricity_price=0.04989,nacl_recovery_price=nacl_recovery_price)
-    
+
     try:
         results = solve(m)
         print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
@@ -918,6 +941,9 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     # m.fs.costing.frac_elec_from_grid.fix(0.5)
 
     m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
+
+    m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
+    
     results = solve(m)
     print(f"\nDOF after PV sizing = {degrees_of_freedom(m)}")
 
@@ -926,8 +952,15 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     kbhdp_zld_md_reporting_variables(m)
 
     print("CST Heat load:", m.fs.energy.cst.unit.heat_load())
-    print("Heat grid fraction:",m.fs.costing.frac_heat_from_grid() )
-    print("PV design size:",m.fs.energy.pv.design_size())
+    print("Heat grid fraction:",m.fs.costing.frac_heat_from_grid())
+    print("Heat purchased:",m.fs.costing.aggregate_flow_heat_purchased())
+    print("Heat generated:",m.fs.energy.costing.aggregate_flow_heat())
+    print("Heat required:",m.fs.treatment.costing.aggregate_flow_heat())
+    print("MD heat:", m.fs.treatment.md.unit.overall_thermal_power_requirement() )
+    print("MEC heat:",pyunits.convert(m.fs.treatment.mec.unit.effects[1].effect.work_mechanical[0],
+                                      to_units=pyunits.kW)())    
+    
+    print("\nPV design size:",m.fs.energy.pv.design_size())
     print("PV annual energy:",m.fs.energy.pv.annual_energy())
     print("Electricity grid fraction:",m.fs.costing.frac_elec_from_grid())
 
@@ -935,6 +968,11 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     print("Electricity generated:",m.fs.energy.costing.aggregate_flow_electricity())
     print("Electricity required:",m.fs.treatment.costing.aggregate_flow_electricity())
 
+    print("\n---------RO outputs after complete solve ---------\n")
+    for idx, stage in m.fs.treatment.RO.stage.items():
+        print('RO feed side velocity:',stage.module.feed_side.velocity[0, 0]())
+    
+    print('RO pump pressure:',m.fs.treatment.pump.control_volume.properties_out[0].pressure(),pyunits.get_units(m.fs.treatment.pump.control_volume.properties_out[0].pressure))
 
     return m
 
@@ -964,7 +1002,7 @@ def recovery_check(m):
     # MD to MEC transition
     print("\nMD to MEC transition")
     print("MD SW to NaCl:",m.fs.treatment.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
-    print("Normalized flow:",m.fs.treatment.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
+    # print("Normalized flow:",m.fs.treatment.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
 
     # MEC recovery
     mec_feed = m.fs.treatment.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"]
@@ -1003,7 +1041,7 @@ if __name__ == "__main__":
     for effect_number, eff in m.fs.treatment.mec.unit.effects.items():
         print(effect_number, value(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"])*10, pyunits.get_units(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]))
 
-        total_salt+=value(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"])*10
+        total_salt+=value(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"])
 
     print(total_salt)
 

@@ -207,7 +207,7 @@ def cost_multi_effect_crystallizer(
             effect_capex_expr = 0
 
             effect_capex_var = pyo.Var(
-                initialize=1e5,
+                initialize=1e6,
                 units=costing_package.base_currency,
                 doc=f"Capital cost effect {effect_number}",
             )
@@ -264,7 +264,7 @@ def cost_crystallizer_heat_exchanger(effect):
 
     capital_cost_hx = pyo.units.convert(
         costing_package.multi_effect_crystallizer.heat_exchanger_capital_factor
-        * effect.heat_exchanger_area * 10,
+        * effect.heat_exchanger_area,# * 10,
         to_units=costing_package.base_currency,
     )
 
@@ -272,7 +272,7 @@ def cost_crystallizer_heat_exchanger(effect):
 
     dimensionless_hx_area = pyo.units.convert(
         (
-            effect.heat_exchanger_area * 10
+            effect.heat_exchanger_area# * 10
             / costing_package.multi_effect_crystallizer.heat_exchanger_endplates_capital_basis
         ),
         to_units=pyo.units.dimensionless,
@@ -303,7 +303,7 @@ def cost_crystallizer_effect_by_crystal_mass(effect):
                 sum(
                     effect.properties_solids[0].flow_mass_phase_comp["Sol", j]
                     for j in effect.config.property_package.solute_set
-                ) * 10
+                )# * 10
                 / costing_package.multi_effect_crystallizer.ref_capacity
             )
             ** costing_package.multi_effect_crystallizer.ref_exponent
@@ -357,7 +357,7 @@ def _cost_effect_flows(effect, effect_number):
     )
 
     costing_package.cost_flow(
-        effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]*10,
+        effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"],#*10,
         "NaCl_recovered",
     )
 
@@ -369,6 +369,7 @@ def _cost_effect_flows(effect, effect_number):
             )
         if costing_package.cost_work_as == WorkCostType.heat:
             costing_package.cost_flow(
-                pyo.units.convert(effect.work_mechanical[0]*10, to_units=pyo.units.kW),
+                pyo.units.convert(effect.work_mechanical[0], #*10, 
+                                  to_units=pyo.units.kW),
                 "heat",
             )

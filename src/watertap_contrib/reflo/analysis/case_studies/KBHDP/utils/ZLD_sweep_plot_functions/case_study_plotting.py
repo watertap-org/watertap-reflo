@@ -348,7 +348,7 @@ def case_study_stacked_plot(
         edgecolor="black",
     )
 
-    scatter_handle = ax.scatter(df.index,actual_lcow,c='black',label="Actual LCOW")
+    scatter_handle = ax.scatter(df.index,actual_lcow,c='black',label="Actual LCOW",s=100)
 
     legend_elements.append(scatter_handle)
 

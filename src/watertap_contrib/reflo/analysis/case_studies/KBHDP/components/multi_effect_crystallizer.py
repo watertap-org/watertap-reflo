@@ -91,9 +91,9 @@ def set_mec_op_conditions(m,
     mec = blk.unit
 
     # Guessed values for initialization
-    flow_in = 5
+    flow_in = 5*0.5*0.3
     rho = 1000 * pyunits.kg / pyunits.m**3
-    conc_in = 160 * pyunits.g / pyunits.L
+    conc_in = 50 * pyunits.g / pyunits.L
     feed_pressure = 101325
     feed_temperature = 273.15 + 20
     ### TOTAL GOING INTO MEC
@@ -301,8 +301,8 @@ if __name__ == "__main__":
     init_mec(m,m.fs)
     unfix_mec(m.fs)
 
-    flow_mass_phase_water_total = 11.6
-    flow_mass_phase_salt_total = 2.8
+    flow_mass_phase_water_total = 25.3
+    flow_mass_phase_salt_total = 2.08
 
     m.fs.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(
         flow_mass_phase_water_total
@@ -314,6 +314,8 @@ if __name__ == "__main__":
     m.fs.unit.inlet.temperature[0].fix(273.15 + 30.51)
     m.fs.unit.inlet.pressure[0].fix(101325)
     # mec_rescaling(m.fs)
+    solve(m,tee=False)
+
     add_mec_costing(m, m.fs)
 
     print('')
@@ -321,4 +323,5 @@ if __name__ == "__main__":
     print('')
     m.fs.unit.inlet.display()
 
-    solve(m)
+    solve(m,tee=False)
+
