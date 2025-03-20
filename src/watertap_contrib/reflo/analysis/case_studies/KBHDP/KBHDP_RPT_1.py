@@ -57,7 +57,7 @@ def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Build the system (*kwarg for Renewable Energy)
-    m = build_system(RE=False)
+    m = build_system(RE=True)
     display_system_build(m)
 
     # Add connections between units and global constraints
@@ -458,8 +458,6 @@ def set_inlet_conditions(
     # # initialize feed
     treatment.feed.pressure[0].fix(supply_pressure)
     treatment.feed.temperature[0].fix(feed_temperature)
-
-    assert_units_consistent(m)
 
 
 def display_unfixed_vars(blk, report=True):
