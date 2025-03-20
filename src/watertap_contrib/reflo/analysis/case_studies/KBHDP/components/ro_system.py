@@ -90,11 +90,11 @@ __all__ = [
 
 def propagate_state(arc):
     _prop_state(arc)
-    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    # arc.source.display()
-    # print(arc.destination.name)
-    # arc.destination.display()
-    # print('\n')
+    print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+    arc.source.display()
+    print(arc.destination.name)
+    arc.destination.display()
+    print('\n')
 
 
 def _initialize(blk, verbose=False):
@@ -357,7 +357,7 @@ def init_ro_stage(m, stage, solver=None):
 
 
 def set_operating_conditions(
-    m, Qin=None, Qout=None, Cin=None, water_recovery=None, ro_pressure=25e5
+    m, Qin=None, Qout=None, Cin=None, water_recovery=None, ro_pressure=20e5
 ):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"

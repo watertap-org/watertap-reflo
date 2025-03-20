@@ -1,17 +1,17 @@
 #GOOD
 
-# KBHDP_RPT_2_water_recovery_sweep:
-#   build_defaults:
-#     grid_frac_heat: 0.99
-#     water_recovery: 0.35
-#     # heat_price: 0.005
-#   sweep_param_loop:
-#     Water Recovery:
-#       type: LinearSample
-#       param: fs.water_recovery
-#       lower_limit: 0.3
-#       upper_limit: 0.45
-#       num_samples: 16
+KBHDP_RPT_2_water_recovery_sweep:
+  build_defaults:
+    grid_frac_heat: 0.99
+    water_recovery: 0.35
+    # heat_price: 0.005
+  sweep_param_loop:
+    Water Recovery:
+      type: LinearSample
+      param: fs.water_recovery
+      lower_limit: 0.3
+      upper_limit: 0.45
+      num_samples: 16
 # KBHDP_RPT_2_storage_sweep:
 #   build_defaults:
 #     grid_frac_heat: 0.5
@@ -60,18 +60,18 @@
 #       lower_limit: 0.005
 #       upper_limit: 0.06
 #       num_samples: 12
-KBHDP_RPT_2_collector_cost_sweep:
-  build_defaults:
-    heat_price: 0.01
-    water_recovery: 0.45
-    grid_frac_heat: 0.5
-  sweep_param_loop:
-    FPC Cost Per Area:
-      type: LinearSample
-      param: fs.energy.costing.flat_plate.cost_per_area_collector
-      lower_limit: 300
-      upper_limit: 750
-      num_samples: 11
+# KBHDP_RPT_2_collector_cost_sweep:
+#   build_defaults:
+#     heat_price: 0.01
+#     water_recovery: 0.45
+#     grid_frac_heat: 0.5
+#   sweep_param_loop:
+#     FPC Cost Per Area:
+#       type: LinearSample
+#       param: fs.energy.costing.flat_plate.cost_per_area_collector
+#       lower_limit: 300
+#       upper_limit: 750
+#       num_samples: 11
 
 # KBHDP_RPT_2_fpc_cost_sweep:
 #   build_defaults:

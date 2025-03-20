@@ -56,7 +56,7 @@ def propagate_state(arc, detailed=True):
 def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
-    m = build_system(RE=True)
+    m = build_system(RE=False)
     display_system_build(m)
     add_connections(m)
     add_constraints(m)
@@ -69,7 +69,7 @@ def main():
     # solve(m, debug=True)
     # scale_costing(m)
     optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=0.5, objective="LCOW")
-    solve(m, debug=True)
+    solve(m, debug=False)
     # # display_flow_table(m)
     # display_system_stream_table(m)
     # report_RO(m, m.fs.treatment.RO)
@@ -78,13 +78,13 @@ def main():
     # # # # # m.fs.treatment.costing.display()
     # # # # # m.fs.energy.costing.display()""
     # # # # # m.fs.costing.display()
-    # display_costing_breakdown(m)
+    display_costing_breakdown(m)
     # # # # # print(m.fs.energy.pv.display())
     # # # print_system_scaling_report(m)
-    report_PV(m)
-    report_pump(m, m.fs.treatment.pump)
-    print(m.fs.costing.frac_elec_from_grid.display())
-    print(m.fs.costing.aggregate_flow_electricity_purchased.display())
+    # report_PV(m)
+    # report_pump(m, m.fs.treatment.pump)
+    # print(m.fs.costing.frac_elec_from_grid.display())
+    # print(m.fs.costing.aggregate_flow_electricity_purchased.display())
 
     return m
 

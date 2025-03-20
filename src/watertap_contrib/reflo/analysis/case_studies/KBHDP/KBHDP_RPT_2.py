@@ -58,7 +58,7 @@ def propagate_state(arc, detailed=True):
 def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
-    m = build_system(RE=True)
+    m = build_system(RE=False)
     add_connections(m)
     add_constraints(m)
     set_operating_conditions(m)
@@ -73,45 +73,47 @@ def main():
         m,
         water_recovery=0.45,
         # heat_price=0.01,
-        grid_frac_heat=0.5,
+        # grid_frac_heat=0.5,
+        objective='LCOW'
     )
     solve(m, debug=True)
 
     # TODO: Investigate why FPC Heat Load is so much more than the heat demand of the LTMED
     display_system_stream_table(m)
-    report_LTMED(m)
-    report_pump(m, m.fs.treatment.pump)
-    report_fpc(m)
+    # report_LTMED(m)
+    # report_pump(m, m.fs.treatment.pump)
+    # report_fpc(m)
     print("\n")
     print(
         f'{"LTMED Heat Demand":<40s}{value(pyunits.convert(m.fs.treatment.LTMED.unit.thermal_power_requirement, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.treatment.LTMED.unit.thermal_power_requirement, to_units=pyunits.MW))}'
     )
-    print(
-        f'{"Heat Load FPC":<40s}{value(m.fs.energy.FPC.heat_load):<5.1f}{pyunits.get_units(m.fs.energy.FPC.heat_load)}'
-    )
-    print(
-        f'{"Heat Flow FPC":<40s}{value(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW))}'
-    )
-    print(
-        f'{"Load Utilization %":<40s}{(100*value(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW)))/(value(pyunits.convert(m.fs.energy.FPC.heat_load, to_units=pyunits.MW))):<5.1f}{"%"}'
-    )
-    print("\n")
-    print(
-        f'{"Aggregate Flow Heat Treatment":<40s}{value(pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
-    )
-    print(
-        f'{"Aggregate Flow Heat Energy":<40s}{value(pyunits.convert(m.fs.energy.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.energy.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
-    )
-    print(
-        f'{"Aggregate Flow Heat Grid":<40s}{value(pyunits.convert(m.fs.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
-    )
-    print(
-        f'{"Fracion of Heat From Grid":<40s}{100*value(m.fs.costing.frac_heat_from_grid):<5.1f}{"%"}'
-    )
-    # m.fs.costing.LCOW.display()
+    # print(
+    #     f'{"Heat Load FPC":<40s}{value(m.fs.energy.FPC.heat_load):<5.1f}{pyunits.get_units(m.fs.energy.FPC.heat_load)}'
+    # )
+    # print(
+    #     f'{"Heat Flow FPC":<40s}{value(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW))}'
+    # )
+    # print(
+    #     f'{"Load Utilization %":<40s}{(100*value(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW)))/(value(pyunits.convert(m.fs.energy.FPC.heat_load, to_units=pyunits.MW))):<5.1f}{"%"}'
+    # )
+    # print("\n")
+    # print(
+    #     f'{"Aggregate Flow Heat Treatment":<40s}{value(pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
+    # )
+    # print(
+    #     f'{"Aggregate Flow Heat Energy":<40s}{value(pyunits.convert(m.fs.energy.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.energy.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
+    # )
+    # print(
+    #     f'{"Aggregate Flow Heat Grid":<40s}{value(pyunits.convert(m.fs.costing.aggregate_flow_heat, to_units=pyunits.MW)):<5.1f}{pyunits.get_units(pyunits.convert(m.fs.costing.aggregate_flow_heat, to_units=pyunits.MW))}'
+    # )
+    # print(
+    #     f'{"Fracion of Heat From Grid":<40s}{100*value(m.fs.costing.frac_heat_from_grid):<5.1f}{"%"}'
+    # )
+    m.fs.costing.LCOW.display()
     # # # m.fs.energy.costing.LCOH.display()
     # m.fs.costing.LCOT.display()
-    # # # display_costing_breakdown(m)
+    display_costing_breakdown(m)
+    # print(value(m.fs.energy.costing.LCOH))
 
     return m
 
@@ -815,7 +817,8 @@ def display_system_build(blk):
 
 
 def display_costing_breakdown(m):
-    energy = m.fs.energy
+    if m.fs.has_RE:
+        energy = m.fs.energy
     treatment = m.fs.treatment
     header = f'\n{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
     print(header)
@@ -827,7 +830,8 @@ def display_costing_breakdown(m):
     print_EC_costing_breakdown(m.fs.treatment.EC)
     print_UF_costing_breakdown(m.fs.treatment.UF)
     print_DWI_costing_breakdown(m.fs.treatment.DWI)
-    print_FPC_costing_breakdown(m, m.fs.energy.FPC)
+    if m.fs.has_RE:
+        print_FPC_costing_breakdown(m, m.fs.energy.FPC)
 
     # print(
     #     f'{"Grid Heat Frac.":<30s}{value(m.fs.costing.frac_heat_from_grid):<20,.2f}{pyunits.get_units(energy.costing.frac_heat_from_grid)}'
