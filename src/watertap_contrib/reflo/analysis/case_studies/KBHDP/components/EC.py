@@ -192,7 +192,6 @@ def set_ec_operating_conditions(m, blk, conv=5e3):
 
 
 def set_scaling(m, blk):
-
     def calc_scale(value):
         return math.floor(math.log(value, 10))
 
