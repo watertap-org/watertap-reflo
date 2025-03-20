@@ -13,7 +13,6 @@ setup(
         "idaes-pse>=2.7.0,<2.8.0rc0",
         "pyomo>=6.6.1",
         "nrel-pysam==6.0.0",
-
     ],
     extras_require={
         "dev": [
