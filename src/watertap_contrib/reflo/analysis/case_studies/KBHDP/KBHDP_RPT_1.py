@@ -68,8 +68,8 @@ def main():
     # box_solve_problem(m)
     # solve(m, debug=True)
     # scale_costing(m)
-    optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=None, objective="LCOT")
-    solve(m, debug=False)
+    optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=0.6, objective="LCOT")
+    solve(m, debug=True)
     # # display_flow_table(m)
     # display_system_stream_table(m)
     # report_RO(m, m.fs.treatment.RO)
@@ -82,7 +82,9 @@ def main():
     # # # # # print(m.fs.energy.pv.display())
     # # # print_system_scaling_report(m)
     report_PV(m)
-    # print(m.fs.energy.pv.display())
+    report_pump(m, m.fs.treatment.pump)
+    print(m.fs.costing.frac_elec_from_grid.display())
+    print(m.fs.costing.aggregate_flow_electricity_purchased.display())
 
     return m
 
@@ -303,10 +305,6 @@ def add_treatment_costing(m):
     add_ro_costing(m, treatment.RO, treatment.costing)
     add_DWI_costing(m, treatment.DWI, treatment.costing)
 
-    treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
-    treatment.costing.total_investment_factor.fix(1)
-    # treatment.costing.maintenance_labor_chemical_factor.fix(0)
-
     treatment.costing.cost_process()
     treatment.costing.initialize()
 
@@ -314,6 +312,7 @@ def add_treatment_costing(m):
 def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
+    energy.costing.has_electricity_generation = True
 
     energy.pv.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
@@ -358,6 +357,7 @@ def scale_costing(m):
     treatment = m.fs.treatment
     energy = m.fs.energy
 
+    add_pv_costing_scaling(m, energy.costing)
     # iscale.set_scaling_factor(m.fs.energy.pv.electricity, 1e-5)
     # iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1/10000000)
     # # iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-10)
@@ -640,14 +640,14 @@ def optimize(
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
         m.fs.water_recovery.fix(water_recovery)
     else:
-        lower_bound = 0.01
-        upper_bound = 0.99
+        lower_bound = 0.5
+        upper_bound = 0.8
         print(f"\n------- Unfixed Recovery -------")
         print(f"Lower Bound: {lower_bound}")
         print(f"Upper Bound: {upper_bound}")
         m.fs.water_recovery.unfix()
-        m.fs.water_recovery.setlb(0.01)
-        m.fs.water_recovery.setub(0.99)
+        m.fs.water_recovery.setlb(lower_bound)
+        m.fs.water_recovery.setub(upper_bound)
 
     if fixed_pressure is not None:
         print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
