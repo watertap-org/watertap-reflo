@@ -311,7 +311,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             initialize=weather_data.groupby("day_of_year")[
                 self.config.weather_data_column_dict["shortwave_radiation"]
             ].mean()
-            * 0.0864,
+            * 0.0864,  # GHI column; W/m2 to MJ/day/m2
             units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Shortwave radiation at location (GHI)",
         )
@@ -463,7 +463,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.year,
             )
 
-        @self.Expression(self.days_in_year)
+        @self.Expression(self.days_in_year, doc="Emissivity of air")
         def emissivity_air(b, d):
             p_sat_kPa = pyunits.convert(
                 pyunits.convert(
@@ -481,7 +481,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
             return smooth_min(1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99)
 
-        @self.Expression(self.days_in_year)
+        @self.Expression(self.days_in_year, doc="Incident longwave radiation")
         def longwave_radiation_in(b, d):
             return pyunits.convert(
                 b.emissivity_air[d]
@@ -490,15 +490,15 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             )
 
-        @self.Expression(self.days_in_year)
+        @self.Expression(self.days_in_year, doc="Net incident shortwave radiation")
         def net_shortwave_radiation_in(b, d):
             return (1 - b.shortwave_albedo) * b.shortwave_radiation[d]
 
-        @self.Expression(self.days_in_year)
+        @self.Expression(self.days_in_year, doc="Net incident longwave radiation")
         def net_longwave_radiation_in(b, d):
             return (1 - b.longwave_albedo) * b.longwave_radiation_in[d]
 
-        @self.Expression(self.days_in_year)
+        @self.Expression(self.days_in_year, doc="Net outgoing longwave radiation")
         def net_longwave_radiation_out(b, d):
             return pyunits.convert(
                 b.emissivity_water
@@ -507,7 +507,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             )
 
-        @self.Expression(self.days_in_year)
+        @self.Expression(self.days_in_year, doc="Net solar radiation for evaporation")
         def net_solar_radiation(b, d):
             return (
                 b.net_shortwave_radiation_in[d]
@@ -544,8 +544,22 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                     ),
                     to_units=pyunits.dimensionless,
                 ),
-                1e-3,
+                5e-4,
             )
+
+        @self.Expression(self.days_in_year, doc="Daily water temperature change")
+        def daily_temperature_change(b, d):
+            if d == b.days_in_year.first():
+                # For Jan 1, previous day is Dec 31
+                return (
+                    b.weather[d].temperature["Liq"]
+                    - b.weather[b.days_in_year.last()].temperature["Liq"]
+                ) * pyunits.day**-1
+            else:
+                return (
+                    b.weather[d].temperature["Liq"]
+                    - b.weather[d - 1].temperature["Liq"]
+                ) * pyunits.day**-1
 
         @self.Constraint(self.days_in_year)
         def eq_water_temp(b, d):
@@ -557,7 +571,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 273.35,
             )
 
-        @self.Constraint(self.days_in_year)
+        @self.Constraint(self.days_in_year, doc="Net radiation")
         def eq_net_radiation(b, d):
             return b.net_radiation[d] == smooth_max(
                 b.net_solar_radiation[d] - b.net_heat_flux_out[d], 1e-3
@@ -580,15 +594,12 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_in_year, doc="Net heat flux out of surroundings/ecosystem"
         )
         def eq_net_heat_flux_out(b, d):
-            daily_temperature_change = (
-                b.weather[d].temperature["Liq"] - b.weather[d].temperature["Vap"]
-            ) / pyunits.day
             return b.net_heat_flux_out[d] == smooth_max(
                 pyunits.convert(
                     prop_in.dens_mass_phase["Liq"]
                     * prop_in.cp_mass_solvent["Liq"]
                     * b.evaporation_pond_depth
-                    * daily_temperature_change,
+                    * b.daily_temperature_change[d],
                     to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
                 ),
                 1e-3,
@@ -721,8 +732,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.mass_flux_water_vapor) is None:
             iscale.set_scaling_factor(self.mass_flux_water_vapor, 1e5)
 
-        if iscale.get_scaling_factor(self.evaporation_rate) is None:
-            iscale.set_scaling_factor(self.evaporation_rate, 1e8)
+        # if iscale.get_scaling_factor(self.evaporation_rate) is None:
+        #     iscale.set_scaling_factor(self.evaporation_rate, 1e8)
 
         if iscale.get_scaling_factor(self.solids_precipitation_rate) is None:
             iscale.set_scaling_factor(self.solids_precipitation_rate, 1e2)
