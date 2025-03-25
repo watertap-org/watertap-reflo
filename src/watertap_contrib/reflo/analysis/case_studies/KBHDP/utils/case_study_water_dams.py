@@ -180,6 +180,8 @@ if __name__ == "__main__":
     # File path
     filepath = os.path.abspath(__file__)
     util_dir = os.path.dirname(filepath)
+    project_folder = os.path.dirname(util_dir)
+    water_dams_folder = os.path.join(project_folder, "water_dams")
 
     test_filename = util_dir + "/test_water_dams.csv" 
    
@@ -232,4 +234,4 @@ if __name__ == "__main__":
     elec_gen_unit_dict = elec_gen_unit_dict,
     )
 
-    results.to_csv('/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/water_dams/test.csv')
+    results.to_csv(os.path.join(water_dams_folder, "test.csv"))
