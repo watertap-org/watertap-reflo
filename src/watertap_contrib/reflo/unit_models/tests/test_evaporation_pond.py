@@ -55,8 +55,8 @@ weather_data["day_of_year"] = arange(len(weather_data)) // 24
 solver = get_solver()
 
 rho = 1000 * pyunits.kg / pyunits.m**3
-flow_vol = 0.0004381
-conc_tds = 70
+flow_vol = 0.0004381 * pyunits.m**3 / pyunits.s
+conc_tds = 70 * pyunits.kg / pyunits.m**3
 
 
 def build_pond():
@@ -71,11 +71,6 @@ def build_pond():
         "relative_humidity_calculation": RelativeHumidityCalculation.VaporPressureRatio,
     }
 
-    flow_vol = 0.0004381 * pyunits.m**3 / pyunits.s
-    conc_tds = 70 * pyunits.kg / pyunits.m**3
-    flow_mass_liq = flow_vol * rho
-    flow_mass_tds = flow_vol * conc_tds
-
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = AirWaterEq(**props)
@@ -89,8 +84,8 @@ def build_pond():
     prop_in.pressure.fix(101325)
     prop_in.temperature["Liq"].fix(293)
     prop_in.temperature["Vap"].fix(293)
-    prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_liq)
-    prop_in.flow_mass_phase_comp["Liq", "TDS"].fix(flow_mass_tds)
+    prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_vol * rho)
+    prop_in.flow_mass_phase_comp["Liq", "TDS"].fix(flow_vol * conc_tds)
     prop_in.flow_mass_phase_comp["Vap", "Air"].fix(1)
     prop_in.flow_mass_phase_comp["Vap", "H2O"].fix(0)
 
@@ -194,99 +189,106 @@ class TestEvaporationPond:
         m = pond_frame
         results_dict = {
             "net_radiation": {
-                0: 7.43934365,
-                90: 3.98051889,
-                180: 10.2458,
-                270: 7.19609289,
-                364: 3.75491077,
+                0: 1.864,
+                90: 8.9976,
+                180: 18.561,
+                270: 3.2597,
+                364: 3.9593,
             },
             "mass_flux_water_vapor": {
-                0: 2.0709179e-05,
-                90: 9.942899e-06,
-                180: 2.8995708e-05,
-                270: 1.9233064e-05,
-                364: 1.0945327e-05,
+                0: 4.525e-6,
+                90: 2.4092e-5,
+                180: 5.3759e-5,
+                270: 7.981e-6,
+                364: 1.1562e-5,
             },
             "net_heat_flux_out": {
-                0: 1.85306574,
-                90: 5.62843768,
-                180: 10.6036,
-                270: 7.5154578,
-                364: 0.663856872645,
+                0: 8.310,
+                90: 0.001,
+                180: 1.796,
+                270: 12.11,
+                364: 0.4373,
             },
-            "area_correction_factor": 1.60216262,
-            "total_evaporative_area_required": 20561.2673,
-            "evaporative_area_per_pond": 20561.2673,
-            "evaporation_pond_area": 32942.494,
+            "area_correction_factor": 1.6944,
+            "total_evaporative_area_required": 14224.8,
+            "evaporative_area_per_pond": 14224.8,
+            "evaporation_pond_area": 24103.1,
             "number_evaporation_ponds": 1.0,
-            "solids_precipitation_rate": 0.031303088746,
-            "water_activity": 0.961483151785,
+            "solids_precipitation_rate": 0.0313,
+            "water_activity": 0.9614,
             "evaporation_rate": {
-                0: 2.0726e-08,
-                90: 9.951e-09,
-                180: 2.902e-08,
-                270: 1.9249e-08,
-                364: 1.0954e-08,
+                0: 4.5298e-9,
+                90: 2.41132e-8,
+                180: 5.38048e-8,
+                270: 7.9887e-9,
+                364: 1.15720e-8,
             },
-            "mass_flux_water_vapor_average": 2.1307052e-05,
-            "evaporative_area_acre": 5.08077949,
-            "total_pond_area_acre": 8.14023499,
-            "mass_flow_precipitate": 678910.2758,
+            "mass_flux_water_vapor_average": 3.0798e-5,
+            "evaporative_area_acre": 3.515,
+            "total_pond_area_acre": 5.955,
+            "mass_flow_precipitate": 496740.5,
             "emissivity_air": {
-                0: 0.880195902119,
-                90: 0.867100992309,
-                180: 0.891735341744,
-                270: 0.866713419494,
-                364: 0.969089836175,
+                0: 0.91040,
+                90: 0.84938,
+                180: 0.8801,
+                270: 0.88451,
+                364: 0.9682,
             },
             "longwave_radiation_in": {
-                0: 26.5039,
-                90: 30.8024,
-                180: 38.9973,
-                270: 33.3571,
-                364: 27.6602,
+                0: 27.413,
+                90: 30.173,
+                180: 38.49,
+                270: 34.04,
+                364: 27.63,
             },
             "net_shortwave_radiation_in": {
-                0: 13.1977,
-                90: 15.5986,
-                180: 28.5843,
-                270: 21.6964,
-                364: 5.41386,
+                0: 13.197,
+                90: 15.598,
+                180: 28.584,
+                270: 21.696,
+                364: 5.4138,
             },
             "net_longwave_radiation_in": {
-                0: 25.7088,
-                90: 29.8784,
-                180: 37.8274,
-                270: 32.3564,
-                364: 26.8304,
+                0: 26.591,
+                90: 29.268,
+                180: 37.335,
+                270: 33.02,
+                364: 26.808,
             },
             "net_longwave_radiation_out": {
-                0: 29.6142,
+                0: 29.614,
                 90: 35.868,
-                180: 45.5623,
-                270: 39.3413,
-                364: 27.8255,
+                180: 45.562,
+                270: 39.341,
+                364: 27.825,
             },
             "net_solar_radiation": {
-                0: 9.29240939,
-                90: 9.60895658,
-                180: 20.8495,
-                270: 14.7115,
-                364: 4.41876765,
+                0: 10.17,
+                90: 8.998,
+                180: 20.35,
+                270: 15.37,
+                364: 4.39675,
             },
             "psychrometric_constant": {
-                0: 0.059020236948,
-                90: 0.059767489548,
-                180: 0.060826517497,
-                270: 0.060428808759,
-                364: 0.059278856464,
+                0: 0.059020,
+                90: 0.059767,
+                180: 0.060826,
+                270: 0.060428,
+                364: 0.059278,
             },
             "bowen_ratio": {
-                0: 0.172375206728,
-                90: 0.323938770782,
-                180: 0.189552391464,
-                270: 0.245652174687,
-                364: 0.114991465662,
+                0: 0.3444,
+                90: 0.2350,
+                180: 0.1623,
+                270: 0.3596,
+                364: 0.1129,
+            },
+            "daily_temperature_change": {
+                0: 4.342,
+                90: -1.803,
+                180: 0.93846,
+                270: 6.33,
+                364: 0.2285,
             },
         }
         for v, r in results_dict.items():
@@ -316,15 +318,15 @@ class TestEvaporationPond:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 763677.74,
-            "aggregate_fixed_operating_cost": 15846.27,
-            "aggregate_direct_capital_cost": 763677.74,
-            "total_capital_cost": 763677.74,
-            "total_operating_cost": 38756.6,
-            "maintenance_labor_chemical_operating_cost": 22910.33,
-            "total_fixed_operating_cost": 38756.6,
-            "total_annualized_cost": 124254.87,
-            "LCOW": 8.3923,
+            "aggregate_capital_cost": 580082.56,
+            "aggregate_fixed_operating_cost": 11012.03,
+            "aggregate_direct_capital_cost": 580082.56,
+            "total_capital_cost": 580082.56,
+            "total_operating_cost": 28414.51,
+            "maintenance_labor_chemical_operating_cost": 17402.47,
+            "total_fixed_operating_cost": 28414.51,
+            "total_annualized_cost": 93358.2,
+            "LCOW": 6.3055,
         }
 
         for v, r in sys_cost_results.items():
@@ -336,22 +338,24 @@ class TestEvaporationPond:
                 assert pytest.approx(value(sc), rel=1e-3) == r
 
         pond_cost_results = {
-            "dike_cost_per_acre": 21163.67,
-            "nominal_liner_cost_per_acre": 39182.06,
-            "liner_cost_per_acre": 39182.06,
-            "fence_cost_per_acre": 11853.26,
-            "road_cost_per_acre": 1979.99,
-            "land_capital_cost": 81839.22,
-            "land_clearing_capital_cost": 81839.22,
-            "dike_capital_cost": 171183.09,
-            "liner_capital_cost": 316925.45,
-            "fence_capital_cost": 95875.5,
-            "road_capital_cost": 16015.23,
-            "liner_replacement_operating_cost": 15846.27,
-            "capital_cost": 763677.74,
-            "direct_capital_cost": 763677.74,
-            "fixed_operating_cost": 15846.27,
-            "total_cost_per_acre": 94414.85,
+            "dike_cost_per_acre": 24206.85,
+            "nominal_liner_cost_per_acre": 37077.96,
+            "liner_cost_per_acre": 37077.96,
+            "fence_cost_per_acre": 13826.86,
+            "road_cost_per_acre": 2310.5,
+            "land_capital_cost": 60099.85,
+            "land_clearing_capital_cost": 60099.85,
+            "dike_capital_cost": 143787.15,
+            "liner_capital_cost": 220240.73,
+            "fence_capital_cost": 82130.69,
+            "road_capital_cost": 13724.27,
+            "evaporation_enhancement_capital_cost": 0.0,
+            "precipitate_handling_operating_cost": 0.0,
+            "liner_replacement_operating_cost": 11012.03,
+            "capital_cost": 580082.56,
+            "direct_capital_cost": 580082.56,
+            "fixed_operating_cost": 11012.03,
+            "total_cost_per_acre": 97658.06,
         }
 
         for v, r in pond_cost_results.items():
