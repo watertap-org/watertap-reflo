@@ -73,9 +73,9 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "heat_price"
+    sweep_type = "cost_per_area_collector"
     only_plot = False
-    # only_plot = True
+    only_plot = True
 
     xcol_dict = {
         "water_recovery":"fs.water_recovery",
@@ -92,7 +92,7 @@ if __name__ == "__main__":
         "heat_price": "Heat Price ($/kWh)",
         "hours_storage": "Hours Storage (h)",
         "grid_frac_heat": "Grid Fraction (Heat)",
-        "dwi_lcow": "DWI LCOW ($/m3)",
+        "dwi_lcow": "Injection Cost (\$/m$^3$)",
         "cost_per_area_collector":"Collector Cost (\$/m$^2$)",
         "cost_per_volume_storage":"Thermal Storage Cost (\$/m$^3$)",
     }
@@ -181,3 +181,5 @@ if __name__ == "__main__":
     # filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/kbhdp-case-study-md/RPT3_sweep_results//"+ sweep_type + ".csv" 
     df = pd.read_csv(filename).drop(columns="Unnamed: 0")
     plot_case_study(df, xcol=xcol_dict[sweep_type],ax_dict=ax_dict[sweep_type])
+
+    
