@@ -723,17 +723,8 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.area_correction_factor) is None:
             iscale.set_scaling_factor(self.area_correction_factor, 1)
 
-        if iscale.get_scaling_factor(self.bowen_ratio) is None:
-            iscale.set_scaling_factor(self.bowen_ratio, 10)
-
-        if iscale.get_scaling_factor(self.psychrometric_constant) is None:
-            iscale.set_scaling_factor(self.psychrometric_constant, 100)
-
         if iscale.get_scaling_factor(self.mass_flux_water_vapor) is None:
             iscale.set_scaling_factor(self.mass_flux_water_vapor, 1e5)
-
-        # if iscale.get_scaling_factor(self.evaporation_rate) is None:
-        #     iscale.set_scaling_factor(self.evaporation_rate, 1e8)
 
         if iscale.get_scaling_factor(self.solids_precipitation_rate) is None:
             iscale.set_scaling_factor(self.solids_precipitation_rate, 1e2)

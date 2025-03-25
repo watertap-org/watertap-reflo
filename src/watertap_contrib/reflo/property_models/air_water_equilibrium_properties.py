@@ -1819,6 +1819,7 @@ class AirWaterEqStateBlockData(StateBlockData):
                 == SaturationVaporPressureCalculation.ArdenBuck
             ):
                 # https://en.wikipedia.org/wiki/Arden_Buck_equation
+                
                 self.arden_buck_coeff_a = a = Param(
                     initialize=6.1121,
                     units=pyunits.millibar,
