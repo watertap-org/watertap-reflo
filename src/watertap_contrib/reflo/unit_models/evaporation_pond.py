@@ -551,19 +551,19 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 5e-4,
             )
 
-        @self.Expression(self.days_of_year, doc="Daily water temperature change")
-        def daily_temperature_change(b, d):
-            if d == b.days_of_year.first():
-                # For Jan 1, previous day is Dec 31
-                return (
-                    b.weather[d].temperature["Liq"]
-                    - b.weather[b.days_of_year.last()].temperature["Liq"]
-                ) * pyunits.day**-1
-            else:
-                return (
-                    b.weather[d].temperature["Liq"]
-                    - b.weather[d - 1].temperature["Liq"]
-                ) * pyunits.day**-1
+        # @self.Expression(self.days_of_year, doc="Daily water temperature change")
+        # def daily_temperature_change(b, d):
+        #     if d == b.days_of_year.first():
+        #         # For Jan 1, previous day is Dec 31
+        #         return (
+        #             b.weather[d].temperature["Liq"]
+        #             - b.weather[b.days_of_year.last()].temperature["Liq"]
+        #         ) * pyunits.day**-1
+        #     else:
+        #         return (
+        #             b.weather[d].temperature["Liq"]
+        #             - b.weather[d - 1].temperature["Liq"]
+        #         ) * pyunits.day**-1
 
         @self.Constraint(self.days_of_year)
         def eq_water_temp(b, d):
@@ -598,12 +598,25 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.days_of_year, doc="Net heat flux out of surroundings/ecosystem"
         )
         def eq_net_heat_flux_out(b, d):
+            if d == b.days_of_year.first():
+                # For Jan 1, previous day is Dec 31
+                daily_temperature_change = (
+                    b.weather[d].temperature["Liq"]
+                    - b.weather[b.days_of_year.last()].temperature["Liq"]
+                ) * pyunits.day**-1
+            else:
+                daily_temperature_change = (
+                    b.weather[d].temperature["Liq"]
+                    - b.weather[d - 1].temperature["Liq"]
+                ) * pyunits.day**-1
+
             return b.net_heat_flux_out[d] == smooth_max(
                 pyunits.convert(
                     prop_in.dens_mass_phase["Liq"]
                     * prop_in.cp_mass_solvent["Liq"]
                     * b.evaporation_pond_depth
-                    * b.daily_temperature_change[d],
+                    * daily_temperature_change,
+                    # * b.daily_temperature_change[d],
                     to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
                 ),
                 1e-3,

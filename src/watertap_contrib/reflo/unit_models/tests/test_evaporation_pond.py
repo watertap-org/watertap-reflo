@@ -283,13 +283,13 @@ class TestEvaporationPond:
                 270: 0.3596,
                 364: 0.1129,
             },
-            "daily_temperature_change": {
-                0: 4.342,
-                90: -1.803,
-                180: 0.93846,
-                270: 6.33,
-                364: 0.2285,
-            },
+            # "daily_temperature_change": {
+            #     0: 4.342,
+            #     90: -1.803,
+            #     180: 0.93846,
+            #     270: 6.33,
+            #     364: 0.2285,
+            # },
         }
         for v, r in results_dict.items():
             pv = getattr(m.fs.unit, v)
