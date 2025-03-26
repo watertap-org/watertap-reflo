@@ -143,7 +143,7 @@ class TestEvaporationPond:
                 == temperature_K
             )
 
-        assert len(m.fs.unit.weather) == len(m.fs.unit.days_in_year)
+        assert len(m.fs.unit.weather) == len(m.fs.unit.days_of_year)
         assert number_variables(m) == 5146
         assert number_total_constraints(m) == 2937
         assert number_unused_variables(m) == 1470
