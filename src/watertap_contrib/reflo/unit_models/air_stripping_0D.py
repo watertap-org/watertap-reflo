@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -524,13 +524,6 @@ class AirStripping0DData(InitializationMixin, UnitModelBlockData):
             )
 
         self.build_oto()
-
-        # @self.Constraint(doc="Mass flow of water vapor in from relative humidity")
-        # def eq_flow_mass_phase_H2O_Vap(b):
-        #     return (
-        #         prop_in.flow_mass_phase_comp["Vap", "H2O"]
-        #         == prop_out.flow_mass_phase_comp["Vap", "H2O"]
-        #     )
 
         @self.Constraint(phase_set, doc="Mass loading rate equation per phase")
         def eq_mass_loading_rate(b, p):
