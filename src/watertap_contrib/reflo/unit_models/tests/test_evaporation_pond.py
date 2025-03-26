@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -338,24 +338,22 @@ class TestEvaporationPond:
                 assert pytest.approx(value(sc), rel=1e-3) == r
 
         pond_cost_results = {
-            "dike_cost_per_acre": 24206.85,
-            "nominal_liner_cost_per_acre": 37077.96,
-            "liner_cost_per_acre": 37077.96,
-            "fence_cost_per_acre": 13826.86,
+            "dike_cost_per_acre": 24206.8,
+            "nominal_liner_cost_per_acre": 37077.9,
+            "liner_cost_per_acre": 37077.9,
+            "fence_cost_per_acre": 13826.8,
             "road_cost_per_acre": 2310.5,
-            "land_capital_cost": 60099.85,
-            "land_clearing_capital_cost": 60099.85,
-            "dike_capital_cost": 143787.15,
-            "liner_capital_cost": 220240.73,
-            "fence_capital_cost": 82130.69,
-            "road_capital_cost": 13724.27,
-            "evaporation_enhancement_capital_cost": 0.0,
-            "precipitate_handling_operating_cost": 0.0,
-            "liner_replacement_operating_cost": 11012.03,
-            "capital_cost": 580082.56,
-            "direct_capital_cost": 580082.56,
-            "fixed_operating_cost": 11012.03,
-            "total_cost_per_acre": 97658.06,
+            "land_capital_cost": 60099.8,
+            "land_clearing_capital_cost": 60099.8,
+            "dike_capital_cost": 143787.1,
+            "liner_capital_cost": 220240.7,
+            "fence_capital_cost": 82130.6,
+            "road_capital_cost": 13724.2,
+            "liner_replacement_operating_cost": 11012.0,
+            "capital_cost": 580082.5,
+            "direct_capital_cost": 580082.5,
+            "fixed_operating_cost": 11012.0,
+            "total_cost_per_acre": 97658.0,
         }
 
         for v, r in pond_cost_results.items():
