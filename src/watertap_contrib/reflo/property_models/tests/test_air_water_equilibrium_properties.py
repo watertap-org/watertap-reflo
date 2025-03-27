@@ -40,6 +40,7 @@ from watertap_contrib.reflo.property_models.air_water_equilibrium_properties imp
     RelativeHumidityCalculation,
     LatentHeatVaporizationCalculation,
     SpecificHeatWaterCalculation,
+    DensityCalculation,
 )
 
 solver = get_solver()
@@ -117,15 +118,19 @@ def m1():
     Test NMSU case study 1 results
     """
     props = {
+        "non_volatile_solute_list": ["TDS"],
         "volatile_solute_list": ["TCA"],
-        "mw_data": {"TCA": 0.1334},
+        "mw_data": {
+            "TCA": 0.1334,
+            "TDS": 31.4038218e-3,
+        },
         "dynamic_viscosity_data": {"Liq": 0.00115, "Vap": 1.75e-5},
         "henry_constant_data": {"TCA": 0.725},  # salinity adjusted
         "standard_enthalpy_change_data": {"TCA": 28.7e3},
         "temperature_boiling_data": {"TCA": 347},
         "molar_volume_data": {"TCA": 9.81e-5},
         "critical_molar_volume_data": {"TCA": 2.94e-4},
-        "density_data": {"Liq": 999.15, "Vap": 1.22},
+        "density_calculation": DensityCalculation.calculated,
     }
     m = ConcreteModel()
 
@@ -163,6 +168,8 @@ def test_parameter_block1(m1):
         m.fs.properties.config.molar_volume_calculation
         == MolarVolumeCalculation.TynCalus
     )
+    assert isinstance(m.fs.properties.config.density_calculation, DensityCalculation)
+    assert m.fs.properties.config.density_calculation == DensityCalculation.calculated
     assert (
         m.fs.properties.config.saturation_vapor_pressure_calculation
         == SaturationVaporPressureCalculation.ArdenBuck
@@ -192,6 +199,7 @@ def test_properties1(m1):
     m.fs.stream = m.fs.properties.build_state_block([0], defined_state=True)
     stream = m.fs.stream[0]
     stream.flow_mass_phase_comp["Liq", "H2O"].fix(157.8657)
+    stream.flow_mass_phase_comp["Liq", "TDS"].fix(0.157)
     stream.flow_mass_phase_comp["Liq", "TCA"].fix(2.61e-5)
     stream.flow_mass_phase_comp["Vap", "Air"].fix(1.34932)
     stream.flow_mass_phase_comp["Vap", "TCA"].fix(0)
@@ -235,6 +243,8 @@ def test_properties1(m1):
         "pressure_vap",
         "dh_vap_mass_solvent",
         "cp_mass_solvent",
+        "dens_mass_phase",
+        "dens_mass_solvent"
     ]
 
     for prop in stream_vars:
@@ -256,64 +266,72 @@ def test_properties1(m1):
         "temperature": {"Liq": 283.0, "Vap": 283.0},
         "flow_mass_phase_comp": {
             ("Liq", "TCA"): 2.61e-05,
-            ("Liq", "H2O"): 157.8657,
+            ("Liq", "TDS"): 0.157,
+            ("Liq", "H2O"): 157.86,
             ("Vap", "TCA"): 0.0,
             ("Vap", "H2O"): 0.1,
-            ("Vap", "Air"): 1.34932,
+            ("Vap", "Air"): 1.3493,
         },
         "conc_mass_phase_comp": {
-            ("Liq", "TCA"): 0.00016518,
-            ("Liq", "H2O"): 999.1498,
-            ("Vap", "TCA"): 1.3e-14,
-            ("Vap", "H2O"): 0.084177,
-            ("Vap", "Air"): 1.135822,
+            ("Liq", "TCA"): 0.0001652,
+            ("Liq", "TDS"): 0.99382,
+            ("Liq", "H2O"): 999.3,
+            ("Vap", "TCA"): 0.0,
+            ("Vap", "H2O"): 0.08608,
+            ("Vap", "Air"): 1.1615,
         },
+        "dens_mass_phase": {"Liq": 1000.3024, "Vap": 1.2476},
         "mass_frac_phase_comp": {
-            ("Liq", "TCA"): 1.653e-07,
-            ("Liq", "H2O"): 0.99999983,
-            ("Vap", "TCA"): 1.1e-14,
+            ("Liq", "TCA"): 1.651e-07,
+            ("Liq", "TDS"): 0.0009935,
+            ("Liq", "H2O"): 0.99900630,
+            ("Vap", "TCA"): 0.0,
             ("Vap", "H2O"): 0.068997,
             ("Vap", "Air"): 0.931,
         },
+        "dens_mass_solvent": {"H2O": 999.5236, "Air": 1.2476},
         "flow_mol_phase_comp": {
             ("Liq", "TCA"): 0.0001956,
+            ("Liq", "TDS"): 4.999,
             ("Liq", "H2O"): 8770.3,
-            ("Vap", "TCA"): 1.12e-13,
-            ("Vap", "H2O"): 5.5555,
-            ("Vap", "Air"): 46.5,
+            ("Vap", "TCA"): 0.0,
+            ("Vap", "H2O"): 5.555,
+            ("Vap", "Air"): 46.5282,
         },
         "conc_mol_phase_comp": {
             ("Liq", "TCA"): 0.001238,
-            ("Liq", "H2O"): 55508.3,
-            ("Vap", "TCA"): 0,
-            ("Vap", "H2O"): 4.67652,
-            ("Vap", "Air"): 39.17,
+            ("Liq", "TDS"): 31.64,
+            ("Liq", "H2O"): 55517.1,
+            ("Vap", "TCA"): 0.0,
+            ("Vap", "H2O"): 4.782,
+            ("Vap", "Air"): 40.054,
         },
         "mole_frac_phase_comp": {
-            ("Liq", "TCA"): 2.2308e-08,
-            ("Liq", "H2O"): 0.99999,
-            ("Vap", "TCA"): 2e-15,
+            ("Liq", "TCA"): 2.2295e-08,
+            ("Liq", "TDS"): 0.0005697,
+            ("Liq", "H2O"): 0.99943,
+            ("Vap", "TCA"): 0.0,
             ("Vap", "H2O"): 0.10666,
+            ("Vap", "Air"): 0.89333,
         },
-        "diffus_phase_comp": {("Vap", "TCA"): 7.6736e-06, ("Liq", "TCA"): 7.09255e-10},
-        "molar_volume_comp": {"TCA": 0.00011007},
-        "flow_vol_phase": {"Liq": 0.15800, "Vap": 1.187},
-        "flow_mass_phase": {"Liq": 157.8, "Vap": 1.44932},
-        "henry_comp": {"TCA": 0.3923},
-        "pressure_vap_sat": {"H2O": 1215.6},
-        "pressure_vap": {"H2O": 121.55},
-        "relative_humidity": {"H2O": 0.1},
+        "diffus_phase_comp": {("Vap", "TCA"): 7.673219e-06, ("Liq", "TCA"): 7.09e-10},
+        "collision_molecular_separation": {"TCA": 0.46830},
+        "collision_molecular_separation_comp": {"TCA": 0.56550},
+        "molar_volume_comp": {"TCA": 0.0001100},
+        "collision_function_comp": {"TCA": 0.59093},
+        "collision_function_zeta_comp": {"TCA": -0.22846},
+        "collision_function_ee_comp": {"TCA": 0.192517},
+        "energy_molecular_attraction": {"TCA": 2.5081e-14},
+        "energy_molecular_attraction_air": 1.0851e-14,
+        "energy_molecular_attraction_comp": {"TCA": 5.7969e-14},
+        "flow_vol_phase": {"Liq": 0.15797494, "Vap": 1.16161},
+        "flow_mass_phase": {"Liq": 158.0, "Vap": 1.44932},
+        "henry_comp": {"TCA": 0.392},
+        "pressure_vap_sat": {"H2O": 1215.5},
+        "arden_buck_exponential_term": 0.687,
+        "pressure_vap": {"H2O": 303.8},
         "dh_vap_mass_solvent": 2477.6,
         "cp_mass_solvent": {"Liq": 4197.1, "Vap": 1861.6},
-        "collision_molecular_separation": {"TCA": 0.4683},
-        "collision_molecular_separation_comp": {"TCA": 0.5655},
-        "collision_function_comp": {"TCA": 0.5909},
-        "collision_function_zeta_comp": {"TCA": -0.228462},
-        "collision_function_ee_comp": {"TCA": 0.19251},
-        "energy_molecular_attraction": {"TCA": 2.5e-14},
-        "energy_molecular_attraction_air": 1e-14,
-        "energy_molecular_attraction_comp": {"TCA": 5.7e-14},
-        "arden_buck_exponential_term": 0.6875,
     }
 
     for prop, d in stream_results.items():
@@ -464,6 +482,8 @@ def test_parameter_block2(m2):
         m.fs.properties.config.molar_volume_calculation
         == MolarVolumeCalculation.TynCalus
     )
+    assert isinstance(m.fs.properties.config.density_calculation, DensityCalculation)
+    assert m.fs.properties.config.density_calculation == DensityCalculation.constant
     assert (
         m.fs.properties.config.saturation_vapor_pressure_calculation
         == SaturationVaporPressureCalculation.Antoine
@@ -771,6 +791,8 @@ def test_parameter_block3(m3):
     assert (
         m.fs.properties.config.molar_volume_calculation == MolarVolumeCalculation.none
     )
+    assert isinstance(m.fs.properties.config.density_calculation, DensityCalculation)
+    assert m.fs.properties.config.density_calculation == DensityCalculation.constant
     assert (
         m.fs.properties.config.saturation_vapor_pressure_calculation
         == SaturationVaporPressureCalculation.none
@@ -1045,6 +1067,8 @@ def test_parameter_block4(m4):
         m.fs.properties.config.molar_volume_calculation
         == MolarVolumeCalculation.TynCalus
     )
+    assert isinstance(m.fs.properties.config.density_calculation, DensityCalculation)
+    assert m.fs.properties.config.density_calculation == DensityCalculation.constant
     assert (
         m.fs.properties.config.saturation_vapor_pressure_calculation
         == SaturationVaporPressureCalculation.Huang

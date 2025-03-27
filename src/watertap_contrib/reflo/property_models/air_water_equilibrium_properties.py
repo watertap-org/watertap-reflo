@@ -76,14 +76,12 @@ boltzmann = pyunits.convert(
     to_units=(pyunits.g * pyunits.cm**2) / (pyunits.second**2 * pyunits.degK),
 )
 
-# Set up logger
 _log = idaeslog.getLogger(__name__)
 
 __author__ = "Kurban Sitterley"
 
-
 """
-REFERENCES: 
+References: 
 
 Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
 Chapter 7, 14. MWH's Water Treatment: Principles and Design (3rd ed.). doi:10.1002/9781118131473
@@ -114,6 +112,15 @@ Antoine, C. (1888).
 Comptes Rendus des Séances de l'Académie des Sciences (in French), 107: 681-684, 778-780, 836-837.
 https://en.wikipedia.org/wiki/Antoine_equation
 
+European Association of National Metrology Institutes (EURAMET) (2015).
+"Guidelines on the Calibration of Non-Automatic Weighing Instruments"
+EURAMET Calibration Guide No. 18, Version 4.0. ISBN 978-3-942992-40-4
+https://www.euramet.org/publications-media-centre/calibration-guidelines
+
+T. T. Shi, D. X. Guan, J. B. Wu, A. Z. Wang, C. J. Jin and S. J. Han
+"Comparison of methods for estimating evapotranspiration rate of dry forest canopy: 
+    Eddy covariance, Bowen ratio energy balance, and Penman-Monteith equation"
+Journal of Geophysical Research: Atmospheres 2008 Vol. 113 Issue D19. doi: 10.1029/2008jd010174
 """
 
 
@@ -192,6 +199,15 @@ class SpecificHeatWaterCalculation(Enum):
     Sharqawy = auto()
 
 
+class DensityCalculation(Enum):
+    """
+    Approach to determine density of water and air.
+    """
+
+    constant = auto()
+    calculated = auto()
+
+
 @declare_process_block_class("AirWaterEq")
 class AirWaterEqData(PhysicalParameterBlock):
     CONFIG = PhysicalParameterBlock.CONFIG()
@@ -261,7 +277,7 @@ class AirWaterEqData(PhysicalParameterBlock):
     CONFIG.declare(
         "relative_humidity_data",
         ConfigValue(
-            default=0.1,
+            default=0.25,
             domain=float,
             description="User provided value for relative humidity of air",
         ),
@@ -442,9 +458,9 @@ class AirWaterEqData(PhysicalParameterBlock):
            :header: "Configuration Options", "Description"
 
            "``SaturationVaporPressureCalculation.none``", "Users provide data via the pressure_vap_sat_data configuration"
-           "``SaturationVaporPressureCalculation.ArdenBuck``", "Saturation vapor pressure is calcualted from Arden Buck equation"
-           "``SaturationVaporPressureCalculation.Huang``", "Saturation vapor pressure is calcualted from Huang equation"
-           "``SaturationVaporPressureCalculation.Antoine``", "Saturation vapor pressure is calcualted from Antoine equation"
+           "``SaturationVaporPressureCalculation.ArdenBuck``", "Saturation vapor pressure is calculated from Arden Buck equation"
+           "``SaturationVaporPressureCalculation.Huang``", "Saturation vapor pressure is calculated from Huang equation"
+           "``SaturationVaporPressureCalculation.Antoine``", "Saturation vapor pressure is calculated from Antoine equation"
        """,
         ),
     )
@@ -464,7 +480,7 @@ class AirWaterEqData(PhysicalParameterBlock):
            :header: "Configuration Options", "Description"
 
            "``VaporPressureCalculation.none``", "Users provide data via the pressure_vap_data configuration"
-           "``VaporPressureCalculation.FromRelativeHumidity``", "Vapor pressure is calcualted from relative humidity and saturation vapor pressure"
+           "``VaporPressureCalculation.FromRelativeHumidity``", "Vapor pressure is calculated from relative humidity and saturation vapor pressure"
        """,
         ),
     )
@@ -484,7 +500,7 @@ class AirWaterEqData(PhysicalParameterBlock):
            :header: "Configuration Options", "Description"
 
            "``RelativeHumidityCalculation.none``", "Users provide data via the relative_humidity_data configuration"
-           "``RelativeHumidityCalculation.FromVaporPressureRatio``", "Relative humidity is calcualted as ratio of vapor pressure to saturation vapor pressure"
+           "``RelativeHumidityCalculation.FromVaporPressureRatio``", "Relative humidity is calculated as ratio of vapor pressure to saturation vapor pressure"
            "``RelativeHumidityCalculation.FromData``", "Relative humidity variable is created and is assumed to be fixed by user after state block creation"
        """,
         ),
@@ -505,7 +521,7 @@ class AirWaterEqData(PhysicalParameterBlock):
            :header: "Configuration Options", "Description"
 
            "``LatentHeatVaporizationCalculation.none``", "Users provide data via the latent_heat_of_vaporization_data configuration"
-           "``LatentHeatVaporizationCalculation.Sharqawy``", "Latent heat of vaporization is calcualted according to Sharqawy (2010)"
+           "``LatentHeatVaporizationCalculation.Sharqawy``", "Latent heat of vaporization is calculated according to Sharqawy (2010)"
        """,
         ),
     )
@@ -525,7 +541,28 @@ class AirWaterEqData(PhysicalParameterBlock):
            :header: "Configuration Options", "Description"
 
            "``SpecificHeatWaterCalculation.none``", "Users provide data via the specific_heat_of_water_data configuration"
-           "``SpecificHeatWaterCalculation.Sharqawy``", "Specific heat of water is calcualted according to Sharqawy (2010)"
+           "``SpecificHeatWaterCalculation.Sharqawy``", "Specific heat of water is calculated according to Sharqawy (2010)"
+       """,
+        ),
+    )
+
+    CONFIG.declare(
+        "density_calculation",
+        ConfigValue(
+            default=DensityCalculation.constant,
+            domain=In(DensityCalculation),
+            description="Density calculation construction flag",
+            doc="""
+           Options to account for solution density.
+
+           **default** - ``DensityCalculation.constant``
+
+       .. csv-table::
+           :header: "Configuration Options", "Description"
+
+           "``DensityCalculation.constant``", "Users provide data via the density_data configuration"
+           "``DensityCalculation.calculated``", "Density of water is calculated according to Sharqawy (2010); 
+           density of air is calculated according to modified CIPM-2007 formula"
        """,
         ),
     )
@@ -535,7 +572,7 @@ class AirWaterEqData(PhysicalParameterBlock):
 
         self._state_block_class = AirWaterEqStateBlock
 
-        # Nine Sets are created in total:
+        # Ten Sets are created in total:
         # In liquid phase only
         # 1. All components in Liq phase indexed by component; includes H2O
         # 2. All components in Liq phase indexed by ('Liq', component); includes H2O
@@ -551,6 +588,7 @@ class AirWaterEqData(PhysicalParameterBlock):
         # 8. All volatile components in both phases indexed by ('Phase', component)
 
         # 9. All components in either phase
+        # 10. Solvent set (H2O and Air)
 
         if (
             self.config.vapor_pressure_calculation
@@ -616,6 +654,8 @@ class AirWaterEqData(PhysicalParameterBlock):
             initialize=self.vap_comps | self.liq_comps,
             doc="Set for all components in package",
         )
+
+        self.solvent_set = Set(initialize=["H2O", "Air"], doc="Set for solvents")
 
         for j in self.component_set:
             self.add_component(j, Solute())
@@ -731,6 +771,98 @@ class AirWaterEqData(PhysicalParameterBlock):
             doc="Boiling point temperature",
         )
 
+        # Parameters for seawater density, eq. 8 in Sharqawy et al. (2010)
+        dens_units = pyunits.kg / pyunits.m**3
+        t_inv_units = pyunits.K**-1
+
+        self.dens_mass_param_A1 = Var(
+            within=Reals,
+            initialize=9.999e2,
+            units=dens_units,
+            doc="Mass density parameter A1",
+        )
+        self.dens_mass_param_A2 = Var(
+            within=Reals,
+            initialize=2.034e-2,
+            units=dens_units * t_inv_units,
+            doc="Mass density parameter A2",
+        )
+        self.dens_mass_param_A3 = Var(
+            within=Reals,
+            initialize=-6.162e-3,
+            units=dens_units * t_inv_units**2,
+            doc="Mass density parameter A3",
+        )
+        self.dens_mass_param_A4 = Var(
+            within=Reals,
+            initialize=2.261e-5,
+            units=dens_units * t_inv_units**3,
+            doc="Mass density parameter A4",
+        )
+        self.dens_mass_param_A5 = Var(
+            within=Reals,
+            initialize=-4.657e-8,
+            units=dens_units * t_inv_units**4,
+            doc="Mass density parameter A5",
+        )
+        self.dens_mass_param_B1 = Var(
+            within=Reals,
+            initialize=8.020e2,
+            units=dens_units,
+            doc="Mass density parameter B1",
+        )
+        self.dens_mass_param_B2 = Var(
+            within=Reals,
+            initialize=-2.001,
+            units=dens_units * t_inv_units,
+            doc="Mass density parameter B2",
+        )
+        self.dens_mass_param_B3 = Var(
+            within=Reals,
+            initialize=1.677e-2,
+            units=dens_units * t_inv_units**2,
+            doc="Mass density parameter B3",
+        )
+        self.dens_mass_param_B4 = Var(
+            within=Reals,
+            initialize=-3.060e-5,
+            units=dens_units * t_inv_units**3,
+            doc="Mass density parameter B4",
+        )
+        self.dens_mass_param_B5 = Var(
+            within=Reals,
+            initialize=-1.613e-5,
+            units=dens_units * t_inv_units**2,
+            doc="Mass density parameter B5",
+        )
+
+        # Parameters for air density, Eq. A1.1, EURAMET (2010)
+        # Simplified version of CIPM-formula
+        # 60000-110000 Pa barometric pressure
+        # 20-80% relative humidity
+        # 15-27 degC
+
+        self.dens_mass_air_press_param = Var(
+            within=Reals,
+            initialize=0.34848,
+            units=dens_units * pyunits.hPa**-1 * pyunits.degK,
+            doc="Air density barometric pressure parameter",
+        )
+
+        self.dens_mass_air_rh_param = Var(
+            within=Reals,
+            initialize=-0.009,
+            units=dens_units * pyunits.degK,
+            doc="Air density relative humidity parameter",
+        )
+
+        self.dens_mass_air_exp_param = Var(
+            within=Reals,
+            initialize=0.061,
+            units=t_inv_units,
+            doc="Air density exponential parameter",
+        )
+
         for v in self.component_objects(Var):
             v.fix()
 
@@ -740,6 +872,8 @@ class AirWaterEqData(PhysicalParameterBlock):
         self.set_default_scaling("temperature", 1e-2, index="Vap")
         self.set_default_scaling("dens_mass_phase", 1e-3, index="Liq")
         self.set_default_scaling("dens_mass_phase", 1, index="Vap")
+        self.set_default_scaling("dens_mass_solvent", 1e-3, index="Liq")
+        self.set_default_scaling("dens_mass_solvent", 1, index="Vap")
         self.set_default_scaling("visc_d_phase", 1e3, index="Liq")
         self.set_default_scaling("visc_d_phase", 1e5, index="Vap")
         self.set_default_scaling("diffus_phase_comp", 1e10, index="Liq")
@@ -780,6 +914,7 @@ class AirWaterEqData(PhysicalParameterBlock):
 
         obj.define_custom_properties(
             {
+                "dens_mass_solvent": {"method": "_dens_mass_solvent"},
                 "henry_comp": {"method": "_henry_comp"},
                 "molar_volume_comp": {"method": "_molar_volume_comp"},
                 "pressure_vap": {"method": "_pressure_vap"},
@@ -876,6 +1011,25 @@ class _AirWaterEqStateBlock(StateBlock):
         # Check when the state vars are fixed already result in dof 0
         for k in self.keys():
             b = self[k]
+            for s in b.params.solvent_set:
+                if b.is_property_constructed("dens_mass_solvent"):
+                    if (
+                        b.params.config.density_calculation
+                        == DensityCalculation.calculated
+                    ):
+                        calculate_variable_from_constraint(
+                            b.dens_mass_solvent[s], b.eq_dens_mass_solvent[s]
+                        )
+                    else:
+                        if s == "Air":
+                            b.dens_mass_solvent[s].set_value(
+                                b.params.config.density_data["Vap"]
+                            )
+                        if s == "H2O":
+                            b.dens_mass_solvent[s].set_value(
+                                b.params.config.density_data["Liq"]
+                            )
+
             for j in b.params.volatile_comps:
                 if b.is_property_constructed("molar_volume_comp"):
                     if (
@@ -889,6 +1043,7 @@ class _AirWaterEqStateBlock(StateBlock):
                         b.molar_volume_comp[j].set_value(
                             b.params.config.molar_volume_data[j]
                         )
+
                 if b.is_property_constructed("henry_comp"):
                     if b.params.config.temp_adjust_henry:
                         t0 = 298 * pyunits.degK
@@ -963,6 +1118,7 @@ class _AirWaterEqStateBlock(StateBlock):
                         b.flow_mol_phase_comp[p, j].set_value(
                             b.flow_mass_phase_comp[p, j] / b.params.mw_comp[j]
                         )
+
                     if b.is_property_constructed("mass_frac_phase_comp"):
                         b.mass_frac_phase_comp[p, j].set_value(
                             b.flow_mass_phase_comp[p, j]
@@ -971,6 +1127,21 @@ class _AirWaterEqStateBlock(StateBlock):
                                 for _j in b.params.phase_comp_dict[p]
                             )
                         )
+
+                    if b.is_property_constructed("dens_mass_phase"):
+                        if (
+                            b.params.config.density_calculation
+                            == DensityCalculation.calculated
+                        ):
+                            calculate_variable_from_constraint(
+                                b.dens_mass_phase[p],
+                                b.eq_dens_mass_phase[p],
+                            )
+                        else:
+                            b.dens_mass_phase[p].set_value(
+                                b.params.config.density_data[p]
+                            )
+
                     if b.is_property_constructed("conc_mass_phase_comp"):
                         b.conc_mass_phase_comp[p, j].set_value(
                             b.dens_mass_phase[p] * b.mass_frac_phase_comp[p, j]
@@ -1273,7 +1444,84 @@ class AirWaterEqStateBlockData(StateBlockData):
     # Property Methods
     def _dens_mass_phase(self):
 
-        add_object_reference(self, "dens_mass_phase", self.params.dens_mass_phase)
+        if self.params.config.density_calculation == DensityCalculation.calculated:
+            # TODO: add McCain relationship for higher salinity brines (>150 g/L)
+            # W.D. McCaln Jr. (1991)
+            # Reservoir-Fluid Property Correlations-State of the Art
+            self.dens_mass_phase = Var(
+                self.params.phase_list,
+                initialize=1e3,
+                bounds=(1, 1e6),
+                units=pyunits.kg * pyunits.m**-3,
+                doc="Mass density of water and air",
+            )
+
+            def rule_dens_mass_phase(b, p):
+                if p == "Liq":
+                    # Sharqawy et al. (2010), eq. 8, 0-180 C, 0-150 g/kg, 0-12 MPa
+                    t = b.temperature[p] - 273.15 * pyunits.K
+                    x = b.mass_frac_phase_comp[p, "TDS"]
+                    dens_mass_sw = (
+                        b.dens_mass_solvent["H2O"]
+                        + b.params.dens_mass_param_B1 * x
+                        + b.params.dens_mass_param_B2 * x * t
+                        + b.params.dens_mass_param_B3 * x * t**2
+                        + b.params.dens_mass_param_B4 * x * t**3
+                        + b.params.dens_mass_param_B5 * x**2 * t**2
+                    )
+                    return b.dens_mass_phase[p] == dens_mass_sw
+
+                if p == "Vap":
+                    # Eq. A1.1, EURAMET (2010)
+                    # density of air
+                    return b.dens_mass_phase[p] == b.dens_mass_solvent["Air"]
+
+            self.eq_dens_mass_phase = Constraint(
+                self.params.phase_list, rule=rule_dens_mass_phase
+            )
+
+        else:
+            add_object_reference(self, "dens_mass_phase", self.params.dens_mass_phase)
+
+    def _dens_mass_solvent(self):
+        self.dens_mass_solvent = Var(
+            self.params.solvent_set,
+            initialize=1e3,
+            bounds=(1, 1e6),
+            units=pyunits.kg * pyunits.m**-3,
+            doc="Mass density of pure water and air",
+        )
+
+        def rule_dens_mass_solvent(b, s):
+            if s == "H2O":
+                # Sharqawy et al. (2010), eq. 8, 0-180 C
+                t = b.temperature["Liq"] - 273.15 * pyunits.K
+                dens_mass_w = (
+                    b.params.dens_mass_param_A1
+                    + b.params.dens_mass_param_A2 * t
+                    + b.params.dens_mass_param_A3 * t**2
+                    + b.params.dens_mass_param_A4 * t**3
+                    + b.params.dens_mass_param_A5 * t**4
+                )
+                return b.dens_mass_solvent[s] == dens_mass_w
+            if s == "Air":
+                # Eq. A1.1, EURAMET (2010)
+                t = b.temperature["Vap"] - 273.15 * pyunits.K
+                pressure_hPa = pyunits.convert(b.pressure, to_units=pyunits.hPa)
+                exponential = exp(b.params.dens_mass_air_exp_param * t)
+                dens_mass_air = (
+                    b.params.dens_mass_air_press_param * pressure_hPa
+                    + b.params.dens_mass_air_rh_param
+                    * b.relative_humidity["H2O"]
+                    * exponential
+                ) * b.temperature["Vap"] ** -1
+                return b.dens_mass_solvent[s] == pyunits.convert(
+                    dens_mass_air, to_units=pyunits.kg / pyunits.m**3
+                )
+
+        self.eq_dens_mass_solvent = Constraint(
+            self.params.solvent_set, rule=rule_dens_mass_solvent
+        )
 
     def _flow_mol_phase_comp(self):
         self.flow_mol_phase_comp = Var(
@@ -1984,7 +2232,7 @@ class AirWaterEqStateBlockData(StateBlockData):
 
             self.relative_humidity = Var(
                 ["H2O"],
-                initialize=0.5,
+                initialize=0.25,
                 bounds=(0, 1),
                 units=pyunits.dimensionless,
                 doc="Relative humidity of air-water system",
