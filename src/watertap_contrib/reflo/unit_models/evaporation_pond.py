@@ -22,6 +22,7 @@ from pyomo.environ import (
     Param,
     Suffix,
     value,
+    exp,
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
@@ -45,6 +46,9 @@ import idaes.logger as idaeslog
 from watertap.core import InitializationMixin
 from watertap.core.solvers import get_solver
 
+from watertap_contrib.reflo.property_models.air_water_equilibrium_properties import (
+    SaturationVaporPressureCalculation,
+)
 from watertap_contrib.reflo.costing.units.evaporation_pond import cost_evaporation_pond
 
 __author__ = "Kurban Sitterley"
@@ -200,6 +204,21 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         weather_data = pd.read_csv(self.config.weather_data_path, skiprows=2)
         weather_data["day_of_year"] = np.arange(len(weather_data)) // 24
+        temp_col = self.config.weather_data_column_dict["temperature"]
+        min_temp = 0.1  # degC
+
+        daily_min = weather_data.groupby("day_of_year").min()
+        daily_min[temp_col] = np.where(
+            daily_min[temp_col] < min_temp, min_temp, daily_min[temp_col]
+        )
+        daily_max = weather_data.groupby("day_of_year").max()
+        daily_max[temp_col] = np.where(
+            daily_max[temp_col] < min_temp, min_temp, daily_max[temp_col]
+        )
+        daily_mean = weather_data.groupby("day_of_year").mean()
+        daily_mean[temp_col] = np.where(
+            daily_mean[temp_col] < min_temp, min_temp, daily_mean[temp_col]
+        )
 
         tmp_dict = dict(**self.config.property_package_args)
         tmp_dict["has_phase_equilibrium"] = False
@@ -220,35 +239,110 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Daily atmospheric properties",
             **tmp_dict,
         )
-
-        for day, pres in enumerate(
-            weather_data.groupby("day_of_year")[
-                self.config.weather_data_column_dict["pressure"]
-            ].mean()
-        ):
-            pres_Pa = pyunits.convert(pres * pyunits.mbar, to_units=pyunits.Pa)
-            self.weather[day].pressure.fix(pres_Pa)
-
         # avoid warnings for days with air temp < 0 degC
         self.weather[:].temperature["Vap"].setlb(200)
         self.weather[:].temperature["Liq"].setlb(200)
 
-        for day, temp in enumerate(
-            weather_data.groupby("day_of_year")[
-                self.config.weather_data_column_dict["temperature"]
-            ].mean()
-        ):
-            if temp <= 0.1:
-                temp = 0.1
+        for day, row in daily_mean.iterrows():
+
+            pres_Pa = pyunits.convert(
+                row[self.config.weather_data_column_dict["pressure"]] * pyunits.mbar,
+                to_units=pyunits.Pa,
+            )
+            self.weather[day].pressure.fix(pres_Pa)
+
+            temp = row[self.config.weather_data_column_dict["temperature"]]
             temp_K = temp + 273.15
             self.weather[day].temperature["Vap"].fix(temp_K)
 
-        for day, rh in enumerate(
-            weather_data.groupby("day_of_year")[
+            rh = row[self.config.weather_data_column_dict["relative_humidity"]]
+            self.weather[day].relative_humidity["H2O"].fix(rh / 100)
+            self.weather[day].pressure_vap_sat["H2O"]
+
+        self.rh_min = Param(
+            self.days_of_year,
+            initialize=daily_min[
                 self.config.weather_data_column_dict["relative_humidity"]
-            ].mean()
+            ]
+            * 1e-2,
+            units=pyunits.dimensionless,
+            doc="Daily minimum relative humidity",
+        )
+
+        self.rh_max = Param(
+            self.days_of_year,
+            initialize=daily_max[
+                self.config.weather_data_column_dict["relative_humidity"]
+            ]
+            * 1e-2,
+            units=pyunits.dimensionless,
+            doc="Daily maximum relative humidity",
+        )
+
+        self.air_temp_min = Param(
+            self.days_of_year,
+            initialize=daily_min[temp_col] + 273.15,
+            units=pyunits.degK,
+            doc="Daily minimum air temperature",
+        )
+
+        self.air_temp_max = Param(
+            self.days_of_year,
+            initialize=daily_max[temp_col] + 273.15,
+            units=pyunits.degK,
+            doc="Daily maximum air temperature",
+        )
+
+        if (
+            self.config.property_package.config.saturation_vapor_pressure_calculation
+            == SaturationVaporPressureCalculation.ArdenBuck
         ):
-            self.weather[day].relative_humidity["H2O"].set_value(rh / 100)
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Exponential term for Arden-Buck saturation vapor pressure calculation",
+            )
+            def arden_buck_exponential_term_min_temp(b, d):
+                w = b.weather[d]
+                b_ = w.arden_buck_coeff_b
+                c = w.arden_buck_coeff_c
+                d_ = w.arden_buck_coeff_d
+                air_temp = pyunits.convert(
+                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                return (b_ - air_temp / d_) * (air_temp / (c + air_temp))
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Exponential term for Arden-Buck saturation vapor pressure calculation",
+            )
+            def arden_buck_exponential_term_max_temp(b, d):
+                w = b.weather[d]
+                b_ = w.arden_buck_coeff_b
+                c = w.arden_buck_coeff_c
+                d_ = w.arden_buck_coeff_d
+                air_temp = pyunits.convert(
+                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                return (b_ - air_temp / d_) * (air_temp / (c + air_temp))
+
+            @self.Expression(
+                self.days_of_year, doc="Actual vapor pressure from air temperature"
+            )
+            def actual_vapor_pressure(b, d):
+                w = b.weather[d]
+                a = w.arden_buck_coeff_a  # millibars
+                pressure_sat_vap_min = pyunits.convert(
+                    a * exp(b.arden_buck_exponential_term_min_temp[d]) * b.rh_max[d],
+                    to_units=pyunits.Pa,
+                )
+                pressure_sat_vap_max = pyunits.convert(
+                    a * exp(b.arden_buck_exponential_term_max_temp[d]) * b.rh_min[d],
+                    to_units=pyunits.Pa,
+                )
+                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
 
         self.water_temp_param1 = Param(
             initialize=1.167,
@@ -262,6 +356,20 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             mutable=True,
             units=pyunits.degK,
             doc="Water temperature correlation intercept",
+        )
+
+        self.emissivity_air_param = Param(
+            initialize=1.24,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Air emissivity equation parameter",
+        )
+
+        self.emissivity_air_exp = Param(
+            initialize=1 / 7,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Air emissivity equation exponent",
         )
 
         self.area_correction_factor_base = Param(
@@ -312,9 +420,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         self.shortwave_radiation = Param(
             self.days_of_year,
-            initialize=weather_data.groupby("day_of_year")[
+            initialize=daily_mean[
                 self.config.weather_data_column_dict["shortwave_radiation"]
-            ].mean()
+            ]
             * 0.0864,  # GHI column; W/m2 to MJ/day/m2
             units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
             doc="Shortwave radiation at location (GHI)",
@@ -378,13 +486,13 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Mass flux of water vapor evaporated according using BREB method",
         )
 
-        self.net_heat_flux_out = Var(
-            self.days_of_year,
-            initialize=100,
-            bounds=(0, None),
-            units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-            doc="Net heat flux out of system (water, soil, ecosystem, etc.)",
-        )
+        # self.net_heat_flux_out = Var(
+        #     self.days_of_year,
+        #     initialize=100,
+        #     bounds=(None, None),
+        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+        #     doc="Net heat flux out of system (water, soil, ecosystem, etc.)",
+        # )
 
         self.area_correction_factor = Var(
             initialize=1,
@@ -470,9 +578,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         @self.Expression(self.days_of_year, doc="Emissivity of air")
         def emissivity_air(b, d):
             p_sat_kPa = pyunits.convert(
-                pyunits.convert(
-                    b.weather[d].pressure_vap["H2O"], to_units=pyunits.kilopascal
-                )
+                pyunits.convert(b.actual_vapor_pressure[d], to_units=pyunits.kilopascal)
                 * pyunits.kilopascal**-1,
                 to_units=pyunits.dimensionless,
             )
@@ -483,7 +589,11 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             )
             air_temp_C = smooth_max(temp_C, 0.1)
 
-            return smooth_min(1.24 * ((p_sat_kPa / air_temp_C) ** (1 / 7)), 0.99)
+            return smooth_min(
+                b.emissivity_air_param
+                * ((p_sat_kPa / air_temp_C) ** (b.emissivity_air_exp)),
+                0.99,
+            )
 
         @self.Expression(self.days_of_year, doc="Incident longwave radiation")
         def longwave_radiation_in(b, d):
@@ -533,52 +643,59 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         @self.Expression(self.days_of_year, doc="Bowen ratio calculation")
         def bowen_ratio(b, d):
-            return smooth_max(
-                pyunits.convert(
-                    b.psychrometric_constant[d]
-                    * (
-                        (
-                            b.weather[d].temperature["Liq"]
-                            - b.weather[d].temperature["Vap"]
-                        )
-                        / (
-                            b.water_activity * b.weather[d].pressure_vap_sat["H2O"]
-                            - b.weather[d].pressure_vap["H2O"]
-                        )
-                    ),
-                    to_units=pyunits.dimensionless,
+            return pyunits.convert(
+                b.psychrometric_constant[d]
+                * (
+                    (b.weather[d].temperature["Liq"] - b.weather[d].temperature["Vap"])
+                    / (
+                        b.water_activity * b.weather[d].pressure_vap_sat["H2O"]
+                        - b.actual_vapor_pressure[d]
+                    )
                 ),
-                5e-4,
+                to_units=pyunits.dimensionless,
             )
 
-        # @self.Expression(self.days_of_year, doc="Daily water temperature change")
-        # def daily_temperature_change(b, d):
-        #     if d == b.days_of_year.first():
-        #         # For Jan 1, previous day is Dec 31
-        #         return (
-        #             b.weather[d].temperature["Liq"]
-        #             - b.weather[b.days_of_year.last()].temperature["Liq"]
-        #         ) * pyunits.day**-1
-        #     else:
-        #         return (
-        #             b.weather[d].temperature["Liq"]
-        #             - b.weather[d - 1].temperature["Liq"]
-        #         ) * pyunits.day**-1
+        @self.Expression(self.days_of_year, doc="Daily water temperature change")
+        def daily_temperature_change(b, d):
+            if d == b.days_of_year.first():
+                # For Jan 1, previous day is Dec 31
+                return (
+                    b.weather[d].temperature["Liq"]
+                    - b.weather[b.days_of_year.last()].temperature["Liq"]
+                ) * pyunits.day**-1
+            else:
+                return (
+                    b.weather[d].temperature["Liq"]
+                    - b.weather[d - 1].temperature["Liq"]
+                ) * pyunits.day**-1
+
+        @self.Expression(
+            self.days_of_year,
+            doc="Net heat flux in pond (to/from water, soil, ecosystem, etc.)",
+        )
+        def net_heat_flux_pond(b, d):
+            return pyunits.convert(
+                prop_in.dens_mass_phase["Liq"]
+                * prop_in.cp_mass_solvent["Liq"]
+                * b.evaporation_pond_depth
+                * b.daily_temperature_change[d],
+                to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            )
 
         @self.Constraint(self.days_of_year)
         def eq_water_temp(b, d):
             air_temp_C = b.weather[d].temperature["Vap"] - 273.15 * pyunits.degK
-            # Minimum water temp is 0.2 degC
+            # Minimum water temp is 0.1 degC
             return b.weather[d].temperature["Liq"] == smooth_max(
                 (b.water_temp_param1 * air_temp_C - b.water_temp_param2)
                 + 273.15 * pyunits.degK,
-                273.35,
+                273.25,
             )
 
         @self.Constraint(self.days_of_year, doc="Net radiation")
         def eq_net_radiation(b, d):
             return b.net_radiation[d] == smooth_max(
-                b.net_solar_radiation[d] - b.net_heat_flux_out[d], 1e-3
+                b.net_solar_radiation[d] - b.net_heat_flux_pond[d], 1e-3
             )
 
         @self.Constraint(
@@ -592,34 +709,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 b.net_radiation[d]
                 / (b.weather[d].dh_vap_mass_solvent * (1 + b.bowen_ratio[d])),
                 to_units=pyunits.kg / (pyunits.m**2 * pyunits.s),
-            )
-
-        @self.Constraint(
-            self.days_of_year, doc="Net heat flux out of surroundings/ecosystem"
-        )
-        def eq_net_heat_flux_out(b, d):
-            if d == b.days_of_year.first():
-                # For Jan 1, previous day is Dec 31
-                daily_temperature_change = (
-                    b.weather[d].temperature["Liq"]
-                    - b.weather[b.days_of_year.last()].temperature["Liq"]
-                ) * pyunits.day**-1
-            else:
-                daily_temperature_change = (
-                    b.weather[d].temperature["Liq"]
-                    - b.weather[d - 1].temperature["Liq"]
-                ) * pyunits.day**-1
-
-            return b.net_heat_flux_out[d] == smooth_max(
-                pyunits.convert(
-                    prop_in.dens_mass_phase["Liq"]
-                    * prop_in.cp_mass_solvent["Liq"]
-                    * b.evaporation_pond_depth
-                    * daily_temperature_change,
-                    # * b.daily_temperature_change[d],
-                    to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-                ),
-                1e-3,
             )
 
         @self.Constraint(doc="Total evaporative area required")
@@ -732,9 +821,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
-        if iscale.get_scaling_factor(self.net_heat_flux_out) is None:
-            iscale.set_scaling_factor(self.net_heat_flux_out, 1)
-
         if iscale.get_scaling_factor(self.area_correction_factor) is None:
             iscale.set_scaling_factor(self.area_correction_factor, 1)
 
@@ -773,13 +859,18 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             "net_shortwave_radiation_in",
             "net_longwave_radiation_in",
             "net_longwave_radiation_out",
-            "net_heat_flux_out",
+            "net_heat_flux_pond",
             "emissivity_air",
             "psychrometric_constant",
             "bowen_ratio",
             "mass_flux_water_vapor",
             "shortwave_radiation",
             "daily_temperature_change",
+            "actual_vapor_pressure",
+            "rh_min",
+            "rh_max",
+            "air_temp_min",
+            "air_temp_max",
         ]
 
         pt = defaultdict(list)
@@ -798,6 +889,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             pt["pressure_vap"].append(value(w.pressure_vap["H2O"]))
             pt["pressure_vap_sat"].append(value(w.pressure_vap_sat["H2O"]))
             pt["dh_vap_mass_solvent"].append(value(w.dh_vap_mass_solvent))
+            pt["relative_humidity"].append(value(w.relative_humidity["H2O"]))
 
         pond_timeseries = pd.DataFrame.from_dict(pt)
 
@@ -806,11 +898,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
     def _get_stream_table_contents(self, time_point=0):
 
         return create_stream_table_dataframe(
-            {
-                "Feed Inlet": self.inlet,
-                "Liquid Outlet": self.outlet,
-                "Precipitated Solids Outlet": self.solids,
-            },
+            {"Feed Inlet": self.inlet},
             time_point=time_point,
         )
 
