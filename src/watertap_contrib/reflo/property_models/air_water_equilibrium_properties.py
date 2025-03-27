@@ -2011,7 +2011,7 @@ class AirWaterEqStateBlockData(StateBlockData):
             ):
                 # NOTE: when using RelativeHumidityCalculation.FromData, the relative_humidity
                 # variable is created but left as a degree of freedom that is fixed during model
-                # build after state blocks are created. 
+                # build after state blocks are created.
                 # See EvaporationPond model for example.
                 pass
 
