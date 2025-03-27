@@ -66,52 +66,6 @@ def test_rh_pressure_vap_config():
         m.fs.properties = AirWaterEq(**props)
 
 
-@pytest.mark.unit
-def test_rh_set_from_data():
-
-    props = dict(
-        relative_humidity_data=0.98,
-        relative_humidity_calculation=RelativeHumidityCalculation.FromData,
-        vapor_pressure_calculation=VaporPressureCalculation.FromRelativeHumidity,
-    )
-    m = ConcreteModel()
-
-    m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.properties = AirWaterEq(**props)
-    m.fs.stream = m.fs.properties.build_state_block([0], defined_state=True)
-
-    stream = m.fs.stream[0]
-    stream.flow_mass_phase_comp["Liq", "H2O"].fix(99.97)
-    stream.flow_mass_phase_comp["Vap", "H2O"].fix(1e-3)
-    stream.flow_mass_phase_comp["Vap", "Air"].fix(7.482)
-    stream.temperature["Liq"].fix(303)
-    stream.temperature["Vap"].fix(283)
-    stream.pressure.fix(101325)
-
-    stream.pressure_vap[...]
-    calculate_scaling_factors(m)
-
-    # check RelativeHumidityCalculation.FromData is working properly
-    assert degrees_of_freedom(stream) == 1
-    # relative_humidity is not a reference
-    assert isinstance(stream.relative_humidity, Var)
-    # relative_humidity is not fixed to data provided via config
-    assert (
-        not value(stream.relative_humidity["H2O"])
-        == m.fs.properties.config.relative_humidity_data
-    )
-
-    err_msg = "When using RelativeHumidityCalculation.FromData, relative_humidity must be fixed prior to initialization."
-
-    with pytest.raises(ValueError, match=err_msg):
-        m.fs.stream.initialize()
-
-    # user must fix value
-    stream.relative_humidity["H2O"].fix(0.55)
-    assert degrees_of_freedom(stream) == 0
-    m.fs.stream.initialize()
-
-
 @pytest.fixture(scope="module")
 def m1():
     """
@@ -244,7 +198,7 @@ def test_properties1(m1):
         "dh_vap_mass_solvent",
         "cp_mass_solvent",
         "dens_mass_phase",
-        "dens_mass_solvent"
+        "dens_mass_solvent",
     ]
 
     for prop in stream_vars:
@@ -945,9 +899,8 @@ def m4():
     Test air-water ONLY system
     """
     props = {
-        "relative_humidity_data": 0.25,
+        "relative_humidity_data": 0.67,
         "vapor_pressure_calculation": VaporPressureCalculation.FromRelativeHumidity,
-        "relative_humidity_calculation": RelativeHumidityCalculation.FromData,
         "saturation_vapor_pressure_calculation": SaturationVaporPressureCalculation.Huang,
     }
 
@@ -1079,7 +1032,7 @@ def test_parameter_block4(m4):
     )
     assert (
         m.fs.properties.config.relative_humidity_calculation
-        == RelativeHumidityCalculation.FromData
+        == RelativeHumidityCalculation.none
     )
     assert (
         m.fs.properties.config.latent_heat_of_vaporization_calculation
@@ -1145,9 +1098,6 @@ def test_properties4(m4):
     calculate_scaling_factors(m)
 
     assert_units_consistent(m)
-
-    assert degrees_of_freedom(m) == 1
-    stream.relative_humidity["H2O"].fix(0.67)
 
     check_dof(m, fail_flag=True)
     m.fs.stream.initialize()
