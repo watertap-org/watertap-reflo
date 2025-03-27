@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -30,10 +30,33 @@ costing_params_dict = {
 }
 
 
-def build_evaporation_pond_cost_param_block(blk):
+def build_recovered_solids_cost_param_block(blk):
 
-    blk.basis_year = 2001
-    blk.basis_currency = getattr(pyo.units, f"USD_{blk.basis_year}")
+    blk.cost = pyo.Param(
+        mutable=True,
+        initialize=0,
+        doc="Revenue from recovered salt",
+        units=pyo.units.USD_2023 / pyo.units.kg,
+    )
+
+    costing = blk.parent_block()
+    costing.register_flow_type("recovered_solids", blk.cost)
+
+
+def build_organic_dye_cost_param_block(blk):
+
+    blk.cost = pyo.Param(
+        mutable=True,
+        initialize=7925.16,  # converted from 30 $/gallon
+        doc="Cost of organic dye for evaporation enhancement",
+        units=pyo.units.USD_2023 / pyo.units.m**3,
+    )
+
+    costing = blk.parent_block()
+    costing.register_flow_type("organic_dye", blk.cost)
+
+
+def build_evaporation_pond_cost_param_block(blk):
 
     blk.liner_thickness_base = pyo.Var(
         initialize=60,
@@ -44,7 +67,7 @@ def build_evaporation_pond_cost_param_block(blk):
     blk.dike_capital_cost_base = pyo.Var(
         initialize=1e3,
         bounds=(0, None),
-        units=blk.basis_currency / pyo.units.acre,
+        units=pyo.units.USD_2001 / pyo.units.acre,
         doc="Dike capital cost per acre base",
     )
 
@@ -58,7 +81,7 @@ def build_evaporation_pond_cost_param_block(blk):
     blk.nominal_liner_capital_cost_base = pyo.Var(
         initialize=1e3,
         bounds=(0, None),
-        units=blk.basis_currency / pyo.units.acre,
+        units=pyo.units.USD_2001 / pyo.units.acre,
         doc="Nominal liner capital cost per acre base",
     )
 
@@ -72,7 +95,7 @@ def build_evaporation_pond_cost_param_block(blk):
     blk.fence_capital_cost_base = pyo.Var(
         initialize=1e3,
         bounds=(0, None),
-        units=blk.basis_currency / pyo.units.acre,
+        units=pyo.units.USD_2001 / pyo.units.acre,
         doc="Fence capital cost per acre base",
     )
 
@@ -86,7 +109,7 @@ def build_evaporation_pond_cost_param_block(blk):
     blk.road_capital_cost_base = pyo.Var(
         initialize=1e3,
         bounds=(0, None),
-        units=blk.basis_currency / pyo.units.acre,
+        units=pyo.units.USD_2001 / pyo.units.acre,
         doc="Road capital cost per acre base",
     )
 
@@ -125,14 +148,36 @@ def build_evaporation_pond_cost_param_block(blk):
         doc="Liner replacement frequency",
     )
 
-    blk.precipitate_handling_cost = pyo.Var(
+    blk.recovered_solids_handling_cost = pyo.Var(
         initialize=0,
-        bounds=(None, None),
+        bounds=(0, None),
         units=blk.parent_block().base_currency / pyo.units.kg,
-        doc="Cost to handle precipitated solids",
+        doc="Cost to excavate and process precipitated solids",
+    )
+
+    blk.enhancement_dose_basis = pyo.Var(
+        initialize=0.5,
+        bounds=(0, None),
+        units=pyo.units.gallon / pyo.units.acre,
+        doc="Dosing basis for enhancement chemical",
+    )
+
+    blk.enhancement_replacement_frequency = pyo.Var(
+        initialize=2,
+        bounds=(0, None),
+        units=pyo.units.week**-1,
+        doc="Frequency of enhancement chemical replacement",
     )
 
 
+@register_costing_parameter_block(
+    build_rule=build_organic_dye_cost_param_block,
+    parameter_block_name="organic_dye",
+)
+@register_costing_parameter_block(
+    build_rule=build_recovered_solids_cost_param_block,
+    parameter_block_name="recovered_solids",
+)
 @register_costing_parameter_block(
     build_rule=build_evaporation_pond_cost_param_block,
     parameter_block_name="evaporation_pond",
@@ -148,11 +193,10 @@ def cost_evaporation_pond(blk):
     for cv, d in costing_params_dict.items():
         cvps = d[dike_height]  # costing var params
         for i, n in zip([0, 1], ["base", "exp"]):
-            v = getattr(pond_params, f"{cv}_{n}")
+            # v = getattr(pond_params, f"{cv}_{n}")
+            v = pond_params.find_component(f"{cv}_{n}")
             v.fix(cvps[i])
 
-    blk.basis_year = 2001
-    blk.basis_currency = getattr(pyo.units, f"USD_{blk.basis_year}")
     evap_area_acre_dim = pyo.units.convert(
         blk.unit_model.evaporative_area_acre * pyo.units.acre**-1,
         to_units=pyo.units.dimensionless,
@@ -240,18 +284,11 @@ def cost_evaporation_pond(blk):
         doc="Road capital cost",
     )
 
-    blk.evaporation_enhancement_capital_cost = pyo.Var(
-        initialize=0,
-        bounds=(0, None),
-        units=blk.costing_package.base_currency,
-        doc="Capital cost for evaporation enhancement technology",
-    )
-
-    blk.precipitate_handling_operating_cost = pyo.Var(
+    blk.recovered_solids_handling_operating_cost = pyo.Var(
         initialize=0.1,
         bounds=(0, None),
         units=blk.costing_package.base_currency / pyo.units.year,
-        doc="Operating cost to handle precipitated solids",
+        doc="Operating cost to handle recovered solids",
     )
 
     blk.liner_replacement_operating_cost = pyo.Var(
@@ -366,15 +403,6 @@ def cost_evaporation_pond(blk):
 
     capital_cost_expr += blk.road_capital_cost
 
-    @blk.Constraint(doc="Evaporation enhancement technology capital cost")
-    def evaporation_enhancement_capital_cost_constraint(b):
-        return (
-            b.evaporation_enhancement_capital_cost
-            == 0 * b.costing_package.base_currency
-        )  # placeholder
-
-    capital_cost_expr += blk.evaporation_enhancement_capital_cost
-
     @blk.Constraint(doc="Capital cost for evaporation pond")
     def capital_cost_constraint(b):
         return b.capital_cost == capital_cost_expr
@@ -390,15 +418,30 @@ def cost_evaporation_pond(blk):
 
     fixed_operating_cost_expr += blk.liner_replacement_operating_cost
 
-    @blk.Constraint(doc="Solids handling operating cost")
-    def precipitate_handling_operating_cost_constraint(b):
-        return b.precipitate_handling_operating_cost == pyo.units.convert(
-            b.unit_model.mass_flow_precipitate * pond_params.precipitate_handling_cost,
+    @blk.Constraint(doc="Recovered solids handling operating cost")
+    def recovered_solids_handling_operating_cost_constraint(b):
+        return b.recovered_solids_handling_operating_cost == pyo.units.convert(
+            b.unit_model.mass_flow_precipitate
+            * pond_params.recovered_solids_handling_cost,
             to_units=b.costing_package.base_currency / b.costing_package.base_period,
         )
 
-    fixed_operating_cost_expr += blk.precipitate_handling_operating_cost
+    fixed_operating_cost_expr += blk.recovered_solids_handling_operating_cost
 
     @blk.Constraint(doc="Fixed operating cost for evaporation pond")
     def fixed_operating_cost_constraint(b):
         return b.fixed_operating_cost == fixed_operating_cost_expr
+
+    @blk.Expression(doc="Flow of enhancement chemical")
+    def enhancement_chemical_flow(b):
+        return pyo.units.convert(
+            b.unit_model.total_evaporative_area_required
+            * pond_params.enhancement_dose_basis
+            * pond_params.enhancement_replacement_frequency,
+            to_units=pyo.units.m**3 / pyo.units.year,
+        )
+
+    blk.costing_package.cost_flow(blk.enhancement_chemical_flow, "organic_dye")
+    blk.costing_package.cost_flow(
+        blk.unit_model.mass_flow_precipitate, "recovered_solids"
+    )

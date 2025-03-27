@@ -335,6 +335,7 @@ class TestEvaporationPond:
             flow_rate=m.fs.unit.properties_in[0].flow_vol_phase["Liq"]
         )
         m.fs.costing.utilization_factor.fix(1)
+        m.fs.costing.organic_dye.cost.set_value(0)
         m.fs.obj = Objective(expr=m.fs.costing.LCOW)
 
         m.fs.costing.initialize()
@@ -344,23 +345,19 @@ class TestEvaporationPond:
 
         sys_cost_results = {
             "aggregate_capital_cost": 418046.3,
-            "aggregate_fixed_operating_cost": 7033.17,
+            "aggregate_fixed_operating_cost": 7033.1,
             "aggregate_direct_capital_cost": 418046.3,
             "total_capital_cost": 418046.3,
-            "total_operating_cost": 19574.56,
-            "maintenance_labor_chemical_operating_cost": 12541.38,
-            "total_fixed_operating_cost": 19574.56,
-            "total_annualized_cost": 66377.33,
+            "total_operating_cost": 19574.5,
+            "maintenance_labor_chemical_operating_cost": 12541.3,
+            "total_fixed_operating_cost": 19574.5,
+            "total_annualized_cost": 66377.3,
             "LCOW": 4.4832,
         }
 
         for v, r in sys_cost_results.items():
             sc = getattr(m.fs.costing, v)
-            if sc.is_indexed():
-                for i, s in r.items():
-                    assert pytest.approx(value(sc[i]), rel=1e-3) == s
-            else:
-                assert pytest.approx(value(sc), rel=1e-3) == r
+            assert pytest.approx(value(sc), rel=1e-3) == r
 
         pond_cost_results = {
             "dike_cost_per_acre": 28563.89,
@@ -374,8 +371,7 @@ class TestEvaporationPond:
             "liner_capital_cost": 140663.52,
             "fence_capital_cost": 67876.28,
             "road_capital_cost": 11347.4,
-            "evaporation_enhancement_capital_cost": 0.0,
-            "precipitate_handling_operating_cost": 0.0,
+            "recovered_solids_handling_operating_cost": 0.0,
             "liner_replacement_operating_cost": 7033.17,
             "capital_cost": 418046.3,
             "direct_capital_cost": 418046.3,
