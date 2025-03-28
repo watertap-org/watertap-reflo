@@ -18,6 +18,15 @@ from ..util import (
 from watertap.costing.util import register_costing_parameter_block
 
 
+"""
+Developed from 
+
+U.S. Dept. of Interior & Michael C. Mickley (2006)
+"Membrane Concentrate Disposal: Practices and Regulation"
+Desalination and Water Purification Research and Development Program Report No. 123 (Second Edition)
+Chapter 10: Evaporation Pond Disposal
+"""
+
 costing_params_dict = {
     "dike_capital_cost": {12: (29471, -0.317), 8: (19000, -0.369), 4: (84624, -0.431)},
     "nominal_liner_capital_cost": {
@@ -432,16 +441,19 @@ def cost_evaporation_pond(blk):
     def fixed_operating_cost_constraint(b):
         return b.fixed_operating_cost == fixed_operating_cost_expr
 
-    @blk.Expression(doc="Flow of enhancement chemical")
-    def enhancement_chemical_flow(b):
-        return pyo.units.convert(
-            b.unit_model.total_evaporative_area_required
-            * pond_params.enhancement_dose_basis
-            * pond_params.enhancement_replacement_frequency,
-            to_units=pyo.units.m**3 / pyo.units.year,
-        )
+    if blk.unit_model.config.add_enhancement:
 
-    blk.costing_package.cost_flow(blk.enhancement_chemical_flow, "organic_dye")
+        @blk.Expression(doc="Flow of enhancement chemical")
+        def enhancement_chemical_flow(b):
+            return pyo.units.convert(
+                b.unit_model.total_evaporative_area_required
+                * pond_params.enhancement_dose_basis
+                * pond_params.enhancement_replacement_frequency,
+                to_units=pyo.units.m**3 / pyo.units.year,
+            )
+
+        blk.costing_package.cost_flow(blk.enhancement_chemical_flow, "organic_dye")
+
     blk.costing_package.cost_flow(
         blk.unit_model.mass_flow_precipitate, "recovered_solids"
     )
