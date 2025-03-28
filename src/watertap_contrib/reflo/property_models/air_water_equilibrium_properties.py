@@ -1416,7 +1416,7 @@ class _AirWaterEqStateBlock(StateBlock):
                 else:
                     # relative_humidity was fixed when created
                     # we don't fix it to avoid overwriting weather data
-                    pass 
+                    pass
 
         for k in self.keys():
             dof = degrees_of_freedom(self[k])
