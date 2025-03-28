@@ -140,11 +140,12 @@ class TroughSurrogateData(SolarEnergyBaseData):
             sf = iscale.get_scaling_factor(self.electricity, default=1e-3, warning=True)
             iscale.set_scaling_factor(self.electricity, sf)
 
-
         if iscale.get_scaling_factor(self.total_aperture_area) is None:
-            sf = iscale.get_scaling_factor(self.total_aperture_area, default=1e-6, warning=True)
+            sf = iscale.get_scaling_factor(
+                self.total_aperture_area, default=1e-6, warning=True
+            )
             iscale.set_scaling_factor(self.total_aperture_area, sf)
-        
+
         if iscale.get_scaling_factor(self.land_area) is None:
             sf = iscale.get_scaling_factor(self.land_area, default=1e-1, warning=True)
             iscale.set_scaling_factor(self.land_area, sf)

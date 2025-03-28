@@ -130,7 +130,6 @@ def init_cst(blk):
     blk.unit.initialize()
 
 
-
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
@@ -144,6 +143,7 @@ def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
         blk.unit.hours_storage.fix(hours_storage)
 
     blk.unit.heat_load.fix(heat_load)
+
 
 def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
