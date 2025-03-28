@@ -315,8 +315,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
         )
 
         # Creating default effluent composition of all solutes other than Ca and Mg
-
-        # TODO: determine if removal of Alk can be calculated
         removal_eff_dict = dict(
             zip(
                 non_hardness_comps,
@@ -1027,7 +1025,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 to_units=pyunits.kg / pyunits.s,
             )
 
-        # TODO:
+        # Alkalinity removal for each softening type is:
         # single stage lime (example in book Crittenden): source water alkalinity - Ca hardness + residual Ca hardness
         # excess lime (example in book Crittenden): source water alkalinity - Ca hardness - excess lime dose + residual Ca hardness
         # single stage lime soda (only hydroxide alkalinity): source water alkalinity + soda ash - total hardness + residual hardness
