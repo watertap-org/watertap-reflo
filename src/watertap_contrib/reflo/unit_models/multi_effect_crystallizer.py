@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -10,12 +10,8 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-
-# Import Pyomo libraries
 from pyomo.environ import (
-    ConcreteModel,
     check_optimal_termination,
-    assert_optimal_termination,
     Var,
     Constraint,
     Expression,
@@ -25,22 +21,18 @@ from pyomo.environ import (
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
 
-# Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
     MaterialBalanceType,
     UnitModelBlockData,
     useDefault,
     FlowsheetBlock,
-    UnitModelCostingBlock,
 )
 from idaes.core.util.exceptions import InitializationError, ConfigurationError
 import idaes.core.util.scaling as iscale
 from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.util.tables import create_stream_table_dataframe
 import idaes.logger as idaeslog
-from idaes.core.util.constants import Constants
 
 from watertap.core import InitializationMixin, ControlVolume0DBlock
 from watertap.core.solvers import get_solver
@@ -67,8 +59,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             default=False,
             description="Dynamic model flag - must be False",
             doc="""Indicates whether this model will be dynamic or not,
-    **default** = False. The filtration unit does not support dynamic
-    behavior, thus this must be False.""",
+    **default** = False.""",
         ),
     )
 
@@ -79,8 +70,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             domain=In([False]),
             description="Holdup construction flag - must be False",
             doc="""Indicates whether holdup terms should be constructed or not.
-    **default** - False. The filtration unit does not have defined volume, thus
-    this must be False.""",
+    **default** - False.""",
         ),
     )
 
@@ -131,7 +121,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             default=4,
             domain=PositiveInt,
             description="Number of effects of the multi-effect crystallizer system",
-            doc="""A ConfigBlock specifying the number of effects, which can only be 4.""",
+            doc="""Number of effects of the multi-effect crystallizer system.""",
         ),
     )
 
@@ -251,11 +241,11 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
                 @effect.Constraint(doc="Heat transfer equation for first effect")
                 def eq_heat_transfer_effect_1(b):
-                    return (
-                        b.work_mechanical[0]
-                        == b.overall_heat_transfer_coefficient
+                    return b.work_mechanical[0] == pyunits.convert(
+                        b.overall_heat_transfer_coefficient
                         * b.heat_exchanger_area
-                        * b.delta_temperature[0]
+                        * b.delta_temperature[0],
+                        to_units=pyunits.kJ * pyunits.s**-1,
                     )
 
                 @effect.Constraint(doc="Calculate mass flow rate of heating steam")
@@ -264,7 +254,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                         pyunits.convert(
                             b.heating_steam[0].dh_vap_mass
                             * b.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"],
-                            to_units=pyunits.kJ / pyunits.s,
+                            to_units=pyunits.kJ * pyunits.s**-1,
                         )
                     )
 
@@ -283,7 +273,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     - effect.temperature_operating,
                     doc=f"Change in temperature at inlet for effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_delta_temperature_inlet_effect_{n}", del_temp_in_constr
                 )
 
@@ -293,7 +283,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     - effect.properties_in[0].temperature,
                     doc=f"Change in temperature at outlet for effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_delta_temperature_outlet_effect_{n}", del_temp_out_constr
                 )
 
@@ -304,14 +294,17 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                     * effect.delta_temperature[0],
                     doc=f"Heat transfer equation for effect {n}",
                 )
-                effect.add_component(f"eq_heat_transfer_effect_{n}", hx_constr)
+                self.add_component(f"eq_heat_transfer_effect_{n}", hx_constr)
 
                 energy_flow_constr = Constraint(
                     expr=effect.work_mechanical[0]
-                    == prev_effect.energy_flow_superheated_vapor,
+                    == pyunits.convert(
+                        prev_effect.energy_flow_superheated_vapor,
+                        to_units=pyunits.kJ * pyunits.s**-1,
+                    ),
                     doc=f"Energy supplied to effect {n}",
                 )
-                effect.add_component(
+                self.add_component(
                     f"eq_energy_for_effect_{n}_from_effect_{n - 1}", energy_flow_constr
                 )
 
@@ -456,7 +449,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             else:
                 # Deactivate contraint that links energy flow between effects
                 linking_constr = getattr(
-                    eff.effect, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
+                    self, f"eq_energy_for_effect_{n}_from_effect_{n - 1}"
                 )
                 linking_constr.deactivate()
                 eff.effect.initialize(**init_args)
