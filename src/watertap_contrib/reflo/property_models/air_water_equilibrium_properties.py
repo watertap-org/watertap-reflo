@@ -2510,6 +2510,15 @@ class AirWaterEqStateBlockData(StateBlockData):
                     sf = value(self.params.config.density_data[p]) ** -1
                     iscale.set_scaling_factor(self.dens_mass_phase[p], sf)
 
+        if self.is_property_constructed("dens_mass_solvent"):
+            for s in self.params.solvent_set:
+                if iscale.get_scaling_factor(self.dens_mass_solvent[s]) is None:
+                    if s == "H2O":
+                        sf = value(self.params.config.density_data["Liq"]) ** -1
+                    if s == "Air":
+                        sf = value(self.params.config.density_data["Vap"]) ** -1
+                    iscale.set_scaling_factor(self.dens_mass_solvent[s], sf)
+
         if self.is_property_constructed("visc_d_phase"):
             for p in self.params.phase_list:
                 if iscale.get_scaling_factor(self.visc_d_phase[p]) is None:
