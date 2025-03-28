@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -169,8 +169,7 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
         comps = self.config.property_package.solute_set
         if not all(rc in comps for rc in required_comps):
             raise ConfigurationError(
-                f"ChemicalSoftening requires Ca_2+, Mg_2+, and Alkalinity_2- as solutes in inlet stream"
-                " but not all were provided.",
+                "ChemicalSoftening requires Ca_2+, Mg_2+, and Alkalinity_2- as solutes in inlet stream but not all were provided."
             )
         non_hardness_comps = [
             j
