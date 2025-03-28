@@ -6,13 +6,13 @@ setup(
     packages=find_namespace_packages(where="src"),
     package_dir={"": "src"},
     author="WaterTAP-REFLO contributors",
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=[
         # "watertap @ https://github.com/watertap-org/watertap/archive/main.zip", # uncomment if we need to point to main mid release cycle
-        "watertap==1.0.0rc0",
-        "idaes-pse==2.5.0",
-        "pyomo==6.7.3",
-        "nrel-pysam == 6.0.0",
+        "watertap==1.2.0",
+        "idaes-pse>=2.7.0,<2.8.0rc0",
+        "pyomo>=6.6.1",
+        "nrel-pysam==6.0.0",
     ],
     extras_require={
         "dev": [
