@@ -419,12 +419,14 @@ constructed,
         # TODO : Support both mass and mole based flows
         def rule_Cmin(blk, t):
             caph = (
-                blk.hot_side.properties_in[t].flow_vol*blk.hot_side.properties_in[t].dens_mass_phase['Liq']
-                * blk.hot_side.properties_in[t].cp_mass_phase['Liq']
+                blk.hot_side.properties_in[t].flow_vol
+                * blk.hot_side.properties_in[t].dens_mass_phase["Liq"]
+                * blk.hot_side.properties_in[t].cp_mass_phase["Liq"]
             )
             capc = pyunits.convert(
-                blk.cold_side.properties_in[t].flow_vol*blk.cold_side.properties_in[t].dens_mass_phase['Liq']
-                * blk.cold_side.properties_in[t].cp_mass_phase['Liq'],
+                blk.cold_side.properties_in[t].flow_vol
+                * blk.cold_side.properties_in[t].dens_mass_phase["Liq"]
+                * blk.cold_side.properties_in[t].cp_mass_phase["Liq"],
                 to_units=hunits("power") / hunits("temperature"),
             )
             return smooth_min(caph, capc, eps=blk.eps_cmin)
@@ -435,12 +437,14 @@ constructed,
 
         def rule_Cmax(blk, t):
             caph = (
-                blk.hot_side.properties_in[t].flow_vol*blk.hot_side.properties_in[t].dens_mass_phase['Liq']
-                * blk.hot_side.properties_in[t].cp_mass_phase['Liq']
+                blk.hot_side.properties_in[t].flow_vol
+                * blk.hot_side.properties_in[t].dens_mass_phase["Liq"]
+                * blk.hot_side.properties_in[t].cp_mass_phase["Liq"]
             )
             capc = pyunits.convert(
-                blk.cold_side.properties_in[t].flow_vol*blk.cold_side.properties_in[t].dens_mass_phase['Liq']
-                * blk.cold_side.properties_in[t].cp_mass_phase['Liq'],
+                blk.cold_side.properties_in[t].flow_vol
+                * blk.cold_side.properties_in[t].dens_mass_phase["Liq"]
+                * blk.cold_side.properties_in[t].cp_mass_phase["Liq"],
                 to_units=hunits("power") / hunits("temperature"),
             )
             return smooth_max(caph, capc, eps=blk.eps_cmin)

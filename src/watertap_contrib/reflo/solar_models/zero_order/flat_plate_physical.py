@@ -393,7 +393,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             optarg=optarg,
             solver=solver,
             state_args=state_args,
-            hold_state = True
+            hold_state=True,
         )
 
         if state_args is None:
@@ -422,7 +422,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
         # solve unit
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
-        
+
         self.inlet_block.release_state(flags, outlvl=outlvl)
         init_log.info("FPC initialization status {}.".format(idaeslog.condition(res)))
 
