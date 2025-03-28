@@ -125,6 +125,9 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
 
     T_cold = tech_model.value("custom_mains")[0]  # [C]
     heat_load = heat_load_mwt * 1e3 if heat_load_mwt is not None else None  # [kWt]
+    print(
+        f"Running:\n\tHeat Load = {heat_load_mwt}\n\tHours Storage = {hours_storage}\n\tTemperature Hot = {temperature_hot}"
+    )
 
     if heat_load is not None:
         # Set heat load (system capacity)
@@ -205,7 +208,7 @@ def plot_contour(
         ax.set_aspect(abs((x_right - x_left) / (y_low - y_high)) * aspect)
 
     levels = 25
-    df2 = df[[x_label, y_label, z_label]].pivot(y_label, x_label, z_label)
+    df2 = df[[x_label, y_label, z_label]].pivot([y_label, x_label, z_label])
     y = df2.index.values
     x = df2.columns.values
     z = df2.values
@@ -321,7 +324,7 @@ def plot_3ds(df):
         units=["MWt", "C", "kWht"],
     )
     plot_3d(
-        df.query("heat_load == 500"),
+        df.query("heat_load == 6"),
         "hours_storage",
         "temperature_hot",
         "heat_annual",
@@ -335,14 +338,14 @@ def plot_3ds(df):
         units=["MWt", "hr", "kWhe"],
     )
     plot_3d(
-        df.query("hours_storage == 12"),
+        df.query("hours_storage == 6"),
         "heat_load",
         "temperature_hot",
         "electricity_annual",
         units=["MWt", "C", "kWhe"],
     )
     plot_3d(
-        df.query("heat_load == 500"),
+        df.query("heat_load == 6"),
         "hours_storage",
         "temperature_hot",
         "electricity_annual",
@@ -407,14 +410,16 @@ def debug_t_hot(tech_model):
 #########################################################################################################
 if __name__ == "__main__":
     debug = False
-    plot_saved_dataset = False  # plot previously run, saved data?
+    plot_saved_dataset = True  # plot previously run, saved data?
     run_parametrics = True
     use_multiprocessing = True
 
     # heat_loads = np.arange(5, 115, 10)          # [MWt]
-    heat_loads = np.arange(1, 400, 25)  # [MWt]
-    hours_storages = np.arange(0, 27, 1)  # [hr]
+    heat_loads = np.linspace(1, 25, 25)  # [MWt]
+    hours_storages = np.linspace(0, 12, 13)  # [hr]
     temperature_hots = np.arange(50, 102, 2)  # [C]
+    # print(temperature_hots)
+    # assert False
     temperatures = {
         "T_cold": 20,
         "T_hot": 70,  # this will be overwritten by temperature_hot value
@@ -425,10 +430,13 @@ if __name__ == "__main__":
     weather_file = join(
         dirname(__file__), "tucson_az_32.116521_-110.933042_psmv3_60_tmy.csv"
     )
+    weather_file = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/KBHDP/el_paso_texas-KBHDP-weather.csv"
     dataset_filename = join(
-        dirname(__file__), "flat_plate_data_heat_load_1_400.pkl"
+        dirname(__file__), "FPC_Heat_Load.pkl"
     )  # output dataset for surrogate training
-
+    dataset_filename = join(
+        dirname(__file__), "FPC_KBHDP_el_paso.pkl"
+    )  # output dataset for surrogate training
     config_data = read_module_datafile(param_file)
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
@@ -445,7 +453,7 @@ if __name__ == "__main__":
         # Load and plot saved df (x, y z)
         df = pd.read_pickle(dataset_filename)
         plot_2d(
-            df.query("hours_storage == 12 & heat_load == 500"),
+            df.query("hours_storage == 6 & heat_load == 6"),
             "temperature_hot",
             "heat_annual",
             units=["C", "kWht"],
@@ -453,6 +461,7 @@ if __name__ == "__main__":
         plot_3ds(df)
         plot_contours(df)
 
+    # assert False
     # Run model for single parameter set
     result = run_model(
         tech_model, heat_load_mwt=200, hours_storage=1, temperature_hot=70
