@@ -1414,9 +1414,9 @@ class _AirWaterEqStateBlock(StateBlock):
                             b.pressure_vap["H2O"] / b.pressure_vap_sat["H2O"]
                         )
                 else:
-                    b.relative_humidity["H2O"].fix(
-                        b.params.config.relative_humidity_data
-                    )
+                    # relative_humidity was fixed when created
+                    # we don't fix it to avoid overwriting weather data
+                    pass 
 
         for k in self.keys():
             dof = degrees_of_freedom(self[k])
