@@ -9,7 +9,6 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
-from collections import defaultdict
 
 import pandas as pd
 import numpy as np
@@ -26,7 +25,6 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 # Import IDAES cores
 from idaes.core import (
@@ -35,7 +33,7 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
-from idaes.core.util.math import smooth_min, smooth_max, smooth_bound
+from idaes.core.util.math import smooth_min, smooth_max
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.constants import Constants
 from idaes.core.util.config import is_physical_parameter_block
@@ -55,10 +53,40 @@ __author__ = "Kurban Sitterley"
 
 
 """
-REFERENCES
+References
 
+T. T. Shi, D. X. Guan, J. B. Wu, A. Z. Wang, C. J. Jin and S. J. Han (2008)
+"Comparison of methods for estimating evapotranspiration rate of dry forest canopy: 
+    Eddy covariance, Bowen ratio energy balance, and Penman-Monteith equation"
+Journal of Geophysical Research: Atmospheres 2008 Vol. 113 Issue D19. doi: 10.1029/2008jd010174
 
+S. Ali, N. C. Ghosh and R. Singh (2007).
+"Evaluating best evaporation estimate model for water surface evaporation in semi-arid region, India"
+Hydrological Processes 2007 Vol. 22 Issue 8 Pages 1093-1106. doi: 10.1002/hyp.6664
 
+I. M. Vardavas and A. Fountoulakis (1996).
+"Estimation of lake evaporation from standard meteorological measurements: 
+    application to four Australian lakes in different climatic regions"
+Ecological Modelling 1996 Vol. 84 Issue 1-3 Pages 139-150. doi: 10.1016/0304-3800(94)00126-x
+    
+Food and Agriculture Organization of the United Nations (FAO) (1998)
+"FAO Irrigation and Drainage Paper No. 56 - Crop Evapotranspiration"
+ISBN 92-5-104219-5
+https://www.fao.org/4/x0490e/x0490e00.htm
+
+S. W. Hostetler, P. J. Bartlein (1990)
+"Simulation of lake evaporation with application to modeling lake level 
+    variations of Harney-Malheur Lake, Oregon"
+Water Resources Research 1990 Vol. 26 Issue 10 Pages 2603-2612. doi: 10.1029/WR026i010p02603
+
+S. Ali, N. C. Ghosh, P. K. Mishra and R. K. Singh (2015)
+"A holistic water depth simulation model for small ponds"
+Journal of Hydrology 2015 Vol. 529 Pages 1464-1477. doi: 10.1016/j.jhydrol.2015.08.035
+
+U.S. Dept. of Interior & Michael C. Mickley (2006)
+"Membrane Concentrate Disposal: Practices and Regulation"
+Desalination and Water Purification Research and Development Program Report No. 123 (Second Edition)
+Chapter 10: Evaporation Pond Disposal
 """
 
 area_correction_factor_param_dict = {
@@ -120,6 +148,19 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
     )
 
     CONFIG.declare(
+        "property_package_args",
+        ConfigBlock(
+            implicit=True,
+            description="Arguments to use for constructing property packages",
+            doc="""A ConfigBlock with arguments to be passed to a property block(s)
+    and used when constructing these,
+    **default** - None.
+    **Valid values:** {
+    see property package for documentation.}""",
+        ),
+    )
+
+    CONFIG.declare(
         "weather_data_path",
         ConfigValue(
             default=useDefault,
@@ -145,26 +186,24 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
     )
 
     CONFIG.declare(
-        "property_package_args",
-        ConfigBlock(
-            implicit=True,
-            description="Arguments to use for constructing property packages",
-            doc="""A ConfigBlock with arguments to be passed to a property block(s)
-    and used when constructing these,
-    **default** - None.
-    **Valid values:** {
-    see property package for documentation.}""",
-        ),
-    )
-    CONFIG.declare(
         "dike_height",
         ConfigValue(
             default=8,
             domain=PositiveInt,
             description="Height of the dike used for evaporation pond.",
-            doc="""A ConfigBlock specifying the height of the dike of the 
-            evaporation pond. Units are ft. Must be 4, 8, or 12. 
-            Determines coefficient for calculating various costing and design parameters.""",
+            doc="""Specifies the height of the dike for the evaporation pond. Units are ft. 
+            Must be 4, 8, or 12. Determines coefficient for calculating various costing and design parameters.""",
+        ),
+    )
+
+    CONFIG.declare(
+        "add_enhancement",
+        ConfigValue(
+            default=False,
+            domain=bool,
+            description="Flag to indicate if evaporation enhancement is added.",
+            doc="""Specifies if the evaporation enhancement is added. 
+            If True, user should modify evaporation_rate_enhancement_adjustment_factor to be >1.""",
         ),
     )
 
@@ -207,17 +246,23 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         temp_col = self.config.weather_data_column_dict["temperature"]
         min_temp = 0.1  # degC
 
-        daily_min = weather_data.groupby("day_of_year").min()
-        daily_min[temp_col] = np.where(
-            daily_min[temp_col] < min_temp, min_temp, daily_min[temp_col]
+        weather_daily_min = weather_data.groupby("day_of_year").min()
+        weather_daily_min[temp_col] = np.where(
+            weather_daily_min[temp_col] < min_temp,
+            min_temp,
+            weather_daily_min[temp_col],
         )
-        daily_max = weather_data.groupby("day_of_year").max()
-        daily_max[temp_col] = np.where(
-            daily_max[temp_col] < min_temp, min_temp, daily_max[temp_col]
+        weather_daily_max = weather_data.groupby("day_of_year").max()
+        weather_daily_max[temp_col] = np.where(
+            weather_daily_max[temp_col] < min_temp,
+            min_temp,
+            weather_daily_max[temp_col],
         )
-        daily_mean = weather_data.groupby("day_of_year").mean()
-        daily_mean[temp_col] = np.where(
-            daily_mean[temp_col] < min_temp, min_temp, daily_mean[temp_col]
+        weather_daily_mean = weather_data.groupby("day_of_year").mean()
+        weather_daily_mean[temp_col] = np.where(
+            weather_daily_mean[temp_col] < min_temp,
+            min_temp,
+            weather_daily_mean[temp_col],
         )
 
         tmp_dict = dict(**self.config.property_package_args)
@@ -243,7 +288,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         self.weather[:].temperature["Vap"].setlb(200)
         self.weather[:].temperature["Liq"].setlb(200)
 
-        for day, row in daily_mean.iterrows():
+        for day, row in weather_daily_mean.iterrows():
 
             pres_Pa = pyunits.convert(
                 row[self.config.weather_data_column_dict["pressure"]] * pyunits.mbar,
@@ -261,7 +306,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         self.rh_min = Param(
             self.days_of_year,
-            initialize=daily_min[
+            initialize=weather_daily_min[
                 self.config.weather_data_column_dict["relative_humidity"]
             ]
             * 1e-2,
@@ -271,7 +316,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         self.rh_max = Param(
             self.days_of_year,
-            initialize=daily_max[
+            initialize=weather_daily_max[
                 self.config.weather_data_column_dict["relative_humidity"]
             ]
             * 1e-2,
@@ -281,65 +326,160 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         self.air_temp_min = Param(
             self.days_of_year,
-            initialize=daily_min[temp_col] + 273.15,
+            initialize=weather_daily_min[temp_col] + 273.15,
             units=pyunits.degK,
             doc="Daily minimum air temperature",
         )
 
         self.air_temp_max = Param(
             self.days_of_year,
-            initialize=daily_max[temp_col] + 273.15,
+            initialize=weather_daily_max[temp_col] + 273.15,
             units=pyunits.degK,
             doc="Daily maximum air temperature",
         )
 
         if (
             self.config.property_package.config.saturation_vapor_pressure_calculation
-            == SaturationVaporPressureCalculation.ArdenBuck
+            == SaturationVaporPressureCalculation.Huang
         ):
+            a = self.config.property_package.huang_coeff_A
+            b_ = self.config.property_package.huang_coeff_B
+            c = self.config.property_package.huang_coeff_C
+            d1 = self.config.property_package.huang_coeff_D1
+            d2 = self.config.property_package.huang_coeff_D2
 
             @self.Expression(
                 self.days_of_year,
-                doc="Exponential term for Arden-Buck saturation vapor pressure calculation",
+                doc="Huang saturation vapor pressure at min air temp",
             )
-            def arden_buck_exponential_term_min_temp(b, d):
-                w = b.weather[d]
-                b_ = w.arden_buck_coeff_b
-                c = w.arden_buck_coeff_c
-                d_ = w.arden_buck_coeff_d
+            def huang_press_sat_vap_min_temp(b, d):
                 air_temp = pyunits.convert(
                     (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
                     to_units=pyunits.dimensionless,
                 )
-                return (b_ - air_temp / d_) * (air_temp / (c + air_temp))
+                huang_exp = a - (b_ / (air_temp + d1))
+                p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
+                return p_vap_sat
 
             @self.Expression(
                 self.days_of_year,
-                doc="Exponential term for Arden-Buck saturation vapor pressure calculation",
+                doc="Huang saturation vapor pressure at max air temp",
             )
-            def arden_buck_exponential_term_max_temp(b, d):
-                w = b.weather[d]
-                b_ = w.arden_buck_coeff_b
-                c = w.arden_buck_coeff_c
-                d_ = w.arden_buck_coeff_d
+            def huang_press_sat_vap_max_temp(b, d):
                 air_temp = pyunits.convert(
                     (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
                     to_units=pyunits.dimensionless,
                 )
-                return (b_ - air_temp / d_) * (air_temp / (c + air_temp))
+                huang_exp = a - (b_ / (air_temp + d1))
+                p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
+                return p_vap_sat
 
             @self.Expression(
                 self.days_of_year, doc="Actual vapor pressure from air temperature"
             )
             def actual_vapor_pressure(b, d):
-                w = b.weather[d]
-                a = w.arden_buck_coeff_a  # millibars
                 pressure_sat_vap_min = pyunits.convert(
-                    a * exp(b.arden_buck_exponential_term_min_temp[d]) * b.rh_max[d],
+                    b.huang_press_sat_vap_min_temp[d] * b.rh_max[d],
                     to_units=pyunits.Pa,
                 )
                 pressure_sat_vap_max = pyunits.convert(
-                    a * exp(b.arden_buck_exponential_term_max_temp[d]) * b.rh_min[d],
+                    b.huang_press_sat_vap_max_temp[d] * b.rh_min[d],
+                    to_units=pyunits.Pa,
+                )
+                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
+
+        if (
+            self.config.property_package.config.saturation_vapor_pressure_calculation
+            == SaturationVaporPressureCalculation.ArdenBuck
+        ):
+
+            a = self.config.property_package.arden_buck_coeff_a  # millibars
+            b_ = self.config.property_package.arden_buck_coeff_b
+            c = self.config.property_package.arden_buck_coeff_c
+            d_ = self.config.property_package.arden_buck_coeff_d
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Arden-Buck saturation vapor pressure at min air temp",
+            )
+            def arden_buck_press_sat_vap_min_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                ardenbuck_exp = (b_ - air_temp / d_) * (air_temp / (c + air_temp))
+                return pyunits.convert(a * exp(ardenbuck_exp), to_units=pyunits.Pa)
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Arden-Buck saturation vapor pressure at max air temp",
+            )
+            def arden_buck_press_sat_vap_max_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                ardenbuck_exp = (b_ - air_temp / d_) * (air_temp / (c + air_temp))
+                return pyunits.convert(a * exp(ardenbuck_exp), to_units=pyunits.Pa)
+
+            @self.Expression(
+                self.days_of_year, doc="Actual vapor pressure from air temperature"
+            )
+            def actual_vapor_pressure(b, d):
+                pressure_sat_vap_min = pyunits.convert(
+                    b.arden_buck_press_sat_vap_min_temp[d] * b.rh_max[d],
+                    to_units=pyunits.Pa,
+                )
+                pressure_sat_vap_max = pyunits.convert(
+                    b.arden_buck_press_sat_vap_max_temp[d] * b.rh_min[d],
+                    to_units=pyunits.Pa,
+                )
+                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
+
+        if (
+            self.config.property_package.config.saturation_vapor_pressure_calculation
+            == SaturationVaporPressureCalculation.Antoine
+        ):
+            a = self.config.property_package.antoine_A
+            b_ = self.config.property_package.antoine_B
+            c = self.config.property_package.antoine_C
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Antoine saturation vapor pressure at min air temp",
+            )
+            def antoine_press_sat_vap_min_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                antoine = a - (b / (c + air_temp))
+                p_vap_sat = 10 ** (antoine) * pyunits.mmHg
+                return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Antoine saturation vapor pressure at max air temp",
+            )
+            def antoine_press_sat_vap_max_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                antoine = a - (b / (c + air_temp))
+                p_vap_sat = 10 ** (antoine) * pyunits.mmHg
+                return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
+
+            @self.Expression(
+                self.days_of_year, doc="Actual vapor pressure from air temperature"
+            )
+            def actual_vapor_pressure(b, d):
+                pressure_sat_vap_min = pyunits.convert(
+                    b.antoine_press_sat_vap_min_temp[d] * b.rh_max[d],
+                    to_units=pyunits.Pa,
+                )
+                pressure_sat_vap_max = pyunits.convert(
+                    b.antoine_press_sat_vap_max_temp[d] * b.rh_min[d],
                     to_units=pyunits.Pa,
                 )
                 return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
@@ -356,6 +496,19 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             mutable=True,
             units=pyunits.degK,
             doc="Water temperature correlation intercept",
+        )
+        self.water_activity_param1 = Param(
+            initialize=-0.00056678,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Water activity correlation slope",
+        )
+
+        self.water_activity_param2 = Param(
+            initialize=0.9985307,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Water activity correlation intercept",
         )
 
         self.emissivity_air_param = Param(
@@ -420,7 +573,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
 
         self.shortwave_radiation = Param(
             self.days_of_year,
-            initialize=daily_mean[
+            initialize=weather_daily_mean[
                 self.config.weather_data_column_dict["shortwave_radiation"]
             ]
             * 0.0864,  # GHI column; W/m2 to MJ/day/m2
@@ -463,12 +616,16 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Factor to reduce evaporation rate for higher salinity",
         )
 
-        self.evaporation_rate_enhancement_adjustment_factor = Param(
+        # should be >1 for enhancement; value for organic dye around 8% (1.08)
+        self.evaporation_rate_enhancement_adjustment_factor = Var(
             initialize=1,
-            mutable=True,
+            bounds=(1, 10),
             units=pyunits.dimensionless,
             doc="Factor to increase evaporation rate due to enhancement",
         )
+
+        if not self.config.add_enhancement:
+            self.evaporation_rate_enhancement_adjustment_factor.fix(1)
 
         self.net_radiation = Var(
             self.days_of_year,
@@ -485,14 +642,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             units=pyunits.kg / (pyunits.m**2 * pyunits.s),
             doc="Mass flux of water vapor evaporated according using BREB method",
         )
-
-        # self.net_heat_flux_out = Var(
-        #     self.days_of_year,
-        #     initialize=100,
-        #     bounds=(None, None),
-        #     units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
-        #     doc="Net heat flux out of system (water, soil, ecosystem, etc.)",
-        # )
 
         self.area_correction_factor = Var(
             initialize=1,
@@ -544,12 +693,12 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 * pyunits.m**3,
                 to_units=pyunits.dimensionless,
             )
-            return -0.00056678 * salinity + 0.9985307
+            return b.water_activity_param1 * salinity + b.water_activity_param2
 
         @self.Expression(self.days_of_year, doc="Evaporation rate")
         def evaporation_rate(b, d):
             return pyunits.convert(
-                b.mass_flux_water_vapor[d] / prop_in.dens_mass_phase["Liq"],
+                b.mass_flux_water_vapor[d] / prop_in.dens_mass_solvent["H2O"],
                 to_units=pyunits.m / pyunits.s,
             )
 
@@ -850,6 +999,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         Extract the values of all the model parameters
         indexed by the Set days_of_year
         """
+        from collections import defaultdict
 
         pond_vars = [
             "evaporation_rate",
