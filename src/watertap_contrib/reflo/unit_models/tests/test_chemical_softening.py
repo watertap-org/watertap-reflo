@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -23,7 +23,7 @@ from pyomo.util.check_units import assert_units_consistent
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
 from idaes.core.util.testing import initialization_tester
-from idaes.core.util.exceptions import InitializationError, ConfigurationError
+from idaes.core.util.exceptions import ConfigurationError
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -59,12 +59,10 @@ def test_inlet_required_components():
     m.fs.properties = MCASParameterBlock(
         solute_list=component_list, material_flow_basis=MaterialFlowBasis.mass
     )
-    error_msg = (
-        "ChemicalSoftening requires Ca_2+, Mg_2+, and Alkalinity_2-"
-        + "as solutes in inlet stream but not all were not provided."
-    )
+    # \ is needed to escape special characters
+    error_msg = "ChemicalSoftening requires Ca_2\+, Mg_2\+, and Alkalinity_2\- as solutes in inlet stream but not all were provided."
 
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ConfigurationError, match=error_msg):
 
         m.fs.soft = ChemicalSoftening(
             property_package=m.fs.properties,
@@ -165,7 +163,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 96
+        assert number_variables(m) == 95
         assert number_total_constraints(m) == 62
         assert number_unused_variables(m) == 17
 
@@ -206,7 +204,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
         soft_results = {
             "ca_eff_target": 0.008,
             "mg_eff_target": 0.002427,
-            "removal_efficiency": {"SiO2": 0.7, "Alkalinity_2-": 0.7},
             "volume_mixer": 1.0535825,
             "volume_floc": 65.8489,
             "volume_sed": 342.4143,
@@ -416,7 +413,7 @@ class TestChemSoft_SingleStageLime:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 86
+        assert number_variables(m) == 85
         assert number_total_constraints(m) == 51
         assert number_unused_variables(m) == 18
 
@@ -458,7 +455,6 @@ class TestChemSoft_SingleStageLime:
         soft_results = {
             "ca_eff_target": 0.008,
             "mg_eff_target": 0.002427,
-            "removal_efficiency": {"Alkalinity_2-": 0.7},
             "volume_mixer": 13.89,
             "volume_floc": 868.29,
             "volume_sed": 4515.12,
@@ -672,7 +668,7 @@ class TestChemSoft_ExcessLime:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 86
+        assert number_variables(m) == 85
         assert number_total_constraints(m) == 52
         assert number_unused_variables(m) == 18
 
@@ -714,7 +710,6 @@ class TestChemSoft_ExcessLime:
         soft_results = {
             "ca_eff_target": 0.012,
             "mg_eff_target": 0.000728,
-            "removal_efficiency": {"Alkalinity_2-": 0.7},
             "volume_mixer": 13.89,
             "volume_floc": 868.29,
             "volume_sed": 4515.12,
@@ -889,8 +884,6 @@ class TestChemSoft_ExcessLime_2:
             index=("Liq", "H2O"),
         )
 
-        # CO2_in = 0.072 * 1.612 * pyunits.kg / pyunits.m**3
-
         soft.number_mixers.set_value(1)
         soft.number_floc.set_value(2)
 
@@ -931,7 +924,7 @@ class TestChemSoft_ExcessLime_2:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 86
+        assert number_variables(m) == 85
         assert number_total_constraints(m) == 52
         assert number_unused_variables(m) == 18
 
@@ -973,7 +966,6 @@ class TestChemSoft_ExcessLime_2:
         soft_results = {
             "ca_eff_target": 0.012,
             "mg_eff_target": 0.000728,
-            "removal_efficiency": {"Alkalinity_2-": 0.7},
             "volume_mixer": 13.89,
             "volume_floc": 868.29,
             "volume_sed": 4515.12,
@@ -1192,7 +1184,7 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
             assert isinstance(port, Port)
             assert len(port.vars) == 3
 
-        assert number_variables(m) == 96
+        assert number_variables(m) == 95
         assert number_total_constraints(m) == 62
         assert number_unused_variables(m) == 17
 
