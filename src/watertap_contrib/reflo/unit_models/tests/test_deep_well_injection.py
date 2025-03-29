@@ -392,7 +392,6 @@ class TestDeepWellInjection_BLMCosting:
 
 
 class TestDeepWellInjection_SimpleCosting:
-
     @pytest.fixture(scope="class")
     def dwi_frame(self):
 
@@ -492,7 +491,6 @@ class TestDeepWellInjection_SimpleCosting:
 
 
 class TestDeepWellInjection_10000ft:
-
     @pytest.fixture(scope="class")
     def dwi_10000_frame(self):
         m = build_dwi_10000()

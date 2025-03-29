@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -168,6 +168,18 @@ class TreatmentCostingData(REFLOCostingData):
             specific_thermal_energy_consumption_constraint,
         )
 
+    def add_LCOW(self, flow_rate, name="LCOW"):
+        super().add_LCOW(flow_rate, name=name)
+        # NOTE: Add reference to flow rate here so that if a user tries to add_LCOW
+        # on a REFLOSystemCosting block after add_LCOW is called on TreatmentCosting,
+        # the parameter can be renamed from LCOW to LCOT and use the same flow rate.
+        add_object_reference(self, "_LCOW_flow_rate", flow_rate)
+
+    def add_LCOT(self, flow_rate):
+
+        if not hasattr(self, "LCOT"):
+            self.add_LCOW(flow_rate, name="LCOT")
+
 
 @declare_process_block_class("EnergyCosting")
 class EnergyCostingData(REFLOCostingData):
@@ -233,7 +245,6 @@ class EnergyCostingData(REFLOCostingData):
         super().build_process_costs()
 
     def build_LCOE_params(self):
-
         def rule_yearly_electricity_production(b, y):
             if y == 0:
                 return b.yearly_electricity_production[y] == pyo.units.convert(
@@ -269,7 +280,6 @@ class EnergyCostingData(REFLOCostingData):
             set_scaling_factor(self.lifetime_electricity_production, 1e-4)
 
     def build_LCOH_params(self):
-
         def rule_yearly_heat_production(b, y):
             if y == 0:
                 return b.yearly_heat_production[y] == pyo.units.convert(
@@ -728,10 +738,10 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         super().initialize_build()
 
-        if hasattr(self, "LCOT"):
+        if hasattr(self, "LCOW"):
             calculate_variable_from_constraint(
-                self.LCOT,
-                self.LCOT_constraint,
+                self.LCOW,
+                self.LCOW_constraint,
             )
 
         if hasattr(self, "LCOE"):
@@ -810,22 +820,37 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         """
         pass
 
-    def add_LCOT(self, flow_rate):
+    def add_LCOW(self, flow_rate):
         """
-        Add Levelized Cost of Treatment (LCOT) to costing block.
+        Add Levelized Cost of Water (LCOW) to costing block.
         Args:
             flow_rate - flow rate of water (volumetric) to be used in
-                        calculating LCOT
+                        calculating LCOW
         """
+        treat_cost = self._get_treatment_cost_block()
 
-        LCOT = pyo.Var(
-            doc=f"Levelized Cost of Treatment based on flow {flow_rate.name}",
+        if hasattr(treat_cost, "LCOW"):
+            # NOTE: If a user has called add_LCOW on a TreatmentCosting block
+            # prior to calling add_LCOW on REFLOSystemCosting, that parameter
+            # is recreated here using the same flow rate and renamed to 'LCOT'.
+            # This is done to ensure there aren't two parameters named 'LCOW' on
+            # TreatmentCosting and REFLOSystemCosting that are calculated with
+            # different parameters.
+            warning_msg = "When adding LCOW to REFLOSystemCosting, 'LCOW' was "
+            warning_msg += "found on the TreatmentCosting block and renamed 'LCOT' "
+            warning_msg += "to avoid ambiguity."
+            _log.warning(warning_msg)
+            treat_cost.del_component("LCOW")
+            treat_cost.add_LCOT(treat_cost._LCOW_flow_rate)
+
+        LCOW = pyo.Var(
+            doc=f"Levelized Cost of Water based on flow {flow_rate.name}",
             units=self.base_currency / pyo.units.m**3,
         )
-        self.add_component("LCOT", LCOT)
+        self.add_component("LCOW", LCOW)
 
-        LCOT_constraint = pyo.Constraint(
-            expr=LCOT
+        LCOW_constraint = pyo.Constraint(
+            expr=LCOW
             == (
                 self.total_capital_cost * self.capital_recovery_factor
                 + self.total_operating_cost
@@ -834,9 +859,31 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / self.base_period)
                 * self.utilization_factor
             ),
-            doc=f"Constraint for Levelized Cost of Treatment based on flow {flow_rate.name}",
+            doc=f"Constraint for Levelized Cost of Water based on flow {flow_rate.name}",
         )
-        self.add_component("LCOT_constraint", LCOT_constraint)
+        self.add_component("LCOW_constraint", LCOW_constraint)
+
+    def add_LCOT(self, flow_rate):
+        """
+        Add Levelized Cost of Treatment (LCOT) to costing block.
+        """
+
+        treat_cost = self._get_treatment_cost_block()
+
+        if hasattr(treat_cost, "LCOT"):
+            # NOTE: If LCOT exists already on TreatmentCosting, it is deleted to
+            # ensure the LCOT being added here uses the intended flow_rate.
+            warning_msg = "When adding LCOT to REFLOSystemCosting, 'LCOT' was "
+            warning_msg += "found on the TreatmentCosting block. That parameter was "
+            warning_msg += f"deleted and recreated using {flow_rate.name}."
+            _log.warning(warning_msg)
+            treat_cost.del_component("LCOT")
+            treat_cost.add_LCOT(flow_rate)
+
+        else:
+            treat_cost.add_LCOT(flow_rate)
+
+        add_object_reference(self, "LCOT", getattr(treat_cost, "LCOT"))
 
     def add_LCOE(self):
         """
@@ -848,18 +895,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             energy_cost.add_LCOE()
 
         add_object_reference(self, "LCOE", energy_cost.LCOE)
-
-    def add_LCOW(self, flow_rate, name="LCOW"):
-        """
-        Add Levelized Cost of Water (LCOW) to costing block.
-        """
-
-        treat_cost = self._get_treatment_cost_block()
-
-        if not hasattr(treat_cost, "LCOW"):
-            treat_cost.add_LCOW(flow_rate, name="LCOW")
-
-        add_object_reference(self, name, getattr(treat_cost, name))
 
     def add_LCOH(self):
         """
