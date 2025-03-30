@@ -202,8 +202,8 @@ class TestEvaporationPond:
 
         assert len(m.fs.unit.weather) == len(m.fs.unit.days_of_year)
         assert number_variables(m) == 4422
-        assert number_total_constraints(m) == 1846
-        assert number_unused_variables(m) == 1835
+        assert number_total_constraints(m) == 2211
+        assert number_unused_variables(m) == 1470
 
     @pytest.mark.unit
     def test_dof(self, pond_frame):
@@ -477,8 +477,8 @@ class TestEnhancedEvaporationPond:
 
         assert len(m.fs.unit.weather) == len(m.fs.unit.days_of_year)
         assert number_variables(m) == 4422
-        assert number_total_constraints(m) == 1846
-        assert number_unused_variables(m) == 1835
+        assert number_total_constraints(m) == 2211
+        assert number_unused_variables(m) == 1470
 
     @pytest.mark.unit
     def test_dof(self, pond_frame):

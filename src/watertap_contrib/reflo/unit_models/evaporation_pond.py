@@ -287,6 +287,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         # avoid warnings for days with air temp < 0 degC
         self.weather[:].temperature["Vap"].setlb(200)
         self.weather[:].temperature["Liq"].setlb(200)
+        self.weather[:].flow_mass_phase_comp["Liq", :].fix(0)
 
         for day, row in weather_daily_mean.iterrows():
 
@@ -829,6 +830,13 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 * b.evaporation_pond_depth
                 * b.daily_temperature_change[d],
                 to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            )
+
+        @self.Constraint(self.days_of_year, doc="Daily mass flow of water")
+        def eq_flow_mass_evap(b, d):
+            return b.weather[d].flow_mass_phase_comp["Vap", "H2O"] == pyunits.convert(
+                b.mass_flux_water_vapor[d] * b.total_evaporative_area_required,
+                to_units=pyunits.kg / pyunits.s,
             )
 
         @self.Constraint(self.days_of_year)
