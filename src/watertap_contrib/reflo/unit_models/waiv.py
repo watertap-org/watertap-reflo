@@ -17,6 +17,7 @@ import numpy as np
 from pyomo.environ import (
     Set,
     Var,
+    Constraint,
     check_optimal_termination,
     Param,
     Suffix,
@@ -25,7 +26,8 @@ from pyomo.environ import (
     atan,
     units as pyunits,
 )
-from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
+from pyomo.common.config import ConfigBlock, ConfigValue, In
+from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 # Import IDAES cores
 from idaes.core import (
@@ -49,7 +51,7 @@ from watertap_contrib.reflo.property_models.air_water_equilibrium_properties imp
     SaturationVaporPressureCalculation,
 )
 
-# from watertap_contrib.reflo.costing.units.evaporation_pond import cost_evaporation_pond
+from watertap_contrib.reflo.costing.units.waiv import cost_waiv
 
 __author__ = "Kurban Sitterley"
 
@@ -126,6 +128,25 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
     )
 
     CONFIG.declare(
+        "material_balance_type",
+        ConfigValue(
+            default=MaterialBalanceType.useDefault,
+            domain=In(MaterialBalanceType),
+            description="Material balance construction flag",
+            doc="""Indicates what type of mass balance should be constructed,
+    **default** - MaterialBalanceType.useDefault.
+    **Valid values:** {
+    **MaterialBalanceType.useDefault - refer to property package for default
+    balance type
+    **MaterialBalanceType.none** - exclude material balances,
+    **MaterialBalanceType.componentPhase** - use phase component balances,
+    **MaterialBalanceType.componentTotal** - use total component balances,
+    **MaterialBalanceType.elementTotal** - use total element balances,
+    **MaterialBalanceType.total** - use total material balance.}""",
+        ),
+    )
+
+    CONFIG.declare(
         "weather_data_path",
         ConfigValue(
             default=useDefault,
@@ -151,21 +172,16 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
     )
 
     CONFIG.declare(
-        "material_balance_type",
+        "terminal_process",
         ConfigValue(
-            default=MaterialBalanceType.useDefault,
-            domain=In(MaterialBalanceType),
-            description="Material balance construction flag",
-            doc="""Indicates what type of mass balance should be constructed,
-    **default** - MaterialBalanceType.useDefault.
-    **Valid values:** {
-    **MaterialBalanceType.useDefault - refer to property package for default
-    balance type
-    **MaterialBalanceType.none** - exclude material balances,
-    **MaterialBalanceType.componentPhase** - use phase component balances,
-    **MaterialBalanceType.componentTotal** - use total component balances,
-    **MaterialBalanceType.elementTotal** - use total element balances,
-    **MaterialBalanceType.total** - use total material balance.}""",
+            default=True,
+            domain=bool,
+            description="Flag to indicate if WAIV is terminal process in treatment train",
+            doc="""Flag to indicate if WAIV is terminal process in treatment train.
+            If True, assumed that all inlet water is evaporated and no outlet properties are not added.
+            If False, user can set recovery_mass to indicate fraction of inlet water evaporated with WAIV.
+            Outlet properties and Port are added to unit model.
+    """,
         ),
     )
 
@@ -216,12 +232,6 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         prop_in = self.properties_in[0]
         self.add_inlet_port(name="inlet", block=self.properties_in)
 
-        self.properties_out = self.config.property_package.state_block_class(
-            self.flowsheet().config.time, doc="Material properties of outlet", **tmp_dict
-        )
-        prop_out = self.properties_out[0]
-        self.add_outlet_port(name="outlet", block=self.properties_out)
-
         tmp_dict["defined_state"] = True
         self.weather = self.config.property_package.state_block_class(
             self.days_of_year,
@@ -248,6 +258,11 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             rh = row[self.config.weather_data_column_dict["relative_humidity"]]
             self.weather[day].relative_humidity["H2O"].fix(rh / 100)
             self.weather[day].pressure_vap_sat["H2O"]
+
+            for p, j in self.weather[day].phase_component_set:
+                if (p, j) == ("Vap", "H2O"):
+                    continue
+                self.weather[day].flow_mass_phase_comp[(p, j)].fix(0)
 
         self.wind_speed = Param(
             self.days_of_year,
@@ -368,23 +383,32 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             doc="Harbeck N equation, exponent",
         )
 
-        self.recovery_mass = Var(
-            initialize=0.01,
-            bounds=(0, 1),
-            units=pyunits.dimensionless,
-            doc="Mass-based recovery of water from WAIV system"
+        self.geotextile_area_waiv_module = Param(
+            initialize=2850,
+            mutable=True,
+            units=pyunits.m**2,
+            doc="Textile area of single WAIV module",
         )
 
-        # should be >1 for enhancement; value for organic dye around 8% (1.08)
-        # self.evaporation_rate_enhancement_adjustment_factor = Var(
-        #     initialize=1,
-        #     bounds=(1, 10),
-        #     units=pyunits.dimensionless,
-        #     doc="Factor to increase evaporation rate due to enhancement",
-        # )
+        self.recovery_mass = Param(
+            initialize=0,
+            mutable=True,
+            units=pyunits.dimensionless,
+            doc="Mass-based recovery of water from WAIV system",
+        )
 
-        # if not self.config.add_enhancement:
-        #     self.evaporation_rate_enhancement_adjustment_factor.fix(1)
+        self.land_area_per_waiv_module = Param(
+            initialize=364,
+            mutable=True,
+            units=pyunits.m**2,
+            doc="Land area required for single WAIV system (tank and other process equipment)",
+        )
+
+        self.wetted_surface_to_geotextile_area_factor = Param(
+            initialize=0.5,
+            units=pyunits.m**2 / pyunits.m**2,
+            doc="Textile area required per wetted area",
+        )
 
         self.evaporation_rate = Var(
             self.days_of_year,
@@ -394,11 +418,11 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             doc="Evaporation rate as determined by Harbeck equation",
         )
 
-        self.total_evaporative_area_required = Var(
+        self.total_wetted_surface_area_required = Var(
             initialize=100000,
             bounds=(0, None),
             units=pyunits.m**2,
-            doc="Total evaporative area required",
+            doc="Total wetted surface area required",
         )
 
         self.number_waiv_modules = Var(
@@ -416,7 +440,6 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 * pyunits.degK**-1,
                 to_units=pyunits.dimensionless,
             )
-            # return b.weather[d].temperature["Liq"] == b.temperature_wet_bulb[d]
             return (
                 b.weather[d].temperature["Liq"]
                 == (
@@ -436,55 +459,55 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 + 273.15 * pyunits.degK
             )
 
-        # if (
-        #     self.config.property_package.config.saturation_vapor_pressure_calculation
-        #     == SaturationVaporPressureCalculation.Huang
-        # ):
-        #     a = self.config.property_package.huang_coeff_A
-        #     b_ = self.config.property_package.huang_coeff_B
-        #     c = self.config.property_package.huang_coeff_C
-        #     d1 = self.config.property_package.huang_coeff_D1
-        #     d2 = self.config.property_package.huang_coeff_D2
+        if (
+            self.config.property_package.config.saturation_vapor_pressure_calculation
+            == SaturationVaporPressureCalculation.Huang
+        ):
+            a = self.config.property_package.huang_coeff_A
+            b_ = self.config.property_package.huang_coeff_B
+            c = self.config.property_package.huang_coeff_C
+            d1 = self.config.property_package.huang_coeff_D1
+            d2 = self.config.property_package.huang_coeff_D2
 
-        #     @self.Expression(
-        #         self.days_of_year,
-        #         doc="Huang saturation vapor pressure at min air temp",
-        #     )
-        #     def huang_press_sat_vap_min_temp(b, d):
-        #         air_temp = pyunits.convert(
-        #             (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-        #             to_units=pyunits.dimensionless,
-        #         )
-        #         huang_exp = a - (b_ / (air_temp + d1))
-        #         p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
-        #         return p_vap_sat
+            @self.Expression(
+                self.days_of_year,
+                doc="Huang saturation vapor pressure at min air temp",
+            )
+            def huang_press_sat_vap_min_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                huang_exp = a - (b_ / (air_temp + d1))
+                p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
+                return p_vap_sat
 
-        #     @self.Expression(
-        #         self.days_of_year,
-        #         doc="Huang saturation vapor pressure at max air temp",
-        #     )
-        #     def huang_press_sat_vap_max_temp(b, d):
-        #         air_temp = pyunits.convert(
-        #             (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-        #             to_units=pyunits.dimensionless,
-        #         )
-        #         huang_exp = a - (b_ / (air_temp + d1))
-        #         p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
-        #         return p_vap_sat
+            @self.Expression(
+                self.days_of_year,
+                doc="Huang saturation vapor pressure at max air temp",
+            )
+            def huang_press_sat_vap_max_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                huang_exp = a - (b_ / (air_temp + d1))
+                p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
+                return p_vap_sat
 
-        #     @self.Expression(
-        #         self.days_of_year, doc="Actual vapor pressure from air temperature"
-        #     )
-        #     def actual_vapor_pressure(b, d):
-        #         pressure_vap_sat_min = pyunits.convert(
-        #             b.huang_press_sat_vap_min_temp[d] * b.rh_max[d],
-        #             to_units=pyunits.Pa,
-        #         )
-        #         pressure_vap_sat_max = pyunits.convert(
-        #             b.huang_press_sat_vap_max_temp[d] * b.rh_min[d],
-        #             to_units=pyunits.Pa,
-        #         )
-        #         return (pressure_vap_sat_min + pressure_vap_sat_max) * 0.5
+            @self.Expression(
+                self.days_of_year, doc="Actual vapor pressure from air temperature"
+            )
+            def actual_vapor_pressure(b, d):
+                pressure_vap_sat_min = pyunits.convert(
+                    b.huang_press_sat_vap_min_temp[d] * b.rh_max[d],
+                    to_units=pyunits.Pa,
+                )
+                pressure_vap_sat_max = pyunits.convert(
+                    b.huang_press_sat_vap_max_temp[d] * b.rh_min[d],
+                    to_units=pyunits.Pa,
+                )
+                return (pressure_vap_sat_min + pressure_vap_sat_max) * 0.5
 
         if (
             self.config.property_package.config.saturation_vapor_pressure_calculation
@@ -534,53 +557,53 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 )
                 return (pressure_vap_sat_min + pressure_vap_sat_max) * 0.5
 
-        # if (
-        #     self.config.property_package.config.saturation_vapor_pressure_calculation
-        #     == SaturationVaporPressureCalculation.Antoine
-        # ):
-        #     a = self.config.property_package.antoine_A
-        #     b_ = self.config.property_package.antoine_B
-        #     c = self.config.property_package.antoine_C
+        if (
+            self.config.property_package.config.saturation_vapor_pressure_calculation
+            == SaturationVaporPressureCalculation.Antoine
+        ):
+            a = self.config.property_package.antoine_A
+            b_ = self.config.property_package.antoine_B
+            c = self.config.property_package.antoine_C
 
-        #     @self.Expression(
-        #         self.days_of_year,
-        #         doc="Antoine saturation vapor pressure at min air temp",
-        #     )
-        #     def antoine_press_sat_vap_min_temp(b, d):
-        #         air_temp = pyunits.convert(
-        #             (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-        #             to_units=pyunits.dimensionless,
-        #         )
-        #         antoine = a - (b / (c + air_temp))
-        #         p_vap_sat = 10 ** (antoine) * pyunits.mmHg
-        #         return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
+            @self.Expression(
+                self.days_of_year,
+                doc="Antoine saturation vapor pressure at min air temp",
+            )
+            def antoine_press_sat_vap_min_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                antoine = a - (b / (c + air_temp))
+                p_vap_sat = 10 ** (antoine) * pyunits.mmHg
+                return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
 
-        #     @self.Expression(
-        #         self.days_of_year,
-        #         doc="Antoine saturation vapor pressure at max air temp",
-        #     )
-        #     def antoine_press_sat_vap_max_temp(b, d):
-        #         air_temp = pyunits.convert(
-        #             (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-        #             to_units=pyunits.dimensionless,
-        #         )
-        #         antoine = a - (b / (c + air_temp))
-        #         p_vap_sat = 10 ** (antoine) * pyunits.mmHg
-        #         return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
+            @self.Expression(
+                self.days_of_year,
+                doc="Antoine saturation vapor pressure at max air temp",
+            )
+            def antoine_press_sat_vap_max_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                antoine = a - (b / (c + air_temp))
+                p_vap_sat = 10 ** (antoine) * pyunits.mmHg
+                return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
 
-        #     @self.Expression(
-        #         self.days_of_year, doc="Actual vapor pressure from air temperature"
-        #     )
-        #     def actual_vapor_pressure(b, d):
-        #         pressure_vap_sat_min = pyunits.convert(
-        #             b.antoine_press_sat_vap_min_temp[d] * b.rh_max[d],
-        #             to_units=pyunits.Pa,
-        #         )
-        #         pressure_vap_sat_max = pyunits.convert(
-        #             b.antoine_press_sat_vap_max_temp[d] * b.rh_min[d],
-        #             to_units=pyunits.Pa,
-        #         )
-        #         return (pressure_vap_sat_min + pressure_vap_sat_max) * 0.5
+            @self.Expression(
+                self.days_of_year, doc="Actual vapor pressure from air temperature"
+            )
+            def actual_vapor_pressure(b, d):
+                pressure_vap_sat_min = pyunits.convert(
+                    b.antoine_press_sat_vap_min_temp[d] * b.rh_max[d],
+                    to_units=pyunits.Pa,
+                )
+                pressure_vap_sat_max = pyunits.convert(
+                    b.antoine_press_sat_vap_max_temp[d] * b.rh_min[d],
+                    to_units=pyunits.Pa,
+                )
+                return (pressure_vap_sat_min + pressure_vap_sat_max) * 0.5
 
         @self.Expression(doc="Water activity")
         def water_activity(b):
@@ -595,7 +618,7 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         @self.Expression(doc="Harbeck N parameter")
         def harbeck_N(b):
             area_tot_dimensionless = pyunits.convert(
-                b.total_evaporative_area_required * pyunits.m**-2,
+                b.total_wetted_surface_area_required * pyunits.m**-2,
                 to_units=pyunits.dimensionless,
             )
             return b.harbeck_N_base * area_tot_dimensionless**b.harbeck_N_exp
@@ -605,8 +628,27 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         )
         def mass_transfer_driving_force(b, d):
             return pyunits.convert(
-                b.weather[d].pressure_vap_sat["H2O"] * b.water_activity, to_units=pyunits.millibar
+                b.weather[d].pressure_vap_sat["H2O"] * b.water_activity,
+                to_units=pyunits.millibar,
             ) - pyunits.convert(b.actual_vapor_pressure[d], to_units=pyunits.millibar)
+
+        @self.Expression(doc="Average annual evaporation rate for WAIV")
+        def evaporation_rate_avg(b):
+            return sum(b.evaporation_rate[d] for d in b.days_of_year) / 365
+
+        @self.Expression(
+            doc="Geotextile membrane area required to achieve wetted surface area required"
+        )
+        def geotextile_area_required(b):
+            return pyunits.convert(
+                b.total_wetted_surface_area_required
+                * b.wetted_surface_to_geotextile_area_factor,
+                to_units=pyunits.m**2,
+            )
+
+        @self.Expression(doc="Total land area required")
+        def total_land_area_required(b):
+            return b.land_area_per_waiv_module * b.number_waiv_modules
 
         @self.Constraint(self.days_of_year, doc="Evaporation rate from Harbeck method")
         def eq_evaporation_rate(b, d):
@@ -617,9 +659,80 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 b.harbeck_N * wind_speed_mm_day * b.mass_transfer_driving_force[d],
                 to_units=pyunits.mm / pyunits.day,
             )
-        
-        # @self.Constraint(self.days_of_year, doc="Mass transfer r")
-        
+
+        @self.Constraint(doc="Total wetted surface area required for WAIV system")
+        def eq_total_wetted_surface_area_required(b):
+            return b.total_wetted_surface_area_required == pyunits.convert(
+                (
+                    (prop_in.flow_mass_phase_comp["Liq", "H2O"] * (1 - b.recovery_mass))
+                    / prop_in.dens_mass_solvent["H2O"]
+                )
+                / b.evaporation_rate_avg,
+                to_units=pyunits.m**2,
+            )
+
+        @self.Constraint(doc="Number of WAIV modules required")
+        def eq_number_waiv_modules(b):
+            return (
+                b.number_waiv_modules
+                == b.geotextile_area_required / b.geotextile_area_waiv_module
+            )
+
+        @self.Constraint(self.days_of_year, doc="Daily mass flow of water evaporated")
+        def eq_flow_mass_evap(b, d):
+            return b.weather[d].flow_mass_phase_comp["Vap", "H2O"] == pyunits.convert(
+                b.evaporation_rate[d]
+                * b.total_wetted_surface_area_required
+                * prop_in.dens_mass_solvent["H2O"],
+                to_units=pyunits.kg / pyunits.s,
+            )
+
+        if not self.config.terminal_process:
+
+            self.properties_out = self.config.property_package.state_block_class(
+                self.flowsheet().config.time,
+                doc="Material properties of outlet",
+                **tmp_dict,
+            )
+            prop_out = self.properties_out[0]
+            self.add_outlet_port(name="outlet", block=self.properties_out)
+
+            @self.Constraint(self.config.property_package.phase_list, doc="Isothermal")
+            def eq_isothermal(b, p):
+                return prop_out.temperature[p] == prop_in.temperature[p]
+
+            @self.Constraint(doc="Isobaric")
+            def eq_isobaric(b):
+                return prop_out.pressure == prop_in.pressure
+
+            @self.Constraint(
+                self.config.property_package.liq_comps,
+                doc="Mass balance for liquid phawe",
+            )
+            def eq_liq_comps_mass_balance(b, j):
+                if j == "H2O":
+                    return (
+                        prop_out.flow_mass_phase_comp["Liq", j]
+                        == prop_in.flow_mass_phase_comp["Liq", j] * b.recovery_mass
+                    )
+                if j in b.config.property_package.volatile_comps:
+                    prop_out.flow_mass_phase_comp["Liq", j].fix(0)
+                    return Constraint.Skip
+                if j in b.config.property_package.non_volatile_comps:
+                    return (
+                        prop_out.flow_mass_phase_comp["Liq", j]
+                        == prop_in.flow_mass_phase_comp["Liq", j]
+                    )
+
+            @self.Constraint(
+                self.config.property_package.vap_comps,
+                doc="Mass balance for vapor phawe",
+            )
+            def eq_vap_comps_mass_balance(b, j):
+                return (
+                    prop_out.flow_mass_phase_comp["Vap", j]
+                    == prop_in.flow_mass_phase_comp["Vap", j]
+                )
 
     def initialize(
         self,
@@ -666,6 +779,30 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         )
         init_log.info("Initialization Step 1 Complete.")
 
+        if not self.config.terminal_process:
+
+            self.properties_in.initialize(
+                outlvl=outlvl,
+                optarg=optarg,
+                solver=solver,
+                state_args=state_args,
+                hold_state=False,
+            )
+            init_log.info("Initialization Step 1b Complete.")
+
+        for d in self.days_of_year:
+            calculate_variable_from_constraint(
+                self.weather[d].temperature["Liq"], self.eq_temperature_wet_bulb[d]
+            )
+            calculate_variable_from_constraint(
+                self.evaporation_rate[d], self.eq_evaporation_rate[d]
+            )
+
+        calculate_variable_from_constraint(
+            self.total_wetted_surface_area_required,
+            self.eq_total_wetted_surface_area_required,
+        )
+
         with idaeslog.solver_log(solve_log, idaeslog.DEBUG) as slc:
             res = opt.solve(self, tee=slc.tee)
             if not check_optimal_termination(res):
@@ -685,20 +822,14 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
     def calculate_scaling_factors(self):
         super().calculate_scaling_factors()
 
-        if iscale.get_scaling_factor(self.total_evaporative_area_required) is None:
-            iscale.set_scaling_factor(self.total_evaporative_area_required, 1e-2)
+        if iscale.get_scaling_factor(self.total_wetted_surface_area_required) is None:
+            iscale.set_scaling_factor(self.total_wetted_surface_area_required, 1e-2)
 
-        # if iscale.get_scaling_factor(self.number_evaporation_ponds) is None:
-        #     iscale.set_scaling_factor(self.number_evaporation_ponds, 1)
+        if iscale.get_scaling_factor(self.evaporation_rate) is None:
+            iscale.set_scaling_factor(self.evaporation_rate, 1)
 
-        # if iscale.get_scaling_factor(self.evaporative_area_per_pond) is None:
-        #     iscale.set_scaling_factor(self.evaporative_area_per_pond, 1e-3)
-
-        # if iscale.get_scaling_factor(self.evaporation_pond_area) is None:
-        #     iscale.set_scaling_factor(self.evaporation_pond_area, 1e-3)
-
-        # if iscale.get_scaling_factor(self.net_radiation) is None:
-        #     iscale.set_scaling_factor(self.net_radiation, 1)
+        if iscale.get_scaling_factor(self.total_wetted_surface_area_required) is None:
+            iscale.set_scaling_factor(self.total_wetted_surface_area_required, 1e-4)
 
     def _get_timeseries_results(self):
         """
@@ -735,6 +866,9 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             wt["pressure_vap_sat"].append(value(w.pressure_vap_sat["H2O"]))
             wt["dh_vap_mass_solvent"].append(value(w.dh_vap_mass_solvent))
             wt["relative_humidity"].append(value(w.relative_humidity["H2O"]))
+            wt["flow_mass_phase_vap_h2o"].append(
+                value(w.flow_mass_phase_comp["Vap", "H2O"])
+            )
 
         waiv_timeseries = pd.DataFrame.from_dict(wt)
 
@@ -751,6 +885,6 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         var_dict = dict()
         return {"vars": var_dict}
 
-    # @property
-    # def default_costing_method(self):
-    #     return cost_evaporation_pond
+    @property
+    def default_costing_method(self):
+        return cost_waiv
