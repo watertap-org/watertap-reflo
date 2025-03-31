@@ -305,6 +305,11 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.weather[day].relative_humidity["H2O"].fix(rh / 100)
             self.weather[day].pressure_vap_sat["H2O"]
 
+            for p, j in self.weather[day].phase_component_set:
+                if (p, j) == ("Vap", "H2O"):
+                    continue
+                self.weather[day].flow_mass_phase_comp[(p, j)].fix(0)
+
         self.rh_min = Param(
             self.days_of_year,
             initialize=weather_daily_min[
