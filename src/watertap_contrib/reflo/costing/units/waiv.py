@@ -98,9 +98,10 @@ def build_waiv_cost_param_block(blk):
         doc="Cost of labor for WAIV system construction as fraction of process equipment cost",
     )
     blk.other_operating_cost_param = pyo.Var(
-        initialize=85000,
+        initialize=85000 / 144000,
         bounds=(0, None),
-        units=(pyo.units.USD_2015 / pyo.units.year) / (pyo.units.gallons / pyo.units.day),
+        units=(pyo.units.USD_2015 / pyo.units.year)
+        / (pyo.units.gallons / pyo.units.day),
         doc="Other operating costs (chemical, membranes, filter media) per gal/day",
     )
     blk.feed_tank_sizing_factor = pyo.Var(
@@ -120,18 +121,6 @@ def build_waiv_cost_param_block(blk):
         bounds=(0, None),
         units=pyo.units.dimensionless,
         doc="Exponent for feed tank cost curve",
-    )
-    blk.labor_op_cost_eq_base = pyo.Var(
-        initialize=2050.4,
-        bounds=(0, None),
-        units=pyo.units.USD_2015 / pyo.units.year,
-        doc="Base parameter for labor operating cost curve",
-    )
-    blk.labor_op_cost_eq_exp = pyo.Var(
-        initialize=0.3142,
-        bounds=(0, None),
-        units=pyo.units.dimensionless,
-        doc="Exponent for labor operating cost curve",
     )
 
 
@@ -331,25 +320,6 @@ def cost_waiv(blk):
 
     fixed_operating_cost_expr = 0
 
-    # NOTE: labor costs here are in addition to those calculated at the
-    # system level with the maintenance_labor_chemical_factor
-    flow_rate_dimensionless = pyo.units.convert(
-        blk.unit_model.properties_in[0].flow_vol_phase["Liq"]
-        / (pyo.units.gallons / pyo.units.day),
-        to_units=pyo.units.dimensionless,
-    )
-    blk.labor_operating_cost_constraint = pyo.Constraint(
-        expr=blk.labor_operating_cost
-        == pyo.units.convert(
-            waiv_params.labor_op_cost_eq_base
-            * flow_rate_dimensionless**waiv_params.labor_op_cost_eq_exp,
-            to_units=blk.costing_package.base_currency
-            / blk.costing_package.base_period,
-        )
-    )
-
-    fixed_operating_cost_expr += blk.labor_operating_cost
-
     blk.other_operating_cost_constraint = pyo.Constraint(
         expr=blk.other_operating_cost
         == pyo.units.convert(
@@ -357,7 +327,7 @@ def cost_waiv(blk):
             * blk.unit_model.properties_in[0].flow_vol_phase["Liq"],
             to_units=blk.costing_package.base_currency
             / blk.costing_package.base_period,
-        ) / 144000
+        )
     )
 
     fixed_operating_cost_expr += blk.other_operating_cost
