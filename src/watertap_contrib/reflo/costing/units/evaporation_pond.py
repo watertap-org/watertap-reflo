@@ -202,7 +202,6 @@ def cost_evaporation_pond(blk):
     for cv, d in costing_params_dict.items():
         cvps = d[dike_height]  # costing var params
         for i, n in zip([0, 1], ["base", "exp"]):
-            # v = getattr(pond_params, f"{cv}_{n}")
             v = pond_params.find_component(f"{cv}_{n}")
             v.fix(cvps[i])
 

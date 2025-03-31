@@ -234,6 +234,34 @@ class TestEvaporationPond:
     def test_initialize(self, pond_frame):
         m = pond_frame
         initialization_tester(m)
+        for day, row in daily_mean.iterrows():
+            temperature = (
+                row[m.fs.unit.config.weather_data_column_dict["temperature"]] + 273.15
+            )
+            rh = row[m.fs.unit.config.weather_data_column_dict["relative_humidity"]]
+
+            shortwave_rad = (
+                row[m.fs.unit.config.weather_data_column_dict["shortwave_radiation"]]
+                * 0.0864
+            )
+            assert (
+                pytest.approx(value(m.fs.unit.shortwave_radiation[day]), rel=1e-3)
+                == shortwave_rad
+            )
+
+            assert (
+                pytest.approx(
+                    value(m.fs.unit.weather[day].temperature["Vap"]), rel=1e-3
+                )
+                == temperature
+            )
+
+            assert (
+                pytest.approx(
+                    value(m.fs.unit.weather[day].relative_humidity["H2O"]), rel=1e-3
+                )
+                == rh / 100
+            )
 
     @pytest.mark.component
     def test_solve(self, pond_frame):
@@ -509,6 +537,34 @@ class TestEnhancedEvaporationPond:
     def test_initialize(self, pond_frame):
         m = pond_frame
         initialization_tester(m)
+        for day, row in daily_mean.iterrows():
+            temperature = (
+                row[m.fs.unit.config.weather_data_column_dict["temperature"]] + 273.15
+            )
+            rh = row[m.fs.unit.config.weather_data_column_dict["relative_humidity"]]
+
+            shortwave_rad = (
+                row[m.fs.unit.config.weather_data_column_dict["shortwave_radiation"]]
+                * 0.0864
+            )
+            assert (
+                pytest.approx(value(m.fs.unit.shortwave_radiation[day]), rel=1e-3)
+                == shortwave_rad
+            )
+
+            assert (
+                pytest.approx(
+                    value(m.fs.unit.weather[day].temperature["Vap"]), rel=1e-3
+                )
+                == temperature
+            )
+
+            assert (
+                pytest.approx(
+                    value(m.fs.unit.weather[day].relative_humidity["H2O"]), rel=1e-3
+                )
+                == rh / 100
+            )
 
     @pytest.mark.component
     def test_solve(self, pond_frame):
