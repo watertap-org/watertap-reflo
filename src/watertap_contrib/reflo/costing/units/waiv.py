@@ -199,13 +199,6 @@ def cost_waiv(blk):
         doc="Operating cost to handle recovered solids",
     )
 
-    blk.labor_operating_cost = pyo.Var(
-        initialize=10000,
-        bounds=(0, None),
-        units=blk.costing_package.base_currency / pyo.units.year,
-        doc="Labor operating cost",
-    )
-
     blk.geotextile_membrane_replacement_operating_cost = pyo.Var(
         initialize=10000,
         bounds=(0, None),
