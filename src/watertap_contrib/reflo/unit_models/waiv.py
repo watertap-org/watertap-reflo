@@ -64,7 +64,6 @@ References
 default_weather_data_column_dict = {
     "pressure": "Pressure",
     "temperature": "Temperature",
-    "shortwave_radiation": "GHI",
     "relative_humidity": "Relative Humidity",
     "wind_speed": "Wind Speed",
 }
@@ -195,7 +194,7 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 "TDS must be present as a component in the influent stream."
             )
 
-        weather_data = pd.read_csv(self.config.weather_data_path, skiprows=None)
+        weather_data = pd.read_csv(self.config.weather_data_path, skiprows=2)
         weather_data["day_of_year"] = np.arange(len(weather_data)) // 24
         temp_col = self.config.weather_data_column_dict["temperature"]
         min_temp = 0.1  # degC
@@ -655,9 +654,12 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             wind_speed_mm_day = pyunits.convert(
                 b.wind_speed[d], to_units=pyunits.mm / pyunits.day
             )
-            return b.evaporation_rate[d] == pyunits.convert(
-                b.harbeck_N * wind_speed_mm_day * b.mass_transfer_driving_force[d],
-                to_units=pyunits.mm / pyunits.day,
+            return b.evaporation_rate[d] == smooth_max(
+                pyunits.convert(
+                    b.harbeck_N * wind_speed_mm_day * b.mass_transfer_driving_force[d],
+                    to_units=pyunits.mm / pyunits.day,
+                ),
+                1e-3 * pyunits.mm / pyunits.day,
             )
 
         @self.Constraint(doc="Total wetted surface area required for WAIV system")
@@ -761,6 +763,11 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
 
         opt = get_solver(solver, optarg)
 
+        for d in self.days_of_year:
+            calculate_variable_from_constraint(
+                self.weather[d].temperature["Liq"], self.eq_temperature_wet_bulb[d]
+            )
+
         self.weather.initialize(
             outlvl=outlvl,
             optarg=optarg,
@@ -781,7 +788,7 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
 
         if not self.config.terminal_process:
 
-            self.properties_in.initialize(
+            self.properties_out.initialize(
                 outlvl=outlvl,
                 optarg=optarg,
                 solver=solver,
@@ -791,9 +798,6 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             init_log.info("Initialization Step 1b Complete.")
 
         for d in self.days_of_year:
-            calculate_variable_from_constraint(
-                self.weather[d].temperature["Liq"], self.eq_temperature_wet_bulb[d]
-            )
             calculate_variable_from_constraint(
                 self.evaporation_rate[d], self.eq_evaporation_rate[d]
             )
@@ -830,6 +834,9 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.total_wetted_surface_area_required) is None:
             iscale.set_scaling_factor(self.total_wetted_surface_area_required, 1e-4)
+
+        if iscale.get_scaling_factor(self.number_waiv_modules) is None:
+            iscale.set_scaling_factor(self.number_waiv_modules, 1)
 
     def _get_timeseries_results(self):
         """
