@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -492,7 +492,6 @@ class TestCostingPackagesDefault:
 
 
 class TestElectricityGenOnlyWithHeat:
-
     @pytest.fixture(scope="class")
     def energy_gen_only_with_heat(self):
 
@@ -629,7 +628,6 @@ class TestElectricityGenOnlyWithHeat:
 
 
 class TestElectricityGenOnlyNoHeat:
-
     @pytest.fixture(scope="class")
     def elec_gen_only_no_heat(self):
 
@@ -899,7 +897,6 @@ class TestHeatGenOnly:
 
 
 class TestElectricityAndHeatGen:
-
     @pytest.fixture(scope="class")
     def heat_and_elec_gen(self):
 
@@ -948,7 +945,7 @@ class TestElectricityAndHeatGen:
         assert hasattr(m.fs.energy.costing, "LCOE")
         assert hasattr(m.fs.energy.costing, "LCOH")
         # treatment metrics on TreatmentCosting
-        assert not hasattr(m.fs.treatment.costing, "LCOT")
+        assert hasattr(m.fs.treatment.costing, "LCOT")
         assert hasattr(m.fs.treatment.costing, "SEEC")
         assert hasattr(m.fs.treatment.costing, "STEC")
 

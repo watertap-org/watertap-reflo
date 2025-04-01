@@ -192,10 +192,11 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
                 f" g/L TDS with {self.config.water_yield_calculation_args['initial_water_depth']} m initial water depth."
             )
 
-            daily_water_yield_mass, num_zld_cycles_per_year = (
-                self.calculate_daily_water_yield(
-                    **self.config.water_yield_calculation_args
-                )
+            (
+                daily_water_yield_mass,
+                num_zld_cycles_per_year,
+            ) = self.calculate_daily_water_yield(
+                **self.config.water_yield_calculation_args
             )
 
             unit_log.info(
