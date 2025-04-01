@@ -1053,6 +1053,8 @@ class AirWaterEqData(PhysicalParameterBlock):
         self.set_default_scaling("visc_d_phase", 1e5, index="Vap")
         self.set_default_scaling("diffus_phase_comp", 1e10, index="Liq")
         self.set_default_scaling("diffus_phase_comp", 1e6, index="Vap")
+        self.set_default_scaling("pressure_vap_sat", 1e4, index="H2O")
+        self.set_default_scaling("pressure_vap", 1e4, index="H2O")
 
     @classmethod
     def define_metadata(cls, obj):
