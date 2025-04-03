@@ -92,8 +92,8 @@ def run_case_sweep(case, case_name=None, yaml_file=None):
 def run_all_cases():
     cases = [
         # {"case": SOA, "case_name": "KBHDP_SOA_1", "yaml_file": "KBHDP_SOA_1.yaml"},
-        # {"case": RPT1, "case_name": "KBHDP_RPT_1", "yaml_file": "KBHDP_RPT_1.yaml"},
-        {"case": RPT2, "case_name": "KBHDP_RPT_2", "yaml_file": "KBHDP_RPT_2.yaml"},
+        {"case": RPT1, "case_name": "KBHDP_RPT_1", "yaml_file": "KBHDP_RPT_1.yaml"},
+        # {"case": RPT2, "case_name": "KBHDP_RPT_2", "yaml_file": "KBHDP_RPT_2.yaml"},
         # {"case": RPT3, "case_name": "KBHDP_RPT_3", "yaml_file": "KBHDP_RPT_3.yaml"},
     ]
 
@@ -104,8 +104,8 @@ def run_all_cases():
 
 def run_all_diff_cases():
     cases = [
-        # {"case": RPT1, "case_name": "KBHDP_RPT1_diff", "yaml_file": "KBHDP_RPT_1_diff.yaml"},
-        {"case": RPT2, "case_name": "KBHDP_RPT2_diff", "yaml_file": "KBHDP_RPT_2_diff.yaml"},
+        {"case": RPT1, "case_name": "KBHDP_RPT1_diff", "yaml_file": "KBHDP_RPT_1_diff.yaml"},
+        # {"case": RPT2, "case_name": "KBHDP_RPT2_diff", "yaml_file": "KBHDP_RPT_2_diff.yaml"},
         # {"case": RPT3, "case_name": "KBHDP_RPT3_diff", "yaml_file": "KBHDP_RPT_3_diff.yaml"},
     ]
 

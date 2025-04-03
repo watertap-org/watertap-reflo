@@ -57,7 +57,7 @@ def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Build the system (*kwarg for Renewable Energy)
-    m = build_system(RE=True)
+    m = build_system(RE=False)
     display_system_build(m)
 
     # Add connections between units and global constraints
@@ -75,23 +75,23 @@ def main():
     add_costing(m)
     scale_costing(m)
 
-    # Try an initial box solve. This is where the system has 0 degrees of freedom
-    box_solve_problem(m)
+    # # Try an initial box solve. This is where the system has 0 degrees of freedom
+    # box_solve_problem(m)
 
-    # See if the model will fully solve and display results
+    # # See if the model will fully solve and display results
     solve(m, debug=False)
     display_system_stream_table(m)
     display_system_performance(m)
 
     # Try an optimization. Here we fix the system size and desired recovery and allow the model to optimize the operating pressure to minimize LCOW
-    optimize(m, water_recovery=None, objective=None)
+    optimize(m, water_recovery=0.5, objective='LCOW')
     solve(m, debug=False)
 
     report_RO(m, m.fs.treatment.RO)
     report_pump(m, m.fs.treatment.pump)
 
-    if m.fs.RE:
-        report_PV(m)
+    # if m.fs.RE:
+    #     report_PV(m)
 
     display_costing_breakdown(m)
 
