@@ -389,9 +389,17 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             doc="Textile area of single WAIV module",
         )
 
-        self.recovery_mass = Param(
+        # self.recovery_mass = Param(
+        #     initialize=0,
+        #     mutable=True,
+        #     units=pyunits.dimensionless,
+        #     doc="Mass-based recovery of water from WAIV system",
+        # )
+
+        self.recovery_mass = Var(
             initialize=0,
-            mutable=True,
+            # mutable=True,
+            bounds=(0,1), 
             units=pyunits.dimensionless,
             doc="Mass-based recovery of water from WAIV system",
         )
@@ -691,6 +699,8 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
 
         if not self.config.terminal_process:
 
+            tmp_dict["defined_state"] = False
+
             self.properties_out = self.config.property_package.state_block_class(
                 self.flowsheet().config.time,
                 doc="Material properties of outlet",
@@ -712,6 +722,8 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 doc="Mass balance for liquid phawe",
             )
             def eq_liq_comps_mass_balance(b, j):
+                if j == "TDS":
+                    return Constraint.Skip
                 if j == "H2O":
                     return (
                         prop_out.flow_mass_phase_comp["Liq", j]
