@@ -10,7 +10,7 @@ def save_water_dams(
     df,
     feed_conditions=None,
     global_costing_blk="fs.treatment.costing",
-    xcol=None,
+    xcol_dict=None,
     treatment_unit_costing_dict=None,
     energy_unit_costing_dict=None,
     heat_gen_unit_dict=None,
