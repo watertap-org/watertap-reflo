@@ -816,6 +816,6 @@ def cost_chemical_softening(blk):
     blk.costing_package.cost_flow(blk.electricity_flow, "electricity")
 
     blk.costing_package.cost_flow(blk.cao_dosing, "lime")
-    blk.costing_package.cost_flow(blk.unit_model.Na2CO3_dosing, "soda_ash")
+    blk.costing_package.cost_flow(pyunits.convert(blk.unit_model.Na2CO3_dosing, to_units=pyunits.kg /pyunits.year), "soda_ash")
     blk.costing_package.cost_flow(blk.mgcl2_dosing, "mgcl2")
     blk.costing_package.cost_flow(blk.co2_dosing, "co2")
