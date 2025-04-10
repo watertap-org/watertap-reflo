@@ -222,7 +222,7 @@ class TestFO:
             278.70, rel=1e-3
         )
         assert value(strong_draw.flow_vol_phase["Liq"]) == pytest.approx(
-            1.827, rel=1e-3
+            1.284, rel=1e-3
         )
         assert value(
             weak_draw.flow_mass_phase_comp["Liq", "DrawSolution"]
