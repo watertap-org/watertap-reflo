@@ -479,9 +479,9 @@ class ForwardOsmosisZOData(UnitModelBlockData):
                     / pyunits.s
                 )
             elif p == "Liq" and j == "TDS":
-                state_args_brine["flow_mass_phase_comp"][(p, j)] = (
-                    state_args["flow_mass_phase_comp"][(p, j)]
-                )
+                state_args_brine["flow_mass_phase_comp"][(p, j)] = state_args[
+                    "flow_mass_phase_comp"
+                ][(p, j)]
 
         blk.brine_props.initialize(
             outlvl=outlvl,
