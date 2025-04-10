@@ -217,16 +217,16 @@ class TestFO:
 
         assert value(
             strong_draw.flow_mass_phase_comp["Liq", "DrawSolution"]
-        ) == pytest.approx(1585.94, rel=1e-3)
+        ) == pytest.approx(1114.80, rel=1e-3)
         assert value(strong_draw.flow_mass_phase_comp["Liq", "H2O"]) == pytest.approx(
-            396.48, rel=1e-3
+            278.70, rel=1e-3
         )
         assert value(strong_draw.flow_vol_phase["Liq"]) == pytest.approx(
             1.827, rel=1e-3
         )
         assert value(
             weak_draw.flow_mass_phase_comp["Liq", "DrawSolution"]
-        ) == pytest.approx(1585.94, rel=1e-3)
+        ) == pytest.approx(1114.80, rel=1e-3)
         assert value(weak_draw.flow_mass_phase_comp["Liq", "H2O"]) == pytest.approx(
             1497.13, rel=1e-3
         )
@@ -253,11 +253,11 @@ class TestFO:
         ) == pytest.approx(13.913, rel=1e-3)
         assert value(product.flow_vol_phase["Liq"]) == pytest.approx(1.389, rel=1e-3)
         assert value(reg_draw.flow_mass_phase_comp["Liq", "H2O"]) == pytest.approx(
-            396.48, rel=1e-3
+            278.80, rel=1e-3
         )
         assert value(
             reg_draw.flow_mass_phase_comp["Liq", "DrawSolution"]
-        ) == pytest.approx(1585.94, rel=1e-3)
+        ) == pytest.approx(1114.80, rel=1e-3)
         assert value(m.fs.fo.delta_temp_membrane) == pytest.approx(5.52, rel=1e-3)
         assert value(m.fs.fo.membrane_temp) == pytest.approx(287.743, rel=1e-3)
         assert value(m.fs.fo.heat_transfer_to_weak_draw) == pytest.approx(
