@@ -99,7 +99,8 @@ def build_waiv():
         terminal_process=True,
     )
 
-    m.fs.unit.evaporation_rate_salinity_adjustment_factor.set_value(1)
+    m.fs.unit.evaporation_rate_salinity_adjustment_factor.set_value(0.7)
+    m.fs.unit.number_waiv_modules.fix(1)
 
     prop_in = m.fs.unit.properties_in[0]
     prop_in.flow_vol_phase["Liq"]
@@ -112,6 +113,49 @@ def build_waiv():
     prop_in.flow_mass_phase_comp["Vap", "Air"].fix(1)
     prop_in.flow_mass_phase_comp["Vap", "H2O"].fix(0)
 
+    return m
+
+
+def build_waiv_non_terminal():
+    """
+    Build function for WAIV as pre-concentrating
+    step for downstream process (e.g., evaporation pond)
+    """
+    conc_tds = 70 * pyunits.kg / pyunits.m**3
+    flow_vol = 0.0004381 * pyunits.m**3 / pyunits.s
+
+    props = {
+        "non_volatile_solute_list": ["TDS"],
+        "mw_data": {
+            "TDS": 31.4038218e-3,
+        },
+        "density_calculation": DensityCalculation.calculated,
+        "saturation_vapor_pressure_calculation": SaturationVaporPressureCalculation.Huang,
+    }
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = AirWaterEq(**props)
+    m.fs.unit = WAIV(
+        property_package=m.fs.properties,
+        weather_data_path=test_data_path,
+        terminal_process=False,
+    )
+
+    m.fs.unit.evaporation_rate_salinity_adjustment_factor.set_value(0.7)
+    m.fs.unit.number_waiv_modules.fix(1)
+    m.fs.unit.recovery_mass.fix(0.2)
+
+    prop_in = m.fs.unit.properties_in[0]
+    prop_in.flow_vol_phase["Liq"]
+
+    prop_in.pressure.fix(101325)
+    prop_in.temperature["Liq"].fix(298)
+    prop_in.temperature["Vap"].fix(293)
+    prop_in.flow_mass_phase_comp["Liq", "H2O"].fix(flow_vol * rho)
+    prop_in.flow_mass_phase_comp["Liq", "TDS"].fix(flow_vol * conc_tds)
+    prop_in.flow_mass_phase_comp["Vap", "Air"].fix(1)
+    prop_in.flow_mass_phase_comp["Vap", "H2O"].fix(0)
     return m
 
 
@@ -163,7 +207,7 @@ class TestWAIV:
             )
 
         assert len(m.fs.unit.weather) == len(m.fs.unit.days_of_year)
-        assert number_variables(m) == 3685
+        assert number_variables(m) == 3687
         assert number_total_constraints(m) == 1476
         assert number_unused_variables(m) == 1471
 
@@ -232,15 +276,17 @@ class TestWAIV:
         m = waiv_frame
 
         results_dict = {
+            "recovery_mass": 0.0,
+            "number_recirculation_loops": 5.7712,
             "evaporation_rate": {
-                0: 0.312803,
-                90: 0.350962,
-                180: 1.8731,
-                270: 1.6455,
-                364: 1.212,
+                0: 0.234175,
+                90: 0.262742,
+                180: 1.4022,
+                270: 1.2318,
+                364: 0.907382,
             },
-            "total_wetted_surface_area_required": 24627.35,
-            "number_waiv_modules": 4.3205,
+            "total_wetted_surface_area_required": 5700.0,
+            "number_waiv_modules": 1.0,
             "arden_buck_press_sat_vap_min_temp": {
                 0: 615.66,
                 90: 615.66,
@@ -263,7 +309,7 @@ class TestWAIV:
                 364: 2.7866,
             },
             "water_activity": 0.959716,
-            "harbeck_N": 2.3380e-09,
+            "harbeck_N": 2.50052e-09,
             "mass_transfer_driving_force": {
                 0: 0.833248,
                 90: 0.847485,
@@ -271,9 +317,10 @@ class TestWAIV:
                 270: 5.8884,
                 364: 1.6589,
             },
-            "evaporation_rate_avg": 1.5417,
-            "geotextile_area_required": 12313.67,
-            "total_land_area_required": 1572.69,
+            "evaporation_rate_avg": 1.1541,
+            "geotextile_area_required": 2850.0,
+            "total_land_area_required": 364.0,
+            "flow_mass_water_evap": 0.4381,
         }
         for v, r in results_dict.items():
             print(v)
@@ -303,18 +350,16 @@ class TestWAIV:
         assert_optimal_termination(results)
 
         sys_cost_results = {
-            "aggregate_capital_cost": 273358.45,
-            "aggregate_fixed_operating_cost": 20487.42,
-            "aggregate_variable_operating_cost": 0.0,
+            "aggregate_capital_cost": 116359.79,
+            "aggregate_fixed_operating_cost": 11386.51,
             "aggregate_flow_recovered_solids": 0.030667,
-            "aggregate_direct_capital_cost": 273358.45,
-            "total_capital_cost": 273358.45,
-            "total_operating_cost": 28688.17,
-            "maintenance_labor_chemical_operating_cost": 8200.75,
-            "total_fixed_operating_cost": 28688.17,
-            "total_variable_operating_cost": 0.0,
-            "total_annualized_cost": 59292.28,
-            "LCOW": 4.1956,
+            "aggregate_direct_capital_cost": 116359.79,
+            "total_capital_cost": 116359.79,
+            "total_operating_cost": 14877.31,
+            "maintenance_labor_chemical_operating_cost": 3490.79,
+            "total_fixed_operating_cost": 14877.31,
+            "total_annualized_cost": 27904.48,
+            "LCOW": 1.9745,
         }
 
         for v, r in sys_cost_results.items():
@@ -322,19 +367,247 @@ class TestWAIV:
             assert pytest.approx(value(sc), rel=1e-3) == r
 
         pond_cost_results = {
-            "geotextile_membrane_capital_cost": 71049.92,
-            "land_capital_cost": 3932.02,
-            "land_clearing_capital_cost": 1572.81,
-            "foundation_capital_cost": 84641.36,
-            "process_equipment_capital_cost": 43082.89,
+            "geotextile_membrane_capital_cost": 16444.5,
+            "land_capital_cost": 910.06,
+            "land_clearing_capital_cost": 364.02,
+            "foundation_capital_cost": 19590.23,
+            "process_equipment_capital_cost": 9971.53,
             "feed_tank_capital_cost": 68552.73,
             "pump_capital_cost": 526.69,
-            "geotextile_membrane_replacement_operating_cost": 11841.65,
+            "geotextile_membrane_replacement_operating_cost": 2740.75,
             "other_operating_cost": 8645.76,
             "feed_tank_volume_required": 5110.55,
-            "capital_cost": 273358.45,
-            "direct_capital_cost": 273358.45,
-            "fixed_operating_cost": 20487.42,
+            "capital_cost": 116359.79,
+            "direct_capital_cost": 116359.79,
+            "fixed_operating_cost": 11386.51,
+        }
+
+        for v, r in pond_cost_results.items():
+            pv = getattr(m.fs.unit.costing, v)
+            assert pytest.approx(value(pv), rel=1e-3) == r
+
+
+class TestWAIV_NonTerminal:
+
+    @pytest.fixture(scope="class")
+    def waiv_frame(self):
+        m = build_waiv_non_terminal()
+        return m
+
+    @pytest.mark.unit
+    def test_config(self, waiv_frame):
+        m = waiv_frame
+        assert len(m.fs.unit.config) == 8
+
+        assert not m.fs.unit.config.dynamic
+        assert not m.fs.unit.config.has_holdup
+        assert not m.fs.unit.config.terminal_process
+        assert m.fs.unit.config.property_package is m.fs.properties
+        assert hasattr(m.fs.unit, "properties_out")
+
+    @pytest.mark.unit
+    def test_build(self, waiv_frame):
+        m = waiv_frame
+
+        for day, row in daily_mean.iterrows():
+            temperature = (
+                row[m.fs.unit.config.weather_data_column_dict["temperature"]] + 273.15
+            )
+            rh = row[m.fs.unit.config.weather_data_column_dict["relative_humidity"]]
+
+            wind_speed = row[m.fs.unit.config.weather_data_column_dict["wind_speed"]]
+            assert (
+                pytest.approx(value(m.fs.unit.wind_speed[day]), rel=1e-3) == wind_speed
+            )
+
+            assert (
+                pytest.approx(
+                    value(m.fs.unit.weather[day].temperature["Vap"]), rel=1e-3
+                )
+                == temperature
+            )
+
+            assert (
+                pytest.approx(
+                    value(m.fs.unit.weather[day].relative_humidity["H2O"]), rel=1e-3
+                )
+                == rh / 100
+            )
+
+        assert len(m.fs.unit.weather) == len(m.fs.unit.days_of_year)
+        assert number_variables(m) == 3707
+        assert number_total_constraints(m) == 1495
+        assert number_unused_variables(m) == 1471
+
+    @pytest.mark.unit
+    def test_dof(self, waiv_frame):
+        m = waiv_frame
+        assert degrees_of_freedom(m) == 0
+
+    @pytest.mark.unit
+    def test_calculate_scaling(self, waiv_frame):
+        m = waiv_frame
+        m.fs.unit.properties_in[0].set_default_scaling(
+            "flow_mass_phase_comp",
+            1,
+            index=("Liq", "H2O"),
+        )
+        m.fs.unit.properties_in[0].set_default_scaling(
+            "flow_mass_phase_comp",
+            10,
+            index=("Liq", "TDS"),
+        )
+
+        calculate_scaling_factors(m)
+
+        unscaled_var_list = list(unscaled_variables_generator(m))
+        assert len(unscaled_var_list) == 0
+
+    @pytest.mark.component
+    def test_initialize(self, waiv_frame):
+        m = waiv_frame
+        m.fs.unit.initialize()
+        # initialization_tester(m)
+        for day, row in daily_mean.iterrows():
+            temperature = (
+                row[m.fs.unit.config.weather_data_column_dict["temperature"]] + 273.15
+            )
+            rh = row[m.fs.unit.config.weather_data_column_dict["relative_humidity"]]
+
+            wind_speed = row[m.fs.unit.config.weather_data_column_dict["wind_speed"]]
+            assert (
+                pytest.approx(value(m.fs.unit.wind_speed[day]), rel=1e-3) == wind_speed
+            )
+
+            assert (
+                pytest.approx(
+                    value(m.fs.unit.weather[day].temperature["Vap"]), rel=1e-3
+                )
+                == temperature
+            )
+
+            assert (
+                pytest.approx(
+                    value(m.fs.unit.weather[day].relative_humidity["H2O"]), rel=1e-3
+                )
+                == rh / 100
+            )
+
+    @pytest.mark.component
+    def test_solve(self, waiv_frame):
+        m = waiv_frame
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+    @pytest.mark.unit
+    def test_solution(self, waiv_frame):
+        m = waiv_frame
+
+        results_dict = {
+            "recovery_mass": 0.2,
+            "number_recirculation_loops": 4.6165,
+            "evaporation_rate": {
+                0: 0.234108,
+                90: 0.262622,
+                180: 1.4025,
+                270: 1.2321,
+                364: 0.907242,
+            },
+            "total_wetted_surface_area_required": 5700.0,
+            "number_waiv_modules": 1.0,
+            "huang_press_sat_vap_min_temp": {
+                0: 615.7,
+                90: 615.7,
+                180: 1357.24,
+                270: 1357.24,
+                364: 615.7,
+            },
+            "huang_press_sat_vap_max_temp": {
+                0: 758.09,
+                90: 1125.21,
+                180: 3304.66,
+                270: 3986.08,
+                364: 866.51,
+            },
+            "actual_vapor_pressure": {
+                0: 415.37,
+                90: 520.01,
+                180: 907.8,
+                270: 721.84,
+                364: 278.68,
+            },
+            "water_activity": 0.959716,
+            "harbeck_N": 2.50052e-09,
+            "mass_transfer_driving_force": {
+                0: 0.833009,
+                90: 0.847101,
+                180: 4.7663,
+                270: 5.8897,
+                364: 1.6587,
+            },
+            "evaporation_rate_avg": 1.1543,
+            "geotextile_area_required": 2850.0,
+            "total_land_area_required": 364.0,
+            "flow_mass_water_evap": 0.35048,
+        }
+        for v, r in results_dict.items():
+            print(v)
+            pv = getattr(m.fs.unit, v)
+            if pv.is_indexed():
+                for i, s in r.items():
+                    assert pytest.approx(value(pv[i]), rel=1e-3) == s
+            else:
+                assert pytest.approx(value(pv), rel=1e-3) == r
+
+    @pytest.mark.component
+    def test_costing(self, waiv_frame):
+        m = waiv_frame
+
+        m.fs.costing = TreatmentCosting()
+        m.fs.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOW(
+            flow_rate=m.fs.unit.properties_in[0].flow_vol_phase["Liq"]
+        )
+
+        m.fs.obj = Objective(expr=m.fs.costing.LCOW)
+
+        m.fs.costing.initialize()
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        sys_cost_results = {
+            "aggregate_capital_cost": 116359.79,
+            "aggregate_fixed_operating_cost": 11386.51,
+            "aggregate_flow_recovered_solids": 0.024012,
+            "aggregate_direct_capital_cost": 116359.79,
+            "total_capital_cost": 116359.79,
+            "total_operating_cost": 14877.31,
+            "maintenance_labor_chemical_operating_cost": 3490.79,
+            "total_fixed_operating_cost": 14877.31,
+            "total_annualized_cost": 27904.48,
+            "LCOW": 1.9745,
+        }
+
+        for v, r in sys_cost_results.items():
+            sc = getattr(m.fs.costing, v)
+            assert pytest.approx(value(sc), rel=1e-3) == r
+
+        pond_cost_results = {
+            "geotextile_membrane_capital_cost": 16444.5,
+            "land_capital_cost": 910.06,
+            "land_clearing_capital_cost": 364.02,
+            "foundation_capital_cost": 19590.23,
+            "process_equipment_capital_cost": 9971.53,
+            "feed_tank_capital_cost": 68552.73,
+            "pump_capital_cost": 526.69,
+            "geotextile_membrane_replacement_operating_cost": 2740.75,
+            "other_operating_cost": 8645.76,
+            "feed_tank_volume_required": 5110.55,
+            "capital_cost": 116359.79,
+            "direct_capital_cost": 116359.79,
+            "fixed_operating_cost": 11386.51,
         }
 
         for v, r in pond_cost_results.items():
