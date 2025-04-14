@@ -52,8 +52,8 @@ def tornado_plot(baseline_lcow, df, title="<Low> VS <High> values"):
         x_low_change = (baseline_lcow - low_value)/baseline_lcow*100
         x_high_change = (high_value - baseline_lcow)/baseline_lcow*100
 
-        plt.text(x_high, y+0.1, str(f'{high_value:0.1f}'), va='center', ha='center')
-        plt.text(x_low, y+0.1, str(f'{low_value:0.1f}'), va='center', ha='center')
+        plt.text(x_high, y+0.1, str(f'{high_value:0.2f}'), va='center', ha='center')
+        plt.text(x_low, y+0.1, str(f'{low_value:0.2f}'), va='center', ha='center')
 
         plt.text(x_low, y-0.1, '(-' + str(f'{x_low_change:0.1f}')+'%)', va='center', ha='center')
         plt.text(x_high, y-0.1, '(+' + str(f'{x_high_change:0.1f}')+'%)', va='center', ha='center')
@@ -81,7 +81,7 @@ def tornado_plot(baseline_lcow, df, title="<Low> VS <High> values"):
 if __name__ == "__main__":
 
     labels = pd.Series({
-        "nacl_recovery_price": "NaCl Recovery Price ($/kg)\n 0 [-0.024,0]",
+        "nacl_recovery_price": "Recovered NaCl Price ($/kg)\n 0 [-0.024,0]",
         'cst_cost_per_total_aperture_area':"Cost per Total \nAperture Area (\$/m$^2$)\n 373 [186.5,466.25]",
         'cst_cost_per_storage_capital':"Cost per Thermal \nStorage Capacity ($/kWh)\n 62 [31,77.5]",
         'pv_cost_per_watt_installed':"Cost per \nWatt Installed ($/W)\n 1.6 [0.8,2]",
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     df['lcow_low_values'] = lcow_low_values
     df['lcow_high_values'] = lcow_high_values
 
-    baseline_lcow = 2.74
+    baseline_lcow = 2.74898429669589
 
     var_effect = np.abs(lcow_high_values - lcow_low_values)/baseline_lcow
 
