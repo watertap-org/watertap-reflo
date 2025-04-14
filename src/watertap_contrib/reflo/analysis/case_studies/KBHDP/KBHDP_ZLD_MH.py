@@ -64,11 +64,11 @@ from idaes.models.unit_models import (
 )
 from idaes.core import MaterialBalanceType
 
-def kbhdp_zld_ro(ro_recovery=0.5):
+def kbhdp_zld_ro(ro_recovery=0.5,Qin=4):
 
     m = build_zld_ro_treatment()
     add_zld_ro_connections(m)
-    set_zld_ro_operating_conditions(m)
+    set_zld_ro_operating_conditions(m,Qin)
     apply_zld_ro_scaling(m)
     init_zld_ro_treatment(m, verbose=False)
     add_ro_recovery_constraint(m, m.fs.treatment.RO,ro_recovery)
@@ -315,11 +315,11 @@ def set_inlet_conditions(
     # assert_units_consistent(m)
 
 
-def set_zld_ro_operating_conditions(m, RO_pressure=20e5):
+def set_zld_ro_operating_conditions(m, Qin,RO_pressure=20e5):
     treatment = m.fs.treatment
     pump_efi = 0.8  # pump efficiency [-]
     # Set inlet conditions and operating conditions for each unit
-    set_inlet_conditions(m, Qin=4)
+    set_inlet_conditions(m, Qin)
     set_ec_operating_conditions(m, treatment.EC)
     set_UF_op_conditions(treatment.UF)
     treatment.pump.efficiency_pump.fix(pump_efi)
@@ -637,19 +637,19 @@ def add_zld_mec(m,permian_cryst_config):
 
     # treat.cryst_feed_H2O_constraint = Constraint(
     # expr = treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"]
-    #     == treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]
+    #     == treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]
     # )
     # treat.cryst_feed_NaCl_constraint = Constraint(
     # expr = treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
-    #     == treat.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
+    #     == treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "NaCl"]
     # )
     # treat.cryst_feed_temp_constraint = Constraint(
     # expr = treat.mec.unit.inlet.temperature[0]
-    #     == treat.norm_feed.outlet.temperature[0]
+    #     == treat.sw_to_nacl_disposal.outlet.temperature[0]
     # )
     # treat.cryst_feed_pressure_constraint = Constraint(
     # expr = treat.mec.unit.inlet.pressure[0]
-    #     == treat.norm_feed.outlet.pressure[0]
+    #     == treat.sw_to_nacl_disposal.outlet.pressure[0]
     # )
 
     print("Water",treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
@@ -732,7 +732,6 @@ def add_zld_cst(m):
     set_cst_op_conditions(m.fs.energy.cst, hours_storage=24)
     init_cst(m.fs.energy.cst)
 
-
 def add_zld_pv(m):
 
     build_pv(m)
@@ -774,7 +773,7 @@ def add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price
     print("\n--------- Treatment Costing Initialization Complete ---------\n")
     
 
-def add_zld_heat_energy_costing(m,heat_price,electricity_price):
+def add_zld_heat_energy_costing(m,cost_per_total_aperture_area,cost_per_storage_capital,heat_price,electricity_price):
     # Add energy costing
     energy = m.fs.energy
 
@@ -782,7 +781,7 @@ def add_zld_heat_energy_costing(m,heat_price,electricity_price):
     add_cst_costing_scaling(m,m.fs.energy.cst.unit)
 
 
-def add_zld_electricity_energy_costing(m,heat_price,electricity_price):
+def add_zld_electricity_energy_costing(m,cost_per_watt_installed,heat_price,electricity_price):
     energy = m.fs.energy
 
     energy.costing.has_electricity_generation = True
@@ -822,8 +821,13 @@ def kbhdp_zld_md_reporting_variables(m):
     )    
 
 
-def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
-    m = kbhdp_zld_ro(ro_recovery)
+def zld_main(Qin=4,ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0,
+             heat_price=0.0166,electricity_price=0.04989,
+             cost_per_total_aperture_area=373,cost_per_storage_capital=62,
+             cost_per_watt_installed = 1.6,
+             ):
+    
+    m = kbhdp_zld_ro(ro_recovery,Qin)
 
     print(
         f'RO Recovery: {100 * (value(m.fs.treatment.RO.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]) / value(m.fs.treatment.RO.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"])):<5.2f}%'
@@ -865,7 +869,7 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     print(f"\nDOF after MEC = {degrees_of_freedom(m)}")
     print("\n")
 
-    add_zld_treatment_costing(m,heat_price=0.0166,electricity_price=0.04989,nacl_recovery_price=nacl_recovery_price)
+    add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price=nacl_recovery_price)
 
     try:
         results = solve(m)
@@ -880,7 +884,7 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     m.fs.energy.costing = EnergyCosting()
 
     add_zld_cst(m)
-    add_zld_heat_energy_costing(m,heat_price=0.0166,electricity_price=0.04989)
+    add_zld_heat_energy_costing(m,cost_per_total_aperture_area,cost_per_storage_capital,heat_price,electricity_price)
     m.fs.energy.cst.unit.heat_load.unfix()
     results = solve(m)
 
@@ -895,7 +899,7 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     
     add_zld_pv(m)
 
-    add_zld_electricity_energy_costing(m,heat_price=0.0166,electricity_price=0.04989)
+    add_zld_electricity_energy_costing(m,cost_per_watt_installed,heat_price,electricity_price)
     # add_zld_heat_energy_costing(m,heat_price=0.0166,electricity_price=0.04989)
 
     m.fs.energy.cst.unit.heat_load.unfix()
@@ -906,13 +910,13 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
 
     print("\n--------- Energy Costing Initialization Complete ---------\n")
 
-    add_zld_system_energy_costing(m,heat_price=0.0166,electricity_price=0.04989)
+    add_zld_system_energy_costing(m,heat_price,electricity_price)
     
     # CST heat load calculated
     m.fs.energy.cst.unit.heat_load.unfix()
     m.fs.costing.frac_heat_from_grid.fix(0.5)
 
-    m.fs.energy.pv.annual_energy.unfix()
+    # m.fs.energy.pv.annual_energy.unfix()
     m.fs.energy.pv.design_size.unfix()
     m.fs.costing.frac_elec_from_grid.fix(0.5)
     
@@ -942,6 +946,10 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
 
     m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
 
+    m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(cost_per_total_aperture_area)
+    m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(cost_per_storage_capital)
+    m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(cost_per_watt_installed)
+
     m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
     
     results = solve(m)
@@ -965,15 +973,27 @@ def zld_main(ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0):
     print("Electricity grid fraction:",m.fs.costing.frac_elec_from_grid())
 
     print("Electricity purchased:",m.fs.costing.aggregate_flow_electricity_purchased())
-    print("Electricity generated:",m.fs.energy.costing.aggregate_flow_electricity())
+    print("Electricity generated (PV-CST):",m.fs.energy.costing.aggregate_flow_electricity())
     print("Electricity required:",m.fs.treatment.costing.aggregate_flow_electricity())
+    print('CST electricity required:',m.fs.energy.cst.unit.electricity())
 
     print("\n---------RO outputs after complete solve ---------\n")
     for idx, stage in m.fs.treatment.RO.stage.items():
         print('RO feed side velocity:',stage.module.feed_side.velocity[0, 0]())
     
     print('RO pump pressure:',m.fs.treatment.pump.control_volume.properties_out[0].pressure(),pyunits.get_units(m.fs.treatment.pump.control_volume.properties_out[0].pressure))
+    
+    print("Cost per aperature area:", m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area())
 
+    Qin_m3h = pyunits.convert(
+        Qin * pyunits.Mgallons / pyunits.day, to_units=pyunits.m**3 / pyunits.h
+    )
+    print("\nInlet flow in m3/h:",Qin_m3h())
+
+    print('Electricity demand (MWh/year):',pyunits.convert(m.fs.costing.aggregate_flow_electricity,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+    print('Heat demand (MWh/year):',pyunits.convert(m.fs.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+    print("SEC (electricity) in kWh/m3:",m.fs.costing.aggregate_flow_electricity()/Qin_m3h())
+    print("SEC (heat) in kWh/m3:",m.fs.costing.aggregate_flow_heat()/Qin_m3h())
     return m
 
 def recovery_check(m):
@@ -989,8 +1009,8 @@ def recovery_check(m):
     )
 
     # MD recovery
-    md_feed = m.fs.treatment.RO.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"]
-    md_product = m.fs.treatment.md.permeate.properties[0.0].flow_mass_phase_comp["Liq","H2O"]
+    md_feed = m.fs.treatment.RO.disposal.properties[0].flow_vol
+    md_product = m.fs.treatment.md.permeate.properties[0.0].flow_vol_phase["Liq"]
 
     print("\nMD")
     print("MD feed:",md_feed())
@@ -1031,15 +1051,21 @@ if __name__ == "__main__":
 
     m = zld_main(
         ro_recovery = 0.8,
-        md_water_recovery = 0.7,
-        nacl_recovery_price = -0.024
+        md_water_recovery = 0.78,
+        nacl_recovery_price = 0,
+        heat_price = 0.0166,
+        electricity_price = 0.04989,
+        cost_per_total_aperture_area = 373,
+        cost_per_storage_capital = 62,
+        cost_per_watt_installed = 1.6
         )
     
     recovery_check(m)
 
     total_salt = 0
     for effect_number, eff in m.fs.treatment.mec.unit.effects.items():
-        print(effect_number, value(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"])*10, pyunits.get_units(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]))
+        print(effect_number, value(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]), 
+              pyunits.get_units(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]))
 
         total_salt+=value(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"])
 
