@@ -211,10 +211,12 @@ def save_water_dams(
     )
     # Add LCOW
     try:
-        water_dams_df.insert(0, "LCOW ($/m3)", df[f"{sys_costing_blk}.LCOT"])
-    except KeyError:
-        print("LCOT not found; trying LCOW...")
         water_dams_df.insert(0, "LCOW ($/m3)", df[f"{sys_costing_blk}.LCOW"])
+        # water_dams_df.insert(0, "LCOW ($/m3)", df[f"{sys_costing_blk}.LCOT"])
+    except KeyError:
+        print("LCOW not found; trying LCOT...")
+        print(df[f"{sys_costing_blk}.LCOT"])
+        water_dams_df.insert(0, "LCOW ($/m3)", df[f"{sys_costing_blk}.LCOT"])
 
     water_dams_df.insert(0, "Inlet Flow Rate (MGD)", feed_conditions["feed_flow_mgd"])  # MGD
     water_dams_df.insert(1, "Inlet TDS (g/L)", feed_conditions["feed_tds"])  #g/L
