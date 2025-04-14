@@ -399,9 +399,16 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         self.recovery_mass = Var(
             initialize=0,
             # mutable=True,
-            bounds=(0,1), 
+            bounds=(0, 1),
             units=pyunits.dimensionless,
             doc="Mass-based recovery of water from WAIV system",
+        )
+
+        self.number_recirculation_loops = Var(
+            initialize=1.02,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Number of recirculation loops through WAIV modules",
         )
 
         self.land_area_per_waiv_module = Param(
@@ -657,6 +664,16 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         def total_land_area_required(b):
             return b.land_area_per_waiv_module * b.number_waiv_modules
 
+        @self.Expression(doc="Steady-state mass flow evaporated water")
+        def flow_mass_water_evap(b):
+            return pyunits.convert(
+                b.total_wetted_surface_area_required
+                * b.number_recirculation_loops
+                * b.evaporation_rate_avg
+                * prop_in.dens_mass_solvent["H2O"],
+                to_units=pyunits.kg / pyunits.s,
+            )
+
         @self.Constraint(self.days_of_year, doc="Evaporation rate from Harbeck method")
         def eq_evaporation_rate(b, d):
             wind_speed_mm_day = pyunits.convert(
@@ -664,7 +681,10 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             )
             return b.evaporation_rate[d] == smooth_max(
                 pyunits.convert(
-                    b.harbeck_N * wind_speed_mm_day * b.mass_transfer_driving_force[d],
+                    b.harbeck_N
+                    * wind_speed_mm_day
+                    * b.mass_transfer_driving_force[d]
+                    * b.evaporation_rate_salinity_adjustment_factor,
                     to_units=pyunits.mm / pyunits.day,
                 ),
                 1e-3 * pyunits.mm / pyunits.day,
@@ -672,13 +692,19 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="Total wetted surface area required for WAIV system")
         def eq_total_wetted_surface_area_required(b):
-            return b.total_wetted_surface_area_required == pyunits.convert(
-                (
-                    (prop_in.flow_mass_phase_comp["Liq", "H2O"] * (1 - b.recovery_mass))
-                    / prop_in.dens_mass_solvent["H2O"]
+            return (
+                b.total_wetted_surface_area_required * b.number_recirculation_loops
+                == pyunits.convert(
+                    (
+                        (
+                            prop_in.flow_mass_phase_comp["Liq", "H2O"]
+                            * (1 - b.recovery_mass)
+                        )
+                        / prop_in.dens_mass_solvent["H2O"]
+                    )
+                    / b.evaporation_rate_avg,
+                    to_units=pyunits.m**2,
                 )
-                / b.evaporation_rate_avg,
-                to_units=pyunits.m**2,
             )
 
         @self.Constraint(doc="Number of WAIV modules required")
@@ -696,6 +722,9 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 * prop_in.dens_mass_solvent["H2O"],
                 to_units=pyunits.kg / pyunits.s,
             )
+
+        if self.config.terminal_process:
+            self.recovery_mass.fix(0)
 
         if not self.config.terminal_process:
 
@@ -719,11 +748,15 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
 
             @self.Constraint(
                 self.config.property_package.liq_comps,
-                doc="Mass balance for liquid phawe",
+                doc="Mass balance for liquid phase",
             )
             def eq_liq_comps_mass_balance(b, j):
                 if j == "TDS":
-                    return Constraint.Skip
+                    return prop_out.conc_mass_phase_comp[
+                        "Liq", j
+                    ] == prop_in.conc_mass_phase_comp["Liq", j] / (
+                        b.recovery_mass * b.number_recirculation_loops
+                    )
                 if j == "H2O":
                     return (
                         prop_out.flow_mass_phase_comp["Liq", j]
@@ -740,7 +773,7 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
 
             @self.Constraint(
                 self.config.property_package.vap_comps,
-                doc="Mass balance for vapor phawe",
+                doc="Mass balance for vapor phase",
             )
             def eq_vap_comps_mass_balance(b, j):
                 return (
@@ -849,6 +882,12 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.number_waiv_modules) is None:
             iscale.set_scaling_factor(self.number_waiv_modules, 1)
+
+        if iscale.get_scaling_factor(self.recovery_mass) is None:
+            iscale.set_scaling_factor(self.recovery_mass, 1)
+
+        if iscale.get_scaling_factor(self.number_recirculation_loops) is None:
+            iscale.set_scaling_factor(self.number_recirculation_loops, 1)
 
     def _get_timeseries_results(self):
         """
