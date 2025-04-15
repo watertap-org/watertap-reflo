@@ -287,6 +287,7 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         # avoid warnings for days with air temp < 0 degC
         self.weather[:].temperature["Vap"].setlb(200)
         self.weather[:].temperature["Liq"].setlb(200)
+        self.weather[:].flow_mass_phase_comp["Liq", :].fix(0)
 
         for day, row in weather_daily_mean.iterrows():
 
@@ -303,6 +304,11 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             rh = row[self.config.weather_data_column_dict["relative_humidity"]]
             self.weather[day].relative_humidity["H2O"].fix(rh / 100)
             self.weather[day].pressure_vap_sat["H2O"]
+
+            for p, j in self.weather[day].phase_component_set:
+                if (p, j) == ("Vap", "H2O"):
+                    continue
+                self.weather[day].flow_mass_phase_comp[(p, j)].fix(0)
 
         self.rh_min = Param(
             self.days_of_year,
@@ -337,152 +343,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             units=pyunits.degK,
             doc="Daily maximum air temperature",
         )
-
-        if (
-            self.config.property_package.config.saturation_vapor_pressure_calculation
-            == SaturationVaporPressureCalculation.Huang
-        ):
-            a = self.config.property_package.huang_coeff_A
-            b_ = self.config.property_package.huang_coeff_B
-            c = self.config.property_package.huang_coeff_C
-            d1 = self.config.property_package.huang_coeff_D1
-            d2 = self.config.property_package.huang_coeff_D2
-
-            @self.Expression(
-                self.days_of_year,
-                doc="Huang saturation vapor pressure at min air temp",
-            )
-            def huang_press_sat_vap_min_temp(b, d):
-                air_temp = pyunits.convert(
-                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-                    to_units=pyunits.dimensionless,
-                )
-                huang_exp = a - (b_ / (air_temp + d1))
-                p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
-                return p_vap_sat
-
-            @self.Expression(
-                self.days_of_year,
-                doc="Huang saturation vapor pressure at max air temp",
-            )
-            def huang_press_sat_vap_max_temp(b, d):
-                air_temp = pyunits.convert(
-                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-                    to_units=pyunits.dimensionless,
-                )
-                huang_exp = a - (b_ / (air_temp + d1))
-                p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
-                return p_vap_sat
-
-            @self.Expression(
-                self.days_of_year, doc="Actual vapor pressure from air temperature"
-            )
-            def actual_vapor_pressure(b, d):
-                pressure_sat_vap_min = pyunits.convert(
-                    b.huang_press_sat_vap_min_temp[d] * b.rh_max[d],
-                    to_units=pyunits.Pa,
-                )
-                pressure_sat_vap_max = pyunits.convert(
-                    b.huang_press_sat_vap_max_temp[d] * b.rh_min[d],
-                    to_units=pyunits.Pa,
-                )
-                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
-
-        if (
-            self.config.property_package.config.saturation_vapor_pressure_calculation
-            == SaturationVaporPressureCalculation.ArdenBuck
-        ):
-
-            a = self.config.property_package.arden_buck_coeff_a  # millibars
-            b_ = self.config.property_package.arden_buck_coeff_b
-            c = self.config.property_package.arden_buck_coeff_c
-            d_ = self.config.property_package.arden_buck_coeff_d
-
-            @self.Expression(
-                self.days_of_year,
-                doc="Arden-Buck saturation vapor pressure at min air temp",
-            )
-            def arden_buck_press_sat_vap_min_temp(b, d):
-                air_temp = pyunits.convert(
-                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-                    to_units=pyunits.dimensionless,
-                )
-                ardenbuck_exp = (b_ - air_temp / d_) * (air_temp / (c + air_temp))
-                return pyunits.convert(a * exp(ardenbuck_exp), to_units=pyunits.Pa)
-
-            @self.Expression(
-                self.days_of_year,
-                doc="Arden-Buck saturation vapor pressure at max air temp",
-            )
-            def arden_buck_press_sat_vap_max_temp(b, d):
-                air_temp = pyunits.convert(
-                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-                    to_units=pyunits.dimensionless,
-                )
-                ardenbuck_exp = (b_ - air_temp / d_) * (air_temp / (c + air_temp))
-                return pyunits.convert(a * exp(ardenbuck_exp), to_units=pyunits.Pa)
-
-            @self.Expression(
-                self.days_of_year, doc="Actual vapor pressure from air temperature"
-            )
-            def actual_vapor_pressure(b, d):
-                pressure_sat_vap_min = pyunits.convert(
-                    b.arden_buck_press_sat_vap_min_temp[d] * b.rh_max[d],
-                    to_units=pyunits.Pa,
-                )
-                pressure_sat_vap_max = pyunits.convert(
-                    b.arden_buck_press_sat_vap_max_temp[d] * b.rh_min[d],
-                    to_units=pyunits.Pa,
-                )
-                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
-
-        if (
-            self.config.property_package.config.saturation_vapor_pressure_calculation
-            == SaturationVaporPressureCalculation.Antoine
-        ):
-            a = self.config.property_package.antoine_A
-            b_ = self.config.property_package.antoine_B
-            c = self.config.property_package.antoine_C
-
-            @self.Expression(
-                self.days_of_year,
-                doc="Antoine saturation vapor pressure at min air temp",
-            )
-            def antoine_press_sat_vap_min_temp(b, d):
-                air_temp = pyunits.convert(
-                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-                    to_units=pyunits.dimensionless,
-                )
-                antoine = a - (b / (c + air_temp))
-                p_vap_sat = 10 ** (antoine) * pyunits.mmHg
-                return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
-
-            @self.Expression(
-                self.days_of_year,
-                doc="Antoine saturation vapor pressure at max air temp",
-            )
-            def antoine_press_sat_vap_max_temp(b, d):
-                air_temp = pyunits.convert(
-                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
-                    to_units=pyunits.dimensionless,
-                )
-                antoine = a - (b / (c + air_temp))
-                p_vap_sat = 10 ** (antoine) * pyunits.mmHg
-                return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
-
-            @self.Expression(
-                self.days_of_year, doc="Actual vapor pressure from air temperature"
-            )
-            def actual_vapor_pressure(b, d):
-                pressure_sat_vap_min = pyunits.convert(
-                    b.antoine_press_sat_vap_min_temp[d] * b.rh_max[d],
-                    to_units=pyunits.Pa,
-                )
-                pressure_sat_vap_max = pyunits.convert(
-                    b.antoine_press_sat_vap_max_temp[d] * b.rh_min[d],
-                    to_units=pyunits.Pa,
-                )
-                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
 
         self.water_temp_param1 = Param(
             initialize=1.167,
@@ -685,6 +545,152 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             doc="Rate at which solids precipitate on bottom of pond",
         )
 
+        if (
+            self.config.property_package.config.saturation_vapor_pressure_calculation
+            == SaturationVaporPressureCalculation.Huang
+        ):
+            a = self.config.property_package.huang_coeff_A
+            b_ = self.config.property_package.huang_coeff_B
+            c = self.config.property_package.huang_coeff_C
+            d1 = self.config.property_package.huang_coeff_D1
+            d2 = self.config.property_package.huang_coeff_D2
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Huang saturation vapor pressure at min air temp",
+            )
+            def huang_press_sat_vap_min_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                huang_exp = a - (b_ / (air_temp + d1))
+                p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
+                return p_vap_sat
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Huang saturation vapor pressure at max air temp",
+            )
+            def huang_press_sat_vap_max_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                huang_exp = a - (b_ / (air_temp + d1))
+                p_vap_sat = (exp(huang_exp) / (air_temp + d2) ** c) * pyunits.Pa
+                return p_vap_sat
+
+            @self.Expression(
+                self.days_of_year, doc="Actual vapor pressure from air temperature"
+            )
+            def actual_vapor_pressure(b, d):
+                pressure_sat_vap_min = pyunits.convert(
+                    b.huang_press_sat_vap_min_temp[d] * b.rh_max[d],
+                    to_units=pyunits.Pa,
+                )
+                pressure_sat_vap_max = pyunits.convert(
+                    b.huang_press_sat_vap_max_temp[d] * b.rh_min[d],
+                    to_units=pyunits.Pa,
+                )
+                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
+
+        if (
+            self.config.property_package.config.saturation_vapor_pressure_calculation
+            == SaturationVaporPressureCalculation.ArdenBuck
+        ):
+
+            a = self.config.property_package.arden_buck_coeff_a  # millibars
+            b_ = self.config.property_package.arden_buck_coeff_b
+            c = self.config.property_package.arden_buck_coeff_c
+            d_ = self.config.property_package.arden_buck_coeff_d
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Arden-Buck saturation vapor pressure at min air temp",
+            )
+            def arden_buck_press_sat_vap_min_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                ardenbuck_exp = (b_ - air_temp / d_) * (air_temp / (c + air_temp))
+                return pyunits.convert(a * exp(ardenbuck_exp), to_units=pyunits.Pa)
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Arden-Buck saturation vapor pressure at max air temp",
+            )
+            def arden_buck_press_sat_vap_max_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                ardenbuck_exp = (b_ - air_temp / d_) * (air_temp / (c + air_temp))
+                return pyunits.convert(a * exp(ardenbuck_exp), to_units=pyunits.Pa)
+
+            @self.Expression(
+                self.days_of_year, doc="Actual vapor pressure from air temperature"
+            )
+            def actual_vapor_pressure(b, d):
+                pressure_sat_vap_min = pyunits.convert(
+                    b.arden_buck_press_sat_vap_min_temp[d] * b.rh_max[d],
+                    to_units=pyunits.Pa,
+                )
+                pressure_sat_vap_max = pyunits.convert(
+                    b.arden_buck_press_sat_vap_max_temp[d] * b.rh_min[d],
+                    to_units=pyunits.Pa,
+                )
+                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
+
+        if (
+            self.config.property_package.config.saturation_vapor_pressure_calculation
+            == SaturationVaporPressureCalculation.Antoine
+        ):
+            a = self.config.property_package.antoine_A
+            b_ = self.config.property_package.antoine_B
+            c = self.config.property_package.antoine_C
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Antoine saturation vapor pressure at min air temp",
+            )
+            def antoine_press_sat_vap_min_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_min[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                antoine = a - (b / (c + air_temp))
+                p_vap_sat = 10 ** (antoine) * pyunits.mmHg
+                return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
+
+            @self.Expression(
+                self.days_of_year,
+                doc="Antoine saturation vapor pressure at max air temp",
+            )
+            def antoine_press_sat_vap_max_temp(b, d):
+                air_temp = pyunits.convert(
+                    (b.air_temp_max[d] - 273.15 * pyunits.degK) * pyunits.degK**-1,
+                    to_units=pyunits.dimensionless,
+                )
+                antoine = a - (b / (c + air_temp))
+                p_vap_sat = 10 ** (antoine) * pyunits.mmHg
+                return pyunits.convert(p_vap_sat, to_units=pyunits.Pa)
+
+            @self.Expression(
+                self.days_of_year, doc="Actual vapor pressure from air temperature"
+            )
+            def actual_vapor_pressure(b, d):
+                pressure_sat_vap_min = pyunits.convert(
+                    b.antoine_press_sat_vap_min_temp[d] * b.rh_max[d],
+                    to_units=pyunits.Pa,
+                )
+                pressure_sat_vap_max = pyunits.convert(
+                    b.antoine_press_sat_vap_max_temp[d] * b.rh_min[d],
+                    to_units=pyunits.Pa,
+                )
+                return (pressure_sat_vap_min + pressure_sat_vap_max) * 0.5
+
         @self.Expression(doc="Water activity")
         def water_activity(b):
             salinity = pyunits.convert(
@@ -829,6 +835,13 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
                 * b.evaporation_pond_depth
                 * b.daily_temperature_change[d],
                 to_units=pyunits.megajoule * pyunits.day**-1 * pyunits.m**-2,
+            )
+
+        @self.Constraint(self.days_of_year, doc="Daily mass flow of water")
+        def eq_flow_mass_evap(b, d):
+            return b.weather[d].flow_mass_phase_comp["Vap", "H2O"] == pyunits.convert(
+                b.mass_flux_water_vapor[d] * b.total_evaporative_area_required,
+                to_units=pyunits.kg / pyunits.s,
             )
 
         @self.Constraint(self.days_of_year)
