@@ -753,21 +753,23 @@ def add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_ro_costing(m, treatment.RO, treatment.costing)
 
-    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_floc_constraint, 1e-6)
-    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_reactor_constraint, 1e-3)
-    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_power_supply_constraint, 1e-6)
-    # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_electrodes_constraint, 1e-3)
+    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_floc_constraint, 1e-6)
+    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_reactor_constraint, 1e-3)
+    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_power_supply_constraint, 1e-6)
+    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_electrodes_constraint, 1e-3)
 
     m.fs.treatment.md.unit.add_costing_module(m.fs.treatment.costing)
 
     add_mec_costing(m, m.fs.treatment.mec, flowsheet_costing_block=m.fs.treatment.costing)
 
-    # constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_1_constraint,1e-7)
-    # constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_2_constraint,1e-7)
-    # constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_3_constraint,1e-7)
-    # constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_4_constraint,1e-7)
+    constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_1_constraint,1e-7)
+    constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_2_constraint,1e-7)
+    constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_3_constraint,1e-7)
+    constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_4_constraint,1e-7)
     
     treatment.costing.cost_process()
+    treatment.costing.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
+
     treatment.costing.initialize()
 
     print("\n--------- Treatment Costing Initialization Complete ---------\n")
@@ -821,11 +823,13 @@ def kbhdp_zld_md_reporting_variables(m):
     )    
 
 
-def zld_main(Qin=4,ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0,
-             heat_price=0.0166,electricity_price=0.04989,
-             cost_per_total_aperture_area=373,cost_per_storage_capital=62,
-             cost_per_watt_installed = 1.6,
-             ):
+def zld_main(
+        treatment_only=False,
+        Qin=4,ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0,
+        heat_price=0.0166,electricity_price=0.04989,
+        cost_per_total_aperture_area=373,cost_per_storage_capital=62,
+        cost_per_watt_installed = 1.6,
+        ):
     
     m = kbhdp_zld_ro(ro_recovery,Qin)
 
@@ -870,55 +874,6 @@ def zld_main(Qin=4,ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price
     print("\n")
 
     add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price=nacl_recovery_price)
-
-    try:
-        results = solve(m)
-        print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
-        print("\n")
-    except:
-        print_infeasible_constraints(m)
-
-    # assert False
-    # Calculate required heat load and CST sizing
-    m.fs.energy = Block()
-    m.fs.energy.costing = EnergyCosting()
-
-    add_zld_cst(m)
-    add_zld_heat_energy_costing(m,cost_per_total_aperture_area,cost_per_storage_capital,heat_price,electricity_price)
-    m.fs.energy.cst.unit.heat_load.unfix()
-    results = solve(m)
-
-    print(f"\nDOF after Energy = {degrees_of_freedom(m)}")
-    print("\n")
-
-    print("\n--------- CST Initialized ---------\n")
-
-    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
-    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
-    print("\n")
-    
-    add_zld_pv(m)
-
-    add_zld_electricity_energy_costing(m,cost_per_watt_installed,heat_price,electricity_price)
-    # add_zld_heat_energy_costing(m,heat_price=0.0166,electricity_price=0.04989)
-
-    m.fs.energy.cst.unit.heat_load.unfix()
-    m.fs.energy.pv.design_size.unfix()
-
-    m.fs.energy.costing.cost_process()
-    m.fs.energy.costing.initialize()
-
-    print("\n--------- Energy Costing Initialization Complete ---------\n")
-
-    add_zld_system_energy_costing(m,heat_price,electricity_price)
-    
-    # CST heat load calculated
-    m.fs.energy.cst.unit.heat_load.unfix()
-    m.fs.costing.frac_heat_from_grid.fix(0.5)
-
-    # m.fs.energy.pv.annual_energy.unfix()
-    m.fs.energy.pv.design_size.unfix()
-    m.fs.costing.frac_elec_from_grid.fix(0.5)
     
     try:
         results = solve(m)
@@ -927,73 +882,150 @@ def zld_main(Qin=4,ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price
     except:
         print_infeasible_constraints(m)
 
-    print("\n--------- CST Calculated ---------\n")
-
-    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
-    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
-    print("\n")
-    print(f"\nDOF after CST sizing = {degrees_of_freedom(m)}")
-    print("\n")
-
-    # assert False
-    ###### Fix CST and calculate PV ######
-    # m.fs.energy.cst.unit.heat_load.fix()
-    # m.fs.costing.frac_heat_from_grid.unfix()
-
-    # m.fs.energy.pv.annual_energy.unfix()
-    # m.fs.energy.pv.design_size.unfix()
-    # m.fs.costing.frac_elec_from_grid.fix(0.5)
-
-    m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
-
-    m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(cost_per_total_aperture_area)
-    m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(cost_per_storage_capital)
-    m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(cost_per_watt_installed)
-
-    m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
-    
+    # m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
     results = solve(m)
-    print(f"\nDOF after PV sizing = {degrees_of_freedom(m)}")
-
-    print("LCOT:", m.fs.costing.LCOT())
-
-    kbhdp_zld_md_reporting_variables(m)
-
-    print("CST Heat load:", m.fs.energy.cst.unit.heat_load())
-    print("Heat grid fraction:",m.fs.costing.frac_heat_from_grid())
-    print("Heat purchased:",m.fs.costing.aggregate_flow_heat_purchased())
-    print("Heat generated:",m.fs.energy.costing.aggregate_flow_heat())
-    print("Heat required:",m.fs.treatment.costing.aggregate_flow_heat())
-    print("MD heat:", m.fs.treatment.md.unit.overall_thermal_power_requirement() )
-    print("MEC heat:",pyunits.convert(m.fs.treatment.mec.unit.effects[1].effect.work_mechanical[0],
-                                      to_units=pyunits.kW)())    
     
-    print("\nPV design size:",m.fs.energy.pv.design_size())
-    print("PV annual energy:",m.fs.energy.pv.annual_energy())
-    print("Electricity grid fraction:",m.fs.costing.frac_elec_from_grid())
+    if treatment_only == True:
 
-    print("Electricity purchased:",m.fs.costing.aggregate_flow_electricity_purchased())
-    print("Electricity generated (PV-CST):",m.fs.energy.costing.aggregate_flow_electricity())
-    print("Electricity required:",m.fs.treatment.costing.aggregate_flow_electricity())
-    print('CST electricity required:',m.fs.energy.cst.unit.electricity())
+        feed_m3h = pyunits.convert(
+            m.fs.treatment.feed.properties[0].flow_vol_phase["Liq"], to_units=pyunits.m**3 / pyunits.h
+        )
 
-    print("\n---------RO outputs after complete solve ---------\n")
-    for idx, stage in m.fs.treatment.RO.stage.items():
-        print('RO feed side velocity:',stage.module.feed_side.velocity[0, 0]())
+        product_m3h = pyunits.convert(
+            m.fs.treatment.product.properties[0].flow_vol_phase["Liq"], to_units=pyunits.m**3 / pyunits.h
+        )
+        print("\nProduct flow in m3/h:",product_m3h())
+        print("Aggregate flow electricity:",m.fs.treatment.costing.aggregate_flow_electricity())
+        print("Aggregate flow heat:",m.fs.treatment.costing.aggregate_flow_heat())
+        
+        print("LCOW:",m.fs.treatment.costing.LCOW(),pyunits.get_units(m.fs.treatment.costing.LCOW))
+        print("SEC (electricity) in kWh/m3:",m.fs.treatment.costing.aggregate_flow_electricity()/product_m3h())
+        print("SEC (heat) in kWh/m3:",m.fs.treatment.costing.aggregate_flow_heat()/product_m3h())
+        print("System recovery (%):", product_m3h()/feed_m3h()*100)
+        print("Capex ($M):",m.fs.treatment.costing.total_capital_cost()/1e6, 
+            pyunits.get_units(m.fs.treatment.costing.total_capital_cost))
+        print("Opex ($M/yr):",m.fs.treatment.costing.total_operating_cost()/1e6, 
+            pyunits.get_units(m.fs.treatment.costing.total_operating_cost))
+        print('Electricity demand (MWh/year):',pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+        print('Heat demand (MWh/year):',pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+
+    else:
+
+        # Calculate required heat load and CST sizing
+        m.fs.energy = Block()
+        m.fs.energy.costing = EnergyCosting()
+
+        add_zld_cst(m)
+        add_zld_heat_energy_costing(m,cost_per_total_aperture_area,cost_per_storage_capital,heat_price,electricity_price)
+        m.fs.energy.cst.unit.heat_load.unfix()
+        results = solve(m)
+
+        print(f"\nDOF after Energy = {degrees_of_freedom(m)}")
+        print("\n")
+
+        print("\n--------- CST Initialized ---------\n")
+
+        print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
+        print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+        print("\n")
+        
+        add_zld_pv(m)
+
+        add_zld_electricity_energy_costing(m,cost_per_watt_installed,heat_price,electricity_price)
+
+        m.fs.energy.cst.unit.heat_load.unfix()
+        m.fs.energy.pv.design_size.unfix()
+
+        m.fs.energy.costing.cost_process()
+        m.fs.energy.costing.initialize()
+
+        print("\n--------- Energy Costing Initialization Complete ---------\n")
+
+        add_zld_system_energy_costing(m,heat_price,electricity_price)
+        
+        # CST heat load calculated
+        m.fs.energy.cst.unit.heat_load.unfix()
+        m.fs.costing.frac_heat_from_grid.fix(0.5)
+
+        # m.fs.energy.pv.annual_energy.unfix()
+        m.fs.energy.pv.design_size.unfix()
+        m.fs.costing.frac_elec_from_grid.fix(0.5)
+        
+        try:
+            results = solve(m)
+            print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
+            print("\n")
+        except:
+            print_infeasible_constraints(m)
+
+        print("\n--------- CST Calculated ---------\n")
+
+        print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
+        print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+        print("\n")
+        print(f"\nDOF after CST sizing = {degrees_of_freedom(m)}")
+        print("\n")
+
+        # assert False
+        ###### Fix CST and calculate PV ######
+        # m.fs.energy.cst.unit.heat_load.fix()
+        # m.fs.costing.frac_heat_from_grid.unfix()
+
+        # m.fs.energy.pv.annual_energy.unfix()
+        # m.fs.energy.pv.design_size.unfix()
+        # m.fs.costing.frac_elec_from_grid.fix(0.5)
+
+        m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
+
+        m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(cost_per_total_aperture_area)
+        m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(cost_per_storage_capital)
+        m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(cost_per_watt_installed)
+
+        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
+        
+        results = solve(m)
+        print(f"\nDOF after PV sizing = {degrees_of_freedom(m)}")
+
+        print("LCOT:", m.fs.costing.LCOT())
+
+        kbhdp_zld_md_reporting_variables(m)
+
+        print("CST Heat load:", m.fs.energy.cst.unit.heat_load())
+        print("Heat grid fraction:",m.fs.costing.frac_heat_from_grid())
+        print("Heat purchased:",m.fs.costing.aggregate_flow_heat_purchased())
+        print("Heat generated:",m.fs.energy.costing.aggregate_flow_heat())
+        print("Heat required:",m.fs.treatment.costing.aggregate_flow_heat())
+        print("MD heat:", m.fs.treatment.md.unit.overall_thermal_power_requirement() )
+        print("MEC heat:",pyunits.convert(m.fs.treatment.mec.unit.effects[1].effect.work_mechanical[0],
+                                        to_units=pyunits.kW)())    
+        
+        print("\nPV design size:",m.fs.energy.pv.design_size())
+        print("PV annual energy:",m.fs.energy.pv.annual_energy())
+        print("Electricity grid fraction:",m.fs.costing.frac_elec_from_grid())
+
+        print("Electricity purchased:",m.fs.costing.aggregate_flow_electricity_purchased())
+        print("Electricity generated (PV-CST):",m.fs.energy.costing.aggregate_flow_electricity())
+        print("Electricity required:",m.fs.treatment.costing.aggregate_flow_electricity())
+        print('CST electricity required:',m.fs.energy.cst.unit.electricity())
+
+        print("\n---------RO outputs after complete solve ---------\n")
+        for idx, stage in m.fs.treatment.RO.stage.items():
+            print('RO feed side velocity:',stage.module.feed_side.velocity[0, 0]())
+        
+        print('RO pump pressure:',m.fs.treatment.pump.control_volume.properties_out[0].pressure(),pyunits.get_units(m.fs.treatment.pump.control_volume.properties_out[0].pressure))
+        
+        print("Cost per aperature area:", m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area())
+
+        Qin_m3h = pyunits.convert(
+            Qin * pyunits.Mgallons / pyunits.day, to_units=pyunits.m**3 / pyunits.h
+        )
+        print("\nInlet flow in m3/h:",Qin_m3h())
+
+        print('Electricity demand (MWh/year):',pyunits.convert(m.fs.costing.aggregate_flow_electricity,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+        print('Heat demand (MWh/year):',pyunits.convert(m.fs.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+        print("SEC (electricity) in kWh/m3:",m.fs.costing.aggregate_flow_electricity()/Qin_m3h())
+        print("SEC (heat) in kWh/m3:",m.fs.costing.aggregate_flow_heat()/Qin_m3h())
     
-    print('RO pump pressure:',m.fs.treatment.pump.control_volume.properties_out[0].pressure(),pyunits.get_units(m.fs.treatment.pump.control_volume.properties_out[0].pressure))
-    
-    print("Cost per aperature area:", m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area())
-
-    Qin_m3h = pyunits.convert(
-        Qin * pyunits.Mgallons / pyunits.day, to_units=pyunits.m**3 / pyunits.h
-    )
-    print("\nInlet flow in m3/h:",Qin_m3h())
-
-    print('Electricity demand (MWh/year):',pyunits.convert(m.fs.costing.aggregate_flow_electricity,to_units=pyunits.MW*pyunits.h/pyunits.year)())
-    print('Heat demand (MWh/year):',pyunits.convert(m.fs.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
-    print("SEC (electricity) in kWh/m3:",m.fs.costing.aggregate_flow_electricity()/Qin_m3h())
-    print("SEC (heat) in kWh/m3:",m.fs.costing.aggregate_flow_heat()/Qin_m3h())
     return m
 
 def recovery_check(m):
@@ -1050,6 +1082,7 @@ def recovery_check(m):
 if __name__ == "__main__":
 
     m = zld_main(
+        treatment_only = True,
         ro_recovery = 0.8,
         md_water_recovery = 0.78,
         nacl_recovery_price = 0,
