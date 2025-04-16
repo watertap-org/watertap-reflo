@@ -664,12 +664,23 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         def total_land_area_required(b):
             return b.land_area_per_waiv_module * b.number_waiv_modules
 
-        @self.Expression(doc="Steady-state mass flow evaporated water")
-        def flow_mass_water_evap(b):
+        @self.Expression(doc="Steady-state volumetric flow evaporated water")
+        def flow_vol_water_evap(b):
             return pyunits.convert(
                 b.total_wetted_surface_area_required
                 * b.number_recirculation_loops
-                * b.evaporation_rate_avg
+                * b.evaporation_rate_avg,
+                # * prop_in.dens_mass_solvent["H2O"],
+                to_units=pyunits.m**3 / pyunits.s,
+            )
+
+        @self.Expression(doc="Steady-state mass flow evaporated water")
+        def flow_mass_water_evap(b):
+            return pyunits.convert(
+                # b.total_wetted_surface_area_required
+                # * b.number_recirculation_loops
+                # * b.evaporation_rate_avg
+                b.flow_vol_water_evap
                 * prop_in.dens_mass_solvent["H2O"],
                 to_units=pyunits.kg / pyunits.s,
             )
