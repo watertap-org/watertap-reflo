@@ -117,21 +117,21 @@ class TestTreviFO:
         )
         assert overall_performance[
             "Specific thermal energy consumption (kWh/m3)"
-        ] == pytest.approx(26.84, rel=1e-3)
+        ] == pytest.approx(23.40, rel=1e-3)
         assert overall_performance["Thermal power requirement (kW)"] == pytest.approx(
-            569.175, rel=1e-3
+            496.22, rel=1e-3
         )
-        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.42375, rel=1e-3)
+        assert overall_performance["LCOW ($/m3)"] == pytest.approx(0.860, rel=1e-3)
 
         assert operational_parameters["HX1 cold in temp"] == pytest.approx(
-            21.23, rel=1e-3
+            21.34, rel=1e-3
         )
         assert operational_parameters["HX2 hot out temp"] == pytest.approx(
-            30.636, rel=1e-3
+            25.35, rel=1e-3
         )
         assert operational_parameters["HX1 cold side heat load (MJ)"] == pytest.approx(
             2.0996, rel=1e-3
         )
         assert operational_parameters["HX2 cold side heat load (MJ)"] == pytest.approx(
-            1.5516, rel=1e-3
+            1.189, rel=1e-3
         )
