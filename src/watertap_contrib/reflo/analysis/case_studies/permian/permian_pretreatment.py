@@ -69,6 +69,7 @@ __all__ = [
     "set_permian_pretreatment_scaling",
     "init_system",
     "build_and_run_permian_pretreatment",
+    "get_stream_density",
 ]
 
 electricity_cost_base = 0.0434618999  # USD_2018/kWh. equivalent to 0.0575 USD_2023/kWh

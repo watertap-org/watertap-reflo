@@ -188,11 +188,13 @@ def set_ec_scaling(m, blk, calc_blk_scaling_factors=False):
     set_scaling_factor(blk.unit.conductivity, 0.1)
     set_scaling_factor(blk.unit.overpotential, 1)
     set_scaling_factor(blk.unit.reactor_volume, 0.1)
-    set_scaling_factor(blk.unit.ohmic_resistance, 1e7)
+    set_scaling_factor(blk.unit.ohmic_resistance, 1e-7)
     set_scaling_factor(blk.unit.charge_loading_rate, 1e-3)
     set_scaling_factor(blk.unit.power_required, 1e-6)
     set_scaling_factor(blk.unit.overpotential_k1, 1)
     set_scaling_factor(blk.unit.overpotential_k2, 1)
+
+    # constraint_scaling_transform(blk.unit.eq_ohmic_resistance, 1e-5)
 
     # Calculate scaling factors only for EC block if in full case study flowsheet
     # so we don't prematurely set scaling factors

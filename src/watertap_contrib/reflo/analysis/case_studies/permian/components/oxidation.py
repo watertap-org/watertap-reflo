@@ -137,6 +137,7 @@ def set_chem_addition_scaling(m, blk, calc_blk_scaling_factors=False):
     set_scaling_factor(blk.unit.solution_density, 1e-3)
     set_scaling_factor(blk.unit.chemical_flow_vol, 1e6)
     set_scaling_factor(blk.unit.electricity, 1e4)
+    # set_scaling_factor(blk.unit.ohmic_resistance, 1)
 
     # Calculate scaling factors only for chem addition block if in full case study flowsheet
     # so we don't prematurely set scaling factors
