@@ -1,0 +1,7 @@
+base_currency: USD_2023
+base_period: year
+defined_flows:
+  hydrogen_peroxide:
+    value: 1.53
+    units: USD_2020/kg
+    purity: 1
