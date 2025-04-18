@@ -64,7 +64,7 @@ if __name__ == "__main__":
         'Qin': 5, 
         'tds': 130,
         'water_recovery':0.5,
-        'grid_frac_heat':1,
+        'grid_frac_heat':0.5,
         'heat_price':0.00894,
         "electricity_price":0.04346,
         'cst_cost_per_total_aperture_area':373,
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "water_recovery"
+    sweep_type = "cst_cost_per_storage_capital"
     only_plot = False
     # only_plot = True
     

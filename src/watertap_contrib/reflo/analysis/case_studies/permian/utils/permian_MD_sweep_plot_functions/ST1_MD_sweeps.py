@@ -53,7 +53,7 @@ def plot_case_study(df,xcol,ax_dict):
 if __name__ == "__main__":
 
     sweep_dict = {
-    'water_recovery':np.linspace(0.2,0.5,4),
+    'water_recovery':np.linspace(0.35,0.5,4),
     'heat_price':np.linspace(0.00447,0.011175,4),     # $/kwh
     'grid_frac_heat':np.linspace(0.5,0.9,5),
     'dwi_lcow':np.linspace(4.2,10.5,4),     # $/m3 treated water
@@ -78,9 +78,9 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "heat_price"
+    sweep_type = "cst_cost_per_storage_capital"
     only_plot = False
-    only_plot = True
+    # only_plot = True
 
     xcol_dict = {
         "water_recovery":"fs.water_recovery",
