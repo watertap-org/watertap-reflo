@@ -271,7 +271,7 @@ def calc_costing(m, blk):
     """Add system level solve for costing"""
     m.fs.costing.cost_process()
     m.fs.costing.add_LCOW(blk.unit.properties_treated[0].flow_vol)
-    m.fs.costing.add_electricity_intensity(blk.unit.properties_treated[0].flow_vol)
+    m.fs.costing.add_specific_energy_consumption(blk.unit.properties_treated[0].flow_vol, name="SEC")
 
 
 def report_EC(blk):
@@ -300,3 +300,4 @@ if __name__ == "__main__":
     results = solver.solve(m)
     assert_optimal_termination(results)
     print(f"LCOW = {m.fs.costing.LCOW()}")
+    m.fs.costing.SEC.display()
