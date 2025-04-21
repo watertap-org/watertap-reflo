@@ -139,6 +139,8 @@ def build_and_run_permian_SOA(
         heat_cost=heat_cost,
         **kwargs,
     )
+    # m_pre.fs.treatment.costing.aggregate_flow_electricity.display()
+    # assert False
 
     flow_to_mvc = Qin * value(m_pre.fs.treatment.EC.unit.recovery_frac_mass_H2O[0])
     flow_to_mvc = flow_to_mvc * value(
@@ -161,6 +163,9 @@ def build_and_run_permian_SOA(
         heat_cost=heat_cost,
         **kwargs,
     )
+
+    m_mvc.fs.costing.aggregate_flow_electricity.display()
+    # assert False
 
     m_mvc.fs.disposal.properties[0].flow_vol_phase
     m_mvc.fs.disposal.properties[0].conc_mass_phase_comp
@@ -558,7 +563,7 @@ def solve_permian_SOA(m):
 
 def run_permian_SOA_recovery_sweep(num_pts=9):
 
-    recoveries = [0.4, 0.425, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6]
+    recoveries = [0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6]
 
     m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
 
@@ -598,7 +603,7 @@ def run_permian_SOA_recovery_sweep(num_pts=9):
             df = pd.merge(df, df1, on=["recovery"])
             print(cr, len(df), len(df1))
 
-    df.to_csv(f"{save_path}/permian_SOA_mvc_recovery_sweep-rerun_9pts.csv", index=False)
+    df.to_csv(f"{save_path}/permian_SOA_mvc_recovery_sweep-rerun_11pts.csv", index=False)
 
 
 def run_permian_SOA_electricity_sweep(num_pts=9):
@@ -792,8 +797,11 @@ def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dic
 
 if __name__ == "__main__":
 
-    run_permian_SOA_salinity_flow_sweep_wide(recovery=0.6)
-
+    # run_permian_SOA_recovery_sweep()
+    # run_permian_SOA_salinity_flow_sweep_wide(recovery=0.6)
+    # build_and_run_permian_SOA()
+    build_and_run_permian_pretreatment()
+    print(pyunits.convert(0.00894 * pyunits.USD_2023, to_units=pyunits.USD_2018)())
     # run_permian_SOA_salinity_flow_sweep()
     # run_permian_SOA_electricity_sweep()
     # run_permian_SOA_recovery_sweep()
