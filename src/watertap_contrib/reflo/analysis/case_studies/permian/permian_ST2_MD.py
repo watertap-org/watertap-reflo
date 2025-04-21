@@ -111,7 +111,7 @@ def get_stream_density(Qin=5, tds=130, **kwargs):
     return rho
 
 
-def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=None):
+def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, pretreatment_system_recovery=0.9,rho=None):
     """
     Build Permian pretreatment flowsheet
     """
@@ -140,10 +140,7 @@ def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
         Cin * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.m**3
     )
 
-    m.water_recovery = water_recovery
-    m.fs.water_recovery =  Param(
-        initialize=water_recovery, mutable=True
-    )
+    m.water_recovery = water_recovery/pretreatment_system_recovery
 
     # Add translator blocks
     treat.zo_to_sw_feed = Translator_ZO_to_SW(
@@ -268,13 +265,19 @@ def build_permian_st2_md(Qin=5, Q_md=0.22478, Cin=118, water_recovery=0.2, rho=N
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
+    # Add treatment costing 
+    m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
+
+    return m
+
+def build_energy_permian_st2_md(m):
     # Build energy block
     m.fs.energy = energy = Block()
     m.fs.energy.cst = FlowsheetBlock()
+    # Energy block selection based on treatment train energy range
     build_cst(m.fs.energy.cst)
 
-    # Add treatment costing 
-    m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
+    # Add energy costing
     m.fs.energy.costing = EnergyCosting()
 
     return m
@@ -301,7 +304,10 @@ def set_operating_conditions_st2_md(m, rho, Qin=5, tds=130, **kwargs):
     set_ec_operating_conditions(m, m.fs.treatment.EC, **kwargs)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
 
-    set_cst_op_conditions(m.fs.energy.cst,hours_storage=24)
+
+def set_energy_operating_conditions_st2_md(m,heat_load=10,hours_storage=24):
+    set_cst_op_conditions(m.fs.energy.cst, heat_load, hours_storage)
+
 
 def add_treatment_costing_st2_md(m,heat_price=0.018, electricity_price=0.0626):
 
@@ -325,29 +331,7 @@ def add_treatment_costing_st2_md(m,heat_price=0.018, electricity_price=0.0626):
     m.fs.treatment.costing.cost_process()
     m.fs.treatment.costing.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
 
-    # Add energy costing
-
-    add_cst_costing(m.fs.energy.cst, m.fs.energy.costing)
-
-    m.fs.energy.costing.heat_cost.set_value(0)
-    # m.fs.energy.costing.electricity_cost.fix(electricity_price)
-    m.fs.energy.costing.cost_process()
-
-    # Add system costing
-    m.fs.costing = REFLOSystemCosting()
-    m.fs.costing.heat_cost_buy.fix(heat_price)
-    m.fs.costing.electricity_cost_buy.set_value(electricity_price)
-    m.fs.costing.cost_process()
-
-    print("\n--------- INITIALIZING SYSTEM COSTING ---------\n")
-    
-    m.fs.energy.costing.initialize()
     m.fs.treatment.costing.initialize()
-    m.fs.costing.initialize()
-
-    print("\n--------- INITIALIZING SYSTEM COSTING COMPLETE---------\n")
-
-    m.fs.costing.add_LCOT(m.fs.treatment.product.properties[0].flow_vol)
 
 
 def add_system_costing_st2_md(m,heat_price=0.018, electricity_price=0.0626):
@@ -634,8 +618,9 @@ def init_system_st2_md(m, **kwargs):
 
     propagate_state(treat.mixer_to_normalized_feed)
 
-    init_cst(m.fs.energy.cst)
 
+def init_energy_system_st2_md(m):
+    init_cst(m.fs.energy.cst)
 
 def add_mec_st2_md(m,permian_cryst_config):
 
@@ -766,7 +751,9 @@ def solve(
         return results
 
 def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, grid_frac_heat =0.5, 
-                       water_recovery = 0.3, heat_price = 0.00894, electricity_price = 0.04346, **kwargs):
+                       water_recovery = 0.3, heat_price = 0.00894, electricity_price = 0.04346,
+                       cost_per_total_aperture_area = 373, cost_per_storage_capital= 62,**kwargs):
+    
     """
     Run Permian pretreatment flowsheet
     """
@@ -795,7 +782,7 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, grid_frac_heat =0.5
     Pretreatment + MD flowsheet
     '''
 
-    m = build_permian_st2_md(Q_md=md_flow(), Cin=md_conc(), water_recovery=water_recovery*pretreatment_system_recovery, rho=rho)
+    m = build_permian_st2_md(Q_md=md_flow(), Cin=md_conc(), water_recovery=water_recovery, pretreatment_system_recovery=pretreatment_system_recovery, rho=rho)
     treat = m.fs.treatment
 
     set_operating_conditions_st2_md(m, rho, Qin, tds)
@@ -811,7 +798,7 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, grid_frac_heat =0.5
     # print_infeasible_constraints(m)
     assert_optimal_termination(results)
 
-    print('MD product:', m.fs.treatment.sw_to_nacl_product.display())
+    # print('MD product:', m.fs.treatment.sw_to_nacl_product.display())
     # assert False
 
     print("\n--------- Before costing solve Completed ---------\n")
@@ -824,42 +811,35 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, grid_frac_heat =0.5
     add_mec_st2_md(m,permian_cryst_config)
 
     print(f"DOF = {degrees_of_freedom(m)}")
+
+    results = solve(m.fs.treatment.mec)
     results = solve(m)
+
     print_infeasible_constraints(m)
     assert_optimal_termination(results)
+    # assert False
+    
+    if grid_frac_heat == 1:
 
-    print("\n--------- CST Inputs Completed ---------\n")
-
-    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
-    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
-    print("\n")
-        
-    # Add costing
-    if grid_frac_heat==1:
-
+         # Add costing
         add_treatment_costing_st2_md(m, heat_price, electricity_price)
 
         print(f"DOF = {degrees_of_freedom(m)}")
 
         results = solve(m)
 
-        # Update fs.costing block results for only treatment costs
-        # Update total heat/electric operating to be treatment aggregate_flow_costs
-        m.fs.costing.total_heat_operating_cost = m.fs.treatment.costing.aggregate_flow_costs['heat']
-        m.fs.costing.total_electric_operating_cost = m.fs.treatment.costing.aggregate_flow_costs['electricity']
-        
-        # Update the total_capital, total_operating
-        m.fs.energy.cst.unit.costing.capital_cost.fix(1e-25)
-        m.fs.energy.cst.unit.costing.fixed_operating_cost.fix(1e-25)
-        m.fs.energy.cst.unit.costing.variable_operating_cost.fix(1e-25)
-
-        # Update LCOT to be LCOW
-        m.fs.costing.LCOT.fix(m.fs.treatment.costing.LCOW())
-        # Update grid fraction reported
-        m.fs.costing.frac_heat_from_grid.fix(1)
 
     else:
-        
+        build_energy_permian_st2_md(m)
+        set_energy_operating_conditions_st2_md(m)
+        init_energy_system_st2_md(m)
+
+        print("\n--------- CST Inputs Completed ---------\n")
+
+        print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
+        print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+        print("\n")
+            
         add_system_costing_st2_md(m, heat_price, electricity_price)
         add_cst_costing_scaling(m,m.fs.energy.cst.unit)
 
@@ -867,6 +847,9 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, grid_frac_heat =0.5
 
         m.fs.energy.cst.unit.heat_load.unfix()
         m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
+
+        m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(cost_per_total_aperture_area)
+        m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(cost_per_storage_capital)
 
         print(f"DOF = {degrees_of_freedom(m)}")
 
@@ -877,48 +860,35 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, grid_frac_heat =0.5
         print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
         print('CST Heat:', value(m.fs.energy.cst.unit.heat))
         print('Grid fraction:',value(m.fs.costing.frac_heat_from_grid))
-
+        
 
     permian_md_reporting_variables(m)
+
+    feed_m3h = pyunits.convert(
+        m.fs.treatment.feed.properties[0].flow_vol, to_units=pyunits.m**3 / pyunits.h
+    )
+
+    product_m3h = pyunits.convert(
+        m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.m**3 / pyunits.h
+    )
+
+    m.fs.water_recovery =  Param(
+        initialize=product_m3h()/feed_m3h(), mutable=True
+    )
 
     return m
 
 def print_results(m):
     treat = m.fs.treatment
-
     system_recovery = (
         treat.product.properties[0].flow_vol() / treat.feed.properties[0].flow_vol()
     )
-
-    print(f"\n\n-------------------- System Cost Report --------------------\n")
-    print("\n")
-
-    print(
-        f'{"Treatment LCOW":<30s}{value(m.fs.treatment.costing.LCOW):<10.2f}{pyunits.get_units(m.fs.treatment.costing.LCOW)}'
-    )
-
-    # print("\n")
-    # print(
-    #     f'{"Energy LCOH":<30s}{value(m.fs.energy.costing.LCOH):<10.2f}{pyunits.get_units(m.fs.energy.costing.LCOH)}'
-    # )
-
-    print("\n")
-    print(
-        f'{"System LCOT":<30s}{value(m.fs.costing.LCOT) :<10.2f}{pyunits.get_units(m.fs.costing.LCOT)}'
-    )
-
-    print("\n--------- CST Inputs Completed ---------\n")
-
-    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
-    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
-    print("\n")
-
 
     print(f"\n\n-------------------- Pretreatment Report --------------------\n")
 
     print("\n")
     print(
-        f'{"Pretreatment Recovery":<30s}{system_recovery:.2f}'
+        f'{"System Recovery":<30s}{system_recovery:.2f}'
     )
 
     print(
@@ -958,10 +928,21 @@ def print_results(m):
 
 def report_costing(blk):
 
+    print("\n--------- CST Inputs Completed ---------\n")
+
+    print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
+    print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+    print("\n")
+
+
     print(f"\n\n-------------------- System Costing Report --------------------\n")
     print("\n")
 
     print(f'{"LCOT":<30s}{value(blk.LCOT):<20,.2f}{pyunits.get_units(blk.LCOT)}')
+
+    print(
+        f'{"Treatment LCOW":<30s}{value(m.fs.treatment.costing.LCOW):<10.2f}{pyunits.get_units(m.fs.treatment.costing.LCOW)}'
+    )
 
     print(
         f'{"Capital Cost":<30s}{value(blk.total_capital_cost):<20,.2f}{pyunits.get_units(blk.total_capital_cost)}'
@@ -983,33 +964,19 @@ def report_costing(blk):
         f'{"Heat flow":<30s}{value(blk.aggregate_flow_heat):<20,.2f}{pyunits.get_units(blk.aggregate_flow_heat)}'
     )
 
-    # print(
-    #     f'{"Total heat cost":<30s}{value(blk.total_heat_operating_cost):<20,.2f}{pyunits.get_units(blk.total_heat_operating_cost)}'
-    # )
-
     print(
         f'{"Heat purchased":<30s}{value(blk.aggregate_flow_heat_purchased):<20,.2f}{pyunits.get_units(blk.aggregate_flow_heat_purchased)}'
     )
-
-    # print(
-    #     f'{"Heat sold":<30s}{value(blk.aggregate_flow_heat_sold):<20,.2f}{pyunits.get_units(blk.aggregate_flow_heat_sold)}'
-    # )
 
     print(
         f'{"Elec Flow":<30s}{value(blk.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity)}'
     )
 
-    # print(
-    #     f'{"Total elec cost":<30s}{value(blk.total_electric_operating_cost):<20,.2f}{pyunits.get_units(blk.total_electric_operating_cost)}'
-    # )
-
     print(
         f'{"Elec purchased":<30s}{value(blk.aggregate_flow_electricity_purchased):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity_purchased)}'
     )
 
-    # print(
-    #     f'{"Elec sold":<30s}{value(blk.aggregate_flow_electricity_sold):<20,.2f}{pyunits.get_units(blk.aggregate_flow_electricity_sold)}'
-    # )
+
 
 def permian_md_reporting_variables(m):
     # For reporting purposes
@@ -1040,20 +1007,9 @@ def sweep_feed_flow_salinity():
     sweep_dict = {
         'Qin':[1,5,9],
         'tds': [100,130,200],
-        'recovery': [0.6,0.48,0.23]
+        'recovery': [0.59,0.48,0.23]
     }
 
-    for flow in sweep_dict["Qin"]:
-        for i in range(0,len(sweep_dict['tds'])):
-            m = run_permian_st2_md(
-                        Qin=flow, 
-                        tds=sweep_dict['tds'][i], 
-                        water_recovery = sweep_dict['recovery'][i],
-                        grid_frac_heat = 0.5,
-                        heat_price=heat_price, 
-                        electricity_price=electricity_price, 
-                        permian_cryst_config=permian_cryst_config
-                        )
 
 def main():
     permian_cryst_config = {
@@ -1066,22 +1022,43 @@ def main():
     electricity_price = 0.04346  # Updated 0.0575 in USD 2018 to USD 2023
 
     m = run_permian_st2_md(
-                        Qin=9, 
-                        tds=100, 
-                        water_recovery = 0.6,
+                        Qin=5, 
+                        tds=130, 
+                        water_recovery = 0.5,   # Pretreatment + MD
                         grid_frac_heat = 1,
                         heat_price=heat_price, 
                         electricity_price=electricity_price, 
-                        permian_cryst_config=permian_cryst_config
+                        permian_cryst_config=permian_cryst_config,
+                        cost_per_total_aperture_area = 373,
+                        cost_per_storage_capital= 62,
                         )
     
    
     print(f"DOF = {degrees_of_freedom(m)}")
 
-    report_costing(m.fs.costing)
 
+    feed_m3h = pyunits.convert(
+        m.fs.treatment.feed.properties[0].flow_vol, to_units=pyunits.m**3 / pyunits.h
+    )
 
-            
+    product_m3h = pyunits.convert(
+        m.fs.treatment.product.properties[0].flow_vol_phase["Liq"], to_units=pyunits.m**3 / pyunits.h
+    )
+    print("\nProduct flow in m3/h:",product_m3h())
+    
+    print("LCOW:",m.fs.treatment.costing.LCOW(),pyunits.get_units(m.fs.treatment.costing.LCOW))
+    print("SEC (electricity) in kWh/m3:",m.fs.treatment.costing.aggregate_flow_electricity()/product_m3h())
+    print("SEC (heat) in kWh/m3:",m.fs.treatment.costing.aggregate_flow_heat()/product_m3h())
+    print("System recovery (%):", product_m3h()/feed_m3h()*100)
+    print("Capex ($M):",m.fs.treatment.costing.total_capital_cost()/1e6, 
+          pyunits.get_units(m.fs.treatment.costing.total_capital_cost))
+    print("Opex ($M/yr):",m.fs.treatment.costing.total_operating_cost()/1e6, 
+          pyunits.get_units(m.fs.treatment.costing.total_operating_cost))
+    print('Electricity demand (MWh/year):',pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+    print('Heat demand (MWh/year):',pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+
+    print_results(m)
+
 if __name__ == "__main__":
 
     main()

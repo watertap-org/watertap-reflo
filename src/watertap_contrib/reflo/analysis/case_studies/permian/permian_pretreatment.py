@@ -57,8 +57,8 @@ from watertap_contrib.reflo.analysis.case_studies.permian import *
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
-rho = 1125 * pyunits.kg / pyunits.m**3
-rho_water = 995 * pyunits.kg / pyunits.m**3
+# rho = 1125 * pyunits.kg / pyunits.m**3
+# rho_water = 995 * pyunits.kg / pyunits.m**3
 
 solver = get_solver()
 

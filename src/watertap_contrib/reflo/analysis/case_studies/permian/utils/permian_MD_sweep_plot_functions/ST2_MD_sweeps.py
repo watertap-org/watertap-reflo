@@ -54,9 +54,10 @@ def plot_case_study(df,xcol,ax_dict):
 if __name__ == "__main__":
 
     sweep_dict = {
-    'water_recovery':np.linspace(0.2,0.5,4),
     'heat_price':np.linspace(0.00447,0.011175,4),     # $/kwh
     'grid_frac_heat':np.linspace(0.5,0.9,4),
+    'cst_cost_per_total_aperture_area':np.linspace(186.5,466.25,4),
+    'cst_cost_per_storage_capital':np.linspace(31,77.5,4),
     }   
     
     input_dict = {
@@ -66,6 +67,8 @@ if __name__ == "__main__":
         'grid_frac_heat':0.5,
         'heat_price':0.00894,
         "electricity_price":0.04346,
+        'cst_cost_per_total_aperture_area':373,
+        'cst_cost_per_storage_capital': 62,
     }
 
     permian_cryst_config = {
@@ -79,7 +82,7 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "heat_price"
+    sweep_type = "cst_cost_per_storage_capital"
     only_plot = False
     # only_plot = True
     
@@ -88,14 +91,18 @@ if __name__ == "__main__":
         "water_recovery":"fs.water_recovery",
         "heat_price": "fs.costing.heat_cost_buy",
         "hours_storage": "fs.energy.FPC.hours_storage",
-        "grid_frac_heat": "fs.costing.frac_heat_from_grid"
+        "grid_frac_heat": "fs.costing.frac_heat_from_grid",
+        'cst_cost_per_total_aperture_area':'fs.energy.costing.trough_surrogate.cost_per_total_aperture_area',
+        'cst_cost_per_storage_capital':'fs.energy.costing.trough_surrogate.cost_per_storage_capital',
     }
 
     ax_dict = {
         "water_recovery": "MD Water Recovery (%)",
         "heat_price": "Heat Price ($/kWh)",
         "hours_storage": "Hours Storage (h)",
-        "grid_frac_heat": "Grid Fraction (Heat)"
+        "grid_frac_heat": "Grid Fraction (Heat)",
+        'cst_cost_per_total_aperture_area':"Cost per Total Aperture Area ($/m2)",
+        'cst_cost_per_storage_capital':"Cost per Thermal Storage Capacity ($/kWh)",
     }
 
 
@@ -129,7 +136,9 @@ if __name__ == "__main__":
                 water_recovery= input_dict['water_recovery'],
                 heat_price=input_dict['heat_price'],
                 electricity_price=input_dict['electricity_price'],
-                permian_cryst_config=permian_cryst_config
+                permian_cryst_config=permian_cryst_config,
+                cost_per_total_aperture_area=input_dict['cst_cost_per_total_aperture_area'],
+                cost_per_storage_capital=input_dict['cst_cost_per_storage_capital'],
                 )
         
         results_dict_test = build_results_dict(m, skips=skips)
@@ -145,7 +154,9 @@ if __name__ == "__main__":
                 water_recovery= input_dict['water_recovery'],
                 heat_price=input_dict['heat_price'],
                 electricity_price=input_dict['electricity_price'],
-                permian_cryst_config=permian_cryst_config
+                permian_cryst_config=permian_cryst_config,
+                cost_per_total_aperture_area=input_dict['cst_cost_per_total_aperture_area'],
+                cost_per_storage_capital=input_dict['cst_cost_per_storage_capital'],
                 )
             
             results_dict_test = results_dict_append(m, results_dict_test)
@@ -162,7 +173,7 @@ if __name__ == "__main__":
         else:
             rec_var = "var"
 
-        filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/permian-case-study-md/ST2_MD_sweep_results//permian_ST2_MD_"+ sweep_type + "_grid_frac_" + grid_frac_var + "_recovery_" + rec_var + ".csv"
+        filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/permian-case-study-md/ST2_MD_sweep_results//permian_ZLD1_MD_"+ sweep_type + "_grid_frac_" + grid_frac_var + "_recovery_" + rec_var + ".csv"
         df.to_csv(filename)
         # df_T= pd.DataFrame.from_dict(results_dict_test, orient='index')
         # df_T.to_csv("/Users/mhardika/Documents/watertap-seto/Mukta-Work//permian-case-study-md/ST1_MD_sweep_results//"+"grid_frac_heat_0.5"+ "_T.csv")
@@ -177,6 +188,6 @@ if __name__ == "__main__":
     else:
         rec_var = "var"
 
-    filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work//permian-case-study-md/ST2_MD_sweep_results//permian_ST2_MD_"+sweep_type + "_grid_frac_" + grid_frac_var + "_recovery_" + rec_var + ".csv"
-    df = pd.read_csv(filename).drop(columns="Unnamed: 0")
-    plot_case_study(df, xcol=xcol_dict[sweep_type],ax_dict=ax_dict[sweep_type])
+    # filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work//permian-case-study-md/ST2_MD_sweep_results//permian_ST2_MD_"+sweep_type + "_grid_frac_" + grid_frac_var + "_recovery_" + rec_var + ".csv"
+    # df = pd.read_csv(filename).drop(columns="Unnamed: 0")
+    # plot_case_study(df, xcol=xcol_dict[sweep_type],ax_dict=ax_dict[sweep_type])
