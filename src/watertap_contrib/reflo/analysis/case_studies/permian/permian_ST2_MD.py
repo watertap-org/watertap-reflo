@@ -752,7 +752,8 @@ def solve(
 
 def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, grid_frac_heat =0.5, 
                        water_recovery = 0.3, heat_price = 0.00894, electricity_price = 0.04346,
-                       cost_per_total_aperture_area = 373, cost_per_storage_capital= 62,**kwargs):
+                       cost_per_total_aperture_area = 373, cost_per_storage_capital= 62,
+                       nacl_recovery_price = 0,**kwargs):
     
     """
     Run Permian pretreatment flowsheet
@@ -850,6 +851,7 @@ def run_permian_st2_md(permian_cryst_config, Qin=5, tds=130, grid_frac_heat =0.5
 
         m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(cost_per_total_aperture_area)
         m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(cost_per_storage_capital)
+        m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
 
         print(f"DOF = {degrees_of_freedom(m)}")
 
@@ -1019,7 +1021,7 @@ def main():
     }
 
     heat_price = 0.00894
-    electricity_price = 0.04346  # Updated 0.0575 in USD 2018 to USD 2023
+    electricity_price = 0.04346  # Updated 0.0575 in USD 2023 to USD 2018
 
     m = run_permian_st2_md(
                         Qin=5, 
@@ -1031,6 +1033,7 @@ def main():
                         permian_cryst_config=permian_cryst_config,
                         cost_per_total_aperture_area = 373,
                         cost_per_storage_capital= 62,
+                        nacl_recovery_price = -0.024,
                         )
     
    

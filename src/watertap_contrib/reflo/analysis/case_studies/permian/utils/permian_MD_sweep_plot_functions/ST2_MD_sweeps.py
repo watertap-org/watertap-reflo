@@ -58,6 +58,7 @@ if __name__ == "__main__":
     'grid_frac_heat':np.linspace(0.5,0.9,4),
     'cst_cost_per_total_aperture_area':np.linspace(186.5,466.25,4),
     'cst_cost_per_storage_capital':np.linspace(31,77.5,4),
+    'nacl_recovery_price':[0,-0.012,-0.024],
     }   
     
     input_dict = {
@@ -69,6 +70,7 @@ if __name__ == "__main__":
         "electricity_price":0.04346,
         'cst_cost_per_total_aperture_area':373,
         'cst_cost_per_storage_capital': 62,
+        'nacl_recovery_price':0,
     }
 
     permian_cryst_config = {
@@ -82,7 +84,7 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "cst_cost_per_storage_capital"
+    sweep_type = "nacl_recovery_price"
     only_plot = False
     # only_plot = True
     
@@ -94,6 +96,7 @@ if __name__ == "__main__":
         "grid_frac_heat": "fs.costing.frac_heat_from_grid",
         'cst_cost_per_total_aperture_area':'fs.energy.costing.trough_surrogate.cost_per_total_aperture_area',
         'cst_cost_per_storage_capital':'fs.energy.costing.trough_surrogate.cost_per_storage_capital',
+        "nacl_recovery_price":"fs.treatment.costing.nacl_recovered.cost",
     }
 
     ax_dict = {
@@ -103,6 +106,7 @@ if __name__ == "__main__":
         "grid_frac_heat": "Grid Fraction (Heat)",
         'cst_cost_per_total_aperture_area':"Cost per Total Aperture Area ($/m2)",
         'cst_cost_per_storage_capital':"Cost per Thermal Storage Capacity ($/kWh)",
+        "nacl_recovery_price": "NaCl Recovery Price ($/kg)",
     }
 
 
@@ -139,6 +143,7 @@ if __name__ == "__main__":
                 permian_cryst_config=permian_cryst_config,
                 cost_per_total_aperture_area=input_dict['cst_cost_per_total_aperture_area'],
                 cost_per_storage_capital=input_dict['cst_cost_per_storage_capital'],
+                nacl_recovery_price = input_dict['nacl_recovery_price'],
                 )
         
         results_dict_test = build_results_dict(m, skips=skips)
@@ -157,6 +162,7 @@ if __name__ == "__main__":
                 permian_cryst_config=permian_cryst_config,
                 cost_per_total_aperture_area=input_dict['cst_cost_per_total_aperture_area'],
                 cost_per_storage_capital=input_dict['cst_cost_per_storage_capital'],
+                nacl_recovery_price = input_dict['nacl_recovery_price'],
                 )
             
             results_dict_test = results_dict_append(m, results_dict_test)
@@ -188,6 +194,6 @@ if __name__ == "__main__":
     else:
         rec_var = "var"
 
-    # filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work//permian-case-study-md/ST2_MD_sweep_results//permian_ST2_MD_"+sweep_type + "_grid_frac_" + grid_frac_var + "_recovery_" + rec_var + ".csv"
-    # df = pd.read_csv(filename).drop(columns="Unnamed: 0")
-    # plot_case_study(df, xcol=xcol_dict[sweep_type],ax_dict=ax_dict[sweep_type])
+    filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work//permian-case-study-md/ST2_MD_sweep_results//permian_ZLD1_MD_"+sweep_type + "_grid_frac_" + grid_frac_var + "_recovery_" + rec_var + ".csv"
+    df = pd.read_csv(filename).drop(columns="Unnamed: 0")
+    plot_case_study(df, xcol=xcol_dict[sweep_type],ax_dict=ax_dict[sweep_type])

@@ -84,6 +84,7 @@ if __name__ == "__main__":
         'heat_price': "Heat Price ($/kWh)\n 0.00894 [0.00447,0.011175]",
         'cst_cost_per_total_aperture_area':"Cost per Total \nAperture Area (\$/m$^2$)\n 373 [186.5,466.25]",
         'cst_cost_per_storage_capital':"Cost per Thermal \nStorage Capacity ($/kWh)\n 62 [31,77.5]",
+        "nacl_recovery_price": "Recovered NaCl Price ($/kg)\n 0 [-0.024,0]",
     })
 
     # value order corresponds to label order
@@ -91,12 +92,15 @@ if __name__ == "__main__":
         'heat_price': 21.67,
         'cst_cost_per_total_aperture_area': 19.17,
         'cst_cost_per_storage_capital': 18.58,
+        "nacl_recovery_price": 17.761187454979,
+
     } 
     )
     lcow_high_values = pd.Series({
         'heat_price': 22.63,
         'cst_cost_per_total_aperture_area': 23.88,
         'cst_cost_per_storage_capital': 24.18,
+        "nacl_recovery_price":22.31,
     } 
     )
 

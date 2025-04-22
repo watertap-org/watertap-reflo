@@ -78,9 +78,9 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "cst_cost_per_storage_capital"
+    sweep_type = "grid_frac_heat"
     only_plot = False
-    # only_plot = True
+    only_plot = True
 
     xcol_dict = {
         "water_recovery":"fs.water_recovery",
