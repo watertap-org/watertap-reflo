@@ -752,7 +752,6 @@ class AirWaterEqData(PhysicalParameterBlock):
         )
 
         if self.config.temp_adjust_henry:
-
             self.enth_change_dissolution_comp = Var(
                 self.volatile_comps,
                 initialize=self.config.standard_enthalpy_change_data,
@@ -1610,7 +1609,6 @@ class AirWaterEqStateBlockData(StateBlockData):
 
     # Property Methods
     def _dens_mass_phase(self):
-
         if self.params.config.density_calculation == DensityCalculation.calculated:
             # TODO: add McCain relationship for higher salinity brines (>150 g/L)
             # W.D. McCaln Jr. (1991)
@@ -1763,7 +1761,6 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
         def rule_mole_frac_phase_comp(b, p, j):
-
             return b.flow_mol_phase_comp[p, j] == b.mole_frac_phase_comp[p, j] * sum(
                 b.flow_mol_phase_comp[p, _j] for _j in b.params.phase_comp_dict[p]
             )
@@ -1773,7 +1770,6 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
     def _conc_mol_phase_comp(self):
-
         self.conc_mol_phase_comp = Var(
             self.phase_component_set,
             initialize=500,
@@ -1840,7 +1836,6 @@ class AirWaterEqStateBlockData(StateBlockData):
         self.flow_vol = Expression(rule=rule_flow_vol)
 
     def _diffus_phase_comp(self):
-
         self.diffus_phase_comp = Var(
             self.params.volatile_comp_set,
             initialize=1e-9,
@@ -1936,7 +1931,6 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
     def _energy_molecular_attraction_comp(self):
-
         self.energy_molecular_attraction_comp_param = Param(
             initialize=1.21,
             units=pyunits.dimensionless,
@@ -1988,7 +1982,6 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
     def _collision_molecular_separation_comp(self):
-
         self.collision_molecular_separation_param = Param(
             initialize=1.18,
             units=(pyunits.nm * pyunits.mol ** (1 / 3)) / (pyunits.liter ** (1 / 3)),
@@ -2038,7 +2031,6 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
     def _collision_function_zeta_comp(self):
-
         self.collision_function_zeta_param_A = a = Param(
             initialize=-0.14329,
             units=pyunits.dimensionless,
@@ -2084,7 +2076,13 @@ class AirWaterEqStateBlockData(StateBlockData):
         def expr_collision_function_zeta_comp(b, j):
             ee = b.collision_function_ee_comp[j]
             return (
-                a + b_ * ee + c * ee**2 + d * ee**3 + e * ee**4 + f * ee**5 + g * ee**6
+                a
+                + b_ * ee
+                + c * ee**2
+                + d * ee**3
+                + e * ee**4
+                + f * ee**5
+                + g * ee**6
             )
 
         self.collision_function_zeta_comp = Expression(
@@ -2101,7 +2099,6 @@ class AirWaterEqStateBlockData(StateBlockData):
         )
 
     def _molar_volume_comp(self):
-
         if (
             self.params.config.molar_volume_calculation
             == MolarVolumeCalculation.TynCalus
@@ -2135,7 +2132,6 @@ class AirWaterEqStateBlockData(StateBlockData):
 
     def _henry_comp(self):
         if self.params.config.temp_adjust_henry:
-
             add_object_reference(
                 self, "henry_comp_ref", self.params.henry_comp
             )  # assume the data provided to config.henry_constant_data is @25C
@@ -2166,7 +2162,6 @@ class AirWaterEqStateBlockData(StateBlockData):
             add_object_reference(self, "henry_comp", self.params.henry_comp)
 
     def _pressure_vap_sat(self):
-
         if (
             self.params.config.saturation_vapor_pressure_calculation
             != SaturationVaporPressureCalculation.none
@@ -2182,7 +2177,6 @@ class AirWaterEqStateBlockData(StateBlockData):
                 self.params.config.saturation_vapor_pressure_calculation
                 == SaturationVaporPressureCalculation.Huang
             ):
-
                 # Huang, J. (2018). A Simple Accurate Formula for Calculating Saturation Vapor Pressure of Water and Ice.
                 # Journal of Applied Meteorology and Climatology, 57(6), 1265-1272. doi:10.1175/jamc-d-17-0334.1
 
@@ -2216,7 +2210,6 @@ class AirWaterEqStateBlockData(StateBlockData):
                 self.params.config.saturation_vapor_pressure_calculation
                 == SaturationVaporPressureCalculation.ArdenBuck
             ):
-
                 water_temp_degC_dimensionless = pyunits.convert(
                     (self.temperature["Liq"] - 273.15 * pyunits.degK)
                     * pyunits.degK**-1,
@@ -2269,12 +2262,10 @@ class AirWaterEqStateBlockData(StateBlockData):
             add_object_reference(self, "pressure_vap_sat", self.params.pressure_vap_sat)
 
     def _pressure_vap(self):
-
         if (
             self.params.config.vapor_pressure_calculation
             != VaporPressureCalculation.none
         ):
-
             self.pressure_vap = Var(
                 ["H2O"],
                 initialize=1000,
@@ -2299,7 +2290,6 @@ class AirWaterEqStateBlockData(StateBlockData):
             add_object_reference(self, "pressure_vap", self.params.pressure_vap)
 
     def _relative_humidity(self):
-
         self.relative_humidity = Var(
             ["H2O"],
             initialize=0.25,
@@ -2312,7 +2302,6 @@ class AirWaterEqStateBlockData(StateBlockData):
             self.params.config.relative_humidity_calculation
             != RelativeHumidityCalculation.none
         ):
-
             if (
                 self.params.config.relative_humidity_calculation
                 == RelativeHumidityCalculation.FromVaporPressureRatio
@@ -2332,12 +2321,10 @@ class AirWaterEqStateBlockData(StateBlockData):
             self.relative_humidity["H2O"].fix(self.params.relative_humidity["H2O"])
 
     def _dh_vap_mass_solvent(self):
-
         if (
             self.params.config.latent_heat_of_vaporization_calculation
             == LatentHeatVaporizationCalculation.Sharqawy
         ):
-
             self.dh_vap_mass_solvent = Var(
                 initialize=2.4e3,
                 bounds=(1, 1e5),
@@ -2392,7 +2379,8 @@ class AirWaterEqStateBlockData(StateBlockData):
                     C = b.params.cp_phase_param_C1
                     D = b.params.cp_phase_param_D1
                     return (
-                        b.cp_mass_solvent[p] == (A + B * t + C * t**2 + D * t**3) * 1000
+                        b.cp_mass_solvent[p]
+                        == (A + B * t + C * t**2 + D * t**3) * 1000
                     )
                 if p == "Vap":
                     t = b.temperature["Liq"] / 1000

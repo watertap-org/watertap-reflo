@@ -89,7 +89,6 @@ def build_system():
 
 
 def build_chem_addition(m, blk, prop_package=None) -> None:
-
     print(f'\n{"=======> BUILDING CHEMICAL ADDITION SYSTEM <=======":^60}\n')
 
     if prop_package is None:
@@ -132,12 +131,14 @@ def set_system_operating_conditions(m, Qin=5, tds=130):
 
 
 def set_chem_addition_scaling(m, blk, calc_blk_scaling_factors=False):
-
     set_scaling_factor(blk.unit.chemical_dosage, 0.1)
     set_scaling_factor(blk.unit.solution_density, 1e-3)
     set_scaling_factor(blk.unit.chemical_flow_vol, 1e6)
     set_scaling_factor(blk.unit.electricity, 1e4)
     # set_scaling_factor(blk.unit.ohmic_resistance, 1)
+
+    constraint_scaling_transform(blk.unit.electricity_consumption[0], 1e4)
+    constraint_scaling_transform(blk.unit.chemical_flow_constraint[0], 1e6)
 
     # Calculate scaling factors only for chem addition block if in full case study flowsheet
     # so we don't prematurely set scaling factors
@@ -150,7 +151,6 @@ def set_chem_addition_scaling(m, blk, calc_blk_scaling_factors=False):
 
 
 def set_chem_addition_op_conditions(m, blk, **kwargs):
-
     blk.unit.load_parameters_from_database()
     for k, v in kwargs.items():
         print(blk.name, k)
@@ -218,7 +218,6 @@ def print_chem_addition_costing_breakdown(blk):
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
-
     if solver is None:
         solver = get_solver()
 

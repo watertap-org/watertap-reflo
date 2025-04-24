@@ -273,7 +273,6 @@ class TestTroughLarge:
 
     @pytest.mark.component
     def test_costing(self, trough_frame):
-
         m = trough_frame
         trough = m.fs.trough
         trough.heat_load.fix(250)

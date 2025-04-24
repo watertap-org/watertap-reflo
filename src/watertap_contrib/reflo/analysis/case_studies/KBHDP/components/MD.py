@@ -118,7 +118,6 @@ def build_system(Qin=4, Cin=12, water_recovery=0.5):
 
 
 def add_connections(m):
-
     m.fs.feed_to_md = Arc(source=m.fs.feed.outlet, destination=m.fs.md.feed.inlet)
 
     m.fs.md_to_product = Arc(
@@ -133,7 +132,6 @@ def add_connections(m):
 
 
 def set_md_model_options(m, blk, n_time_points=None):
-
     m.system_capacity = m.water_recovery * pyunits.convert(
         m.inlet_flow_rate, to_units=pyunits.m**3 / pyunits.day
     )
@@ -174,7 +172,6 @@ def set_md_model_options(m, blk, n_time_points=None):
 
 
 def build_md(m, blk, prop_package=None) -> None:
-
     print(f'\n{"=======> BUILDING MEMBRANE DISTILLATION SYSTEM <=======":^60}\n')
     if prop_package is None:
         prop_package = m.fs.properties
@@ -318,7 +315,6 @@ def init_system(m, verbose=True, solver=None):
 
 
 def set_system_op_conditions(m):
-
     feed_flow_rate = m.fs.md.model_options["feed_flow_rate"]
     feed_salinity = m.fs.md.model_options["feed_salinity"]
     feed_temp = m.fs.md.model_options["feed_temp"]
@@ -338,7 +334,6 @@ def set_system_op_conditions(m):
 
 
 def set_md_initial_conditions(blk):
-
     active_blks = blk.mp.get_active_process_blocks()
 
     print("\n--------- MD TIME PERIOD 1 INPUTS ---------\n")
@@ -366,7 +361,6 @@ def set_md_initial_conditions(blk):
 
 
 def md_output(blk, n_time_points, model_options):
-
     active_blks = blk.md.unit.get_active_process_blocks()
 
     # Get final variables
@@ -394,7 +388,9 @@ def md_output(blk, n_time_points, model_options):
         / pyunits.h
     )
 
-    brine_flow_rate = pyunits.convert(brine_production_rate, pyunits.m**3 / pyunits.day)
+    brine_flow_rate = pyunits.convert(
+        brine_production_rate, pyunits.m**3 / pyunits.day
+    )
 
     brine_salinity = pyunits.convert(
         active_blks[-1].fs.vagmd.feed_props[0].conc_mass_phase_comp["Liq", "TDS"],
@@ -549,7 +545,6 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
 
 
 def report_MD(m, blk):
-
     # blk = m.fs.md
     active_blks = blk.unit.get_active_process_blocks()
 
@@ -636,7 +631,6 @@ def report_MD(m, blk):
 
 
 def report_md_costing(m, blk):
-
     active_blks = blk.md.unit.get_active_process_blocks()
 
     print(f"\n\n-------------------- MD Costing Report --------------------\n")

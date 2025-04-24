@@ -380,7 +380,6 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
     def initialize(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
     ):
-
         # Set solver options
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="properties")
         solve_log = idaeslog.getSolveLogger(self.name, outlvl, tag="properties")

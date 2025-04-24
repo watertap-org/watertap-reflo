@@ -77,7 +77,6 @@ def propagate_state(arc):
 
 
 def build_system(Qin=4, Cin=12, water_recovery=0.5):
-
     m = ConcreteModel()
     m.fs = FlowsheetBlock()
     m.fs.treatment = Block()
@@ -119,7 +118,6 @@ def build_system(Qin=4, Cin=12, water_recovery=0.5):
 
 
 def add_connections(m):
-
     treatment = m.fs.treatment
 
     treatment.feed_to_md = Arc(
@@ -214,7 +212,6 @@ def add_constraints(m):
 
 
 def set_scaling(m):
-
     m.fs.properties.set_default_scaling(
         "flow_mass_phase_comp", 0.1, index=("Liq", "H2O")
     )
@@ -224,7 +221,6 @@ def set_scaling(m):
 
 
 def set_inlet_conditions(m):
-
     print(f'\n{"=======> SETTING FEED CONDITIONS <=======":^60}\n')
 
     m.fs.treatment.feed.properties.calculate_state(
@@ -300,7 +296,6 @@ def optimize(m):
 
 
 def report_costing(blk):
-
     print(f"\n\n-------------------- System Costing Report --------------------\n")
     print("\n")
 
@@ -386,7 +381,6 @@ def main(
 
 
 def print_results_summary(m):
-
     print(f"\nAfter Optimization System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     print("\n")
@@ -420,7 +414,6 @@ def print_results_summary(m):
 
 
 def save_results(m):
-
     results_df = pd.DataFrame(
         columns=[
             "water_recovery",
@@ -567,7 +560,6 @@ def save_results(m):
 
 
 if __name__ == "__main__":
-
     main(
         water_recovery=0.8,
         heat_price=0.08,

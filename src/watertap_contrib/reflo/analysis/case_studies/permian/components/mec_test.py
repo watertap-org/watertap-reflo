@@ -110,7 +110,6 @@ def build_kbhdp_mec(
 
     ### FIX UNIT MODEL PARAMETERS
     for (_, eff), op_pressure in zip(mec.effects.items(), operating_pressures):
-
         eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].fix(
             flow_mass_phase_water_per
         )
@@ -221,8 +220,8 @@ def build_kbhdp_mec(
         "flow_mass_phase_comp", 1, index=("Liq", "H2O")
     )
 
-    print('')
-    print('solve for normalized volume')
+    print("")
+    print("solve for normalized volume")
 
     calculate_scaling_factors(m)
     results = solver.solve(m)
@@ -267,9 +266,8 @@ def build_kbhdp_mec(
 
     calculate_scaling_factors(m)
 
-
-    print('')
-    print('solve for after init')
+    print("")
+    print("solve for after init")
     results = solver.solve(m)
     assert_optimal_termination(results)
 
@@ -278,10 +276,12 @@ def build_kbhdp_mec(
 
 def get_model_performance(m):
     # Print result
-    effs = [m.fs.mec.effects[1].effect, 
-            m.fs.mec.effects[2].effect,
-            m.fs.mec.effects[3].effect,
-            m.fs.mec.effects[4].effect]
+    effs = [
+        m.fs.mec.effects[1].effect,
+        m.fs.mec.effects[2].effect,
+        m.fs.mec.effects[3].effect,
+        m.fs.mec.effects[4].effect,
+    ]
     effect_names = ["Effect 1", "Effect 2", "Effect 3", "Effect 4"]
 
     feed_salinities = [
@@ -390,24 +390,23 @@ def get_model_performance(m):
 
     overall_performance = {
         "Capacity (m3/day)": sum(feed_vol_flow_rates) * 86400 / 1000,
-        "Feed brine salinity (g/L)": effs[1].properties_in[0]
+        "Feed brine salinity (g/L)": effs[1]
+        .properties_in[0]
         .conc_mass_phase_comp["Liq", "NaCl"]
         .value,
         "Total brine disposed (kg/s)": sum(feed_flow_rates),
         "Total water production (kg/s)": sum(water_prod),
         "Total solids collected (kg/s)": sum(solid_prod),
         "Total waste water remained (kg/s)": sum(liquid_prod),
-        "Initial thermal energy consumption (kW)": effs[1].work_mechanical[
-            0
-        ].value,
+        "Initial thermal energy consumption (kW)": effs[1].work_mechanical[0].value,
         "Overall STEC (kWh/m3 feed)": overall_STEC,
         "Total heat transfer area (m2)": sum(i.heat_exchanger_area.value for i in effs),
     }
 
     return data_table, overall_performance
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     m = build_kbhdp_mec(
         # m=m
         flow_in=1,  # MGD
@@ -421,9 +420,9 @@ if __name__ == "__main__":
     )
     calculate_scaling_factors(m)
 
-    print('')
-    print('here')
-    print('')
+    print("")
+    print("here")
+    print("")
     assert degrees_of_freedom(m) == 0
     try:
         results = solver.solve(m)
@@ -431,11 +430,17 @@ if __name__ == "__main__":
     except:
         print("Failed")
     overall_STEC = (
-    m.fs.mec.effects[1].effect.work_mechanical[0].value
-    / sum(m.fs.mec.effects[i].effect.properties_in[0].flow_vol_phase["Liq"].value for i in m.fs.mec.Effects)
-    /3600)
-    total_area = sum(m.fs.mec.effects[i].effect.heat_exchanger_area for i in m.fs.mec.Effects)
-    
+        m.fs.mec.effects[1].effect.work_mechanical[0].value
+        / sum(
+            m.fs.mec.effects[i].effect.properties_in[0].flow_vol_phase["Liq"].value
+            for i in m.fs.mec.Effects
+        )
+        / 3600
+    )
+    total_area = sum(
+        m.fs.mec.effects[i].effect.heat_exchanger_area for i in m.fs.mec.Effects
+    )
+
     print(value(overall_STEC))
     print(value(total_area))
 
@@ -448,32 +453,37 @@ if __name__ == "__main__":
     m.fs.mec.effects[4].effect.pressure_operating.unfix()
     m.fs.mec.effects[4].effect.pressure_operating.setlb(0.022 * 1e5)
 
-    @m.Constraint(m.fs.mec.Effects,
-                  doc="Pressure decreasing")
+    @m.Constraint(m.fs.mec.Effects, doc="Pressure decreasing")
     def pressure_bound1(b, j):
-        if j<4:
-            return (b.fs.mec.effects[j+1].effect.pressure_operating 
-                    <= b.fs.mec.effects[j].effect.pressure_operating
+        if j < 4:
+            return (
+                b.fs.mec.effects[j + 1].effect.pressure_operating
+                <= b.fs.mec.effects[j].effect.pressure_operating
             )
         else:
             return Constraint.Skip
 
-    @m.Constraint(m.fs.mec.Effects,
-                    doc="Temperature difference")
+    @m.Constraint(m.fs.mec.Effects, doc="Temperature difference")
     def temp_bound1(b, j):
-        if j<4:
+        if j < 4:
             return (
-                b.fs.mec.effects[j+1].effect.temperature_operating
+                b.fs.mec.effects[j + 1].effect.temperature_operating
                 >= b.fs.mec.effects[j].effect.temperature_operating - 12
             )
         else:
             return Constraint.Skip
-        
+
     overall_STEC = (
-    m.fs.mec.effects[1].effect.work_mechanical[0].value
-    / sum(m.fs.mec.effects[i].effect.properties_in[0].flow_vol_phase["Liq"].value for i in m.fs.mec.Effects)
-    /3600)
-    total_area = sum(m.fs.mec.effects[i].effect.heat_exchanger_area for i in m.fs.mec.Effects)
+        m.fs.mec.effects[1].effect.work_mechanical[0].value
+        / sum(
+            m.fs.mec.effects[i].effect.properties_in[0].flow_vol_phase["Liq"].value
+            for i in m.fs.mec.Effects
+        )
+        / 3600
+    )
+    total_area = sum(
+        m.fs.mec.effects[i].effect.heat_exchanger_area for i in m.fs.mec.Effects
+    )
     m.fs.objective = Objective(expr=total_area)
 
     optimization_results = solver.solve(m, tee=False)

@@ -31,7 +31,6 @@ from watertap_contrib.reflo.costing.util import (
 
 
 def build_air_stripping_cost_param_block(blk):
-
     blk.capital_cost_tower_A_param = pyo.Var(
         initialize=45.2,
         units=pyo.units.USD_1991 / pyo.units.feet,
@@ -248,7 +247,6 @@ def build_air_stripping_cost_param_block(blk):
     parameter_block_name="air_stripping",
 )
 def cost_air_stripping(blk):
-
     make_capital_cost_var(blk)
     blk.capital_cost.setlb(0)
 

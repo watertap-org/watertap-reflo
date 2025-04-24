@@ -52,16 +52,15 @@ class Translator_Draw_to_NaCl_Data(TranslatorData):
     CONFIG = TranslatorData.CONFIG()
 
     def build(self):
-
         super().build()
 
         @self.Constraint(doc="Isothermal")
         def eq_temperature(b):
             return b.properties_in[0].temperature == b.properties_out[0].temperature
 
-        @self.Constraint(doc="Isobaric")
-        def eq_pressure(b):
-            return b.properties_in[0].pressure == b.properties_out[0].pressure
+        # @self.Constraint(doc="Isobaric")
+        # def eq_pressure(b):
+        #     return b.properties_in[0].pressure == b.properties_out[0].pressure
 
         @self.Constraint(
             doc="Equality mass flow water equation",
@@ -80,6 +79,9 @@ class Translator_Draw_to_NaCl_Data(TranslatorData):
                 b.properties_in[0].flow_mass_phase_comp["Liq", "DrawSolution"]
                 == b.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]
             )
+
+        self.properties_out[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
+        self.properties_out[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
 
     def initialize_build(
         self,

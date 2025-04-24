@@ -26,7 +26,6 @@ from watertap_contrib.reflo.costing.util import (
 
 
 def build_vagmd_surrogate_cost_param_block(blk):
-
     costing = blk.parent_block()
 
     blk.base_module_cost = pyo.Var(
@@ -217,7 +216,6 @@ def build_vagmd_surrogate_cost_param_block(blk):
     parameter_block_name="vagmd_surrogate",
 )
 def cost_vagmd_surrogate(blk):
-
     vagmd_params = blk.costing_package.vagmd_surrogate
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)

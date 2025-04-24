@@ -19,7 +19,6 @@ from watertap_contrib.reflo.costing.util import (
 
 
 def build_tes_cost_param_block(blk):
-
     costing = blk.parent_block()
 
     blk.cost_per_volume_storage = pyo.Var(
@@ -56,7 +55,6 @@ def build_tes_cost_param_block(blk):
     parameter_block_name="tes",
 )
 def cost_tes(blk):
-
     global_params = blk.costing_package
     tes_params = blk.costing_package.tes
     tes = blk.unit_model

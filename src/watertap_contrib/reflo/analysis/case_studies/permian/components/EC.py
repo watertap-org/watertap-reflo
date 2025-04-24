@@ -171,7 +171,6 @@ def set_ec_operating_conditions(m, blk, conv=5e3, **kwargs):
 
 
 def set_ec_scaling(m, blk, calc_blk_scaling_factors=False):
-
     set_scaling_factor(blk.unit.properties_in[0].flow_vol, 1e7)
     set_scaling_factor(blk.unit.properties_in[0].conc_mass_comp["tds"], 1e5)
     set_scaling_factor(blk.unit.charge_loading_rate, 1e3)
@@ -188,13 +187,15 @@ def set_ec_scaling(m, blk, calc_blk_scaling_factors=False):
     set_scaling_factor(blk.unit.conductivity, 0.1)
     set_scaling_factor(blk.unit.overpotential, 1)
     set_scaling_factor(blk.unit.reactor_volume, 0.1)
-    set_scaling_factor(blk.unit.ohmic_resistance, 1e-7)
+    set_scaling_factor(blk.unit.ohmic_resistance, 1e7)
     set_scaling_factor(blk.unit.charge_loading_rate, 1e-3)
     set_scaling_factor(blk.unit.power_required, 1e-6)
     set_scaling_factor(blk.unit.overpotential_k1, 1)
     set_scaling_factor(blk.unit.overpotential_k2, 1)
 
-    # constraint_scaling_transform(blk.unit.eq_ohmic_resistance, 1e-5)
+    constraint_scaling_transform(blk.unit.eq_power_required, 1e-6)
+    constraint_scaling_transform(blk.unit.eq_applied_current, 1e-4)
+    constraint_scaling_transform(blk.unit.eq_electrode_mass, 1e-4)
 
     # Calculate scaling factors only for EC block if in full case study flowsheet
     # so we don't prematurely set scaling factors
@@ -290,7 +291,6 @@ def report_EC(blk):
 
 
 if __name__ == "__main__":
-
     m = build_system()
     set_system_operating_conditions(m, tds=130)
     set_ec_operating_conditions(m, m.fs.EC)

@@ -299,7 +299,6 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
 
 
 if __name__ == "__main__":
-
     solver = get_solver()
     # solver = SolverFactory("ipopt")
 

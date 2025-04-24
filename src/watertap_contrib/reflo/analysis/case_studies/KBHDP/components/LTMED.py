@@ -122,7 +122,6 @@ def build_LTMED(m, blk, liquid_prop, vapor_prop, number_effects=12):
 
 
 def set_LTMED_operating_conditions(blk):
-
     steam_temperature = 80
     recovery_ratio = 0.5
 
@@ -277,7 +276,6 @@ def init_system(m, solver=None):
 
 
 def optimize(m, water_recovery=None, objective="LCOW"):
-
     m.fs.water_recovery = Var(
         initialize=0.5,
         bounds=(0, 0.99),
@@ -416,7 +414,6 @@ def report_LTMED(m):
 
 
 if __name__ == "__main__":
-
     m = build_system()
     set_system_operating_conditions(m)
     set_LTMED_operating_conditions(m.fs.treatment.LTMED)

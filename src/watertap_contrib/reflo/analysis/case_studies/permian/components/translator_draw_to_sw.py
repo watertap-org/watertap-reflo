@@ -52,7 +52,6 @@ class Translator_Draw_to_SW_Data(TranslatorData):
     CONFIG = TranslatorData.CONFIG()
 
     def build(self):
-
         super().build()
 
         @self.Constraint(doc="Isothermal")
@@ -67,7 +66,7 @@ class Translator_Draw_to_SW_Data(TranslatorData):
             self.flowsheet().time,
             doc="Equality mass flow water equation",
         )
-        def eq_flow_mass_water(b,t):
+        def eq_flow_mass_water(b, t):
             return (
                 b.properties_in[t].flow_mass_phase_comp["Liq", "H2O"]
                 == b.properties_out[t].flow_mass_phase_comp["Liq", "H2O"]
@@ -77,7 +76,7 @@ class Translator_Draw_to_SW_Data(TranslatorData):
             self.flowsheet().time,
             doc="Equality mass flow TDS equation",
         )
-        def eq_flow_mass_tds(b,t):
+        def eq_flow_mass_tds(b, t):
             return (
                 b.properties_in[t].flow_mass_phase_comp["Liq", "DrawSolution"]
                 == b.properties_out[t].flow_mass_phase_comp["Liq", "TDS"]

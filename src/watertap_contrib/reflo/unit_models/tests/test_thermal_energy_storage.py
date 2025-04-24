@@ -47,7 +47,6 @@ solver = get_solver()
 class TestThermalEnergyStorage:
     @pytest.fixture(scope="class")
     def tes(self):
-
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.properties = WaterParameterBlock()
@@ -139,7 +138,6 @@ class TestThermalEnergyStorage:
 
     @pytest.mark.component
     def test_tes_model(self, tes):
-
         m = tes
         m.fs.tes.initialize()
         results = solver.solve(m)

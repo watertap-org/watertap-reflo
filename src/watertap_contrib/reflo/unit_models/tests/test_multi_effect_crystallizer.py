@@ -63,7 +63,6 @@ eps = 1e-12
 
 
 def build_mec2():
-
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
 
@@ -139,7 +138,6 @@ def build_mec2():
 
 
 def build_mec3():
-
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
 
@@ -215,7 +213,6 @@ def build_mec3():
 
 
 def build_mec4():
-
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
 
@@ -293,7 +290,6 @@ def build_mec4():
 
 @pytest.mark.component
 def test_single_effect_error():
-
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
 
@@ -563,7 +559,6 @@ class TestMultiEffectCrystallizer_2Effects:
 
     @pytest.mark.component
     def test_solve(self, MEC2_frame):
-
         m = MEC2_frame
 
         results = solver.solve(m)
@@ -571,7 +566,6 @@ class TestMultiEffectCrystallizer_2Effects:
 
     @pytest.mark.component
     def test_conservation(self, MEC2_frame):
-
         m = MEC2_frame
 
         comp_lst = ["NaCl", "H2O"]
@@ -1104,7 +1098,6 @@ class TestMultiEffectCrystallizer_3Effects:
 
     @pytest.mark.component
     def test_solve(self, MEC3_frame):
-
         m = MEC3_frame
 
         results = solver.solve(m)
@@ -1561,7 +1554,6 @@ class TestMultiEffectCrystallizer_4Effects:
 
     @pytest.mark.unit
     def test_dof(self, MEC4_frame):
-
         m = MEC4_frame
         # With mass flow rates into each of the effects fixed,
         # and the control_volume flows fixed, the model is over specified
@@ -1669,7 +1661,6 @@ class TestMultiEffectCrystallizer_4Effects:
 
     @pytest.mark.component
     def test_solve(self, MEC4_frame):
-
         m = MEC4_frame
 
         results = solver.solve(m)
@@ -1677,7 +1668,6 @@ class TestMultiEffectCrystallizer_4Effects:
 
     @pytest.mark.component
     def test_conservation(self, MEC4_frame):
-
         m = MEC4_frame
 
         comp_lst = ["NaCl", "H2O"]
@@ -2000,7 +1990,6 @@ class TestMultiEffectCrystallizer_4Effects:
 
     @pytest.mark.component
     def test_costing_by_volume(self):
-
         m = build_mec4()
 
         for _, eff in m.fs.unit.effects.items():
@@ -2093,7 +2082,6 @@ class TestMultiEffectCrystallizer_4Effects:
 
     @pytest.mark.component
     def test_costing_work_as_steam(self):
-
         m = build_mec4()
 
         for _, eff in m.fs.unit.effects.items():
@@ -2305,7 +2293,6 @@ class TestMultiEffectCrystallizer_4Effects:
 
     @pytest.mark.component
     def test_optimization_conservation(self, MEC4_frame):
-
         m = MEC4_frame
 
         comp_lst = ["NaCl", "H2O"]

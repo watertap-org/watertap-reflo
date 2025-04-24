@@ -38,7 +38,6 @@ solver = get_solver()
 
 @pytest.mark.unit
 def test_module_type_domain():
-
     tested_module_type = "new_module_type"
     error_msg = (
         f"The MD module type '{tested_module_type}' is not available."
@@ -66,7 +65,6 @@ def test_module_type_domain():
 
 @pytest.mark.unit
 def test_input_variables_domain():
-
     tested_feed_flow_rate = 1200
     error_msg = (
         f"The input variable 'feed_flow_rate' is not valid."
@@ -94,7 +92,6 @@ def test_input_variables_domain():
 
 @pytest.mark.unit
 def test_cooling_system_type_domain():
-
     tested_cooling_system_type = "hybrid"
     error_msg = (
         f"The cooling system type '{tested_cooling_system_type}' is not available."
@@ -122,7 +119,6 @@ def test_cooling_system_type_domain():
 
 @pytest.mark.unit
 def test_cooling_water_temp_domain():
-
     tested_cooling_inlet_temp = 28
     tested_feed_temp = 25
     error_msg = f"In open circuit cooling system, the valid cooling water temperature is 20 - {tested_feed_temp} deg C"
@@ -148,7 +144,6 @@ def test_cooling_water_temp_domain():
 
 @pytest.mark.unit
 def test_max_recovery_ratio():
-
     tested_recovery_ratio = 0.7
     tested_module_type = "AS26C7.2L"
     tested_feed_salinity = 100
@@ -242,7 +237,6 @@ class TestVAGMDbatchAS7C15L_Closed:
 
     @pytest.mark.component
     def test_costing(self, VAGMD_batch_frame_AS7C15L_Closed):
-
         m = VAGMD_batch_frame_AS7C15L_Closed
 
         # The costing model is built upon the last time step
@@ -315,7 +309,6 @@ class TestVAGMDbatchAS7C15L_HighSalinityClosed:
 
     @pytest.mark.component
     def test_solution2(self, VAGMD_batch_frame_AS7C15L_HighSalinityClosed):
-
         m = VAGMD_batch_frame_AS7C15L_HighSalinityClosed
 
         results = solver.solve(m)
@@ -372,7 +365,6 @@ class TestVAGMDbatchAS7C15L_LowSalinityOpen:
 
     @pytest.mark.component
     def test_solution3(self, VAGMD_batch_frame_AS7C15L_LowSalinityOpen):
-
         m = VAGMD_batch_frame_AS7C15L_LowSalinityOpen
 
         results = solver.solve(m)
@@ -429,7 +421,6 @@ class TestVAGMDbatchAS26C72L_Closed:
 
     @pytest.mark.component
     def test_solution4(self, VAGMD_batch_frame_AS26C72L_Closed):
-
         m = VAGMD_batch_frame_AS26C72L_Closed
 
         results = solver.solve(m)
@@ -486,7 +477,6 @@ class TestVAGMDbatchAS26C72L_Open:
 
     @pytest.mark.component
     def test_solution5(self, VAGMD_batch_frame_AS26C72L_Open):
-
         m = VAGMD_batch_frame_AS26C72L_Open
 
         results = solver.solve(m)

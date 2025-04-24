@@ -27,7 +27,6 @@ doi: 10.1016/j.desal.2018.09.011
 
 
 def build_lt_med_surrogate_cost_param_block(blk):
-
     costing = blk.parent_block()
 
     blk.cost_fraction_evaporator = pyo.Var(
@@ -122,7 +121,6 @@ def build_lt_med_surrogate_cost_param_block(blk):
     parameter_block_name="lt_med_surrogate",
 )
 def cost_lt_med_surrogate(blk):
-
     lt_med_params = blk.costing_package.lt_med_surrogate
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
@@ -159,7 +157,8 @@ def cost_lt_med_surrogate(blk):
         dist.flow_vol_phase["Liq"], to_units=pyo.units.m**3 / pyo.units.day
     )
     blk.capacity_dimensionless = pyo.units.convert(
-        blk.capacity * pyo.units.day * pyo.units.m**-3, to_units=pyo.units.dimensionless
+        blk.capacity * pyo.units.day * pyo.units.m**-3,
+        to_units=pyo.units.dimensionless,
     )
 
     blk.annual_dist_production = pyo.units.convert(

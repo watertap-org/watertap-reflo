@@ -723,7 +723,6 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
                 )
 
         elif self.config.softening_procedure_type is SofteningProcedureType.excess_lime:
-
             # These variables aren't otherwise constrained for this SofteningProcedureType
             self.CO2_second_basin.fix(0)
             self.Na2CO3_dosing.fix(0)

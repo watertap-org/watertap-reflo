@@ -20,7 +20,6 @@ from watertap_contrib.reflo.costing.util import (
 
 
 def build_pv_surrogate_cost_param_block(blk):
-
     costing = blk.parent_block()
 
     blk.cost_per_watt_module = pyo.Var(
@@ -93,7 +92,6 @@ def build_pv_surrogate_cost_param_block(blk):
     build_rule=build_pv_surrogate_cost_param_block, parameter_block_name="pv_surrogate"
 )
 def cost_pv_surrogate(blk):
-
     global_params = blk.costing_package
     pv_params = blk.costing_package.pv_surrogate
     make_capital_cost_var(blk)

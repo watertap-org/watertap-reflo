@@ -92,7 +92,6 @@ def setup_model(
     config_file=None,
     config_data=None,
 ):
-
     tech_model = swh.new()
 
     for k, v in config_data.items():
@@ -205,7 +204,6 @@ def run_model(tech_model, heat_load_mwt=None, hours_storage=None, temperature_ho
 def setup_and_run(
     temperatures, weather_file, config_data, heat_load, hours_storage, temperature_hot
 ):
-
     tech_model = setup_model(
         temperatures, weather_file=weather_file, config_data=config_data
     )
@@ -461,5 +459,4 @@ def run_pysam_kbhdp_fpc(
 
 
 if __name__ == "__main__":
-
     run_pysam_kbhdp_fpc(dataset_filename="test.pkl")

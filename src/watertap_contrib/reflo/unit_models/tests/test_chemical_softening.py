@@ -63,7 +63,6 @@ def test_inlet_required_components():
     error_msg = "ChemicalSoftening requires Ca_2\+, Mg_2\+, and Alkalinity_2\- as solutes in inlet stream but not all were provided."
 
     with pytest.raises(ConfigurationError, match=error_msg):
-
         m.fs.soft = ChemicalSoftening(
             property_package=m.fs.properties,
             silica_removal=True,
@@ -243,7 +242,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
 
     @pytest.mark.component
     def test_costing(self, chem_soft_frame):
-
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
@@ -326,7 +324,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval:
 class TestChemSoft_SingleStageLime:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):
-
         component_list = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
@@ -497,7 +494,6 @@ class TestChemSoft_SingleStageLime:
 
     @pytest.mark.component
     def test_costing(self, chem_soft_frame):
-
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
@@ -580,7 +576,6 @@ class TestChemSoft_SingleStageLime:
 class TestChemSoft_ExcessLime:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):
-
         component_list = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
@@ -659,7 +654,6 @@ class TestChemSoft_ExcessLime:
 
     @pytest.mark.unit
     def test_build(self, chem_soft_frame):
-
         m = chem_soft_frame
 
         port_list = ["inlet", "outlet", "waste"]
@@ -752,7 +746,6 @@ class TestChemSoft_ExcessLime:
 
     @pytest.mark.component
     def test_costing(self, chem_soft_frame):
-
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
@@ -838,7 +831,6 @@ class TestChemSoft_ExcessLime:
 class TestChemSoft_ExcessLime_2:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):
-
         component_list = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
@@ -915,7 +907,6 @@ class TestChemSoft_ExcessLime_2:
 
     @pytest.mark.unit
     def test_build(self, chem_soft_frame):
-
         m = chem_soft_frame
 
         port_list = ["inlet", "outlet", "waste"]
@@ -1008,7 +999,6 @@ class TestChemSoft_ExcessLime_2:
 
     @pytest.mark.component
     def test_costing(self, chem_soft_frame):
-
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()
@@ -1094,7 +1084,6 @@ class TestChemSoft_ExcessLime_2:
 class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
     @pytest.fixture(scope="class")
     def chem_soft_frame(self):
-
         component_list = ["Ca_2+", "Mg_2+", "SiO2", "Alkalinity_2-"]
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
@@ -1268,7 +1257,6 @@ class TestChemSoft_ExcessLimeSodaSilicaRemoval_2:
 
     @pytest.mark.component
     def test_costing(self, chem_soft_frame):
-
         m = chem_soft_frame
         prop_in = m.fs.soft.properties_in[0]
         m.fs.costing = TreatmentCosting()

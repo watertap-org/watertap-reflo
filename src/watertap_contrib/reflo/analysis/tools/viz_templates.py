@@ -24,7 +24,6 @@ def contour(
     cmap_pallete="RdBu_r",
     **kwargs
 ):
-
     divnorm = colors.TwoSlopeNorm(vmin=low, vcenter=mid, vmax=high)
     divnorm = colors.CenteredNorm(vcenter=mid)
 

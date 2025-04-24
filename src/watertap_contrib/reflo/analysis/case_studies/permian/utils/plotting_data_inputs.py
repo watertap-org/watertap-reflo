@@ -378,7 +378,7 @@ figure_device_groups = {
             "OPEX": {
                 "units": {
                     "fs.treatment.md.unit.md_costing.fixed_operating_cost",
-                    #fs.treatment.md.unit.md_costing.fixed_operating_cost
+                    # fs.treatment.md.unit.md_costing.fixed_operating_cost
                     # "fs.treatment.costing.aggregate_flow_costs[heat]",
                     # "fs.treatment.costing.aggregate_flow_costs[electricity]",
                 },

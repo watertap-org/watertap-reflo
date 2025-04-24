@@ -179,7 +179,6 @@ class DummyTreatmentUnitData(InitializationMixin, UnitModelBlockData):
         self.properties.release_state(flags)
 
     def calculate_scaling_factors(self):
-
         set_scaling_factor(self.design_var_a, 1 / value(self.design_var_a))
         set_scaling_factor(self.design_var_b, 1 / value(self.design_var_b))
         set_scaling_factor(self.capital_var, 1 / value(self.capital_var))
@@ -200,7 +199,6 @@ class DummyTreatmentUnitData(InitializationMixin, UnitModelBlockData):
 
 
 def build_dummy_treatment_unit_param_block(blk):
-
     blk.capital_cost_param = Var(
         initialize=1e4,
         units=pyunits.USD_2000,
@@ -224,7 +222,6 @@ def build_dummy_treatment_unit_param_block(blk):
 
 
 def build_chem_cost_param_block(blk):
-
     blk.cost = Param(
         mutable=True,
         initialize=0.68,
@@ -251,7 +248,6 @@ def build_chem_cost_param_block(blk):
     parameter_block_name="dummy_treatment_unit",
 )
 def cost_dummy_treatment_unit(blk):
-
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
     make_variable_operating_cost_var(blk)
@@ -324,7 +320,6 @@ class DummyTreatmentNoHeatUnitData(DummyTreatmentUnitData):
         self.del_component(self.variable_operating_var)
 
     def calculate_scaling_factors(self):
-
         set_scaling_factor(self.design_var_a, 1 / value(self.design_var_a))
         set_scaling_factor(self.design_var_b, 1 / value(self.design_var_b))
         set_scaling_factor(self.capital_var, 1 / value(self.capital_var))
@@ -342,7 +337,6 @@ class DummyTreatmentNoHeatUnitData(DummyTreatmentUnitData):
     parameter_block_name="dummy_treatment_no_heat_unit",
 )
 def cost_dummy_treatment_no_heat_unit(blk):
-
     make_capital_cost_var(blk)
 
     blk.costing_package.add_cost_factor(blk, None)
@@ -387,7 +381,6 @@ class DummyElectricityUnitData(SolarEnergyBaseData):
 
 
 def build_dummy_electricity_unit_param_block(blk):
-
     blk.capital_per_watt = Var(
         initialize=0.3,
         units=pyunits.USD_2019 / pyunits.watt,
@@ -408,7 +401,6 @@ def build_dummy_electricity_unit_param_block(blk):
     parameter_block_name="dummy_electricity_unit",
 )
 def cost_dummy_electricity_unit(blk):
-
     blk.costing_package.has_electricity_generation = True
 
     make_capital_cost_var(blk)
@@ -458,7 +450,6 @@ class DummyHeatUnitData(SolarEnergyBaseData):
 
 
 def build_dummy_heat_unit_param_block(blk):
-
     blk.capital_per_watt = Var(
         initialize=0.15,
         units=pyunits.USD_2019 / pyunits.watt,
@@ -479,7 +470,6 @@ def build_dummy_heat_unit_param_block(blk):
     parameter_block_name="dummy_heat_unit",
 )
 def cost_dummy_heat_unit(blk):
-
     make_capital_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 

@@ -101,7 +101,6 @@ def build_and_run_mvc(
     heat_cost=heat_cost_base,
     **kwargs,
 ):
-
     m = build_mvc_system(recovery=recovery)
     m.fs.costing.electricity_cost.fix(electricity_cost)
     m.fs.costing.heat_cost.fix(heat_cost)
@@ -180,7 +179,6 @@ def solve_mvc(m):
 
 
 def build_mvc_system(recovery=0.5, **kwargs):
-
     m = ConcreteModel()
     m.recovery_mass = recovery
     m.recovery_vol = recovery
@@ -229,7 +227,6 @@ def build_mvc_system(recovery=0.5, **kwargs):
 
 
 def build_mvc(m, blk, external_heating=True):
-
     print(f'\n{"=======> BUILDING MVC SYSTEM <=======":^60}\n')
 
     blk.feed = StateJunction(property_package=m.fs.properties_feed)
@@ -454,7 +451,6 @@ def set_mvc_operating_conditions(
 
 
 def set_system_operating_conditions(m, Qin=1, tds=130, feed_temp=25):
-
     global flow_in
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
@@ -479,7 +475,6 @@ def set_mvc_scaling(
     properties_vapor=None,
     calc_blk_scaling_factors=True,
 ):
-
     if properties_feed is None:
         properties_feed = m.fs.properties_feed
 
@@ -560,7 +555,6 @@ def set_mvc_scaling(
 
 
 def init_system(m, blk, **kwargs):
-
     m.fs.feed.initialize()
     propagate_state(m.fs.feed_to_mvc)
 
@@ -607,26 +601,26 @@ def init_mvc(
     _log.info(f"{blk.name} feed initialization complete.")
 
     # Propagate vapor flow rate based on given recovery
-    blk.evaporator.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"] = (
-        blk.recovery_mass
-        * (
-            blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
-            + blk.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"]
-        )
+    blk.evaporator.properties_vapor[0].flow_mass_phase_comp[
+        "Vap", "H2O"
+    ] = blk.recovery_mass * (
+        blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
+        + blk.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"]
     )
     blk.evaporator.properties_vapor[0].flow_mass_phase_comp["Liq", "H2O"] = 0
 
     # Propagate brine salinity and flow rate
-    blk.evaporator.properties_brine[0].mass_frac_phase_comp["Liq", "TDS"] = (
-        blk.feed.properties[0].mass_frac_phase_comp["Liq", "TDS"]
-        / (1 - blk.recovery_mass)
+    blk.evaporator.properties_brine[0].mass_frac_phase_comp[
+        "Liq", "TDS"
+    ] = blk.feed.properties[0].mass_frac_phase_comp["Liq", "TDS"] / (
+        1 - blk.recovery_mass
     )
     blk.evaporator.properties_brine[0].mass_frac_phase_comp["Liq", "H2O"] = (
         1 - blk.evaporator.properties_brine[0].mass_frac_phase_comp["Liq", "TDS"].value
     )
-    blk.evaporator.properties_brine[0].flow_mass_phase_comp["Liq", "TDS"] = (
-        blk.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"]
-    )
+    blk.evaporator.properties_brine[0].flow_mass_phase_comp[
+        "Liq", "TDS"
+    ] = blk.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"]
     blk.evaporator.properties_brine[0].flow_mass_phase_comp["Liq", "H2O"] = (
         blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
         - blk.evaporator.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"]
@@ -653,9 +647,9 @@ def init_mvc(
 
     # Initialize distillate heat exchanger
     propagate_state(blk.sep_dist_cold_to_hx_dist_cold)
-    blk.hx_distillate.cold_outlet.temperature[0] = (
-        blk.evaporator.inlet_feed.temperature[0].value
-    )
+    blk.hx_distillate.cold_outlet.temperature[
+        0
+    ] = blk.evaporator.inlet_feed.temperature[0].value
     blk.hx_distillate.cold_outlet.pressure[0] = blk.evaporator.inlet_feed.pressure[
         0
     ].value
@@ -663,9 +657,9 @@ def init_mvc(
         blk.evaporator.properties_vapor[0].flow_mass_phase_comp["Vap", "H2O"].value
     )
     blk.hx_distillate.hot_inlet.flow_mass_phase_comp[0, "Liq", "TDS"] = 1e-4
-    blk.hx_distillate.hot_inlet.temperature[0] = (
-        blk.evaporator.outlet_brine.temperature[0].value
-    )
+    blk.hx_distillate.hot_inlet.temperature[
+        0
+    ] = blk.evaporator.outlet_brine.temperature[0].value
     blk.hx_distillate.hot_inlet.pressure[0] = 101325
     blk.hx_distillate.initialize(solver="ipopt-watertap")
     _log.info(f"{blk.name} Distillate HX initialization complete.")
@@ -676,12 +670,12 @@ def init_mvc(
         0
     ].value
     blk.hx_brine.cold_outlet.pressure[0] = blk.evaporator.inlet_feed.pressure[0].value
-    blk.hx_brine.hot_inlet.flow_mass_phase_comp[0, "Liq", "H2O"] = (
-        blk.evaporator.properties_brine[0].flow_mass_phase_comp["Liq", "H2O"]
-    )
-    blk.hx_brine.hot_inlet.flow_mass_phase_comp[0, "Liq", "TDS"] = (
-        blk.evaporator.properties_brine[0].flow_mass_phase_comp["Liq", "TDS"]
-    )
+    blk.hx_brine.hot_inlet.flow_mass_phase_comp[
+        0, "Liq", "H2O"
+    ] = blk.evaporator.properties_brine[0].flow_mass_phase_comp["Liq", "H2O"]
+    blk.hx_brine.hot_inlet.flow_mass_phase_comp[
+        0, "Liq", "TDS"
+    ] = blk.evaporator.properties_brine[0].flow_mass_phase_comp["Liq", "TDS"]
     blk.hx_brine.hot_inlet.temperature[0] = blk.evaporator.outlet_brine.temperature[
         0
     ].value
@@ -735,12 +729,12 @@ def init_mvc(
     # Initialize distillate pump
     propagate_state(blk.condenser_to_translator)  # to translator block
     propagate_state(blk.translated_to_dist_pump)  # from translator block to pump
-    blk.pump_distillate.control_volume.properties_in[0].temperature = (
-        blk.condenser.control_volume.properties_out[0].temperature.value
-    )
-    blk.pump_distillate.control_volume.properties_in[0].pressure = (
-        blk.condenser.control_volume.properties_out[0].pressure.value
-    )
+    blk.pump_distillate.control_volume.properties_in[
+        0
+    ].temperature = blk.condenser.control_volume.properties_out[0].temperature.value
+    blk.pump_distillate.control_volume.properties_in[
+        0
+    ].pressure = blk.condenser.control_volume.properties_out[0].pressure.value
     blk.pump_distillate.initialize(optarg=optarg, solver="ipopt-watertap")
     _log.info(f"{blk.name} Distillate Pump initialization complete.")
     # propagate_state(blk.dist_pump_to_hx_dist_hot)
@@ -875,7 +869,6 @@ def run_sequential_decomposition(
     tear_solver="cbc",
     iterlim=5,
 ):
-
     def func_initialize(unit):
         print(unit.local_name)
         print(f"dof = {degrees_of_freedom(unit)}\n")
@@ -957,7 +950,6 @@ def add_external_heating(m, blk):
 
 
 def add_mvc_costing(m, blk, flowsheet_costing_block=None):
-
     if flowsheet_costing_block is None:
         flowsheet_costing_block = m.fs.costing
 

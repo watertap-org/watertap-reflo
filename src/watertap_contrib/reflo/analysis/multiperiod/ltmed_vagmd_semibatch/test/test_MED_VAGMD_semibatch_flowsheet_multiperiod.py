@@ -91,7 +91,6 @@ class TestVAGMDbatch:
 
     @pytest.mark.unit
     def test_module_type_domain(self):
-
         tested_module_type = "new_module_type"
         error_msg = (
             f"The MD module type '{tested_module_type}' is not available."
@@ -121,7 +120,6 @@ class TestVAGMDbatch:
 
     @pytest.mark.unit
     def test_input_variables_domain(self):
-
         tested_feed_flow_rate = 1200
         error_msg = (
             f"The input value for 'md_feed_flow_rate' is not valid."
@@ -151,7 +149,6 @@ class TestVAGMDbatch:
 
     @pytest.mark.unit
     def test_cooling_system_type_domain(self):
-
         tested_cooling_system_type = "hybrid"
         error_msg = (
             f"The cooling system type '{tested_cooling_system_type}' is not available."

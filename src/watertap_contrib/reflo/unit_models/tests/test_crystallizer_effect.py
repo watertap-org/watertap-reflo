@@ -263,7 +263,6 @@ class TestCrystallizerEffect:
 
     @pytest.mark.unit
     def test_conservation(self, effect_frame):
-
         m = effect_frame
 
         comp_lst = ["NaCl", "H2O"]
@@ -321,7 +320,8 @@ class TestCrystallizerEffect:
                         "NaCl"
                     ]
                     + pyunits.convert(
-                        m.fs.unit.work_mechanical[0], to_units=pyunits.J * pyunits.s**-1
+                        m.fs.unit.work_mechanical[0],
+                        to_units=pyunits.J * pyunits.s**-1,
                     )
                 )
             )

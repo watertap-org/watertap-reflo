@@ -65,7 +65,6 @@ solver = get_solver()
 __all__ = [
     "build_permian_pretreatment",
     "set_operating_conditions",
-    "add_treatment_costing",
     "set_permian_pretreatment_scaling",
     "init_system",
     "build_and_run_permian_pretreatment",
@@ -77,7 +76,6 @@ heat_cost_base = 0.00894
 
 
 def get_stream_density(Qin=5, tds=130, **kwargs):
-
     x = ConcreteModel()
     x.fs = FlowsheetBlock(dynamic=False)
     Qin = Qin * pyunits.Mgallons / pyunits.day
@@ -249,7 +247,6 @@ def build_permian_pretreatment(rho=None, **kwargs):
 
 
 def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
-
     global flow_mass_water, flow_mass_tds, flow_in
 
     Qin = Qin * pyunits.Mgallons / pyunits.day
@@ -271,7 +268,6 @@ def set_operating_conditions(m, Qin=5, tds=130, **kwargs):
 
 
 def add_treatment_costing(m):
-
     m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     add_chem_addition_costing(
         m, m.fs.treatment.chem_addition, flowsheet_costing_block=m.fs.treatment.costing
@@ -289,7 +285,6 @@ def add_treatment_costing(m):
 
 
 def set_permian_pretreatment_scaling(m, calclate_m_scaling_factors=False, **kwargs):
-
     m.fs.properties.set_default_scaling(
         "flow_mass_comp",
         # 1 / value(flow_mass_water),
@@ -436,7 +431,6 @@ def set_permian_pretreatment_scaling(m, calclate_m_scaling_factors=False, **kwar
 
 
 def init_system(m, **kwargs):
-
     treat = m.fs.treatment
 
     treat.feed.initialize()
@@ -535,7 +529,7 @@ def build_and_run_permian_pretreatment(
 
     treat.costing.heat_cost.fix(heat_cost)
     treat.costing.electricity_cost.fix(electricity_cost)
-    
+
     treat.costing.initialize()
 
     print(f"DOF = {degrees_of_freedom(m)}")
@@ -553,7 +547,6 @@ def build_and_run_permian_pretreatment(
 
 
 if __name__ == "__main__":
-
     m = build_and_run_permian_pretreatment(Qin=5)
     treat = m.fs.treatment
 

@@ -52,7 +52,6 @@ class Translator_ZO_to_NaCl_Data(TranslatorData):
     CONFIG = TranslatorData.CONFIG()
 
     def build(self):
-
         super().build()
 
         @self.Constraint(

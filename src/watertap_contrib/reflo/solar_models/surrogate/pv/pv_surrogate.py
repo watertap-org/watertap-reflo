@@ -60,7 +60,6 @@ class PVSurrogateData(SolarEnergyBaseData):
         )
 
     def calculate_scaling_factors(self):
-
         if iscale.get_scaling_factor(self.design_size) is None:
             sf = iscale.get_scaling_factor(self.design_size, default=1)
             iscale.set_scaling_factor(self.design_size, sf)

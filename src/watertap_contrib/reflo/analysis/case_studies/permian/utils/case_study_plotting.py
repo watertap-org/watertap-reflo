@@ -38,10 +38,10 @@ flow_list = [
     "hydrogen_peroxide",
     "aluminum",
     "soda_ash",
-    "lime", 
+    "lime",
     "CO2",
     "mgcl2",
-    "NaCl_recovered"
+    "NaCl_recovered",
 ]
 
 unit_colors = plt.cm.tab20(np.arange(len(unit_list)).astype(int))
@@ -51,12 +51,13 @@ flow_colors = plt.cm.Dark2(np.arange(len(flow_list)).astype(int))
 flow_color_dict_default = dict(zip(flow_list, flow_colors))
 flow_color_dict_default["electric"] = flow_color_dict_default["electricity"]
 
+
 def case_study_stacked_plot(
     df,
     fig=None,
     ax=None,
     treatment_costing_blk=None,
-    global_costing_blk = None,
+    global_costing_blk=None,
     costing_blk=None,
     xcol=None,
     flow_col=None,  # column to be used as denominator in LCOW calculations, assumed to be in m3/s
@@ -82,12 +83,11 @@ def case_study_stacked_plot(
         labelspacing=0.2,
         columnspacing=0.9,
     ),
-    xlim = None,
+    xlim=None,
 ):
-
     if flow_hatch is None:
         flow_hatch = capex_hatch
-    
+
     has_energy_costing_blk = True
 
     if costing_blk is None:
@@ -127,7 +127,6 @@ def case_study_stacked_plot(
     df.sort_values(by=[xcol], inplace=True)
 
     for x, row in df.iterrows():
-
         total_lcow = 0
         total_capex = 0
         total_opex = 0
@@ -146,13 +145,12 @@ def case_study_stacked_plot(
         )
 
         for u, b in unit_dict.items():
-
             ## CAPEX
             unit_capex = 0
 
             try:
                 # print(f"{b}.capital_cost")
-                print(u,' capex = ', row.loc[f"{b}.capital_cost"])
+                print(u, " capex = ", row.loc[f"{b}.capital_cost"])
                 unit_capex += (
                     row.loc[f"{b}.capital_cost"]
                     * costing_params["total_investment_factor"]
@@ -183,14 +181,14 @@ def case_study_stacked_plot(
 
             try:
                 unit_opex_total += row.loc[f"{b}.fixed_operating_cost"]
-                print(u,' fixed opex = ',row.loc[f"{b}.fixed_operating_cost"])
+                print(u, " fixed opex = ", row.loc[f"{b}.fixed_operating_cost"])
             except KeyError:
                 print(f"No Fixed OPEX for {u} found")
                 pass
 
             try:
                 unit_opex_total += row.loc[f"{b}.variable_operating_cost"]
-                print(u,' var opex = ',row.loc[f"{b}.variable_operating_cost"])
+                print(u, " var opex = ", row.loc[f"{b}.variable_operating_cost"])
             except KeyError:
                 print(f"No Variable OPEX for {u} found")
                 pass
@@ -203,13 +201,13 @@ def case_study_stacked_plot(
 
             total_lcow += unit_opex_lcow  # $ / m3
             total_annualized_cost += unit_opex_total  # $ / year
-        
+
         for flow_label, flow_name in agg_flows.items():
             flow_lcow = 0
             try:
                 # First try to find it via aggregate_flow_costs
-                if flow_name in ['electric', 'heat'] and has_energy_costing_blk:
-                    raise KeyError('should check purchased energy')
+                if flow_name in ["electric", "heat"] and has_energy_costing_blk:
+                    raise KeyError("should check purchased energy")
                 total_flow_cost += row.loc[
                     f"{treatment_costing_blk}.aggregate_flow_costs[{flow_name}]"
                 ]  # $ / year
@@ -217,12 +215,19 @@ def case_study_stacked_plot(
                     f"{treatment_costing_blk}.aggregate_flow_costs[{flow_name}]"
                 ]
                 flow_lcow += (
-                    row.loc[f"{treatment_costing_blk}.aggregate_flow_costs[{flow_name}]"] / denominator
+                    row.loc[
+                        f"{treatment_costing_blk}.aggregate_flow_costs[{flow_name}]"
+                    ]
+                    / denominator
                 )  # $ / m3
                 agg_flow_lcow[flow_name].append(flow_lcow)
-                print(flow_label, " cost1 =", row.loc[
-                    f'{treatment_costing_blk}.aggregate_flow_costs[{flow_name}]'
-                ])
+                print(
+                    flow_label,
+                    " cost1 =",
+                    row.loc[
+                        f"{treatment_costing_blk}.aggregate_flow_costs[{flow_name}]"
+                    ],
+                )
             except KeyError:
                 # print(f"No aggregate cost for {flow_name} found.")
                 # pass
@@ -235,18 +240,20 @@ def case_study_stacked_plot(
                         f"{costing_blk}.total_{flow_name}_operating_cost"
                     ]  # $ / year
                     flow_lcow += (
-                        row.loc[f"{costing_blk}.total_{flow_name}_operating_cost"] / denominator
+                        row.loc[f"{costing_blk}.total_{flow_name}_operating_cost"]
+                        / denominator
                     )  # $ / m3
                     agg_flow_lcow[flow_name].append(flow_lcow)
-                    print(flow_label, " cost2 =", row.loc[
-                        f"{costing_blk}.total_{flow_name}_operating_cost"
-                    ])
+                    print(
+                        flow_label,
+                        " cost2 =",
+                        row.loc[f"{costing_blk}.total_{flow_name}_operating_cost"],
+                    )
                 except KeyError:
                     # print(f"No aggregate cost for {flow_name} found.")
                     # pass
                     raise ValueError(f"No cost for {flow_name} found.")
             total_lcow += flow_lcow
-            
 
         if check_calc:
             print(f"\nFor {xcol} = {x}:")
@@ -256,8 +263,6 @@ def case_study_stacked_plot(
             print(f"\t\t total OPEX: {total_opex:.6f}")
             print(f"\t\t total flow: {total_flow_cost:.6f}")
             print(unit_opex_lcow)
-            
-
 
         capex.append(total_capex)
         opex.append(total_opex)
@@ -298,7 +303,9 @@ def case_study_stacked_plot(
             stacked_labels.append(f"{u} OPEX")
             stacked_hatch.append(opex_hatch)
             stacked_colors.append(unit_color_dict[u])
-        legend_elements.append(Patch(facecolor=unit_color_dict[u], label=u, edgecolor="k"))
+        legend_elements.append(
+            Patch(facecolor=unit_color_dict[u], label=u, edgecolor="k")
+        )
 
     if (fig, ax) == (None, None):
         fig, ax = plt.subplots(figsize=figsize)
@@ -320,10 +327,10 @@ def case_study_stacked_plot(
     ax.set_ylabel(ax_dict["ylabel"], fontsize=label_fontsize)
     ax.tick_params(axis="both", labelsize=tick_fontsize)
     if xlim:
-        ax.set_xlim(xlim[0],xlim[1])
+        ax.set_xlim(xlim[0], xlim[1])
     else:
         ax.set_xlim(df.index.min(), df.index.max())
-    ax.set_ylim(0, np.ceil(max(actual_lcow)*1.15))
+    ax.set_ylim(0, np.ceil(max(actual_lcow) * 1.15))
 
     plt.tight_layout()
 
@@ -331,7 +338,6 @@ def case_study_stacked_plot(
 
 
 if __name__ == "__main__":
-
     test_file = f"{__location__}/test_stacked_plot.csv"
     df = pd.read_csv(test_file)
     df = df[df["fs.costing.electricity_cost"] == 0.049886703].copy()
@@ -354,10 +360,7 @@ if __name__ == "__main__":
         # "heat",
     ]
 
-    agg_flows = {
-        "Aluminum": "aluminum",
-        "Electricity": "electricity"
-    }
+    agg_flows = {"Aluminum": "aluminum", "Electricity": "electricity"}
 
     ax_dict = dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)")
 
@@ -383,7 +386,7 @@ if __name__ == "__main__":
     #     "DWI": "fs.treatment.dwi.unit.costing",
     # }
     # flow_col = "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]"
-    
+
     # agg_flows = {
     #     "Heat": "heat",
     #     "Electricity": "electric"
@@ -402,6 +405,3 @@ if __name__ == "__main__":
     # )
 
     # plt.show()
-
-
-

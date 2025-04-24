@@ -94,7 +94,6 @@ def build_sweep(
     ro_mem_area=None,
     objective="LCOT",
 ):
-
     m = build_system(RE=True)
     display_system_build(m)
     add_connections(m)
@@ -394,7 +393,6 @@ def apply_system_scaling(m):
 
 
 def apply_scaling(m):
-
     add_ec_scaling(m, m.fs.treatment.EC)
     add_UF_scaling(m.fs.treatment.UF)
     add_ro_scaling(m, m.fs.treatment.RO)

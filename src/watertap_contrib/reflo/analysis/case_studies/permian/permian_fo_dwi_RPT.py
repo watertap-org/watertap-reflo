@@ -76,12 +76,16 @@ __all__ = [
 ]
 
 
-def build_permian_FO_DWI(permian_fo_config):
+def build_permian_FO_DWI_RPT(permian_fo_config):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.db = REFLODatabase()
 
     m.fs.treatment = treat = Block()
+
+    m.fs.energy = energy = Block()
+    m.fs.energy.cst = FlowsheetBlock()
+    build_cst(m.fs.energy.cst)
 
     m.fs.properties = ZO(solute_list=["tds"])
     m.fs.properties_sw = SeawaterParameterBlock()
@@ -229,6 +233,12 @@ def set_operating_conditions(m, operating_condition, **kwargs):
     set_chem_addition_op_conditions(m, m.fs.treatment.chem_addition, **kwargs)
     set_ec_operating_conditions(m, m.fs.treatment.ec, **kwargs)
     set_cart_filt_op_conditions(m, m.fs.treatment.cart_filt)
+
+    set_cst_op_conditions(
+        m.fs.energy.cst,
+        heat_load=operating_condition["csv_initial_heat_load"],
+        hours_storage=operating_condition["storage"],
+    )
 
 
 def set_permian_scaling(m, **kwargs):
@@ -381,8 +391,10 @@ def init_system(m, permian_fo_config):
     treat.DWI.unit.properties[0].pressure.fix()
     init_dwi(m, treat.DWI)
 
+    init_cst(m.fs.energy.cst)
 
-def add_treatment_costing(m):
+
+def add_treatment_costing(m, flow_vol, operating_condition):
     m.fs.treatment.costing = TreatmentCosting(case_study_definition=case_study_yaml)
     add_chem_addition_costing(
         m, m.fs.treatment.chem_addition, flowsheet_costing_block=m.fs.treatment.costing
@@ -404,12 +416,61 @@ def add_treatment_costing(m):
 
     m.fs.treatment.costing.cost_process()
 
+    m.fs.treatment.costing.base_currency = pyunits.USD_2023
 
-def run_permian_FO_DWI(
+    electricity_price = operating_condition["elec_price"]
+    heat_price = operating_condition["heat_price"]
+    m.fs.treatment.costing.electricity_cost.fix(electricity_price)
+    m.fs.treatment.costing.heat_cost.fix(heat_price)
+
+    m.fs.treatment.costing.add_LCOW(flow_vol)
+    m.fs.treatment.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+    m.fs.treatment.costing.initialize()
+
+
+def add_energy_costing(m):
+    energy = m.fs.energy
+    energy.costing = EnergyCosting()
+    energy.costing.base_currency = pyunits.USD_2023
+
+    add_cst_costing(m.fs.energy.cst, costing_block=m.fs.energy.costing)
+    calc_costing(m, m.fs.energy)
+
+    add_cst_costing_scaling(m, m.fs.energy.cst.unit)
+
+    results = solver.solve(m.fs.energy)
+
+    # m.fs.energy.costing.add_LCOH()
+    # energy.costing.heat_cost.set_value(0)
+    # energy.costing.cost_process()
+    energy.costing.maintenance_labor_chemical_factor.fix(0.03)
+    # energy.costing.initialize()
+    # energy.cst.unit.heat_load.unfix()
+
+
+def add_system_costing(m, flow_vol, operating_condition):
+    # Add system costing
+    m.fs.costing = REFLOSystemCosting()
+    m.fs.costing.base_currency = pyunits.USD_2023
+    m.fs.costing.heat_cost_buy.fix(operating_condition["heat_price"])
+    m.fs.costing.electricity_cost_buy.set_value(operating_condition["elec_price"])
+    m.fs.costing.cost_process()
+
+    m.fs.energy.cst.unit.heat_load.unfix()
+    m.fs.energy.costing.aggregate_flow_heat.unfix()
+    m.fs.costing.frac_heat_from_grid.fix(operating_condition["grid_fraction"])
+
+    m.fs.costing.initialize()
+
+    m.fs.costing.add_LCOW(flow_vol)
+    m.fs.costing.add_LCOT(flow_vol)
+
+
+def run_permian_FO_DWI_RPT(
     operating_condition,
     permian_fo_config,
 ):
-    m = build_permian_FO_DWI(permian_fo_config)
+    m = build_permian_FO_DWI_RPT(permian_fo_config)
     treat = m.fs.treatment
 
     set_operating_conditions(m, operating_condition)
@@ -419,26 +480,28 @@ def run_permian_FO_DWI(
 
     init_system(m, permian_fo_config)
 
+    from idaes.core.util.scaling import badly_scaled_var_generator
+
+    bad_var = badly_scaled_var_generator(m)
+    print("here")
+    for v, l in bad_var:
+        print(v.name, l)
+
+    # ej = extreme_jacobian_entries(m, True)
+    # for e, c, v in ej:
+    #     print(f"{c.name} --> {v.name}: {e}")
+
     print("DOF after init: ", degrees_of_freedom(m))
     results = solver.solve(m)
     assert_optimal_termination(results)
 
-    add_treatment_costing(m)
-
     flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
 
-    treat.costing.base_currency = pyunits.USD_2023
+    add_treatment_costing(m, flow_vol, operating_condition)
+    add_energy_costing(m)
+    add_system_costing(m, flow_vol, operating_condition)
 
-    electricity_price = value(
-        pyunits.convert(0.0575 * pyunits.USD_2023, to_units=pyunits.USD_2018)
-    )
-    heat_price = 0.00894
-    treat.costing.electricity_cost.fix(electricity_price)
-    treat.costing.heat_cost.fix(heat_price)
-
-    treat.costing.add_LCOW(flow_vol)
-    treat.costing.add_specific_energy_consumption(flow_vol, name="SEC")
-    treat.costing.initialize()
+    m.dummy_obj = Objective(expr=0)
 
     print("dof before solving", degrees_of_freedom(m))
     results = solver.solve(m)
@@ -448,12 +511,6 @@ def run_permian_FO_DWI(
 
 
 if __name__ == "__main__":
-    fail = []
-    heat = []
-    brine = []
-    grid_frac = []
-    LCOW = []
-    feed_vol = []
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
@@ -468,13 +525,76 @@ if __name__ == "__main__":
         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
     }
 
-    operating_condition = {"feed_vol_flow": 5, "feed_tds": 130}  # MGD  # g/L
-    m = run_permian_FO_DWI(
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "heat_price": 0.00894,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_DWI_RPT(
         operating_condition,
         permian_fo_config,
     )
-    print(m.fs.treatment.costing.LCOW())
+    # flow_vol = value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
+    #                                     to_units=pyunits.m**3/pyunits.year))
 
+    # brine = value(m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp["Liq","TDS"])
+    lcot = value(m.fs.costing.LCOT)
+    lcow = value(m.fs.costing.LCOW)
+
+    # print('brine salinit', brine)
+    print("lcot", lcot)
+    print("lcow", lcow)
+
+    # %%
+    from idaes.core.util.scaling import (
+        extreme_jacobian_columns,
+        extreme_jacobian_rows,
+        badly_scaled_var_generator,
+        unscaled_variables_generator,
+    )
+
+    # for norm, var in extreme_jacobian_columns(m):
+    #     print(f"{var.name}: L2 norm = {norm}")
+
+    # for norm, var in extreme_jacobian_rows(m):
+    #     print(f"{var.name}: L2 norm = {norm}")
+
+    bad_var = badly_scaled_var_generator(m)
+    for v, l in bad_var:
+        print(v.name, l)
+    # unscaled_variables_generator(m)
+    # %%
+    from pyomo.contrib.pynumero.interfaces.pyomo_nlp import PyomoNLP
+
+    # Build the NLP object
+    nlp = PyomoNLP(m)
+    J = nlp.evaluate_jacobian()
+    vars = nlp.get_pyomo_variables()
+    cons = nlp.get_pyomo_constraints()
+
+    J_coo = J.tocoo()
+    for i, j, v in zip(J_coo.row, J_coo.col, J_coo.data):
+        var = vars[j]
+        con = cons[i]
+        # if var.name == "fs.treatment.ec.unit.ohmic_resistance":
+        #     print(f"{con.name} <-- {var.name}: derivative = {v}")
+        if abs(v) > 1000 or abs(v) < 1e-3:
+            print(f"{con.name} <-- {var.name}: derivative = {v}")
+    # %%
+    from idaes.core.util import DiagnosticsToolbox
+
+    dt = DiagnosticsToolbox(m)
+    # dt.report_structural_issues()
+    # dt.display_variables_with_extreme_values()
+    dt.report_numerical_issues()
+    dt.display_variables_with_extreme_jacobians()
+    dt.display_constraints_with_extreme_jacobians()
+# %%
 # %% Sweep through FO_RR
 if __name__ == "__main__":
     fail = []
@@ -497,8 +617,17 @@ if __name__ == "__main__":
         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
     }
 
-    operating_condition = {"feed_vol_flow": 5, "feed_tds": 130}  # MGD  # g/L
-    m = run_permian_FO_DWI(
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "heat_price": 0.00894,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_DWI_RPT(
         operating_condition,
         permian_fo_config,
     )
@@ -524,11 +653,6 @@ if __name__ == "__main__":
         0.51,
         0.52,
         0.53,
-        0.54,
-        0.55,
-        0.56,
-        0.57,
-        0.58,
     ]
     results_dict["fo_recovery_ratio"] = []
 
@@ -536,7 +660,7 @@ if __name__ == "__main__":
         permian_fo_config["recovery_ratio"] = rr
 
         try:
-            m = run_permian_FO_DWI(
+            m = run_permian_FO_DWI_RPT(
                 operating_condition,
                 permian_fo_config,
             )
@@ -555,7 +679,7 @@ if __name__ == "__main__":
                     ),
                 )
             )
-            LCOW.append((rr, 100 * value(m.fs.treatment.costing.LCOW)))
+            LCOW.append((rr, value(m.fs.costing.LCOW)))
             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
         # print(brine)
         except:
@@ -565,5 +689,308 @@ if __name__ == "__main__":
             # grid_frac.append((rr,'fail'))
 
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("csv_results/FO_DWI_sweep_recovery_ratio.csv")
+    df.to_csv("csv_results/FO_DWI_RPT_recovery_ratio.csv")
+# %% Sweep for DWI cost
+if __name__ == "__main__":
+    import numpy as np
+
+    fail = []
+    heat = []
+    brine = []
+    grid_frac = []
+    LCOW = []
+    feed_vol = []
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "heat_price": 0.00894,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_DWI_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
+    DWI_cost = np.linspace(4.2, 10.5, 10)
+    results_dict["dwi_cost"] = []
+
+    for v in DWI_cost:
+        try:
+            m = run_permian_FO_DWI_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(
+                v * pyunits.USD_2023 / pyunits.m**3
+            )
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            results_dict = results_dict_append(m, results_dict)
+            results_dict["dwi_cost"].append(v)
+        except:
+            LCOW.append((v, "fail"))
+
+    df = pd.DataFrame.from_dict(results_dict)
+    df.to_csv("csv_results/FO_DWI_RPT_dwi_cost.csv")
+
+# %% Sweep for grid fraction
+if __name__ == "__main__":
+    import numpy as np
+
+    fail = []
+    heat = []
+    brine = []
+    grid_frac = []
+    LCOW = []
+    feed_vol = []
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "heat_price": 0.00894,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_DWI_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
+    grid_frac = np.linspace(0.5, 0.9, 10)
+    results_dict["grid_frac"] = []
+
+    for v in grid_frac:
+        try:
+            operating_condition["grid_fraction"] = v
+            m = run_permian_FO_DWI_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            results_dict = results_dict_append(m, results_dict)
+            results_dict["grid_frac"].append(v)
+        except:
+            LCOW.append((v, "fail"))
+
+    df = pd.DataFrame.from_dict(results_dict)
+    df.to_csv("csv_results/FO_DWI_RPT_grid_frac.csv")
+
+# %% Sweep for heat cost
+if __name__ == "__main__":
+    import numpy as np
+
+    fail = []
+    heat = []
+    brine = []
+    grid_frac = []
+    LCOW = []
+    feed_vol = []
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "heat_price": 0.00894,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_DWI_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
+    heat_price = np.linspace(0.00447, 0.011175, 10)
+    results_dict["heat_price"] = []
+
+    for v in heat_price:
+        try:
+            operating_condition["heat_price"] = v
+            m = run_permian_FO_DWI_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            results_dict = results_dict_append(m, results_dict)
+            results_dict["heat_price"].append(v)
+        except:
+            LCOW.append((v, "fail"))
+
+    df = pd.DataFrame.from_dict(results_dict)
+    df.to_csv("csv_results/FO_DWI_RPT_heat_price.csv")
+
+
+# %% Sweep for CST cost
+if __name__ == "__main__":
+    import numpy as np
+
+    fail = []
+    heat = []
+    brine = []
+    grid_frac = []
+    LCOW = []
+    feed_vol = []
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "heat_price": 0.00894,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_DWI_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
+    cst_price = np.linspace(186.5, 466.25, 10)
+    results_dict["cst_price"] = []
+
+    for v in cst_price:
+        try:
+            m = run_permian_FO_DWI_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            m.fs.energy.cst.unit.costing.costing_package.trough_surrogate.cost_per_total_aperture_area = (
+                v
+            )
+
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            results_dict = results_dict_append(m, results_dict)
+            results_dict["cst_price"].append(v)
+        except:
+            LCOW.append((v, "fail"))
+
+    df = pd.DataFrame.from_dict(results_dict)
+    df.to_csv("csv_results/FO_DWI_RPT_cst_price.csv")
+
+# %% Sweep for storage cost
+if __name__ == "__main__":
+    import numpy as np
+
+    fail = []
+    heat = []
+    brine = []
+    grid_frac = []
+    LCOW = []
+    feed_vol = []
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "heat_price": 0.00894,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_DWI_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
+    storage_price = np.linspace(31, 77.5, 10)
+    results_dict["storage_price"] = []
+
+    for v in storage_price:
+        try:
+            m = run_permian_FO_DWI_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            m.fs.energy.cst.unit.costing.costing_package.trough_surrogate.cost_per_storage_capital = (
+                v
+            )
+
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            results_dict = results_dict_append(m, results_dict)
+            results_dict["storage_price"].append(v)
+        except:
+            LCOW.append((v, "fail"))
+
+    df = pd.DataFrame.from_dict(results_dict)
+    df.to_csv("csv_results/FO_DWI_RPT_storage_price.csv")
 # %%

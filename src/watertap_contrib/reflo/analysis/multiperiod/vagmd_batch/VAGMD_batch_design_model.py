@@ -28,7 +28,6 @@ def get_n_time_points(
     cooling_system_type="closed",
     cooling_inlet_temp=25,  # not required if cooling system type is "open"
 ):
-
     # Identify if the final brine salinity is larger than 175.3 for module "AS7C1.5L"
     final_brine_salinity = feed_salinity / (1 - recovery_ratio)  # g/L
     if module_type == "AS7C1.5L" and final_brine_salinity > 175.3:
@@ -399,6 +398,5 @@ def _get_membrane_performance(TEI, FFR, TCI, SgL, module_type, high_brine_salini
 # %% Test block
 
 if __name__ == "__main__":
-
     test_case = get_n_time_points()
     print(test_case)

@@ -11,6 +11,7 @@ from pyomo.environ import (
 import os
 import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+
 # from idaes.core.solvers import get_solver
 from watertap.core.solvers import get_solver
 from watertap.core.util.model_diagnostics.infeasible import *
@@ -57,14 +58,14 @@ def build_system():
     return m
 
 
-def build_cst(blk, 
-            #   __file__=None
-              ):
-
+def build_cst(
+    blk,
+    #   __file__=None
+):
     print(f'\n{"=======> BUILDING CST SYSTEM <=======":^60}\n')
 
     dataset_filename = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), 
+        os.path.dirname(os.path.dirname(__file__)),
         "data/cst/trough_permian_heat_load_1_200_hours_storage_24_T_loop_out_300.pkl",
     )
 
@@ -114,7 +115,6 @@ def build_cst(blk,
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
-        
     )
 
     if hasattr(blk.unit, "hours_storage"):
@@ -129,13 +129,11 @@ def init_cst(blk):
     blk.unit.initialize()
 
 
-
 def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
 def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
-
     if isinstance(blk.unit.hours_storage, Param):
         blk.unit.hours_storage.set_value(hours_storage)
         pass
@@ -144,6 +142,7 @@ def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
         blk.unit.hours_storage.fix(hours_storage)
 
     blk.unit.heat_load.fix(heat_load)
+
 
 def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
@@ -155,10 +154,12 @@ def calc_costing(m, blk):
     blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.initialize()
 
-def add_cst_costing_scaling(m,blk):
+
+def add_cst_costing_scaling(m, blk):
     constraint_scaling_transform(blk.costing.direct_cost_constraint, 1e-8)
     constraint_scaling_transform(blk.costing.indirect_cost_constraint, 1e-6)
     constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)
+
 
 def report_cst(m, blk):
     # blk = m.fs.cst
@@ -234,7 +235,6 @@ def report_cst_costing(m, blk):
 
 
 if __name__ == "__main__":
-
     solver = get_solver()
 
     m = build_system()
@@ -274,8 +274,8 @@ if __name__ == "__main__":
     m.fs.costing.add_LCOH()
     print("LCOH:", m.fs.costing.LCOH())
 
-    print("Direct cost:", m.fs.cst.unit.costing.direct_cost())    
-    print("Indirect cost:", m.fs.cst.unit.costing.indirect_cost())    
+    print("Direct cost:", m.fs.cst.unit.costing.direct_cost())
+    print("Indirect cost:", m.fs.cst.unit.costing.indirect_cost())
     print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
 
     # Calcualating LCOH like SAM

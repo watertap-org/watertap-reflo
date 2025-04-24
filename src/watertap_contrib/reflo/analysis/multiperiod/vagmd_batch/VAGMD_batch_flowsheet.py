@@ -343,7 +343,6 @@ def fix_dof_and_initialize(
     feed_temp=25,
     outlvl=idaeslog.WARNING,
 ):
-
     # Initialize the flowsheet to the beginning of the batch operation (t = 0)
     m.fs.pre_feed_temperature.fix(feed_temp + 273.15)
     m.fs.pre_permeate_flow_rate.fix(0)

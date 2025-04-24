@@ -370,7 +370,6 @@ def apply_system_scaling(m):
 
 
 def apply_scaling(m):
-
     add_ec_scaling(m, m.fs.treatment.EC)
     add_UF_scaling(m.fs.treatment.UF)
     add_ro_scaling(m, m.fs.treatment.RO)

@@ -29,7 +29,6 @@ class WorkCostType(StrEnum):
 
 
 def build_recovered_nacl_cost_param_block(blk):
-
     blk.cost = pyo.Param(
         mutable=True,
         initialize=0,
@@ -42,7 +41,6 @@ def build_recovered_nacl_cost_param_block(blk):
 
 
 def build_steam_cost_param_block(blk):
-
     blk.cost = pyo.Param(
         mutable=True,
         initialize=0.004,
@@ -55,7 +53,6 @@ def build_steam_cost_param_block(blk):
 
 
 def build_multi_effect_crystallizer_cost_param_block(blk):
-
     # Crystallizer operating cost information from literature
     blk.fob_unit_cost = pyo.Var(
         initialize=675000,
@@ -164,7 +161,6 @@ def cost_multi_effect_crystallizer(
     total_capex_expr = 0
 
     if not hasattr(blk.unit_model, "effects"):
-
         assert blk.unit_model.config.standalone
         # blk.unit_model is CrystallizerEffect as standalone unit
         effect_capex_expr = 0
@@ -199,11 +195,9 @@ def cost_multi_effect_crystallizer(
         _cost_effect_flows(blk.unit_model, 1)
 
     elif hasattr(blk.unit_model, "effects"):
-
         # blk.unit_model is MultiEffectCrystallizer
 
         for effect_number, eff in blk.unit_model.effects.items():
-
             effect_capex_expr = 0
 
             effect_capex_var = pyo.Var(
@@ -259,7 +253,6 @@ def cost_multi_effect_crystallizer(
 
 
 def cost_crystallizer_heat_exchanger(effect):
-
     capital_cost_hx_effect = 0
 
     capital_cost_hx = pyo.units.convert(
@@ -341,7 +334,6 @@ def cost_crystallizer_effect_by_volume(effect):
 
 
 def _cost_effect_flows(effect, effect_number):
-
     costing_package.cost_flow(
         pyo.units.convert(
             (

@@ -96,7 +96,6 @@ def build_system():
 
 
 def build_cartridge_filtration(m, blk, prop_package=None) -> None:
-
     print(f'\n{"=======> BUILDING CARTRIDGE FILTRATION SYSTEM <=======":^60}\n')
 
     if prop_package is None:
@@ -169,6 +168,7 @@ def set_system_operating_conditions(m, Qin=5):
 
 def set_cart_filt_scaling(m, blk, calc_blk_scaling_factors=False):
     set_scaling_factor(blk.unit.energy_electric_flow_vol_inlet, 1e4)
+    set_scaling_factor(blk.unit.properties_byproduct[0.0].flow_mass_comp["H2O"], 1e1)
 
     # Calculate scaling factors only for CF block if in full case study flowsheet
     # so we don't prematurely set scaling factors
@@ -181,7 +181,6 @@ def set_cart_filt_scaling(m, blk, calc_blk_scaling_factors=False):
 
 
 def set_cart_filt_op_conditions(m, blk, **kwargs):
-
     # data = m.db.get_unit_operation_parameters("chemical_addition")
     blk.unit.load_parameters_from_database()
 
@@ -234,7 +233,6 @@ def init_cart_filt(m, blk):
 
 
 def print_cart_filt_costing_breakdown(blk):
-
     print(
         f'{"Chem Addition Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}'
     )
@@ -265,7 +263,6 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
 
 
 if __name__ == "__main__":
-
     m = build_system()
     set_system_operating_conditions(m)
     set_cart_filt_op_conditions(m, m.fs.cart_filt)

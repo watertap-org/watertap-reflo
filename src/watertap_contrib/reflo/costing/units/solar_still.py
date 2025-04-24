@@ -19,7 +19,6 @@ from watertap_contrib.reflo.costing.util import (
 
 
 def build_solar_still_cost_param_block(blk):
-
     blk.number_solar_stills_base = pyo.Var(
         initialize=25000,
         units=pyo.units.dimensionless,
@@ -130,7 +129,6 @@ def build_solar_still_cost_param_block(blk):
     parameter_block_name="solar_still",
 )
 def cost_solar_still(blk):
-
     ss_params = blk.costing_package.solar_still
     ss = blk.unit_model
     base_currency = blk.config.flowsheet_costing_block.base_currency

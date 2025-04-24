@@ -183,7 +183,6 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
         )
 
         if self.config.water_yield_calculation_args != {}:
-
             unit_log.info(
                 f"Found water yield calculation arguments in {self.name} configuration."
             )
@@ -192,10 +191,11 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
                 f" g/L TDS with {self.config.water_yield_calculation_args['initial_water_depth']} m initial water depth."
             )
 
-            daily_water_yield_mass, num_zld_cycles_per_year = (
-                self.calculate_daily_water_yield(
-                    **self.config.water_yield_calculation_args
-                )
+            (
+                daily_water_yield_mass,
+                num_zld_cycles_per_year,
+            ) = self.calculate_daily_water_yield(
+                **self.config.water_yield_calculation_args
             )
 
             unit_log.info(
@@ -209,7 +209,6 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             )
 
         else:
-
             unit_log.info(
                 f"No water yield calculation arguments found in {self.name} configuration. Using default values."
             )
@@ -314,7 +313,6 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
                 )
 
     def calculate_daily_water_yield(self, **kwargs):
-
         daily_water_yield, num_zld_cycles_per_year = get_solar_still_daily_water_yield(
             self, **kwargs
         )
@@ -416,7 +414,6 @@ class SolarStillData(InitializationMixin, UnitModelBlockData):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
 
     def calculate_scaling_factors(self):
-
         super().calculate_scaling_factors()
 
         if iscale.get_scaling_factor(self.number_stills) is None:

@@ -519,9 +519,9 @@ class ForwardOsmosisZOData(UnitModelBlockData):
                     / pyunits.s
                 )
             elif p == "Liq" and j == "DrawSolution":
-                state_args_weak_draw["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_weak_draw["flow_mass_phase_comp"][(p, "H2O")]
-                )
+                state_args_weak_draw["flow_mass_phase_comp"][
+                    (p, j)
+                ] = state_args_weak_draw["flow_mass_phase_comp"][(p, "H2O")]
 
         blk.weak_draw_props.initialize(
             outlvl=outlvl,
@@ -534,9 +534,9 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         state_args_strong_draw = deepcopy(state_args_draw_solution)
         for p, j in blk.strong_draw_props.phase_component_set:
             if p == "Liq" and j == "DrawSolution":
-                state_args_strong_draw["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_weak_draw["flow_mass_phase_comp"][(p, "DrawSolution")]
-                )
+                state_args_strong_draw["flow_mass_phase_comp"][
+                    (p, j)
+                ] = state_args_weak_draw["flow_mass_phase_comp"][(p, "DrawSolution")]
             elif p == "Liq" and j == "H2O":
                 state_args_strong_draw["flow_mass_phase_comp"][(p, j)] = (
                     state_args_weak_draw["flow_mass_phase_comp"][(p, "DrawSolution")]
@@ -554,9 +554,9 @@ class ForwardOsmosisZOData(UnitModelBlockData):
         state_args_reg_draw = deepcopy(state_args_draw_solution)
         for p, j in blk.reg_draw_props.phase_component_set:
             if p == "Liq":
-                state_args_reg_draw["flow_mass_phase_comp"][(p, j)] = (
-                    state_args_strong_draw["flow_mass_phase_comp"][(p, j)]
-                )
+                state_args_reg_draw["flow_mass_phase_comp"][
+                    (p, j)
+                ] = state_args_strong_draw["flow_mass_phase_comp"][(p, j)]
         state_args_reg_draw["temperature"] = 90 + 273.15
 
         blk.reg_draw_props.initialize(
@@ -608,7 +608,6 @@ class ForwardOsmosisZOData(UnitModelBlockData):
             raise InitializationError(f"Unit model {blk.name} failed to initialize")
 
     def unfix_and_fix_freedom(self, mass_frac_strong_draw, mass_frac_product):
-
         # Unfix the mass flow rate of draw solution to apply the specified mass fraction
         self.strong_draw_props[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
         self.strong_draw_props[0].mass_frac_phase_comp["Liq", "DrawSolution"].fix(
@@ -724,12 +723,12 @@ class ForwardOsmosisZOData(UnitModelBlockData):
 
     def _get_performance_contents(self, time_point=0):
         var_dict = {}
-        var_dict["Strong draw solution volumetric flow rate (m3/s)"] = (
-            self.strong_draw_props[0].flow_vol_phase["Liq"]
-        )
-        var_dict["Weak draw solution volumetric flow rate (m3/s)"] = (
-            self.weak_draw_props[0].flow_vol_phase["Liq"]
-        )
+        var_dict[
+            "Strong draw solution volumetric flow rate (m3/s)"
+        ] = self.strong_draw_props[0].flow_vol_phase["Liq"]
+        var_dict[
+            "Weak draw solution volumetric flow rate (m3/s)"
+        ] = self.weak_draw_props[0].flow_vol_phase["Liq"]
         var_dict["Mass fraction of weak draw solution"] = self.weak_draw_props[
             0
         ].mass_frac_phase_comp["Liq", "DrawSolution"]

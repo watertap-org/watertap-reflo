@@ -44,6 +44,7 @@ from watertap.core.zero_order_properties import WaterParameterBlock as ZO
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.property_models.unit_specific.cryst_prop_pack import NaClParameterBlock
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
@@ -76,7 +77,7 @@ __all__ = [
 ]
 
 
-def build_permian_FO_DWI(permian_fo_config):
+def build_permian_FO_cryst(permian_fo_config):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.db = REFLODatabase()
@@ -86,9 +87,10 @@ def build_permian_FO_DWI(permian_fo_config):
     m.fs.properties = ZO(solute_list=["tds"])
     m.fs.properties_sw = SeawaterParameterBlock()
     m.fs.properties_draw = FODrawSolutionParameterBlock()
+    m.fs.properties_NaCl = NaClParameterBlock()
 
     treat.feed = Feed(property_package=m.fs.properties)
-    treat.product = Product(property_package=m.fs.properties_sw)
+    treat.product_fo = Product(property_package=m.fs.properties_NaCl)
 
     # Add translator blocks
     treat.zo_to_sw_feed = Translator_ZO_to_SW(
@@ -103,9 +105,9 @@ def build_permian_FO_DWI(permian_fo_config):
         inlet_property_package=m.fs.properties,
         outlet_property_package=m.fs.properties_sw,
     )
-    treat.draw_to_sw = Translator_Draw_to_SW(
+    treat.draw_to_nacl = Translator_Draw_to_NaCl(
         inlet_property_package=m.fs.properties_draw,
-        outlet_property_package=m.fs.properties_sw,
+        outlet_property_package=m.fs.properties_NaCl,
     )
 
     # Add components
@@ -138,9 +140,6 @@ def build_permian_FO_DWI(permian_fo_config):
         momentum_mixing_type=MomentumMixingType.none,
     )
 
-    treat.DWI = FlowsheetBlock(dynamic=False)
-    build_dwi(m, treat.DWI, prop_package=m.fs.properties_sw)
-
     # BUILD PRODUCT STREAM
     # feed (1)> chem_addition (2)> EC (3)> cart_filt
     #      (4)> ZO_to_SW_translator (5)> FO (6)> Draw_to_SW_translator (7)> product
@@ -161,14 +160,14 @@ def build_permian_FO_DWI(permian_fo_config):
         source=treat.zo_to_sw_feed.outlet, destination=treat.FO.fs.fo.feed
     )  # (5)
     treat.fo_to_translator = Arc(
-        source=treat.FO.fs.S2.fresh_water, destination=treat.draw_to_sw.inlet
+        source=treat.FO.fs.S2.fresh_water, destination=treat.draw_to_nacl.inlet
     )  # (6)
     treat.fo_translator_to_product = Arc(
-        source=treat.draw_to_sw.outlet, destination=treat.product.inlet
+        source=treat.draw_to_nacl.outlet, destination=treat.product_fo.inlet
     )  # (7)
 
     # BUILD DISPOSAL STREAM
-    #        EC (1)> ZO_to_SW_translator (3)> disposal_mixer (6)> DWI
+    #        EC (1)> ZO_to_SW_translator (3)> disposal_mixer (6)> cryst
     # cart_filt (2)> ZO_to_SW_translator (4)> disposal_mixer
     #                                FO  (5)> disposal_mixer
 
@@ -191,10 +190,6 @@ def build_permian_FO_DWI(permian_fo_config):
         source=treat.FO.fs.fo.brine,
         destination=treat.disposal_SW_mixer.fo_disposal,
     )  # (5)
-    treat.SW_mixer_to_DWI = Arc(
-        source=treat.disposal_SW_mixer.outlet,
-        destination=treat.DWI.feed.inlet,
-    )  # (6)
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
@@ -273,19 +268,6 @@ def set_permian_scaling(m, **kwargs):
         index=("Liq", "DrawSolution"),
     )
 
-    # set_scaling_factor(
-    #     m.fs.treatment.DWI.unit.properties[0].flow_mass_phase_comp[
-    #         "Liq", "H2O"
-    #     ],
-    #     1e-5,
-    # )
-    # set_scaling_factor(
-    #     m.fs.treatment.DWI.unit.properties[0].flow_mass_phase_comp[
-    #         "Liq", "TDS"
-    #     ],
-    #     1e-1,
-    # )
-
     set_scaling_factor(
         m.fs.treatment.zo_to_sw_cart_filt_disposal.properties_in[0].flow_mass_comp[
             "H2O"
@@ -308,8 +290,6 @@ def set_permian_scaling(m, **kwargs):
     set_ec_scaling(m, m.fs.treatment.ec, calc_blk_scaling_factors=True)
 
     calculate_scaling_factors(m)
-
-    # set_scaling_factor(m.fs.treatment.disposal_SW_mixer.cart_filt_disposal_state[0.0].flow_mass_phase_comp["Liq","H2O"], 1e3)
 
 
 def init_system(m, permian_fo_config):
@@ -365,21 +345,89 @@ def init_system(m, permian_fo_config):
     treat.FO.fs.fo.feed_props[0].flow_mass_phase_comp["Liq", "TDS"].unfix()
 
     propagate_state(arc=treat.fo_to_translator)
-    treat.draw_to_sw.initialize()
+    treat.draw_to_nacl.initialize()
 
     propagate_state(arc=treat.fo_translator_to_product)
-    treat.product.pressure[0].fix(101325)
-    treat.product.initialize()
+    treat.product_fo.pressure[0].fix(101325)
+    treat.product_fo.initialize()
 
     treat.FO.fs.fo.brine.pressure[0].fix(101325)
     propagate_state(arc=treat.fo_disposal_translator_to_SW_mixer)
 
     treat.disposal_SW_mixer.initialize()
-    propagate_state(arc=treat.SW_mixer_to_DWI)
 
-    treat.DWI.unit.properties[0].temperature.fix()
-    treat.DWI.unit.properties[0].pressure.fix()
-    init_dwi(m, treat.DWI)
+
+def build_cryst(m, operating_condition):
+    treat = m.fs.treatment
+
+    total_feed_H2O_mass = treat.disposal_SW_mixer.outlet.flow_mass_phase_comp[
+        0, "Liq", "H2O"
+    ].value
+    total_feed_NaCl_mass = treat.disposal_SW_mixer.outlet.flow_mass_phase_comp[
+        0, "Liq", "TDS"
+    ].value
+
+    treat.mec = FlowsheetBlock(dynamic=False)
+    build_mec(m, treat.mec)
+
+    set_mec_op_conditions(
+        m,
+        m.fs.treatment.mec,
+        operating_pressures=operating_condition["cryst_operating_pressures"],
+        feed_H2O=total_feed_H2O_mass,
+        feed_NaCl=total_feed_NaCl_mass,
+        nacl_yield=operating_condition["cryst_yield"],
+    )
+    init_mec(treat.mec)
+    unfix_mec(treat.mec)
+
+    treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(total_feed_H2O_mass)
+    treat.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(
+        total_feed_NaCl_mass
+    )
+
+    treat.mec.unit.inlet.temperature[0].fix(
+        treat.disposal_SW_mixer.outlet.temperature[0].value
+    )
+    treat.mec.unit.inlet.pressure[0].fix(101325)
+    mec_rescaling(
+        m.fs.treatment.mec,
+        flow_mass_phase_water_total=total_feed_H2O_mass,
+        flow_mass_phase_salt_total=total_feed_NaCl_mass,
+    )
+
+    treat.product = Product(property_package=m.fs.properties_NaCl)
+
+    treat.product_NaCl_mixer = Mixer(
+        property_package=m.fs.properties_NaCl,
+        num_inlets=2,
+        inlet_list=["fo_product", "cryst_product"],
+        material_balance_type=MaterialBalanceType.componentPhase,
+        energy_mixing_type=MixingType.extensive,
+        momentum_mixing_type=MomentumMixingType.none,
+    )
+
+    treat.fo_translator_to_product_NaCl_mixer = Arc(
+        source=treat.draw_to_nacl.outlet,
+        destination=treat.product_NaCl_mixer.fo_product,
+    )  # (7)
+    treat.cryst_to_product_NaCl_mixer = Arc(
+        source=treat.mec.unit.outlet,
+        destination=treat.product_NaCl_mixer.cryst_product,
+    )  # (8)
+    treat.product_NaCl_mixer_to_product = Arc(
+        source=treat.product_NaCl_mixer.outlet, destination=treat.product.inlet
+    )  # (9)
+
+    TransformationFactory("network.expand_arcs").apply_to(m)
+
+    propagate_state(arc=treat.fo_translator_to_product_NaCl_mixer)
+    propagate_state(arc=treat.cryst_to_product_NaCl_mixer)
+    treat.product_NaCl_mixer.initialize()
+
+    propagate_state(arc=treat.product_NaCl_mixer_to_product)
+    treat.product.pressure.fix(101325)
+    treat.product.initialize()
 
 
 def add_treatment_costing(m):
@@ -398,18 +446,21 @@ def add_treatment_costing(m):
         flowsheet_costing_block=m.fs.treatment.costing
     )
 
-    add_dwi_costing(
-        m, m.fs.treatment.DWI, flowsheet_costing_block=m.fs.treatment.costing
+    add_mec_costing(
+        m, m.fs.treatment.mec, flowsheet_costing_block=m.fs.treatment.costing
+    )
+    m.fs.treatment.costing.nacl_recovered.cost.set_value(
+        operating_condition["nacl_recover_price"]
     )
 
     m.fs.treatment.costing.cost_process()
 
 
-def run_permian_FO_DWI(
+def run_permian_FO_cryst(
     operating_condition,
     permian_fo_config,
 ):
-    m = build_permian_FO_DWI(permian_fo_config)
+    m = build_permian_FO_cryst(permian_fo_config)
     treat = m.fs.treatment
 
     set_operating_conditions(m, operating_condition)
@@ -420,6 +471,11 @@ def run_permian_FO_DWI(
     init_system(m, permian_fo_config)
 
     print("DOF after init: ", degrees_of_freedom(m))
+    results = solver.solve(m)
+    assert_optimal_termination(results)
+
+    build_cryst(m, operating_condition)
+    print("DOF after adding cryst: ", degrees_of_freedom(m))
     results = solver.solve(m)
     assert_optimal_termination(results)
 
@@ -468,8 +524,14 @@ if __name__ == "__main__":
         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
     }
 
-    operating_condition = {"feed_vol_flow": 5, "feed_tds": 130}  # MGD  # g/L
-    m = run_permian_FO_DWI(
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],
+        "nacl_recover_price": 0,
+    }
+    m = run_permian_FO_cryst(
         operating_condition,
         permian_fo_config,
     )
@@ -497,8 +559,14 @@ if __name__ == "__main__":
         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
     }
 
-    operating_condition = {"feed_vol_flow": 5, "feed_tds": 130}  # MGD  # g/L
-    m = run_permian_FO_DWI(
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],
+        "nacl_recover_price": 0,
+    }
+    m = run_permian_FO_cryst(
         operating_condition,
         permian_fo_config,
     )
@@ -536,7 +604,7 @@ if __name__ == "__main__":
         permian_fo_config["recovery_ratio"] = rr
 
         try:
-            m = run_permian_FO_DWI(
+            m = run_permian_FO_cryst(
                 operating_condition,
                 permian_fo_config,
             )
@@ -565,5 +633,5 @@ if __name__ == "__main__":
             # grid_frac.append((rr,'fail'))
 
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("csv_results/FO_DWI_sweep_recovery_ratio.csv")
+    df.to_csv("csv_results/FO_cryst_recovery_ratio.csv")
 # %%

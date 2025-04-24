@@ -111,7 +111,6 @@ def build_system(Qin=5, Cin=130, water_recovery=0.4):
 
 
 def add_connections(m):
-
     m.fs.feed_to_md = Arc(source=m.fs.feed.outlet, destination=m.fs.md.feed.inlet)
 
     m.fs.md_to_product = Arc(
@@ -126,7 +125,6 @@ def add_connections(m):
 
 
 def set_md_model_options(m, blk, n_time_points=None):
-
     m.system_capacity = m.water_recovery * pyunits.convert(
         m.inlet_flow_rate, to_units=pyunits.m**3 / pyunits.day
     )
@@ -168,7 +166,6 @@ def set_md_model_options(m, blk, n_time_points=None):
 
 
 def build_md(m, blk, prop_package=None) -> None:
-
     print(f'\n{"=======> BUILDING MEMBRANE DISTILLATION SYSTEM <=======":^60}\n')
     if prop_package is None:
         prop_package = m.fs.properties
@@ -293,7 +290,6 @@ def init_system(m, verbose=True, solver=None):
 
 
 def set_system_op_conditions(m):
-
     feed_flow_rate = m.fs.md.model_input["feed_flow_rate"]
     feed_salinity = m.fs.md.model_input["feed_salinity"]
     feed_temp = m.fs.md.model_input["feed_temp"]
@@ -357,7 +353,6 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
 
 
 def report_MD(m, blk):
-
     # blk = m.fs.md
     active_blks = blk.unit.mp.get_active_process_blocks()
 
@@ -444,7 +439,6 @@ def report_MD(m, blk):
 
 
 def report_md_costing(m, blk):
-
     active_blks = blk.md.unit.mp.get_active_process_blocks()
 
     print(f"\n\n-------------------- MD Costing Report --------------------\n")

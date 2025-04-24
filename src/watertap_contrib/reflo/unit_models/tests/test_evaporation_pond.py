@@ -74,7 +74,6 @@ solver = get_solver()
 
 
 def build_pond():
-
     conc_tds = 70 * pyunits.kg / pyunits.m**3
 
     props = {
@@ -109,7 +108,6 @@ def build_pond():
 
 
 def build_enhanced_pond():
-
     conc_tds = 225 * pyunits.kg / pyunits.m**3
 
     props = {
@@ -149,7 +147,6 @@ def build_enhanced_pond():
 
 
 class TestEvaporationPond:
-
     @pytest.fixture(scope="class")
     def pond_frame(self):
         m = build_pond()
@@ -452,7 +449,6 @@ class TestEvaporationPond:
 
 
 class TestEnhancedEvaporationPond:
-
     @pytest.fixture(scope="class")
     def pond_frame(self):
         m = build_enhanced_pond()

@@ -53,7 +53,6 @@ solver = get_solver()
 class TestFlatPlatePhysical:
     @pytest.fixture(scope="class")
     def flat_plate_frame(self):
-
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.properties = WaterParameterBlock()
@@ -170,7 +169,6 @@ class TestFlatPlatePhysical:
 
     @pytest.mark.component
     def test_costing(self, flat_plate_frame):
-
         fpc_costing_results = {
             "capital_cost": 3760.6909,
             "fixed_operating_cost": 54.68,

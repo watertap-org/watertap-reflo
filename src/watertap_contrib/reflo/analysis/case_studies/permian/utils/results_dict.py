@@ -14,11 +14,7 @@ from pyomo.environ import (
 )
 from idaes.core.solvers import get_solver
 
-__all__ = [
-    "build_results_dict",
-    "results_dict_append",
-    "plot_results_dict"
-]
+__all__ = ["build_results_dict", "results_dict_append", "plot_results_dict"]
 
 
 def build_results_dict(
@@ -239,7 +235,6 @@ def plot_results_dict(
                 cbar.set_label(cbar_label)
 
     if mode == "2d":
-
         fig, axs = plt.subplots(
             nrows=len(cols), ncols=1, figsize=(8, 5 * len(cols)), sharex=sharex
         )
@@ -283,7 +278,6 @@ def plot_results_dict(
 
 
 if __name__ == "__main__":
-
     import numpy as np
     import pandas as pd
     from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
