@@ -412,7 +412,6 @@ def build_default():
 class TestCostingPackagesDefault:
     @pytest.fixture(scope="class")
     def default_build(self):
-
         m = build_default()
 
         m.fs.energy.costing.cost_process()
@@ -492,17 +491,14 @@ class TestCostingPackagesDefault:
 
 
 class TestElectricityGenOnlyWithHeat:
-
     @pytest.fixture(scope="class")
     def energy_gen_only_with_heat(self):
-
         m = build_electricity_gen_only_with_heat()
 
         return m
 
     @pytest.mark.unit
     def test_build(self, energy_gen_only_with_heat):
-
         m = energy_gen_only_with_heat
 
         assert_units_consistent(m)
@@ -569,7 +565,6 @@ class TestElectricityGenOnlyWithHeat:
 
     @pytest.mark.component
     def test_optimize_frac_from_grid(self):
-
         m = build_electricity_gen_only_with_heat()
 
         m.fs.energy.unit.electricity.unfix()
@@ -629,17 +624,14 @@ class TestElectricityGenOnlyWithHeat:
 
 
 class TestElectricityGenOnlyNoHeat:
-
     @pytest.fixture(scope="class")
     def elec_gen_only_no_heat(self):
-
         m = build_electricity_gen_only_no_heat()
 
         return m
 
     @pytest.mark.unit
     def test_build(self, elec_gen_only_no_heat):
-
         m = elec_gen_only_no_heat
 
         assert_units_consistent(m)
@@ -735,7 +727,6 @@ class TestElectricityGenOnlyNoHeat:
 
     @pytest.mark.component
     def test_optimize_frac_from_grid(self):
-
         m = build_electricity_gen_only_no_heat()
 
         m.fs.energy.unit.electricity.unfix()
@@ -775,14 +766,12 @@ class TestElectricityGenOnlyNoHeat:
 class TestHeatGenOnly:
     @pytest.fixture(scope="class")
     def heat_gen_only(self):
-
         m = build_heat_gen_only()
 
         return m
 
     @pytest.mark.unit
     def test_build(self, heat_gen_only):
-
         m = heat_gen_only
 
         assert_units_consistent(m)
@@ -800,7 +789,6 @@ class TestHeatGenOnly:
 
     @pytest.mark.component
     def test_init_and_solve(self, heat_gen_only):
-
         m = heat_gen_only
 
         m.fs.treatment.unit.initialize()
@@ -849,7 +837,6 @@ class TestHeatGenOnly:
 
     @pytest.mark.component
     def test_optimize_frac_from_grid(self):
-
         m = build_heat_gen_only()
 
         m.fs.energy.unit.heat.unfix()
@@ -899,10 +886,8 @@ class TestHeatGenOnly:
 
 
 class TestElectricityAndHeatGen:
-
     @pytest.fixture(scope="class")
     def heat_and_elec_gen(self):
-
         m = build_heat_and_elec_gen()
 
         assert_units_consistent(m)
@@ -921,7 +906,6 @@ class TestElectricityAndHeatGen:
 
     @pytest.mark.unit
     def test_build(self, heat_and_elec_gen):
-
         m = heat_and_elec_gen
 
         assert_units_consistent(m)
@@ -1006,7 +990,6 @@ class TestElectricityAndHeatGen:
 
     @pytest.mark.component
     def test_optimize_frac_from_grid(self):
-
         m = build_heat_and_elec_gen()
 
         m.fs.energy.elec_unit.electricity.unfix()
@@ -1078,7 +1061,6 @@ class TestElectricityAndHeatGen:
 
 @pytest.mark.component
 def test_no_energy_treatment_block():
-
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = SeawaterParameterBlock()
@@ -1096,7 +1078,6 @@ def test_no_energy_treatment_block():
 
 @pytest.mark.component
 def test_add_LCOW_to_energy_costing():
-
     m = build_default()
 
     m.fs.energy.costing.cost_process()

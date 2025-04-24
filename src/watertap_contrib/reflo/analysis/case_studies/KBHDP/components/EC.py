@@ -192,7 +192,6 @@ def set_ec_operating_conditions(m, blk, conv=5e3):
 
 
 def set_scaling(m, blk):
-
     def calc_scale(value):
         return math.floor(math.log(value, 10))
 
@@ -203,8 +202,12 @@ def set_scaling(m, blk):
     m.fs.properties.set_default_scaling(
         "flow_mass_comp", 10**-scale_flow, index=("H2O")
     )
-    m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tds, index=("tds"))
-    m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tss, index=("tss"))
+    m.fs.properties.set_default_scaling(
+        "flow_mass_comp", 10**-scale_tds, index=("tds")
+    )
+    m.fs.properties.set_default_scaling(
+        "flow_mass_comp", 10**-scale_tss, index=("tss")
+    )
     calculate_scaling_factors(m)
 
 
@@ -341,7 +344,6 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
 
 
 def report_EC(blk):
-
     print(f"\n\n-------------------- EC Report --------------------\n")
     print(f'{f"Stream":<20}{f"FLOW RATE H2O":<20}{f"FLOW RATE TDS":<20}')
     print(
@@ -401,7 +403,6 @@ def breakdown_dof(blk):
 
 
 if __name__ == "__main__":
-
     m = build_system()
     set_system_operating_conditions(m)
     set_ec_operating_conditions(m, m.fs.EC)

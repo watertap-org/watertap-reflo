@@ -81,7 +81,6 @@ flow_mass_tds = pyunits.convert(
 
 
 def build_ss():
-
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = MCASParameterBlock(**inlet_dict)
@@ -272,7 +271,6 @@ def test_input_data_too_short():
 
 @pytest.mark.component
 def test_input_data_different_col_names():
-
     water_yield_calc_dict = dict(
         input_weather_file_path=test_data_path_diff_col_names,
         irradiance_col="GHI_test",

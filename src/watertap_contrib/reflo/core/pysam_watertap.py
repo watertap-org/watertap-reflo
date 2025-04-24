@@ -32,7 +32,6 @@ class PySAMWaterTAP:
         weather_file=None,
         dcac_ratio=1.2,
     ):
-
         if pysam_model is None:
             raise Exception("PySAM module is required.")
         if not all(

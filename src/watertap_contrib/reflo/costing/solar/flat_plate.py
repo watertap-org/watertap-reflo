@@ -19,7 +19,6 @@ from watertap_contrib.reflo.costing.util import (
 
 
 def build_flat_plate_cost_param_block(blk):
-
     costing = blk.parent_block()
 
     blk.cost_per_area_collector = pyo.Var(
@@ -70,7 +69,6 @@ def build_flat_plate_cost_param_block(blk):
     parameter_block_name="flat_plate",
 )
 def cost_flat_plate(blk):
-
     global_params = blk.costing_package
     flat_plate_params = blk.costing_package.flat_plate
     flat_plate = blk.unit_model

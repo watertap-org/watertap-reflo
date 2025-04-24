@@ -58,7 +58,6 @@ solver = get_solver()
 
 
 def build_ax_1():
-
     target = "TCA"
     props = {
         "volatile_solute_list": [target],
@@ -117,7 +116,6 @@ def build_ax_1():
 
 
 def build_ax_2():
-
     target = "DCP"
     props = {
         "volatile_solute_list": [target],
@@ -178,7 +176,6 @@ def build_ax_2():
 class TestAirStripping0D:
     @pytest.fixture(scope="class")
     def ax_frame1(self):
-
         m = build_ax_1()
 
         return m
@@ -506,7 +503,6 @@ class TestAirStripping0D:
 
     @pytest.fixture(scope="class")
     def ax_frame2(self):
-
         m = build_ax_2()
 
         return m

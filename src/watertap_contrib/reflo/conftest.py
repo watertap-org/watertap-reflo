@@ -50,7 +50,6 @@ def _handle_requires_idaes_solver(
 
 
 def pytest_configure(config: Config):
-
     for marker_spec in MarkerSpec:
         config.addinivalue_line(
             "markers", f"{marker_spec.name}: {marker_spec.description}"
@@ -58,7 +57,6 @@ def pytest_configure(config: Config):
 
 
 def pytest_runtest_setup(item: Item):
-
     if MarkerSpec.requires_idaes_solver in MarkerSpec.for_item(item):
         # TODO we could get some more information about a specific solver,
         # either by providing args to the marker

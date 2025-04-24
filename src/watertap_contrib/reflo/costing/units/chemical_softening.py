@@ -27,7 +27,6 @@ from ..util import (
 
 
 def build_lime_cost_param_block(blk):
-
     blk.cost = Param(
         initialize=0.10,
         units=pyunits.USD_2021 / pyunits.kg,
@@ -46,7 +45,6 @@ def build_lime_cost_param_block(blk):
 
 
 def build_soda_ash_cost_param_block(blk):
-
     blk.cost = Param(
         initialize=0.24,
         units=pyunits.USD_2021 / pyunits.kg,
@@ -65,7 +63,6 @@ def build_soda_ash_cost_param_block(blk):
 
 
 def build_mgcl2_cost_param_block(blk):
-
     blk.cost = Param(
         initialize=0.49,
         units=pyunits.USD_2020 / pyunits.kg,
@@ -84,7 +81,6 @@ def build_mgcl2_cost_param_block(blk):
 
 
 def build_co2_cost_param_block(blk):
-
     blk.cost = Param(
         initialize=0.38,
         units=pyunits.USD_2020 / pyunits.kg,

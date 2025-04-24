@@ -20,7 +20,6 @@ from watertap_contrib.reflo.costing.util import (
 
 
 def build_photovoltaic_cost_param_block(blk):
-
     costing = blk.parent_block()
 
     blk.cost_per_watt_module = pyo.Var(
@@ -91,7 +90,6 @@ def build_photovoltaic_cost_param_block(blk):
     build_rule=build_photovoltaic_cost_param_block, parameter_block_name="photovoltaic"
 )
 def cost_pv(blk):
-
     blk.costing_package.has_electricity_generation = True
     global_params = blk.costing_package
     pv_params = blk.costing_package.photovoltaic

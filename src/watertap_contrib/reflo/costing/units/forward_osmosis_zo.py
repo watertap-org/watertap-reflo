@@ -23,7 +23,6 @@ from watertap_contrib.reflo.costing.util import (
 
 
 def build_forward_osmosis_cost_param_block(blk):
-
     costing = blk.parent_block()
 
     blk.base_unit_cost = pyo.Var(
@@ -69,7 +68,6 @@ def build_forward_osmosis_cost_param_block(blk):
     parameter_block_name="forward_osmosis",
 )
 def cost_forward_osmosis(blk):
-
     fo_params = blk.costing_package.forward_osmosis
     base_currency = blk.config.flowsheet_costing_block.base_currency
     base_period = blk.config.flowsheet_costing_block.base_period

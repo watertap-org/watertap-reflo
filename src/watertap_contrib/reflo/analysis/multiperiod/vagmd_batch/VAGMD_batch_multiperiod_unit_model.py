@@ -125,7 +125,6 @@ def unfix_dof(m, feed_flow_rate):
 
 @declare_process_block_class("VAGMDbatchSurrogate")
 class VAGMDbatchSurrogateData(UnitModelBlockData):
-
     CONFIG = ConfigBlock()
 
     CONFIG.declare(
@@ -216,7 +215,9 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
                 self.mp.get_active_process_blocks()[
                     -1
                 ].fs.specific_energy_consumption_thermal
-                * pyunits.convert(b.system_capacity, to_units=pyunits.m**3 / pyunits.h)
+                * pyunits.convert(
+                    b.system_capacity, to_units=pyunits.m**3 / pyunits.h
+                )
             )
 
         @self.Constraint(
@@ -227,7 +228,9 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
                 self.mp.get_active_process_blocks()[
                     -1
                 ].fs.specific_energy_consumption_electric
-                * pyunits.convert(b.system_capacity, to_units=pyunits.m**3 / pyunits.h)
+                * pyunits.convert(
+                    b.system_capacity, to_units=pyunits.m**3 / pyunits.h
+                )
             )
 
         super().calculate_scaling_factors()

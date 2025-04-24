@@ -30,7 +30,6 @@ _log = idaeslog.getLogger(__name__)
 
 @declare_process_block_class("REFLOCosting")
 class REFLOCostingData(WaterTAPCostingData):
-
     CONFIG = WaterTAPCostingData.CONFIG()
     CONFIG.declare(
         "case_study_definition",
@@ -42,7 +41,6 @@ class REFLOCostingData(WaterTAPCostingData):
     )
 
     def build_global_params(self):
-
         pyo.units.load_definitions_from_strings(["USD_2023 = 500/797.9 * USD_CE500"])
 
         super().build_global_params()
@@ -233,7 +231,6 @@ class EnergyCostingData(REFLOCostingData):
         super().build_process_costs()
 
     def build_LCOE_params(self):
-
         def rule_yearly_electricity_production(b, y):
             if y == 0:
                 return b.yearly_electricity_production[y] == pyo.units.convert(
@@ -269,7 +266,6 @@ class EnergyCostingData(REFLOCostingData):
             set_scaling_factor(self.lifetime_electricity_production, 1e-4)
 
     def build_LCOH_params(self):
-
         def rule_yearly_heat_production(b, y):
             if y == 0:
                 return b.yearly_heat_production[y] == pyo.units.convert(
@@ -361,7 +357,6 @@ class EnergyCostingData(REFLOCostingData):
         self.add_component("LCOH", LCOH_expr)
 
     def add_LCOW(self, *args, **kwargs):
-
         raise ValueError("Can't add LCOW to EnergyCosting package.")
 
 
@@ -419,7 +414,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         self.build_integrated_costs()
 
     def build_integrated_costs(self):
-
         treat_cost = self._get_treatment_cost_block()
         energy_cost = self._get_energy_cost_block()
 
@@ -486,7 +480,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         self.aggregate_flow_heat_purchased = pyo.Var(
             initialize=100,
-            domain=pyo.NonNegativeReals,
+            domain=pyo.Reals,
             doc="Aggregated heat consumed",
             units=pyo.units.kW,
         )
@@ -586,13 +580,12 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             self.frac_elec_from_grid.fix(1)
 
         if all(hasattr(b, "aggregate_flow_heat") for b in [treat_cost, energy_cost]):
-
             # treatment block is consuming heat and energy block is generating it
             self.has_heat_flows = True
             self.frac_heat_from_grid = pyo.Var(
                 initialize=0,
-                domain=pyo.NonNegativeReals,
-                bounds=(0, 1.00001),
+                domain=pyo.Reals,
+                bounds=(None, 1.00001),
                 doc="Fraction of heat from grid",
                 units=pyo.units.dimensionless,
             )
@@ -618,7 +611,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
 
         elif hasattr(treat_cost, "aggregate_flow_heat"):
-
             # treatment block is consuming heat but energy block isn't generating
             # we still want to cost the heat consumption
 
@@ -675,7 +667,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
     def initialize_build(self):
-
         energy_cost = self._get_energy_cost_block()
 
         calculate_variable_from_constraint(
@@ -710,7 +701,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         else:
             if hasattr(self, "aggregate_heat_complement"):
-
                 if not self.aggregate_flow_heat_purchased.is_fixed():
                     calculate_variable_from_constraint(
                         self.aggregate_flow_heat_purchased,
@@ -728,15 +718,14 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         super().initialize_build()
 
-        if hasattr(self, "LCOT"):
+        if hasattr(self, "LCOW"):
             calculate_variable_from_constraint(
-                self.LCOT,
-                self.LCOT_constraint,
+                self.LCOW,
+                self.LCOW_constraint,
             )
 
         if hasattr(self, "LCOE"):
             for y, c in energy_cost.yearly_electricity_production_constraint.items():
-
                 calculate_variable_from_constraint(
                     energy_cost.yearly_electricity_production[y],
                     c,
@@ -752,9 +741,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
 
         if hasattr(self, "LCOH"):
-
             for y, c in energy_cost.yearly_heat_production_constraint.items():
-
                 calculate_variable_from_constraint(
                     energy_cost.yearly_heat_production[y],
                     c,
@@ -770,7 +757,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             )
 
     def calculate_scaling_factors(self):
-
         if get_scaling_factor(self.total_capital_cost) is None:
             set_scaling_factor(self.total_capital_cost, 1e-3)
 
@@ -810,33 +796,35 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         """
         pass
 
-    def add_LCOT(self, flow_rate):
+    def add_LCOW(self, flow_rate):
         """
-        Add Levelized Cost of Treatment (LCOT) to costing block.
+        Add Levelized Cost of Water (LCOW) to costing block.
         Args:
             flow_rate - flow rate of water (volumetric) to be used in
-                        calculating LCOT
+                        calculating LCOW
         """
 
-        LCOT = pyo.Var(
-            doc=f"Levelized Cost of Treatment based on flow {flow_rate.name}",
+        LCOW = pyo.Var(
+            doc=f"Levelized Cost of Water based on flow {flow_rate.name}",
             units=self.base_currency / pyo.units.m**3,
         )
-        self.add_component("LCOT", LCOT)
+        self.add_component("LCOW", LCOW)
 
-        LCOT_constraint = pyo.Constraint(
-            expr=LCOT
+        LCOW_constraint = pyo.Constraint(
+            expr=LCOW
             == (
                 self.total_capital_cost * self.capital_recovery_factor
                 + self.total_operating_cost
             )
             / (
-                pyo.units.convert(flow_rate, to_units=pyo.units.m**3 / self.base_period)
+                pyo.units.convert(
+                    flow_rate, to_units=pyo.units.m**3 / self.base_period
+                )
                 * self.utilization_factor
             ),
             doc=f"Constraint for Levelized Cost of Treatment based on flow {flow_rate.name}",
         )
-        self.add_component("LCOT_constraint", LCOT_constraint)
+        self.add_component("LCOW_constraint", LCOW_constraint)
 
     def add_LCOE(self):
         """
@@ -849,9 +837,9 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
 
         add_object_reference(self, "LCOE", energy_cost.LCOE)
 
-    def add_LCOW(self, flow_rate, name="LCOW"):
+    def add_LCOT(self, flow_rate, name="LCOT"):
         """
-        Add Levelized Cost of Water (LCOW) to costing block.
+        Add Levelized Cost of Treatment (LCOT) to costing block.
         """
 
         treat_cost = self._get_treatment_cost_block()
@@ -859,7 +847,9 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         if not hasattr(treat_cost, "LCOW"):
             treat_cost.add_LCOW(flow_rate, name="LCOW")
 
-        add_object_reference(self, name, getattr(treat_cost, name))
+        self.LCOT = pyo.Expression(expr=treat_cost.LCOW)
+
+        add_object_reference(self, "LCOT", getattr(treat_cost, "LCOW"))
 
     def add_LCOH(self):
         """

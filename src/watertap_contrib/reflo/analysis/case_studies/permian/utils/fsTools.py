@@ -408,6 +408,7 @@ def auto_scale_bad_vars(
         print("auto scaled", rescaled_var_count)
     iscale.calculate_scaling_factors(m)
 
+
 ### ALL FUNCTIONS MOVED HERE FROM KBHDP_ZLD 1/17/2025 -KAS
 
 
@@ -439,7 +440,6 @@ def auto_scale_bad_vars(
 #     blocks = []
 #     for v in blk.component_data_objects(ctype=Block, active=True, descend_into=False):
 #         print(v)
-
 
 
 # def report_MCAS_stream_conc(m, stream):
@@ -521,8 +521,6 @@ def auto_scale_bad_vars(
 #         print("Variables are scaled well")
 
 
-
-
 # def display_costing_breakdown(m):
 #     header = f'\n{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
 #     print(header)
@@ -560,7 +558,6 @@ def auto_scale_bad_vars(
 #     )
 
 
-
 # def get_scaling_factors(m):
 #     for var in [m.fs.treatment.costing.aggregate_flow_electricity]:
 #         val = value(var)
@@ -571,7 +568,6 @@ def auto_scale_bad_vars(
 #             set_scaling_factor(var, sf)
 
 #         print(f"{var.name:<50s}{val:<20.3f}{scale:<20.3f}{sf:<20.3f}")
-
 
 
 # def display_unfixed_vars(blk, report=True):

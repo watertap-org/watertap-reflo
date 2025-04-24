@@ -34,7 +34,6 @@ solver = get_solver()
 class TestTreviFO:
     @pytest.fixture(scope="class")
     def fo_trevi_frame(self):
-
         m = build_fo_trevi_flowsheet(
             recovery_ratio=0.3,  # Assumed FO recovery ratio
             RO_recovery_ratio=0.9,  # RO recovery ratio

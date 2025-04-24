@@ -80,7 +80,6 @@ fpc_dict = dict(
 class TestFlatPlate:
     @pytest.fixture(scope="class")
     def flat_plate_frame(self):
-
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.fpc = FlatPlateSurrogate(**fpc_dict)
@@ -193,7 +192,6 @@ class TestFlatPlate:
 
     @pytest.mark.unit
     def test_dof(self, flat_plate_frame):
-
         m = flat_plate_frame
         assert degrees_of_freedom(m) == 3
         m.fs.fpc.heat_load.fix(150)

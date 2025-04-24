@@ -72,7 +72,6 @@ class DeepWellInjectionCostMethod(StrEnum):
 
 
 def cost_deep_well_injection(blk, cost_method=DeepWellInjectionCostMethod.blm):
-
     if cost_method == DeepWellInjectionCostMethod.blm:
         cost_deep_well_injection_blm(blk)
     elif cost_method == DeepWellInjectionCostMethod.as_capex:

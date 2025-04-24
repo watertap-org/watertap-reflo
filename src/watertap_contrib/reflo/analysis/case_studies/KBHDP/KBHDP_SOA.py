@@ -179,7 +179,6 @@ def build_treatment(m):
 
 
 def build_sweep():
-
     m = build_system()
     display_system_build(m)
     add_connections(m)
@@ -312,7 +311,6 @@ def add_costing(m):
 
 
 def define_inlet_composition(m):
-
     m.fs.prop = prop_ZO.WaterParameterBlock(
         solute_list=[
             "cod",
@@ -329,7 +327,6 @@ def set_inlet_conditions(
     water_recovery=None,
     supply_pressure=101325,
 ):
-
     print(f'\n{"=======> SETTING OPERATING CONDITIONS <=======":^60}\n')
 
     treatment = m.fs.treatment

@@ -53,7 +53,6 @@ def build_system():
 
 
 def build_cst(blk, __file__=None):
-
     print(f'\n{"=======> BUILDING CST SYSTEM <=======":^60}\n')
 
     if __file__ == None:
@@ -191,7 +190,6 @@ def report_cst_costing(m, blk):
 
 
 if __name__ == "__main__":
-
     solver = get_solver()
     solver = SolverFactory("ipopt")
 

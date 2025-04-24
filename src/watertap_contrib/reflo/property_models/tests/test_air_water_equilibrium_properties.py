@@ -48,7 +48,6 @@ solver = get_solver()
 
 @pytest.mark.unit
 def test_rh_pressure_vap_config():
-
     props = dict(
         relative_humidity_calculation=RelativeHumidityCalculation.FromVaporPressureRatio,
         vapor_pressure_calculation=VaporPressureCalculation.FromRelativeHumidity,

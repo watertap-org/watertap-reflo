@@ -146,7 +146,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         )
 
     def calculate_scaling_factors(self):
-
         if iscale.get_scaling_factor(self.hours_storage) is None:
             sf = iscale.get_scaling_factor(self.hours_storage, default=1)
             iscale.set_scaling_factor(self.hours_storage, sf)

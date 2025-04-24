@@ -120,7 +120,6 @@ class TestREFLODatabase:
 
     @pytest.mark.unit
     def test_get_unit_operation_parameters_single_subtype(self, reflo_db):
-
         reflo_db._cached_files["solar_energy"]["coal"] = {
             "solar_radiation": "sufficient",
             "new_param": True,

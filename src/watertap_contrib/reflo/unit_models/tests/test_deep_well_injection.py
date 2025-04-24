@@ -167,7 +167,6 @@ def test_injection_well_depth_config():
         "The injection well depth must be 2500, 5000, 7500, or 10000."
     )
     with pytest.raises(ConfigurationError, match=error_msg):
-
         m.fs.unit = DeepWellInjection(
             property_package=m.fs.properties, injection_well_depth=1234567890
         )
@@ -392,10 +391,8 @@ class TestDeepWellInjection_BLMCosting:
 
 
 class TestDeepWellInjection_SimpleCosting:
-
     @pytest.fixture(scope="class")
     def dwi_frame(self):
-
         m = build_dwi_default()
         initialization_tester(m)
         results = solver.solve(m)
@@ -492,7 +489,6 @@ class TestDeepWellInjection_SimpleCosting:
 
 
 class TestDeepWellInjection_10000ft:
-
     @pytest.fixture(scope="class")
     def dwi_10000_frame(self):
         m = build_dwi_10000()

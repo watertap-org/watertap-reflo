@@ -128,7 +128,7 @@ class CrystallizerEffectData(CrystallizationData):
 
         self.energy_flow_superheated_vapor = Var(
             initialize=1e5,
-            bounds=(-5e6, 5e6),
+            bounds=(-5e8, 5e8),
             units=pyunits.watt,
             doc="Energy that could be supplied from vapor",
         )
@@ -205,7 +205,6 @@ class CrystallizerEffectData(CrystallizationData):
             return b.properties_pure_water[0].pressure_sat == self.pressure_operating
 
         if self.config.standalone:
-
             tmp_dict["parameters"] = self.config.property_package_vapor
             tmp_dict["defined_state"] = False
 
@@ -421,9 +420,16 @@ class CrystallizerEffectData(CrystallizationData):
         if iscale.get_scaling_factor(self.overall_heat_transfer_coefficient) is None:
             iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 0.01)
 
+        iscale.set_scaling_factor(self.properties_solids[0].flow_vol_phase["Vap"], 1e5)
+        iscale.set_scaling_factor(self.properties_out[0].flow_vol_phase["Vap"], 1e5)
+
         for _, c in self.eq_p_con4.items():
             sf = iscale.get_scaling_factor(self.properties_pure_water[0].pressure)
             iscale.constraint_scaling_transform(c, sf)
+
+        iscale.constraint_scaling_transform(self.eq_vapor_energy_constraint, 1e-6)
+        iscale.constraint_scaling_transform(self.eq_operating_pressure_constraint, 1e-5)
+        iscale.constraint_scaling_transform(self.eq_p_con5, 1e-5)
 
     @property
     def default_costing_method(self):

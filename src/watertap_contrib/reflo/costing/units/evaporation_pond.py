@@ -40,7 +40,6 @@ costing_params_dict = {
 
 
 def build_recovered_solids_cost_param_block(blk):
-
     blk.cost = pyo.Param(
         mutable=True,
         initialize=0,
@@ -53,7 +52,6 @@ def build_recovered_solids_cost_param_block(blk):
 
 
 def build_organic_dye_cost_param_block(blk):
-
     blk.cost = pyo.Param(
         mutable=True,
         initialize=7925.16,  # converted from 30 $/gallon
@@ -66,7 +64,6 @@ def build_organic_dye_cost_param_block(blk):
 
 
 def build_evaporation_pond_cost_param_block(blk):
-
     blk.liner_thickness_base = pyo.Var(
         initialize=60,
         units=pyo.units.mil,

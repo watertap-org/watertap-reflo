@@ -289,7 +289,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         self.weather[:].temperature["Liq"].setlb(200)
 
         for day, row in weather_daily_mean.iterrows():
-
             pres_Pa = pyunits.convert(
                 row[self.config.weather_data_column_dict["pressure"]] * pyunits.mbar,
                 to_units=pyunits.Pa,
@@ -392,7 +391,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
             self.config.property_package.config.saturation_vapor_pressure_calculation
             == SaturationVaporPressureCalculation.ArdenBuck
         ):
-
             a = self.config.property_package.arden_buck_coeff_a  # millibars
             b_ = self.config.property_package.arden_buck_coeff_b
             c = self.config.property_package.arden_buck_coeff_c
@@ -896,7 +894,9 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(doc="Solids precipitation rate")
         def eq_solids_precipitation_rate(b):
             tds_in_dim = pyunits.convert(
-                prop_in.conc_mass_phase_comp["Liq", "TDS"] * pyunits.g**-1 * pyunits.L,
+                prop_in.conc_mass_phase_comp["Liq", "TDS"]
+                * pyunits.g**-1
+                * pyunits.L,
                 to_units=pyunits.dimensionless,
             )
             return (
@@ -1026,7 +1026,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         pt = defaultdict(list)
 
         for day in self.days_of_year:
-
             pt["day_of_year"].append(day)
             for pv in pond_vars:
                 v = self.find_component(pv)[day]
@@ -1046,7 +1045,6 @@ class EvaporationPondData(InitializationMixin, UnitModelBlockData):
         return pond_timeseries
 
     def _get_stream_table_contents(self, time_point=0):
-
         return create_stream_table_dataframe(
             {"Feed Inlet": self.inlet},
             time_point=time_point,

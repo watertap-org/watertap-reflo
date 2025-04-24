@@ -124,7 +124,6 @@ def unfix_dof(m):
 
 @declare_process_block_class("MEDVAGMDsemibatch")
 class MEDVAGMDsemibatchData(UnitModelBlockData):
-
     CONFIG = ConfigBlock()
 
     CONFIG.declare(

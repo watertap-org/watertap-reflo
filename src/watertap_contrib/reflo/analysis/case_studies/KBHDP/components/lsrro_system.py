@@ -139,7 +139,6 @@ _log = idaeslog.getModelLogger("my_model", level=idaeslog.DEBUG, tag="model")
 
 
 def build_lsrro(m, blk, number_of_stages=1, prop_package=None):
-
     print(f'\n{"=======> BUILDING LSRRO SYSTEM <=======":^60}\n')
     print(f"Number of Stages: {number_of_stages}")
 
@@ -546,9 +545,9 @@ def set_operating_conditions(m, Qin=None, Qout=None, Cin=None, water_recovery=No
     m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value = (
         m.fs.feed_flow_mass.value * m.fs.feed_salinity.value / 1000
     )
-    m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value = (
-        m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
-    )
+    m.fs.feed.flow_mass_phase_comp[
+        0, "Liq", "H2O"
+    ].value = m.fs.feed_flow_mass.value * (1 - m.fs.feed_salinity.value / 1000)
 
     scale_flow = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "H2O"].value)
     scale_tds = calc_scale(m.fs.feed.flow_mass_phase_comp[0, "Liq", "NaCl"].value)
@@ -672,7 +671,6 @@ def set_lsrro_system_operating_conditions(
 
 
 def optimize(m):
-
     for stage in m.fs.lsrro.stage.values():
         stage.stage_pump.control_volume.properties_out[0].pressure.unfix()
         if stage.index() > 1:

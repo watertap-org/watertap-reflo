@@ -21,7 +21,6 @@ from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 
 
 def define_system_vars(m):
-
     m.fs.pv_to_ro = Var(
         initialize=100, bounds=(0, None), units=pyunits.kW, doc="PV to RO electricity"
     )
@@ -210,7 +209,6 @@ def steady_state_flowsheet(
     pv_oversize=1,
     fixed_battery_size=None,
 ):
-
     if m is None:
         m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -281,7 +279,6 @@ def optimize_multiperiod_pv_battery_model(
     pv_oversize=1,
     surrogate=None,
 ):
-
     # create the multiperiod object
     mp_opt = MultiPeriodModel(
         n_time_points=n_time_points,
@@ -327,7 +324,6 @@ def optimize_really_long_multiperiod_model(
     pv_oversize=1,
     surrogate=None,
 ):
-
     # create the multiperiod object
     mp_opt = MultiPeriodModel(
         n_time_points=n_time_points,
@@ -373,7 +369,6 @@ def optimize_pv_and_battery(
     pv_oversize=1,
     surrogate=None,
 ):
-
     # create the multiperiod object
     mp_opt = MultiPeriodModel(
         n_time_points=n_time_points,

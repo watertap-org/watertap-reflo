@@ -307,7 +307,6 @@ class BasicWaterStateBlockData(StateBlockData):
 
     # Other properties
     def _flow_mass_comp(self):
-
         self.flow_mass_comp = Var(
             self.params.component_list,
             initialize=1,
@@ -383,7 +382,6 @@ class BasicWaterStateBlockData(StateBlockData):
         return MaterialFlowBasis.mass
 
     def calculate_scaling_factors(self):
-
         super().calculate_scaling_factors()
 
         if iscale.get_scaling_factor(self.flow_vol) is None:

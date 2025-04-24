@@ -238,7 +238,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self._scaling(self)
 
     def create_rbf_surrogate(self):
-
         # Capture long output
         stream = StringIO()
         oldstdout = sys.stdout
@@ -295,7 +294,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self,
         return_data=False,
     ):
-
         self.pickle_df = pd.read_pickle(self.config.dataset_filename)
         if self.dataset_bounds is not None:
             for col, bounds in self.dataset_bounds.items():
@@ -318,7 +316,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             return self.data_training, self.data_validation
 
     def scale_training_data(self):
-
         self.data_training_unscaled = deepcopy(self.data_training)
 
         # TODO: allow users to provide scaling factors via CONFIG
@@ -351,7 +348,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self.data_scaling_factors[label].set_value(1 / label_max)
 
     def add_surrogate_variables(self):
-
         self.surrogate_inputs = []
         for input_var_name, bounds in self.input_bounds.items():
             units = self.input_units[input_var_name]

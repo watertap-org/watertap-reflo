@@ -170,7 +170,6 @@ def calc_costing(m):
 
 
 if __name__ == "__main__":
-
     m = build_system()
     set_system_operating_conditions(m)
     set_ix_operating_conditions(m)

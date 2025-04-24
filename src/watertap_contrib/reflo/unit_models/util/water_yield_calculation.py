@@ -82,7 +82,6 @@ def create_input_arrays(
     temperature_col=None,  # column from weather_data to use as temperature input data
     wind_velocity_col=None,  # column from weather_data to use as wind velocity input data
 ):
-
     def generate_continuous_day_series():
         # Days in each month for non-leap year
         days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -163,9 +162,11 @@ def get_solar_still_daily_water_yield(
     if len(blk.weather_data) > 8760:
         blk.weather_data = blk.weather_data.loc[:8760]
 
-    blk.ambient_temp_by_hr, blk.irradiance_by_hr, blk.wind_vel_by_hr = (
-        create_input_arrays(blk, **kwargs)
-    )
+    (
+        blk.ambient_temp_by_hr,
+        blk.irradiance_by_hr,
+        blk.wind_vel_by_hr,
+    ) = create_input_arrays(blk, **kwargs)
 
     len_data_hr = len(blk.irradiance_by_hr)
 
@@ -217,9 +218,9 @@ def get_solar_still_daily_water_yield(
     blk.salinity[0] = blk.initial_salinity
     blk.salinity[1] = blk.initial_salinity
     blk.excess_salinity[0] = blk.initial_salinity
-    blk.excess_salinity[1] = (
-        blk.initial_salinity
-    )  # Salinity without maximum solublity (g/l)
+    blk.excess_salinity[
+        1
+    ] = blk.initial_salinity  # Salinity without maximum solublity (g/l)
 
     blk.depth[0] = blk.initial_water_depth
     blk.depth[1] = blk.initial_water_depth
@@ -254,7 +255,6 @@ def get_solar_still_daily_water_yield(
         blk.ambient_temp[start_idx:end_idx] = blk.ambient_temp_by_hr[hour]
 
     for i in range(2, len(blk.irradiance), 1):
-
         if blk.depth[i - 1] <= 0 or blk.fw_mass[i - 1] <= 0:
             blk.depth[i - 1] = blk.initial_water_depth
             blk.salinity[i - 1] = blk.initial_salinity

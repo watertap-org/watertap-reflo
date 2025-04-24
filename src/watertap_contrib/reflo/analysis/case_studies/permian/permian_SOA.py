@@ -256,7 +256,6 @@ def build_agg_costing_blk(
     )
 
     for costing_blk in b.costing_blks:
-
         assert value(costing_blk.capital_recovery_factor) == value(
             b.capital_recovery_factor
         )
@@ -278,7 +277,6 @@ def build_agg_costing_blk(
     b.all_used_flow_costs = dict()
 
     for costing_blk in b.costing_blks:
-
         agg_flow_cost = getattr(costing_blk, "aggregate_flow_costs")
 
         for f in costing_blk.flow_types:
@@ -288,7 +286,6 @@ def build_agg_costing_blk(
         b.all_used_flow_costs[m.name] = defaultdict(list)
 
         for f in costing_blk.used_flows:
-
             if f not in b.used_flows:
                 b.used_flows.add(f)
                 used_flow_cost = getattr(costing_blk, f"{f}_cost")
@@ -518,7 +515,6 @@ def build_agg_costing_blk(
 
 
 def build_agg_model(m_pre, m_mvc, m_dwi):
-
     m_pre.name = "pretreatment"
     m_mvc.name = "MVC"
     m_dwi.name = "DWI"
@@ -557,7 +553,6 @@ def solve_permian_SOA(m):
 
 
 def run_permian_SOA_recovery_sweep(num_pts=5):
-
     recoveries = [0.4, 0.45, 0.5, 0.55, 0.6]
 
     m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
@@ -582,7 +577,6 @@ def run_permian_SOA_recovery_sweep(num_pts=5):
 
     col_replace = ["m_agg.fs", "m_pre.fs", "m_mvc.fs", "m_dwi.fs"]
     for i, (r, cr) in enumerate(zip([rd, rd_pre, rd_mvc, rd_dwi], col_replace)):
-
         if i == 0:
             df = pd.DataFrame.from_dict(r)
 
@@ -640,7 +634,6 @@ def run_permian_SOA_electricity_sweep(num_pts=5):
 
     col_replace = ["m_agg.fs", "m_pre.fs", "m_mvc.fs", "m_dwi.fs"]
     for i, (r, cr) in enumerate(zip([rd, rd_pre, rd_mvc, rd_dwi], col_replace)):
-
         if i == 0:
             df = pd.DataFrame.from_dict(r)
 
@@ -660,7 +653,6 @@ def run_permian_SOA_electricity_sweep(num_pts=5):
 
 
 def build_rds(m, m_pre, m_mvc, m_dwi, merge_cols=[]):
-
     rd = build_results_dict(m, skips=skips)
     rd_pre = build_results_dict(m_pre, skips=skips)
     rd_mvc = build_results_dict(m_mvc, skips=skips)
@@ -674,7 +666,6 @@ def build_rds(m, m_pre, m_mvc, m_dwi, merge_cols=[]):
 
 
 def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dict={}):
-
     rd = results_dict_append(m, rd)
     rd_pre = results_dict_append(m_pre, rd_pre)
     rd_mvc = results_dict_append(m_mvc, rd_mvc)
@@ -688,7 +679,6 @@ def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dic
 
 
 if __name__ == "__main__":
-
     # run_permian_SOA_electricity_sweep()
     # run_permian_SOA_recovery_sweep()
 
