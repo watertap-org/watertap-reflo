@@ -50,7 +50,7 @@ solver = SolverFactory("ipopt")
 dataset_filename = os.path.join(
     os.path.dirname(__file__), "data/test_flat_plate_data.pkl"
 )
-surrogate_filename = os.path.join(
+surrogate_model_file = os.path.join(
     os.path.dirname(__file__), "flat_plate_surrogate.json"
 )
 
@@ -70,6 +70,7 @@ output_variables = {
     "units": output_units,
 }
 fpc_dict = dict(
+    surrogate_model_file=surrogate_model_file,
     dataset_filename=dataset_filename,
     input_variables=input_variables,
     output_variables=output_variables,
@@ -140,7 +141,7 @@ class TestFlatPlate:
                     )
 
     @pytest.mark.unit
-    @pytest.mark.skip
+    # @pytest.mark.skip
     def test_build(self, flat_plate_frame):
         m = flat_plate_frame
         fpc = m.fs.fpc
@@ -158,7 +159,7 @@ class TestFlatPlate:
         assert m.fs.fpc.surrogate.input_labels() == surr_input_str
         assert m.fs.fpc.output_labels == surr_output_str
         assert m.fs.fpc.surrogate.output_labels() == surr_output_str
-        assert m.fs.fpc.surrogate_file.lower() == surrogate_filename.lower()
+        assert m.fs.fpc.surrogate_file.lower() == surrogate_model_file.lower()
         assert m.fs.fpc.dataset_filename.lower() == dataset_filename.lower()
         assert m.fs.fpc.surrogate.n_inputs() == 3
         assert m.fs.fpc.surrogate.n_outputs() == 2
@@ -182,7 +183,7 @@ class TestFlatPlate:
         assert isinstance(fpc.electricity_constraint, Constraint)
 
     @pytest.mark.unit
-    @pytest.mark.skip
+    # @pytest.mark.skip
     def test_surrogate_metrics(self, flat_plate_frame):
         # TODO: placeholder for future test
         m = flat_plate_frame
@@ -202,32 +203,32 @@ class TestFlatPlate:
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.unit
-    @pytest.mark.skip
+    # @pytest.mark.skip
     def test_calculate_scaling(self, flat_plate_frame):
         m = flat_plate_frame
         calculate_scaling_factors(m)
         assert len(list(unscaled_variables_generator(m))) == 0
 
     @pytest.mark.component
-    @pytest.mark.skip
+    # @pytest.mark.skip
     def test_initialization(self, flat_plate_frame):
         # TODO: placeholder for future test
         pass
 
     @pytest.mark.unit
-    @pytest.mark.skip
+    # @pytest.mark.skip
     def test_solvability(self, trough_frame):
         # TODO: placeholder for future test
         pass
 
     @pytest.mark.component
-    @pytest.mark.skip
+    # @pytest.mark.skip
     def test_solve(self, flat_plate_frame):
         # TODO: placeholder for future test
         pass
 
     @pytest.mark.component
-    @pytest.mark.skip
+    # @pytest.mark.skip
     def test_costing(self, flat_plate_frame):
         # TODO: placeholder for future test
         pass
