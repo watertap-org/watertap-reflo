@@ -17,11 +17,12 @@ from pyomo.environ import (
     Expression,
     value,
     check_optimal_termination,
+    SolverFactory,
     units as pyunits,
 )
 from idaes.core import declare_process_block_class
+from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.core.util.scaling as iscale
-from idaes.core.util.exceptions import InitializationError
 import idaes.logger as idaeslog
 
 from watertap.core.solvers import get_solver
@@ -40,13 +41,18 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
     def build(self):
         super().build()
 
+        if not self.config.scale_training_data:
+            err_msg = (
+                "The flat plate surrogate model requires the input data be scaled."
+            )
+            err_msg += " Set the config argument 'scale_training_data' = True"
+            raise ConfigurationError(err_msg)
+
         self._tech_type = "flat_plate"
-        self.add_surrogate_variables()
-        self.get_surrogate_data()
 
         self.specific_heat_water = Param(
             initialize=4.181,  # defaults from SAM
-            units=pyunits.kJ / (pyunits.kg * pyunits.K),
+            units=pyunits.kJ / (pyunits.kg * pyunits.degK),
             doc="Specific heat of water",
         )
 
@@ -103,7 +109,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         )
 
         if self.config.surrogate_model_file is not None:
-            self.surrogate_file = self.config.surrogate_model_file
             self.load_surrogate()
         else:
             self.create_rbf_surrogate()
@@ -162,11 +167,11 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.temperature_hot, sf)
 
         if iscale.get_scaling_factor(self.heat) is None:
-            sf = iscale.get_scaling_factor(self.heat, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.heat, default=1e-3, warning=True)
             iscale.set_scaling_factor(self.heat, sf)
 
         if iscale.get_scaling_factor(self.electricity) is None:
-            sf = iscale.get_scaling_factor(self.electricity, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.electricity, default=0.1, warning=True)
             iscale.set_scaling_factor(self.electricity, sf)
 
     def initialize(
