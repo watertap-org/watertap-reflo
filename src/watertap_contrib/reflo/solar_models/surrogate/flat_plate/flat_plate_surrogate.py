@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -17,7 +17,6 @@ from pyomo.environ import (
     Expression,
     value,
     check_optimal_termination,
-    SolverFactory,
     units as pyunits,
 )
 from idaes.core import declare_process_block_class
@@ -29,7 +28,7 @@ from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.core import SolarEnergyBaseData
 from watertap_contrib.reflo.costing.solar.flat_plate import cost_flat_plate
 
-__author__ = "Matthew Boyd, Kurban Sitterley"
+__author__ = "Kurban Sitterley, Mukta Hardikar, Matthew Boyd"
 
 
 @declare_process_block_class("FlatPlateSurrogate")
@@ -97,6 +96,24 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             mutable=True,
             doc="Product of collector heat removal factor (FR) and overall heat loss coeff. of collector (UL)",
         )
+
+        if "hours_storage" not in self.input_labels:
+
+            self.hours_storage = Param(
+                initialize=24,
+                units=pyunits.hour,
+                mutable=True,
+                doc="Hours of storage",
+            )
+
+        if "temperature_hot" not in self.input_labels:
+
+            self.temperature_hot = Param(
+                initialize=80,
+                units=pyunits.degK,
+                mutable=True,
+                doc="Hot temperature",
+            )
 
         self.heat_annual = Expression(
             expr=self.heat_annual_scaled / self.heat_annual_scaling,
@@ -167,11 +184,11 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.temperature_hot, sf)
 
         if iscale.get_scaling_factor(self.heat) is None:
-            sf = iscale.get_scaling_factor(self.heat, default=1e-3, warning=True)
+            sf = iscale.get_scaling_factor(self.heat, default=1, warning=True)
             iscale.set_scaling_factor(self.heat, sf)
 
         if iscale.get_scaling_factor(self.electricity) is None:
-            sf = iscale.get_scaling_factor(self.electricity, default=0.1, warning=True)
+            sf = iscale.get_scaling_factor(self.electricity, default=1, warning=True)
             iscale.set_scaling_factor(self.electricity, sf)
 
     def initialize(
