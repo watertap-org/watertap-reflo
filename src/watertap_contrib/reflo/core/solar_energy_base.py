@@ -24,6 +24,7 @@ from pyomo.environ import (
     Var,
     Suffix,
     NonNegativeReals,
+    value,
     units as pyunits,
 )
 
@@ -250,7 +251,10 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self.get_surrogate_data()
 
             if self.config.scale_training_data:
+                # if the user wants to scale the training data,
+                # the output labels are appended with "_scaled"
                 self.data_scaling_factors = {}
+                self.output_labels_unscaled = self.output_labels
                 output_labels_scaled = list()
                 for ol in self.output_labels:
                     output_labels_scaled.append(ol + "_scaled")
@@ -343,9 +347,37 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
     def compute_fit_metrics(self):
         self.fit_metrics = compute_fit_metrics(self.surrogate, self.data)
+
         if self.config.scale_training_data:
-            # TODO: create fit metrics for unscaled data
-            pass
+            # calculate fit metrics for unscaled data
+            # this approach is identical to the one used in pysmo
+            y = self.data[self.output_labels_unscaled].copy()
+            surr_eval = self.surrogate.evaluate_surrogate(self.data)
+
+            for l, u in zip(self.output_labels, self.output_labels_unscaled):
+                surr_eval[u] = surr_eval[l] / value(self.data_scaling_factors[u])
+
+            y_mean = y.mean(axis=0)
+            SST = ((y - y_mean) ** 2).sum(axis=0)
+            SSE = ((y - surr_eval) ** 2).sum(axis=0)
+
+            R2 = 1 - SSE / SST
+            MAE = (y - surr_eval).abs().mean(axis=0)
+            maxAE = (y - surr_eval).abs().max(axis=0)
+            MSE = ((y - surr_eval) ** 2).mean(axis=0)
+            RMSE = MSE**0.5
+
+            for c in self.data.columns:
+                if c in self.output_labels_unscaled:
+                    self.fit_metrics[c] = {
+                        "RMSE": RMSE[c],
+                        "MSE": MSE[c],
+                        "MAE": MAE[c],
+                        "maxAE": maxAE[c],
+                        "SSE": SSE[c],
+                        "R2": R2[c],
+                    }
+
         return self.fit_metrics
 
     def load_surrogate(self):
@@ -456,7 +488,8 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
     def calculate_scaling_factors(self):
         """
-        Placeholder scaling routine, should be overloaded by derived classes
+        Placeholder scaling routine,
+        should be overloaded by derived classes
         """
         super().calculate_scaling_factors()
 
