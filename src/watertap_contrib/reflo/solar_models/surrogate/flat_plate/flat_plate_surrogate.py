@@ -174,21 +174,19 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             iscale.set_scaling_factor(self.hours_storage, sf)
 
         if iscale.get_scaling_factor(self.heat_load) is None:
-            sf = iscale.get_scaling_factor(self.heat_load, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.heat_load, default=0.1)
             iscale.set_scaling_factor(self.heat_load, sf)
 
         if iscale.get_scaling_factor(self.temperature_hot) is None:
-            sf = iscale.get_scaling_factor(
-                self.temperature_hot, default=1, warning=True
-            )
+            sf = iscale.get_scaling_factor(self.temperature_hot, default=1)
             iscale.set_scaling_factor(self.temperature_hot, sf)
 
         if iscale.get_scaling_factor(self.heat) is None:
-            sf = iscale.get_scaling_factor(self.heat, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.heat, default=1)
             iscale.set_scaling_factor(self.heat, sf)
 
         if iscale.get_scaling_factor(self.electricity) is None:
-            sf = iscale.get_scaling_factor(self.electricity, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.electricity, default=1)
             iscale.set_scaling_factor(self.electricity, sf)
 
     def initialize(
@@ -198,21 +196,18 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         optarg=None,
     ):
         """
-        General wrapper for initialization routines
-
         Keyword Arguments:
             outlvl : sets output level of initialization routine
             optarg : solver options dictionary object (default=None)
             solver : str indicating which solver to use during
-                     initialization (default = None)
-
-        Returns: None
+                     initialization (default=None)
         """
         init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
 
         if solver is None:
             opt = get_solver(optarg)
 
+        init_log.info(f"Evaluating FPC surrogate at input values.")
         self.init_data = pd.DataFrame(
             {
                 "heat_load": [value(self.heat_load)],
@@ -225,12 +220,16 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         self.electricity_annual_scaled.set_value(
             self.init_output.electricity_annual_scaled.values[0]
         )
+        self.heat_annual.set_value(
+            value(self.heat_annual_scaled / self.heat_annual_scaling)
+        )
+        self.electricity_annual.set_value(
+            value(self.electricity_annual_scaled / self.electricity_annual_scaling)
+        )
         self.heat.set_value(value(self.heat_annual) / 8766)
         self.electricity.set_value(value(self.electricity_annual) / 8766)
-        # Create solver
-        res = opt.solve(self)
 
-        init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
+        res = opt.solve(self)
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
