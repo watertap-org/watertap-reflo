@@ -528,7 +528,7 @@ if __name__ == "__main__":
     operating_condition = {
         "feed_vol_flow": 5,  # MGD
         "feed_tds": 130,  # g/L
-        "heat_price": 0.00894,  # 2023 price $/kWh
+        "heat_price": 0.0166,  # 2023 price $/kWh
         "elec_price": 0.0434618999,  # 2018 price $/kWh
         "grid_fraction": 0.5,
         "storage": 24,  # hr
@@ -606,7 +606,8 @@ if __name__ == "__main__":
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
         "RO_recovery_ratio": 1,  # RO recovery ratio
         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
         "feed_temperature": 25,
@@ -616,11 +617,10 @@ if __name__ == "__main__":
         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
     }
-
     operating_condition = {
         "feed_vol_flow": 5,  # MGD
         "feed_tds": 130,  # g/L
-        "heat_price": 0.00894,  # 2023 price $/kWh
+        "heat_price": 0.0166,  # 2023 price $/kWh
         "elec_price": 0.0434618999,  # 2018 price $/kWh
         "grid_fraction": 0.5,
         "storage": 24,  # hr
@@ -689,7 +689,8 @@ if __name__ == "__main__":
             # grid_frac.append((rr,'fail'))
 
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("csv_results/FO_DWI_RPT_recovery_ratio.csv")
+    # df.to_csv("csv_results/FO_DWI_RPT_recovery_ratio.csv")
+    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_recovery_ratio.csv")
 # %% Sweep for DWI cost
 if __name__ == "__main__":
     import numpy as np
@@ -703,7 +704,8 @@ if __name__ == "__main__":
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
         "RO_recovery_ratio": 1,  # RO recovery ratio
         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
         "feed_temperature": 25,
@@ -717,7 +719,7 @@ if __name__ == "__main__":
     operating_condition = {
         "feed_vol_flow": 5,  # MGD
         "feed_tds": 130,  # g/L
-        "heat_price": 0.00894,  # 2023 price $/kWh
+        "heat_price": 0.0166,  # 2023 price $/kWh
         "elec_price": 0.0434618999,  # 2018 price $/kWh
         "grid_fraction": 0.5,
         "storage": 24,  # hr
@@ -729,7 +731,7 @@ if __name__ == "__main__":
         permian_fo_config,
     )
     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-    DWI_cost = np.linspace(4.2, 10.5, 10)
+    DWI_cost = np.linspace(4.2, 12.6, 11)
     results_dict["dwi_cost"] = []
 
     for v in DWI_cost:
@@ -749,7 +751,8 @@ if __name__ == "__main__":
             LCOW.append((v, "fail"))
 
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("csv_results/FO_DWI_RPT_dwi_cost.csv")
+    # df.to_csv("csv_results/FO_DWI_RPT_dwi_cost.csv")
+    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_dwi_cost.csv")
 
 # %% Sweep for grid fraction
 if __name__ == "__main__":
@@ -764,7 +767,8 @@ if __name__ == "__main__":
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
         "RO_recovery_ratio": 1,  # RO recovery ratio
         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
         "feed_temperature": 25,
@@ -778,7 +782,7 @@ if __name__ == "__main__":
     operating_condition = {
         "feed_vol_flow": 5,  # MGD
         "feed_tds": 130,  # g/L
-        "heat_price": 0.00894,  # 2023 price $/kWh
+        "heat_price": 0.0166,  # 2023 price $/kWh
         "elec_price": 0.0434618999,  # 2018 price $/kWh
         "grid_fraction": 0.5,
         "storage": 24,  # hr
@@ -790,7 +794,7 @@ if __name__ == "__main__":
         permian_fo_config,
     )
     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-    grid_frac = np.linspace(0.5, 0.9, 10)
+    grid_frac = np.linspace(0.5, 0.9, 11)
     results_dict["grid_frac"] = []
 
     for v in grid_frac:
@@ -808,7 +812,8 @@ if __name__ == "__main__":
             LCOW.append((v, "fail"))
 
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("csv_results/FO_DWI_RPT_grid_frac.csv")
+    # df.to_csv("csv_results/FO_DWI_RPT_grid_frac.csv")
+    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_grid_frac.csv")
 
 # %% Sweep for heat cost
 if __name__ == "__main__":
@@ -823,7 +828,8 @@ if __name__ == "__main__":
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
         "RO_recovery_ratio": 1,  # RO recovery ratio
         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
         "feed_temperature": 25,
@@ -837,7 +843,7 @@ if __name__ == "__main__":
     operating_condition = {
         "feed_vol_flow": 5,  # MGD
         "feed_tds": 130,  # g/L
-        "heat_price": 0.00894,  # 2023 price $/kWh
+        "heat_price": 0.0166,  # 2023 price $/kWh
         "elec_price": 0.0434618999,  # 2018 price $/kWh
         "grid_fraction": 0.5,
         "storage": 24,  # hr
@@ -849,7 +855,7 @@ if __name__ == "__main__":
         permian_fo_config,
     )
     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-    heat_price = np.linspace(0.00447, 0.011175, 10)
+    heat_price = np.linspace(0.0083, 0.0249, 11)
     results_dict["heat_price"] = []
 
     for v in heat_price:
@@ -867,7 +873,8 @@ if __name__ == "__main__":
             LCOW.append((v, "fail"))
 
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("csv_results/FO_DWI_RPT_heat_price.csv")
+    # df.to_csv("csv_results/FO_DWI_RPT_heat_price.csv")
+    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_heat_price.csv")
 
 
 # %% Sweep for CST cost
@@ -883,7 +890,8 @@ if __name__ == "__main__":
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
         "RO_recovery_ratio": 1,  # RO recovery ratio
         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
         "feed_temperature": 25,
@@ -897,7 +905,7 @@ if __name__ == "__main__":
     operating_condition = {
         "feed_vol_flow": 5,  # MGD
         "feed_tds": 130,  # g/L
-        "heat_price": 0.00894,  # 2023 price $/kWh
+        "heat_price": 0.0166,  # 2023 price $/kWh
         "elec_price": 0.0434618999,  # 2018 price $/kWh
         "grid_fraction": 0.5,
         "storage": 24,  # hr
@@ -909,7 +917,7 @@ if __name__ == "__main__":
         permian_fo_config,
     )
     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-    cst_price = np.linspace(186.5, 466.25, 10)
+    cst_price = np.linspace(148.5, 445.5, 11)
     results_dict["cst_price"] = []
 
     for v in cst_price:
@@ -931,6 +939,7 @@ if __name__ == "__main__":
 
     df = pd.DataFrame.from_dict(results_dict)
     df.to_csv("csv_results/FO_DWI_RPT_cst_price.csv")
+    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_cst_price.csv")
 
 # %% Sweep for storage cost
 if __name__ == "__main__":
@@ -945,7 +954,8 @@ if __name__ == "__main__":
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
         "RO_recovery_ratio": 1,  # RO recovery ratio
         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
         "feed_temperature": 25,
@@ -959,7 +969,7 @@ if __name__ == "__main__":
     operating_condition = {
         "feed_vol_flow": 5,  # MGD
         "feed_tds": 130,  # g/L
-        "heat_price": 0.00894,  # 2023 price $/kWh
+        "heat_price": 0.0166,  # 2023 price $/kWh
         "elec_price": 0.0434618999,  # 2018 price $/kWh
         "grid_fraction": 0.5,
         "storage": 24,  # hr
@@ -971,7 +981,7 @@ if __name__ == "__main__":
         permian_fo_config,
     )
     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-    storage_price = np.linspace(31, 77.5, 10)
+    storage_price = np.linspace(31, 93, 11)
     results_dict["storage_price"] = []
 
     for v in storage_price:
@@ -992,5 +1002,6 @@ if __name__ == "__main__":
             LCOW.append((v, "fail"))
 
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("csv_results/FO_DWI_RPT_storage_price.csv")
+    # df.to_csv("csv_results/FO_DWI_RPT_storage_price.csv")
+    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_storage_price.csv")
 # %%
