@@ -116,7 +116,7 @@ rho = 1125 * pyunits.kg / pyunits.m**3
 rho_water = 995 * pyunits.kg / pyunits.m**3
 
 electricity_cost_base = 0.0434618999  # USD_2018/kWh equivalent to 0.0575 USD_2023/kWh
-heat_cost_base = 0.00894
+heat_cost_base = 0.0166
 
 solver = get_solver()
 
@@ -797,11 +797,10 @@ def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dic
 
 if __name__ == "__main__":
 
-    # run_permian_SOA_recovery_sweep()
+    run_permian_SOA_recovery_sweep()
     # run_permian_SOA_salinity_flow_sweep_wide(recovery=0.6)
     # build_and_run_permian_SOA()
-    build_and_run_permian_pretreatment()
-    print(pyunits.convert(0.00894 * pyunits.USD_2023, to_units=pyunits.USD_2018)())
+    # build_and_run_permian_pretreatment()
     # run_permian_SOA_salinity_flow_sweep()
     # run_permian_SOA_electricity_sweep()
     # run_permian_SOA_recovery_sweep()
