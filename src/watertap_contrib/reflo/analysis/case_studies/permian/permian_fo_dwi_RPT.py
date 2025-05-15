@@ -938,7 +938,7 @@ if __name__ == "__main__":
             LCOW.append((v, "fail"))
 
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("csv_results/FO_DWI_RPT_cst_price.csv")
+    # df.to_csv("csv_results/FO_DWI_RPT_cst_price.csv")
     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_cst_price.csv")
 
 # %% Sweep for storage cost
