@@ -309,6 +309,7 @@ def set_system_op_conditions(m):
         hold_state=True,
     )
 
+
 def calc_costing(m, blk):
     m.fs.costing.capital_recovery_factor.fix(0.08764)
     m.fs.costing.wacc.unfix()

@@ -138,7 +138,10 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
                     (self.hours_storage * self.heat_load)
                     / (
                         self.specific_heat_water
-                        * (((self.temperature_hot + 273.15) * pyunits.degK) - self.temperature_cold)
+                        * (
+                            ((self.temperature_hot + 273.15) * pyunits.degK)
+                            - self.temperature_cold
+                        )
                         * self.dens_water
                     )
                 ),

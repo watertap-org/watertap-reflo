@@ -58,7 +58,7 @@ class FlatPlatePySAMData(SolarEnergyBaseData):
             initialize=1,
             units=pyunits.kWh,
         )
-        
+
         self.hours_storage = Param(
             initialize=1,
             mutable=True,

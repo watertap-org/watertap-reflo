@@ -75,7 +75,6 @@ class TroughPySAMData(SolarEnergyBaseData):
             * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
         )
 
-
     def calculate_scaling_factors(self):
 
         if iscale.get_scaling_factor(self.hours_storage) is None:

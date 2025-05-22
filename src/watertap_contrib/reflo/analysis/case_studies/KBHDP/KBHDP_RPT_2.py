@@ -58,7 +58,7 @@ def propagate_state(arc, detailed=True):
 def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
-    m = build_system(RE=False)
+    m = build_system(RE=True)
     add_connections(m)
     add_constraints(m)
     set_operating_conditions(m)
@@ -71,10 +71,10 @@ def main():
 
     optimize(
         m,
-        water_recovery=0.45,
+        water_recovery=0.8,
         # heat_price=0.01,
-        # grid_frac_heat=0.5,
-        objective='LCOW'
+        grid_frac_heat=0.85,
+        objective="LCOW",
     )
     solve(m, debug=True)
 
@@ -110,9 +110,11 @@ def main():
     #     f'{"Fracion of Heat From Grid":<40s}{100*value(m.fs.costing.frac_heat_from_grid):<5.1f}{"%"}'
     # )
     m.fs.costing.LCOW.display()
+
+    print(m.fs.costing.frac_heat_from_grid.display())
     # # # m.fs.energy.costing.LCOH.display()
     # m.fs.costing.LCOT.display()
-    display_costing_breakdown(m)
+    # display_costing_breakdown(m)
     # print(value(m.fs.energy.costing.LCOH))
 
     return m

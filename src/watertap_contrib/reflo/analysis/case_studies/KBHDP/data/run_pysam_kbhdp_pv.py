@@ -97,7 +97,7 @@ def run_pv_single_owner(
     )
     tech_model.value("inverter_count", size_pv_array["inverter_count"])
     tech_model.value("subarray1_nstrings", size_pv_array["number_strings"])
-    
+
     # tech_model.value("inverter_count", num_inverters)
     # tech_model.value("subarray1_nstrings", num_parallel)
 
@@ -228,8 +228,10 @@ def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
     num_inverters = max(1, num_inverters)
     total_modules = num_series * num_parallel
     total_module_area = total_modules * tech_model.value("spe_area")  # [m2]
-    total_module_area = total_module_area * 0.000247105 # m2 to [acre]
-    land_area = total_module_area / tech_model.value("subarray1_gcr")  # assumes land_area_multiplier = 1
+    total_module_area = total_module_area * 0.000247105  # m2 to [acre]
+    land_area = total_module_area / tech_model.value(
+        "subarray1_gcr"
+    )  # assumes land_area_multiplier = 1
     total_ac_capacity = inv_power * num_inverters / 1000
     total_dc_inverter_capacity = inv_dc_power * num_inverters / 1000
 
@@ -353,10 +355,7 @@ def run_pysam_kbhdp_pv(
             results = pool.starmap(setup_and_run_pv, args)
         df_results = pd.DataFrame(results)
         df = pd.concat(
-            [
-                df,
-                df_results
-            ],
+            [df, df_results],
             axis=1,
         )
     else:
@@ -364,9 +363,7 @@ def run_pysam_kbhdp_pv(
         for ds in design_sizes:
             result = setup_and_run_pv(ds, pysam_model_config)
             data.append([ds] + [result.values()])
-        df = pd.DataFrame(
-            data, columns=["design_size"] + result.keys()
-        )
+        df = pd.DataFrame(data, columns=["design_size"] + result.keys())
     if save_data:
         df.to_pickle(dataset_filename)
 
@@ -375,6 +372,7 @@ if __name__ == "__main__":
     design_sizes = np.linspace(100000, 150000, 3)
     print(design_sizes)
     run_pysam_kbhdp_pv(
-        design_sizes=design_sizes, dataset_filename="test.pkl", use_multiprocessing=False
+        design_sizes=design_sizes,
+        dataset_filename="test.pkl",
+        use_multiprocessing=False,
     )
-    

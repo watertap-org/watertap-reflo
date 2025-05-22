@@ -17,17 +17,20 @@ from watertap_contrib.reflo.costing.util import (
     make_fixed_operating_cost_var,
     make_variable_operating_cost_var,
 )
-from watertap_contrib.reflo.costing.solar.pv_surrogate import build_pv_surrogate_cost_param_block
+from watertap_contrib.reflo.costing.solar.pv_surrogate import (
+    build_pv_surrogate_cost_param_block,
+)
 
 # Costs are defaults from SAM 2024.12.12
 # Energy Storage > Detailed PV-Battery > Single Owner
 
+
 def build_pv_battery_surrogate_cost_param_block(blk):
-    
+
     build_pv_surrogate_cost_param_block(blk)
-    
+
     costing = blk.parent_block()
-    
+
     blk.cost_per_kilowatt_battery = pyo.Var(
         initialize=233,
         units=costing.base_currency / pyo.units.kilowatt,
@@ -63,15 +66,17 @@ def build_pv_battery_surrogate_cost_param_block(blk):
         doc="Replacement cost of battery by capacity ($/kWhdc)",
     )
 
+
 @register_costing_parameter_block(
-    build_rule=build_pv_battery_surrogate_cost_param_block, parameter_block_name="pv_battery_surrogate"
+    build_rule=build_pv_battery_surrogate_cost_param_block,
+    parameter_block_name="pv_battery_surrogate",
 )
 def cost_pv_battery_surrogate(blk):
-    
+
     blk.costing_package.has_electricity_generation = True
     global_params = blk.costing_package
     pv_batt_params = blk.costing_package.pv_battery_surrogate
-    
+
     make_capital_cost_var(blk)
     make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
@@ -135,7 +140,8 @@ def cost_pv_battery_surrogate(blk):
     )
 
     blk.land_cost_constraint = pyo.Constraint(
-        expr=blk.land_cost == (blk.unit_model.land_req * pv_batt_params.land_cost_per_acre)
+        expr=blk.land_cost
+        == (blk.unit_model.land_req * pv_batt_params.land_cost_per_acre)
     )
 
     blk.sales_tax_constraint = pyo.Constraint(
@@ -155,7 +161,8 @@ def cost_pv_battery_surrogate(blk):
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
-        == pv_batt_params.variable_operating_by_generation * blk.unit_model.annual_energy
+        == pv_batt_params.variable_operating_by_generation
+        * blk.unit_model.annual_energy
     )
 
     blk.costing_package.cost_flow(-1 * blk.unit_model.electricity, "electricity")

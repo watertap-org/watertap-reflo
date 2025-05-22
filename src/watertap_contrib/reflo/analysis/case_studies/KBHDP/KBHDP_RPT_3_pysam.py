@@ -45,6 +45,7 @@ from watertap_contrib.reflo.costing import (
 )
 
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.MD import *
+
 # from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.FPC_pysam import *
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.deep_well_injection import *
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import *
@@ -77,20 +78,20 @@ def propagate_state(arc):
 
 
 def main(
-        water_recovery=0.8,
-        heat_price=0.01,
-        electricity_price=0.07,
-        grid_frac_heat=0.5,
-        hours_storage=8,
-        cost_per_area_collector=600,
-        cost_per_volume_storage=2000,
-        dwi_lcow=None
-        ):
-    
+    water_recovery=0.8,
+    heat_price=0.01,
+    electricity_price=0.07,
+    grid_frac_heat=0.5,
+    hours_storage=8,
+    cost_per_area_collector=600,
+    cost_per_volume_storage=2000,
+    dwi_lcow=None,
+):
+
     m = build_system(grid_frac_heat, water_recovery=water_recovery)
 
     add_connections(m)
-    set_operating_conditions(m,hours_storage=hours_storage)
+    set_operating_conditions(m, hours_storage=hours_storage)
     apply_scaling(m)
     init_system(m, m.fs)
 
@@ -98,8 +99,8 @@ def main(
     _ = solve(m.fs.treatment.md, tee=True)
     _ = solve(m, raise_on_failure=False, tee=True)
 
-    add_costing(m,heat_price=heat_price, electricity_price=electricity_price)
-    
+    add_costing(m, heat_price=heat_price, electricity_price=electricity_price)
+
     # m.fs.energy.FPC.heat_load.fix()
 
     heat_load = value(
@@ -114,7 +115,7 @@ def main(
     m.fs.energy.costing.flat_plate.cost_per_area_collector.fix(cost_per_area_collector)
     m.fs.energy.costing.flat_plate.cost_per_volume_storage.fix(cost_per_volume_storage)
 
-    if dwi_lcow!= None:
+    if dwi_lcow != None:
         m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
 
     heat_annual_required = value(
@@ -122,7 +123,7 @@ def main(
             m.fs.treatment.costing.aggregate_flow_heat,
             to_units=pyunits.kWh * pyunits.year**-1,
         )
-    )  * (1 - grid_frac_heat)
+    ) * (1 - grid_frac_heat)
 
     heat_load_required, pysam_results = get_fpc_heat_load(
         m, heat_annual_required, increment_heat_load=1
@@ -172,7 +173,7 @@ def build_system(grid_frac_heat, Qin=4, Cin=12, water_recovery=0.5):
     build_md(m, m.fs.treatment.md)
     m.fs.treatment.dwi = FlowsheetBlock()
     build_DWI(m, m.fs.treatment.dwi, m.fs.properties)
-   
+
     # Logic to select the build for FPC
     build_fpc_pysam(m)
 
@@ -199,7 +200,13 @@ def add_connections(m):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-def add_costing(m, heat_price=0.01, electricity_price=0.07, treatment_costing_block=None, energy_costing_block=None):
+def add_costing(
+    m,
+    heat_price=0.01,
+    electricity_price=0.07,
+    treatment_costing_block=None,
+    energy_costing_block=None,
+):
 
     if treatment_costing_block is None:
         treatment_costing_block = m.fs.treatment.costing
@@ -217,7 +224,7 @@ def add_costing(m, heat_price=0.01, electricity_price=0.07, treatment_costing_bl
     treatment_costing_block.cost_process()
 
     treatment_costing_block.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
-    
+
     # Energy costing
     energy_costing_block.cost_process()
 
@@ -587,7 +594,6 @@ def save_results(m):
 
 if __name__ == "__main__":
 
-
     # m = build_sweep(water_recovery=0.90)
     m = main(
         water_recovery=0.8,
@@ -597,14 +603,14 @@ if __name__ == "__main__":
         hours_storage=6,
         cost_per_area_collector=500,
         cost_per_volume_storage=2000,
-        dwi_lcow = 0.1
-        )
+        dwi_lcow=0.1,
+    )
 
     # m.fs.costing.LCOT.display()
     # m.fs.treatment.costing.LCOW.display()
     # m.fs.energy.FPC.heat_load.display()
     # m.fs.costing.LCOT.display()
     # m.fs.energy.FPC.heat_load.display()
-    
+
     print_results_summary(m)
     # m.fs.treatment.md.unit.md_costing.display()

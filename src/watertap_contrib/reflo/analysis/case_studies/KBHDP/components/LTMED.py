@@ -125,6 +125,7 @@ def set_LTMED_operating_conditions(blk, recovery_ratio=0.45, steam_temperature=8
 
     blk.unit.steam_props[0].temperature.fix(steam_temperature + 273.15)
     blk.unit.recovery_vol_phase[0, "Liq"].fix(recovery_ratio)
+    blk.unit.recovery_vol_phase[0, "Liq"].setub(None)
     pass
 
 

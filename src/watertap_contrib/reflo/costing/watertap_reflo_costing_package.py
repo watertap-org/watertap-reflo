@@ -566,7 +566,7 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
         )
 
         if energy_cost.has_electricity_generation:
-            print('Detected Energy Generation')
+            print("Detected Energy Generation")
             elec_gen_unit = self._get_electricity_generation_unit()
             self.frac_elec_from_grid_constraint = pyo.Constraint(
                 expr=(

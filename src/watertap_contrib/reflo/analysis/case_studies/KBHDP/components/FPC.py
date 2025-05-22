@@ -48,9 +48,9 @@ __all__ = [
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 parent_dir = os.path.abspath(os.path.join(__location__, ".."))
 weather_file = os.path.join(parent_dir, "el_paso_texas-KBHDP-weather.csv")
-param_file = os.path.join(parent_dir, 'data/fpc', "solar_water_heating-kbhdp.json")
-dataset_filename = os.path.join(parent_dir, 'data/fpc', "FPC_KBHDP_el_paso.pkl")
-surrogate_filename = os.path.join(parent_dir, 'data/fpc', "FPC_KBHDP_el_paso.json")
+param_file = os.path.join(parent_dir, "data/fpc", "solar_water_heating-kbhdp.json")
+dataset_filename = os.path.join(parent_dir, "data/fpc", "FPC_KBHDP_el_paso.pkl")
+surrogate_filename = os.path.join(parent_dir, "data/fpc", "FPC_KBHDP_el_paso.json")
 
 
 def build_system():
@@ -84,7 +84,6 @@ def build_fpc(m):
         "labels": ["heat_annual", "electricity_annual"],
         "units": output_units,
     }
-
 
     energy.FPC = FlatPlateSurrogate(
         surrogate_model_file=surrogate_filename,

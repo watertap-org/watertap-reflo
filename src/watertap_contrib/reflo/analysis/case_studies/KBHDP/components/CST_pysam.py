@@ -94,7 +94,7 @@ def set_trough_pysam_op_conditions(m, blk, hours_storage=24):
     blk.trough.heat_load.fix(10)
     blk.trough.electricity_annual.fix(1e5)
     blk.trough.heat_annual.fix(1e5)
-    
+
     m.hours_storage = hours_storage
     blk.trough.hours_storage.fix(hours_storage)
 
@@ -107,17 +107,18 @@ def add_pysam_trough_costing(m, costing_block=None):
     )
     costing_block.cost_process()
 
+
 def run_pysam_trough(m, heat_load=None):
 
     results = run_pysam_trough_model(
-        m.tech_model,
-        heat_load=heat_load,
-        hours_storage=m.hours_storage
+        m.tech_model, heat_load=heat_load, hours_storage=m.hours_storage
     )
     return results
 
 
-def get_trough_heat_load(m, heat_annual_desired, heat_load_start=5, increment_heat_load=2):
+def get_trough_heat_load(
+    m, heat_annual_desired, heat_load_start=5, increment_heat_load=2
+):
     pysam_results = run_pysam_trough(m, heat_load=heat_load_start)
     heat_annual_trough = pysam_results["annual_energy"]
     heat_load = heat_load_start
@@ -133,6 +134,7 @@ def get_trough_heat_load(m, heat_annual_desired, heat_load_start=5, increment_he
         print(f"Calc/Desired = {heat_annual_trough/heat_annual_desired:.2f} kWh\n")
     heat_load_required = heat_load
     return heat_load_required, pysam_results
+
 
 def report_trough(m, blk):
     # blk = m.fs.trough
@@ -221,7 +223,7 @@ if __name__ == "__main__":
     heat_load = value(
         pyunits.convert(m.fs.aggregate_flow_heat_treatment, to_units=pyunits.MW)
     )
-    
+
     pysam_results = run_pysam_trough(m, heat_load=heat_load)
     m.fs.energy.trough.heat_annual.fix(pysam_results["annual_energy"])
     m.fs.energy.trough.electricity_annual.fix(pysam_results["electrical_load"])
@@ -242,4 +244,3 @@ if __name__ == "__main__":
 
     report_trough_costing(m, m.fs.energy.trough)
     m.fs.energy.trough.costing.display()
-

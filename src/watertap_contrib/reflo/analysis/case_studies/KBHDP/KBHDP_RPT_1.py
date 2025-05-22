@@ -56,35 +56,43 @@ def propagate_state(arc, detailed=True):
 def main():
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Build the system (*kwarg for Renewable Energy)
-    m = build_system(RE=False)
-    display_system_build(m)
+    # # Build the system (*kwarg for Renewable Energy)
+    # m = build_system(RE=False)
+    # display_system_build(m)
 
-    # Add connections between units and global constraints
-    add_connections(m)
-    add_constraints(m)
+    # # Add connections between units and global constraints
+    # add_connections(m)
+    # add_constraints(m)
 
-    # Define the operation conditions of the system and apply any required variable scaling
-    set_operating_conditions(m)
-    apply_scaling(m)
+    # # Define the operation conditions of the system and apply any required variable scaling
+    # set_operating_conditions(m)
+    # apply_scaling(m)
 
-    # Initialize the system
-    init_system(m)
+    # # Initialize the system
+    # init_system(m)
 
-    # Add and scale the costing packages
-    add_costing(m)
-    scale_costing(m)
+    # # Add and scale the costing packages
+    # add_costing(m)
+    # scale_costing(m)
 
-    # # Try an initial box solve. This is where the system has 0 degrees of freedom
-    # box_solve_problem(m)
+    # # # Try an initial box solve. This is where the system has 0 degrees of freedom
+    # # box_solve_problem(m)
 
-    # # See if the model will fully solve and display results
-    solve(m, debug=False)
-    display_system_stream_table(m)
-    display_system_performance(m)
+    # # # See if the model will fully solve and display results
+    # solve(m, debug=False)
+    # display_system_stream_table(m)
+    # display_system_performance(m)
 
-    # Try an optimization. Here we fix the system size and desired recovery and allow the model to optimize the operating pressure to minimize LCOW
-    optimize(m, water_recovery=0.5, objective='LCOW')
+    # # Try an optimization. Here we fix the system size and desired recovery and allow the model to optimize the operating pressure to minimize LCOW
+    # optimize(m, water_recovery=0.8, ro_mem_area=20247, objective='LCOW')
+    m = build_sweep(
+        grid_frac=0.5,
+        elec_price=None,
+        water_recovery=0.8,
+        ro_mem_area=20000,
+        objective="LCOT",
+    )
+
     solve(m, debug=False)
 
     report_RO(m, m.fs.treatment.RO)
@@ -94,6 +102,33 @@ def main():
     #     report_PV(m)
 
     display_costing_breakdown(m)
+
+    # print(
+    #     value(
+    #         pyunits.convert(
+    #             m.fs.treatment.pump.control_volume.work[0], to_units=pyunits.kW
+    #             )
+    #         ) /
+    #     value(
+    #         pyunits.convert(
+    #             m.fs.treatment.product.properties[0].flow_vol_phase["Liq"], to_units=pyunits.m**3 / pyunits.hr
+    #             )
+    #         )
+    # )
+
+    print(
+        value(
+            pyunits.convert(
+                m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kW
+            )
+        )
+        / value(
+            pyunits.convert(
+                m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
+                to_units=pyunits.m**3 / pyunits.hr,
+            )
+        )
+    )
 
     return m
 

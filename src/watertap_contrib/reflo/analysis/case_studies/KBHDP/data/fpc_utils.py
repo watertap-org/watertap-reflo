@@ -279,7 +279,7 @@ def plot_pysam_fpc_time_series(
     ax.plot(tech_model.Outputs.Q_loss[start:end], label="Heat Loss")
     ax.plot(tech_model.Outputs.Q_deliv[start:end], label="Heat Delivered")
     ax.plot(tech_model.Outputs.Q_aux[start:end], label="Auxiliary Heat Required")
-    
+
     if surr_heat is not None:
         ax.plot(
             [surr_heat for _ in tech_model.Outputs.Q_aux[start:end]],

@@ -155,7 +155,8 @@ def calc_costing(m, blk):
     blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.initialize()
 
-def add_cst_costing_scaling(m,blk):
+
+def add_cst_costing_scaling(m, blk):
     constraint_scaling_transform(blk.costing.direct_cost_constraint, 1e-8)
     constraint_scaling_transform(blk.costing.indirect_cost_constraint, 1e-6)
     constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)

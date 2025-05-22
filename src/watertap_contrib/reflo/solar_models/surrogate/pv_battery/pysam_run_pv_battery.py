@@ -246,8 +246,10 @@ def set_battery_options(
     battery_model_sizing(tech_model, battery_kw, battery_kwh, battery_volts, **kwargs)
 
 
-def run_pysam_pv_battery(design_size, battery_kw, number_hrs, weather_file=None, **kwargs):
-    
+def run_pysam_pv_battery(
+    design_size, battery_kw, number_hrs, weather_file=None, **kwargs
+):
+
     modules = create_pv_batt_modules(weather_file=weather_file, **kwargs)
 
     tech_model = modules[0]
@@ -271,12 +273,14 @@ def run_pysam_pv_battery(design_size, battery_kw, number_hrs, weather_file=None,
 if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
-    
+
     design_size = 100000
     battery_kw = 50000
     number_hrs = 12
 
-    modules, size_pv_array = run_pysam_pv_battery(design_size, battery_kw, number_hrs, weather_file=None)
+    modules, size_pv_array = run_pysam_pv_battery(
+        design_size, battery_kw, number_hrs, weather_file=None
+    )
     tech_model = modules[0]
     gen = tech_model.Outputs.gen
 
@@ -287,7 +291,10 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots()
     ax.plot(gen[start_i:end_i], label="gen")
-    ax.plot(tech_model.Outputs.gen_without_battery[start_i:end_i], label="gen_without_battery")
+    ax.plot(
+        tech_model.Outputs.gen_without_battery[start_i:end_i],
+        label="gen_without_battery",
+    )
     ax.plot(tech_model.Outputs.grid_to_batt[start_i:end_i], label="grid_to_batt")
     ax.plot(tech_model.Outputs.batt_to_grid[start_i:end_i], label="batt_to_grid")
     ax.legend()

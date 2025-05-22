@@ -363,9 +363,9 @@ def tornado_plot_rel(
     # ax.grid(visible=True)
 
     # fig = plt.gcf()
-    # fig.tight_layout()
+    fig.tight_layout()
 
-    # plt.show()
+    plt.show()
     # plt.tight_layout()
 
     return fig, ax

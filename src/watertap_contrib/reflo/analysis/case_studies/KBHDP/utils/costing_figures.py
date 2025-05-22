@@ -33,119 +33,120 @@ parent_dir = os.path.dirname(filepath)
 sweep_yaml_dir = os.path.join(os.path.dirname(parent_dir), "sweep_yamls")
 sweep_results_dir = os.path.join(os.path.dirname(parent_dir), "sweep_results", "output")
 
+
 def import_data(data_manager):
     import_keys = [
-            {
-                "filekey": "fs.costing.frac_heat_from_grid",
-                "return_key": "Grid Frac Heat",
-                # "units": "%",
-            },
-            {
-                "filekey": "fs.costing.frac_elec_from_grid",
-                "return_key": "Grid Electricity Fraction",
-                # "units": "%",
-            },
-            {
-                "filekey": "fs.costing.total_heat_operating_cost",
-                "return_key": "fs.costing.total_heat_operating_cost",
-                # "units": "%",
-            },
-            {
-                "filekey": "heat_cost_buy",
-                "return_key": "Heat Cost",
-                # "units": "USD/kWh",
-            },
-            {
-                "filekey": "fs.energy.costing.flat_plate.cost_per_area_collector",
-                "return_key": "FPC Cost Per Area",
-                # "units": "USD/kWh",
-            },
-            {
-                "filekey": "fs.energy.costing.pv_surrogate.cost_per_watt_installed",
-                "return_key": "PV Cost Per Watt Installed",
-                # "units": "USD/kWh",
-            },
-            {
-                "filekey": "fs.costing.electricity_cost_buy",
-                "return_key": "Electricity Cost",
-                "units": "USD/kWh",
-            },
-            {
-                "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
-                "return_key": "FPC Cost",
-                "units": "USD/a/kW",
-            },
-            {
-                "filekey": "fs.water_recovery",
-                "return_key": "Water Recovery",
-                "units": "%",
-            },
-            {
-                "filekey": "fs.treatment.costing.LCOW",
-                "return_key": "LCOW",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.costing.LCOT",
-                "return_key": "LCOT",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.energy.pv.annual_energy",
-                "return_key": "fs.energy.pv.annual_energy",
-                # "units": "kWh",
-            },
-            {
-                "filekey": "fs.treatment.costing.deep_well_injection.dwi_lcow",
-                "return_key": "Brine Injection Cost",
-                "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.costing.frac_heat_from_grid",
-                "return_key": "Grid Heat Fraction",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
-                "return_key": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.treatment.costing.electrocoagulation.sludge_handling_cost[kbhdp]",
-                "return_key": "EC Sludge Disposal Cost",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.treatment.costing.aluminum_cost",
-                "return_key": "Aluminum Cost",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.treatment.costing.lime.cost",
-                "return_key": "Lime Cost",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.treatment.costing.soda_ash.cost",
-                "return_key": "Soda Ash Cost",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.treatment.costing.co2.cost",
-                "return_key": "CO2 Cost",
-                # "units": "USD/m**3",
-            },
-            {
-                "filekey": "fs.treatment.costing.mgcl2.cost",
-                "return_key": "MgCl2 Cost",
-                # "units": "USD/m**3",
-            }
-        ]
+        {
+            "filekey": "fs.costing.frac_heat_from_grid",
+            "return_key": "Grid Frac Heat",
+            # "units": "%",
+        },
+        {
+            "filekey": "fs.costing.frac_elec_from_grid",
+            "return_key": "Grid Electricity Fraction",
+            # "units": "%",
+        },
+        {
+            "filekey": "fs.costing.total_heat_operating_cost",
+            "return_key": "fs.costing.total_heat_operating_cost",
+            # "units": "%",
+        },
+        {
+            "filekey": "heat_cost_buy",
+            "return_key": "Heat Cost",
+            # "units": "USD/kWh",
+        },
+        {
+            "filekey": "fs.energy.costing.flat_plate.cost_per_area_collector",
+            "return_key": "FPC Cost Per Area",
+            # "units": "USD/kWh",
+        },
+        {
+            "filekey": "fs.energy.costing.pv_surrogate.cost_per_watt_installed",
+            "return_key": "PV Cost Per Watt Installed",
+            # "units": "USD/kWh",
+        },
+        {
+            "filekey": "fs.costing.electricity_cost_buy",
+            "return_key": "Electricity Cost",
+            "units": "USD/kWh",
+        },
+        {
+            "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
+            "return_key": "FPC Cost",
+            "units": "USD/a/kW",
+        },
+        {
+            "filekey": "fs.water_recovery",
+            "return_key": "Water Recovery",
+            "units": "%",
+        },
+        {
+            "filekey": "fs.treatment.costing.LCOW",
+            "return_key": "LCOW",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.costing.LCOT",
+            "return_key": "LCOT",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.energy.pv.annual_energy",
+            "return_key": "fs.energy.pv.annual_energy",
+            # "units": "kWh",
+        },
+        {
+            "filekey": "fs.treatment.costing.deep_well_injection.dwi_lcow",
+            "return_key": "Brine Injection Cost",
+            "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.costing.frac_heat_from_grid",
+            "return_key": "Grid Heat Fraction",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
+            "return_key": "fs.energy.costing.flat_plate.fixed_operating_by_capacity",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.treatment.costing.electrocoagulation.sludge_handling_cost[kbhdp]",
+            "return_key": "EC Sludge Disposal Cost",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.treatment.costing.aluminum_cost",
+            "return_key": "Aluminum Cost",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.treatment.costing.lime.cost",
+            "return_key": "Lime Cost",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.treatment.costing.soda_ash.cost",
+            "return_key": "Soda Ash Cost",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.treatment.costing.co2.cost",
+            "return_key": "CO2 Cost",
+            # "units": "USD/m**3",
+        },
+        {
+            "filekey": "fs.treatment.costing.mgcl2.cost",
+            "return_key": "MgCl2 Cost",
+            # "units": "USD/m**3",
+        },
+    ]
 
     data_manager.load_data(
-            import_keys,
-            exact_keys=False,
-        )
+        import_keys,
+        exact_keys=False,
+    )
 
     data_manager.display()
     return data_manager
@@ -169,7 +170,7 @@ def create_sweep_cost_breakdown(
     print(costing_data.data_keys)
 
     # assert False
-    x_var = costing_data.directory_keys[0].split('/')[-1]
+    x_var = costing_data.directory_keys[0].split("/")[-1]
 
     # assert False
 
@@ -200,9 +201,9 @@ def create_sweep_cost_breakdown(
     cost_plotter = breakDownPlotter(
         costing_data,
         save_location=save_path,
-        save_name=save_name + "_" + x_var + '_final',
+        save_name=save_name + "_" + x_var + "_final",
     )
-    print(save_name + "_" + x_var + '_final')
+    print(save_name + "_" + x_var + "_final")
     print(x_var)
     """ define the costing groups, this will be order they are plotted in"""
     ## This is why the rest of the device groups aren't showing up
@@ -270,33 +271,43 @@ def create_case_figures(case_name=None, sweep_file=None, device_groups=None):
             for file in files:
                 file_id = file.split("_")
                 case_id = case_name.split("_")
-                print('\n')
+                print("\n")
                 print(file_id, case_id, file)
-                
+
                 if file_id[:3] == case_id[:3]:
-                    print('    ',file_id[:3], case_id[:3])
+                    print("    ", file_id[:3], case_id[:3])
                     print(f"\n\nCreating Figures for {file} sweep\n\n")
-                    if file_id[-1] == 'map.h5':
-                        costing_data = psDataManager(os.path.join(sweep_results_dir, file))
-                        create_map_figure(costing_data,
-                                          x_data="Brine Injection Cost",
-                                          y_data="Electricity Cost",
-                                          z_data="Grid Electricity Fraction",
-                                        #   xticks=[50,60,70,80],
-                                        #   yticks=[0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8, 2.0],
-                                        #   zticks=[0.9,1,1.1,1.2, 1.3, 1.4, 1.5],
-                                          save_name = case_name ,
-                                          show=True)
+                    if file_id[-1] == "map.h5":
+                        costing_data = psDataManager(
+                            os.path.join(sweep_results_dir, file)
+                        )
+                        create_map_figure(
+                            costing_data,
+                            x_data="Brine Injection Cost",
+                            y_data="Electricity Cost",
+                            z_data="Grid Electricity Fraction",
+                            #   xticks=[50,60,70,80],
+                            #   yticks=[0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8, 2.0],
+                            #   zticks=[0.9,1,1.1,1.2, 1.3, 1.4, 1.5],
+                            save_name=case_name,
+                            show=True,
+                        )
                     else:
-                        costing_data = psDataManager(os.path.join(sweep_results_dir, file))
+                        costing_data = psDataManager(
+                            os.path.join(sweep_results_dir, file)
+                        )
                         print(device_groups, case_name)
                         create_sweep_cost_breakdown(
-                            costing_data, device_groups=device_groups, save_name=case_name
+                            costing_data,
+                            device_groups=device_groups,
+                            save_name=case_name,
                         )
                 #         # pass
 
+
 # def create_map_figures(file, file_id = None, case_id = None, device_groups=None, save_name=None):
 #     costing_data = psDataManager(os.path.join(sweep_results_dir, file))
+
 
 def create_map_figure(
     costing_data,
@@ -320,22 +331,28 @@ def create_map_figure(
     util_dir = os.path.dirname(filepath)
     parent_dir = os.path.dirname(util_dir)
     save_path = os.path.join(parent_dir, "figures/")
-    save_name = save_name + z_data +'_vs_' + x_data +'_vs_' + y_data
+    save_name = save_name + z_data + "_vs_" + x_data + "_vs_" + y_data
     fig = fig_generator.figureGenerator()
     fig.init_figure()
     zformat_prec = 2
     text = True
 
     # Define the colors: center (white), and edges (#065a82, #942911)
-    colors = ['#005AA0', '#DBDBDB', '#d62728']
-    diverging_color_map = LinearSegmentedColormap.from_list('custom_diverging', colors)
+    colors = ["#005AA0", "#DBDBDB", "#d62728"]
+    diverging_color_map = LinearSegmentedColormap.from_list("custom_diverging", colors)
 
     if digitize_levels is not None:
         text = False
-        digitize_colors = LinearSegmentedColormap.from_list('custom_diverging', colors, N=len(digitize_levels))
-    
+        digitize_colors = LinearSegmentedColormap.from_list(
+            "custom_diverging", colors, N=len(digitize_levels)
+        )
+
     import_data(costing_data)
-    num_sweep_vars = (len(costing_data.psDataImportInstances[0].file_index[costing_data.directory_keys[0]]['sweep_params']))
+    num_sweep_vars = len(
+        costing_data.psDataImportInstances[0].file_index[
+            costing_data.directory_keys[0]
+        ]["sweep_params"]
+    )
 
     if (x_data is not None) & (y_data is not None) & (z_data is not None):
         xdata = costing_data[costing_data.directory_keys[0], x_data].data
@@ -343,12 +360,12 @@ def create_map_figure(
         zdata = costing_data[costing_data.directory_keys[0], z_data].data
 
         if norm is not None:
-            if norm == 'max':
+            if norm == "max":
                 zdata = (zdata - np.nanmax(zdata)) / np.nanmax(zdata) * 100
                 zlabel = "% Change in " + zlabel
                 save_name = save_name + "_norm"
                 zformat_prec = 0
-            elif norm == 'min':
+            elif norm == "min":
                 zdata = (zdata - np.nanmin(zdata)) / np.nanmin(zdata) * 100
                 zlabel = "% Change in " + zlabel
                 save_name = save_name + "_norm"
@@ -364,7 +381,7 @@ def create_map_figure(
                 zformat_prec = 0
         if zticks is None:
             zticks = np.linspace(np.nanmin(zdata), np.nanmax(zdata), 5)
-    #     #TODO Add new normalization dynamic range
+        #     #TODO Add new normalization dynamic range
 
         # divnorm = TwoSlopeNorm(vmin=min(zticks), vcenter=0, vmax=max(zticks))
 
@@ -385,7 +402,7 @@ def create_map_figure(
             # plot_contour= False
         )
 
-    #     # zdata = np.nan_to_num(zdata)
+        #     # zdata = np.nan_to_num(zdata)
 
         # print(f"Colorar Range {z_range}")
         # cbar = plt.colorbar(fig.colorFig, cmap=diverging_color_map, norm=divnorm)
@@ -399,9 +416,13 @@ def create_map_figure(
     #     print("No data provided")
 
     if xticks is None:
-        xticks = np.linspace(min(np.unique(xdata)),max(np.unique(xdata)), int(len(np.unique(xdata))/2)).round(2)
+        xticks = np.linspace(
+            min(np.unique(xdata)), max(np.unique(xdata)), int(len(np.unique(xdata)) / 2)
+        ).round(2)
     if yticks is None:
-        yticks = np.linspace(min(np.unique(ydata)),max(np.unique(ydata)), len(np.unique(ydata))).round(2)
+        yticks = np.linspace(
+            min(np.unique(ydata)), max(np.unique(ydata)), len(np.unique(ydata))
+        ).round(2)
     # yticks = np.unique(ydata)
 
     fig.set_axis_ticklabels(
@@ -420,12 +441,11 @@ def create_map_figure(
             print(f'Saving Figure as {os.path.join(save_path, "temp")}')
             fig.save(save_location=os.path.join(save_path, "temp"))
         else:
-            print(f'Saving Figure as {os.path.join(save_path, save_name)}')
+            print(f"Saving Figure as {os.path.join(save_path, save_name)}")
             fig.save(save_location=save_path, file_name=save_name)
 
     if show == True:
         fig.show()
-
 
 
 def create_all_figures():

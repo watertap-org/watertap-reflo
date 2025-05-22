@@ -2344,13 +2344,14 @@ def run_energy_param_sweep(num_pts=4):
     timestr = time.strftime("%Y%m%d-%H%M%S")
 
     df_results.to_csv(
-        f"{save_path}/kbhdp_zld_results_pv_trough_storage_cost_frac_from_grid_sweep-{timestr}.csv", index=False
+        f"{save_path}/kbhdp_zld_results_pv_trough_storage_cost_frac_from_grid_sweep-{timestr}.csv",
+        index=False,
     )
 
 
 if __name__ == "__main__":
-    # main()
+    main()
 
     # run_elec_heat_cost_sweep()
-    run_recov_chem_mat_cost_sweep()
+    # run_recov_chem_mat_cost_sweep()
     # run_energy_param_sweep()
