@@ -122,7 +122,8 @@ solver = get_solver()
 
 __all__ = ["build_and_run_permian_SOA", "solve_permian_SOA"]
 
-save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/SOA_results"
+# save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/SOA_results"
+save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results"
 def build_and_run_permian_SOA(
     pretreatment_recovery=0.98,
     recovery=0.5,
@@ -603,7 +604,7 @@ def run_permian_SOA_recovery_sweep(num_pts=9):
             df = pd.merge(df, df1, on=["recovery"])
             print(cr, len(df), len(df1))
 
-    df.to_csv(f"{save_path}/permian_SOA_mvc_recovery_sweep-rerun_11pts.csv", index=False)
+    df.to_csv(f"{save_path}/permian_SOA_mvc_recovery_sweep.csv", index=False)
 
 
 def run_permian_SOA_electricity_sweep(num_pts=9):
@@ -801,7 +802,7 @@ if __name__ == "__main__":
     # run_permian_SOA_salinity_flow_sweep_wide(recovery=0.6)
     # build_and_run_permian_SOA()
     # build_and_run_permian_pretreatment()
-    # run_permian_SOA_salinity_flow_sweep()
+    run_permian_SOA_salinity_flow_sweep()
     # run_permian_SOA_electricity_sweep()
     # run_permian_SOA_recovery_sweep()
     # m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
