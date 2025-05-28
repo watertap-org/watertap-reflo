@@ -61,18 +61,18 @@ if __name__ == "__main__":
     sweep_dict = {
     'ro_water_recovery':[0.6,0.8],
     'nacl_recovery_price':[0,-0.012,-0.024],
-    'cst_cost_per_total_aperture_area':np.linspace(186.5,466.25,4),
-    'cst_cost_per_storage_capital':np.linspace(31,77.5,4),
-    'pv_cost_per_watt_installed':np.linspace(0.8,2,4),
+    'cst_cost_per_total_aperture_area':np.linspace(148.5,445.5,4),
+    'cst_cost_per_storage_capital':np.linspace(31,93,4),
+    'pv_cost_per_watt_installed':np.linspace(0.8,2.4,4),
     }   
     
     input_dict = {
         'ro_water_recovery':0.8,
         'md_water_recovery':0.78,
         'nacl_recovery_price':0,
-        'heat_price':0.0166,
+        'heat_price':0.00894,
         'electricity_price':0.04989,
-        'cst_cost_per_total_aperture_area':373,
+        'cst_cost_per_total_aperture_area': 297,
         'cst_cost_per_storage_capital': 62,
         'pv_cost_per_watt_installed': 1.6
     }
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "pv_cost_per_watt_installed"
+    sweep_type = "nacl_recovery_price"
     only_plot = False
     # only_plot = True
 

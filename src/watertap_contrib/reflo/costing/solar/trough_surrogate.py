@@ -24,14 +24,14 @@ def build_trough_surrogate_cost_param_block(blk):
     costing = blk.parent_block()
 
     blk.cost_per_land_area = pyo.Var(
-        initialize=10000,
+        initialize=4000,
         units=costing.base_currency / pyo.units.acre,
         bounds=(0, None),
         doc="Cost per acre of land",
     )
 
     blk.cost_per_total_aperture_area = pyo.Var(
-        initialize=373,
+        initialize=297,
         units=costing.base_currency / pyo.units.m**2,
         bounds=(0, None),
         doc="Cost per m2 of total aperture area (includes site improvement 16 $/m2, solar field 297 $/m2, HTF system 60 $/m2)",
