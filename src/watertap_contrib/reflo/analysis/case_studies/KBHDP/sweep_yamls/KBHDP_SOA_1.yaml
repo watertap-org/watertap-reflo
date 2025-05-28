@@ -15,14 +15,14 @@ KBHDP_SOA_1_water_recovery_sweep:
 # #       upper_limit: 0.25
 # #       num_samples: 21
 
-# KBHDP_SOA_1_lime_cost_sweep:
-#   sweep_param_loop:
-#     lime_cost:
-#       type: LinearSample
-#       param: fs.treatment.costing.lime.cost
-#       lower_limit: 0.05
-#       upper_limit: 0.20
-#       num_samples: 21
+KBHDP_SOA_1_lime_cost_sweep:
+  sweep_param_loop:
+    lime_cost:
+      type: LinearSample
+      param: fs.treatment.costing.lime.cost
+      lower_limit: 0.05
+      upper_limit: 0.15
+      num_samples: 11
 # KBHDP_SOA_1_soda_ash_cost_sweep:
 #   sweep_param_loop:
 #     soda_ash_cost:

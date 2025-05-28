@@ -1,10 +1,8 @@
-# #GOOD
-
 KBHDP_RPT_2_water_recovery_sweep:
   build_defaults:
     grid_frac_heat: 0.99
     water_recovery: 0.35
-    # heat_price: 0.005
+    heat_price: 0.00894
   sweep_param_loop:
     Water Recovery:
       type: LinearSample
@@ -16,31 +14,29 @@ KBHDP_RPT_2_storage_sweep:
   build_defaults:
     grid_frac_heat: 0.5
     water_recovery: 0.8
-    heat_price: 0.0166
+    heat_price: 0.00894
   sweep_param_loop:
     Storage Cost:
       type: LinearSample
       param: fs.energy.costing.flat_plate.cost_per_volume_storage
       lower_limit: 1000
-      upper_limit: 2500
+      upper_limit: 3000
       num_samples: 11
-# # KBHDP_RPT_2_disposal_cost_sweep:
-# #   build_defaults:
-# #     heat_price: 0.01
-# #   sweep_param_loop:
-# #     Brine Injection Cost:
-# #       type: LinearSample
-# #       param: fs.treatment.costing.deep_well_injection.dwi_lcow
-# #       lower_limit: 0
-# #       upper_limit: 1
-# #       num_samples: 11
-
-# HALF
+KBHDP_RPT_2_disposal_cost_sweep:
+  build_defaults:
+    heat_price: 0.00894
+  sweep_param_loop:
+    Brine Injection Cost:
+      type: LinearSample
+      param: fs.treatment.costing.deep_well_injection.dwi_lcow
+      lower_limit: 0.29
+      upper_limit: 0.87
+      num_samples: 11
 KBHDP_RPT_2_frac_heat_from_grid_sweep:
   build_defaults:
     grid_frac_heat: 0.9
     water_recovery: 0.8
-    heat_price: 0.0166
+    heat_price: 0.00894
   sweep_param_loop:
     Grid Heat Fraction:
       type: LinearSample
@@ -50,19 +46,18 @@ KBHDP_RPT_2_frac_heat_from_grid_sweep:
       num_samples: 21
 KBHDP_RPT_2_heat_price_sweep:
   build_defaults:
-    # heat_price: 0.0083
     water_recovery: 0.8
     grid_frac_heat: 0.5
   sweep_param_loop:
     Heat Cost:
       type: LinearSample
       param: fs.costing.heat_cost_buy
-      lower_limit: 0.0083
-      upper_limit: 0.0166
-      num_samples: 10
+      lower_limit: 0.00447
+      upper_limit: 0.01341
+      num_samples: 11
 KBHDP_RPT_2_collector_cost_sweep:
   build_defaults:
-    heat_price: 0.01
+    heat_price: 0.0083
     water_recovery: 0.8
     grid_frac_heat: 0.5
   sweep_param_loop:
@@ -70,17 +65,5 @@ KBHDP_RPT_2_collector_cost_sweep:
       type: LinearSample
       param: fs.energy.costing.flat_plate.cost_per_area_collector
       lower_limit: 300
-      upper_limit: 750
+      upper_limit: 900
       num_samples: 11
-KBHDP_RPT_2_fpc_cost_sweep:
-  build_defaults:
-    heat_price: 0.01
-    water_recovery: 0.35
-    grid_frac_heat: 0.6
-  sweep_param_loop:
-    FPC Opex By Capacity:
-      type: LinearSample
-      param: fs.energy.costing.flat_plate.fixed_operating_by_capacity
-      lower_limit: 0
-      upper_limit: 15
-      num_samples: 16

@@ -177,7 +177,7 @@ def tornado_plot(
     # fig = plt.gcf()
     # fig.tight_layout()
 
-    # plt.show()
+    plt.show()
     # plt.tight_layout()
 
     return fig, ax

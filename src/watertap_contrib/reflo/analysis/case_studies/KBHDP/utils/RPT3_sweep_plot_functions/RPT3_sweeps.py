@@ -54,18 +54,18 @@ def run():
 
     sweep_dict = {
         "water_recovery": np.linspace(0.3, 0.8, 8),
-        "heat_price": np.linspace(0.0083, 0.02075, 8),  # $/kwh
-        "grid_frac_heat": np.linspace(0.1, 0.9, 8),
-        "dwi_lcow": np.linspace(0.29, 0.74, 8),  # $/m3 treated water
-        "cost_per_area_collector": np.linspace(300, 750, 8),  # $/m2
-        "cost_per_volume_storage": np.linspace(1000, 2500, 8),  # $/m3
+        "heat_price": np.linspace(0.00447, 0.01341, 8),  # $/kwh
+        "grid_frac_heat": np.linspace(0.1, 0.9, 9),
+        "dwi_lcow": np.linspace(0.29, 0.87, 8),  # $/m3 treated water
+        "cost_per_area_collector": np.linspace(300, 900, 8),  # $/m2
+        "cost_per_volume_storage": np.linspace(1000, 3000, 8),  # $/m3
     }
 
     input_dict = {
         "water_recovery": 0.7,
-        "heat_price": 0.0166,
-        "electricity_price": 0.04989,
-        "grid_frac_heat": 0.5,
+        "heat_price": 0.00894,
+        "electricity_price": 0.066,
+        "grid_frac_heat": 0.99,
         "hours_storage": 24,
         "cost_per_area_collector": 600,
         "cost_per_volume_storage": 2000,
@@ -76,7 +76,7 @@ def run():
     # Select sweep type
     #############################################################################################
 
-    sweep_type = "grid_frac_heat"
+    sweep_type = "water_recovery"
     only_plot = False
     # only_plot = True
 
