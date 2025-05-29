@@ -14,11 +14,7 @@ from pyomo.environ import (
 )
 from idaes.core.solvers import get_solver
 
-__all__ = [
-    "build_results_dict",
-    "results_dict_append",
-    "plot_results_dict"
-]
+__all__ = ["build_results_dict", "results_dict_append", "plot_results_dict"]
 
 
 def build_results_dict(

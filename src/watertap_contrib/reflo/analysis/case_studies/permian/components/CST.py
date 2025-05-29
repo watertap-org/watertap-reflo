@@ -11,6 +11,7 @@ from pyomo.environ import (
 import os
 import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+
 # from idaes.core.solvers import get_solver
 from watertap.core.solvers import get_solver
 from watertap.core.util.model_diagnostics.infeasible import *
@@ -117,7 +118,6 @@ def build_cst(blk, __file__=None):
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
-        
     )
 
     if hasattr(blk.unit, "hours_storage"):
@@ -130,7 +130,6 @@ def build_cst(blk, __file__=None):
 def init_cst(blk):
     # Fix input variables for initialization
     blk.unit.initialize()
-
 
 
 def set_system_op_conditions(m):
@@ -148,6 +147,7 @@ def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
 
     blk.unit.heat_load.fix(heat_load)
 
+
 def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
 
@@ -158,10 +158,12 @@ def calc_costing(m, blk):
     blk.costing.maintenance_labor_chemical_factor.fix(0)
     blk.costing.initialize()
 
-def add_cst_costing_scaling(m,blk):
+
+def add_cst_costing_scaling(m, blk):
     constraint_scaling_transform(blk.costing.direct_cost_constraint, 1e-8)
     constraint_scaling_transform(blk.costing.indirect_cost_constraint, 1e-6)
     constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)
+
 
 def report_cst(m, blk):
     # blk = m.fs.cst
@@ -277,11 +279,14 @@ if __name__ == "__main__":
     m.fs.costing.add_LCOH()
     print("\nLCOH:", m.fs.costing.LCOH())
 
-    print("Direct cost:", m.fs.cst.unit.costing.direct_cost())    
-    print("Indirect cost:", m.fs.cst.unit.costing.indirect_cost())    
+    print("Direct cost:", m.fs.cst.unit.costing.direct_cost())
+    print("Indirect cost:", m.fs.cst.unit.costing.indirect_cost())
     print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
-    print("Lifetime production:",m.fs.costing.lifetime_heat_production())
-    print("Annualized heat production:",m.fs.costing.lifetime_heat_production()/m.fs.costing.plant_lifetime())
+    print("Lifetime production:", m.fs.costing.lifetime_heat_production())
+    print(
+        "Annualized heat production:",
+        m.fs.costing.lifetime_heat_production() / m.fs.costing.plant_lifetime(),
+    )
 
     # Calcualating LCOH like SAM
     cost = m.fs.costing

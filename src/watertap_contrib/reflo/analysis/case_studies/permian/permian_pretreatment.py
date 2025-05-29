@@ -534,7 +534,7 @@ def build_and_run_permian_pretreatment(
 
     treat.costing.heat_cost.fix(heat_cost)
     treat.costing.electricity_cost.fix(electricity_cost)
-    
+
     treat.costing.initialize()
 
     print(f"DOF = {degrees_of_freedom(m)}")

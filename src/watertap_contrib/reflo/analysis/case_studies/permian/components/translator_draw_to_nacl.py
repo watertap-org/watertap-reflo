@@ -43,59 +43,45 @@ __author__ = "Zhuoran Zhang"
 _log = idaeslog.getLogger(__name__)
 
 
-@declare_process_block_class("Denormalizer_Cryst")
-class Denormalizer_Cryst_Data(TranslatorData):
+@declare_process_block_class("Translator_Draw_to_NaCl")
+class Translator_Draw_to_NaCl_Data(TranslatorData):
     """
-    Temporary translator to normalize the crystallization feed flow
+    Translator block for Draw Solution to NaCl property packages
     """
 
     CONFIG = TranslatorData.CONFIG()
 
     def build(self):
-
         super().build()
 
         @self.Constraint(doc="Isothermal")
         def eq_temperature(b):
             return b.properties_in[0].temperature == b.properties_out[0].temperature
 
-        @self.Constraint(doc="Isobaric")
-        def eq_pressure(b):
-            return b.properties_in[0].pressure == b.properties_out[0].pressure
+        # @self.Constraint(doc="Isobaric")
+        # def eq_pressure(b):
+        #     return b.properties_in[0].pressure == b.properties_out[0].pressure
 
         @self.Constraint(
-            self.flowsheet().time,
             doc="Equality mass flow water equation",
         )
-        def eq_flow_mass_water(blk, t):
+        def eq_flow_mass_water(b):
             return (
-                blk.properties_out[t].flow_mass_phase_comp["Liq", "H2O"]
-                == blk.properties_in[t].flow_mass_phase_comp["Liq", "H2O"] * 10
+                b.properties_in[0].flow_mass_phase_comp["Liq", "H2O"]
+                == b.properties_out[0].flow_mass_phase_comp["Liq", "H2O"]
             )
 
         @self.Constraint(
-            self.flowsheet().time,
             doc="Equality mass flow TDS equation",
         )
-        def eq_flow_mass_tds(blk, t):
+        def eq_flow_mass_tds(b):
             return (
-                blk.properties_out[t].flow_mass_phase_comp["Liq", "NaCl"]
-                == blk.properties_in[t].flow_mass_phase_comp["Liq", "NaCl"] * 10
+                b.properties_in[0].flow_mass_phase_comp["Liq", "DrawSolution"]
+                == b.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]
             )
 
-        @self.Constraint(
-            self.flowsheet().time,
-            doc="Equality mass flow vapor equation",
-        )
-        def eq_flow_mass_vapor(blk, t):
-            return blk.properties_out[t].flow_mass_phase_comp["Vap", "H2O"] == 0
-
-        @self.Constraint(
-            self.flowsheet().time,
-            doc="Equality mass flow sol equation",
-        )
-        def eq_flow_mass_sol(blk, t):
-            return blk.properties_out[t].flow_mass_phase_comp["Sol", "NaCl"] == 0
+        self.properties_out[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
+        self.properties_out[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
 
     def initialize_build(
         self,
