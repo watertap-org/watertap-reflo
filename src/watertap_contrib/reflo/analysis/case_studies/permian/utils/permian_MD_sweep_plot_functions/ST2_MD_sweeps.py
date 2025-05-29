@@ -1,7 +1,7 @@
 from idaes.core.solvers import get_solver
 from pyomo.environ import SolverFactory, value
 import pandas as pd
-from watertap_contrib.reflo.analysis.case_studies.permian.permian_ST2_MD import (
+from watertap_contrib.reflo.analysis.case_studies.permian.permian_ZLD1_MD import (
     run_permian_st2_md,
 )
 import matplotlib.pyplot as plt
