@@ -1043,9 +1043,9 @@ if __name__ == "__main__":
         ro_recovery = 0.8,
         md_water_recovery = 0.78,
         nacl_recovery_price = 0,
-        heat_price = 0.0166,
+        heat_price = 0.00894,
         electricity_price = 0.04989,
-        cost_per_total_aperture_area = 373,
+        cost_per_total_aperture_area = 297,
         cost_per_storage_capital = 62,
         cost_per_watt_installed = 1.6
         )
