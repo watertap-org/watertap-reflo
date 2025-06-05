@@ -1,0 +1,20 @@
+SOA_diff_analysis:
+  # enable: True
+  diff_param_loop:
+    Brine Injection Cost:
+      diff_mode: percentile
+      diff_sample_type: UniformSample
+      nominal_lb: -0.01
+      nominal_ub: -0.01
+      num_samples: 1
+      param: fs.treatment.costing.deep_well_injection.dwi_lcow
+      relative_lb: -0.01
+      relative_ub: 0.01
+    sweep_reference_params: # The parameters below will be used to generate reference design and will be run simultaneously (e.g. all of them will be changed to generate a new hypothetical design here, we only provide one parameter, membrane cost, but could provide many others)
+      Brine Injection Cost:
+        type: UniformSample
+        param: fs.treatment.costing.deep_well_injection.dwi_lcow
+        lower_limit: 0.01
+        upper_limit: 0.01
+      num_samples: 1
+      
