@@ -149,7 +149,9 @@ if __name__ == "__main__":
     )
 
     config_files = [
-        os.path.join(__location__, "cst/trough_physical_iph_permian-reflo.json"),  # Updated the max HTF flowrate
+        os.path.join(
+            __location__, "cst/trough_physical_iph_permian-reflo.json"
+        ),  # Updated the max HTF flowrate
     ]
     weather_file = os.path.join(__location__, "carlsbad_NM_weather_tmy-2023-full.csv")
     dataset_filename = os.path.join(

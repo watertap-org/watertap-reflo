@@ -37,6 +37,7 @@ from watertap.property_models.water_prop_pack import (
 from watertap_contrib.reflo.unit_models.multi_effect_crystallizer import (
     MultiEffectCrystallizer,
 )
+
 # from watertap_contrib.reflo.unit_models.crystallizer_effect import CrystallizerEffect
 
 from watertap_contrib.reflo.costing import (
@@ -55,22 +56,27 @@ __all__ = [
     "mec_rescaling",
 ]
 
+
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
 
     m.fs.properties_vapor = SteamParameterBlock()
     m.fs.properties_NaCl = NaClParameterBlock()
-    
+
     m.fs.costing = TreatmentCosting()
 
-    build_mec(m, m.fs,
-              prop_package = m.fs.properties_NaCl,
-              prop_package_vapor = m.fs.properties_vapor)
+    build_mec(
+        m,
+        m.fs,
+        prop_package=m.fs.properties_NaCl,
+        prop_package_vapor=m.fs.properties_vapor,
+    )
 
     return m
 
-def build_mec(m, blk, prop_package, prop_package_vapor ) -> None:
+
+def build_mec(m, blk, prop_package, prop_package_vapor) -> None:
 
     if prop_package is None:
         prop_package = NaClParameterBlock()
@@ -78,16 +84,18 @@ def build_mec(m, blk, prop_package, prop_package_vapor ) -> None:
         prop_package_vapor = SteamParameterBlock()
 
     blk.unit = MultiEffectCrystallizer(
-        property_package= prop_package, property_package_vapor = prop_package_vapor
+        property_package=prop_package, property_package_vapor=prop_package_vapor
     )
 
-def set_mec_op_conditions(m, 
-                          blk,
-                          operating_pressures = [0.4455, 0.2758, 0.1651, 0.095],
-                          nacl_yield = 0.7,
-                          heat_transfer_coefficient = 0.13
-                          ) -> None :
-    
+
+def set_mec_op_conditions(
+    m,
+    blk,
+    operating_pressures=[0.4455, 0.2758, 0.1651, 0.095],
+    nacl_yield=0.7,
+    heat_transfer_coefficient=0.13,
+) -> None:
+
     mec = blk.unit
 
     # Guessed values for initialization
@@ -116,8 +124,18 @@ def set_mec_op_conditions(m,
     # flow_mass_phase_water_per = 116 / 100 * pyunits.kg / pyunits.s
     # flow_mass_phase_salt_per = 28 / 100 * pyunits.kg / pyunits.s
 
-    flow_mass_phase_water_per = flow_mass_phase_water_total /(flow_mass_phase_water_total + flow_mass_phase_salt_total) * pyunits.kg / pyunits.s
-    flow_mass_phase_salt_per = flow_mass_phase_salt_total  /(flow_mass_phase_water_total + flow_mass_phase_salt_total) * pyunits.kg / pyunits.s
+    flow_mass_phase_water_per = (
+        flow_mass_phase_water_total
+        / (flow_mass_phase_water_total + flow_mass_phase_salt_total)
+        * pyunits.kg
+        / pyunits.s
+    )
+    flow_mass_phase_salt_per = (
+        flow_mass_phase_salt_total
+        / (flow_mass_phase_water_total + flow_mass_phase_salt_total)
+        * pyunits.kg
+        / pyunits.s
+    )
 
     saturated_steam_pressure = 101325 * pyunits.Pa + pyunits.convert(
         3 * pyunits.bar, to_units=pyunits.Pa
@@ -176,7 +194,8 @@ def set_mec_op_conditions(m,
     for n, eff in mec.effects.items():
         assert degrees_of_freedom(eff.effect) == 0
 
-def init_mec(m,blk):
+
+def init_mec(m, blk):
     mec = blk.unit
 
     ### INITIALIZE FOR EACH EFFECT
@@ -222,6 +241,7 @@ def init_mec(m,blk):
     results = solver.solve(blk)
     assert_optimal_termination(results)
 
+
 def unfix_mec(blk):
     mec = blk.unit
 
@@ -233,10 +253,12 @@ def unfix_mec(blk):
     mec.inlet.temperature[0].unfix()
     mec.inlet.pressure[0].unfix()
 
-def mec_rescaling(blk,
-                  flow_mass_phase_water_total = 116.247/10,
-                  flow_mass_phase_salt_total = 28.478/10):
 
+def mec_rescaling(
+    blk,
+    flow_mass_phase_water_total=116.247 / 10,
+    flow_mass_phase_salt_total=28.478 / 10,
+):
     """
     Note: Rescaling is probably needed for extremely large feed flow,
     """
@@ -268,9 +290,9 @@ def add_mec_costing(m, blk, flowsheet_costing_block=None):
     if flowsheet_costing_block is None:
         flowsheet_costing_block = m.fs.costing
     blk.unit.costing = UnitModelCostingBlock(
-            flowsheet_costing_block=flowsheet_costing_block,
-            costing_method_arguments={"cost_work_as": "heat"},
-        )
+        flowsheet_costing_block=flowsheet_costing_block,
+        costing_method_arguments={"cost_work_as": "heat"},
+    )
 
 
 def solve(m, solver=None, tee=True, raise_on_failure=True):
@@ -293,12 +315,13 @@ def solve(m, solver=None, tee=True, raise_on_failure=True):
     else:
         return results
 
+
 if __name__ == "__main__":
 
     m = build_system()
 
-    set_mec_op_conditions(m, m.fs,heat_transfer_coefficient = 0.13)
-    init_mec(m,m.fs)
+    set_mec_op_conditions(m, m.fs, heat_transfer_coefficient=0.13)
+    init_mec(m, m.fs)
     unfix_mec(m.fs)
 
     flow_mass_phase_water_total = 11.6
@@ -316,9 +339,9 @@ if __name__ == "__main__":
     # mec_rescaling(m.fs)
     add_mec_costing(m, m.fs)
 
-    print('')
-    print('here')
-    print('')
+    print("")
+    print("here")
+    print("")
     m.fs.unit.inlet.display()
 
     solve(m)

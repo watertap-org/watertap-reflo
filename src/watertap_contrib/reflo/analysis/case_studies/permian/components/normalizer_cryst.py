@@ -54,6 +54,7 @@ class Normalizer_Cryst_Data(TranslatorData):
     def build(self):
 
         super().build()
+
         @self.Constraint(doc="Isothermal")
         def eq_temperature(b):
             return b.properties_in[0].temperature == b.properties_out[0].temperature
@@ -87,21 +88,14 @@ class Normalizer_Cryst_Data(TranslatorData):
             doc="Equality mass flow vapor equation",
         )
         def eq_flow_mass_vapor(blk, t):
-            return (
-                blk.properties_out[t].flow_mass_phase_comp["Vap", "H2O"]
-                == 0
-            )
+            return blk.properties_out[t].flow_mass_phase_comp["Vap", "H2O"] == 0
 
         @self.Constraint(
             self.flowsheet().time,
             doc="Equality mass flow sol equation",
         )
         def eq_flow_mass_sol(blk, t):
-            return (
-                blk.properties_out[t].flow_mass_phase_comp["Sol", "NaCl"]
-                == 0
-            )        
-        
+            return blk.properties_out[t].flow_mass_phase_comp["Sol", "NaCl"] == 0
 
     def initialize_build(
         self,

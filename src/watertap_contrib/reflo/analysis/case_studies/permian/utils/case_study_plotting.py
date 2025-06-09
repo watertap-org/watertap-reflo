@@ -33,7 +33,7 @@ flow_list = [
     "hydrogen_peroxide",
     "aluminum",
     "soda_ash",
-    "lime", 
+    "lime",
     "CO2",
     "mgcl2",
 ]
@@ -43,6 +43,7 @@ unit_color_dict_default = dict(zip(unit_list, unit_colors))
 
 flow_colors = plt.cm.Dark2(np.arange(len(flow_list)).astype(int))
 flow_color_dict_default = dict(zip(flow_list, flow_colors))
+
 
 def case_study_stacked_plot(
     df,
@@ -244,7 +245,9 @@ def case_study_stacked_plot(
             stacked_labels.append(f"{u} OPEX")
             stacked_hatch.append(opex_hatch)
             stacked_colors.append(unit_color_dict[u])
-        legend_elements.append(Patch(facecolor=unit_color_dict[u], label=u, edgecolor="k"))
+        legend_elements.append(
+            Patch(facecolor=unit_color_dict[u], label=u, edgecolor="k")
+        )
 
     if (fig, ax) == (None, None):
         fig, ax = plt.subplots(figsize=figsize)
