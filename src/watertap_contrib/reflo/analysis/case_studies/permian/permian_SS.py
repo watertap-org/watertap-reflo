@@ -125,7 +125,7 @@ heat_cost_base = 0.00894
 save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/SS_results"
 
 
-def build_ss(initial_salinity=130, daily_water_production=14000):
+def build_ss(initial_salinity=130, daily_water_production=14000, water_yield_calc_dict=None):
 
     daily_water_production = daily_water_production * pyunits.gallons / pyunits.day
     flow_mass_in = pyunits.convert(
@@ -142,15 +142,16 @@ def build_ss(initial_salinity=130, daily_water_production=14000):
         "material_flow_basis": MaterialFlowBasis.mass,
     }
 
-    water_yield_calc_dict = dict(
-        input_weather_file_path=weather_file,
-        initial_salinity=initial_salinity,  # initial salinity of influent water; g/L
-        initial_water_depth=0.01,  # initial depth of water in solar still basin; m
-        length_basin=0.6,  # length of each side of basin (length=width); m
-        irradiance_threshold=20,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
-        temperature_col="Temperature",
-        wind_velocity_col="Wind Speed",
-    )
+    if water_yield_calc_dict is None:
+        water_yield_calc_dict = dict(
+            input_weather_file_path=weather_file,
+            initial_salinity=initial_salinity,  # initial salinity of influent water; g/L
+            initial_water_depth=0.01,  # initial depth of water in solar still basin; m
+            length_basin=0.6,  # length of each side of basin (length=width); m
+            irradiance_threshold=20,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
+            temperature_col="Temperature",
+            wind_velocity_col="Wind Speed",
+        )
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)

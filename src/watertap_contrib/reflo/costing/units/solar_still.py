@@ -261,7 +261,7 @@ def cost_solar_still(blk):
         initialize=1,
         bounds=(0, None),
         units=base_currency / base_period,
-        doc="Capital cost of piping",
+        doc="Operating cost labor",
     )
 
     blk.number_sw_pumps_constraint = pyo.Constraint(
