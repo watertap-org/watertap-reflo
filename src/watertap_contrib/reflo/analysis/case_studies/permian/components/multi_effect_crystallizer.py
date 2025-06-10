@@ -94,7 +94,7 @@ def set_mec_op_conditions(
     feed_H2O=153.34422736111105,
     feed_NaCl=38.336056840277756,
     nacl_yield=0.9,
-    heat_transfer_coeff=100,
+    heat_transfer_coeff=1300,
 ) -> None:
     mec = blk.unit
 
