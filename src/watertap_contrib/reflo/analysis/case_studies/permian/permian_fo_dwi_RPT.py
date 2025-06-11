@@ -425,6 +425,13 @@ def add_treatment_costing(m, flow_vol, operating_condition):
 
     m.fs.treatment.costing.add_LCOW(flow_vol)
     m.fs.treatment.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+    m.fs.treatment.costing.add_specific_thermal_energy_consumption(flow_vol, name="SEC_th")
+    m.fs.treatment.costing._add_flow_component_breakdowns(
+        "heat",
+        "SEC_th",
+        flow_vol,
+        period=pyunits.hr 
+    )
     m.fs.treatment.costing.initialize()
 
 
@@ -464,6 +471,8 @@ def add_system_costing(m, flow_vol, operating_condition):
 
     m.fs.costing.add_LCOW(flow_vol)
     m.fs.costing.add_LCOT(flow_vol)
+    m.fs.costing.add_specific_energy_consumption(flow_vol, name="SEC")
+    m.fs.costing.add_specific_thermal_energy_consumption(flow_vol, name="SEC_th")
 
 
 def run_permian_FO_DWI_RPT(
@@ -510,90 +519,90 @@ def run_permian_FO_DWI_RPT(
     return m
 
 
-if __name__ == "__main__":
-    permian_fo_config = {
-        "feed_vol_flow": 0.22,  # initial value for fo model setup
-        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-        "RO_recovery_ratio": 1,  # RO recovery ratio
-        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-        "feed_temperature": 25,
-        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-    }
+# if __name__ == "__main__":
+#     permian_fo_config = {
+#         "feed_vol_flow": 0.22,  # initial value for fo model setup
+#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+#         "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+#         "RO_recovery_ratio": 1,  # RO recovery ratio
+#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+#         "feed_temperature": 25,
+#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+#     }
 
-    operating_condition = {
-        "feed_vol_flow": 5,  # MGD
-        "feed_tds": 130,  # g/L
-        "heat_price": 0.0166,  # 2023 price $/kWh
-        "elec_price": 0.0434618999,  # 2018 price $/kWh
-        "grid_fraction": 0.5,
-        "storage": 24,  # hr
-        "csv_initial_heat_load": 25,  # MW
-    }
+#     operating_condition = {
+#         "feed_vol_flow": 5,  # MGD
+#         "feed_tds": 130,  # g/L
+#         "heat_price": 0.0166,  # 2023 price $/kWh
+#         "elec_price": 0.0434618999,  # 2018 price $/kWh
+#         "grid_fraction": 0.5,
+#         "storage": 24,  # hr
+#         "csv_initial_heat_load": 25,  # MW
+#     }
 
-    m = run_permian_FO_DWI_RPT(
-        operating_condition,
-        permian_fo_config,
-    )
-    # flow_vol = value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
-    #                                     to_units=pyunits.m**3/pyunits.year))
+#     m = run_permian_FO_DWI_RPT(
+#         operating_condition,
+#         permian_fo_config,
+#     )
+#     # flow_vol = value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
+#     #                                     to_units=pyunits.m**3/pyunits.year))
 
-    # brine = value(m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp["Liq","TDS"])
-    lcot = value(m.fs.costing.LCOT)
-    lcow = value(m.fs.costing.LCOW)
+#     # brine = value(m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp["Liq","TDS"])
+#     lcot = value(m.fs.costing.LCOT)
+#     lcow = value(m.fs.costing.LCOW)
 
-    # print('brine salinit', brine)
-    print("lcot", lcot)
-    print("lcow", lcow)
+#     # print('brine salinit', brine)
+#     print("lcot", lcot)
+#     print("lcow", lcow)
 
-    # %%
-    from idaes.core.util.scaling import (
-        extreme_jacobian_columns,
-        extreme_jacobian_rows,
-        badly_scaled_var_generator,
-        unscaled_variables_generator,
-    )
+#     # %%
+#     from idaes.core.util.scaling import (
+#         extreme_jacobian_columns,
+#         extreme_jacobian_rows,
+#         badly_scaled_var_generator,
+#         unscaled_variables_generator,
+#     )
 
-    # for norm, var in extreme_jacobian_columns(m):
-    #     print(f"{var.name}: L2 norm = {norm}")
+#     # for norm, var in extreme_jacobian_columns(m):
+#     #     print(f"{var.name}: L2 norm = {norm}")
 
-    # for norm, var in extreme_jacobian_rows(m):
-    #     print(f"{var.name}: L2 norm = {norm}")
+#     # for norm, var in extreme_jacobian_rows(m):
+#     #     print(f"{var.name}: L2 norm = {norm}")
 
-    bad_var = badly_scaled_var_generator(m)
-    for v, l in bad_var:
-        print(v.name, l)
-    # unscaled_variables_generator(m)
-    # %%
-    from pyomo.contrib.pynumero.interfaces.pyomo_nlp import PyomoNLP
+#     bad_var = badly_scaled_var_generator(m)
+#     for v, l in bad_var:
+#         print(v.name, l)
+#     # unscaled_variables_generator(m)
+#     # %%
+#     from pyomo.contrib.pynumero.interfaces.pyomo_nlp import PyomoNLP
 
-    # Build the NLP object
-    nlp = PyomoNLP(m)
-    J = nlp.evaluate_jacobian()
-    vars = nlp.get_pyomo_variables()
-    cons = nlp.get_pyomo_constraints()
+#     # Build the NLP object
+#     nlp = PyomoNLP(m)
+#     J = nlp.evaluate_jacobian()
+#     vars = nlp.get_pyomo_variables()
+#     cons = nlp.get_pyomo_constraints()
 
-    J_coo = J.tocoo()
-    for i, j, v in zip(J_coo.row, J_coo.col, J_coo.data):
-        var = vars[j]
-        con = cons[i]
-        # if var.name == "fs.treatment.ec.unit.ohmic_resistance":
-        #     print(f"{con.name} <-- {var.name}: derivative = {v}")
-        if abs(v) > 1000 or abs(v) < 1e-3:
-            print(f"{con.name} <-- {var.name}: derivative = {v}")
-    # %%
-    from idaes.core.util import DiagnosticsToolbox
+#     J_coo = J.tocoo()
+#     for i, j, v in zip(J_coo.row, J_coo.col, J_coo.data):
+#         var = vars[j]
+#         con = cons[i]
+#         # if var.name == "fs.treatment.ec.unit.ohmic_resistance":
+#         #     print(f"{con.name} <-- {var.name}: derivative = {v}")
+#         if abs(v) > 1000 or abs(v) < 1e-3:
+#             print(f"{con.name} <-- {var.name}: derivative = {v}")
+#     # %%
+#     from idaes.core.util import DiagnosticsToolbox
 
-    dt = DiagnosticsToolbox(m)
-    # dt.report_structural_issues()
-    # dt.display_variables_with_extreme_values()
-    dt.report_numerical_issues()
-    dt.display_variables_with_extreme_jacobians()
-    dt.display_constraints_with_extreme_jacobians()
+#     dt = DiagnosticsToolbox(m)
+#     # dt.report_structural_issues()
+#     # dt.display_variables_with_extreme_values()
+#     dt.report_numerical_issues()
+#     dt.display_variables_with_extreme_jacobians()
+#     dt.display_constraints_with_extreme_jacobians()
 # %%
 # %% Sweep through FO_RR
 if __name__ == "__main__":
@@ -692,7 +701,7 @@ if __name__ == "__main__":
     # df.to_csv("csv_results/FO_DWI_RPT_recovery_ratio.csv")
     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_recovery_ratio.csv")
 # %% Sweep for DWI cost
-if __name__ == "__main__":
+# if __name__ == "__main__":
     import numpy as np
 
     fail = []
@@ -755,7 +764,7 @@ if __name__ == "__main__":
     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_dwi_cost.csv")
 
 # %% Sweep for grid fraction
-if __name__ == "__main__":
+# if __name__ == "__main__":
     import numpy as np
 
     fail = []
@@ -816,7 +825,7 @@ if __name__ == "__main__":
     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_grid_frac.csv")
 
 # %% Sweep for heat cost
-if __name__ == "__main__":
+# if __name__ == "__main__":
     import numpy as np
 
     fail = []
@@ -878,7 +887,7 @@ if __name__ == "__main__":
 
 
 # %% Sweep for CST cost
-if __name__ == "__main__":
+# if __name__ == "__main__":
     import numpy as np
 
     fail = []
@@ -942,7 +951,7 @@ if __name__ == "__main__":
     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_cst_price.csv")
 
 # %% Sweep for storage cost
-if __name__ == "__main__":
+# if __name__ == "__main__":
     import numpy as np
 
     fail = []
