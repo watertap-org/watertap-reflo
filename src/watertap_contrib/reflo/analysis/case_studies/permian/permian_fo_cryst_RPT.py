@@ -512,6 +512,18 @@ def add_treatment_costing(m, flow_vol, operating_condition):
     m.fs.treatment.costing.heat_cost.fix(heat_price)
 
     m.fs.treatment.costing.add_LCOW(flow_vol)
+    flow_in = m.fs.treatment.feed.properties[0].flow_vol
+
+    m.fs.treatment.costing.add_specific_energy_consumption(flow_in, name="SEC_in")
+    m.fs.treatment.costing.SEC_th_in = Expression(
+        expr=pyunits.convert(
+            m.fs.treatment.costing.aggregate_flow_heat / flow_in,
+            to_units=pyunits.kilowatt * pyunits.hr * pyunits.m**-3,
+        )
+    )
+    m.fs.treatment.costing._add_flow_component_breakdowns(
+        "heat", "SEC_th_in", flow_in, period=pyunits.hr
+    )
     m.fs.treatment.costing.add_specific_energy_consumption(flow_vol, name="SEC")
     m.fs.treatment.costing.add_specific_thermal_energy_consumption(flow_vol, name="SEC_th")
     m.fs.treatment.costing._add_flow_component_breakdowns(
@@ -587,7 +599,18 @@ def run_permian_FO_cryst_RPT(
 
     build_cryst(m, operating_condition)
     print("DOF after adding cryst: ", degrees_of_freedom(m))
-    results = solver.solve(m)
+    # results = solver.solve(m)
+    treat.product_NaCl_mixer.initialize()
+    # try:
+    #     results = solver.solve(m)
+    #     assert_optimal_termination(results)
+    # except:
+    #     # results = solver.solve(m)
+    #     # assert_optimal_termination(results)
+    #     print_infeasible_constraints(m)
+    #     print_variables_close_to_bounds(m)
+    #     assert False
+
     assert_optimal_termination(results)
 
     flow_vol = treat.product.properties[0].flow_vol_phase["Liq"]
@@ -601,8 +624,14 @@ def run_permian_FO_cryst_RPT(
     #     print(f"{c.name} --> {v.name}: {e}")
 
     print("dof before solving", degrees_of_freedom(m))
-    results = solver.solve(m)
-    assert_optimal_termination(results)
+    try:
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+    except:
+        print_infeasible_constraints(m)
+        print_variables_close_to_bounds(m)
+        assert False
+
 
     return m
 
@@ -654,16 +683,16 @@ def run_permian_FO_cryst_RPT(
 
 
 if __name__ == "__main__":
-    # fail = []
-    # heat = []
-    # brine = []
-    # grid_frac = []
-    # LCOW = []
-    # feed_vol = []
-    # tds = [100, 130, 200]
-    # mfs = [0.092, 0.119, 0.19]
-    # rrs = [0.612, 0.485, 0.165]
-    # qs = [1, 5, 9]
+    fail = []
+    heat = []
+    brine = []
+    grid_frac = []
+    LCOW = []
+    feed_vol = []
+    tds = [100, 130, 200]
+    mfs = [0.092, 0.119, 0.19]
+    rrs = [0.612, 0.485, 0.165]
+    qs = [1, 5, 9]
 
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
@@ -722,7 +751,15 @@ if __name__ == "__main__":
     results_dict["feed_TDS_mass"] = list()
 
     for mf, salt, rr in zip(mfs, tds, rrs):
+        # if salt != 100:
+        #     continue
         for q in qs:
+            # continue
+            # if  q != 9:
+            #     continue
+            
+            print(mf, salt, rr, q)
+            # try:
 
             permian_fo_config = {
                 "feed_vol_flow": 0.22,  # initial value for fo model setup
@@ -760,17 +797,22 @@ if __name__ == "__main__":
             results_dict["feed_TDS_mass"].append(mf)
             
             results_dict = results_dict_append(m, results_dict)
+            # except:
+            #     continue
+                # print_infeasible_constraints(m)
+                # print_variables_close_to_bounds(m)
 
+            print(mf, salt, rr, q)
     df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_flow_TDS_sweep.csv")
-    m.fs.treatment.costing.LCOW.display()
-    m.fs.costing.LCOW.display()
-    m.fs.energy.costing.trough_surrogate.display()
+    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_flow_TDS_sweep-test.csv")
+    # m.fs.treatment.costing.LCOW.display()
+    # m.fs.costing.LCOW.display()
+    # m.fs.energy.costing.trough_surrogate.display()
 
 
 
-# # # %% Sweep through FO_RR
-# # if __name__ == "__main__":
+# # # # %% Sweep through FO_RR
+# if __name__ == "__main__":
 # #     # import numpy as np
 #     fail = []
 #     heat = []

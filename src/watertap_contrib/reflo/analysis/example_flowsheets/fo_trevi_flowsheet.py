@@ -52,6 +52,7 @@ from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
 from watertap_contrib.reflo.unit_models.zero_order.forward_osmosis_zo import (
     ForwardOsmosisZO,
 )
+from watertap.core.util.model_diagnostics.infeasible import *
 
 
 def build_fo_trevi_flowsheet(
@@ -416,18 +417,25 @@ def fix_dof_and_initialize(
         "temperature": m.fs.S1.to_HX1.temperature[0].value,
         "pressure": m.fs.S1.to_HX1.pressure[0].value,
     }
-    m.fs.HX1.initialize(
-        state_args_1=state_args_HX1_hot, state_args_2=state_args_HX1_cold
-    )
-    # Cold side has liquid separation
-    m.fs.HX1.cold_side.properties_out[0].liquid_separation.fix(1)
-    m.fs.HX1.cold_side.properties_out[
-        0
-    ].mass_frac_after_separation = strong_draw_mass_frac
+
+    
+    try:
+        m.fs.HX1.initialize(
+            state_args_1=state_args_HX1_hot, state_args_2=state_args_HX1_cold
+        )
+        # Cold side has liquid separation
+        m.fs.HX1.cold_side.properties_out[0].liquid_separation.fix(1)
+        m.fs.HX1.cold_side.properties_out[
+            0
+        ].mass_frac_after_separation = strong_draw_mass_frac
+    except:
+        print_infeasible_constraints(m)
+        print_variables_close_to_bounds(m)
     # iscale.constraint_scaling_transform(
     #     m.fs.HX1.cold_side.properties_out[0].eq_heat_separation_phase["Liq"],
     #     1e-4,
     # )
+    # assert False
     iscale.set_scaling_factor(
         m.fs.HX1.cold_side.properties_out[0].eq_heat_separation_phase["Liq"],
         1e-3,
@@ -455,10 +463,15 @@ def fix_dof_and_initialize(
         "temperature": m.fs.S1.to_HX2.temperature[0].value,
         "pressure": m.fs.S1.to_HX2.pressure[0].value,
     }
+    try:
 
-    m.fs.HX2.initialize(
-        state_args_1=state_args_HX2_hot, state_args_2=state_args_HX2_cold
-    )
+        m.fs.HX2.initialize(
+            state_args_1=state_args_HX2_hot, state_args_2=state_args_HX2_cold
+        )
+    except:
+        print_infeasible_constraints(m)
+        print_variables_close_to_bounds(m)
+
     # Cold side has liquid separation
     m.fs.HX2.cold_side.properties_out[0].liquid_separation.fix(1)
     m.fs.HX2.cold_side.properties_out[

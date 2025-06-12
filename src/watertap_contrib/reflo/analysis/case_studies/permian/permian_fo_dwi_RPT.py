@@ -424,6 +424,18 @@ def add_treatment_costing(m, flow_vol, operating_condition):
     m.fs.treatment.costing.heat_cost.fix(heat_price)
 
     m.fs.treatment.costing.add_LCOW(flow_vol)
+    flow_in = m.fs.treatment.feed.properties[0].flow_vol
+
+    m.fs.treatment.costing.add_specific_energy_consumption(flow_in, name="SEC_in")
+    m.fs.treatment.costing.SEC_th_in = Expression(
+        expr=pyunits.convert(
+            m.fs.treatment.costing.aggregate_flow_heat / flow_in,
+            to_units=pyunits.kilowatt * pyunits.hr * pyunits.m**-3,
+        )
+    )
+    m.fs.treatment.costing._add_flow_component_breakdowns(
+        "heat", "SEC_th_in", flow_in, period=pyunits.hr
+    )
     m.fs.treatment.costing.add_specific_energy_consumption(flow_vol, name="SEC")
     m.fs.treatment.costing.add_specific_thermal_energy_consumption(flow_vol, name="SEC_th")
     m.fs.treatment.costing._add_flow_component_breakdowns(
