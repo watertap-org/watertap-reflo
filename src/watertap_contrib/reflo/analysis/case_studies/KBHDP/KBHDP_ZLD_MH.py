@@ -785,7 +785,7 @@ def kbhdp_zld_md_reporting_variables(m):
 def zld_main(
         treatment_only=False,
         Qin=4,ro_recovery=0.5, md_water_recovery = 0.7, nacl_recovery_price=0,
-        heat_price=0.0166,electricity_price=0.04989,
+        heat_price=0.0166,electricity_price=0.04989, grid_frac_heat=0.5,
         cost_per_total_aperture_area=373,cost_per_storage_capital=62,
         cost_per_watt_installed = 1.6,
         ):
@@ -906,7 +906,7 @@ def zld_main(
         
         # CST heat load calculated
         m.fs.energy.cst.unit.heat_load.unfix()
-        m.fs.costing.frac_heat_from_grid.fix(0.5)
+        m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
 
         # m.fs.energy.pv.annual_energy.unfix()
         m.fs.energy.pv.design_size.unfix()
@@ -1039,12 +1039,13 @@ def recovery_check(m):
 if __name__ == "__main__":
 
     m = zld_main(
-        treatment_only = True,
+        treatment_only = False,
         ro_recovery = 0.8,
         md_water_recovery = 0.78,
         nacl_recovery_price = 0,
         heat_price = 0.00894,
         electricity_price = 0.04989,
+        grid_frac_heat=0.2,
         cost_per_total_aperture_area = 297,
         cost_per_storage_capital = 62,
         cost_per_watt_installed = 1.6

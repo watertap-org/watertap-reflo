@@ -61,6 +61,7 @@ if __name__ == "__main__":
     sweep_dict = {
     'ro_water_recovery':[0.6,0.8],
     'nacl_recovery_price':[0,-0.012,-0.024],
+    'grid_frac_heat':np.linspace(0.2,0.9,8),
     'cst_cost_per_total_aperture_area':np.linspace(148.5,445.5,4),
     'cst_cost_per_storage_capital':np.linspace(31,93,4),
     'pv_cost_per_watt_installed':np.linspace(0.8,2.4,4),
@@ -72,6 +73,7 @@ if __name__ == "__main__":
         'nacl_recovery_price':0,
         'heat_price':0.00894,
         'electricity_price':0.04989,
+        'grid_frac_heat': 0.5,
         'cst_cost_per_total_aperture_area': 297,
         'cst_cost_per_storage_capital': 62,
         'pv_cost_per_watt_installed': 1.6
@@ -82,7 +84,7 @@ if __name__ == "__main__":
     # Select sweep type
     #############################################################################################
     
-    sweep_type = "nacl_recovery_price"
+    sweep_type = "grid_frac_heat"
     only_plot = False
     # only_plot = True
 
@@ -93,6 +95,7 @@ if __name__ == "__main__":
         'cst_cost_per_total_aperture_area':'fs.energy.costing.trough_surrogate.cost_per_total_aperture_area',
         'cst_cost_per_storage_capital':'fs.energy.costing.trough_surrogate.cost_per_storage_capital',
         'pv_cost_per_watt_installed':'fs.energy.costing.pv_surrogate.cost_per_watt_installed',
+        'grid_frac_heat':'fs.costing.frac_elec_from_grid'
     }
 
     ax_dict = {
@@ -102,6 +105,7 @@ if __name__ == "__main__":
         'cst_cost_per_total_aperture_area':"Cost per Total Aperture Area ($/m2)",
         'cst_cost_per_storage_capital':"Cost per Thermal Storage Capacity ($/kWh)",
         'pv_cost_per_watt_installed':"Cost per Watt Installed ($/W)",
+        'grid_frac_heat':'Grid Fraction'
     }
 
 
@@ -134,6 +138,7 @@ if __name__ == "__main__":
                 nacl_recovery_price = input_dict['nacl_recovery_price'],
                 heat_price=input_dict['heat_price'],
                 electricity_price=input_dict['electricity_price'],
+                grid_frac_heat = input_dict["grid_frac_heat"],
                 cost_per_total_aperture_area=input_dict['cst_cost_per_total_aperture_area'],
                 cost_per_storage_capital=input_dict['cst_cost_per_storage_capital'],
                 cost_per_watt_installed = input_dict['pv_cost_per_watt_installed'],
@@ -151,6 +156,7 @@ if __name__ == "__main__":
                 nacl_recovery_price = input_dict['nacl_recovery_price'],
                 heat_price=input_dict['heat_price'],
                 electricity_price=input_dict['electricity_price'],
+                grid_frac_heat = input_dict["grid_frac_heat"],
                 cost_per_total_aperture_area=input_dict['cst_cost_per_total_aperture_area'],
                 cost_per_storage_capital=input_dict['cst_cost_per_storage_capital'],
                 cost_per_watt_installed = input_dict['pv_cost_per_watt_installed'],
