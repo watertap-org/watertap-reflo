@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -128,8 +128,8 @@ class CrystallizerEffectData(CrystallizationData):
 
         self.energy_flow_superheated_vapor = Var(
             initialize=1e5,
-            bounds=(-5e6, 5e6),
-            units=pyunits.kilowatt,
+            bounds=(-5e8, 5e8),
+            units=pyunits.watt,
             doc="Energy that could be supplied from vapor",
         )
 
@@ -159,9 +159,9 @@ class CrystallizerEffectData(CrystallizationData):
         )
 
         self.overall_heat_transfer_coefficient = Var(
-            initialize=0.1,
+            initialize=1e3,
             bounds=(0, None),
-            units=pyunits.kilowatt / pyunits.m**2 / pyunits.degK,
+            units=pyunits.watt / pyunits.m**2 / pyunits.degK,
             doc="Overall heat transfer coefficient for heat exchangers",
         )
 
@@ -205,7 +205,6 @@ class CrystallizerEffectData(CrystallizationData):
             return b.properties_pure_water[0].pressure_sat == self.pressure_operating
 
         if self.config.standalone:
-
             tmp_dict["parameters"] = self.config.property_package_vapor
             tmp_dict["defined_state"] = False
 
@@ -234,10 +233,11 @@ class CrystallizerEffectData(CrystallizationData):
 
             @self.Constraint(doc="Heat transfer equation")
             def eq_heat_transfer(b):
-                return b.work_mechanical[0] == (
+                return b.work_mechanical[0] == pyunits.convert(
                     b.overall_heat_transfer_coefficient
                     * b.heat_exchanger_area
-                    * b.delta_temperature[0]
+                    * b.delta_temperature[0],
+                    to_units=pyunits.kJ * pyunits.s**-1,
                 )
 
             @self.Constraint(doc="Calculate mass flow rate of heating steam")
@@ -246,7 +246,7 @@ class CrystallizerEffectData(CrystallizationData):
                     pyunits.convert(
                         b.heating_steam[0].dh_vap_mass
                         * b.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"],
-                        to_units=pyunits.kJ / pyunits.s,
+                        to_units=pyunits.kJ * pyunits.s**-1,
                     )
                 )
 
@@ -420,9 +420,16 @@ class CrystallizerEffectData(CrystallizationData):
         if iscale.get_scaling_factor(self.overall_heat_transfer_coefficient) is None:
             iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 0.01)
 
+        iscale.set_scaling_factor(self.properties_solids[0].flow_vol_phase["Vap"], 1e5)
+        iscale.set_scaling_factor(self.properties_out[0].flow_vol_phase["Vap"], 1e5)
+
         for _, c in self.eq_p_con4.items():
             sf = iscale.get_scaling_factor(self.properties_pure_water[0].pressure)
             iscale.constraint_scaling_transform(c, sf)
+
+        iscale.constraint_scaling_transform(self.eq_vapor_energy_constraint, 1e-6)
+        iscale.constraint_scaling_transform(self.eq_operating_pressure_constraint, 1e-5)
+        iscale.constraint_scaling_transform(self.eq_p_con5, 1e-5)
 
     @property
     def default_costing_method(self):

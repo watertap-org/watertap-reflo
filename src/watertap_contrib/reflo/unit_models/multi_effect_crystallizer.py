@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -10,8 +10,6 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-
-# Import Pyomo libraries
 from pyomo.environ import (
     check_optimal_termination,
     Var,
@@ -23,7 +21,6 @@ from pyomo.environ import (
 )
 from pyomo.common.config import ConfigBlock, ConfigValue, In, PositiveInt
 
-# Import IDAES cores
 from idaes.core import (
     declare_process_block_class,
     MaterialBalanceType,
@@ -52,7 +49,6 @@ __author__ = "Oluwamayowa Amusat, Zhuoran Zhang, Kurban Sitterley"
 
 @declare_process_block_class("MultiEffectCrystallizer")
 class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
-
     CONFIG = ConfigBlock()
 
     CONFIG.declare(
@@ -62,8 +58,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             default=False,
             description="Dynamic model flag - must be False",
             doc="""Indicates whether this model will be dynamic or not,
-    **default** = False. The filtration unit does not support dynamic
-    behavior, thus this must be False.""",
+    **default** = False.""",
         ),
     )
 
@@ -74,8 +69,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             domain=In([False]),
             description="Holdup construction flag - must be False",
             doc="""Indicates whether holdup terms should be constructed or not.
-    **default** - False. The filtration unit does not have defined volume, thus
-    this must be False.""",
+    **default** - False.""",
         ),
     )
 
@@ -126,7 +120,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
             default=4,
             domain=PositiveInt,
             description="Number of effects of the multi-effect crystallizer system",
-            doc="""A ConfigBlock specifying the number of effects, which can only be 4.""",
+            doc="""Number of effects of the multi-effect crystallizer system.""",
         ),
     )
 
@@ -246,11 +240,11 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
                 @effect.Constraint(doc="Heat transfer equation for first effect")
                 def eq_heat_transfer_effect_1(b):
-                    return (
-                        b.work_mechanical[0]
-                        == b.overall_heat_transfer_coefficient
+                    return b.work_mechanical[0] == pyunits.convert(
+                        b.overall_heat_transfer_coefficient
                         * b.heat_exchanger_area
-                        * b.delta_temperature[0]
+                        * b.delta_temperature[0],
+                        to_units=pyunits.kJ * pyunits.s**-1,
                     )
 
                 @effect.Constraint(doc="Calculate mass flow rate of heating steam")
@@ -259,7 +253,7 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                         pyunits.convert(
                             b.heating_steam[0].dh_vap_mass
                             * b.heating_steam[0].flow_mass_phase_comp["Vap", "H2O"],
-                            to_units=pyunits.kJ / pyunits.s,
+                            to_units=pyunits.kJ * pyunits.s**-1,
                         )
                     )
 
@@ -269,7 +263,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 self.steam.temperature.setub(1000)
 
             else:
-
                 prev_effect = self.effects[n - 1].effect
 
                 del_temp_in_constr = Constraint(
@@ -303,7 +296,10 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
                 energy_flow_constr = Constraint(
                     expr=effect.work_mechanical[0]
-                    == prev_effect.energy_flow_superheated_vapor,
+                    == pyunits.convert(
+                        prev_effect.energy_flow_superheated_vapor,
+                        to_units=pyunits.kJ * pyunits.s**-1,
+                    ),
                     doc=f"Energy supplied to effect {n}",
                 )
                 self.add_component(
@@ -480,6 +476,32 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.recovery_vol_phase) is None:
             iscale.set_scaling_factor(self.recovery_vol_phase, 10)
+
+            iscale.constraint_scaling_transform(self.eq_isobaric, 1e-6)
+
+        if 1 in self.Effects:
+            iscale.constraint_scaling_transform(
+                self.effects[1].effect.eq_heat_transfer_effect_1, 1e-4
+            )
+            iscale.constraint_scaling_transform(
+                self.effects[1].effect.eq_heating_steam_flow_rate, 1e-4
+            )
+
+        if 2 in self.Effects:
+            iscale.constraint_scaling_transform(self.eq_heat_transfer_effect_2, 1e-6)
+            iscale.constraint_scaling_transform(
+                self.eq_energy_for_effect_2_from_effect_1, 1e-4
+            )
+        if 3 in self.Effects:
+            iscale.constraint_scaling_transform(self.eq_heat_transfer_effect_3, 1e-6)
+            iscale.constraint_scaling_transform(
+                self.eq_energy_for_effect_3_from_effect_2, 1e-4
+            )
+        if 4 in self.Effects:
+            iscale.constraint_scaling_transform(self.eq_heat_transfer_effect_4, 1e-6)
+            iscale.constraint_scaling_transform(
+                self.eq_energy_for_effect_4_from_effect_3, 1e-4
+            )
 
     @property
     def default_costing_method(self):

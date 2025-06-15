@@ -62,9 +62,9 @@ if __name__ == "__main__":
     'ro_water_recovery':[0.6,0.8],
     'nacl_recovery_price':[0,-0.012,-0.024],
     'grid_frac_heat':np.linspace(0.2,0.9,8),
-    'cst_cost_per_total_aperture_area':np.linspace(148.5,445.5,4),
-    'cst_cost_per_storage_capital':np.linspace(31,93,4),
-    'pv_cost_per_watt_installed':np.linspace(0.8,2.4,4),
+    'cst_cost_per_total_aperture_area':np.linspace(148.5,445.5,5),
+    'cst_cost_per_storage_capital':np.linspace(31,93,5),
+    'pv_cost_per_watt_installed':np.linspace(0.8,2.4,5),
     }   
     
     input_dict = {
