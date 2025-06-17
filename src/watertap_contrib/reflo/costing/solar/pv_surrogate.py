@@ -26,12 +26,12 @@ class PVSurrogateCostMethod(StrEnum):
     simple = "simple"
 
 
-def cost_pv_surrogate(blk, cost_method=PVSurrogateCostMethod.simple):
+def cost_pv(blk, cost_method=PVSurrogateCostMethod.simple):
     blk.cost_method = cost_method
     if cost_method == PVSurrogateCostMethod.detailed:
-        cost_pv_surrogate_detailed(blk)
+        cost_pv_detailed(blk)
     elif cost_method == PVSurrogateCostMethod.simple:
-        cost_pv_surrogate_simple(blk)
+        cost_pv_simple(blk)
     else:
         raise ConfigurationError(
             f"{blk.unit_model.name} received invalid argument for cost_method:"
@@ -39,7 +39,7 @@ def cost_pv_surrogate(blk, cost_method=PVSurrogateCostMethod.simple):
         )
 
 
-def build_pv_surrogate_cost_simple_param_block(blk):
+def build_cost_pv_simple_param_block(blk):
     costing = blk.parent_block()
 
     blk.cost_per_watt_installed = pyo.Var(
@@ -73,7 +73,7 @@ def build_pv_surrogate_cost_simple_param_block(blk):
     blk.fix_all_vars()
 
 
-def build_pv_surrogate_cost_detailed_param_block(blk):
+def build_cost_pv_detailed_param_block(blk):
 
     costing = blk.parent_block()
 
@@ -144,13 +144,13 @@ def build_pv_surrogate_cost_detailed_param_block(blk):
 
 
 @register_costing_parameter_block(
-    build_rule=build_pv_surrogate_cost_detailed_param_block,
-    parameter_block_name="pv_surrogate",
+    build_rule=build_cost_pv_detailed_param_block,
+    parameter_block_name="pv",
 )
-def cost_pv_surrogate_detailed(blk):
+def cost_pv_detailed(blk):
 
     global_params = blk.costing_package
-    pv_params = blk.costing_package.pv_surrogate
+    pv_params = blk.costing_package.pv
     make_capital_cost_var(blk)
     make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
@@ -239,13 +239,12 @@ def cost_pv_surrogate_detailed(blk):
 
 
 @register_costing_parameter_block(
-    build_rule=build_pv_surrogate_cost_simple_param_block,
-    parameter_block_name="pv_surrogate",
+    build_rule=build_cost_pv_simple_param_block,
+    parameter_block_name="pv",
 )
-def cost_pv_surrogate_simple(blk):
+def cost_pv_simple(blk):
 
-    global_params = blk.costing_package
-    pv_params = blk.costing_package.pv_surrogate
+    pv_params = blk.costing_package.pv
     make_capital_cost_var(blk)
     make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
