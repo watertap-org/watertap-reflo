@@ -1,4 +1,5 @@
 import os
+import pprint
 import pandas as pd
 import numpy as np
 from pyomo.environ import value, units as pyunits
@@ -16,44 +17,63 @@ import math
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 parent_dir = os.path.dirname(__location__)
 sweep_csv_dir = os.path.join(parent_dir, "sweep_csvs")
-
+fig_save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures"
 unit_list = [
     "Chem. Softening",
-    "H2O2 Addition",
+    "CST",
+    "H$_2$O$_2$ Addition",
     "EC",
     "UF",
     "RO",
-    "Pump",
-    "MD",
     "LT-MED",
     "MEC",
     "DWI",
     "FO",
+    "MD",
+    "Pump",
     "PV",
-    "CST",
     "FPC",
     "CF",
     "MVC",
 ]
 
 flow_list = [
-    "Electricity",
+    "H$_2$O$_2$",
     "Heat",
-    "hydrogen_peroxide",
+    "Electricity",
     "Aluminum",
-    "Soda Ash",
     "Lime",
-    "CO2",
-    "MgCl2",
-    "H2O2",
+    "CO$_2$",
+    # "MgCl2",
+    "Soda Ash",
 ]
 
 unit_colors = plt.cm.tab20(np.arange(len(unit_list)).astype(int))
 unit_color_dict_default = dict(zip(unit_list, unit_colors))
-
+unit_color_dict_default = {
+    "CF": np.array([0.49803922, 0.49803922, 0.49803922, 1.0]),
+    #  'CST': np.array([0.68235294, 0.78039216, 0.90980392, 1.        ]),
+    "CST": "goldenrod",
+    "Chem. Softening": np.array([0.12156863, 0.46666667, 0.70588235, 1.0]),
+    "DWI": np.array([0.58039216, 0.40392157, 0.74117647, 1.0]),
+    "EC": np.array([1.0, 0.73333333, 0.47058824, 1.0]),
+    "FO": np.array([0.77254902, 0.69019608, 0.83529412, 1.0]),
+    # "FPC": np.array([0.96862745, 0.71372549, 0.82352941, 1.0]),
+    "FPC": "lightsteelblue", 
+    "H$_2$O$_2$ Addition": np.array([1.0, 0.49803922, 0.05490196, 1.0]),
+    "LT-MED": np.array([0.83921569, 0.15294118, 0.15686275, 1.0]),
+    "MD": np.array([0.54901961, 0.3372549, 0.29411765, 1.0]),
+    "MEC": np.array([1.0, 0.59607843, 0.58823529, 1.0]),
+    "MVC": np.array([0.78039216, 0.78039216, 0.78039216, 1.0]),
+    "PV": np.array([0.89019608, 0.46666667, 0.76078431, 1.0]),
+    "Pump": np.array([0.76862745, 0.61176471, 0.58039216, 1.0]),
+    "RO": np.array([0.59607843, 0.8745098, 0.54117647, 1.0]),
+    "UF": np.array([0.17254902, 0.62745098, 0.17254902, 1.0]),
+}
 flow_colors = plt.cm.Dark2(np.arange(len(flow_list)).astype(int))
 flow_color_dict_default = dict(zip(flow_list, flow_colors))
 flow_color_dict_default["electric"] = flow_color_dict_default["Electricity"]
+
 
 
 def case_study_stacked_plot(
@@ -352,8 +372,10 @@ def case_study_stacked_plot(
     ax.set_ylabel(ax_dict["ylabel"], fontsize=label_fontsize)
     ax.tick_params(axis="both", labelsize=tick_fontsize)
     ax.set_xlim(df.index.min(), df.index.max())
-    # ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
-    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}"))
+    if "soda_ash" in xcol:
+        ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
+    else:
+        ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
     if ylims is not None:
         ax.set_ylim(ylims)
     else:
@@ -366,13 +388,15 @@ def case_study_stacked_plot(
     plt.tight_layout()
 
     if save is True:
-        plt.savefig(
-            os.path.join(
-                "/Users/zbinger/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/figures",
-                save_name,
-            ),
-            dpi=300,
-        )
+        fig.savefig(f"{fig_save_path}/{save_name}", dpi=300, bbox_inches="tight")
+        # plt.savefig(
+        #     os.path.join(
+        #         # "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures/kbhdp/",
+        #         "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures/permian/",
+        #         save_name,
+        #     ),
+        #     dpi=300, bbox_inches="tight"
+        # )
 
     unit_lcow = dict()
     print(capex_lcow)
@@ -399,296 +423,308 @@ def case_study_stacked_plot(
     figure_csv = pd.DataFrame.from_dict(unit_lcow)
     figure_csv["LCOW"] = figure_csv.sum(axis=1)
     figure_csv.index = df.index
-    figure_csv.to_csv(
-        os.path.join(
-            "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/figures",
-            save_name + "_data.csv",
-        )
-    )
+    # figure_csv.to_csv(
+    #     os.path.join(
+    #         # "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/figures",
+    #         "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures/permian",
+    #         save_name + "_data.csv",
+    #     )
+    # )
 
     print(figure_csv.head(20))
 
     return fig, ax, legend
 
 
-cases = {
-    # "KBHDP": {
-    #     "KBHDP_SOA_1": {
-    #         # "water_recovery": {
-    #         #     "file": os.path.join(
-    #         #         # sweep_csv_dir, "sweep_data_analysisType_KBHDP_SOA_1_water_recovery.csv"
-    #         #         sweep_csv_dir, "sweep_data_KBHDP_SOA_1_water_recovery.csv"
-    #         #     ),
-    #         #     "global_costing_blk": "fs.treatment.costing",
-    #         #     "costing_blk": "fs.treatment.costing",
-    #         #     "unit_dict": {
-    #         #         "Chem. Softening": "fs.treatment.softener.unit.costing",
-    #         #         "UF": "fs.treatment.UF.unit.costing",
-    #         #         "RO": "fs.treatment.RO.stage[1].module.costing",
-    #         #         "DWI": "fs.treatment.DWI.unit.costing",
-    #         #         "Pump": "fs.treatment.pump.costing",
-    #         #     },
-    #         #     "agg_flows": {
-    #         #         "Electricity": "electricity",
-    #         #         "Soda Ash": "soda_ash",
-    #         #         "Lime": "lime",
-    #         #         "CO2": "co2",
-    #         #         "MgCl2": "mgcl2",
-    #         #     },
-    #         #     "xcol": "fs.water_recovery",
-    #         #     "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    #         #     "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-    #         #     "ylims": (0, 6),
-    #         #     "xlims": (0.3, 0.8),
-    #         #     "save_name": "KBHDP_SOA_1_stacked_plot_water_recovery_sweep.png",
-    #         #     "save": True,
-    #         # },
-    #         "water_recovery": {
-    #             "file": os.path.join(
-    #                 # sweep_csv_dir, "sweep_data_analysisType_KBHDP_SOA_1_water_recovery.csv"
-    #                 sweep_csv_dir,
-    #                 "sweep_data_KBHDP_SOA_1_soda_ash_cost.csv",
-    #             ),
-    #             "global_costing_blk": "fs.treatment.costing",
-    #             "costing_blk": "fs.treatment.costing",
-    #             "unit_dict": {
-    #                 "Chem. Softening": "fs.treatment.softener.unit.costing",
-    #                 "UF": "fs.treatment.UF.unit.costing",
-    #                 "RO": "fs.treatment.RO.stage[1].module.costing",
-    #                 "DWI": "fs.treatment.DWI.unit.costing",
-    #                 "Pump": "fs.treatment.pump.costing",
-    #             },
-    #             "agg_flows": {
-    #                 "Electricity": "electricity",
-    #                 "Soda Ash": "soda_ash",
-    #                 "Lime": "lime",
-    #                 "CO2": "co2",
-    #                 "MgCl2": "mgcl2",
-    #             },
-    #             "xcol": "fs.treatment.costing.soda_ash.cost",
-    #             "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    #             "ax_dict": dict(
-    #                 xlabel="Soda Ash Cost ($/kg)", ylabel="LCOW (\$/m$^3$)"
-    #             ),
-    #             "ylims": (0, 3),
-    #             "xlims": (0.12, 0.36),
-    #             "save_name": "KBHDP_SOA_1_stacked_plot_soda_ash_sweep.png",
-    #             "save": True,
-    #         }
-    #     },
-    #     #     "KBHDP_RPT_1": {
-    #     #         "water_recovery": {
-    #     #             "file": os.path.join(
-    #     #                 sweep_csv_dir, "sweep_data_KBHDP_RPT_1_water_recovery.csv"
-    #     #             ),
-    #     #             "global_costing_blk": "fs.treatment.costing",
-    #     #             "costing_blk": "fs.treatment.costing",
-    #     #             "unit_dict": {
-    #     #                 "EC": "fs.treatment.EC.ec.costing",
-    #     #                 "UF": "fs.treatment.UF.unit.costing",
-    #     #                 "RO": "fs.treatment.RO.stage[1].module.costing",
-    #     #                 "DWI": "fs.treatment.DWI.unit.costing",
-    #     #                 "Pump": "fs.treatment.pump.costing",
-    #     #                 # "PV": "fs.energy.pv.costing",
-    #     #             },
-    #     #             "agg_flows": {
-    #     #                 "Electricity": "electricity",
-    #     #                 "Aluminum": "aluminum",
-    #     #             },
-    #     #             "xcol": "fs.water_recovery",
-    #     #             "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    #     #             "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-    #     #             "ylims": (0, 5),
-    #     #             "xlims": (0.3, 0.8),
-    #     #             "save_name": "KBHDP_RPT_1_stacked_plot_water_recovery_sweep.png",
-    #     #             "save": False,
-    #     #         },
-    #     #         "grid_fraction": {
-    #     #             "file": os.path.join(
-    #     #                 sweep_csv_dir, "sweep_data_KBHDP_RPT_1_grid_fraction.csv"
-    #     #             ),
-    #     #             "global_costing_blk": "fs.treatment.costing",
-    #     #             "costing_blk": "fs.treatment.costing",
-    #     #             "unit_dict": {
-    #     #                 "EC": "fs.treatment.EC.ec.costing",
-    #     #                 "UF": "fs.treatment.UF.unit.costing",
-    #     #                 "RO": "fs.treatment.RO.stage[1].module.costing",
-    #     #                 "DWI": "fs.treatment.DWI.unit.costing",
-    #     #                 "Pump": "fs.treatment.pump.costing",
-    #     #                 "PV": "fs.energy.pv.costing",
-    #     #             },
-    #     #             "agg_flows": {
-    #     #                 "Electricity": "electricity",
-    #     #                 "Aluminum": "aluminum",
-    #     #             },
-    #     #             "xcol": "fs.costing.RE Fraction",
-    #     #             "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    #     #             "ax_dict": dict(
-    #     #                 xlabel="Renewable Energy (%)", ylabel="LCOW (\$/m$^3$)"
-    #     #             ),
-    #     #             "ylims": (0, 2),
-    #     #             "xlims": (0.1, 0.8),
-    #     #             "save_name": "KBHDP_RPT_1_stacked_plot_grid_fraction_sweep.png",
-    #     #             "save": True,
-    #     #         },
-    #     #     },
-    #     #     "KBHDP_RPT_2": {
-    #     #         "water_recovery": {
-    #     #             "file": os.path.join(
-    #     #                 sweep_csv_dir, "sweep_data_KBHDP_RPT_2_water_recovery.csv"
-    #     #             ),
-    #     #             "global_costing_blk": "fs.treatment.costing",
-    #     #             "costing_blk": "fs.treatment.costing",
-    #     #             "unit_dict": {
-    #     #                 "EC": "fs.treatment.EC.ec.costing",
-    #     #                 "UF": "fs.treatment.UF.unit.costing",
-    #     #                 "LT-MED": "fs.treatment.LTMED.unit.costing",
-    #     #                 "DWI": "fs.treatment.DWI.unit.costing",
-    #     #                 # "Pump": "fs.treatment.pump.costing",
-    #     #                 # "FPC": "fs.energy.FPC.costing",
-    #     #             },
-    #     #             "agg_flows": {
-    #     #                 "Electricity": "electricity",
-    #     #                 "Aluminum": "aluminum",
-    #     #                 "Heat": "heat",
-    #     #             },
-    #     #             "xcol": "fs.water_recovery",
-    #     #             "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    #     #             "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-    #     #             "ylims": (0, 5),
-    #     #             "xlims": (0.3, 0.8),
-    #     #             "save_name": "KBHDP_RPT_2_stacked_plot_water_recovery_sweep.png",
-    #     #             "save": True,
-    #     #         },
-    #     #         "grid_fraction": {
-    #     #             "file": os.path.join(
-    #     #                 sweep_csv_dir, "sweep_data_KBHDP_RPT_2_frac_heat_from_grid.csv"
-    #     #             ),
-    #     #             "global_costing_blk": "fs.treatment.costing",
-    #     #             "costing_blk": "fs.treatment.costing",
-    #     #             "unit_dict": {
-    #     #                 "EC": "fs.treatment.EC.ec.costing",
-    #     #                 "UF": "fs.treatment.UF.unit.costing",
-    #     #                 "LT-MED": "fs.treatment.LTMED.unit.costing",
-    #     #                 "DWI": "fs.treatment.DWI.unit.costing",
-    #     #                 # "Pump": "fs.treatment.pump.costing",
-    #     #                 "FPC": "fs.energy.FPC.costing",
-    #     #             },
-    #     #             "agg_flows": {
-    #     #                 "Electricity": "electricity",
-    #     #                 "Aluminum": "aluminum",
-    #     #                 "Heat": "heat",
-    #     #             },
-    #     #             "xcol": "fs.costing.RE Fraction",
-    #     #             "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    #     #             "ax_dict": dict(
-    #     #                 xlabel="Renewable Energy (%)", ylabel="LCOW (\$/m$^3$)"
-    #     #             ),
-    #     #             "xlims": (0.1, 0.8),
-    #     #             "ylims": (0, 20),
-    #     #             "save_name": "KBHDP_RPT_2_stacked_plot_grid_fraction_sweep.png",
-    #     #             "save": True,
-    #     #         },
-    #     #     },
-    #     #     "KBHDP_RPT_3": {
-    #     #         "water_recovery": {
-    #     #             "file": os.path.join(
-    #     #                 sweep_csv_dir,
-    #     #                 "water_recovery_grid_frac_0.5_recovery_var.csv"
-    #     #                 # "kbhdp_RPT3_water_recovery_grid_frac_0.5_recovery_varcheck.csv",
-    #     #                 # "kbhdp_RPT3_water_recovery_grid_frac_1_recovery_var.csv",
-    #     #             ),
-    #     #             "global_costing_blk": "fs.treatment.costing",
-    #     #             "costing_blk": "fs.treatment.costing",
-    #     #             "unit_dict": {
-    #     #                 "MD": "fs.treatment.md.unit",
-    #     #                 "DWI": "fs.treatment.dwi.unit.costing",
-    #     #                 # "Pump": "fs.treatment.pump.costing",
-    #     #                 # "FPC": "fs.energy.FPC.costing",
-    #     #             },
-    #     #             "agg_flows": {
-    #     #                 "Electricity": "electricity",
-    #     #                 "Heat": "heat",
-    #     #             },
-    #     #             "xcol": "fs.water_recovery",
-    #     #             "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    #     #             "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-    #     #             "ylims": (0, 5),
-    #     #             "xlims": (0.3, 0.8),
-    #     #             "save_name": "KBHDP_RPT_3_stacked_plot_water_recovery_sweep.png",
-    #     #             "save": False,
-    #     #         },
-    #     #         "grid_fraction": {
-    #     #             "file": os.path.join(
-    #     #                 sweep_csv_dir,
-    #     #                 # "kbhdp_RPT3_grid_frac_heat_grid_frac_var_recovery_0.8 1.csv",
-    #     #                 "grid_frac_heat_grid_frac_var_recovery_0.7.csv",
-    #     #             ),
-    #     #             "global_costing_blk": "fs.treatment.costing",
-    #     #             "costing_blk": "fs.treatment.costing",
-    #     #             "unit_dict": {
-    #     #                 "MD": "fs.treatment.md.unit",
-    #     #                 "DWI": "fs.treatment.dwi.unit.costing",
-    #     #                 # "Pump": "fs.treatment.pump.costing",
-    #     #                 "FPC": "fs.energy.FPC.costing",
-    #     #             },
-    #     #             "agg_flows": {
-    #     #                 "Electricity": "electricity",
-    #     #                 "Heat": "heat",
-    #     #             },
-    #     #             "xcol": "fs.costing.RE Fraction",
-    #     #             "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-    #     #             "ax_dict": dict(
-    #     #                 xlabel="Renewable Energy (%)", ylabel="LCOW (\$/m$^3$)"
-    #     #             ),
-    #     #             "xlims": (0.1, 0.8),
-    #     #             "ylims": (0, 20),
-    #     #             "save_name": "KBHDP_RPT_3_stacked_plot_grid_fraction_sweep.png",
-    #     #             "save": True,
-    #     #         },
-    #     #     },
-    # },
+cases_kbhdp_soa = {
+    "KBHDP": {
+        "KBHDP_SOA_1": {
+            "water_recovery": {
+                # "file": os.path.join(
+                #     # sweep_csv_dir, "sweep_data_analysisType_KBHDP_SOA_1_water_recovery.csv"
+                #     sweep_csv_dir, "sweep_data_KBHDP_SOA_1_water_recovery.csv"
+                # ),
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_SOA_1_water_recovery.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "Chem. Softening": "fs.treatment.softener.unit.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "RO": "fs.treatment.RO.stage[1].module.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "Pump": "fs.treatment.pump.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Soda Ash": "soda_ash",
+                    "Lime": "lime",
+                    "CO$_2$": "co2",
+                    # "MgCl2": "mgcl2",
+                },
+                "xcol": "fs.water_recovery",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 6),
+                "xlims": (0.3, 0.8),
+                "save_name": "kbhdp_soa_water_recovery_stacked_plot.png",
+                "save": True,
+            },
+            "soda_ash": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_SOA_1_soda_ash_cost.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "Chem. Softening": "fs.treatment.softener.unit.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "RO": "fs.treatment.RO.stage[1].module.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "Pump": "fs.treatment.pump.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Soda Ash": "soda_ash",
+                    "Lime": "lime",
+                    "CO$_2$": "co2",
+                },
+                "xcol": "fs.treatment.costing.soda_ash.cost",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(
+                    xlabel="Soda Ash Cost ($/kg)", ylabel="LCOW (\$/m$^3$)"
+                ),
+                "ylims": (0, 3),
+                "xlims": (0.12, 0.36),
+                "save_name": "kbhdp_soa_soda_ash_sweep_stacked_plot.png",
+                "save": True,
+            },
+        }
+    }
+}
+
+kbhdp_wr = {
+    "KBHDP": {
+        "KBHDP_RPT_1": {
+            "water_recovery": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_RPT_1_water_recovery.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "RO": "fs.treatment.RO.stage[1].module.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "Pump": "fs.treatment.pump.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                },
+                "xcol": "fs.water_recovery",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 5),
+                "xlims": (0.3, 0.8),
+                "save_name": "kbhdp_water_recovery_stacked_plot.png",  # Change this
+                "save": False,
+            },
+        },
+        "KBHDP_RPT_2": {
+            "water_recovery": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_RPT_2_water_recovery.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "LT-MED": "fs.treatment.LTMED.unit.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.water_recovery",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 5),
+                "xlims": (0.3, 0.8),
+                "save_name": "kbhdp_water_recovery_stacked_plot.png",  # Change this
+                "save": True,
+            },
+        },
+        "KBHDP_RPT_3": {
+            "water_recovery": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_RPT3_water_recovery_grid_frac_0.5_recovery_var.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "MD": "fs.treatment.md.unit",
+                    "DWI": "fs.treatment.dwi.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.water_recovery",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 5),
+                "xlims": (0.3, 0.8),
+                "save_name": "kbhdp_water_recovery_stacked_plot.png",  # Change this
+                "save": False,
+            },
+        },
+    }
+}
+
+kbhdp_grid_frac = {
+    "KBHDP": {
+        "KBHDP_RPT_1": {
+            "grid_fraction": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_RPT_1_grid_fraction.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "RO": "fs.treatment.RO.stage[1].module.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "Pump": "fs.treatment.pump.costing",
+                    "PV": "fs.energy.pv.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                },
+                "xcol": "fs.costing.RE Fraction",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 2),
+                "xlims": (0.1, 0.8),
+                "save_name": "kbhdp_grid_frac_stacked_plot.png",  # Change this
+                "save": True,
+            },
+        },
+        "KBHDP_RPT_2": {
+            "grid_fraction": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_RPT_2_frac_heat_from_grid.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "LT-MED": "fs.treatment.LTMED.unit.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "FPC": "fs.energy.FPC.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.costing.RE Fraction",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
+                "xlims": (0.1, 0.8),
+                "ylims": (0, 20),
+                "save_name": "kbhdp_grid_frac_stacked_plot.png",  # Change this
+                "save": True,
+            },
+        },
+        "KBHDP_RPT_3": {
+            "grid_fraction": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_RPT3_grid_frac_heat_grid_frac_var_recovery_0.8.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "MD": "fs.treatment.md.unit",
+                    "DWI": "fs.treatment.dwi.unit.costing",
+                    "FPC": "fs.energy.FPC.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.costing.RE Fraction",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
+                "xlims": (0.1, 0.8),
+                "ylims": (0, 20),
+                "save_name": "kbhdp_grid_frac_stacked_plot.png",  # Change this
+                "save": True,
+            },
+        },
+    }
+}
+
+permian_wr = {
     "Permian": {
         "Permian_RPT1_MD": {
-            # "water_recovery": {
-            #     # "file": os.path.join(
-            #     #     sweep_csv_dir,
-            #     #     "permian_RPT1_MD_water_recovery_grid_frac_1_recovery_var.csv",
-            #     # ),
-            #     "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_RPT1_MD_water_recovery_grid_frac_1_recovery_var.csv",
-            #     "global_costing_blk": "fs.treatment.costing",
-            #     "costing_blk": "fs.treatment.costing",
-            #     "unit_dict": {
-            #         "H2O2 Addition": "fs.treatment.chem_addition.unit.costing",
-            #         "EC": "fs.treatment.EC.unit.costing",
-            #         "CF": "fs.treatment.cart_filt.unit.costing",
-            #         "MD": "fs.treatment.md.unit",
-            #         "DWI": "fs.treatment.DWI.unit.costing",
-            #     },
-            #     "agg_flows": {
-            #         "Electricity": "electricity",
-            #         "Heat": "heat",
-            #         "H2O2": "hydrogen_peroxide",
-            #         "Aluminum": "aluminum",
-            #     },
-            #     "xcol": "fs.water_recovery",
-            #     "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-            #     "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-            #     "ylims": (0, 35),
-            #     "xlims": (0.35, 0.5),
-            #     "save_name": "Permian_ST1_stacked_plot_water_recovery_sweep.png",
-            #     "save": False,
-            # },
+            "water_recovery": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_RPT1_MD_water_recovery_grid_frac_1_recovery_var.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
+                    "EC": "fs.treatment.EC.unit.costing",
+                    "CF": "fs.treatment.cart_filt.unit.costing",
+                    "MD": "fs.treatment.md.unit",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Heat": "heat",
+                    "H$_2$O$_2$": "hydrogen_peroxide",
+                    "Aluminum": "aluminum",
+                },
+                "xcol": "fs.water_recovery",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 35),
+                "xlims": (0.35, 0.5),
+                "save_name": "permian_water_recovery_stacked_plot.png",  # Change this
+                "save": False,
+            }
+        },
+        "Permian_RPT2_FO": {
+            "water_recovery": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_RPT2_FO_DWI_no_CST_sweep_recovery_ratio.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "unit_dict": {
+                    "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
+                    "EC": "fs.treatment.ec.unit.costing",
+                    "CF": "fs.treatment.cart_filt.unit.costing",
+                    "FO": "fs.treatment.FO.fs.fo.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Heat": "heat",
+                    "H$_2$O$_2$": "hydrogen_peroxide",
+                    "Aluminum": "aluminum",
+                },
+                "xcol": "fs.treatment.FO.fs.fo.recovery_ratio",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 35),
+                "xlims": (0.35, 0.5),
+                "save_name": "permian_water_recovery_stacked_plot.png",  # Change this
+                "save": False,
+            }
+        },
+    }
+}
+
+permian_grid_frac = {
+    "Permian": {
+        "Permian_RPT1_MD": {
             "grid_fraction": {
-                # "file": os.path.join(
-                #     sweep_csv_dir,
-                #     "permian_RPT1_MD_grid_frac_heat_grid_frac_var_recovery_0.5.csv", # Change this
-                # ),
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_RPT1_MD_grid_frac_heat_grid_frac_var_recovery_0.5.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
                 "unit_dict": {
-                    "H2O2 Addition": "fs.treatment.chem_addition.unit.costing",
+                    "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
                     "EC": "fs.treatment.EC.unit.costing",
                     "CF": "fs.treatment.cart_filt.unit.costing",
                     "MD": "fs.treatment.md.unit",
@@ -698,62 +734,25 @@ cases = {
                 "agg_flows": {
                     "Electricity": "electricity",
                     "Heat": "heat",
-                    "H2O2": "hydrogen_peroxide",
+                    "H$_2$O$_2$": "hydrogen_peroxide",
                     "Aluminum": "aluminum",
                 },
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(
-                    xlabel="Renewable Energy (%)", ylabel="LCOW (\$/m$^3$)"
-                ),
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
                 "ylims": (0, 40),
                 "xlims": (0.1, 0.5),  # Change this
-                "save_name": "Permian_ST1_stacked_plot_water_recovery_sweep.png",  # Change this
+                "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
             },
         },
-        "Permian_RPT1_FO": {
-            # "water_recovery": {
-            #     # "file": os.path.join(
-            #     #     # sweep_csv_dir, "FO_DWI_fo_recovery_ratio_sweep.csv"
-            #     #     sweep_csv_dir,
-            #     #     "permian_RPT2_FO_DWI_no_CST_sweep_recovery_ratio.csv",
-            #     # ),
-            #     "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_RPT2_FO_DWI_no_CST_sweep_recovery_ratio.csv",
-            #     "global_costing_blk": "fs.treatment.costing",
-            #     "costing_blk": "fs.treatment.costing",
-            #     "unit_dict": {
-            #         "H2O2 Addition": "fs.treatment.chem_addition.unit.costing",
-            #         "EC": "fs.treatment.ec.unit.costing",
-            #         "CF": "fs.treatment.cart_filt.unit.costing",
-            #         "FO": "fs.treatment.FO.fs.fo.costing",
-            #         "DWI": "fs.treatment.DWI.unit.costing",
-            #         # "CST": "fs.energy.cst.unit.costing",
-            #     },
-            #     "agg_flows": {
-            #         "Electricity": "electricity",
-            #         "Heat": "heat",
-            #         "H2O2": "hydrogen_peroxide",
-            #         "Aluminum": "aluminum",
-            #     },
-            #     "xcol": "fs.treatment.FO.fs.fo.recovery_ratio",
-            #     "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-            #     "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-            #     "ylims": (0, 35),
-            #     "xlims": (0.35, 0.5),
-            #     "save_name": "Permian_ST1_stacked_plot_water_recovery_sweep.png",
-            #     "save": False,
-            # },
+        "Permian_RPT2_FO": {
             "grid_fraction": {
-                # "file": os.path.join(
-                #     sweep_csv_dir,
-                #     "permian_RPT2_FO_DWI_RPT_grid_frac.csv", # Change this
-                # ),
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_RPT2_FO_DWI_RPT_grid_frac.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
                 "unit_dict": {
-                    "H2O2 Addition": "fs.treatment.chem_addition.unit.costing",
+                    "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
                     "EC": "fs.treatment.ec.unit.costing",
                     "CF": "fs.treatment.cart_filt.unit.costing",
                     "FO": "fs.treatment.FO.fs.fo.costing",
@@ -763,31 +762,25 @@ cases = {
                 "agg_flows": {
                     "Electricity": "electricity",
                     "Heat": "heat",
-                    "H2O2": "hydrogen_peroxide",
+                    "H$_2$O$_2$": "hydrogen_peroxide",
                     "Aluminum": "aluminum",
                 },
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(
-                    xlabel="Renewable Energy (%)", ylabel="LCOW (\$/m$^3$)"
-                ),
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
                 "ylims": (0, 40),
                 "xlims": (0.1, 0.5),  # Change this
-                "save_name": "Permian_ST1_stacked_plot_water_recovery_sweep.png",  # Change this
+                "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
             },
         },
-        "Permian_RPT2_MD_Cryst": {
+        "Permian_ZLD1_MD_Cryst": {
             "grid_fraction": {
-                # "file": os.path.join(
-                #     sweep_csv_dir,
-                #     "permian_ZLD1_MD_grid_frac_heat_grid_frac_var_recovery_0.5.csv", # Change this
-                # ),
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_ZLD1_MD_grid_frac_heat_grid_frac_var_recovery_0.5.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
                 "unit_dict": {
-                    "H2O2 Addition": "fs.treatment.chem_addition.unit.costing",
+                    "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
                     "EC": "fs.treatment.EC.unit.costing",
                     "CF": "fs.treatment.cart_filt.unit.costing",
                     "MD": "fs.treatment.md.unit",
@@ -797,31 +790,25 @@ cases = {
                 "agg_flows": {
                     "Electricity": "electricity",
                     "Heat": "heat",
-                    "H2O2": "hydrogen_peroxide",
+                    "H$_2$O$_2$": "hydrogen_peroxide",
                     "Aluminum": "aluminum",
                 },
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(
-                    xlabel="Renewable Energy (%)", ylabel="LCOW (\$/m$^3$)"
-                ),
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
                 "ylims": (0, 40),
                 "xlims": (0.1, 0.5),  # Change this
-                "save_name": "Permian_ST1_stacked_plot_water_recovery_sweep.png",  # Change this
+                "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
             },
         },
-        "Permian_RPT2_FO_Cryst": {
+        "Permian_ZLD2_FO_Cryst": {
             "grid_fraction": {
-                # "file": os.path.join(
-                #     sweep_csv_dir,
-                #     "permian_ZLD2_FO_cryst_RPT_grid_frac.csv",  # Change this
-                # ),
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_ZLD2_FO_cryst_RPT_grid_frac.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
                 "unit_dict": {
-                    "H2O2 Addition": "fs.treatment.chem_addition.unit.costing",
+                    "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
                     "EC": "fs.treatment.ec.unit.costing",
                     "CF": "fs.treatment.cart_filt.unit.costing",
                     "FO": "fs.treatment.FO.fs.fo.costing",
@@ -831,21 +818,19 @@ cases = {
                 "agg_flows": {
                     "Electricity": "electricity",
                     "Heat": "heat",
-                    "H2O2": "hydrogen_peroxide",
+                    "H$_2$O$_2$": "hydrogen_peroxide",
                     "Aluminum": "aluminum",
                 },
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(
-                    xlabel="Renewable Energy (%)", ylabel="LCOW (\$/m$^3$)"
-                ),
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
                 "ylims": (0, 40),
                 "xlims": (0.1, 0.5),  # Change this
-                "save_name": "Permian_ST1_stacked_plot_water_recovery_sweep.png",  # Change this
+                "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
             },
         },
-    },
+    }
 }
 
 
@@ -889,10 +874,14 @@ def plot_case(case, fig=None, ax=None):
     return legend_
 
 
-def plot_all_cases():
+def plot_all_cases(cases):
     figs = {}
     axs = {}
     legends = {}
+    # import pprint
+
+    # pprint.pprint(cases)
+    # assert False
     for idx0, study in enumerate(cases):
         figs[study] = {}
         axs[study] = {}
@@ -956,11 +945,11 @@ def plot_all_cases():
             # Remove duplicates while preserving order
             unique = list(OrderedDict(zip(labels, handles)).items())
             # Add the unified legend
-            legend_rows = 2
+            legend_rows = 1
             if len(axs[study][key]) > 3:
                 legend_rows = 2
             legend_cols = len(unique) // legend_rows + 1
-            print(legend_cols)
+            # print(legend_cols)
             # assert False
             master_legend = figs[study][key].legend(
                 [h for _, h in unique],
@@ -1003,25 +992,32 @@ def plot_all_cases():
             # figs[study][key].subplots_adjust(wspace=0.3, bottom=0.15, top=0.95)
 
             print("Saving figure...")
+            print(study, case, key)
+            print(f'{fig_save_path}/{cases[study][case][key]["save_name"]}')
             figs[study][key].savefig(
-                os.path.join(
-                    "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/figures",
-                    study + "_" + case + "_" + key + "_stacked_plot.png",
-                ),
+                f'{fig_save_path}/{cases[study][case][key]["save_name"]}',
                 dpi=300,
+                bbox_inches="tight",
             )
+            # figs[study][key].savefig(
+            #     os.path.join(
+            #         "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures/permian/",
+            #         study + "_" + case + "_" + key + "_stacked_plot.png",
+            #     ),
+            #     dpi=300,
+            # )
 
 
 if __name__ == "__main__":
+    # pprint.pprint(unit_color_dict_default)
+    plot_all_cases(kbhdp_wr)
+    # plot_all_cases(permian_wr)
+    plot_all_cases(kbhdp_grid_frac)
+    plot_all_cases(permian_grid_frac)
+    plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["soda_ash"])
+    plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["water_recovery"])
 
-    plot_all_cases()
-    # plot_case(cases["KBHDP"]["KBHDP_SOA_1"]["water_recovery"])
-    # plot_case(cases["Permian"]["Permian_RPT1_MD"]["water_recovery"])
-    # plot_case(cases["Permian_RPT1_MD"]["water_recovery"])
-    # plot_case(cases["Permian"]["Permian_RPT1_FO"]["water_recovery"])
-    # plot_case(cases["Permian"]["Permian_RPT1_MD_Cryst"]["grid_fraction"])
-    # plot_case(cases["Permian"]["Permian_RPT1_FO_Cryst"]["grid_fraction"])
-    # plot_case(cases["Permian"]["Permian_RPT1_MD"]["grid_fraction"])
-    # plot_case(cases["Permian_RPT1_FO"]["water_recovery"])
-    # plot_case(cases["Permian_ST2"]["water_recovery"])
+
+    # plt.tight_layout()
     plt.show()
+    
