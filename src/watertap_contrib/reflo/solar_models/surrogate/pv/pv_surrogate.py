@@ -1,15 +1,14 @@
-###############################################################################
-# WaterTAP Copyright (c) 2021, The Regents of the University of California,
-# through Lawrence Berkeley National Laboratory, Oak Ridge National
-# Laboratory, National Renewable Energy Laboratory, and National Energy
-# Technology Laboratory (subject to receipt of any required approvals from
-# the U.S. Dept. of Energy). All rights reserved.
+#################################################################################
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
-#
-###############################################################################
+#################################################################################
 
 import pandas as pd
 from pyomo.environ import (
@@ -28,7 +27,7 @@ import idaes.logger as idaeslog
 
 from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.core import SolarEnergyBaseData
-from watertap_contrib.reflo.costing.solar.pv_surrogate import cost_pv_surrogate
+from watertap_contrib.reflo.costing.solar.pv import cost_pv
 
 __author__ = "Zachary Binger, Matthew Boyd, Kurban Sitterley"
 
@@ -117,4 +116,4 @@ class PVSurrogateData(SolarEnergyBaseData):
 
     @property
     def default_costing_method(self):
-        return cost_pv_surrogate
+        return cost_pv
