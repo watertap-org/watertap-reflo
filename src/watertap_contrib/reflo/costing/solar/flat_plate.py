@@ -23,7 +23,7 @@ def build_flat_plate_cost_param_block(blk):
     costing = blk.parent_block()
 
     blk.cost_per_area_collector = pyo.Var(
-        initialize=600,
+        initialize=600, # 372 $/m2 from SEDAT
         units=costing.base_currency / pyo.units.m**2,
         bounds=(0, None),
         doc="Cost per area for solar collector",
