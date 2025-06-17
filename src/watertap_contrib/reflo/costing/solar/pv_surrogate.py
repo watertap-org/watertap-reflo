@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -11,6 +11,8 @@
 #################################################################################
 
 import pyomo.environ as pyo
+from idaes.core.util.misc import StrEnum
+from idaes.core.util.exceptions import ConfigurationError
 from watertap.costing.util import register_costing_parameter_block
 from watertap_contrib.reflo.costing.util import (
     make_capital_cost_var,
@@ -19,7 +21,59 @@ from watertap_contrib.reflo.costing.util import (
 )
 
 
-def build_pv_surrogate_cost_param_block(blk):
+class PVSurrogateCostMethod(StrEnum):
+    detailed = "detailed"
+    simple = "simple"
+
+
+def cost_pv_surrogate(blk, cost_method=PVSurrogateCostMethod.simple):
+    blk.cost_method = cost_method
+    if cost_method == PVSurrogateCostMethod.detailed:
+        cost_pv_surrogate_detailed(blk)
+    elif cost_method == PVSurrogateCostMethod.simple:
+        cost_pv_surrogate_simple(blk)
+    else:
+        raise ConfigurationError(
+            f"{blk.unit_model.name} received invalid argument for cost_method:"
+            f" {cost_method}. Argument must be a member of the PVSurrogateCostMethod Enum."
+        )
+
+
+def build_pv_surrogate_cost_simple_param_block(blk):
+    costing = blk.parent_block()
+
+    blk.cost_per_watt_installed = pyo.Var(
+        initialize=1.6,
+        units=costing.base_currency / pyo.units.watt,
+        bounds=(0, None),
+        doc="Cost per watt for solar module installed",
+    )
+
+    blk.land_cost_per_acre = pyo.Var(
+        initialize=4000,
+        units=costing.base_currency / pyo.units.acre,
+        bounds=(0, None),
+        doc="Land cost per acre required",
+    )
+
+    blk.fixed_operating_by_capacity = pyo.Var(
+        initialize=31,
+        units=costing.base_currency / (pyo.units.kW * costing.base_period),
+        bounds=(0, None),
+        doc="Fixed operating cost of PV system per kW generated",
+    )
+
+    blk.variable_operating_by_generation = pyo.Var(
+        initialize=0,
+        units=costing.base_currency / (pyo.units.MWh * costing.base_period),
+        bounds=(0, None),
+        doc="Annual operating cost of PV system per MWh generated",
+    )
+
+    blk.fix_all_vars()
+
+
+def build_pv_surrogate_cost_detailed_param_block(blk):
 
     costing = blk.parent_block()
 
@@ -90,9 +144,10 @@ def build_pv_surrogate_cost_param_block(blk):
 
 
 @register_costing_parameter_block(
-    build_rule=build_pv_surrogate_cost_param_block, parameter_block_name="pv_surrogate"
+    build_rule=build_pv_surrogate_cost_detailed_param_block,
+    parameter_block_name="pv_surrogate",
 )
-def cost_pv_surrogate(blk):
+def cost_pv_surrogate_detailed(blk):
 
     global_params = blk.costing_package
     pv_params = blk.costing_package.pv_surrogate
@@ -167,6 +222,56 @@ def cost_pv_surrogate(blk):
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
         == blk.direct_capital_cost + blk.indirect_capital_cost + blk.sales_tax
+    )
+
+    blk.fixed_operating_cost_constraint = pyo.Constraint(
+        expr=blk.fixed_operating_cost
+        == pv_params.fixed_operating_by_capacity
+        * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW)
+    )
+
+    blk.variable_operating_cost_constraint = pyo.Constraint(
+        expr=blk.variable_operating_cost
+        == pv_params.variable_operating_by_generation * blk.unit_model.annual_energy
+    )
+
+    blk.costing_package.cost_flow(-1 * blk.unit_model.electricity, "electricity")
+
+
+@register_costing_parameter_block(
+    build_rule=build_pv_surrogate_cost_simple_param_block,
+    parameter_block_name="pv_surrogate",
+)
+def cost_pv_surrogate_simple(blk):
+
+    global_params = blk.costing_package
+    pv_params = blk.costing_package.pv_surrogate
+    make_capital_cost_var(blk)
+    make_variable_operating_cost_var(blk)
+    make_fixed_operating_cost_var(blk)
+
+    blk.direct_capital_cost = pyo.Var(
+        initialize=0,
+        units=blk.costing_package.base_currency,
+        bounds=(0, None),
+        doc="Direct costs of PV system",
+    )
+
+    blk.land_cost = pyo.Var(
+        initialize=0,
+        units=blk.costing_package.base_currency,
+        bounds=(0, None),
+        doc="Land costs of PV system",
+    )
+
+    blk.capital_cost_constraint = pyo.Constraint(
+        expr=blk.capital_cost
+        == pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
+        * pv_params.cost_per_watt_installed
+    )
+
+    blk.land_cost_constraint = pyo.Constraint(
+        expr=blk.land_cost == (blk.unit_model.land_req * pv_params.land_cost_per_acre)
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
