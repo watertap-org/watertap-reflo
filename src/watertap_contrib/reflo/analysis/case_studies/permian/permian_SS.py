@@ -196,7 +196,7 @@ def run_permian_ss_water_production_tds_sweep():
     rd = build_results_dict(m0, skips=skips)
 
     water_prod = [3500, 7000, 10500, 14000, 17500, 21000, 24500]  # gallon per day
-    salinity = [100, 120, 130, 140, 180, 200]
+    salinity = [100, 120, 130, 140, 150, 160, 160, 180, 190, 200]
 
     df = pd.DataFrame()
 
@@ -213,8 +213,9 @@ def run_permian_ss_water_production_tds_sweep():
             print(f"Water production: {wp} gal/day")
             print(f"LCOW: {m.fs.costing.LCOW()} $/m3\n")
 
-    df.to_csv(f"{save_path}/permian_SS_salinity_water_production_sweep.csv", index=False)
-    df.to_csv(f"{save_path}/permian_SS_salinity_water_production_sweep2.csv", index=False)
+    # df.to_csv(f"{save_path}/permian_SS_salinity_water_production_sweep.csv", index=False)
+    # df.to_csv(f"{save_path}/permian_SS_salinity_water_production_sweep2.csv", index=False)
+    df.to_csv(f"{save_path}/permian_SS_salinity_water_production_sweep-june2025.csv", index=False)
 
 def run_permian_ss_water_production_sweep():
 
@@ -238,7 +239,10 @@ def run_permian_ss_water_production_sweep():
 
 
 if __name__ == "__main__":
-
+    # m = build_ss()
+    # m.fs.unit.initialize()
+    # results = solver.solve(m)
+    # assert_optimal_termination(results)
     run_permian_ss_water_production_tds_sweep()
 
     # m = build_ss()

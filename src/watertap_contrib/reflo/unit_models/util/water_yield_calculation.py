@@ -11,7 +11,8 @@
 #################################################################################
 
 import math
-from pandas import read_csv
+# from pandas import read_csv
+import pandas as pd
 import numpy as np
 
 from idaes.core.util.exceptions import ConfigurationError
@@ -77,7 +78,7 @@ BB = 0.25
 
 def create_input_arrays(
     blk,
-    irradiance_threshold=0,  # blk.irradiance values < threshold assumed to have negligible impact on calculation; W/m2
+    irradiance_threshold=0,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
     irradiance_col=None,  # column from weather_data to use as blk.irradiance input data
     temperature_col=None,  # column from weather_data to use as temperature input data
     wind_velocity_col=None,  # column from weather_data to use as wind velocity input data
@@ -152,7 +153,7 @@ def get_solar_still_daily_water_yield(
     blk.initial_salinity = initial_salinity
     blk.initial_water_depth = initial_water_depth
 
-    blk.weather_data = read_csv(input_weather_file_path, skiprows=2)
+    blk.weather_data = pd.read_csv(input_weather_file_path, skiprows=2)
 
     if not len(blk.weather_data) >= 8760:
         err_msg = f"Water yield calculation for {blk.name} requires at least "
@@ -216,6 +217,12 @@ def get_solar_still_daily_water_yield(
     blk.overall_side_heat_loss_coefficient = np.zeros(len_data_hr * 3600)
     blk.water_heat_trans_coeff = np.zeros(len_data_hr * 3600)
     blk.Gr = np.zeros(len_data_hr * 3600)
+    blk.Pr = np.zeros(len_data_hr * 3600)
+    blk.freshwater_vap_latent_heat = np.zeros(len_data_hr * 3600)
+    blk.sw_partial_vap_press = np.zeros(len_data_hr * 3600)
+    blk.partial_vap_press_at_glass = np.zeros(len_data_hr * 3600)
+    blk.effective_absorp = np.zeros(len_data_hr * 3600)
+
 
     # Converting hourly data into per second
     for hour in range(len_data_hr):
@@ -311,7 +318,7 @@ def get_solar_still_daily_water_yield(
             blk.sky_temp[i] == blk.ambient_temp[i]
             # print(i, blk.ambient_temp[i])
         else:
-            blk.sky_temp[i] = 0.0552 * ((blk.ambient_temp[i]) ** 1.5)
+            blk.sky_temp[i] = 0.0552 * (blk.ambient_temp[i] ** 1.5)
         # blk.sky_temp[i] = 0.0552 * (blk.ambient_temp[i] ** 1.5)
 
         # Perimeter x depth of water (m^2)
@@ -340,11 +347,14 @@ def get_solar_still_daily_water_yield(
 
         # Prandtl number for water (-)
         Pr = (specific_heat * dynamic_visc) / thermal_conductivity
+        blk.Pr[i] = Pr
 
         # Latent heat of vaporization of pure water J/kg
         freshwater_vap_latent_heat = (
             2501.67 - 2.389 * blk.saltwater_temp[i - 1]
         ) * 1000
+
+        blk.freshwater_vap_latent_heat[i] = freshwater_vap_latent_heat
 
         # Calculation of partial saturated vapor pressure of saltwater
         # According to parametric analysis and available literature,
@@ -362,6 +372,9 @@ def get_solar_still_daily_water_yield(
         partial_vap_press_at_glass = math.exp(
             25.317 - (5144 / (blk.glass_temp[i - 1] + 273))
         )
+
+        blk.sw_partial_vap_press[i] = sw_partial_vap_press
+        blk.partial_vap_press_at_glass[i] = partial_vap_press_at_glass
 
         # Coefficient of volume expansion (1/°C) correlation from Zhutovsky and Kovler (2015)
         beta = 1e-6 * (
@@ -510,6 +523,7 @@ def get_solar_still_daily_water_yield(
                 )
             )
         )
+        blk.effective_absorp[i] = effective_absorp
 
         # Calculation of overall heat transfer coefficients
         # Overall heat loss coefficient (W/m^2.°C)
@@ -596,7 +610,7 @@ def get_solar_still_daily_water_yield(
         blk.evap_fw_mass[i] = (
             area_bottom_basin
             * evap_heat_trans_coeff_water_glass
-            * (blk.temp_diff_inside_basin[i])
+            * blk.temp_diff_inside_basin[i]
         ) / freshwater_vap_latent_heat
 
         # Distilled saltwater conversion (Morton) (kg)
@@ -645,6 +659,8 @@ def get_solar_still_daily_water_yield(
             blk.num_seconds_for_zld_cycle = i
             blk.num_days_for_zld_cycle = i / 3600 / 24
             break
+        # if i > 7200:
+        #     break
 
     num_zld_cycles_per_year = (
         len(blk.weather_data) * 3600
@@ -657,4 +673,71 @@ def get_solar_still_daily_water_yield(
     # Daily water yield [kg water per m2 area per day]
     daily_water_yield = annual_water_yield / days_in_year
 
+    # d = dict(
+    #     time=blk.time[:i],
+    #     time_hr=blk.time[:i] / 3600,
+    #     time_days=blk.time[:i] / 3600 / 24,
+    #     depth=blk.depth[:i],
+    #     salinity=blk.salinity[:i],
+    #     excess_salinity=blk.excess_salinity[:i],
+    #     volume_scale_formation=blk.volume_scale_formation[:i],
+    #     thickness_scale_formation=blk.thickness_scale_formation[:i],
+    #     evap_sw_mass=blk.evap_sw_mass[:i],
+    #     irradiance=blk.irradiance[:i],
+    #     salt_precipitated=blk.salt_precipitated[:i],
+    #     sw_mass=blk.sw_mass[:i],
+    #     fw_mass=blk.fw_mass[:i],
+    #     wind_velocity=blk.wind_velocity[:i],
+    #     ambient_temp=blk.ambient_temp[:i],
+    #     basin_temp=blk.basin_temp[:i],
+    #     glass_temp=blk.glass_temp[:i],
+    #     sky_temp=blk.sky_temp[:i],
+    #     saltwater_temp=blk.saltwater_temp[:i],
+    #     grouping_term=blk.grouping_term[:i],
+    #     evap_fw_mass=blk.evap_fw_mass[:i],
+    #     temp_diff_inside_basin=blk.temp_diff_inside_basin[:i],
+    #     temp_diff_outside_basin=blk.temp_diff_outside_basin[:i],
+    #     density=blk.density[:i],
+    #     dynamic_visc=blk.dynamic_visc[:i],
+    #     specific_heat=blk.specific_heat[:i],
+    #     thermal_conductivity=blk.thermal_conductivity[:i],
+    #     Gr=blk.Gr[:i],
+    #     Pr=blk.Pr[:i],
+    #     freshwater_vap_latent_heat=blk.freshwater_vap_latent_heat[:i],
+    #     sw_partial_vap_press=blk.sw_partial_vap_press[:i],
+    #     partial_vap_press_at_glass=blk.partial_vap_press_at_glass[:i],
+    #     time_dependent_term=blk.time_dependent_term[:i],
+    #     conv_heat_trans_coeff_water_glass=blk.conv_heat_trans_coeff_water_glass[:i],
+    #     rad_heat_transf_coeff_water_glass=blk.rad_heat_transf_coeff_water_glass[:i],
+    #     evap_heat_trans_coeff_water_glass=blk.evap_heat_trans_coeff_water_glass[:i],
+    #     tot_heat_trans_coeff_water_glass=blk.tot_heat_trans_coeff_water_glass[:i],
+    #     rad_heat_trans_coeff_glass_ambient=blk.rad_heat_trans_coeff_glass_ambient[:i],
+    #     conv_heat_trans_coeff_glass_ambient=blk.conv_heat_trans_coeff_glass_ambient[:i],
+    #     tot_heat_trans_coeff_glass_ambient=blk.tot_heat_trans_coeff_glass_ambient[:i],
+    #     tot_heat_trans_coeff_basin_ambient=blk.tot_heat_trans_coeff_basin_ambient[:i],
+    #     conv_heat_trans_coeff_basin_ambient=blk.conv_heat_trans_coeff_basin_ambient[:i],
+    #     overall_external_heat_trans_loss_coeff=blk.overall_external_heat_trans_loss_coeff[:i],
+    #     overall_heat_loss_coeff_glass_surr=blk.overall_heat_loss_coeff_glass_surr[:i],
+    #     overall_bottom_heat_trans_coeff_water_mass_surr=blk.overall_bottom_heat_trans_coeff_water_mass_surr[:i],
+    #     overall_bottom_heat_loss_coeff_water_mass_surr=blk.overall_bottom_heat_loss_coeff_water_mass_surr[:i],
+    #     overall_side_heat_loss_coefficient=blk.overall_side_heat_loss_coefficient[:i],
+    #     overall_heat_trans_coeff_basin_surr=blk.overall_heat_trans_coeff_basin_surr[:i],
+    #     water_heat_trans_coeff=blk.water_heat_trans_coeff[:i],
+    #     effective_absorp=blk.effective_absorp[:i],
+    # )
+
+    # # for k, v in d.items():
+    # #     print(k, len(v))
+    # # assert False
+    # df = pd.DataFrame.from_dict(d)
+    # df["annual_water_yield"] = annual_water_yield
+    # df["daily_water_yield"] = daily_water_yield
+    # df["num_zld_cycles_per_year"] = num_zld_cycles_per_year
+    # df["num_seconds_for_zld_cycle"] = blk.num_seconds_for_zld_cycle
+    # df["num_days_for_zld_cycle"] = blk.num_days_for_zld_cycle
+    # ss_results_save_path = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/permian/ss_results"
+    # df.to_csv(f"{ss_results_save_path}/time_series_results{int(initial_salinity)}gL_{initial_water_depth}m.csv", index=False)
+    # df = df.iloc[:7200].copy()
+    # df.to_csv(f"{ss_results_save_path}/time_series_results{int(initial_salinity)}gL_{initial_water_depth}m-short.csv", index=False)
+    # assert False 
     return daily_water_yield, num_zld_cycles_per_year
