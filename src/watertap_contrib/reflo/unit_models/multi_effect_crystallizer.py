@@ -49,7 +49,6 @@ __author__ = "Oluwamayowa Amusat, Zhuoran Zhang, Kurban Sitterley"
 
 @declare_process_block_class("MultiEffectCrystallizer")
 class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
-
     CONFIG = ConfigBlock()
 
     CONFIG.declare(
@@ -264,7 +263,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 self.steam.temperature.setub(1000)
 
             else:
-
                 prev_effect = self.effects[n - 1].effect
 
                 del_temp_in_constr = Constraint(
@@ -478,6 +476,32 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         if iscale.get_scaling_factor(self.recovery_vol_phase) is None:
             iscale.set_scaling_factor(self.recovery_vol_phase, 10)
+
+            iscale.constraint_scaling_transform(self.eq_isobaric, 1e-6)
+
+        if 1 in self.Effects:
+            iscale.constraint_scaling_transform(
+                self.effects[1].effect.eq_heat_transfer_effect_1, 1e-4
+            )
+            iscale.constraint_scaling_transform(
+                self.effects[1].effect.eq_heating_steam_flow_rate, 1e-4
+            )
+
+        if 2 in self.Effects:
+            iscale.constraint_scaling_transform(self.eq_heat_transfer_effect_2, 1e-6)
+            iscale.constraint_scaling_transform(
+                self.eq_energy_for_effect_2_from_effect_1, 1e-4
+            )
+        if 3 in self.Effects:
+            iscale.constraint_scaling_transform(self.eq_heat_transfer_effect_3, 1e-6)
+            iscale.constraint_scaling_transform(
+                self.eq_energy_for_effect_3_from_effect_2, 1e-4
+            )
+        if 4 in self.Effects:
+            iscale.constraint_scaling_transform(self.eq_heat_transfer_effect_4, 1e-6)
+            iscale.constraint_scaling_transform(
+                self.eq_energy_for_effect_4_from_effect_3, 1e-4
+            )
 
     @property
     def default_costing_method(self):
