@@ -7,7 +7,6 @@ import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_SOA as SOA
 import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_RPT_1 as RPT1
 import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_RPT_2 as RPT2
 import watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_RPT_3 as RPT3
-import watertap_contrib.reflo.analysis.case_studies.KBHDP.pretreatment_2 as PT2
 
 filepath = os.path.abspath(__file__)
 parent_dir = os.path.dirname(filepath)

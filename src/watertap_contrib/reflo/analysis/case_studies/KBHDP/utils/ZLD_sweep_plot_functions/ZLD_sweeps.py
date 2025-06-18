@@ -1,7 +1,7 @@
 from idaes.core.solvers import get_solver
 from pyomo.environ import SolverFactory, value
 import pandas as pd
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_ZLD_MH import (
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.KBHDP_ZLD import (
     zld_main,
 )
 import matplotlib.pyplot as plt
