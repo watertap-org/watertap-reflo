@@ -34,7 +34,7 @@ from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 from idaes.core.surrogate.metrics import compute_fit_metrics
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
-from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
+from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoPolyTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 from idaes.core.util.misc import StrEnum
 
@@ -308,6 +308,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         self.surrogate_inputs = []
         for input_var_name, bounds in self.input_bounds.items():
+            # print(input_var_name, bounds)
             units = self.input_units[input_var_name]
             v_in = Var(
                 initialize=np.mean(bounds),
@@ -320,6 +321,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         self.surrogate_outputs = []
         for output_var_name, bounds in self.output_bounds.items():
+            # print(output_var_name, bounds)
             units = self.output_units[output_var_name]
             if self.config.scale_training_data:
                 self.add_scaling_param(output_var_name)
@@ -332,6 +334,11 @@ class SolarEnergyBaseData(UnitModelBlockData):
             )
             self.surrogate_outputs.append(v_out)
             self.add_component(output_var_name, v_out)
+        if self.scale_training_data:
+            for v_out in self.surrogate_outputs:
+                v_out.set_value(0.5)
+        # self.display()
+        # assert False
 
     def add_scaling_param(self, output_var_name):
         sp_name = f"{output_var_name}_scaling"
@@ -399,6 +406,67 @@ class SolarEnergyBaseData(UnitModelBlockData):
         )
         sys.stdout = oldstdout
 
+    def create_polynomial_surrogate(self):
+        # Capture long output
+        stream = StringIO()
+        oldstdout = sys.stdout
+        sys.stdout = stream
+
+        # Create PySMO trainer object
+        self.trainer = PysmoPolyTrainer(
+            input_labels=self.input_labels,
+            output_labels=self.output_labels,
+            training_dataframe=self.data_training,
+        )
+
+        self.trainer.config.maximum_polynomial_order =1
+
+        self.log.info(
+            f"Training Polynomial Surrogate with maximum polynomial order 1."
+        )
+
+        self.trained_linear = self.trainer.train_surrogate()
+        self.log.info(f"Training Complete.")
+
+        try:
+            os.remove("solution.pickle")
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            raise e
+
+        self.surrogate = PysmoSurrogate(
+            self.trained_linear,
+            self.input_labels,
+            self.output_labels,
+            self.input_bounds,
+        )
+
+        if self.config.surrogate_filename_save is None:
+            print("no surrogate_filename_save provided, using dataset_filename")
+            self.surrogate_filename_save = self.config.dataset_filename.replace(
+                ".pkl", ""
+            )
+        else:
+            print("using surrogate_filename_save provided in config")
+            self.surrogate_filename_save = self.config.surrogate_filename_save.replace(
+                ".json", ""
+            )
+
+        _ = self.surrogate.save_to_file(
+            self.surrogate_filename_save + ".json", overwrite=True
+        )
+
+        sys.stdout = oldstdout
+
+        self.surrogate_blk = SurrogateBlock(concrete=True)
+        self.surrogate_blk.build_model(
+            self.surrogate,
+            input_vars=self.surrogate_inputs,
+            output_vars=self.surrogate_outputs,
+        )
+
+
     def create_rbf_surrogate(self):
 
         # Capture long output
@@ -446,10 +514,12 @@ class SolarEnergyBaseData(UnitModelBlockData):
         )
 
         if self.config.surrogate_filename_save is None:
+            print("no surrogate_filename_save provided, using dataset_filename")
             self.surrogate_filename_save = self.config.dataset_filename.replace(
                 ".pkl", ""
             )
         else:
+            print("using surrogate_filename_save provided in config")
             self.surrogate_filename_save = self.config.surrogate_filename_save.replace(
                 ".json", ""
             )
