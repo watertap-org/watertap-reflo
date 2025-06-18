@@ -420,8 +420,8 @@ class CrystallizerEffectData(CrystallizationData):
         if iscale.get_scaling_factor(self.overall_heat_transfer_coefficient) is None:
             iscale.set_scaling_factor(self.overall_heat_transfer_coefficient, 0.01)
 
-        iscale.set_scaling_factor(self.properties_solids[0].flow_vol_phase["Vap"], 1e5)
-        iscale.set_scaling_factor(self.properties_out[0].flow_vol_phase["Vap"], 1e5)
+        # iscale.set_scaling_factor(self.properties_solids[0].flow_vol_phase["Vap"], 1)
+        # iscale.set_scaling_factor(self.properties_out[0].flow_vol_phase["Vap"], 1)
 
         for _, c in self.eq_p_con4.items():
             sf = iscale.get_scaling_factor(self.properties_pure_water[0].pressure)

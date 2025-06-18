@@ -206,6 +206,10 @@ def init_mec(blk):
 
     calculate_scaling_factors(blk)
 
+    for n, eff in blk.unit.effects.items(): 
+        set_scaling_factor(eff.effect.properties_solids[0].flow_vol_phase["Vap"], 1e5) 
+        set_scaling_factor(eff.effect.properties_out[0].flow_vol_phase["Vap"], 1e5)
+
     # from idaes.core.util.scaling import badly_scaled_var_generator
     # bad_var = badly_scaled_var_generator(blk)
     # print('here')
