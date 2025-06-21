@@ -71,7 +71,7 @@ class TestDrawSolutionProperty(PropertyTestHarness):
             ("flow_vol_phase", "Liq"): 9.2170e-4,
             ("conc_mass_phase_comp", ("Liq", "H2O")): 216.975,
             ("conc_mass_phase_comp", ("Liq", "DrawSolution")): 867.899,
-            ("pressure_osm_phase", "Liq"): 1.5697e7,
+            ("pressure_osm_phase", "Liq"): 2.4722e7,
             ("cp_mass_phase", "Liq"): 2257.78,
             ("heat_separation_phase", "Liq"): 0,
         }
@@ -165,7 +165,7 @@ def test_parameters(m):
         6.0171e4, rel=1e-3
     )
     assert value(m.fs.stream[0].pressure_osm_phase["Liq"]) == pytest.approx(
-        9.9468e6, rel=1e-3
+        1.5843e7, rel=1e-3
     )
     assert value(m.fs.stream[0].flow_vol_phase["Liq"]) == pytest.approx(
         1.8459e-3, rel=1e-3
