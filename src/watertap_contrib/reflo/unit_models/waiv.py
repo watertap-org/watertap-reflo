@@ -680,8 +680,7 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 # b.total_wetted_surface_area_required
                 # * b.number_recirculation_loops
                 # * b.evaporation_rate_avg
-                b.flow_vol_water_evap
-                * prop_in.dens_mass_solvent["H2O"],
+                b.flow_vol_water_evap * prop_in.dens_mass_solvent["H2O"],
                 to_units=pyunits.kg / pyunits.s,
             )
 
