@@ -144,7 +144,8 @@ def build_waiv_non_terminal():
 
     m.fs.unit.evaporation_rate_salinity_adjustment_factor.set_value(0.7)
     m.fs.unit.number_waiv_modules.fix(1)
-    m.fs.unit.recovery_mass.fix(0.2)
+    m.fs.unit.recovery_mass_water.fix(0.2)
+    m.fs.unit.brine_concentration_factor.fix(4)
 
     prop_in = m.fs.unit.properties_in[0]
     prop_in.flow_vol_phase["Liq"]
@@ -276,7 +277,7 @@ class TestWAIV:
         m = waiv_frame
 
         results_dict = {
-            "recovery_mass": 0.0,
+            "recovery_mass_water": 0.0,
             "number_recirculation_loops": 5.7712,
             "evaporation_rate": {
                 0: 0.234175,
@@ -435,8 +436,8 @@ class TestWAIV_NonTerminal:
             )
 
         assert len(m.fs.unit.weather) == len(m.fs.unit.days_of_year)
-        assert number_variables(m) == 3707
-        assert number_total_constraints(m) == 1495
+        assert number_variables(m) == 3708
+        assert number_total_constraints(m) == 1496
         assert number_unused_variables(m) == 1471
 
     @pytest.mark.unit
@@ -504,7 +505,7 @@ class TestWAIV_NonTerminal:
         m = waiv_frame
 
         results_dict = {
-            "recovery_mass": 0.2,
+            "recovery_mass_water": 0.2,
             "number_recirculation_loops": 4.6165,
             "evaporation_rate": {
                 0: 0.234108,
@@ -580,7 +581,7 @@ class TestWAIV_NonTerminal:
         sys_cost_results = {
             "aggregate_capital_cost": 116359.79,
             "aggregate_fixed_operating_cost": 11386.51,
-            "aggregate_flow_recovered_solids": 0.024012,
+            "aggregate_flow_recovered_solids": 0.00402,
             "aggregate_direct_capital_cost": 116359.79,
             "total_capital_cost": 116359.79,
             "total_operating_cost": 14877.31,
