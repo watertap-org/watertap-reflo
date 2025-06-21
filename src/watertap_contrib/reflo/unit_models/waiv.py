@@ -178,7 +178,7 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             description="Flag to indicate if WAIV is terminal process in treatment train",
             doc="""Flag to indicate if WAIV is terminal process in treatment train.
             If True, assumed that all inlet water is evaporated and no outlet properties are not added.
-            If False, user can set recovery_mass to indicate fraction of inlet water evaporated with WAIV.
+            If False, user can set recovery_mass_water to indicate mass fraction of inlet water recovered from WAIV.
             Outlet properties and Port are added to unit model.
     """,
         ),
@@ -389,28 +389,6 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             doc="Textile area of single WAIV module",
         )
 
-        # self.recovery_mass = Param(
-        #     initialize=0,
-        #     mutable=True,
-        #     units=pyunits.dimensionless,
-        #     doc="Mass-based recovery of water from WAIV system",
-        # )
-
-        self.recovery_mass = Var(
-            initialize=0,
-            # mutable=True,
-            bounds=(0, 1),
-            units=pyunits.dimensionless,
-            doc="Mass-based recovery of water from WAIV system",
-        )
-
-        self.number_recirculation_loops = Var(
-            initialize=1.02,
-            bounds=(0, None),
-            units=pyunits.dimensionless,
-            doc="Number of recirculation loops through WAIV modules",
-        )
-
         self.land_area_per_waiv_module = Param(
             initialize=364,
             mutable=True,
@@ -422,6 +400,20 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             initialize=0.5,
             units=pyunits.m**2 / pyunits.m**2,
             doc="Textile area required per wetted area",
+        )
+
+        self.recovery_mass_water = Var(
+            initialize=0.2,
+            bounds=(0, 1),
+            units=pyunits.dimensionless,
+            doc="Mass-based recovery of water from WAIV system",
+        )
+
+        self.number_recirculation_loops = Var(
+            initialize=1.02,
+            bounds=(0, None),
+            units=pyunits.dimensionless,
+            doc="Number of recirculation loops through WAIV modules",
         )
 
         self.evaporation_rate = Var(
@@ -670,16 +662,12 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                 b.total_wetted_surface_area_required
                 * b.number_recirculation_loops
                 * b.evaporation_rate_avg,
-                # * prop_in.dens_mass_solvent["H2O"],
                 to_units=pyunits.m**3 / pyunits.s,
             )
 
         @self.Expression(doc="Steady-state mass flow evaporated water")
         def flow_mass_water_evap(b):
             return pyunits.convert(
-                # b.total_wetted_surface_area_required
-                # * b.number_recirculation_loops
-                # * b.evaporation_rate_avg
                 b.flow_vol_water_evap * prop_in.dens_mass_solvent["H2O"],
                 to_units=pyunits.kg / pyunits.s,
             )
@@ -708,7 +696,7 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
                     (
                         (
                             prop_in.flow_mass_phase_comp["Liq", "H2O"]
-                            * (1 - b.recovery_mass)
+                            * (1 - b.recovery_mass_water)
                         )
                         / prop_in.dens_mass_solvent["H2O"]
                     )
@@ -734,7 +722,7 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             )
 
         if self.config.terminal_process:
-            self.recovery_mass.fix(0)
+            self.recovery_mass_water.fix(0)
 
         if not self.config.terminal_process:
 
@@ -748,6 +736,20 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             prop_out = self.properties_out[0]
             self.add_outlet_port(name="outlet", block=self.properties_out)
 
+            self.max_brine_salinity = Param(
+                initialize=300,
+                mutable=True,
+                units=pyunits.kg / pyunits.m**3,
+                doc="Maximum salinity of brine",
+            )
+
+            self.brine_concentration_factor = Var(
+                initialize=2,
+                bounds=(1, None),
+                units=pyunits.dimensionless,
+                doc="Concentration factor of effluent brine relative to influent TDS",
+            )
+
             @self.Constraint(self.config.property_package.phase_list, doc="Isothermal")
             def eq_isothermal(b, p):
                 return prop_out.temperature[p] == prop_in.temperature[p]
@@ -756,21 +758,28 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
             def eq_isobaric(b):
                 return prop_out.pressure == prop_in.pressure
 
+            @self.Constraint(doc="Maximum brine salinity")
+            def eq_max_brine_salintiy(b):
+                return (
+                    prop_out.conc_mass_phase_comp["Liq", "TDS"] <= b.max_brine_salinity
+                )
+
             @self.Constraint(
                 self.config.property_package.liq_comps,
                 doc="Mass balance for liquid phase",
             )
             def eq_liq_comps_mass_balance(b, j):
                 if j == "TDS":
-                    return prop_out.conc_mass_phase_comp[
-                        "Liq", j
-                    ] == prop_in.conc_mass_phase_comp["Liq", j] / (
-                        b.recovery_mass * b.number_recirculation_loops
+                    return (
+                        prop_out.conc_mass_phase_comp["Liq", j]
+                        == prop_in.conc_mass_phase_comp["Liq", j]
+                        * b.brine_concentration_factor
                     )
                 if j == "H2O":
                     return (
                         prop_out.flow_mass_phase_comp["Liq", j]
-                        == prop_in.flow_mass_phase_comp["Liq", j] * b.recovery_mass
+                        == prop_in.flow_mass_phase_comp["Liq", j]
+                        * b.recovery_mass_water
                     )
                 if j in b.config.property_package.volatile_comps:
                     prop_out.flow_mass_phase_comp["Liq", j].fix(0)
@@ -893,11 +902,15 @@ class WAIVData(InitializationMixin, UnitModelBlockData):
         if iscale.get_scaling_factor(self.number_waiv_modules) is None:
             iscale.set_scaling_factor(self.number_waiv_modules, 1)
 
-        if iscale.get_scaling_factor(self.recovery_mass) is None:
-            iscale.set_scaling_factor(self.recovery_mass, 1)
+        if iscale.get_scaling_factor(self.recovery_mass_water) is None:
+            iscale.set_scaling_factor(self.recovery_mass_water, 1)
 
         if iscale.get_scaling_factor(self.number_recirculation_loops) is None:
             iscale.set_scaling_factor(self.number_recirculation_loops, 1)
+
+        if not self.config.terminal_process:
+            if iscale.get_scaling_factor(self.brine_concentration_factor) is None:
+                iscale.set_scaling_factor(self.brine_concentration_factor, 1)
 
     def _get_timeseries_results(self):
         """
