@@ -705,7 +705,7 @@ def add_zld_pv(m):
     set_pv_constraints(m, focus="Size")
 
 
-def add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price):
+def add_zld_treatment_costing(m,heat_price,electricity_price):
 
     # Add treatment costing
     treatment = m.fs.treatment
@@ -732,6 +732,9 @@ def add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price
     constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_2_constraint,1e-7)
     constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_3_constraint,1e-7)
     constraint_scaling_transform(m.fs.treatment.mec.unit.costing.total_capital_cost_effect_4_constraint,1e-7)
+
+    m.fs.treatment.costing.heat_cost.fix(heat_price)
+    m.fs.treatment.costing.electricity_cost.fix(electricity_price)
     
     treatment.costing.cost_process()
     treatment.costing.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
@@ -843,20 +846,22 @@ def zld_main(
     print(f"\nDOF after MEC = {degrees_of_freedom(m)}")
     print("\n")
 
-    add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price=nacl_recovery_price)
-    
-    try:
-        results = solve(m)
-        print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
-        print("\n")
-    except:
-        print_infeasible_constraints(m)
-
-    # m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
-    results = solve(m)
-
 
     if treatment_only == True:
+
+        add_zld_treatment_costing(m,heat_price,electricity_price,nacl_recovery_price=nacl_recovery_price)
+    
+        try:
+            results = solve(m)
+            print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
+            print("\n")
+        except:
+            print_infeasible_constraints(m)
+
+        # m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
+        results = solve(m)
+
+        m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
 
         # feed_density = 1000 * pyunits.kg / pyunits.m**3 
         feed_m3h = pyunits.convert(
@@ -884,6 +889,16 @@ def zld_main(
         print('Heat demand (MWh/year):',pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
 
     else:
+
+        add_zld_treatment_costing(m,heat_price=0,electricity_price=0)
+        try:
+            results = solve(m)
+            print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
+            print("\n")
+        except:
+            print_infeasible_constraints(m)
+
+        results = solve(m)
 
         # Calculate required heat load and CST sizing
         m.fs.energy = Block()

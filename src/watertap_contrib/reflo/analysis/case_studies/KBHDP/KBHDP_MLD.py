@@ -2,6 +2,7 @@ import os
 import math
 from pyomo.environ import (
     ConcreteModel,
+    Param,
     value,
     Var,
     Constraint,
@@ -46,13 +47,8 @@ from watertap.core.util.initialization import *
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
 from watertap.core.zero_order_properties import WaterParameterBlock
-# from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.multi_effect_crystallizer import *
-# from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.MD import *
-# from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.translator_sw_to_nacl import *
-# from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.translator_nacl_to_nacl import *
-# from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.normalizer_cryst import *
-# from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.denormalizer_cryst import *
-# from watertap_contrib.reflo.analysis.case_studies.KBHDP.components.multi_effect_crystallizer import *
+
+
 from idaes.models.unit_models import (
     Product,
     Feed,
@@ -112,7 +108,6 @@ def build_mld_ro_treatment():
 
     m.fs.RO_properties = NaClParameterBlock()
     m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
-    # m.fs.properties_NaCl = cryst_prop_pack()
 
     treatment = m.fs.treatment = Block()
 
@@ -141,11 +136,6 @@ def build_mld_ro_treatment():
         outlet_state_defined=True,
     )
 
-    # treatment.NaCl_cryst_product_translator = Translator_NaCl_to_NaCl(
-    #     inlet_property_package = m.fs.RO_properties,
-    #     outlet_property_package= m.fs.properties_NaCl,
-    # )
-
     build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
     build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
     build_ro(m, treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
@@ -156,8 +146,6 @@ def build_mld_ro_treatment():
         treatment.UF,
         treatment.pump,
         treatment.RO,
-
-        # treatment.product,
         treatment.sludge,
     ]
 
@@ -378,6 +366,7 @@ def init_mld_ro_treatment(m, verbose=True, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
     assert_no_degrees_of_freedom(m)
+
     treatment.feed.initialize(optarg=optarg)
     propagate_state(treatment.feed_to_translator)
     # report_MCAS_stream_conc(m, treatment.feed.properties[0.0])
@@ -408,9 +397,6 @@ def init_mld_ro_treatment(m, verbose=True, solver=None):
     treatment.RO.disposal.properties[0].flow_vol
     treatment.RO.disposal.properties[0].flow_vol_phase
     treatment.RO.disposal.initialize()
-
-    # treatment.NaCl_cryst_product_translator.outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
-    # treatment.NaCl_cryst_product_translator.outlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(0)
 
 
 def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
@@ -461,7 +447,6 @@ def optimize_mld_ro(
     objective="LCOW",
 ):
     treatment = m.fs.treatment
-    # energy = m.fs.energy
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
 
     # if objective == "LCOW":
@@ -534,7 +519,6 @@ def optimize_mld_ro(
 def add_mld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
     if m == None:
         m = ConcreteModel()
-        # m.db = REFLODatabase()
         m.fs = FlowsheetBlock(dynamic=False)
 
         treat = m.fs.treatment = Block()
@@ -554,20 +538,11 @@ def add_mld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
     
     m.water_recovery = md_water_recovery
 
-    # m.fs.treatment.norm_feed = Normalizer_Cryst(
-    #     inlet_property_package = m.fs.properties_NaCl,
-    #     outlet_property_package= m.fs.properties_NaCl,
-    # )
 
     m.fs.treatment.sw_to_nacl_product = Translator_SW_to_NaCl(
         inlet_property_package = m.fs.properties_md,
         outlet_property_package= m.fs.RO_properties,
     )
-
-    # m.fs.treatment.sw_to_nacl_disposal = Translator_SW_to_NaCl(
-    #     inlet_property_package = m.fs.properties_md,
-    #     outlet_property_package= m.fs.properties_NaCl,
-    # )
 
     m.fs.treatment.md = FlowsheetBlock(dynamic=False)
     build_md(m, m.fs.treatment.md, m.fs.properties_md)
@@ -576,29 +551,11 @@ def add_mld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
         source=treat.md.permeate.outlet, destination=treat.sw_to_nacl_product.inlet
     )
 
-
-    # treat.md_disposal_to_nacl_translator = Arc(
-    #     source=treat.md.concentrate.outlet,
-    #     destination=treat.sw_to_nacl_disposal.inlet,
-    # )
-
-    # treat.nacl_translator_to_normalized_feed = Arc(
-    #     source=treat.sw_to_nacl_disposal.outlet, destination=treat.norm_feed.inlet,
-    # )
-
     TransformationFactory("network.expand_arcs").apply_to(m)
 
     init_md(m, treat.md)
     
     propagate_state(treat.md_to_product)
-
-    # propagate_state(treat.md_disposal_to_nacl_translator)
-
-    # treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
-    # treat.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(0)
-    # treat.sw_to_nacl_disposal.initialize()
-
-    # propagate_state(treat.nacl_translator_to_normalized_feed)
 
     results = solve(m.fs.treatment.md)
     results = solve(m)
@@ -643,13 +600,10 @@ def add_mld_product(m):
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
-    # treat.sw_to_nacl_product.outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
-    # treat.sw_to_nacl_product.outlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(0)
-
     treat.sw_to_nacl_product.initialize()
     
     propagate_state(treat.md_translator_to_product_NaCl_mixer)
-    # propagate_state(treat.ro_to_product_NaCl_mixer)
+    propagate_state(treat.ro_to_product_NaCl_mixer)
 
     treat.product_NaCl_mixer.outlet.pressure[0].fix()
     treat.product_NaCl_mixer.initialize()
@@ -703,10 +657,12 @@ def add_mld_treatment_costing(m,heat_price,electricity_price):
         m.fs.treatment, m.fs.treatment.dwi, costing_blk=treatment.costing
     )
 
-    # add_mec_costing(m, m.fs.treatment.mec, flowsheet_costing_block=m.fs.treatment.costing)
-    # treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
-    
+    m.fs.treatment.costing.heat_cost.fix(heat_price)
+    m.fs.treatment.costing.electricity_cost.fix(electricity_price)
+
     treatment.costing.cost_process()
+    treatment.costing.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
+
     treatment.costing.initialize()
 
     print("\n--------- Treatment Costing Initialization Complete ---------\n")
@@ -761,7 +717,11 @@ def kbhdp_mld_md_reporting_variables(m):
 
 
 def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
-             heat_price=0.00894, electricity_price=0.04989):
+             heat_price=0.00894, electricity_price=0.04989,
+             cost_per_total_aperture_area = 297,
+             cost_per_storage_capital = 62,
+             cost_per_watt_installed = 1.6,
+             dwi_lcow=0.0587):
 
     if grid_frac_heat==1:
         treatment_only = True
@@ -795,18 +755,20 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
     add_mld_product(m)
     results = solve(m)
 
-    add_mld_treatment_costing(m,heat_price=0.00894,electricity_price=0.04989)
-    
-    try:
-        results = solve(m)
-        print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
-        print("\n")
-    except:
-        print_infeasible_constraints(m)
-
-    results = solve(m)
 
     if treatment_only == True:
+
+        add_mld_treatment_costing(m,heat_price,electricity_price)
+        m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
+    
+        try:
+            results = solve(m)
+            print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
+            print("\n")
+        except:
+            print_infeasible_constraints(m)
+
+        results = solve(m)
 
         # feed_density = 1000 * pyunits.kg / pyunits.m**3 
         feed_m3h = pyunits.convert(
@@ -834,6 +796,19 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
         print('Heat demand (MWh/year):',pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
 
     else:
+
+        add_mld_treatment_costing(m,heat_price=0,electricity_price=0)
+
+        m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
+    
+        try:
+            results = solve(m)
+            print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
+            print("\n")
+        except:
+            print_infeasible_constraints(m)
+
+        results = solve(m)
 
         # Calculate required heat load and CST sizing
         m.fs.energy = Block()
@@ -889,21 +864,21 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
         print("\n")
         print(f"\nDOF after CST sizing = {degrees_of_freedom(m)}")
         print("\n")
-        
-        # m.fs.treatment.costing.nacl_recovered.cost.set_value(nacl_recovery_price)
 
-        # m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(cost_per_total_aperture_area)
-        # m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(cost_per_storage_capital)
-        # m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(cost_per_watt_installed)
+        m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(cost_per_total_aperture_area)
+        m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(cost_per_storage_capital)
+        m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(cost_per_watt_installed)
 
         m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
+
+        m.fs.treatment.feed.properties[0].flow_vol
         
         results = solve(m)
         print(f"\nDOF after PV sizing = {degrees_of_freedom(m)}")
 
         print("LCOT:", m.fs.costing.LCOT())
 
-        kbhdp_zld_md_reporting_variables(m)
+        kbhdp_mld_md_reporting_variables(m)
 
         print("CST Heat load:", m.fs.energy.cst.unit.heat_load())
         print("Heat grid fraction:",m.fs.costing.frac_heat_from_grid())
@@ -911,8 +886,6 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
         print("Heat generated:",m.fs.energy.costing.aggregate_flow_heat())
         print("Heat required:",m.fs.treatment.costing.aggregate_flow_heat())
         print("MD heat:", m.fs.treatment.md.unit.overall_thermal_power_requirement() )
-        print("MEC heat:",pyunits.convert(m.fs.treatment.mec.unit.effects[1].effect.work_mechanical[0],
-                                        to_units=pyunits.kW)())    
         
         print("\nPV design size:",m.fs.energy.pv.design_size())
         print("PV annual energy:",m.fs.energy.pv.annual_energy())
@@ -989,12 +962,6 @@ def recovery_check(m):
         f'MD Recovery: {100 * (value(md_product) / value(md_feed)):<5.2f}%'
     )
 
-    # MD to MEC transition
-    print("\nMD to MEC transition")
-    print("MD SW to NaCl:",m.fs.treatment.sw_to_nacl_disposal.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
-    print("Normalized flow:",m.fs.treatment.norm_feed.outlet.flow_mass_phase_comp[0, "Liq", "H2O"]())
-
-
     # System recovery
     system_product = m.fs.treatment.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]
     
@@ -1009,19 +976,18 @@ def recovery_check(m):
 if __name__ == "__main__":
 
     m = mld_main(
-        ro_recovery = 0.798,
-        md_water_recovery = 0.7,
+        ro_recovery = 0.8,
+        md_water_recovery = 0.77,
+        grid_frac_heat=0.5,
+        heat_price=0.00894, 
+        electricity_price=0.04989,
+        cost_per_total_aperture_area = 297,
+        cost_per_storage_capital = 62,
+        cost_per_watt_installed = 1.6,
+        dwi_lcow = 0.0587,
         )
     
     recovery_check(m)
-
-    # total_salt = 0
-    # for effect_number, eff in m.fs.treatment.mec.unit.effects.items():
-    #     print(effect_number, value(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"])*10, pyunits.get_units(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]))
-
-    #     total_salt+=value(eff.effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"])*10
-
-    # print(total_salt)
 
 
 
