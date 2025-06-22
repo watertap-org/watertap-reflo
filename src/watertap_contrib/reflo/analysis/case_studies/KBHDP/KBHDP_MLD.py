@@ -392,11 +392,12 @@ def init_mld_ro_treatment(m, verbose=True, solver=None):
 
     init_ro_system(m, treatment.RO)
     # propagate_state(treatment.ro_to_product)
-    propagate_state(treatment.ro_to_md)
-
+    
     treatment.RO.disposal.properties[0].flow_vol
     treatment.RO.disposal.properties[0].flow_vol_phase
     treatment.RO.disposal.initialize()
+
+    propagate_state(treatment.ro_to_md)
 
 
 def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):

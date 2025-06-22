@@ -59,6 +59,28 @@ from idaes.models.unit_models import (
 )
 from idaes.core import MaterialBalanceType
 
+__all__= [
+    "kbhdp_zld_ro",
+    "add_ro_recovery_constraint",
+    "build_zld_ro_treatment",
+    "add_zld_ro_connections",
+    "set_zld_ro_operating_conditions",
+    "set_inlet_conditions",
+    "set_ec_scaling",
+    "apply_zld_ro_scaling",
+    "init_zld_ro_treatment",
+    "solve",
+    "optimize_zld_ro",
+    "add_zld_md",
+    "add_zld_mec",
+    "add_zld_cst",
+    "add_zld_pv",
+    "add_zld_treatment_costing",
+    "add_zld_heat_energy_costing",
+    "add_zld_electricity_costing",
+    "add_zld_energy_costing",
+]
+
 def kbhdp_zld_ro(ro_recovery=0.5,Qin=4):
 
     m = build_zld_ro_treatment()
@@ -402,12 +424,11 @@ def init_zld_ro_treatment(m, verbose=True, solver=None):
 
     init_ro_system(m, treatment.RO)
     propagate_state(treatment.ro_to_product)
+    propagate_state(treatment.ro_to_md)
 
     treatment.RO.disposal.properties[0].flow_vol
     treatment.RO.disposal.properties[0].flow_vol_phase
     treatment.RO.disposal.initialize()
-
-    propagate_state(treatment.ro_to_md)
 
     treatment.NaCl_cryst_product_translator.outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
     treatment.NaCl_cryst_product_translator.outlet.flow_mass_phase_comp[0, "Sol", "NaCl"].fix(0)
