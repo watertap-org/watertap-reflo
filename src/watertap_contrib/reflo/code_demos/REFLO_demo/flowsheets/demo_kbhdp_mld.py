@@ -22,7 +22,9 @@ import idaes.core.util.scaling as iscale
 from watertap_contrib.reflo.core import REFLODatabase
 import idaes.logger as idaeslog
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
-from watertap.property_models.unit_specific.cryst_prop_pack import NaClParameterBlock as cryst_prop_pack
+from watertap.property_models.unit_specific.cryst_prop_pack import (
+    NaClParameterBlock as cryst_prop_pack,
+)
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import (
@@ -82,6 +84,7 @@ __all__ = [
     "mld_main",
 ]
 
+
 def kbhdp_mld_ro(ro_recovery=0.5):
 
     m = build_mld_ro_treatment()
@@ -89,13 +92,14 @@ def kbhdp_mld_ro(ro_recovery=0.5):
     set_mld_ro_operating_conditions(m)
     apply_mld_ro_scaling(m)
     init_mld_ro_treatment(m, verbose=False)
-    add_ro_recovery_constraint(m, m.fs.treatment.RO,ro_recovery)
+    add_ro_recovery_constraint(m, m.fs.treatment.RO, ro_recovery)
     optimize_mld_ro(m, water_recovery=ro_recovery)
     solve(m, debug=False)
 
     return m
 
-def add_ro_recovery_constraint(m, blk,ro_recovery):
+
+def add_ro_recovery_constraint(m, blk, ro_recovery):
     m.fs.treatment.ro_water_recovery = Var(
         initialize=ro_recovery,
         bounds=(0, 0.99),
@@ -108,7 +112,8 @@ def add_ro_recovery_constraint(m, blk,ro_recovery):
         expr=blk.feed.properties[0].flow_vol * m.fs.treatment.ro_water_recovery
         == blk.product.properties[0].flow_vol
     )
-    
+
+
 def build_mld_ro_treatment():
     m = ConcreteModel()
     m.db = REFLODatabase()
@@ -142,7 +147,6 @@ def build_mld_ro_treatment():
     treatment.UF = FlowsheetBlock(dynamic=False)
     treatment.pump = Pump(property_package=m.fs.RO_properties)
     treatment.RO = FlowsheetBlock(dynamic=False)
-
 
     treatment.MCAS_to_TDS_translator = Translator_MCAS_to_TDS(
         inlet_property_package=m.fs.MCAS_properties,
@@ -245,7 +249,6 @@ def add_mld_ro_connections(m):
         destination=treatment.RO_waste.inlet,
     )
 
-
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
@@ -335,6 +338,7 @@ def set_mld_ro_operating_conditions(m, RO_pressure=20e5):
     treatment.pump.efficiency_pump.fix(pump_efi)
     treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
     set_ro_system_operating_conditions(m, treatment.RO, mem_area=10000)
+
 
 def set_ec_scaling(m, blk, calc_blk_scaling_factors=False):
 
@@ -524,7 +528,6 @@ def optimize_mld_ro(
             stage.module.area.unfix()
             stage.module.area.setub(1e6)
 
-
     for idx, stage in treatment.RO.stage.items():
         stage.module.width.setub(5000)
         stage.module.feed_side.velocity[0, 0].unfix()
@@ -545,9 +548,9 @@ def add_mld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
         m.fs = FlowsheetBlock(dynamic=False)
 
         treat = m.fs.treatment = Block()
-    
+
     else:
-        treat = m.fs.treatment 
+        treat = m.fs.treatment
 
     m.fs.properties_md = SeawaterParameterBlock()
     m.fs.properties_vapor = SteamParameterBlock()
@@ -558,13 +561,12 @@ def add_mld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
     m.inlet_salinity = pyunits.convert(
         Cin * pyunits.g / pyunits.liter, to_units=pyunits.kg / pyunits.m**3
     )
-    
+
     m.water_recovery = md_water_recovery
 
-
     m.fs.treatment.sw_to_nacl_product = Translator_SW_to_NaCl(
-        inlet_property_package = m.fs.properties_md,
-        outlet_property_package= m.fs.RO_properties,
+        inlet_property_package=m.fs.properties_md,
+        outlet_property_package=m.fs.RO_properties,
     )
 
     m.fs.treatment.md = FlowsheetBlock(dynamic=False)
@@ -577,7 +579,7 @@ def add_mld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
     init_md(m, treat.md)
-    
+
     propagate_state(treat.md_to_product)
 
     results = solve(m.fs.treatment.md)
@@ -587,10 +589,11 @@ def add_mld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
 
     return m
 
+
 def add_mld_product(m):
     treat = m.fs.treatment
 
-    m.fs.treatment.dwi = FlowsheetBlock()  
+    m.fs.treatment.dwi = FlowsheetBlock()
     build_DWI(m, m.fs.treatment.dwi, m.fs.properties_md)
 
     treat.md_to_dwi = Arc(
@@ -601,7 +604,7 @@ def add_mld_product(m):
     treat.product_NaCl_mixer = Mixer(
         property_package=m.fs.RO_properties,
         num_inlets=2,
-        inlet_list=["ro_product","md_product"],
+        inlet_list=["ro_product", "md_product"],
         material_balance_type=MaterialBalanceType.componentPhase,
         energy_mixing_type=MixingType.extensive,
         momentum_mixing_type=MomentumMixingType.none,
@@ -610,27 +613,30 @@ def add_mld_product(m):
     treat.product = Product(property_package=m.fs.RO_properties)
 
     treat.md_translator_to_product_NaCl_mixer = Arc(
-        source=treat.sw_to_nacl_product.outlet, destination=treat.product_NaCl_mixer.md_product,
-    ) 
+        source=treat.sw_to_nacl_product.outlet,
+        destination=treat.product_NaCl_mixer.md_product,
+    )
 
     treat.ro_to_product_NaCl_mixer = Arc(
-        source=treat.RO.product.outlet, destination=treat.product_NaCl_mixer.ro_product,
-    )  
+        source=treat.RO.product.outlet,
+        destination=treat.product_NaCl_mixer.ro_product,
+    )
 
     treat.product_NaCl_mixer_to_product = Arc(
-        source=treat.product_NaCl_mixer.outlet, destination=treat.product.inlet,
-    ) 
+        source=treat.product_NaCl_mixer.outlet,
+        destination=treat.product.inlet,
+    )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
     treat.sw_to_nacl_product.initialize()
-    
+
     propagate_state(treat.md_translator_to_product_NaCl_mixer)
     propagate_state(treat.ro_to_product_NaCl_mixer)
 
     treat.product_NaCl_mixer.outlet.pressure[0].fix()
     treat.product_NaCl_mixer.initialize()
-    
+
     propagate_state(treat.product_NaCl_mixer_to_product)
 
     treat.product.properties[0].flow_vol
@@ -655,7 +661,7 @@ def add_mld_pv(m):
     set_pv_constraints(m, focus="Size")
 
 
-def add_mld_treatment_costing(m,heat_price,electricity_price):
+def add_mld_treatment_costing(m, heat_price, electricity_price):
 
     # Add treatment costing
     treatment = m.fs.treatment
@@ -669,16 +675,20 @@ def add_mld_treatment_costing(m,heat_price,electricity_price):
     add_UF_costing(m, treatment.UF, treatment.costing)
     add_ro_costing(m, treatment.RO, treatment.costing)
 
-    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_floc_constraint, 1e-6)
-    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_reactor_constraint, 1e-3)
-    constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_power_supply_constraint, 1e-6)
+    constraint_scaling_transform(
+        m.fs.treatment.EC.ec.costing.capital_cost_floc_constraint, 1e-6
+    )
+    constraint_scaling_transform(
+        m.fs.treatment.EC.ec.costing.capital_cost_reactor_constraint, 1e-3
+    )
+    constraint_scaling_transform(
+        m.fs.treatment.EC.ec.costing.capital_cost_power_supply_constraint, 1e-6
+    )
     # constraint_scaling_transform(m.fs.treatment.EC.ec.costing.capital_cost_electrodes_constraint, 1e1)
 
     m.fs.treatment.md.unit.add_costing_module(m.fs.treatment.costing)
 
-    add_DWI_costing(
-        m.fs.treatment, m.fs.treatment.dwi, costing_blk=treatment.costing
-    )
+    add_DWI_costing(m.fs.treatment, m.fs.treatment.dwi, costing_blk=treatment.costing)
 
     m.fs.treatment.costing.heat_cost.fix(heat_price)
     m.fs.treatment.costing.electricity_cost.fix(electricity_price)
@@ -689,14 +699,14 @@ def add_mld_treatment_costing(m,heat_price,electricity_price):
     treatment.costing.initialize()
 
     print("\n--------- Treatment Costing Initialization Complete ---------\n")
-    
+
 
 def add_mld_heat_energy_costing(m):
     # Add energy costing
     energy = m.fs.energy
 
     add_cst_costing(m.fs.energy.cst, m.fs.energy.costing)
-    add_cst_costing_scaling(m,m.fs.energy.cst.unit)
+    add_cst_costing_scaling(m, m.fs.energy.cst.unit)
 
 
 def add_mld_electricity_energy_costing(m):
@@ -705,13 +715,11 @@ def add_mld_electricity_energy_costing(m):
     energy.costing.has_electricity_generation = True
     m.fs.energy.pv.costing = UnitModelCostingBlock(
         flowsheet_costing_block=m.fs.energy.costing,
-        costing_method_arguments={
-            "cost_method": "simple"
-        }
+        costing_method_arguments={"cost_method": "simple"},
     )
 
 
-def add_mld_system_energy_costing(m,heat_price,electricity_price):
+def add_mld_system_energy_costing(m, heat_price, electricity_price):
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.heat_cost_buy.fix(heat_price)
     m.fs.costing.electricity_cost_buy.set_value(electricity_price)
@@ -729,24 +737,32 @@ def kbhdp_mld_md_reporting_variables(m):
         initialize=value(m.fs.treatment.md.unit.costing.capital_cost), mutable=True
     )
     m.fs.treatment.md.unit.fixed_operating_cost = Param(
-        initialize=value(m.fs.treatment.md.unit.costing.fixed_operating_cost), mutable=True
+        initialize=value(m.fs.treatment.md.unit.costing.fixed_operating_cost),
+        mutable=True,
     )
     m.fs.treatment.md.unit.module_cost = Param(
         initialize=value(m.fs.treatment.md.unit.costing.module_cost), mutable=True
     )
     m.fs.treatment.md.unit.other_capital_cost = Param(
-        initialize=value(m.fs.treatment.md.unit.costing.other_capital_cost), mutable=True
-    )    
+        initialize=value(m.fs.treatment.md.unit.costing.other_capital_cost),
+        mutable=True,
+    )
 
 
-def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
-             heat_price=0.00894, electricity_price=0.04989,
-             cost_per_total_aperture_area = 297,
-             cost_per_storage_capital = 62,
-             cost_per_watt_installed = 1.6,
-             dwi_lcow=0.0587):
+def mld_main(
+    ro_recovery=0.5,
+    md_water_recovery=0.7,
+    grid_frac_heat=0.5,
+    grid_frac_elec=0.5,
+    heat_price=0.00894,
+    electricity_price=0.04989,
+    cost_per_total_aperture_area=297,
+    cost_per_storage_capital=62,
+    cost_per_watt_installed=1.6,
+    dwi_lcow=0.58,
+):
 
-    if grid_frac_heat==1:
+    if grid_frac_heat == 1:
         treatment_only = True
     else:
         treatment_only = False
@@ -759,31 +775,40 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
     print(f"\nDOF after RO = {degrees_of_freedom(m)}")
     print("\n")
 
-    ro_flow = pyunits.convert(m.fs.treatment.RO.feed.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)
-    md_flow = pyunits.convert(m.fs.treatment.RO.disposal.properties[0].flow_vol_phase['Liq'],to_units=pyunits.m**3 / pyunits.s,)
-    md_conc = pyunits.convert(m.fs.treatment.RO.disposal.properties[0].conc_mass_phase_comp['Liq', 'NaCl'],to_units=pyunits.g / pyunits.L,)
+    ro_flow = pyunits.convert(
+        m.fs.treatment.RO.feed.properties[0].flow_vol_phase["Liq"],
+        to_units=pyunits.m**3 / pyunits.s,
+    )
+    md_flow = pyunits.convert(
+        m.fs.treatment.RO.disposal.properties[0].flow_vol_phase["Liq"],
+        to_units=pyunits.m**3 / pyunits.s,
+    )
+    md_conc = pyunits.convert(
+        m.fs.treatment.RO.disposal.properties[0].conc_mass_phase_comp["Liq", "NaCl"],
+        to_units=pyunits.g / pyunits.L,
+    )
 
-    print("RO flow:",ro_flow())
-    print('MD flow:', md_flow())
-    print('MD Conc:', md_conc())
+    print("RO flow:", ro_flow())
+    print("MD flow:", md_flow())
+    print("MD Conc:", md_conc())
 
     # Get RO waste stream flow rate and TDS
     # Add MD
-    m = add_mld_md(m, Q_md=md_flow(), Cin = md_conc(), md_water_recovery=md_water_recovery)
+    m = add_mld_md(
+        m, Q_md=md_flow(), Cin=md_conc(), md_water_recovery=md_water_recovery
+    )
     print(f"\nDOF after MD = {degrees_of_freedom(m)}")
     print("\n")
 
-
     # Add product mixer and stream
     add_mld_product(m)
-    results = solve(m)
-
+    # results = solve(m)
 
     if treatment_only == True:
 
-        add_mld_treatment_costing(m,heat_price,electricity_price)
-        m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
-    
+        add_mld_treatment_costing(m, heat_price, electricity_price)
+        # m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
+
         try:
             results = solve(m)
             print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
@@ -793,37 +818,70 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
 
         results = solve(m)
 
-        # feed_density = 1000 * pyunits.kg / pyunits.m**3 
+        # feed_density = 1000 * pyunits.kg / pyunits.m**3
         feed_m3h = pyunits.convert(
-        m.fs.treatment.feed.properties[0].flow_vol, to_units=pyunits.m**3 / pyunits.h
+            m.fs.treatment.feed.properties[0].flow_vol,
+            to_units=pyunits.m**3 / pyunits.h,
         )
 
         product_m3h = pyunits.convert(
-            m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.m**3 / pyunits.h
+            m.fs.treatment.product.properties[0].flow_vol,
+            to_units=pyunits.m**3 / pyunits.h,
         )
 
-        print("\nFeed flow in m3/h:",feed_m3h())
-        print("Product flow in m3/h:",product_m3h())
-        print("\nAggregate flow electricity:",m.fs.treatment.costing.aggregate_flow_electricity())
-        print("Aggregate flow heat:",m.fs.treatment.costing.aggregate_flow_heat())
-        
-        print("LCOW:",m.fs.treatment.costing.LCOW(),pyunits.get_units(m.fs.treatment.costing.LCOW))
-        print("SEC (electricity) in kWh/m3:",m.fs.treatment.costing.aggregate_flow_electricity()/product_m3h())
-        print("SEC (heat) in kWh/m3:",m.fs.treatment.costing.aggregate_flow_heat()/product_m3h())
-        print("System recovery (%):", product_m3h()/feed_m3h()*100)
-        print("Capex ($M):",m.fs.treatment.costing.total_capital_cost()/1e6, 
-            pyunits.get_units(m.fs.treatment.costing.total_capital_cost))
-        print("Opex ($M/yr):",m.fs.treatment.costing.total_operating_cost()/1e6, 
-            pyunits.get_units(m.fs.treatment.costing.total_operating_cost))
-        print('Electricity demand (MWh/year):',pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity,to_units=pyunits.MW*pyunits.h/pyunits.year)())
-        print('Heat demand (MWh/year):',pyunits.convert(m.fs.treatment.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
+        print("\nFeed flow in m3/h:", feed_m3h())
+        print("Product flow in m3/h:", product_m3h())
+        print(
+            "\nAggregate flow electricity:",
+            m.fs.treatment.costing.aggregate_flow_electricity(),
+        )
+        print("Aggregate flow heat:", m.fs.treatment.costing.aggregate_flow_heat())
+
+        print(
+            "LCOW:",
+            m.fs.treatment.costing.LCOW(),
+            pyunits.get_units(m.fs.treatment.costing.LCOW),
+        )
+        print(
+            "SEC (electricity) in kWh/m3:",
+            m.fs.treatment.costing.aggregate_flow_electricity() / product_m3h(),
+        )
+        print(
+            "SEC (heat) in kWh/m3:",
+            m.fs.treatment.costing.aggregate_flow_heat() / product_m3h(),
+        )
+        print("System recovery (%):", product_m3h() / feed_m3h() * 100)
+        print(
+            "Capex ($M):",
+            m.fs.treatment.costing.total_capital_cost() / 1e6,
+            pyunits.get_units(m.fs.treatment.costing.total_capital_cost),
+        )
+        print(
+            "Opex ($M/yr):",
+            m.fs.treatment.costing.total_operating_cost() / 1e6,
+            pyunits.get_units(m.fs.treatment.costing.total_operating_cost),
+        )
+        print(
+            "Electricity demand (MWh/year):",
+            pyunits.convert(
+                m.fs.treatment.costing.aggregate_flow_electricity,
+                to_units=pyunits.MW * pyunits.h / pyunits.year,
+            )(),
+        )
+        print(
+            "Heat demand (MWh/year):",
+            pyunits.convert(
+                m.fs.treatment.costing.aggregate_flow_heat,
+                to_units=pyunits.MW * pyunits.h / pyunits.year,
+            )(),
+        )
 
     else:
 
-        add_mld_treatment_costing(m,heat_price=0,electricity_price=0)
+        add_mld_treatment_costing(m, heat_price=0, electricity_price=0)
 
-        m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
-    
+        # m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
+
         try:
             results = solve(m)
             print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
@@ -840,17 +898,17 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
         add_mld_cst(m)
         add_mld_heat_energy_costing(m)
         m.fs.energy.cst.unit.heat_load.unfix()
-        results = solve(m)
+        # results = solve(m)
 
         print(f"\nDOF after Energy = {degrees_of_freedom(m)}")
         print("\n")
 
         print("\n--------- CST Initialized ---------\n")
 
-        print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
-        print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+        print("CST Heat load:", value(m.fs.energy.cst.unit.heat_load))
+        print("CST Heat:", value(m.fs.energy.cst.unit.heat))
         print("\n")
-        
+
         add_mld_pv(m)
 
         add_mld_electricity_energy_costing(m)
@@ -863,16 +921,18 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
 
         print("\n--------- Energy Costing Initialization Complete ---------\n")
 
-        add_mld_system_energy_costing(m,heat_price=heat_price, electricity_price=electricity_price)
-        
+        add_mld_system_energy_costing(
+            m, heat_price=heat_price, electricity_price=electricity_price
+        )
+
         # CST heat load calculated
         m.fs.energy.cst.unit.heat_load.unfix()
         m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
 
         # m.fs.energy.pv.annual_energy.unfix()
         m.fs.energy.pv.design_size.unfix()
-        m.fs.costing.frac_elec_from_grid.fix(0.5)
-        
+        m.fs.costing.frac_elec_from_grid.fix(grid_frac_elec)
+
         try:
             results = solve(m)
             print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
@@ -882,20 +942,26 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
 
         print("\n--------- CST Calculated ---------\n")
 
-        print('CST Heat load:', value(m.fs.energy.cst.unit.heat_load))
-        print('CST Heat:', value(m.fs.energy.cst.unit.heat))
+        print("CST Heat load:", value(m.fs.energy.cst.unit.heat_load))
+        print("CST Heat:", value(m.fs.energy.cst.unit.heat))
         print("\n")
         print(f"\nDOF after CST sizing = {degrees_of_freedom(m)}")
         print("\n")
 
-        m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(cost_per_total_aperture_area)
-        m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(cost_per_storage_capital)
-        m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(cost_per_watt_installed)
+        m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area.fix(
+            cost_per_total_aperture_area
+        )
+        m.fs.energy.costing.trough_surrogate.cost_per_storage_capital.fix(
+            cost_per_storage_capital
+        )
+        m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(
+            cost_per_watt_installed
+        )
 
         m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
 
         m.fs.treatment.feed.properties[0].flow_vol
-        
+
         results = solve(m)
         print(f"\nDOF after PV sizing = {degrees_of_freedom(m)}")
 
@@ -904,113 +970,172 @@ def mld_main(ro_recovery=0.5, md_water_recovery = 0.7, grid_frac_heat=0.5,
         kbhdp_mld_md_reporting_variables(m)
 
         print("CST Heat load:", m.fs.energy.cst.unit.heat_load())
-        print("Heat grid fraction:",m.fs.costing.frac_heat_from_grid())
-        print("Heat purchased:",m.fs.costing.aggregate_flow_heat_purchased())
-        print("Heat generated:",m.fs.energy.costing.aggregate_flow_heat())
-        print("Heat required:",m.fs.treatment.costing.aggregate_flow_heat())
-        print("MD heat:", m.fs.treatment.md.unit.overall_thermal_power_requirement() )
-        
-        print("\nPV design size:",m.fs.energy.pv.design_size())
-        print("PV annual energy:",m.fs.energy.pv.annual_energy())
-        print("Electricity grid fraction:",m.fs.costing.frac_elec_from_grid())
+        print("Heat grid fraction:", m.fs.costing.frac_heat_from_grid())
+        print("Heat purchased:", m.fs.costing.aggregate_flow_heat_purchased())
+        print("Heat generated:", m.fs.energy.costing.aggregate_flow_heat())
+        print("Heat required:", m.fs.treatment.costing.aggregate_flow_heat())
+        print("MD heat:", m.fs.treatment.md.unit.overall_thermal_power_requirement())
 
-        print("Electricity purchased:",m.fs.costing.aggregate_flow_electricity_purchased())
-        print("Electricity generated (PV-CST):",m.fs.energy.costing.aggregate_flow_electricity())
-        print("Electricity required:",m.fs.treatment.costing.aggregate_flow_electricity())
-        print('CST electricity required:',m.fs.energy.cst.unit.electricity())
+        print("\nPV design size:", m.fs.energy.pv.design_size())
+        print("PV annual energy:", m.fs.energy.pv.annual_energy())
+        print("Electricity grid fraction:", m.fs.costing.frac_elec_from_grid())
+
+        print(
+            "Electricity purchased:",
+            m.fs.costing.aggregate_flow_electricity_purchased(),
+        )
+        print(
+            "Electricity generated (PV-CST):",
+            m.fs.energy.costing.aggregate_flow_electricity(),
+        )
+        print(
+            "Electricity required:", m.fs.treatment.costing.aggregate_flow_electricity()
+        )
+        print("CST electricity required:", m.fs.energy.cst.unit.electricity())
 
         print("\n---------RO outputs after complete solve ---------\n")
         for idx, stage in m.fs.treatment.RO.stage.items():
-            print('RO feed side velocity:',stage.module.feed_side.velocity[0, 0]())
-        
-        print('RO pump pressure:',m.fs.treatment.pump.control_volume.properties_out[0].pressure(),pyunits.get_units(m.fs.treatment.pump.control_volume.properties_out[0].pressure))
-        
-        print("Cost per aperature area:", m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area())
+            print("RO feed side velocity:", stage.module.feed_side.velocity[0, 0]())
+
+        print(
+            "RO pump pressure:",
+            m.fs.treatment.pump.control_volume.properties_out[0].pressure(),
+            pyunits.get_units(
+                m.fs.treatment.pump.control_volume.properties_out[0].pressure
+            ),
+        )
+
+        print(
+            "Cost per aperature area:",
+            m.fs.energy.costing.trough_surrogate.cost_per_total_aperture_area(),
+        )
 
         product_m3h = pyunits.convert(
-        m.fs.treatment.product.properties[0].flow_vol_phase["Liq"], to_units=pyunits.m**3 / pyunits.h
+            m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
+            to_units=pyunits.m**3 / pyunits.h,
         )
-        
-        print('Electricity demand (MWh/year):',pyunits.convert(m.fs.costing.aggregate_flow_electricity,to_units=pyunits.MW*pyunits.h/pyunits.year)())
-        print('Heat demand (MWh/year):',pyunits.convert(m.fs.costing.aggregate_flow_heat,to_units=pyunits.MW*pyunits.h/pyunits.year)())
-        print("SEC (electricity) in kWh/m3:",m.fs.costing.aggregate_flow_electricity()/product_m3h())
-        print("SEC (heat) in kWh/m3:",m.fs.costing.aggregate_flow_heat()/product_m3h())
-        print("Capex ($M):",m.fs.costing.total_capital_cost()/1e6, 
-            pyunits.get_units(m.fs.costing.total_capital_cost))
-        print("Opex ($M/yr):",m.fs.costing.total_operating_cost()/1e6, 
-            pyunits.get_units(m.fs.costing.total_operating_cost))
-        
+
+        print(
+            "Electricity demand (MWh/year):",
+            pyunits.convert(
+                m.fs.costing.aggregate_flow_electricity,
+                to_units=pyunits.MW * pyunits.h / pyunits.year,
+            )(),
+        )
+        print(
+            "Heat demand (MWh/year):",
+            pyunits.convert(
+                m.fs.costing.aggregate_flow_heat,
+                to_units=pyunits.MW * pyunits.h / pyunits.year,
+            )(),
+        )
+        print(
+            "SEC (electricity) in kWh/m3:",
+            m.fs.costing.aggregate_flow_electricity() / product_m3h(),
+        )
+        print(
+            "SEC (heat) in kWh/m3:", m.fs.costing.aggregate_flow_heat() / product_m3h()
+        )
+        print(
+            "Capex ($M):",
+            m.fs.costing.total_capital_cost() / 1e6,
+            pyunits.get_units(m.fs.costing.total_capital_cost),
+        )
+        print(
+            "Opex ($M/yr):",
+            m.fs.costing.total_operating_cost() / 1e6,
+            pyunits.get_units(m.fs.costing.total_operating_cost),
+        )
+
     # Adding SEC
     feed_m3h = pyunits.convert(
         m.fs.treatment.feed.properties[0].flow_vol, to_units=pyunits.m**3 / pyunits.h
-        )
+    )
 
     m.fs.treatment.costing._add_flow_component_breakdowns(
-        "heat",
-        "SEC_th",
-        feed_m3h,
-        period=pyunits.hr 
-        )
+        "heat", "SEC_th", feed_m3h, period=pyunits.hr
+    )
 
     m.fs.treatment.costing._add_flow_component_breakdowns(
-        "electricity",
-        "SEC_elec",
-        feed_m3h,
-        period=pyunits.hr 
-        )
+        "electricity", "SEC_elec", feed_m3h, period=pyunits.hr
+    )
     results = solve(m)
-    
+    # for some reason will only solve for me if first solved with the default dwi_lcow value of 0.0587
+    # so we set it here and then solve again
+    m.fs.treatment.costing.deep_well_injection.dwi_lcow.set_value(dwi_lcow)
+    results = solve(m)
+
     return m
+
 
 def recovery_check(m):
     # RO recovery
-    ro_product = m.fs.treatment.RO.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]
     ro_feed = m.fs.treatment.RO.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
+    ro_product = m.fs.treatment.RO.product.properties[0].flow_mass_phase_comp[
+        "Liq", "H2O"
+    ]
+    ro_brine = m.fs.treatment.RO.disposal.properties[0].flow_mass_phase_comp[
+        "Liq", "H2O"
+    ]
+    ro_feed_vol = m.fs.treatment.RO.feed.properties[0].flow_vol_phase["Liq"]
+    ro_product_vol = m.fs.treatment.RO.product.properties[0].flow_vol_phase["Liq"]
+    ro_brine_vol = m.fs.treatment.RO.disposal.properties[0].flow_vol_phase["Liq"]
+    ro_brine_conc = m.fs.treatment.RO.disposal.properties[0].conc_mass_phase_comp[
+        "Liq", "NaCl"
+    ]
 
     print("\nRO")
-    print("RO feed:",ro_feed())
-    print("RO product:", ro_product())
+    print("RO feed mass:", ro_feed())
+    print("RO product mass:", ro_product())
+    print("RO brine mass:", ro_brine())
+    print("RO feed vol:", ro_feed_vol())
+    print("RO product vol:", ro_product_vol())
+    print("RO brine vol:", ro_brine_vol())
+    print("RO brine conc:", ro_brine_conc())
+    print(f"RO Recovery Mass: {100 * (value(ro_product) / value(ro_feed)):<5.2f}%")
     print(
-        f'RO Recovery: {100 * (value(ro_product) / value(ro_feed)):<5.2f}%'
+        f"RO Recovery Vol: {100 * (value(ro_product_vol) / value(ro_feed_vol)):<5.2f}%"
     )
 
     # MD recovery
-    md_feed = m.fs.treatment.RO.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"]
-    md_product = m.fs.treatment.md.permeate.properties[0.0].flow_mass_phase_comp["Liq","H2O"]
+    md_feed = m.fs.treatment.RO.disposal.properties[0].flow_mass_phase_comp[
+        "Liq", "H2O"
+    ]
+    md_product = m.fs.treatment.md.permeate.properties[0.0].flow_mass_phase_comp[
+        "Liq", "H2O"
+    ]
 
     print("\nMD")
-    print("MD feed:",md_feed())
+    print("MD feed:", md_feed())
     print("MD product:", md_product())
-    print(
-        f'MD Recovery: {100 * (value(md_product) / value(md_feed)):<5.2f}%'
-    )
+    print(f"MD Recovery: {100 * (value(md_product) / value(md_feed)):<5.2f}%")
 
     # System recovery
-    system_product = m.fs.treatment.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]
-    
+    system_product = m.fs.treatment.product.properties[0].flow_mass_phase_comp[
+        "Liq", "H2O"
+    ]
+
     print("\nSystem")
-    print("System feed:",ro_feed())
+    print("System feed:", ro_feed())
     print("System product:", system_product())
-    print(
-        f'System Recovery: {100 * (value(system_product) / value(ro_feed)):<5.2f}%'
-    )
-    
+    print(f"System Recovery: {100 * (value(system_product) / value(ro_feed)):<5.2f}%")
+
 
 if __name__ == "__main__":
 
     m = mld_main(
-        ro_recovery = 0.8,
-        md_water_recovery = 0.77,
+        ro_recovery=0.8,
+        md_water_recovery=0.77,
         grid_frac_heat=0.5,
-        heat_price=0.00894, 
+        grid_frac_elec=0.5,
+        heat_price=0.00894,
         electricity_price=0.04989,
-        cost_per_total_aperture_area = 297,
-        cost_per_storage_capital = 62,
-        cost_per_watt_installed = 1.6,
-        dwi_lcow = 0.0587,
-        )
-    
+        cost_per_total_aperture_area=297,
+        cost_per_storage_capital=62,
+        cost_per_watt_installed=1.6,
+        dwi_lcow=0.58,
+    )
+
     recovery_check(m)
 
-
-
+    m.fs.costing.LCOT.display()
