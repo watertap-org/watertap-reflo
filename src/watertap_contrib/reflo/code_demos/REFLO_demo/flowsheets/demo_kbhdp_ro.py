@@ -61,7 +61,8 @@ from idaes.core import MaterialBalanceType
 
 
 __all__= [
-    "kbhdp_ro",
+    "build_demo1_system",
+    "build_kbhdp_ro",
     "add_ro_connections",
     "build_ro_treatment",
     "set_inlet_conditions",
@@ -79,7 +80,32 @@ __all__= [
     "add_system_energy_costing",
 ]
 
-def kbhdp_ro(ro_recovery=0.5):
+
+def build_demo1_system():
+    m = ConcreteModel()
+    m.db = REFLODatabase()
+    m.fs = FlowsheetBlock(dynamic=False)
+
+    m.fs.MCAS_properties = MCASParameterBlock(
+        solute_list=[
+            "Alkalinity_2-",
+            "Ca_2+",
+            "Cl_-",
+            "Mg_2+",
+            "K_+",
+            "SiO2",
+            "Na_+",
+            "SO2_-4+",
+        ],
+        material_flow_basis=MaterialFlowBasis.mass,
+    )
+
+    m.fs.RO_properties = NaClParameterBlock()
+    m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
+
+    return m
+
+def build_kbhdp_ro(ro_recovery=0.5):
 
     m = build_ro_treatment()
     add_ro_connections(m)
@@ -107,26 +133,7 @@ def add_ro_recovery_constraint(m, blk,ro_recovery):
     )
     
 def build_ro_treatment():
-    m = ConcreteModel()
-    m.db = REFLODatabase()
-    m.fs = FlowsheetBlock(dynamic=False)
-
-    m.fs.MCAS_properties = MCASParameterBlock(
-        solute_list=[
-            "Alkalinity_2-",
-            "Ca_2+",
-            "Cl_-",
-            "Mg_2+",
-            "K_+",
-            "SiO2",
-            "Na_+",
-            "SO2_-4+",
-        ],
-        material_flow_basis=MaterialFlowBasis.mass,
-    )
-
-    m.fs.RO_properties = NaClParameterBlock()
-    m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
+    """Builds the RO treatment flowsheet"""
 
     treatment = m.fs.treatment = Block()
 
@@ -695,8 +702,9 @@ def ro_main(ro_recovery=0.5,treatment_only=False,
              heat_price=0.00894, electricity_price=0.04989,
              cost_per_watt_installed = 1.6,
              dwi_lcow=0.0587):
-
-    m = kbhdp_ro(ro_recovery)
+    
+    m = build_demo1_system()
+    m = build_kbhdp_ro(m,ro_recovery)
 
     print(
         f'RO Recovery: {100 * (value(m.fs.treatment.RO.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]) / value(m.fs.treatment.RO.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"])):<5.2f}%'

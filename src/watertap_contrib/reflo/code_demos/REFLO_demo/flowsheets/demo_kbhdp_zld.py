@@ -77,8 +77,8 @@ __all__= [
     "add_zld_pv",
     "add_zld_treatment_costing",
     "add_zld_heat_energy_costing",
-    "add_zld_electricity_costing",
-    "add_zld_energy_costing",
+    "add_zld_electricity_energy_costing",
+    "add_zld_system_energy_costing",
 ]
 
 def kbhdp_zld_ro(ro_recovery=0.5,Qin=4):
