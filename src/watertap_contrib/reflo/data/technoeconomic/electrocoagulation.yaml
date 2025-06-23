@@ -196,10 +196,10 @@ permian:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-      value: 0.7
+      value: 0.11
       units: dimensionless
     silica:
-      value: 0.7
+      value: 0.95
       units: dimensionless
   capital_cost:
     cost_factor: TPEC

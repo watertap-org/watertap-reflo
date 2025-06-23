@@ -26,6 +26,7 @@ import idaes.logger as idaeslog
 from idaes.core import UnitModelBlockData, declare_process_block_class
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.exceptions import InitializationError
+from idaes.core.surrogate.metrics import compute_fit_metrics
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
 from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoSurrogate
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
@@ -39,6 +40,7 @@ __author__ = "Kurban Sitterley"
 class SolarModelType(StrEnum):
     surrogate = "surrogate"
     physical = "physical"
+    pysam = "pysam"
 
 
 @declare_process_block_class("SolarEnergyBase")
@@ -82,6 +84,15 @@ class SolarEnergyBaseData(UnitModelBlockData):
             domain=str,
             description="Path to surrogate model file",
             doc="""User provided surrogate model .json file.""",
+        ),
+    )
+    CONFIG.declare(
+        "surrogate_filename_save",
+        ConfigValue(
+            default=None,
+            domain=str,
+            description="Filename used to save surrogate model to .json",
+            doc="""Filename used to save surrogate model file to .json""",
         ),
     )
     CONFIG.declare(
@@ -149,11 +160,11 @@ class SolarEnergyBaseData(UnitModelBlockData):
             is scaled to the largest value in the dataset.""",
         ),
     )
+    # TODO: do we need this number_samples config?
     CONFIG.declare(
         "number_samples",
         ConfigValue(
-            default=100,
-            domain=int,
+            default=None,
             description="Number of samples from dataset to build surrogate",
             doc="""Number of samples to use from dataset to build surrogate model.""",
         ),
@@ -165,6 +176,31 @@ class SolarEnergyBaseData(UnitModelBlockData):
             domain=float,
             description="Fraction of dataset to use as training data for surrogate",
             doc=""""Fraction of dataset to use as training data for surrogate""",
+        ),
+    )
+    CONFIG.declare(
+        "rbf_basis_function",
+        ConfigValue(
+            default="gaussian",
+            description="Basis function to use for PysmoRBFTrainer config",
+            doc=""""Basis function to use for PysmoRBFTrainer config""",
+        ),
+    )
+    CONFIG.declare(
+        "rbf_solution_method",
+        ConfigValue(
+            default="algebraic",
+            description="Solution method to use for PysmoRBFTrainer config",
+            doc=""""Solution method to use for PysmoRBFTrainer config""",
+        ),
+    )
+    CONFIG.declare(
+        "rbf_regularization",
+        ConfigValue(
+            default=True,
+            domain=bool,
+            description="Flag to indicate to use regularization for PysmoRBFTrainer config",
+            doc=""""Flag to indicate to use regularization for PysmoRBFTrainer config""",
         ),
     )
 
@@ -207,7 +243,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             if self.config.dataset_bounds == dict():
                 self.dataset_bounds = self.input_bounds
             else:
-                self.datset_bounds = self.config.dataset_bounds
+                self.dataset_bounds = self.config.dataset_bounds
 
     def initialize(
         self, state_args=None, outlvl=idaeslog.NOTSET, solver=None, optarg=None
@@ -252,13 +288,20 @@ class SolarEnergyBaseData(UnitModelBlockData):
         )
 
         # Set PySMO options
-        # TODO: make this CONFIG for base?
-        self.trainer.config.basis_function = "gaussian"  # default = gaussian
-        self.trainer.config.solution_method = "algebraic"  # default = algebraic
-        self.trainer.config.regularization = True  # default = True
+        self.trainer.config.basis_function = (
+            self.config.rbf_basis_function
+        )  # default = gaussian
+        self.trainer.config.solution_method = (
+            self.config.rbf_solution_method
+        )  # default = algebraic
+        self.trainer.config.regularization = (
+            self.config.rbf_regularization
+        )  # default = True
+
         self.log.info(
             f"Training RBF Surrogate with {self.trainer.config.basis_function} basis function and {self.trainer.config.solution_method} solution method."
         )
+
         self.trained_rbf = self.trainer.train_surrogate()
         self.log.info(f"Training Complete.")
 
@@ -276,11 +319,18 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self.input_bounds,
         )
 
-        self.surrogate_file = self.config.dataset_filename.replace(".pkl", "")
-        for k, v in self.input_bounds.items():
-            self.surrogate_file += f"_{k}_{v[0]}_{v[1]}"
+        if self.config.surrogate_filename_save is None:
+            self.surrogate_filename_save = self.config.dataset_filename.replace(
+                ".pkl", ""
+            )
+        else:
+            self.surrogate_filename_save = self.config.surrogate_filename_save.replace(
+                ".json", ""
+            )
 
-        _ = self.surrogate.save_to_file(self.surrogate_file + ".json", overwrite=True)
+        _ = self.surrogate.save_to_file(
+            self.surrogate_filename_save + ".json", overwrite=True
+        )
 
         sys.stdout = oldstdout
 
@@ -304,9 +354,14 @@ class SolarEnergyBaseData(UnitModelBlockData):
                 self.pickle_df = self.pickle_df[
                     (self.pickle_df[col] >= lo) & (self.pickle_df[col] <= hi)
                 ].copy()
-        self.data = self.pickle_df.sample(
-            n=self.config.number_samples, random_state=len(self.pickle_df)
-        )
+
+        if self.config.number_samples is None:
+            self.data = self.pickle_df
+        else:
+            self.data = self.pickle_df.sample(
+                n=self.config.number_samples, random_state=len(self.pickle_df)
+            )
+
         self.data_training, self.data_validation = split_training_validation(
             self.data, self.config.training_fraction, seed=len(self.data)
         )
@@ -366,7 +421,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         self.surrogate_outputs = []
         for output_var_name, bounds in self.output_bounds.items():
-            # TODO: Allow user to set bounds for output variables?
             units = self.output_units[output_var_name]
             v_out = Var(
                 initialize=1e4,
@@ -377,18 +431,21 @@ class SolarEnergyBaseData(UnitModelBlockData):
             self.surrogate_outputs.append(v_out)
             self.add_component(output_var_name, v_out)
 
+    def compute_fit_metrics(self):
+        return compute_fit_metrics(self.surrogate, self.data)
+
     def load_surrogate(self):
         stream = StringIO()
         oldstdout = sys.stdout
         sys.stdout = stream
 
         if self.config.surrogate_model_file is not None:
-            self.surrogate_file = self.config.surrogate_model_file
+            self.surrogate_model_file = self.config.surrogate_model_file
 
         self.log.info("Loading surrogate.")
 
         self.surrogate_blk = SurrogateBlock(concrete=True)
-        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_file)
+        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_model_file)
         self.surrogate_blk.build_model(
             self.surrogate,
             input_vars=self.surrogate_inputs,
