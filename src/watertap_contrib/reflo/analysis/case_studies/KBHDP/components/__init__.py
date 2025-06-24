@@ -16,3 +16,4 @@ from .FPC_pysam import *
 from .multi_effect_crystallizer import *
 from .CST import *
 from .CST_pysam import *
+from .translator_nacl_to_nacl import Translator_NaCl_to_NaCl
