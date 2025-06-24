@@ -121,7 +121,7 @@ def main():
 
 
 def build_sweep(
-    grid_frac_heat=None, heat_price=None, water_recovery=None, objective="LCOT"
+    grid_frac_heat=None, heat_price=0.00894, water_recovery=None, objective="LCOT"
 ):
     m = build_system(RE=True)
     add_connections(m)
@@ -869,3 +869,4 @@ def display_costing_breakdown(m):
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = main()
+    m.fs.costing.aggregate_flow_costs.display()
