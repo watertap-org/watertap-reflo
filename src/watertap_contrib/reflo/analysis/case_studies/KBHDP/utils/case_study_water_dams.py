@@ -21,6 +21,7 @@ def save_water_dams(
     case_study_name="",
     scenario_name="", 
     costing_params_dict=None,
+    other_cols=dict()
 ):
     """
     df : Dataframe that saves all relevant costing columns
@@ -108,7 +109,7 @@ def save_water_dams(
                 * pyunits.convert(1 * pyunits.kW, to_units=pyunits.MWh / pyunits.year)()
             )
 
-    # Add Treatment Capex and Opex
+    # Add Treatment CAPEX and OPEX
     total_treatment_capex = 0
     total_treatment_opex = 0
 
@@ -136,7 +137,7 @@ def save_water_dams(
                 )
             )
 
-    # Add Energy Capex and Opex
+    # Add Energy CAPEX and OPEX
     total_energy_capex = 0
     total_energy_opex = 0
 
@@ -193,21 +194,21 @@ def save_water_dams(
 
     if treat_costing_blk is not None:
 
-        water_dams_df.insert(0, "Total Treatment System Capex ($)", df[f"{treat_costing_blk}.total_capital_cost"])
+        water_dams_df.insert(0, "Total Treatment System CAPEX ($)", df[f"{treat_costing_blk}.total_capital_cost"])
         water_dams_df.insert(
-            1, "Total Treatment System Opex ($/year)", df[f"{treat_costing_blk}.total_operating_cost"]
+            1, "Total Treatment System OPEX ($/year)", df[f"{treat_costing_blk}.total_operating_cost"]
         )
 
     if en_costing_blk is not None:
 
-        water_dams_df.insert(2, "Total Energy System Capex ($)", df[f"{en_costing_blk}.total_capital_cost"])
+        water_dams_df.insert(2, "Total Energy System CAPEX ($)", df[f"{en_costing_blk}.total_capital_cost"])
         water_dams_df.insert(
-            3, "Total Energy System Opex ($/year)", df[f"{en_costing_blk}.total_operating_cost"]
+            3, "Total Energy System OPEX ($/year)", df[f"{en_costing_blk}.total_operating_cost"]
         )
 
-    water_dams_df.insert(0, "Total System Capex ($)", df[f"{sys_costing_blk}.total_capital_cost"])
+    water_dams_df.insert(0, "Total System CAPEX ($)", df[f"{sys_costing_blk}.total_capital_cost"])
     water_dams_df.insert(
-        1, "Total System Opex ($/year)", df[f"{sys_costing_blk}.total_operating_cost"]
+        1, "Total System OPEX ($/year)", df[f"{sys_costing_blk}.total_operating_cost"]
     )
     # Add LCOW
     try:
@@ -217,6 +218,9 @@ def save_water_dams(
         print("LCOW not found; trying LCOT...")
         print(df[f"{sys_costing_blk}.LCOT"])
         water_dams_df.insert(0, "LCOW ($/m3)", df[f"{sys_costing_blk}.LCOT"])
+    
+    for k, v in other_cols.items():
+        water_dams_df[k] = df[v]
 
     water_dams_df.insert(0, "Inlet Flow Rate (MGD)", feed_conditions["feed_flow_mgd"])  # MGD
     water_dams_df.insert(1, "Inlet TDS (g/L)", feed_conditions["feed_tds"])  #g/L
@@ -224,8 +228,30 @@ def save_water_dams(
         water_dams_df.insert(0, u, df[k]) 
     water_dams_df.insert(0, "Sweep Column", list(xcol_dict.keys())[0])  
     water_dams_df.insert(0, "Scenario Name", scenario_name)  
-    water_dams_df.insert(0, "Case Study Name", case_study_name)  
+    water_dams_df.insert(0, "Case Study Name", case_study_name)
 
+    water_dams_df.dropna(inplace=True)
+
+    # water_dams_df = water_dams_df.apply(lambda x: np.where(abs(x) < 1e-10, 0, x))
+
+    old_cols = water_dams_df.columns.tolist()
+    new_cols = list()
+
+    for c in water_dams_df.columns:
+        if water_dams_df[c].dtype == "object":
+            print(c)
+            # column is a string, so= can't check if it is <1e-10
+            # but we want to keep it
+            new_cols.append(c)
+            continue
+        water_dams_df[c] = water_dams_df[c].apply(lambda x: np.where(abs(x) < 1e-10, 0, x))
+        if all(abs(x) < 1e-10 for x in water_dams_df[c].to_list()):
+            print(f"Column {c} has all values close to zero, dropping it.")
+            continue
+        else:
+            new_cols.append(c)
+    print(f"new columns: {new_cols}")
+    water_dams_df = water_dams_df[new_cols]
 
     return water_dams_df
 
@@ -245,7 +271,7 @@ def agg_unit_costing(df, u, b, water_dams_df, total_capex, total_opex):
         print(f"No CAPEX for {u} found.")
         pass
 
-    water_dams_df[u + " Capex ($)"] = unit_capex
+    water_dams_df[u + " CAPEX ($)"] = unit_capex
 
     total_capex += unit_capex  # $
 
@@ -267,7 +293,7 @@ def agg_unit_costing(df, u, b, water_dams_df, total_capex, total_opex):
         print(f"No Variable OPEX for {u} found.")
         pass
 
-    water_dams_df[u + " Opex ($/year)"] = unit_opex_total
+    water_dams_df[u + " OPEX ($/year)"] = unit_opex_total
 
     total_opex += unit_opex_total  # $ / year
 
