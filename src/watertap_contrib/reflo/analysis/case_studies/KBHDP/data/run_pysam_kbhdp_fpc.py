@@ -263,6 +263,7 @@ def run_model_fpc(
     heat_annual = tech_model.value(
         "annual_Q_deliv"
     )  # [kWh] does not include electric heat, includes losses
+    aux_power_annual = sum(tech_model.Outputs.Q_aux)  # [kWh] auxiliary power used for electric heating
     electricity_annual = sum(tech_model.value("P_pump")) + sum(
         tech_model.Outputs.Q_aux
     )  # [kWh]
@@ -273,6 +274,7 @@ def run_model_fpc(
     results = {
         "heat_annual": heat_annual,  # [kWh] annual net thermal energy in year 1
         "electricity_annual": electricity_annual,  # [kWhe]
+        "grid_electricity_annual": aux_power_annual,  # [kWhe]
         "system_capacity_actual": system_capacity_actual,
         "scaled_draw": np.mean(tech_model.Outputs.draw),
         "temperature_delivered": np.mean(tech_model.Outputs.T_deliv),
