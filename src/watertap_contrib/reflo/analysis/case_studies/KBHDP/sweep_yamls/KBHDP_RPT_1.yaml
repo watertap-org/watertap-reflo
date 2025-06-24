@@ -4,57 +4,61 @@ KBHDP_RPT_1_water_recovery_sweep:
     water_recovery: 0.8
     objective: LCOW
   sweep_param_loop:
-    Water Recovery:
+    water_recovery:
       type: LinearSample
       param: fs.water_recovery
       lower_limit: 0.3
       upper_limit: 0.8
       num_samples: 21
+
 KBHDP_RPT_1_grid_fraction_sweep:
   build_defaults:
     water_recovery: 0.80
     ro_mem_area: 20000
     grid_frac: 0.5
   sweep_param_loop:
-    Grid Electricity Fraction:
+    grid_fraction:
       type: LinearSample
       param: fs.costing.frac_elec_from_grid
       lower_limit: 0.0
       upper_limit: 1.0
       num_samples: 21
+
 KBHDP_RPT_1_aluminum_cost_sweep:
   build_defaults:
     water_recovery: 0.80
     ro_mem_area: 20000
     grid_frac: 0.5
   sweep_param_loop:
-    Aluminum Cost:
+    aluminum_cost:
       type: LinearSample
       param: fs.treatment.costing.aluminum_cost
       lower_limit: 1.115
       upper_limit: 3.345
-      num_samples: 10
+      num_samples: 21
+
 KBHDP_RPT_1_elec_price_sweep:
   build_defaults:
     grid_frac: 0.5
     water_recovery: 0.80
     ro_mem_area: 20000
   sweep_param_loop:
-    Electricity Cost:
+    elec_price:
       type: LinearSample
       param: fs.costing.electricity_cost_buy
       lower_limit: 0.033
       upper_limit: 0.099
-      num_samples: 10
+      num_samples: 21
+
 KBHDP_RPT_1_pv_cost_sweep:
   build_defaults:
     grid_frac: 0.5
     water_recovery: 0.80
     ro_mem_area: 20000
   sweep_param_loop:
-    PV Cost Per Watt Installed:
+    pv_cost:
       type: LinearSample
       param: fs.energy.costing.pv_surrogate.cost_per_watt_installed
       lower_limit: 0.8
       upper_limit: 2.4
-      num_samples: 10
+      num_samples: 21

@@ -4,66 +4,72 @@ KBHDP_RPT_2_water_recovery_sweep:
     water_recovery: 0.35
     heat_price: 0.00894
   sweep_param_loop:
-    Water Recovery:
+    water_recovery:
       type: LinearSample
       param: fs.water_recovery
       lower_limit: 0.3
       upper_limit: 0.8
       num_samples: 21
-KBHDP_RPT_2_storage_sweep:
+
+KBHDP_RPT_2_storage_cost_sweep:
   build_defaults:
     grid_frac_heat: 0.5
     water_recovery: 0.8
     heat_price: 0.00894
   sweep_param_loop:
-    Storage Cost:
+    storage_cost:
       type: LinearSample
       param: fs.energy.costing.flat_plate.cost_per_volume_storage
       lower_limit: 1000
       upper_limit: 3000
-      num_samples: 11
+      num_samples: 21
+
 KBHDP_RPT_2_disposal_cost_sweep:
   build_defaults:
     heat_price: 0.00894
   sweep_param_loop:
-    Brine Injection Cost:
+    disposal_cost:
       type: LinearSample
       param: fs.treatment.costing.deep_well_injection.dwi_lcow
       lower_limit: 0.29
       upper_limit: 0.87
-      num_samples: 11
+      num_samples: 21
+
+
 KBHDP_RPT_2_frac_heat_from_grid_sweep:
   build_defaults:
     grid_frac_heat: 0.9
     water_recovery: 0.8
     heat_price: 0.00894
   sweep_param_loop:
-    Grid Heat Fraction:
+    frac_heat_from_grid:
       type: LinearSample
       param: fs.costing.frac_heat_from_grid
       lower_limit: 0
       upper_limit: 1
       num_samples: 21
+
 KBHDP_RPT_2_heat_price_sweep:
   build_defaults:
     water_recovery: 0.8
     grid_frac_heat: 0.5
   sweep_param_loop:
-    Heat Cost:
+    heat_price:
       type: LinearSample
       param: fs.costing.heat_cost_buy
       lower_limit: 0.00447
       upper_limit: 0.01341
-      num_samples: 11
-KBHDP_RPT_2_collector_cost_sweep:
+      num_samples: 21
+
+KBHDP_RPT_2_fpc_collector_cost_sweep:
   build_defaults:
     heat_price: 0.0083
     water_recovery: 0.8
     grid_frac_heat: 0.5
   sweep_param_loop:
-    FPC Cost Per Area:
+    fpc_collector_cost:
       type: LinearSample
       param: fs.energy.costing.flat_plate.cost_per_area_collector
       lower_limit: 300
       upper_limit: 900
-      num_samples: 11
+      num_samples: 21
