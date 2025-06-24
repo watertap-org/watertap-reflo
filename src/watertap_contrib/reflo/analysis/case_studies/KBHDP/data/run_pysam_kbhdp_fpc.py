@@ -32,11 +32,11 @@ from idaes.core.util.scaling import *
 from idaes.core.util.model_statistics import *
 
 __all__ = [
-    "read_module_datafile",
-    "load_config",
-    "setup_model",
-    "run_model",
-    "setup_and_run",
+    "read_module_datafile_fpc",
+    "load_config_fpc",
+    "setup_model_fpc",
+    "run_model_fpc",
+    "setup_and_run_fpc",
     "run_pysam_kbhdp_fpc",
 ]
 
@@ -46,13 +46,13 @@ weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
 param_file = os.path.join(__location__, 'fpc', "solar_water_heating-kbhdp.json")
 
 
-def read_module_datafile(file_name):
+def read_module_datafile_fpc(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
     return data
 
 
-def load_config(modules, file_names=None, module_data=None):
+def load_config_fpc(modules, file_names=None, module_data=None):
     """
     Loads parameter values into PySAM modules, either from files or supplied dicts
 
@@ -65,7 +65,7 @@ def load_config(modules, file_names=None, module_data=None):
     for i in range(len(modules)):
         if file_names is not None:
             assert len(file_names) == len(modules)
-            data = read_module_datafile(file_names[i])
+            data = read_module_datafile_fpc(file_names[i])
         elif module_data is not None:
             assert len(module_data) == len(modules)
             data = module_data[i]
@@ -96,7 +96,7 @@ def system_capacity_computed(tech_model):
     return system_capacity
 
 
-def setup_model(
+def setup_model_fpc(
     temperatures,
     weather_file=None,
     weather_data=None,
@@ -134,7 +134,7 @@ def setup_model(
     return tech_model
 
 
-def run_model(
+def run_model_fpc(
     tech_model,
     heat_load_mwt=None,
     hours_storage=24,
@@ -284,12 +284,12 @@ def run_model(
         return results
 
 
-def setup_and_run(temperatures, weather_file, config_data, heat_load):
+def setup_and_run_fpc(temperatures, weather_file, config_data, heat_load):
 
-    tech_model = setup_model(
+    tech_model = setup_model_fpc(
         temperatures, weather_file=weather_file, config_data=config_data
     )
-    result = run_model(tech_model, heat_load)
+    result = run_model_fpc(tech_model, heat_load)
 
     return result
 
@@ -299,7 +299,7 @@ def run_pysam_kbhdp_fpc(
     run_pysam=True,
     save_data=True,
     use_multiprocessing=True,
-    dataset_filename="FPC_KBHDP_el_paso.pkl",
+    dataset_filename="test.pkl",
 ):
     """
     Run PySAM to collect data for FPC surrogate model
@@ -316,11 +316,11 @@ def run_pysam_kbhdp_fpc(
 
     dataset_filename = os.path.join(os.path.dirname(__file__),'fpc', dataset_filename)
     print(f"Saving data to {dataset_filename}")
-    config_data = read_module_datafile(param_file)
+    config_data = read_module_datafile_fpc(param_file)
 
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
-    tech_model = setup_model(
+    tech_model = setup_model_fpc(
         temperatures=temperatures,
         weather_file=weather_file,
         config_data=config_data,
@@ -339,7 +339,7 @@ def run_pysam_kbhdp_fpc(
                     (temperatures, weather_file, config_data, *args)
                     for args in arguments
                 ]
-                results = pool.starmap(setup_and_run, args)
+                results = pool.starmap(setup_and_run_fpc, args)
             time_stop = time.process_time()
             print("Multiprocessing time:", time_stop - time_start, "\n")
             df_results = pd.DataFrame(results)
@@ -358,7 +358,7 @@ def run_pysam_kbhdp_fpc(
         else:
             comb = [(heat_loads)]
             for (heat_load,) in comb:
-                result = run_model(tech_model, heat_load)
+                result = run_model_fpc(tech_model, heat_load)
                 data.append(
                     [
                         heat_load,
@@ -464,23 +464,23 @@ def test_surrogate(surrogate_filename="FPC_KBHDP_el_paso.json"):
     df["predicted_heat_annual"] = heat_annuals
     print(df)
 
-    g = sns.scatterplot(
-        data=df,
-        x="heat_annual",
-        y="predicted_heat_annual",
-    )
-    g = plt.plot(
-        [0, max(df["heat_annual"])],
-        [0, max(df["heat_annual"])],
-        linestyle="--",
-        color="red",
-    )
-    plt.show()
+    # g = sns.scatterplot(
+    #     data=df,
+    #     x="heat_annual",
+    #     y="predicted_heat_annual",
+    # )
+    # g = plt.plot(
+    #     [0, max(df["heat_annual"])],
+    #     [0, max(df["heat_annual"])],
+    #     linestyle="--",
+    #     color="red",
+    # )
+    # plt.show()
 
     return df
 
 
 if __name__ == "__main__":
     df = run_pysam_kbhdp_fpc()
-    train_surrogate()
-    test_surrogate()
+    # train_surrogate()
+    # test_surrogate()
