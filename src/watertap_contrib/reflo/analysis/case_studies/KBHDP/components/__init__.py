@@ -17,3 +17,5 @@ from .multi_effect_crystallizer import *
 from .CST import *
 from .CST_pysam import *
 from .translator_nacl_to_nacl import Translator_NaCl_to_NaCl
+# from .translator_nacl_to_tds import Translator_NaCl_to_TDS
+from .translator_sw_to_nacl import Translator_SW_to_NaCl
