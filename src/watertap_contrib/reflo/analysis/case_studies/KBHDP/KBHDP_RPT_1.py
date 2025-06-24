@@ -351,6 +351,8 @@ def add_treatment_costing(m):
 
     treatment.costing.cost_process()
     treatment.costing.initialize()
+    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+    treatment.costing.electricity_cost.fix(elec_cost)
 
 
 def add_energy_costing(m):
@@ -376,11 +378,15 @@ def add_costing(m):
         add_energy_costing(m)
         m.fs.costing = REFLOSystemCosting()
     else:
-        m.fs.costing = REFLOCosting()
+        m.fs.costing = TreatmentCosting()
     m.fs.costing.cost_process()
+    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+    m.fs.costing.electricity_cost_buy.set_value(elec_cost)
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
+    m.fs.treatment.costing.add_specific_energy_consumption(treatment.product.properties[0].flow_vol, name="SEC")
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_specific_energy_consumption(treatment.product.properties[0].flow_vol, name="SEC")
 
     if m.fs.RE:
         m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
@@ -635,7 +641,7 @@ def box_solve_problem(m):
 
 def optimize(
     m,
-    water_recovery=0.5,
+    water_recovery=0.8,
     fixed_pressure=None,
     ro_mem_area=None,
     grid_frac=None,
@@ -850,3 +856,8 @@ def display_costing_breakdown(m):
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
     m = main()
+    m.fs.costing.aggregate_flow_costs.display()
+    m.fs.treatment.costing.used_flows.display()
+    m.fs.costing.flow_types.display()
+    # m.fs.costing.flow_types.display()
+    print(m.fs.costing._registered_flows)
