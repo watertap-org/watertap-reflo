@@ -9,6 +9,7 @@ from matplotlib.patches import Patch
 from collections import OrderedDict
 import os
 import math
+from idaes.core.base.costing_base import register_idaes_currency_units
 
 # from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.h5_to_csv import (
 #     convert_h5_to_csv,
@@ -44,7 +45,6 @@ flow_list = [
     "Aluminum",
     "Lime",
     "CO$_2$",
-    # "MgCl2",
     "Soda Ash",
 ]
 
@@ -59,7 +59,7 @@ unit_color_dict_default = {
     "EC": np.array([1.0, 0.73333333, 0.47058824, 1.0]),
     "FO": np.array([0.77254902, 0.69019608, 0.83529412, 1.0]),
     # "FPC": np.array([0.96862745, 0.71372549, 0.82352941, 1.0]),
-    "FPC": "lightsteelblue", 
+    "FPC": "lightsteelblue",
     "H$_2$O$_2$ Addition": np.array([1.0, 0.49803922, 0.05490196, 1.0]),
     "LT-MED": np.array([0.83921569, 0.15294118, 0.15686275, 1.0]),
     "MD": np.array([0.54901961, 0.3372549, 0.29411765, 1.0]),
@@ -74,12 +74,43 @@ flow_colors = plt.cm.Dark2(np.arange(len(flow_list)).astype(int))
 flow_color_dict_default = dict(zip(flow_list, flow_colors))
 flow_color_dict_default["electric"] = flow_color_dict_default["Electricity"]
 
+register_idaes_currency_units()
+
+
+def heat_func_row(row):
+    heat_cost = 0.00894 * pyunits.USD_2023 / pyunits.kWh  # $ / kWh, KBHDP
+    heat_cost = 0.0166 * pyunits.USD_2023 / pyunits.kWh  # $ / kWh, Permian
+    agg_flow_heat = (
+        row.loc[f"fs.treatment.costing.aggregate_flow_heat"] * pyunits.kW
+    )  # kW
+    agg_flow_heat_annual = pyunits.convert(
+        agg_flow_heat, to_units=pyunits.kWh / pyunits.year
+    )  # kWh / year
+    return pyunits.convert(
+        agg_flow_heat_annual * heat_cost, to_units=pyunits.USD_2023 / pyunits.year
+    )()
+
+
+def elec_func_row(row):
+    elec_cost = 0.066 * pyunits.USD_2023 / pyunits.kWh  # $ / kWh KBHDP
+    elec_cost = 0.0575 * pyunits.USD_2023 / pyunits.kWh  # $ / kWh Permian
+    agg_flow_elec = (
+        row.loc[f"fs.treatment.costing.aggregate_flow_electricity"] * pyunits.kW
+    )  # kW
+    agg_flow_elec_annual = pyunits.convert(
+        agg_flow_elec, to_units=pyunits.kWh / pyunits.year
+    )  # kWh / year
+    return pyunits.convert(
+        agg_flow_elec_annual * elec_cost, to_units=pyunits.USD_2023 / pyunits.year
+    )()
 
 
 def case_study_stacked_plot(
     df,
     fig=None,
     ax=None,
+    fig_rel=None,
+    ax_rel=None,
     global_costing_blk="fs.treatment.costing",
     costing_blk="fs.costing",
     xcol=None,
@@ -98,13 +129,26 @@ def case_study_stacked_plot(
     tick_fontsize=14,
     add_legend=True,
     leg_kwargs=dict(
-        loc="best",
+        # loc="lower left",
         frameon=False,
         ncol=3,
         handlelength=1,
         handleheight=1,
         labelspacing=0.2,
         columnspacing=0.9,
+        # bbox_to_anchor=(0., 1.02, 1., .102),
+        # mode="expand",
+    ),
+    leg_kwargs_rel=dict(
+        loc="lower left",
+        frameon=False,
+        ncol=3,
+        handlelength=1,
+        handleheight=1,
+        labelspacing=0.2,
+        columnspacing=0.9,
+        bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+        mode="expand",
     ),
     ylims=None,
     xlims=None,
@@ -112,7 +156,14 @@ def case_study_stacked_plot(
     save_name="temp",
     rel=False,
     actual_lcow_row=None,
+    heat_func=None,
+    heat_cost_col=None,
+    elec_func=None,
+    elec_cost_col=None,
+    use_calc_for_rel=False,
+    **kwargs,
 ):
+    global figure_csv_rel, figure_csv
 
     if flow_hatch is None:
         flow_hatch = capex_hatch
@@ -130,23 +181,23 @@ def case_study_stacked_plot(
     opex_lcow = defaultdict(list)
     capex_lcow = defaultdict(list)
     agg_flow_lcow = defaultdict(list)
+
+    opex_lcow_rel = defaultdict(list)
+    capex_lcow_rel = defaultdict(list)
+    agg_flow_lcow_rel = defaultdict(list)
+
     actual_lcow = list()
+    calc_lcow = list()
+    calc_to_actual_lcow = list()
     capex = list()
     opex = list()
-    flow_opex = list()
 
-    costing_params = dict()
-
-    for gp in global_params:
-        # make sure all the global parameters have the same value
-        if not len(df[f"{global_costing_blk}.{gp}"].unique()) == 1:
-            print(f"{global_costing_blk}.{gp}")
-            print(df[f"{global_costing_blk}.{gp}"].unique())
-            print(df[f"{global_costing_blk}.{gp}"])
-            # raise ValueError(f"Global parameter {gp} does not have uniform value.")
-        costing_params[gp] = df[f"{global_costing_blk}.{gp}"].iloc[0]
-
-    # assert len(df[flow_col].unique()) == 1
+    costing_params = {
+        "maintenance_labor_chemical_factor": 0.03,
+        "utilization_factor": 1.0,
+        "capital_recovery_factor": 0.1119559492025644,
+        "total_investment_factor": 1.0,
+    }
 
     df.set_index(xcol, inplace=True)
     df.sort_values(by=[xcol], inplace=True)
@@ -158,12 +209,12 @@ def case_study_stacked_plot(
         total_opex = 0
         total_flow_cost = 0
         total_annualized_cost = 0
+
         if actual_lcow_row is None:
             row_lcow = row[f"{costing_blk}.LCOW"]
         else:
             row_lcow = row[actual_lcow_row]
-            print(row_lcow)
-            # assert False
+
         actual_lcow.append(row_lcow)
         denominator = (
             value(
@@ -176,20 +227,18 @@ def case_study_stacked_plot(
         )
 
         for u, b in unit_dict.items():
-            # print(f"Calculating LCOW for {u} at {xcol} = {x}")
-            ## CAPEX
+
             print(f"Getting CAPEX and OPEX for {u} in {b}")
             unit_capex = 0
 
             try:
-                # print(f"{b}.capital_cost")
                 unit_capex += (
                     row.loc[f"{b}.capital_cost"]
                     * costing_params["total_investment_factor"]
                 )  # USD2023
 
             except KeyError:
-                # print(f"No CAPEX for {u} found.")
+                print(f"No CAPEX for {u} found.")
                 pass
 
             total_capex += unit_capex  # $
@@ -200,12 +249,14 @@ def case_study_stacked_plot(
             unit_capex_lcow = (
                 unit_capex * costing_params["capital_recovery_factor"]
             ) / denominator  # $ / m3
-            if rel:
-                unit_capex_lcow = unit_capex_lcow / row_lcow  # $ / m3
+
+            unit_capex_lcow_rel = unit_capex_lcow / row_lcow
             total_lcow += unit_capex_lcow  # $ / m3
 
             if unit_capex_lcow > 1e-13:
                 capex_lcow[u].append(unit_capex_lcow)
+
+            capex_lcow_rel[u].append(unit_capex_lcow_rel)  # $ / m3
 
             ### OPEX
             unit_opex_total = 0
@@ -225,120 +276,153 @@ def case_study_stacked_plot(
                 print(f"No Variable OPEX for {u} found at {b}.variable_operating_cost.")
                 pass
 
-            # print(unit_opex_total)
             total_opex += unit_opex_total  # $ / year
             unit_opex_lcow = unit_opex_total / denominator  # $ / m3
 
-            if rel:
-                unit_opex_lcow = unit_opex_lcow / row_lcow
+            unit_opex_lcow_rel = unit_opex_lcow / row_lcow
 
             if unit_opex_lcow > 1e-12:
                 opex_lcow[u].append(unit_opex_lcow)
+            if unit_opex_lcow_rel < 1e-8:
+                unit_opex_lcow_rel = 0
 
+            opex_lcow_rel[u].append(unit_opex_lcow_rel)
             total_lcow += unit_opex_lcow  # $ / m3
             total_annualized_cost += unit_opex_total  # $ / year
 
-        # print("\n\n")
         for flow_label, flow_name in agg_flows.items():
             print(f"Calculating LCOW for {flow_label} at {xcol} = {x}")
-            # assert False
-            flow_lcow = 0
-            if flow_name == "electricity":
-                try:
-                    print(
-                        "Looking for Electricity OPEX in fs.costing.total_electric_operating_cost"
-                    )
-                    print("Found:")
-                    flow_lcow += (
-                        row.loc[f"fs.costing.total_electric_operating_cost"]
-                        / denominator
-                    )
-                    if rel:
-                        flow_lcow = flow_lcow / row_lcow
-                    agg_flow_lcow[flow_name].append(flow_lcow)
-                    continue
-                except:
-                    
-                    print(
-                        f"No Electricity OPEX for {flow_name} found in in fs.costing.total_electric_operating_cost."
-                    )
-                    pass
-            if flow_name == "heat":
-                try:
-                    print(
-                        "Looking for Heat OPEX in fs.costing.total_heat_operating_cost"
-                    )
-                    print("Found:")
-                    flow_lcow += (
-                        row.loc[f"fs.costing.total_heat_operating_cost"] / denominator
-                    )
-                    if rel:
-                        flow_lcow = flow_lcow / row_lcow
-                    agg_flow_lcow[flow_name].append(flow_lcow)
-                    continue
-                except:
-                    print(
-                        f"No Heat OPEX for {flow_name} found in in fs.costing.total_heat_operating_cost."
-                    )
-                    pass
 
-            # print("trying to find electricity in aggregate_flow_costs")
-            # print(
-            #     f"Looking for Electricity OPEX in {global_costing_blk}.aggregate_flow_costs[{flow_name}]"
-            # )
-            # print(f"Flow Label {flow_label}, Flow Name {flow_name}")
-            # print(f"Searching in {global_costing_blk}")
-            total_flow_cost = row.loc[
+            flow_lcow = 0
+            # Electricity and heat flows can get tricky depending on how the model was run
+            if flow_name == "electricity":
+                if elec_func is not None:
+                    # Use external function to calculate electricity cost
+                    # This is useful for cases where the electricity cost is not a simple column in the dataframe
+                    flow_lcow = elec_func(row) / denominator
+                elif elec_cost_col is not None:
+                    # Use a specific column for electricity cost
+                    flow_lcow = row.loc[elec_cost_col] / denominator
+                else:
+                    try:
+                        # Default case, use the aggregate flow costs from the costing block
+                        flow_lcow += (
+                            row.loc[f"{costing_blk}.aggregate_flow_costs[{flow_name}]"]
+                            / denominator
+                        )
+                    except:
+                        raise ValueError(
+                            f"No Elecricity OPEX for {flow_name} found in {costing_blk}.aggregate_flow_costs[{flow_name}]"
+                        )
+
+                agg_flow_lcow[flow_name].append(flow_lcow)
+                flow_lcow_rel = flow_lcow / row_lcow
+                agg_flow_lcow_rel[flow_name].append(flow_lcow_rel)
+                total_lcow += flow_lcow
+                continue
+
+            if flow_name == "heat":
+                if heat_func is not None:
+                    # Use external function to calculate heat cost
+                    # This is useful for cases where the heat cost is not a simple column in the dataframe
+                    flow_lcow = heat_func(row) / denominator
+                elif heat_cost_col is not None:
+                    # Use a specific column for heat cost
+                    flow_lcow = row.loc[heat_cost_col] / denominator
+                else:
+                    try:
+                        # Default case, use the aggregate flow costs from the costing block
+                        # This is where we might expect to find them
+                        flow_lcow += (
+                            row.loc[f"{costing_blk}.aggregate_flow_costs[{flow_name}]"]
+                            / denominator
+                        )
+                    except:
+                        raise ValueError(
+                            f"No Heat OPEX for {flow_name} found in {costing_blk}.aggregate_flow_costs[{flow_name}]"
+                        )
+
+                agg_flow_lcow[flow_name].append(flow_lcow)
+                flow_lcow_rel = flow_lcow / row_lcow
+                agg_flow_lcow_rel[flow_name].append(flow_lcow_rel)
+                total_lcow += flow_lcow
+                continue
+
+            flow_cost = row.loc[
                 f"{global_costing_blk}.aggregate_flow_costs[{flow_name}]"
             ]  # $ / year
             total_annualized_cost = row.loc[
                 f"{global_costing_blk}.aggregate_flow_costs[{flow_name}]"
             ]
-            flow_lcow = total_flow_cost / denominator  # $ / m3
+            flow_lcow = flow_cost / denominator  # $ / m3
 
-            # print(row["fs.treatment.costing.aggregate_flow_costs[electricity]"])
-            # "fs.treatment.costing.aggregate_flow_costs[electricity]"
-            # "fs.treatment.costing.aggregate_flow_costs[electricity]"
-            # print(total_flow_cost)
-            # print(total_annualized_cost)
-            # assert False
-            print(
-                f"Flow Name {flow_name} Flow LCOW {flow_lcow} Flow Cost {total_flow_cost} Denominator {denominator}"
-            )
-            if rel:
-                flow_lcow = flow_lcow / row_lcow
             agg_flow_lcow[flow_name].append(flow_lcow)
-            # print(f"Flow Name {flow_name} Flow LCOW: {agg_flow_lcow[flow_name]}")
-
-            # raise ValueError(f"No cost for {flow_name} found.")
-            # print(f"Flow OPEX: {total_flow_cost}\n")
-            # print(f"Flow LCOW: {flow_lcow}\n")
+            flow_lcow_rel = flow_lcow / row_lcow
+            agg_flow_lcow_rel[flow_name].append(flow_lcow_rel)
             total_lcow += flow_lcow
+
+        calc_lcow.append(total_lcow)
+        calc_to_actual_lcow.append(total_lcow / row_lcow)
 
         if check_calc:
             print(f"\nFor {xcol} = {x}:")
             print(f"\tActual LCOW: {row_lcow:.6f}")
             print(f"\tCalculated LCOW: {total_lcow:.6f}")
-            # assert False
+            print(f"\tRel Diff: {row_lcow / total_lcow:.6f}")
 
         capex.append(total_capex)
         opex.append(total_opex)
-        flow_opex.append(total_flow_cost)
+
+    if use_calc_for_rel:
+        # Recalculate the relative LCOW values using the calculated LCOW
+        # This is helpful if the actual LCOW is not available in data due to how the model was set up
+        opex_lcow_rel = defaultdict(list)
+        capex_lcow_rel = defaultdict(list)
+        agg_flow_lcow_rel = defaultdict(list)
+        for i, lcow in enumerate(calc_lcow):
+            for u in unit_dict.keys():
+                if u in capex_lcow.keys():
+                    x = capex_lcow[u][i] / lcow
+                    capex_lcow_rel[u].append(capex_lcow[u][i] / lcow)
+                if u in opex_lcow.keys():
+                    opex_lcow_rel[u].append(opex_lcow[u][i] / lcow)
+            for flow, y in agg_flow_lcow.items():
+                # print(flow_label)
+                agg_flow_lcow_rel[flow].append(y[i] / lcow)
+
+    ###################################
+    ###################################
+    # Create the inputs needed for stacked plot
 
     stacked_cols = list()
     stacked_labels = list()
     stacked_hatch = list()
     stacked_colors = list()
 
+    stacked_cols_rel = list()
+    stacked_labels_rel = list()
+    stacked_hatch_rel = list()
+    stacked_colors_rel = list()
+
     legend_elements = [
         Patch(facecolor="white", hatch=capex_hatch, label="CAPEX", edgecolor="k"),
         Patch(facecolor="white", hatch=opex_hatch, label="OPEX", edgecolor="k"),
     ]
+
     for flow_label, flow_name in agg_flows.items():
+
         stacked_cols.append(agg_flow_lcow[flow_name])
+        stacked_cols_rel.append(agg_flow_lcow_rel[flow_name])
+
         stacked_labels.append(flow_label)
+        stacked_labels_rel.append(flow_label)
+
         stacked_colors.append(flow_color_dict[flow_label])
+        stacked_colors_rel.append(flow_color_dict[flow_label])
+
         stacked_hatch.append(flow_hatch)
+        stacked_hatch_rel.append(flow_hatch)
+
         legend_elements.append(
             Patch(
                 facecolor=flow_color_dict[flow_label],
@@ -347,35 +431,45 @@ def case_study_stacked_plot(
                 edgecolor="k",
             )
         )
-    # pprint.pprint(actual_lcow)
-    # assert False
+
     for u in unit_dict.keys():
-        # print(u)
         if u in capex_lcow.keys():
             stacked_cols.append(capex_lcow[u])
+            stacked_cols_rel.append(capex_lcow_rel[u])
+
             stacked_labels.append(f"{u} CAPEX")
+            stacked_labels_rel.append(f"{u} CAPEX")
+
             stacked_hatch.append(capex_hatch)
+            stacked_hatch_rel.append(capex_hatch)
+
             stacked_colors.append(unit_color_dict[u])
-            # print(capex_lcow[u])
+            stacked_colors_rel.append(unit_color_dict[u])
         if u in opex_lcow.keys():
             stacked_cols.append(opex_lcow[u])
+            stacked_cols_rel.append(opex_lcow_rel[u])
+
             stacked_labels.append(f"{u} OPEX")
+            stacked_labels_rel.append(f"{u} OPEX")
+
             stacked_hatch.append(opex_hatch)
+            stacked_hatch_rel.append(opex_hatch)
+
             stacked_colors.append(unit_color_dict[u])
-            # print(opex_lcow[u])
+            stacked_colors_rel.append(unit_color_dict[u])
+
         legend_elements.append(
             Patch(facecolor=unit_color_dict[u], label=u, edgecolor="k")
         )
+
+    ###################################
+    ###################################
+    # Create stacked plot with absolute values
 
     if (fig, ax) == (None, None):
         fig, ax = plt.subplots(figsize=figsize)
         fig.set_size_inches(5, 5, forward=True)
 
-    # print(stacked_cols)
-    # pprint.pprint(agg_flow_lcow)
-    for item in stacked_cols:
-        print(len(item), sum(item))
-    # print("\n\n")
     ax.stackplot(
         df.index,
         stacked_cols,
@@ -386,7 +480,8 @@ def case_study_stacked_plot(
     )
 
     if add_legend:
-        legend = ax.legend(handles=legend_elements, **leg_kwargs)
+        # legend = ax.legend(handles=legend_elements, **leg_kwargs)
+        legend = ax.legend(handles=legend_elements, **leg_kwargs_rel)
 
     ax.set(**ax_dict)
     ax.set_xlabel(ax_dict["xlabel"], fontsize=label_fontsize)
@@ -401,71 +496,109 @@ def case_study_stacked_plot(
         ax.set_ylim(ylims)
     else:
         ax.set_ylim(0, np.ceil(max(actual_lcow)))
+
     if xlims is not None:
         ax.set_xlim(xlims)
     else:
         ax.set_xlim(0, 1)
 
-    plt.tight_layout()
+    fig.tight_layout()
+
+    ###################################
+    ###################################
+    # Create stacked plot with relative values
+
+    if (fig_rel, ax_rel) == (None, None):
+        fig_rel, ax_rel = plt.subplots(figsize=figsize)
+        fig_rel.set_size_inches(5, 5, forward=True)
+
+    ax_rel.stackplot(
+        df.index,
+        stacked_cols_rel,
+        hatch=stacked_hatch_rel,
+        colors=stacked_colors_rel,
+        edgecolor="black",
+    )
+
+    if add_legend:
+        # legend_rel = ax_rel.legend(handles=legend_elements, **leg_kwargs)
+        legend_rel = ax_rel.legend(handles=legend_elements, **leg_kwargs_rel)
+
+    ax_rel.set(**ax_dict)
+    ax_rel.set_xlabel(ax_dict["xlabel"], fontsize=label_fontsize)
+    ax_rel.set_ylabel("% LCOW", fontsize=label_fontsize)
+    ax_rel.tick_params(axis="both", labelsize=tick_fontsize)
+    ax_rel.set_xlim(df.index.min(), df.index.max())
+
+    if "soda_ash" in xcol:
+        ax_rel.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
+    else:
+        ax_rel.xaxis.set_major_formatter(
+            plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%")
+        )    
+    if ylims is not None:
+        ax_rel.set_ylim(ylims)
+    else:
+        ax_rel.set_ylim(0, np.ceil(max(actual_lcow)))
+    ax_rel.set_ylim((0, 1.05))
+    ax_rel.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
+
+    if xlims is not None:
+        ax_rel.set_xlim(xlims)
+    else:
+        ax_rel.set_xlim(0, 1)
+
+    fig_rel.tight_layout()
+
 
     if save is True:
         fig.savefig(f"{fig_save_path}/{save_name}", dpi=300, bbox_inches="tight")
-        # plt.savefig(
-        #     os.path.join(
-        #         # "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures/kbhdp/",
-        #         "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures/permian/",
-        #         save_name,
-        #     ),
-        #     dpi=300, bbox_inches="tight"
-        # )
+        fig_rel.savefig(
+            f"{fig_save_path}/{save_name.replace('.png', '_rel.png')}",
+            dpi=300,
+            bbox_inches="tight",
+        )
+
+    ###################################
+    ###################################
+    # Create DataFrame for both figures
 
     unit_lcow = dict()
-    # print(capex_lcow)
-    # print(opex_lcow)
+    unit_lcow_rel = dict()
     for unit, key in unit_dict.items():
-        # print(f"\nUnit: {unit}")
-        # print((np.array(capex_lcow[unit])))
-        # print((np.array(opex_lcow[unit])))
+        unit_lcow_rel[f"{unit} OPEX LCOW rel"] = opex_lcow_rel[unit]
         if len(np.array(capex_lcow[unit])) > 1:
             unit_lcow[unit] = np.array(capex_lcow[unit]) + np.array(opex_lcow[unit])
+            unit_lcow_rel[f"{unit} CAPEX LCOW rel"] = capex_lcow_rel[unit]
         else:
             unit_lcow[unit] = np.array(opex_lcow[unit])
 
-    # print(f"Agg Flow Dict {agg_flows}")
-    # print(f"Agg Flow LCOW Dict {agg_flow_lcow}")
     for flow, key in agg_flows.items():
-        # print(f"\nFlow: {key.lower()}")
-        # print(f"Len {len(agg_flow_lcow[key.lower()])}")
         unit_lcow[key] = np.array(agg_flow_lcow[key.lower()])
-        # print(unit_lcow[key])
+        unit_lcow_rel[key] = np.array(agg_flow_lcow_rel[key.lower()])
 
-    # for unit in unit_lcow.keys():
-        # print(unit, len(unit_lcow[unit]))
-    figure_csv = pd.DataFrame.from_dict(unit_lcow)
-    figure_csv["LCOW"] = figure_csv.sum(axis=1)
-    figure_csv["LCOW_data"] = actual_lcow
-    figure_csv.index = df.index
-    # figure_csv.to_csv(
-    #     os.path.join(
-    #         # "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/figures",
-    #         "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures/permian",
-    #         save_name + "_data.csv",
-    #     )
-    # )
+    # figure_csv = pd.DataFrame.from_dict(unit_lcow)
+    # figure_csv["LCOW"] = figure_csv.sum(axis=1)
+    # figure_csv["LCOW_data"] = actual_lcow
+    # figure_csv.index = df.index
 
-    print(figure_csv.head(20))
+    # figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
+    # figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
+    # figure_csv_rel["LCOW_data"] = actual_lcow
+    # figure_csv_rel["LCOW_calc"] = calc_lcow
+    # figure_csv_rel["LCOW_diff_rel"] = calc_to_actual_lcow
+    # figure_csv_rel.index = df.index
 
-    return fig, ax, legend
+
+    # print(figure_csv.head(30))
+    # print(figure_csv_rel.head(30))
+    return fig, ax, fig_rel, ax_rel, legend
 
 
 cases_kbhdp_soa = {
     "KBHDP": {
         "KBHDP_SOA_1": {
             "water_recovery": {
-                # "file": os.path.join(
-                #     # sweep_csv_dir, "sweep_data_analysisType_KBHDP_SOA_1_water_recovery.csv"
-                #     sweep_csv_dir, "sweep_data_KBHDP_SOA_1_water_recovery.csv"
-                # ),
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_SOA_1_water_recovery.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
@@ -473,15 +606,14 @@ cases_kbhdp_soa = {
                     "Chem. Softening": "fs.treatment.softener.unit.costing",
                     "UF": "fs.treatment.UF.unit.costing",
                     "RO": "fs.treatment.RO.stage[1].module.costing",
-                    "DWI": "fs.treatment.DWI.unit.costing",
                     "Pump": "fs.treatment.pump.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
                 },
                 "agg_flows": {
                     "Electricity": "electricity",
                     "Soda Ash": "soda_ash",
                     "Lime": "lime",
                     "CO$_2$": "co2",
-                    # "MgCl2": "mgcl2",
                 },
                 "xcol": "fs.water_recovery",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
@@ -499,8 +631,8 @@ cases_kbhdp_soa = {
                     "Chem. Softening": "fs.treatment.softener.unit.costing",
                     "UF": "fs.treatment.UF.unit.costing",
                     "RO": "fs.treatment.RO.stage[1].module.costing",
-                    "DWI": "fs.treatment.DWI.unit.costing",
                     "Pump": "fs.treatment.pump.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
                 },
                 "agg_flows": {
                     "Electricity": "electricity",
@@ -516,7 +648,7 @@ cases_kbhdp_soa = {
                 "ylims": (0, 3),
                 "xlims": (0.12, 0.36),
                 "save_name": "kbhdp_soa_soda_ash_sweep_stacked_plot.png",
-                "save": True,
+                # "save": True,
             },
         }
     }
@@ -530,12 +662,14 @@ kbhdp_wr = {
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
                 "actual_lcow_row": "fs.costing.LCOT",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
                 "unit_dict": {
                     "EC": "fs.treatment.EC.ec.costing",
                     "UF": "fs.treatment.UF.unit.costing",
                     "RO": "fs.treatment.RO.stage[1].module.costing",
-                    "DWI": "fs.treatment.DWI.unit.costing",
                     "Pump": "fs.treatment.pump.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
                 },
                 "agg_flows": {
                     "Electricity": "electricity",
@@ -544,59 +678,67 @@ kbhdp_wr = {
                 "xcol": "fs.water_recovery",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol",
                 "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 6),
+                "ylims": (0, 5),
                 "xlims": (0.3, 0.8),
-                "save_name": "kbhdp_rpt1_water_recovery_stacked_plot.png",  # Change this
+                # "save_name": "kbhdp_rpt1_water_recovery_stacked_plot.png",  # Change this
+                "save_name": "kbhdp_rpt_water_recovery_stacked_plot.png",  # Change this
                 "save": False,
             },
         },
-        # "KBHDP_RPT_2": {
-        #     "water_recovery": {
-        #         "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_RPT_2_water_recovery.csv",
-        #         "global_costing_blk": "fs.treatment.costing",
-        #         "costing_blk": "fs.treatment.costing",
-        #         "unit_dict": {
-        #             "EC": "fs.treatment.EC.ec.costing",
-        #             "UF": "fs.treatment.UF.unit.costing",
-        #             "LT-MED": "fs.treatment.LTMED.unit.costing",
-        #             "DWI": "fs.treatment.DWI.unit.costing",
-        #         },
-        #         "agg_flows": {
-        #             "Electricity": "electricity",
-        #             "Aluminum": "aluminum",
-        #             "Heat": "heat",
-        #         },
-        #         "xcol": "fs.water_recovery",
-        #         "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-        #         "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-        #         "ylims": (0, 5),
-        #         "xlims": (0.3, 0.8),
-        #         "save_name": "kbhdp_water_recovery_stacked_plot.png",  # Change this
-        #         "save": True,
-        #     },
-        # },
-        # "KBHDP_RPT_3": {
-        #     "water_recovery": {
-        #         "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_RPT3_water_recovery_grid_frac_0.5_recovery_var.csv",
-        #         "global_costing_blk": "fs.treatment.costing",
-        #         "costing_blk": "fs.treatment.costing",
-        #         "unit_dict": {
-        #             "MD": "fs.treatment.md.unit",
-        #             "DWI": "fs.treatment.dwi.unit.costing",
-        #         },
-        #         "agg_flows": {
-        #             "Electricity": "electricity",
-        #             "Heat": "heat",
-        #         },
-        #         "xcol": "fs.water_recovery",
-        #         "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-        #         "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-        #         "ylims": (0, 5),
-        #         "xlims": (0.3, 0.8),
-        #         "save_name": "kbhdp_water_recovery_stacked_plot.png",  # Change this
-        #         "save": False,
-        #     },
-        # },
+        "KBHDP_RPT_2": {
+            "water_recovery": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_RPT_2_water_recovery.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                # "actual_lcow_row": "fs.treatment.costing.LCOW",
+                "actual_lcow_row": "fs.costing.LCOT",
+                "heat_func": heat_func_row,
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "LT-MED": "fs.treatment.LTMED.unit.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.water_recovery",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 5),
+                "xlims": (0.3, 0.8),
+                # "save_name": "kbhdp_rpt2_water_recovery_stacked_plot.png",  # Change this
+                "save_name": "kbhdp_rpt_water_recovery_stacked_plot.png",  # Change this
+                # "save": True,
+                "use_calc_for_rel": True,
+            },
+        },
+        "KBHDP_RPT_3": {
+            "water_recovery": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_RPT3_water_recovery.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                # "actual_lcow_row": "fs.costing.LCOT",
+                "unit_dict": {
+                    "MD": "fs.treatment.md.unit",
+                    "DWI": "fs.treatment.dwi.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.water_recovery",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 5),
+                "xlims": (0.3, 0.8),
+                # "save_name": "kbhdp_rpt3_water_recovery_stacked_plot.png",  # Change this
+                "save_name": "kbhdp_rpt_water_recovery_stacked_plot.png",  # Change this
+                # "save": False,
+            },
+        },
     }
 }
 
@@ -608,6 +750,8 @@ kbhdp_grid_frac = {
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
                 "actual_lcow_row": "fs.costing.LCOT",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
                 "unit_dict": {
                     "EC": "fs.treatment.EC.ec.costing",
                     "UF": "fs.treatment.UF.unit.costing",
@@ -629,57 +773,101 @@ kbhdp_grid_frac = {
                 "save": False,
             },
         },
-        # "KBHDP_RPT_2": {
-        #     "grid_fraction": {
-        #         "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_RPT_2_frac_heat_from_grid.csv",
-        #         "global_costing_blk": "fs.treatment.costing",
-        #         "costing_blk": "fs.treatment.costing",
-        #         "unit_dict": {
-        #             "EC": "fs.treatment.EC.ec.costing",
-        #             "UF": "fs.treatment.UF.unit.costing",
-        #             "LT-MED": "fs.treatment.LTMED.unit.costing",
-        #             "DWI": "fs.treatment.DWI.unit.costing",
-        #             "FPC": "fs.energy.FPC.costing",
-        #         },
-        #         "agg_flows": {
-        #             "Electricity": "electricity",
-        #             "Aluminum": "aluminum",
-        #             "Heat": "heat",
-        #         },
-        #         "xcol": "fs.costing.RE Fraction",
-        #         "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-        #         "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
-        #         "xlims": (0.1, 0.8),
-        #         "ylims": (0, 20),
-        #         "save_name": "kbhdp_grid_frac_stacked_plot.png",  # Change this
-        #         "save": True,
-        #     },
-        # },
-        # "KBHDP_RPT_3": {
-        #     "grid_fraction": {
-        #         "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_RPT3_grid_frac_heat_grid_frac_var_recovery_0.8.csv",
-        #         "global_costing_blk": "fs.treatment.costing",
-        #         "costing_blk": "fs.treatment.costing",
-        #         "unit_dict": {
-        #             "MD": "fs.treatment.md.unit",
-        #             "DWI": "fs.treatment.dwi.unit.costing",
-        #             "FPC": "fs.energy.FPC.costing",
-        #         },
-        #         "agg_flows": {
-        #             "Electricity": "electricity",
-        #             "Heat": "heat",
-        #         },
-        #         "xcol": "fs.costing.RE Fraction",
-        #         "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-        #         "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
-        #         "xlims": (0.1, 0.8),
-        #         "ylims": (0, 20),
-        #         "save_name": "kbhdp_grid_frac_stacked_plot.png",  # Change this
-        #         "save": True,
-        #     },
-        # },
+        "KBHDP_RPT_2": {
+            "grid_fraction": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/sweep_data_KBHDP_RPT_2_frac_heat_from_grid.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOT",
+                "heat_func": heat_func_row,
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "LT-MED": "fs.treatment.LTMED.unit.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "FPC": "fs.energy.FPC.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.costing.RE Fraction",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
+                "xlims": (0.1, 0.8),
+                "ylims": (0, 16.5),
+                "save_name": "kbhdp_grid_frac_stacked_plot.png",  # Change this
+                "save": True,
+                "use_calc_for_rel": True,
+            },
+        },
+        "KBHDP_RPT_3": {
+            "grid_fraction": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_RPT3_grid_frac_heat_grid_frac_var_recovery_0.8.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOT",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
+                "unit_dict": {
+                    "MD": "fs.treatment.md.unit",
+                    "DWI": "fs.treatment.dwi.unit.costing",
+                    "FPC": "fs.energy.FPC.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.costing.RE Fraction",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
+                "xlims": (0.1, 0.8),
+                "ylims": (0, 16.5),
+                "save_name": "kbhdp_grid_frac_stacked_plot.png",  # Change this
+                "save": True,
+            },
+        },
     }
 }
+
+
+kbhdp_zld = {
+    "KBHDP": {
+        "KBHDP_ZLD": {
+            "cost_per_aperture_area": {
+                "file": '/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_ZLD_cst_cost_per_total_aperture_area.csv',
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.costing",
+                "actual_lcow_row": "fs.costing.LCOT",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "RO": "fs.treatment.RO.stage[1].module.costing",
+                    "MD": "fs.treatment.md.unit",
+                    "MEC": "fs.treatment.mec.unit.costing",
+                    "PV": "fs.energy.pv.costing",
+                    "CST": "fs.energy.cst.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                },
+                "xcol": "fs.energy.costing.trough_surrogate.cost_per_total_aperture_area",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Cost Per CST Area (\$/m$^2$)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 2),
+                "xlims": (145, 445),
+                "save_name": "kbhdp_zld_cost_per_aperture_area_stacked_plot.png",  # Change this
+                "save": False,
+            },
+        },
+    }
+}
+
+
 
 permian_wr = {
     "Permian": {
@@ -739,6 +927,7 @@ permian_wr = {
         },
     }
 }
+#         f"No Heat OPEX for {flow_name} found in in fs.costing.total_heat_operating_cost."
 
 permian_grid_frac = {
     "Permian": {
@@ -747,6 +936,9 @@ permian_grid_frac = {
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_RPT1_MD_grid_frac_heat_grid_frac_var_recovery_0.5.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOT",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
                 "unit_dict": {
                     "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
                     "EC": "fs.treatment.EC.unit.costing",
@@ -775,6 +967,9 @@ permian_grid_frac = {
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_RPT2_FO_DWI_RPT_grid_frac.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOW",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
                 "unit_dict": {
                     "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
                     "EC": "fs.treatment.ec.unit.costing",
@@ -803,6 +998,9 @@ permian_grid_frac = {
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_ZLD1_MD_grid_frac_heat_grid_frac_var_recovery_0.5.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOT",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
                 "unit_dict": {
                     "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
                     "EC": "fs.treatment.EC.unit.costing",
@@ -831,6 +1029,9 @@ permian_grid_frac = {
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_ZLD2_FO_cryst_RPT_grid_frac.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOW",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
                 "unit_dict": {
                     "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
                     "EC": "fs.treatment.ec.unit.costing",
@@ -852,13 +1053,14 @@ permian_grid_frac = {
                 "xlims": (0.1, 0.5),  # Change this
                 "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
+                "use_calc_for_rel": True,
             },
         },
     }
 }
 
 
-def plot_case(case, fig=None, ax=None):
+def plot_case(case, fig=None, ax=None, fig_rel=None, ax_rel=None):
     print(case)
     df = pd.read_csv(case["file"])
     df.dropna(inplace=True)
@@ -877,75 +1079,90 @@ def plot_case(case, fig=None, ax=None):
     # print(df['fs.costing.RE Fraction'])
     if "actual_lcow_row" not in case.keys():
         case["actual_lcow_row"] = None
+    if "heat_func" not in case.keys():
+        case["heat_func"] = None
+    case["save"] = global_save
 
-    fig_, ax_, legend_ = case_study_stacked_plot(
+    fig_, ax_, fig_rel_, ax_rel_, legend_ = case_study_stacked_plot(
         df,
         fig=fig,
         ax=ax,
-        global_costing_blk=case["global_costing_blk"],
-        costing_blk=case["costing_blk"],
-        unit_dict=case["unit_dict"],
-        agg_flows=case["agg_flows"],
-        xcol=case["xcol"],
-        flow_col=case["flow_col"],
-        ax_dict=case["ax_dict"],
-        opex_hatch="\\\\\\",
-        flow_hatch="..",
-        ylims=case["ylims"],
-        xlims=case["xlims"],
-        # save=case["save"],
-        save=False, 
-        save_name=case["save_name"],
-        actual_lcow_row=case["actual_lcow_row"],
+        fig_rel=fig_rel,
+        ax_rel=ax_rel,
+        **case,
+        # global_costing_blk=case["global_costing_blk"],
+        # costing_blk=case["costing_blk"],
+        # unit_dict=case["unit_dict"],
+        # agg_flows=case["agg_flows"],
+        # xcol=case["xcol"],
+        # flow_col=case["flow_col"],
+        # ax_dict=case["ax_dict"],
+        # opex_hatch="\\\\\\",
+        # flow_hatch="..",
+        # ylims=case["ylims"],
+        # xlims=case["xlims"],
+        # # save=case["save"],
+        # save=True,
+        # # save=False,
+        # save_name=case["save_name"],
+        # actual_lcow_row=case["actual_lcow_row"],
+        # heat_func=case["heat_func"],
     )
 
     return legend_
 
 
 def plot_all_cases(cases):
+
     figs = {}
     axs = {}
+    figs_rel = {}
+    axs_rel = {}
     legends = {}
-    # import pprint
 
-    # pprint.pprint(cases)
-    # assert False
     for idx0, study in enumerate(cases):
+
         figs[study] = {}
         axs[study] = {}
+        figs_rel[study] = {}
+        axs_rel[study] = {}
         legends[study] = {}
+
         for key in cases[study][list(cases[study].keys())[0]].keys():
+
             n_cases = len(cases[study])
             n_rows = int(n_cases // 4 + 1)
             n_cols = int(n_cases / n_rows)
 
-            print(n_cols, n_rows)
-            print(f"{study} {key}")
             figs[study][key], axs[study][key] = plt.subplots(
                 n_rows,
                 n_cols,
                 figsize=(4.0 * n_cols, 4 * n_rows),
-                # 1, len(cases[study]), figsize=(4.0 * len(cases[study]), 4)
+            )
+
+            figs_rel[study][key], axs_rel[study][key] = plt.subplots(
+                n_rows,
+                n_cols,
+                figsize=(4.0 * n_cols, 4 * n_rows),
             )
             legends[study][key] = []
             axs[study][key] = np.atleast_1d(axs[study][key]).ravel()
+            axs_rel[study][key] = np.atleast_1d(axs_rel[study][key]).ravel()
 
-        for axis_id, axis in enumerate(axs[study][key]):
-            print(f"Axis {axis_id}:{axis}")
-
-    # assert False
     fig_letters = ["A", "B", "C", "D"]
+
     for idx0, study in enumerate(cases):
         for key in cases[study][list(cases[study].keys())[0]].keys():
-            print(f"{study} {key}")
             for idx1, case in enumerate(cases[study]):
-                print("CASE:", case)
                 legend_ = plot_case(
                     cases[study][case][key],
                     fig=figs[study][key],
                     ax=axs[study][key][idx1],
+                    fig_rel=figs_rel[study][key],
+                    ax_rel=axs_rel[study][key][idx1],
                 )
                 legends[study][key].append(legend_)
+
                 axs[study][key][idx1].text(
                     -0.25,
                     0.95,
@@ -956,30 +1173,75 @@ def plot_all_cases(cases):
                     transform=axs[study][key][idx1].transAxes,
                 )
 
+                axs_rel[study][key][idx1].text(
+                    -0.33,
+                    0.95,
+                    f"{fig_letters[idx1]})",
+                    fontsize=20,
+                    ha="center",
+                    va="center",
+                    transform=axs_rel[study][key][idx1].transAxes,
+                )
+
             figs[study][key].tight_layout()
+            figs_rel[study][key].tight_layout()
+
             if len(axs[study][key]) < 4:
                 figs[study][key].subplots_adjust(top=0.85)
+                figs_rel[study][key].subplots_adjust(top=0.85)
             else:
                 figs[study][key].subplots_adjust(top=0.925)
+                figs_rel[study][key].subplots_adjust(top=0.925)
 
             # Collect handles and labels
             handles, labels = [], []
             for legend in legends[study][key]:
-                # for legend in [legends[1], legends[0], legends[2]]:
                 h = legend.legend_handles
                 l = [text.get_text() for text in legend.get_texts()]
                 handles.extend(h)
                 labels.extend(l)
+
             # Remove duplicates while preserving order
             unique = list(OrderedDict(zip(labels, handles)).items())
+            # Ensure order to be:
+            # - flows
+            # - units
+            unique_flows = list()
+            unique_units = list()
+            for u in unique:
+                if u[0] in ["CAPEX", "OPEX"]:
+                    continue
+                if u[0] in flow_color_dict_default.keys():
+                    unique_flows.append(u)
+                else:
+                    unique_units.append(u)
+
+            unique = [unique[0], unique[1]] + unique_flows + unique_units
+
             # Add the unified legend
+            legend_rows = 2
             legend_rows = 1
             if len(axs[study][key]) > 3:
                 legend_rows = 2
             legend_cols = len(unique) // legend_rows + 1
-            # print(legend_cols)
-            # assert False
+            # legend_cols = 6
+
             master_legend = figs[study][key].legend(
+                [h for _, h in unique],
+                [l for l, _ in unique],
+                loc="upper center",  # or 'lower center' if you prefer
+                ncol=legend_cols,
+                # bbox_to_anchor=(0.1, 1.0, 0.8, 0.03),  # above the plots
+                frameon=True,
+                handlelength=1.4,
+                handleheight=1.4,
+                labelspacing=0.25,
+                handletextpad=0.4,
+                # columnspacing=0.9,
+                fontsize=10,
+                mode="expand",
+            )
+            master_legend_rel = figs_rel[study][key].legend(
                 [h for _, h in unique],
                 [l for l, _ in unique],
                 loc="upper center",  # or 'lower center' if you prefer
@@ -997,57 +1259,76 @@ def plot_all_cases(cases):
             master_legend.get_frame().set_edgecolor("black")  # Frame line color
             master_legend.get_frame().set_linewidth(1.5)  # Thickness of the frame
 
+            master_legend_rel.get_frame().set_edgecolor("black")  # Frame line color
+            master_legend_rel.get_frame().set_linewidth(1.5)  # Thickness of the frame
+
             for axis in axs[study][key]:
+                axis.legend_.remove()  # This works if the legend exists
+
+            for axis in axs_rel[study][key]:
                 axis.legend_.remove()  # This works if the legend exists
 
             # Get the bounding box of the original legend
             bb = master_legend.get_bbox_to_anchor().transformed(
                 axs[study][key][idx1].transAxes.inverted()
             )
+            bb_rel = master_legend_rel.get_bbox_to_anchor().transformed(
+                axs_rel[study][key][idx1].transAxes.inverted()
+            )
 
             # Change to location of the legend.
             yOffset = 0.025
             bb.y0 += yOffset
             bb.y1 += yOffset
+            bb_rel.y0 += yOffset
+            bb_rel.y1 += yOffset
+
             master_legend.set_bbox_to_anchor(
                 bb, transform=axs[study][key][idx1].transAxes
             )
-
-            # if len(axs[study][key]) > 3:
-            #     print("Adjusting layout for 2x2 plot...")
-            #     figs[study][key].tight_layout()
-
-            # figs[study][key].subplots_adjust(wspace=0.3, bottom=0.15, top=0.95)
+            master_legend_rel.set_bbox_to_anchor(
+                bb_rel, transform=axs_rel[study][key][idx1].transAxes
+            )
 
             print("Saving figure...")
-            print(study, case, key)
             print(f'{fig_save_path}/{cases[study][case][key]["save_name"]}')
-            figs[study][key].savefig(
-                f'{fig_save_path}/{cases[study][case][key]["save_name"]}',
-                dpi=300,
-                bbox_inches="tight",
-            )
-            # figs[study][key].savefig(
-            #     os.path.join(
-            #         "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/figures/permian/",
-            #         study + "_" + case + "_" + key + "_stacked_plot.png",
-            #     ),
-            #     dpi=300,
-            # )
+            
+            if global_save:
+                figs[study][key].savefig(
+                    f'{fig_save_path}/{cases[study][case][key]["save_name"]}',
+                    dpi=300,
+                    bbox_inches="tight",
+                )
+                figs_rel[study][key].savefig(
+                    f'{fig_save_path}/{cases[study][case][key]["save_name"].replace(".png", "_rel.png")}',
+                    dpi=300,
+                    bbox_inches="tight",
+                )
 
 
+global_save = False
+# global_save = True
 if __name__ == "__main__":
     # pprint.pprint(unit_color_dict_default)
     # plot_all_cases(kbhdp_wr)
     # plot_all_cases(permian_wr)
-    # plot_all_cases(kbhdp_grid_frac)kbhdp_grid_frac
+    # plot_all_cases(kbhdp_grid_frac)
     # plot_all_cases(permian_grid_frac)
-    # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_1"]["water_recovery"])
+    # plot_case(permian_grid_frac["Permian"]["Permian_ZLD1_MD_Cryst"]["grid_fraction"])
+    # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_2"]["water_recovery"])])
+    # plot_case(permian_grid_frac["Permian"]["Permian_ZLD2_FO_Cryst"]["grid_fraction"])
+
+    # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_3"]["water_recovery"])
+    # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_2"]["grid_fraction"])
+    # plot_case(kbhdp_zld["KBHDP"]["KBHDP_ZLD"]["cost_per_aperture_area"])
     # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_1"]["grid_fraction"])
     # plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["soda_ash"])
     # plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["water_recovery"])
 
-
     # plt.tight_layout()
+    # print(figure_csv_rel.columns)
+    # print(figure_csv_rel.electricity)
+    # print(figure_csv_rel.aluminum)
+    # print(figure_csv_rel["FPC CAPEX LCOW rel"])
+    # print(figure_csv_rel["FPC OPEX LCOW rel"])
     plt.show()
-    
