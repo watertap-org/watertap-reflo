@@ -87,6 +87,7 @@ def main():
     # print(m.fs.treatment.costing.display())
     # print(m.fs.treatment.costing.LCOW.display())
     print_all_results(m)
+    m.fs.treatment.costing.SEC.display()
 
 
 def build_system():
@@ -190,7 +191,7 @@ def build_sweep():
     init_system(m)
     add_costing(m)
     display_system_build(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.75)
+    optimize(m, ro_mem_area=None, water_recovery=0.8)
 
     return m
 
@@ -309,6 +310,8 @@ def add_costing(m):
         treatment.product.properties[0].flow_vol
     )
     treatment.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase["Liq"])
+    treatment.costing.add_specific_energy_consumption(treatment.product.properties[0].flow_vol, name="SEC")
+
 
     # m.fs.costing.initialize()
     treatment.costing.initialize()
@@ -707,4 +710,5 @@ def print_all_results(m):
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    build_sweep()
