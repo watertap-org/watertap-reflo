@@ -103,16 +103,16 @@ def set_system_op_conditions(m):
     m.fs.system_capacity.fix()
 
 
-def set_fpc_op_conditions(m, hours_storage=12, temperature_hot=80):
+def set_fpc_op_conditions(m, hours_storage=24, temperature_hot=80):
     energy = m.fs.energy
     # energy.FPC.load_surrogate()
 
     # energy.FPC.hours_storage.fix(hours_storage)
     # # Assumes the hot temperature to the inlet of a 'MD HX'
     # energy.FPC.temperature_hot.fix(temperature_hot)
-    # Assumes the cold temperature from the outlet temperature of a 'MD HX'
+    # # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     # energy.FPC.temperature_cold.set_value(20)
-    energy.FPC.heat_load.fix(50)
+    # energy.FPC.heat_load.fix(50)
 
 
 def add_fpc_costing(m, costing_block=None):
