@@ -129,17 +129,17 @@ def run_pysam_fpc_scaled_draw_sweep(
     This was mostly used for testing the implementation.
     """
 
-    config_data = read_module_datafile(param_file)
+    config_data = read_module_datafile_fpc(param_file)
 
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
-    tech_model = setup_pysam_fpc_model(
+    tech_model = setup_model_fpc(
         temperatures=temperatures,
         weather_file=weather_file,
         config_data=config_data,
     )
     # run with scaled_draw=None to find the current calculated value for scaled_draw as the upperbound for the sweep
-    _, tech_model = run_pysam_fpc_model(
+    _, tech_model = run_model_fpc(
         tech_model,
         heat_load_mwt=heat_load_mwt,
         hours_storage=hours_storage,
@@ -155,16 +155,16 @@ def run_pysam_fpc_scaled_draw_sweep(
     temp_deliv = list()
 
     for sd in scaled_draws:
-        config_data = read_module_datafile(param_file)
+        config_data = read_module_datafile_fpc(param_file)
 
         if "solar_resource_file" in config_data:
             del config_data["solar_resource_file"]
-        tech_model = setup_pysam_fpc_model(
+        tech_model = setup_model_fpc(
             temperatures=temperatures,
             weather_file=weather_file,
             config_data=config_data,
         )
-        _, tech_model = run_pysam_fpc_model(
+        _, tech_model = run_model_fpc(
             tech_model,
             heat_load_mwt=heat_load_mwt,
             hours_storage=hours_storage,
@@ -279,7 +279,7 @@ def plot_pysam_fpc_time_series(
     ax.plot(tech_model.Outputs.Q_loss[start:end], label="Heat Loss")
     ax.plot(tech_model.Outputs.Q_deliv[start:end], label="Heat Delivered")
     ax.plot(tech_model.Outputs.Q_aux[start:end], label="Auxiliary Heat Required")
-    
+
     if surr_heat is not None:
         ax.plot(
             [surr_heat for _ in tech_model.Outputs.Q_aux[start:end]],
@@ -424,17 +424,17 @@ def run_reflo_pysam_fpc_comparison(
     dataset_filename=None,
     **fpc_build_kwargs,
 ):
-    config_data = read_module_datafile(param_file)
+    config_data = read_module_datafile_fpc(param_file)
 
     if "solar_resource_file" in config_data:
         del config_data["solar_resource_file"]
 
-    tech_model = setup_pysam_fpc_model(
+    tech_model = setup_model_fpc(
         temperatures=temperatures,
         weather_file=weather_file,
         config_data=config_data,
     )
-    result, tech_model = run_pysam_fpc_model(
+    result, tech_model = run_model_fpc(
         tech_model,
         heat_load_mwt=heat_load,
         hours_storage=hours_storage,
