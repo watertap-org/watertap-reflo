@@ -19,6 +19,7 @@ import multiprocessing
 from itertools import product
 import matplotlib.pyplot as plt
 import PySAM.Swh as swh
+
 # import seaborn as sns
 from idaes.core.solvers import get_solver
 from pyomo.environ import ConcreteModel, check_optimal_termination, units as pyunits
@@ -43,7 +44,7 @@ __all__ = [
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
-param_file = os.path.join(__location__, 'fpc', "solar_water_heating-kbhdp.json")
+param_file = os.path.join(__location__, "fpc", "solar_water_heating-kbhdp.json")
 
 
 def read_module_datafile_fpc(file_name):
@@ -263,7 +264,9 @@ def run_model_fpc(
     heat_annual = tech_model.value(
         "annual_Q_deliv"
     )  # [kWh] does not include electric heat, includes losses
-    aux_power_annual = sum(tech_model.Outputs.Q_aux)  # [kWh] auxiliary power used for electric heating
+    aux_power_annual = sum(
+        tech_model.Outputs.Q_aux
+    )  # [kWh] auxiliary power used for electric heating
     electricity_annual = sum(tech_model.value("P_pump")) + sum(
         tech_model.Outputs.Q_aux
     )  # [kWh]
@@ -286,17 +289,27 @@ def run_model_fpc(
         return results
 
 
-def setup_and_run_fpc(temperatures, weather_file, config_data, heat_load):
+def setup_and_run_fpc(
+    temperatures, weather_file, config_data, heat_load, hours_storage, temperature_hot
+):
 
     tech_model = setup_model_fpc(
         temperatures, weather_file=weather_file, config_data=config_data
     )
-    result = run_model_fpc(tech_model, heat_load)
+    result = run_model_fpc(
+        tech_model,
+        heat_load_mwt=heat_load,
+        temperature_hot=temperature_hot,
+        hours_storage=hours_storage,
+    )
 
     return result
 
+
 def run_pysam_kbhdp_fpc(
-    heat_loads=np.geomspace(0.5, 200, 50),
+    heat_loads=np.geomspace(0.5, 50, 10),
+    hours_storages=[12, 24],
+    temperatures_hot=[60, 80],
     temperature_cold=20,
     run_pysam=True,
     save_data=True,
@@ -316,7 +329,7 @@ def run_pysam_kbhdp_fpc(
         "T_amb": 18,
     }
 
-    dataset_filename = os.path.join(os.path.dirname(__file__),'fpc', dataset_filename)
+    dataset_filename = os.path.join(os.path.dirname(__file__), "fpc", dataset_filename)
     print(f"Saving data to {dataset_filename}")
     config_data = read_module_datafile_fpc(param_file)
 
@@ -332,8 +345,10 @@ def run_pysam_kbhdp_fpc(
     data = []
     if run_pysam:
         if use_multiprocessing:
-            arguments = list(product(heat_loads))
-            df = pd.DataFrame(arguments, columns=["heat_load"])
+            arguments = list(product(heat_loads, hours_storages, temperatures_hot))
+            df = pd.DataFrame(
+                arguments, columns=["heat_load", "hours_storage", "temperature_hot"]
+            )
 
             time_start = time.process_time()
             with multiprocessing.Pool(processes=6) as pool:
@@ -352,11 +367,16 @@ def run_pysam_kbhdp_fpc(
                         [
                             "heat_annual",
                             "electricity_annual",
+                            "grid_electricity_annual",
+                            "system_capacity_actual",
+                            "scaled_draw",
+                            "temperature_delivered",
                         ]
                     ],
                 ],
                 axis=1,
             )
+
         else:
             comb = [(heat_loads)]
             for (heat_load,) in comb:
@@ -366,6 +386,10 @@ def run_pysam_kbhdp_fpc(
                         heat_load,
                         result["heat_annual"],
                         result["electricity_annual"],
+                        result["grid_electricity_annual"],
+                        result["system_capacity_actual"],
+                        result["scaled_draw"],
+                        result["temperature_delivered"],
                     ]
                 )
             df = pd.DataFrame(data, columns=["heat_annual", "electricity_annual"])
@@ -393,7 +417,7 @@ def train_surrogate(dataset_filename="FPC_KBHDP_el_paso.pkl"):
         "labels": ["heat_annual", "electricity_annual"],
         "units": output_units,
     }
-    dataset_filename = os.path.join(os.path.dirname(__file__),'fpc', dataset_filename)
+    dataset_filename = os.path.join(os.path.dirname(__file__), "fpc", dataset_filename)
     print(f"Retrieving data from {dataset_filename}")
 
     m = ConcreteModel()
@@ -409,7 +433,9 @@ def train_surrogate(dataset_filename="FPC_KBHDP_el_paso.pkl"):
 
 def test_surrogate(surrogate_filename="FPC_KBHDP_el_paso.json"):
     solver = get_solver()
-    dataset_filename = os.path.join(os.path.dirname(__file__),'fpc', "FPC_KBHDP_el_paso.pkl")
+    dataset_filename = os.path.join(
+        os.path.dirname(__file__), "fpc", "FPC_KBHDP_el_paso.pkl"
+    )
     df = pd.read_pickle(dataset_filename)
 
     input_bounds = dict(heat_load=[0.5, 200])
@@ -426,7 +452,9 @@ def test_surrogate(surrogate_filename="FPC_KBHDP_el_paso.json"):
         "units": output_units,
     }
 
-    surrogate_filename = os.path.join(os.path.dirname(__file__),'fpc', surrogate_filename)
+    surrogate_filename = os.path.join(
+        os.path.dirname(__file__), "fpc", surrogate_filename
+    )
     print(f"Retrieving surrogate from {surrogate_filename}")
 
     heat_annuals = []
@@ -438,7 +466,7 @@ def test_surrogate(surrogate_filename="FPC_KBHDP_el_paso.json"):
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.FPC = FlatPlateSurrogate(
             surrogate_model_file=surrogate_filename,
-            dataset_filename = dataset_filename,
+            dataset_filename=dataset_filename,
             input_variables=input_variables,
             output_variables=output_variables,
             scale_training_data=False,
@@ -455,11 +483,21 @@ def test_surrogate(surrogate_filename="FPC_KBHDP_el_paso.json"):
         if check_optimal_termination(results):
             print("\n--------- OPTIMAL SOLVE!!! ---------\n")
             heat_annuals.append(m.fs.FPC.heat_annual.value)
-            print(f'{f"Heat Load":<20s} {m.fs.FPC.heat_load.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.heat_load)):<10s}"}')
-            print(f'{f"Hours Storage":<20s} {m.fs.FPC.hours_storage.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.hours_storage)):<10s}"}')
-            print(f'{f"Temperature Hot":<20s} {m.fs.FPC.temperature_hot.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.temperature_hot)):<10s}"}')
-            print(f'{f"Heat Annual":<20s} {m.fs.FPC.heat_annual.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.heat_annual)):<10s}"}')
-            print(f'{f"Electricity Annual":<20s} {m.fs.FPC.electricity_annual.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.electricity_annual)):<10s}"}')
+            print(
+                f'{f"Heat Load":<20s} {m.fs.FPC.heat_load.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.heat_load)):<10s}"}'
+            )
+            print(
+                f'{f"Hours Storage":<20s} {m.fs.FPC.hours_storage.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.hours_storage)):<10s}"}'
+            )
+            print(
+                f'{f"Temperature Hot":<20s} {m.fs.FPC.temperature_hot.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.temperature_hot)):<10s}"}'
+            )
+            print(
+                f'{f"Heat Annual":<20s} {m.fs.FPC.heat_annual.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.heat_annual)):<10s}"}'
+            )
+            print(
+                f'{f"Electricity Annual":<20s} {m.fs.FPC.electricity_annual.value:<10.2f}{f"{str(pyunits.get_units(m.fs.FPC.electricity_annual)):<10s}"}'
+            )
         else:
             assert False
 
@@ -484,5 +522,6 @@ def test_surrogate(surrogate_filename="FPC_KBHDP_el_paso.json"):
 
 if __name__ == "__main__":
     df = run_pysam_kbhdp_fpc()
+    print(df.head(20))
     # train_surrogate()
     # test_surrogate()
