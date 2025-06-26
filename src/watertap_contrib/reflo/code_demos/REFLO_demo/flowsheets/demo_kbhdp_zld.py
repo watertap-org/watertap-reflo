@@ -427,11 +427,12 @@ def init_zld_ro_treatment(m, verbose=True, solver=None):
 
     init_ro_system(m, treatment.RO)
     propagate_state(treatment.ro_to_product)
-    propagate_state(treatment.ro_to_md)
 
     treatment.RO.disposal.properties[0].flow_vol
     treatment.RO.disposal.properties[0].flow_vol_phase
     treatment.RO.disposal.initialize()
+
+    propagate_state(treatment.ro_to_md)
 
     treatment.NaCl_cryst_product_translator.outlet.flow_mass_phase_comp[
         0, "Vap", "H2O"
@@ -580,6 +581,9 @@ def add_zld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
     )
 
     m.water_recovery = md_water_recovery
+    m.fs.water_recovery =  Param(
+        initialize=md_water_recovery, mutable=True
+    )
 
     m.fs.treatment.sw_to_nacl_product = Translator_SW_to_NaCl(
         inlet_property_package=m.fs.properties_md,
@@ -604,6 +608,13 @@ def add_zld_md(m=None, Q_md=0.22478, Cin=118, md_water_recovery=0.5):
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
+
+    # m.fs.properties_md.set_default_scaling(
+    #     "flow_mass_phase_comp",1/(Q_md*1000), index=("Liq", "H2O")
+    # )
+    # m.fs.properties_md.set_default_scaling("flow_mass_phase_comp", 1/(Q_md*m.inlet_salinity()), index=("Liq", "TDS"))
+
+    # calculate_scaling_factors(m)
 
     init_md(m, treat.md)
 
@@ -1278,7 +1289,7 @@ if __name__ == "__main__":
 
     m = zld_main(
         ro_recovery=0.8,
-        md_water_recovery=0.78,
+        md_water_recovery=0.6,
         nacl_recovery_price=0,
         heat_price=0.00894,
         electricity_price=0.04989,

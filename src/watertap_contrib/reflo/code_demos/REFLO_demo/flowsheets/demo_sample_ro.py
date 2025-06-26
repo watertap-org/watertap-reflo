@@ -41,6 +41,11 @@ from idaes.core.util.scaling import (
     calculate_scaling_factors,
     set_scaling_factor,
 )
+import numpy as np
+import pandas as pd
+import matplotlib.image as mpimg
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.results_dict import *
+from watertap_contrib.reflo.code_demos.REFLO_demo.flowsheets.sweep_functions.case_study_plotting import *
 
 """
 This module builds a sample reverse osmosis (RO) system using the REFLO framework.
@@ -276,7 +281,7 @@ def add_ro_recovery_constraint(m, blk, ro_recovery):
 def add_costing(m,electricity_price=0.058):
     # Add costing blocks
 
-    # Add costing for treatment unit
+    # Add costing for treatment units
     m.fs.treatment.costing = TreatmentCosting()
 
     # Add pump costing
@@ -289,31 +294,34 @@ def add_costing(m,electricity_price=0.058):
         stage.module.costing = UnitModelCostingBlock(
             flowsheet_costing_block=m.fs.treatment.costing
         )
+    
+    # Add DWI costing
+    add_DWI_costing(m.fs.treatment, m.fs.treatment.DWI, costing_blk=m.fs.treatment.costing)
 
     m.fs.treatment.costing.electricity_cost.fix(electricity_price)
 
     m.fs.treatment.costing.cost_process()
     m.fs.treatment.costing.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
 
-    m.fs.treatment.costing.initialize()
-
-    feed_m3h = pyunits.convert(
-            m.fs.treatment.feed.properties[0].flow_vol,
+    product_m3h = pyunits.convert(
+            m.fs.treatment.product.properties[0].flow_vol,
             to_units=pyunits.m**3 / pyunits.h,
         )
     m.fs.treatment.costing._add_flow_component_breakdowns(
-        "electricity", "SEC_elec", feed_m3h, period=pyunits.hr
+        "electricity", "SEC_elec", product_m3h, period=pyunits.hr
     )
 
+    m.fs.treatment.costing.initialize()
+
+
 def set_ro_op_bounds(m, membrane_area=20000, lb=100, ub=900):
-    m.fs.treatment.pump.control_volume.properties_out[0].pressure.unfix()
+    
     m.fs.treatment.pump.control_volume.properties_out[0].pressure.setlb(
         lb * pyunits.psi
     )
     m.fs.treatment.pump.control_volume.properties_out[0].pressure.setub(
         ub * pyunits.psi
     )
-    m.fs.treatment.RO.total_membrane_area.fix(membrane_area)
 
     for _, stage in m.fs.treatment.RO.stage.items():
         stage.module.width.setub(5000)
@@ -326,7 +334,144 @@ def set_ro_op_bounds(m, membrane_area=20000, lb=100, ub=900):
         stage.module.rejection_phase_comp.setlb(1e-4)
         stage.module.feed_side.N_Re.setlb(1)
         stage.module.recovery_mass_phase_comp.setlb(1e-7)
+ 
+
+def add_membrane_optimization(m):
+
+    membrane_area=20000
+    m.fs.treatment.pump.control_volume.properties_out[0].pressure.unfix()
+    for _, stage in m.fs.treatment.RO.stage.items():
         stage.module.area.unfix()
+
+    m.fs.treatment.RO.total_membrane_area.fix(membrane_area)
+    m.fs.treatment.ro_water_recovery.fix(0.7)
+
+    # Optimize the model
+    set_ro_op_bounds(m)
+
+    m.fs.membrane_area_objective = Objective(
+    expr=m.fs.treatment.costing.LCOW, sense="minimize"
+    )
+
+    solver = get_solver()
+    results = solver.solve(m, tee=False)
+
+    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
+
+    return m
+
+
+def run_recovery_sweep(sweep_type="ro_water_recovery"):
+
+    sweep_dict = {
+    'ro_water_recovery':np.linspace(0.3,0.8,5),
+    }   
+    
+    input_dict = {
+        'ro_water_recovery':0.8,
+    }
+
+    m = build_demo_sample_ro_sweep(
+                ro_recovery=input_dict["ro_water_recovery"],
+                )
+    results_dict_test = build_results_dict(m)
+
+    for i in sweep_dict[sweep_type]:
+        input_dict[sweep_type] = i
+        print(input_dict)
+        m = build_demo_sample_ro_sweep(    
+            ro_recovery=input_dict["ro_water_recovery"],
+            )
+        
+        results_dict_test = results_dict_append(m, results_dict_test)
+
+    df = pd.DataFrame.from_dict(results_dict_test)
+    filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/Demo/sample_ro_" + sweep_type + ".csv"
+    df.to_csv(filename)
+
+
+def plot_recovery_sweep(sweep_type="ro_water_recovery"):
+
+    filename = "/Users/mhardika/Documents/watertap-seto/Mukta-Work/Demo/sample_ro_" + sweep_type + ".csv"
+    df = pd.read_csv(filename).drop(columns="Unnamed: 0")
+    df['ro_water_recovery'] = df["fs.treatment.ro_water_recovery"]*100
+
+    xcol_dict = {
+        "ro_water_recovery":"ro_water_recovery",
+    }
+    ax_dict = {
+        "ro_water_recovery": "RO Water Recovery (%)",
+    }
+
+    unit_dict = {
+        "Pump": "fs.treatment.pump.costing",
+        "RO": "fs.treatment.RO.stage[1].module.costing",
+        "DWI" : "fs.treatment.DWI.unit.costing",
+
+    }
+    agg_flows = {
+        "Electricity":"electricity",
+    }
+
+    # xcol = "fs.water_recovery"
+    flow_col = "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]"
+    ax_dict = dict(xlabel=ax_dict["ro_water_recovery"], ylabel="LCOW (\$/m$^3$)")
+
+
+    # fig, ax = case_study_stacked_plot(
+    #     df,
+    #     unit_dict=unit_dict,
+    #     costing_blk="fs.costing",
+    #     agg_flows=agg_flows,
+    #     xcol=xcol_dict['ro_water_recovery'],
+    #     flow_col=flow_col,
+    #     ax_dict=ax_dict,
+    #     opex_hatch="\\\\\\",
+    #     flow_hatch="..",
+    # )
+
+    # fig1 = plot_elec(df,flow_col,ax_dict)
+
+    # Current file's directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # # Go one folder up
+    parent_dir = os.path.dirname(current_dir)
+
+
+    # fig.savefig(parent_dir+'/figures/results/sample-ro-recovery-sweep.png')
+    # fig1.savefig(parent_dir+'/figures/results/sample-ro-recovery-sweep-sec.png')
+
+    # Load the saved figures from disk
+    img1 = mpimg.imread(parent_dir+'/figures/results/sample-ro-recovery-sweep.png')  # or .jpg, .pdf (with limitations), etc.
+    img2 = mpimg.imread(parent_dir+'/figures/results/sample-ro-recovery-sweep-sec.png')
+    # Now display both images in one new figure
+    fig_combined, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+    ax1.imshow(img1)
+    ax1.axis('off')
+ 
+
+    ax2.imshow(img2)
+    ax2.axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def build_demo_sample_ro_sweep(ro_recovery=0.85):
+    m = build_demo_sample_ro(ro_recovery)
+
+    m.fs.treatment.ro_water_recovery.fix(ro_recovery)
+    m.fs.treatment.pump.control_volume.properties_out[0].pressure.unfix()
+
+    m.fs.membrane_area_objective = Objective(
+    expr=m.fs.treatment.costing.LCOW, sense="minimize"
+    )
+
+    solver = get_solver()
+    results = solver.solve(m, tee=False)
+
+    return m
 
 
 def build_demo_sample_ro(ro_recovery=0.85):
@@ -360,32 +505,29 @@ def build_demo_sample_ro(ro_recovery=0.85):
     print("Degree of freedom:", degrees_of_freedom(m))
 
     solver = get_solver()
-    # Solve the model
-    results = solver.solve(m, tee=False)
 
     # Add costing blocks
     add_costing(m, electricity_price=0.058)  # $0.058/kWh
 
-    results = solver.solve(m, tee=True)
-
-    # Optimize the model
-    set_ro_op_bounds(m)
-
-    m.fs.membrane_area_objective = Objective(
-    expr=m.fs.treatment.RO.stage[1].module.area, sense="minimize"
-    )
-
-    m.fs.treatment.ro_water_recovery.fix(ro_recovery)
     results = solver.solve(m, tee=False)
-
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
     return m
 
 if __name__ == "__main__":
-    m=  build_demo_sample_ro(ro_recovery=0.7)
+#     m=  build_demo_sample_ro(ro_recovery=0.7)
 
-    print("SEC electrical:", m.fs.treatment.costing.SEC_elec_component.display())
-    print("LCOW:", value(m.fs.treatment.costing.LCOW))
-    print("Membrane area:", value(m.fs.treatment.RO.total_membrane_area))
-    print("RO Water Recovery:", value(m.fs.treatment.ro_water_recovery))
+#     print("SEC electrical:", m.fs.treatment.costing.SEC_elec_component.display())
+#     print("LCOW:", value(m.fs.treatment.costing.LCOW))
+#     print("Membrane area:", value(m.fs.treatment.RO.total_membrane_area))
+#     print("RO Water Recovery:", value(m.fs.treatment.ro_water_recovery))
+
+    # m = add_membrane_optimization(m)
+
+    # print("\nDegree of freedom:", degrees_of_freedom(m))
+    # print("SEC electrical:", m.fs.treatment.costing.SEC_elec_component.display())
+    # print("LCOW:", value(m.fs.treatment.costing.LCOW))
+    # print("Membrane area:", value(m.fs.treatment.RO.total_membrane_area))
+    # print("RO Water Recovery:", value(m.fs.treatment.ro_water_recovery))
+
+    # run_recovery_sweep(sweep_type="ro_water_recovery")
+    plot_recovery_sweep(sweep_type="ro_water_recovery")

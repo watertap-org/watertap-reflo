@@ -428,7 +428,7 @@ def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
         if debug:
             print("\n--------- CHECKING JACOBIAN ---------\n")
             print("\n--------- TREATMENT ---------\n")
-            check_jac(m.fs.treatment)
+            # check_jac(m.fs.treatment)
             # print("\n--------- ENERGY ---------\n")
             # check_jac(m.fs.energy)
 

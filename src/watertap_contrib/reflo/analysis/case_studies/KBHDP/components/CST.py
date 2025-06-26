@@ -111,8 +111,8 @@ def build_cst(blk, __file__=None):
     }
 
     blk.unit = TroughSurrogate(
-        # surrogate_model_file=surrogate_filename,
-        surrogate_filename_save=surrogate_filename,
+        surrogate_model_file=surrogate_filename,
+        # surrogate_filename_save=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
