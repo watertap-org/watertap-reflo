@@ -112,7 +112,7 @@ def set_fpc_op_conditions(m, hours_storage=24, temperature_hot=80):
     # energy.FPC.temperature_hot.fix(temperature_hot)
     # # Assumes the cold temperature from the outlet temperature of a 'MD HX'
     # energy.FPC.temperature_cold.set_value(20)
-    # energy.FPC.heat_load.fix(50)
+    energy.FPC.heat_load.fix(50)
 
 
 def add_fpc_costing(m, costing_block=None):
@@ -126,10 +126,11 @@ def add_fpc_costing(m, costing_block=None):
 
 
 def add_FPC_scaling(m, blk):
+    pass
     # set_scaling_factor(blk.heat_annual_scaled, 1e-8)
     # set_scaling_factor(blk.electricity_annual_scaled, 1e-2)
-    set_scaling_factor(blk.heat_load, 1e-6)
-    set_scaling_factor(blk.hours_storage, 1 / 10)
+    # set_scaling_factor(blk.heat_load, 1e-6)
+    # set_scaling_factor(blk.hours_storage, 1 / 10)
 
     # constraint_scaling_transform(blk.heat_constraint, 1e-3)
     # constraint_scaling_transform(blk.electricity_constraint, 1e-4)
@@ -312,7 +313,8 @@ if __name__ == "__main__":
     m = build_system()
 
     build_fpc(m)
-    set_fpc_op_conditions(m)
+    # set_fpc_op_conditions(m)
+    m.fs.energy.FPC.heat_load.fix(50)
     add_FPC_scaling(m, m.fs.energy.FPC)
     init_fpc(m.fs.energy)
 
