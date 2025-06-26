@@ -78,14 +78,14 @@ def cost_flat_plate(blk):
     blk.costing_package.add_cost_factor(blk, None)
     make_fixed_operating_cost_var(blk)
 
-    blk.direct_capital_cost = pyo.Var(
+    blk.direct_cost = pyo.Var(
         initialize=1e4,
         units=blk.config.flowsheet_costing_block.base_currency,
         bounds=(0, None),
         doc="Direct cost of flat plate plant",
     )
 
-    blk.indirect_capital_cost = pyo.Var(
+    blk.indirect_cost = pyo.Var(
         initialize=1e4,
         units=blk.config.flowsheet_costing_block.base_currency,
         bounds=(0, None),
@@ -101,7 +101,7 @@ def cost_flat_plate(blk):
 
     if flat_plate.config.solar_model_type == "surrogate":
         blk.direct_cost_constraint = pyo.Constraint(
-            expr=blk.direct_capital_cost
+            expr=blk.direct_cost
             == (
                 (
                     flat_plate.collector_area_total
@@ -117,7 +117,7 @@ def cost_flat_plate(blk):
 
     else:
         blk.direct_cost_constraint = pyo.Constraint(
-            expr=blk.direct_capital_cost
+            expr=blk.direct_cost
             == (
                 (
                     flat_plate.collector_area_total
@@ -132,18 +132,18 @@ def cost_flat_plate(blk):
     )
 
     blk.indirect_cost_constraint = pyo.Constraint(
-        expr=blk.indirect_capital_cost
-        == blk.direct_capital_cost * flat_plate_params.indirect_frac_direct_cost
+        expr=blk.indirect_cost
+        == blk.direct_cost * flat_plate_params.indirect_frac_direct_cost
         + blk.land_area * flat_plate_params.land_cost_per_acre
     )
 
     blk.sales_tax_constraint = pyo.Constraint(
-        expr=blk.sales_tax == blk.direct_capital_cost * global_params.sales_tax_frac
+        expr=blk.sales_tax == blk.direct_cost * global_params.sales_tax_frac
     )
 
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
-        == blk.direct_capital_cost + blk.indirect_capital_cost + blk.sales_tax
+        == blk.direct_cost + blk.indirect_cost + blk.sales_tax
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
