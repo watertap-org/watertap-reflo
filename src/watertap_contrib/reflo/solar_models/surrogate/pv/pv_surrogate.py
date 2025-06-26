@@ -42,12 +42,10 @@ class PVSurrogateData(SolarEnergyBaseData):
         super().build()
 
         if self.config.scale_training_data:
-            err_msg = (
-                "The PV surrogate model requires the input data not be scaled."
-            )
+            err_msg = "The PV surrogate model requires the input data not be scaled."
             err_msg += " Set the config argument 'scale_training_data' = False"
             raise ConfigurationError(err_msg)
-        
+
         self.del_component(self.heat)
 
         self._tech_type = "PV"

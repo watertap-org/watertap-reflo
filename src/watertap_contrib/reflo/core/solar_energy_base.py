@@ -36,7 +36,11 @@ from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
 from idaes.core.surrogate.metrics import compute_fit_metrics
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
-from idaes.core.surrogate.pysmo_surrogate import PysmoRBFTrainer, PysmoPolyTrainer, PysmoSurrogate
+from idaes.core.surrogate.pysmo_surrogate import (
+    PysmoRBFTrainer,
+    PysmoPolyTrainer,
+    PysmoSurrogate,
+)
 from idaes.core.surrogate.sampling.data_utils import split_training_validation
 from idaes.core.util.misc import StrEnum
 
@@ -421,11 +425,9 @@ class SolarEnergyBaseData(UnitModelBlockData):
             training_dataframe=self.data_training,
         )
 
-        self.trainer.config.maximum_polynomial_order =1
+        self.trainer.config.maximum_polynomial_order = 1
 
-        self.log.info(
-            f"Training Polynomial Surrogate with maximum polynomial order 1."
-        )
+        self.log.info(f"Training Polynomial Surrogate with maximum polynomial order 1.")
 
         self.trained_linear = self.trainer.train_surrogate()
         self.log.info(f"Training Complete.")
@@ -467,7 +469,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             input_vars=self.surrogate_inputs,
             output_vars=self.surrogate_outputs,
         )
-
 
     def create_rbf_surrogate(self):
 
