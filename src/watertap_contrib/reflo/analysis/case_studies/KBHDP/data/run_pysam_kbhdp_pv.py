@@ -375,6 +375,6 @@ if __name__ == "__main__":
     design_sizes = np.linspace(1000, 10000, 100)
     print(design_sizes)
     run_pysam_kbhdp_pv(
-        design_sizes=design_sizes, dataset_filename="demo_pv.pkl", use_multiprocessing=True
+        design_sizes=design_sizes, dataset_filename="/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/code_demos/REFLO_demo/data/demo_pv.pkl", use_multiprocessing=True
     )
     
