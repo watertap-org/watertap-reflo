@@ -34,7 +34,6 @@ from idaes.core.util.model_statistics import *
 
 __all__ = [
     "read_module_datafile_fpc",
-    "load_config_fpc",
     "setup_model_fpc",
     "run_model_fpc",
     "setup_and_run_fpc",
@@ -51,36 +50,6 @@ def read_module_datafile_fpc(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
     return data
-
-
-def load_config_fpc(modules, file_names=None, module_data=None):
-    """
-    Loads parameter values into PySAM modules, either from files or supplied dicts
-
-    :param modules: List of PySAM modules
-    :param file_names: List of JSON file paths containing parameter values for respective modules
-    :param module_data: List of dictionaries containing parameter values for respective modules
-
-    :returns: no return value
-    """
-    for i in range(len(modules)):
-        if file_names is not None:
-            assert len(file_names) == len(modules)
-            data = read_module_datafile_fpc(file_names[i])
-        elif module_data is not None:
-            assert len(module_data) == len(modules)
-            data = module_data[i]
-        else:
-            raise Exception("Either file_names or module_data must be assigned.")
-
-        missing_values = []  # for debugging
-        for k, v in data.items():
-            if k != "number_inputs":
-                try:
-                    modules[i].value(k, v)
-                except:
-                    missing_values.append(k)
-        pass
 
 
 def system_capacity_computed(tech_model):
@@ -101,7 +70,6 @@ def setup_model_fpc(
     temperatures,
     weather_file=None,
     weather_data=None,
-    config_file=None,
     config_data=None,
 ):
 

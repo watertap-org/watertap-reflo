@@ -107,7 +107,7 @@ def run_pv_single_owner(
     # found on a solar panel datasheet, represents the percentage change
     # in maximum power output per degree Celsius change in temperature, usually
     # expressed as a negative value ranging from around -0.3% to -0.5% per degree Celsius.
-    tech_model.value("cec_gamma_r", -0.3)
+    # tech_model.value("cec_gamma_r", -0.3)
 
     for param, val in tech_model_kwargs.items():
         # if not isinstance(val, list):
@@ -372,9 +372,9 @@ def run_pysam_kbhdp_pv(
 
 
 if __name__ == "__main__":
-    design_sizes = np.linspace(100000, 150000, 3)
+    design_sizes = np.linspace(1000, 10000, 100)
     print(design_sizes)
     run_pysam_kbhdp_pv(
-        design_sizes=design_sizes, dataset_filename="test.pkl", use_multiprocessing=False
+        design_sizes=design_sizes, dataset_filename="demo_pv.pkl", use_multiprocessing=True
     )
     

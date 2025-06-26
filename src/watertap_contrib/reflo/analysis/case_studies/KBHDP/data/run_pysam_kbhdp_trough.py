@@ -24,15 +24,21 @@ import os
 
 # TODO:
 # Annual energy for year 1 is a little different than that calculated in SAM
+__all__ = [
+    "setup_model_trough",
+    "run_model_trough",
+    "load_config_trough",
+    "read_module_datafile_trough",
+    "setup_and_run_trough",
 
-
-def read_module_datafile(file_name):
+]
+def read_module_datafile_trough(file_name):
     with open(file_name, "r") as file:
         data = json.load(file)
     return data
 
 
-def load_config(modules, file_names=None, module_data=None):
+def load_config_trough(modules, file_names=None, module_data=None):
     """
     Loads parameter values into PySAM modules, either from files or supplied dicts
 
@@ -45,7 +51,7 @@ def load_config(modules, file_names=None, module_data=None):
     for i in range(len(modules)):
         if file_names is not None:
             assert len(file_names) == len(modules)
-            data = read_module_datafile(file_names[i])
+            data = read_module_datafile_trough(file_names[i])
         elif module_data is not None:
             assert len(module_data) == len(modules)
             data = module_data[i]
@@ -62,17 +68,27 @@ def load_config(modules, file_names=None, module_data=None):
         pass
 
 
-def setup_model(
-    model_name,
+def setup_model_trough(
     weather_file=None,
     weather_data=None,
-    config_files=None,
+    # config_file=None,
     config_data=None,
 ):
     tech_model = iph.new()
-    modules = [tech_model]
+    # modules = [tech_model]
+    # config_data = read_module_datafile_trough(config_file)
+    for k, v in config_data.items():
+        if k != "number_inputs":
+            try:
+                tech_model.value(k, v)
+            except:
+                # missing_values.append(k)
+                pass
+    # for k, v in config_data.items():
+    #     print(k)
+    #     tech_model.value(k, v)
 
-    load_config(modules, config_files, config_data)
+    # load_config_trough(modules, config_files, config_data)
     if weather_file is not None:
         tech_model.Weather.file_name = weather_file
     elif weather_data is not None:
@@ -80,13 +96,11 @@ def setup_model(
     else:
         raise Exception("Either weather_file or weather_data must be specified.")
 
-    return {
-        "tech_model": tech_model,
-    }
+    return tech_model
 
 
-def run_model(modules, heat_load=None, hours_storage=None):
-    tech_model = modules["tech_model"]
+def run_model_trough(tech_model, heat_load=None, hours_storage=None, return_tech_model=False):
+    # tech_model = modules["tech_model"]
 
     if heat_load is not None:
         tech_model.value("q_pb_design", heat_load)
@@ -118,8 +132,8 @@ def run_model(modules, heat_load=None, hours_storage=None):
     solar_multiplier = tech_model.Outputs.solar_mult
     total_aperture_reflective_area = tech_model.Outputs.total_aperture  # [m2]
     nloops = tech_model.Outputs.nLoops
-
-    return {
+    # t_out = tech_model.Outputs.T_loop_out  # [C] default is 300 C
+    result = {
         "annual_energy": annual_energy,  # [kWh] annual net thermal energy in year 1
         "freeze_protection": freeze_protection,  # [kWht]
         "capacity_factor": capacity_factor,  # [%] capacity factor
@@ -127,72 +141,85 @@ def run_model(modules, heat_load=None, hours_storage=None):
         "solar_multiplier": solar_multiplier,
         "total_aperture_area": total_aperture_reflective_area,
         "number_loops": nloops,
+        # "T_loop_out": t_out,  # [C] default is 300 C
     }
 
+    if return_tech_model:
+        return result, tech_model
+    else:
+        return result
 
-def setup_and_run(
-    model_name, weather_file, config_data, heat_load
+
+def setup_and_run_trough(
+    weather_file, config_data, heat_load, hours_storage
 ):  # , hours_storage):
-    modules = setup_model(
-        model_name, weather_file=weather_file, config_data=config_data
+    tech_model = setup_model_trough(
+        weather_file=weather_file, config_data=config_data
     )
-    result = run_model(modules, heat_load)  # S, hours_storage)
+    result = run_model_trough(tech_model, heat_load=heat_load, hours_storage=hours_storage)  # S, hours_storage)
     return result
 
 
 #########################################################################################################
 if __name__ == "__main__":
     # Model name is not relevant in WaterTAP-REFLO package because cost is calculated using REFLO costing packages
-    model_name = "TroughPhysicalIph_PhysicalTroughIPHLCOHCalculator"
+    # model_name = "TroughPhysicalIph_PhysicalTroughIPHLCOHCalculator"
     __location__ = os.path.realpath(
         os.path.join(os.getcwd(), os.path.dirname(__file__))
     )
-
-    config_files = [
-        os.path.join(__location__, "cst/trough_physical_iph-reflo.json"),
-    ]
+    config_file =  os.path.join(__location__, "cst/trough_physical_iph-reflo.json")
     weather_file = os.path.join(__location__, "el_paso_texas-KBHDP-weather.csv")
     dataset_filename = os.path.join(
         __location__,
-        "cst/trough_kbhdp_heat_load_1_100_hours_storage_24_T_loop_out_300.pkl",
+        # "cst/trough_kbhdp_heat_load_1_100_hours_storage_24_T_loop_out_300.pkl",
+        "test.pkl"
     )  # output dataset for surrogate training
 
-    config_data = [read_module_datafile(config_file) for config_file in config_files]
-    del config_data[0]["file_name"]  # remove weather filename
+    config_data = read_module_datafile_trough(config_file) 
+    tech_model = setup_model_trough(
+        weather_file=weather_file, config_data=config_data
+    )  # , config_file=config_file)
+    results = run_model_trough(tech_model, heat_load=10, hours_storage=24)  # [MWt], [hr]
+    import pprint
+    pprint.pprint(results)
+    # print(tech_model.value("T_loop_out"))  # [C] default is 300 C
 
-    # Run parametrics via multiprocessing
-    data = []
-    heat_loads = np.linspace(1, 100, 200)  # [MWt]
-    # hours_storages = np.linspace(20, 24, 5)  # [hr]
-    arguments = list(product(heat_loads))  # , hours_storages))
-    df = pd.DataFrame(arguments, columns=["heat_load"])  # , "hours_storage"])
+    # del config_data[0]["file_name"]  # remove weather filename
 
-    time_start = time.process_time()
-    with multiprocessing.Pool(processes=6) as pool:
-        args = [(model_name, weather_file, config_data, *args) for args in arguments]
-        results = pool.starmap(setup_and_run, args)
-    time_stop = time.process_time()
-    print("Multiprocessing time:", time_stop - time_start, "\n")
+    # # Run parametrics via multiprocessing
+    # data = []
+    # heat_loads = np.linspace(1, 100, 200)  # [MWt]
+    # heat_loads = np.linspace(1, 100, 3)  # [MWt]
+    # # hours_storages = np.linspace(20, 24, 5)  # [hr]
+    # arguments = list(product(heat_loads))  # , hours_storages))
+    # df = pd.DataFrame(arguments, columns=["heat_load"])  # , "hours_storage"])
 
-    df_results = pd.DataFrame(results)
+    # time_start = time.process_time()
+    # with multiprocessing.Pool(processes=6) as pool:
+    #     args = [(weather_file, config_data, *args) for args in arguments]
+    #     results = pool.starmap(setup_and_run_trough, args)
+    # time_stop = time.process_time()
+    # print("Multiprocessing time:", time_stop - time_start, "\n")
 
-    df = pd.concat(
-        [
-            df,
-            df_results[
-                [
-                    "annual_energy",
-                    "freeze_protection",
-                    "capacity_factor",
-                    "electrical_load",
-                    "solar_multiplier",
-                    "total_aperture_area",
-                    "number_loops",
-                ]
-            ],
-        ],
-        axis=1,
-    )
-    df.to_pickle(dataset_filename)
+    # df_results = pd.DataFrame(results)
 
-    pass
+    # df = pd.concat(
+    #     [
+    #         df,
+    #         df_results[
+    #             [
+    #                 "annual_energy",
+    #                 "freeze_protection",
+    #                 "capacity_factor",
+    #                 "electrical_load",
+    #                 "solar_multiplier",
+    #                 "total_aperture_area",
+    #                 "number_loops",
+    #             ]
+    #         ],
+    #     ],
+    #     axis=1,
+    # )
+    # df.to_pickle(dataset_filename)
+
+    # pass
