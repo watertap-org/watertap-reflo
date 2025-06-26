@@ -24,8 +24,8 @@ pipe_length_fixed = 9  # [m]
 pipe_length_per_collector = 0.5  # [m]
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-weather_file = os.path.join(__location__, "data/test_fpc_weather_data.csv")
-param_file = os.path.join(__location__, "data/swh-reflo.json")
+weather_file_default = os.path.join(__location__, "data/test_fpc_weather_data.csv")
+config_file_default = os.path.join(__location__, "data/swh-reflo.json")
 
 
 def system_capacity_computed(tech_model):
@@ -45,7 +45,7 @@ def system_capacity_computed(tech_model):
 def setup_model_fpc(
     temperatures,
     weather_file=None,
-    config_data=None,
+    config_file=None,
 ):
     """
     Create the PySAM technology model for flat plate collectors (FPC).
@@ -57,10 +57,22 @@ def setup_model_fpc(
             "Use the 'weather_file' argument to specify the path to the weather data file."
         )
 
+    if config_file is None:
+        raise RuntimeError(
+            "Configuration file must be specified for FPC model setup. "
+            "Use the 'config_file' argument to specify the path to the configuration data file."
+        )
+    
     tech_model = swh.new()
+
+    with open(config_file, "r") as file:
+        config_data = json.load(file)
 
     for k, v in config_data.items():
         tech_model.value(k, v)
+
+    if "solar_resource_file" in config_data:
+        del config_data["solar_resource_file"]
 
     tech_model.value("solar_resource_file", weather_file)
 
@@ -255,14 +267,14 @@ def run_model_fpc(
 
 
 def setup_and_run_fpc(
-    temperatures, weather_file, config_data, heat_load, hours_storage, temperature_hot
+    temperatures, weather_file, config_file, heat_load, hours_storage, temperature_hot
 ):
     """
     Setup and run the FPC model with the given parameters a single time.
 
     :param temperatures: dictionary with temperatures (T_cold, T_hot, T_amb)
     :param weather_file: path to the weather file
-    :param config_data: configuration data for the model
+    :param config_file: configuration file for the model
     :param heat_load: desired heat load in MWt
     :param hours_storage: hours of storage to use in the simulation
     :param temperature_hot: desired hot temperature in C
@@ -271,7 +283,7 @@ def setup_and_run_fpc(
     """
 
     tech_model = setup_model_fpc(
-        temperatures, weather_file=weather_file, config_data=config_data
+        temperatures, weather_file=weather_file, config_file=config_file
     )
     result = run_model_fpc(
         tech_model,
@@ -288,6 +300,8 @@ def generate_fpc_data(
     hours_storages=[24],
     temperatures_hot=[80],
     temperature_cold=20,
+    weather_file=weather_file_default,
+    config_file=config_file_default,
     save_data=True,
     use_multiprocessing=True,
     dataset_filename=None,
@@ -321,16 +335,10 @@ def generate_fpc_data(
 
     print(f"Saving data to {dataset_filename}")
 
-    with open(param_file, "r") as file:
-        config_data = json.load(file)
-
-    if "solar_resource_file" in config_data:
-        del config_data["solar_resource_file"]
-
     tech_model = setup_model_fpc(
         temperatures=temperatures,
         weather_file=weather_file,
-        config_data=config_data,
+        config_file=config_file,
     )
 
     # Run pysam
@@ -343,7 +351,7 @@ def generate_fpc_data(
         time_start = time.process_time()
         with multiprocessing.Pool(processes=6) as pool:
             args_in = [
-                (temperatures, weather_file, config_data, *combo) for combo in combos
+                (temperatures, weather_file, config_file, *combo) for combo in combos
             ]
             results = pool.starmap(setup_and_run_fpc, args_in)
         time_stop = time.process_time()
