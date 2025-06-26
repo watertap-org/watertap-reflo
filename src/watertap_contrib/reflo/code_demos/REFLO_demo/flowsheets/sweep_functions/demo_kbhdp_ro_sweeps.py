@@ -241,7 +241,7 @@ def sweep_kbhdp_ro_solar(sweep_type = "ro_water_recovery", only_plot = False):
 
 if __name__ == "__main__":
 
-    # sweep_kbhdp_ro_grid_only(sweep_type = "ro_water_recovery", only_plot = True)
+    sweep_kbhdp_ro_grid_only(sweep_type = "ro_water_recovery", only_plot = True)
     # sweep_kbhdp_ro_grid_only(sweep_type = "dwi_lcow", only_plot = False)
     # sweep_kbhdp_ro_solar(sweep_type = "ro_water_recovery", only_plot = True)
-    sweep_kbhdp_ro_solar(sweep_type = "frac_elec_from_grid", only_plot = False)
+    # sweep_kbhdp_ro_solar(sweep_type = "frac_elec_from_grid", only_plot = False)
