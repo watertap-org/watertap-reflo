@@ -64,7 +64,7 @@ def build_fpc1():
         "units": input_units,
     }
 
-    output_units = dict(heat_annual="kWh", electricity_annual="kWh")
+    output_units = dict(heat_annual="kWh/year", electricity_annual="kWh/year")
     output_variables = {
         "labels": ["heat_annual", "electricity_annual"],
         "units": output_units,

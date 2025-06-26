@@ -208,14 +208,14 @@ class SolarEnergyBaseData(UnitModelBlockData):
             initialize=1e3,
             units=pyunits.kW,
             domain=NonNegativeReals,
-            doc="Electricity balance of solar process",
+            doc="Electric power balance of solar process",
         )
 
         self.heat = Var(
             initialize=1e3,
             units=pyunits.kW,
             domain=NonNegativeReals,
-            doc="Heat balance of solar process",
+            doc="Thermal power balance of solar process",
         )
 
         if self.config.solar_model_type == SolarModelType.surrogate:

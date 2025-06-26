@@ -34,7 +34,7 @@ __author__ = "Kurban Sitterley, Mukta Hardikar, Matthew Boyd"
 @declare_process_block_class("FlatPlateSurrogate")
 class FlatPlateSurrogateData(SolarEnergyBaseData):
     """
-    Surrogate model for flat plate.
+    Surrogate model for flat plate collector system.
     """
 
     def build(self):
@@ -131,14 +131,12 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             self.create_rbf_surrogate()
 
         self.heat_constraint = Constraint(
-            expr=self.heat_annual
-            == self.heat * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
+            expr=self.heat == pyunits.convert(self.heat_annual, to_units=pyunits.kW)
         )
 
         self.electricity_constraint = Constraint(
-            expr=self.electricity_annual
-            == self.electricity
-            * pyunits.convert(1 * pyunits.year, to_units=pyunits.hour)
+            expr=self.electricity
+            == pyunits.convert(self.electricity_annual, to_units=pyunits.kW)
         )
 
         self.collector_area_total = Expression(
@@ -166,36 +164,6 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
                 to_units=pyunits.m**3,
             )
         )
-
-    def calculate_scaling_factors(self):
-
-        if iscale.get_scaling_factor(self.hours_storage) is None:
-            sf = iscale.get_scaling_factor(self.hours_storage, default=1)
-            iscale.set_scaling_factor(self.hours_storage, sf)
-
-        if iscale.get_scaling_factor(self.temperature_hot) is None:
-            sf = iscale.get_scaling_factor(self.temperature_hot, default=1)
-            iscale.set_scaling_factor(self.temperature_hot, sf)
-
-        if iscale.get_scaling_factor(self.heat_load) is None:
-            sf = iscale.get_scaling_factor(self.heat_load, default=0.1)
-            iscale.set_scaling_factor(self.heat_load, sf)
-
-        if iscale.get_scaling_factor(self.heat_annual_scaled) is None:
-            sf = iscale.get_scaling_factor(self.heat_annual_scaled, default=1)
-            iscale.set_scaling_factor(self.heat_annual_scaled, sf)
-
-        if iscale.get_scaling_factor(self.electricity_annual_scaled) is None:
-            sf = iscale.get_scaling_factor(self.electricity_annual_scaled, default=1)
-            iscale.set_scaling_factor(self.electricity_annual_scaled, sf)
-
-        if iscale.get_scaling_factor(self.heat) is None:
-            sf = iscale.get_scaling_factor(self.heat, default=1)
-            iscale.set_scaling_factor(self.heat, sf)
-
-        if iscale.get_scaling_factor(self.electricity) is None:
-            sf = iscale.get_scaling_factor(self.electricity, default=1)
-            iscale.set_scaling_factor(self.electricity, sf)
 
     def initialize(
         self,
@@ -243,6 +211,29 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
 
         init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+
+    def calculate_scaling_factors(self):
+
+        if iscale.get_scaling_factor(self.hours_storage) is None:
+            iscale.set_scaling_factor(self.hours_storage, 1)
+
+        if iscale.get_scaling_factor(self.temperature_hot) is None:
+            iscale.set_scaling_factor(self.temperature_hot, 1)
+
+        if iscale.get_scaling_factor(self.heat_load) is None:
+            iscale.set_scaling_factor(self.heat_load, 0.1)
+
+        if iscale.get_scaling_factor(self.heat_annual_scaled) is None:
+            iscale.set_scaling_factor(self.heat_annual_scaled, 1)
+
+        if iscale.get_scaling_factor(self.electricity_annual_scaled) is None:
+            iscale.set_scaling_factor(self.electricity_annual_scaled, 1)
+
+        if iscale.get_scaling_factor(self.heat) is None:
+            iscale.set_scaling_factor(self.heat, 1e-3)
+
+        if iscale.get_scaling_factor(self.electricity) is None:
+            iscale.set_scaling_factor(self.electricity, 1e-3)
 
     @property
     def default_costing_method(self):
