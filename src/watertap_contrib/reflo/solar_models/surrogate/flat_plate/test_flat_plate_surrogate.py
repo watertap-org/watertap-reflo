@@ -40,10 +40,14 @@ from idaes.core.util.scaling import (
 )
 
 from watertap.core.solvers import get_solver
-from watertap_contrib.reflo.solar_models.surrogate.flat_plate import FlatPlateSurrogate
+from watertap_contrib.reflo.solar_models.surrogate.flat_plate import (
+    FlatPlateSurrogate,
+    generate_fpc_data,
+)
 
 solver = get_solver()
 
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 dataset_filename = os.path.join(os.path.dirname(__file__), "data/test_fpc_data.pkl")
 surrogate_model_file = os.path.join(
     os.path.dirname(__file__), "data/test_fpc_surrogate.json"
@@ -79,9 +83,6 @@ def build_fpc1():
     return m
 
 
-# print(dataset_filename)
-
-
 class TestFlatPlate1:
 
     @pytest.fixture(scope="class")
@@ -92,8 +93,6 @@ class TestFlatPlate1:
     @pytest.mark.unit
     def test_build(self, flat_plate_frame):
         fpc = flat_plate_frame.fs.fpc
-        # m = build_fpc1()
-        # fpc = m.fs.fpc
 
         assert len(fpc.config) == 13
         assert not fpc.config.dynamic
@@ -212,3 +211,19 @@ class TestFlatPlate1:
         for v, r in fpc_unit_results.items():
             mv = fpc.find_component(v)
             assert pytest.approx(r, rel=1e-3) == value(mv)
+
+
+class TestRunPySAMFlatPlate:
+
+    @pytest.mark.component
+    def test_run_pysam_flat_plate(self):
+        """
+        Test the generate_fpc_data function.
+        """
+
+        test_df = generate_fpc_data()
+
+        assert all(x > 0 for x in test_df.heat_annual.to_list())
+        assert all(x > 0 for x in test_df.electricity_annual.to_list())
+
+        os.remove(os.path.join(__location__, "data/test_data.pkl"))

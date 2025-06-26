@@ -9,9 +9,11 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
+
 """
 This module contains a base class for all solar energy unit models.
 """
+
 import os
 import sys
 import numpy as np
@@ -503,8 +505,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
             os.remove("solution.pickle")
         except FileNotFoundError:
             pass
-        except Exception as e:
-            raise e
 
         self.surrogate = PysmoSurrogate(
             self.trained_rbf,
