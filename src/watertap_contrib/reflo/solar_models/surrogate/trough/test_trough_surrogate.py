@@ -40,7 +40,7 @@ from idaes.core.util.scaling import (
     unscaled_variables_generator,
 )
 
-from watertap_contrib.reflo.solar_models.surrogate import (
+from watertap_contrib.reflo.solar_models import (
     TroughSurrogate,
     generate_trough_data,
 )

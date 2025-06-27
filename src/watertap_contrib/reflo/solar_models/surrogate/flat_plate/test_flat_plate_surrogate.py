@@ -43,7 +43,7 @@ from idaes.core.util.scaling import (
 
 from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.costing import EnergyCosting
-from watertap_contrib.reflo.solar_models.surrogate import (
+from watertap_contrib.reflo.solar_models import (
     FlatPlateSurrogate,
     generate_fpc_data,
 )
