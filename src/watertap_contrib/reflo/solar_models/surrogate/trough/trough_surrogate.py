@@ -45,7 +45,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
         super().build()
 
         if not self.config.scale_training_data:
-            err_msg = "The trough surrogate model requires the input data be scaled."
+            err_msg = "The trough surrogate model requires the output data be scaled."
             err_msg += " Set the config argument 'scale_training_data' = True"
             raise ConfigurationError(err_msg)
 
