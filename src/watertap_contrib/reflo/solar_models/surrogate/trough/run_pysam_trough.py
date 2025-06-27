@@ -9,11 +9,15 @@ from math import isnan
 from itertools import product
 import PySAM.TroughPhysicalIph as iph
 
+# Documentation for PySAM module used in this script:
+    # https://nrel-pysam.readthedocs.io/en/v5.1.0/modules/TroughPhysical.html
+    # https://nrel-pysam.readthedocs.io/en/main/modules/TroughPhysicalIph.html
 
 __all__ = [
     "setup_model_trough",
     "run_model_trough",
     "setup_and_run_trough",
+    "generate_trough_data",
 ]
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -184,7 +188,7 @@ def generate_trough_data(
 
     if use_multiprocessing:
         combos = list(product(heat_loads, hours_storages, temperatures_loop))
-        df = pd.DataFrame(combos, columns=["heat_load", "hours_storage", "T_loop_out"])
+        df = pd.DataFrame(combos, columns=["heat_load", "hours_storage", "temperature_loop"])
         time_start = time.process_time()
         with multiprocessing.Pool(processes=6) as pool:
             args_in = [(weather_file, config_file, *combo) for combo in combos]
