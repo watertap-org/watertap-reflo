@@ -333,26 +333,27 @@ class TestTroughSurrogate1:
         assert_optimal_termination(results)
 
         sys_costing_results = {
-            "aggregate_capital_cost": 351886075.42,
+            "aggregate_capital_cost": 351095320.19,
+            "aggregate_capital_cost": 351095320.19,
             "aggregate_fixed_operating_cost": 103758.0,
             "aggregate_variable_operating_cost": 972877.1,
             "aggregate_flow_electricity": 229.01,
             "aggregate_flow_heat": -55491.5,
             "aggregate_flow_costs": {},
-            "aggregate_direct_capital_cost": 351886075.42,
-            "total_capital_cost": 351886075.42,
-            "total_operating_cost": 11819134.95,
-            "maintenance_labor_chemical_operating_cost": 10556582.26,
-            "total_fixed_operating_cost": 10660340.26,
+            "aggregate_direct_capital_cost": 351095320.19,
+            "total_capital_cost": 351095320.19,
+            "total_operating_cost": 11795412.3,
+            "maintenance_labor_chemical_operating_cost": 10532859.6,
+            "total_fixed_operating_cost": 10636617.6,
             "total_variable_operating_cost": 1158794.69,
-            "total_annualized_cost": 51214874.54,
+            "total_annualized_cost": 51102622.13,
             "yearly_heat_production": {
                 1: 484006359.96,
                 5: 474398592.02,
                 20: 440037412.81,
             },
             "lifetime_heat_production": 9720265397.03,
-            "LCOH": 0.105377,
+            "LCOH": 0.105146,
         }
         for v, r in sys_costing_results.items():
             cv = m.fs.costing.find_component(v)
@@ -365,8 +366,8 @@ class TestTroughSurrogate1:
                 assert pytest.approx(r, rel=1e-3) == value(cv)
 
         trough_costing_results = {
-            "capital_cost": 351886075.42,
-            "direct_capital_cost": 351886075.42,
+            "capital_cost": 351095320.19,
+            "direct_capital_cost": 351095320.19,
             "variable_operating_cost": 972877.1,
             "fixed_operating_cost": 103758.0,
             "direct_cost": 316302090.27,
@@ -488,26 +489,26 @@ class TestTroughSurrogate2:
         assert_optimal_termination(results)
 
         sys_costing_results = {
-            "aggregate_capital_cost": 66985859.63,
+            "aggregate_capital_cost": 66835329.61,
             "aggregate_fixed_operating_cost": 103758.0,
-            "aggregate_variable_operating_cost": 273892.0,
+            "aggregate_variable_operating_cost": 273892.09,
             "aggregate_flow_electricity": 58.48,
             "aggregate_flow_heat": -15622.41,
             "aggregate_flow_costs": {},
-            "aggregate_direct_capital_cost": 66985859.6,
-            "total_capital_cost": 66985859.6,
-            "total_operating_cost": 2434707.0,
-            "maintenance_labor_chemical_operating_cost": 2009575.7,
-            "total_fixed_operating_cost": 2113333.78,
-            "total_variable_operating_cost": 321373.2,
-            "total_annualized_cost": 9934172.52,
+            "aggregate_direct_capital_cost": 66835329.61,
+            "total_capital_cost": 66835329.61,
+            "total_operating_cost": 2430191.12,
+            "maintenance_labor_chemical_operating_cost": 2005059.88,
+            "total_fixed_operating_cost": 2108817.88,
+            "total_variable_operating_cost": 321373.24,
+            "total_annualized_cost": 9912803.89,
             "yearly_heat_production": {
-                1: 136261317.4,
-                5: 133556462.2,
-                20: 123882829.9,
+                1: 136261317.43,
+                5: 133556462.23,
+                20: 123882829.95,
             },
-            "lifetime_heat_production": 2736526373.0,
-            "LCOH": 0.072604,
+            "lifetime_heat_production": 2736526373.03,
+            "LCOH": 0.072448,
         }
 
         for v, r in sys_costing_results.items():
@@ -521,12 +522,12 @@ class TestTroughSurrogate2:
                 assert pytest.approx(r, rel=1e-3) == value(cv)
 
         trough_costing_results = {
-            "capital_cost": 66985859.6,
-            "direct_capital_cost": 66985859.6,
-            "variable_operating_cost": 273892.0,
+            "capital_cost": 66835329.61,
+            "direct_capital_cost": 66835329.61,
+            "variable_operating_cost": 273892.09,
             "fixed_operating_cost": 103758.0,
-            "direct_cost": 60212008.6,
-            "indirect_cost": 6623320.9,
+            "direct_cost": 60212008.65,
+            "indirect_cost": 6623320.95,
         }
         for v, r in trough_costing_results.items():
             cv = m.fs.unit.costing.find_component(v)
@@ -648,25 +649,26 @@ class TestTroughSurrogate3:
         assert_optimal_termination(results)
 
         sys_costing_results = {
-            "aggregate_capital_cost": 66954632.55,
+            "aggregate_capital_cost": 66804172.71,
             "aggregate_fixed_operating_cost": 103758.0,
             "aggregate_variable_operating_cost": 273352.49,
             "aggregate_flow_electricity": 58.38,
             "aggregate_flow_heat": -15591.63,
-            "aggregate_direct_capital_cost": 66954632.55,
-            "total_capital_cost": 66954632.55,
-            "total_operating_cost": 2433145.24,
-            "maintenance_labor_chemical_operating_cost": 2008638.97,
-            "total_fixed_operating_cost": 2112396.97,
+            "aggregate_flow_costs": {},
+            "aggregate_direct_capital_cost": 66804172.71,
+            "total_capital_cost": 66804172.71,
+            "total_operating_cost": 2428631.45,
+            "maintenance_labor_chemical_operating_cost": 2004125.18,
+            "total_fixed_operating_cost": 2107883.18,
             "total_variable_operating_cost": 320748.27,
-            "total_annualized_cost": 9929114.69,
+            "total_annualized_cost": 9907756.02,
             "yearly_heat_production": {
                 1: 135992865.88,
                 5: 133293339.58,
                 20: 123638765.54,
             },
             "lifetime_heat_production": 2731135079.63,
-            "LCOH": 0.07271,
+            "LCOH": 0.072554,
         }
 
         for v, r in sys_costing_results.items():
@@ -680,8 +682,8 @@ class TestTroughSurrogate3:
                 assert pytest.approx(r, rel=1e-3) == value(cv)
 
         trough_costing_results = {
-            "capital_cost": 66954632.55,
-            "direct_capital_cost": 66954632.55,
+            "capital_cost": 66804172.71,
+            "direct_capital_cost": 66804172.71,
             "variable_operating_cost": 273352.49,
             "fixed_operating_cost": 103758.0,
             "direct_cost": 60183939.37,
