@@ -36,13 +36,6 @@ def build_flat_plate_cost_param_block(blk):
         doc="Cost per volume for thermal storage",
     )
 
-    blk.land_cost_per_acre = pyo.Var(
-        initialize=4000,
-        units=costing.base_currency / pyo.units.acre,
-        bounds=(0, None),
-        doc="Land cost per acre required",
-    )
-
     blk.contingency_frac_direct_cost = pyo.Var(
         initialize=0,
         units=pyo.units.dimensionless,
@@ -80,75 +73,120 @@ def cost_flat_plate(blk):
 
     blk.direct_cost = pyo.Var(
         initialize=1e4,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=global_params.base_currency,
         bounds=(0, None),
-        doc="Direct cost of flat plate plant",
+        doc="Direct cost of flat plate system",
     )
 
     blk.indirect_cost = pyo.Var(
         initialize=1e4,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=global_params.base_currency,
         bounds=(0, None),
         doc="Indirect costs of flat plate system",
     )
 
     blk.sales_tax = pyo.Var(
         initialize=1e2,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=global_params.base_currency,
         bounds=(0, None),
         doc="Sales tax for flat plate system",
     )
 
-    if flat_plate.config.solar_model_type == "surrogate":
-        blk.direct_cost_constraint = pyo.Constraint(
-            expr=blk.direct_cost
-            == (
-                (
-                    flat_plate.collector_area_total
-                    * flat_plate_params.cost_per_area_collector
-                )
-                + (
-                    flat_plate.storage_volume
-                    * flat_plate_params.cost_per_volume_storage
-                )
-            )
-            * (1 + flat_plate_params.contingency_frac_direct_cost)
-        )
+    blk.capital_cost_collectors = pyo.Var(
+        initialize=1e2,
+        units=global_params.base_currency,
+        bounds=(0, None),
+        doc="Capital cost for solar collectors",
+    )
 
-    else:
-        blk.direct_cost_constraint = pyo.Constraint(
-            expr=blk.direct_cost
-            == (
-                (
-                    flat_plate.collector_area_total
-                    * flat_plate_params.cost_per_area_collector
-                )
-            )
-            * (1 + flat_plate_params.contingency_frac_direct_cost)
-        )
+    blk.capital_cost_storage = pyo.Var(
+        initialize=1e2,
+        units=global_params.base_currency,
+        bounds=(0, None),
+        doc="Capital cost for thermal storage",
+    )
 
     blk.land_area = pyo.Expression(
         expr=pyo.units.convert(flat_plate.collector_area_total, to_units=pyo.units.acre)
     )
 
+    blk.capital_cost_collectors_constraint = pyo.Constraint(
+        expr=blk.capital_cost_collectors
+        == pyo.units.convert(
+            flat_plate.collector_area_total * flat_plate_params.cost_per_area_collector,
+            to_units=global_params.base_currency,
+        )
+    )
+
+    capital_cost_expr = 0
+
+    if flat_plate.config.solar_model_type == "surrogate":
+
+        blk.capital_cost_storage_constraint = pyo.Constraint(
+            expr=blk.capital_cost_storage
+            == pyo.units.convert(
+                flat_plate.storage_volume * flat_plate_params.cost_per_volume_storage,
+                to_units=global_params.base_currency,
+            )
+        )
+        blk.direct_cost_constraint = pyo.Constraint(
+            expr=blk.direct_cost
+            == pyo.units.convert(
+                (blk.capital_cost_collectors + blk.capital_cost_storage),
+                to_units=global_params.base_currency,
+            )
+            * (1 + flat_plate_params.contingency_frac_direct_cost)
+        )
+
+    elif flat_plate.config.solar_model_type == "physical":
+
+        blk.direct_cost_constraint = pyo.Constraint(
+            expr=blk.direct_cost
+            == pyo.units.convert(
+                blk.capital_cost_collectors,
+                to_units=global_params.base_currency,
+            )
+            * (1 + flat_plate_params.contingency_frac_direct_cost)
+        )
+
+    capital_cost_expr += blk.direct_cost
+
     blk.indirect_cost_constraint = pyo.Constraint(
         expr=blk.indirect_cost
-        == blk.direct_cost * flat_plate_params.indirect_frac_direct_cost
-        + blk.land_area * flat_plate_params.land_cost_per_acre
+        == pyo.units.convert(
+            blk.direct_cost * flat_plate_params.indirect_frac_direct_cost
+            + blk.land_area * global_params.land_cost,
+            to_units=global_params.base_currency,
+        )
     )
+
+    capital_cost_expr += blk.indirect_cost
 
     blk.sales_tax_constraint = pyo.Constraint(
-        expr=blk.sales_tax == blk.direct_cost * global_params.sales_tax_frac
+        expr=blk.sales_tax
+        == pyo.units.convert(
+            blk.direct_cost * global_params.sales_tax_frac,
+            to_units=global_params.base_currency,
+        )
     )
 
+    capital_cost_expr += blk.sales_tax
+
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost == blk.direct_cost + blk.indirect_cost + blk.sales_tax
+        expr=blk.capital_cost
+        == pyo.units.convert(
+            capital_cost_expr,
+            to_units=global_params.base_currency,
+        )
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == flat_plate_params.fixed_operating_by_capacity
-        * pyo.units.convert(flat_plate.heat_load, to_units=pyo.units.kW)
+        == pyo.units.convert(
+            flat_plate_params.fixed_operating_by_capacity
+            * pyo.units.convert(flat_plate.heat_load, to_units=pyo.units.kW),
+            to_units=global_params.base_currency / global_params.base_period,
+        )
     )
 
     blk.costing_package.cost_flow(
