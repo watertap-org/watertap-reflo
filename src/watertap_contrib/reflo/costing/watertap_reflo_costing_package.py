@@ -712,33 +712,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
                 self.LCOT_constraint,
             )
 
-        if hasattr(self, "LCOE"):
-            for y, c in energy_cost.yearly_electricity_production_constraint.items():
-
-                calculate_variable_from_constraint(
-                    energy_cost.yearly_electricity_production[y],
-                    c,
-                )
-
-            calculate_variable_from_constraint(
-                energy_cost.lifetime_electricity_production,
-                energy_cost.lifetime_electricity_production_constraint,
-            )
-
-        if hasattr(self, "LCOH"):
-
-            for y, c in energy_cost.yearly_heat_production_constraint.items():
-
-                calculate_variable_from_constraint(
-                    energy_cost.yearly_heat_production[y],
-                    c,
-                )
-
-            calculate_variable_from_constraint(
-                energy_cost.lifetime_heat_production,
-                energy_cost.lifetime_heat_production_constraint,
-            )
-
     def calculate_scaling_factors(self):
 
         if get_scaling_factor(self.total_capital_cost) is None:
