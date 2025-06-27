@@ -10,10 +10,8 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-import pytest
 import os
-import numpy as np
-import pandas as pd
+import pytest
 from pyomo.environ import (
     ConcreteModel,
     Var,
@@ -42,11 +40,10 @@ from idaes.core.util.scaling import (
     unscaled_variables_generator,
 )
 
-from watertap_contrib.reflo.solar_models.surrogate.trough import (
+from watertap_contrib.reflo.solar_models.surrogate import (
     TroughSurrogate,
     generate_trough_data,
 )
-from watertap_contrib.reflo.core import SolarEnergyBaseData
 from watertap_contrib.reflo.costing import EnergyCosting
 
 from watertap.core.solvers import get_solver
