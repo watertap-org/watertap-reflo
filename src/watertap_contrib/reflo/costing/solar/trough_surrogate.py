@@ -23,13 +23,6 @@ def build_trough_surrogate_cost_param_block(blk):
 
     costing = blk.parent_block()
 
-    blk.cost_per_land_area = pyo.Var(
-        initialize=10000,
-        units=costing.base_currency / pyo.units.acre,
-        bounds=(0, None),
-        doc="Cost per acre of land",
-    )
-
     blk.cost_per_total_aperture_area = pyo.Var(
         initialize=373,
         units=costing.base_currency / pyo.units.m**2,
@@ -81,14 +74,14 @@ def build_trough_surrogate_cost_param_block(blk):
 
     blk.fixed_operating_by_capacity = pyo.Var(
         initialize=103758,
-        units=costing.base_currency,
+        units=costing.base_currency / pyo.units.year,
         bounds=(0, None),
         doc="Fixed operating cost of trough plant in SAM. Not a function of electricity generated",
     )
 
     blk.variable_operating_by_generation = pyo.Var(
         initialize=0.002,
-        units=costing.base_currency / (pyo.units.kWh),
+        units=costing.base_currency / pyo.units.kWh,
         bounds=(0, None),
         doc="Variable operating cost of trough plant per kWh generated",
     )
@@ -104,62 +97,80 @@ def cost_trough_surrogate(blk):
     trough_params = blk.costing_package.trough_surrogate
     trough = blk.unit_model
     make_capital_cost_var(blk)
+    blk.costing_package.add_cost_factor(blk, None)
     make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
     blk.direct_cost = pyo.Var(
         initialize=0,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=blk.costing_package.base_currency,
         bounds=(0, None),
         doc="Direct cost of trough plant",
     )
 
     blk.indirect_cost = pyo.Var(
         initialize=0,
-        units=blk.config.flowsheet_costing_block.base_currency,
+        units=blk.costing_package.base_currency,
         bounds=(0, None),
         doc="Inirect cost of trough plant",
     )
 
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
-        == (
-            trough.total_aperture_area * trough_params.cost_per_total_aperture_area
-            + pyo.units.convert(trough.heat_load, to_units=pyo.units.kW)
-            * trough.hours_storage
-            * trough_params.cost_per_storage_capital
-            + pyo.units.convert(trough.heat_load, to_units=pyo.units.kW)
-            * (
-                trough_params.cost_per_heat_sink
-                + trough_params.cost_per_balance_of_plant
+        == pyo.units.convert(
+            (
+                trough.total_aperture_area * trough_params.cost_per_total_aperture_area
+                + pyo.units.convert(trough.heat_load, to_units=pyo.units.kW)
+                * trough.hours_storage
+                * trough_params.cost_per_storage_capital
+                + pyo.units.convert(trough.heat_load, to_units=pyo.units.kW)
+                * (
+                    trough_params.cost_per_heat_sink
+                    + trough_params.cost_per_balance_of_plant
+                )
             )
+            * (1 + trough_params.contingency_frac_direct_cost),
+            to_units=blk.costing_package.base_currency,
         )
-        * (1 + trough_params.contingency_frac_direct_cost)
     )
 
     blk.indirect_cost_constraint = pyo.Constraint(
         expr=blk.indirect_cost
-        == (
-            blk.direct_cost * trough_params.indirect_frac_direct_cost
-            + trough.land_area * trough_params.cost_per_land_area
+        == pyo.units.convert(
+            (
+                blk.direct_cost * trough_params.indirect_frac_direct_cost
+                + trough.land_area * global_params.land_cost
+            ),
+            to_units=blk.costing_package.base_currency,
         )
     )
 
-    blk.costing_package.add_cost_factor(blk, None)
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
-        == blk.indirect_cost
-        + blk.direct_cost
-        * (1 + trough_params.tax_frac_direct_cost * global_params.sales_tax_frac)
+        == pyo.units.convert(
+            blk.indirect_cost
+            + blk.direct_cost
+            * (1 + trough_params.tax_frac_direct_cost * global_params.sales_tax_frac),
+            to_units=blk.costing_package.base_currency,
+        )
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
-        expr=blk.fixed_operating_cost == trough_params.fixed_operating_by_capacity
+        expr=blk.fixed_operating_cost
+        == pyo.units.convert(
+            trough_params.fixed_operating_by_capacity,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
+        )
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
-        == trough_params.variable_operating_by_generation * trough.heat_annual
+        == pyo.units.convert(
+            trough_params.variable_operating_by_generation * trough.heat_annual,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
+        )
     )
 
     blk.costing_package.cost_flow(
