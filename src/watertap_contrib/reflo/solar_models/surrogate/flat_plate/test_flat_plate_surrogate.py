@@ -16,6 +16,7 @@ import os
 from pyomo.environ import (
     ConcreteModel,
     Var,
+    Param,
     Expression,
     Constraint,
     value,
@@ -24,7 +25,8 @@ from pyomo.environ import (
 )
 from pyomo.network import Port
 
-from idaes.core import FlowsheetBlock
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock
+from idaes.core.util.exceptions import ConfigurationError
 from idaes.core.util.testing import initialization_tester
 from idaes.core.surrogate.pysmo_surrogate import PysmoSurrogate
 from idaes.core.surrogate.surrogate_block import SurrogateBlock
@@ -40,6 +42,7 @@ from idaes.core.util.scaling import (
 )
 
 from watertap.core.solvers import get_solver
+from watertap_contrib.reflo.costing import EnergyCosting
 from watertap_contrib.reflo.solar_models.surrogate.flat_plate import (
     FlatPlateSurrogate,
     generate_fpc_data,
@@ -54,7 +57,7 @@ surrogate_model_file = os.path.join(
 )
 
 
-def build_fpc1():
+def build_fpc():
     """
     Build with existing surrogate model file.
     """
@@ -87,7 +90,7 @@ class TestFlatPlate1:
 
     @pytest.fixture(scope="class")
     def flat_plate_frame(self):
-        m = build_fpc1()
+        m = build_fpc()
         return m
 
     @pytest.mark.unit
@@ -210,10 +213,65 @@ class TestFlatPlate1:
         }
         for v, r in fpc_unit_results.items():
             mv = fpc.find_component(v)
-            assert pytest.approx(r, rel=1e-3) == value(mv)
+            assert pytest.approx(value(mv), rel=1e-3) == r
+
+    @pytest.mark.component
+    def test_costing(self, flat_plate_frame):
+        m = flat_plate_frame
+        fpc = m.fs.fpc
+
+        m.fs.costing = EnergyCosting()
+        m.fs.fpc.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
+        m.fs.costing.electricity_cost.fix(0.07)
+
+        m.fs.costing.cost_process()
+        m.fs.costing.add_LCOH()
+        m.fs.costing.initialize()
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        sys_costing_results = {
+            "aggregate_capital_cost": 128060842.4,
+            "aggregate_fixed_operating_cost": 1600000,
+            "aggregate_flow_electricity": 639.7,
+            "aggregate_flow_heat": -26772.5,
+            "aggregate_flow_costs": {},
+            "aggregate_direct_capital_cost": 128060842.4,
+            "total_capital_cost": 128060842.4,
+            "total_operating_cost": 5961178.8,
+            "maintenance_labor_chemical_operating_cost": 3841825.2,
+            "total_fixed_operating_cost": 5441825.2,
+            "total_variable_operating_cost": 519353.5,
+            "total_annualized_cost": 20298352.0,
+            "yearly_heat_production": {1: 233514351.1, 5: 228878974.6, 20: 212301034.5},
+            "lifetime_heat_production": 4689652150.8,
+            "LCOH": 0.08656,
+        }
+        for v, r in sys_costing_results.items():
+            cv = m.fs.costing.find_component(v)
+            if cv.is_indexed():
+                for i, rr in r.items():
+                    assert pytest.approx(value(cv[i]), rel=1e-3) == rr
+            else:
+                assert pytest.approx(value(cv), rel=1e-3) == r
+
+        fpc_costing_results = {
+            "capital_cost": 128060842.4,
+            "direct_capital_cost": 128060842.42,
+            "fixed_operating_cost": 1600000.0,
+            "direct_cost": 121798565.8,
+            "indirect_cost": 172348.3,
+            "sales_tax": 6089928.2,
+            "land_area": 43.08,
+        }
+
+        for v, r in fpc_costing_results.items():
+            mv = fpc.costing.find_component(v)
+            assert pytest.approx(value(mv), rel=1e-3) == r
 
 
-class TestRunPySAMFlatPlate:
+class TestCreateFlatPlateSurrogate:
 
     @pytest.mark.component
     def test_run_pysam_flat_plate(self):
@@ -226,4 +284,68 @@ class TestRunPySAMFlatPlate:
         assert all(x > 0 for x in test_df.heat_annual.to_list())
         assert all(x > 0 for x in test_df.electricity_annual.to_list())
 
-        os.remove(os.path.join(__location__, "data/test_data.pkl"))
+    @pytest.mark.component
+    def test_create_without_scaling_data(self):
+
+        dataset_filename = os.path.join(__location__, "data/test_data.pkl")
+
+        input_units = dict(heat_load="MW")
+        input_variables = {
+            "labels": ["heat_load"],
+            "units": input_units,
+        }
+
+        output_units = dict(heat_annual="kWh/year", electricity_annual="kWh/year")
+        output_variables = {
+            "labels": ["heat_annual", "electricity_annual"],
+            "units": output_units,
+        }
+        fpc_dict = dict(
+            dataset_filename=dataset_filename,
+            input_variables=input_variables,
+            output_variables=output_variables,
+        )
+
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+
+        fpc_dict["scale_training_data"] = False
+
+        with pytest.raises(ConfigurationError):
+            m.fs.fpc = FlatPlateSurrogate(**fpc_dict)
+
+    @pytest.mark.component
+    def test_create_new_surrogate(self):
+
+        dataset_filename = os.path.join(__location__, "data/test_data.pkl")
+
+        input_units = dict(heat_load="MW")
+        input_variables = {
+            "labels": ["heat_load"],
+            "units": input_units,
+        }
+
+        output_units = dict(heat_annual="kWh/year", electricity_annual="kWh/year")
+        output_variables = {
+            "labels": ["heat_annual", "electricity_annual"],
+            "units": output_units,
+        }
+        fpc_dict = dict(
+            dataset_filename=dataset_filename,
+            input_variables=input_variables,
+            output_variables=output_variables,
+        )
+
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+
+        fpc_dict["scale_training_data"] = True
+        m.fs.fpc = FlatPlateSurrogate(**fpc_dict)
+
+        assert isinstance(m.fs.fpc.surrogate_blk, SurrogateBlock)
+        assert isinstance(m.fs.fpc.surrogate, PysmoSurrogate)
+        assert isinstance(m.fs.fpc.hours_storage, Param)
+        assert isinstance(m.fs.fpc.temperature_hot, Param)
+
+        os.remove(dataset_filename)
+        os.remove(dataset_filename.replace(".pkl", ".json"))
