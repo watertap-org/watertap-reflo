@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -13,7 +13,6 @@
 from copy import deepcopy
 from pyomo.environ import Var, Param, Expression, log, exp, units as pyunits
 from pyomo.common.config import ConfigBlock, ConfigValue, In
-from idaes.core import declare_process_block_class
 
 # Import IDAES cores
 from idaes.core import (
