@@ -51,9 +51,6 @@ class TroughSurrogateData(SolarEnergyBaseData):
 
         self._tech_type = "trough"
 
-        self.add_surrogate_variables()
-        self.get_surrogate_data()
-
         self.row_spacing = Param(
             initialize=15,
             units=pyunits.m,
