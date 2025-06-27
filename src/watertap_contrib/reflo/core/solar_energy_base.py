@@ -220,7 +220,10 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         if self.config.solar_model_type == SolarModelType.surrogate:
 
-            if self.config.dataset_filename is None and self.config.surrogate_model_file is None:
+            if (
+                self.config.dataset_filename is None
+                and self.config.surrogate_model_file is None
+            ):
                 err_msg = "Either a dataset or surrogate filename is required."
                 raise ConfigurationError(err_msg)
 

@@ -62,7 +62,7 @@ def setup_model_fpc(
             "Configuration file must be specified for FPC model setup. "
             "Use the 'config_file' argument to specify the path to the configuration data file."
         )
-    
+
     tech_model = swh.new()
 
     with open(config_file, "r") as file:

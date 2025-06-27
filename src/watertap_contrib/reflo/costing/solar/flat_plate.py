@@ -142,8 +142,7 @@ def cost_flat_plate(blk):
     )
 
     blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost
-        == blk.direct_cost + blk.indirect_cost + blk.sales_tax
+        expr=blk.capital_cost == blk.direct_cost + blk.indirect_cost + blk.sales_tax
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(

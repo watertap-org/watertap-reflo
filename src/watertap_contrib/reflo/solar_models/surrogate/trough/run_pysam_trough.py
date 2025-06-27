@@ -10,8 +10,8 @@ from itertools import product
 import PySAM.TroughPhysicalIph as iph
 
 # Documentation for PySAM module used in this script:
-    # https://nrel-pysam.readthedocs.io/en/v5.1.0/modules/TroughPhysical.html
-    # https://nrel-pysam.readthedocs.io/en/main/modules/TroughPhysicalIph.html
+# https://nrel-pysam.readthedocs.io/en/v5.1.0/modules/TroughPhysical.html
+# https://nrel-pysam.readthedocs.io/en/main/modules/TroughPhysicalIph.html
 
 __all__ = [
     "setup_model_trough",
@@ -103,9 +103,9 @@ def run_model_trough(
     freeze_protection_tes = tech_model.Outputs.annual_tes_freeze_protection
     freeze_protection_tes = 0 if isnan(freeze_protection_tes) else freeze_protection_tes
     freeze_protection = freeze_protection_field + freeze_protection_tes
-    
+
     # [kWht] net, does not include that used for freeze protection
-    heat_annual = (tech_model.Outputs.annual_energy - freeze_protection)  
+    heat_annual = tech_model.Outputs.annual_energy - freeze_protection
     capacity_factor = (
         heat_annual / (tech_model.value("q_pb_design") * 1e3 * 8760) * 100
     )  # [%]
@@ -188,7 +188,9 @@ def generate_trough_data(
 
     if use_multiprocessing:
         combos = list(product(heat_loads, hours_storages, temperatures_loop))
-        df = pd.DataFrame(combos, columns=["heat_load", "hours_storage", "temperature_loop"])
+        df = pd.DataFrame(
+            combos, columns=["heat_load", "hours_storage", "temperature_loop"]
+        )
         time_start = time.process_time()
         with multiprocessing.Pool(processes=6) as pool:
             args_in = [(weather_file, config_file, *combo) for combo in combos]
@@ -255,10 +257,9 @@ def generate_trough_data(
     if save_data:
         df.to_pickle(dataset_filename)
     return df
-    
+
 
 if __name__ == "__main__":
     df = generate_trough_data()
     print(df.head())
     os.remove(os.path.join(__location__, "data/test_data.pkl"))
-    
