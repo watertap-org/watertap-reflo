@@ -58,7 +58,7 @@ class SolarModelType(StrEnum):
 @declare_process_block_class("SolarEnergyBase")
 class SolarEnergyBaseData(UnitModelBlockData):
     """
-    Base model for a solar energy system.
+    Base model for WaterTAP REFLO Solar Energy Models
     """
 
     CONFIG = ConfigBlock()
@@ -113,7 +113,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
             default=None,
             domain=str,
             description="Path to data file",
-            doc="""Path to data file. Must be a .pkl""",  # TODO: should be easy to make .csv an option as well
+            doc="""Path to data file. Must be a .pkl""",
         ),
     )
     CONFIG.declare(
@@ -220,8 +220,8 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         if self.config.solar_model_type == SolarModelType.surrogate:
 
-            if self.config.dataset_filename is None:
-                err_msg = "A path to a dataset for the surrogate model is required."
+            if self.config.dataset_filename is None and self.config.surrogate_model_file is None:
+                err_msg = "Either a dataset or surrogate filename is required."
                 raise ConfigurationError(err_msg)
 
             if not all(
@@ -273,7 +273,13 @@ class SolarEnergyBaseData(UnitModelBlockData):
         return_data=False,
     ):
 
-        self.data = pd.read_pickle(self.config.dataset_filename)
+        if self.config.dataset_filename[-3:] == "pkl":
+            self.data = pd.read_pickle(self.config.dataset_filename)
+        elif self.config.dataset_filename[-3:] == "csv":
+            self.data = pd.read_csv(self.config.dataset_filename)
+
+        self._check_input_variables()
+
         if self.input_bounds == {}:
             # if user doesn't provide any input bounds,
             # the min, max of each input column are used
@@ -566,3 +572,13 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         if callable(self._scaling):
             self._scaling(self)
+
+    def _check_input_variables(self):
+
+        for label in self.input_labels:
+            if label not in self.data.columns:
+                err_msg = f"Input variable '{label}' not found in dataset columns."
+                raise ConfigurationError(err_msg)
+            if len(self.data[label].unique()) == 1:
+                err_msg = f"Input variable '{label}' must have at least two unique values in the dataset to create surrogate."
+                raise ConfigurationError(err_msg)
