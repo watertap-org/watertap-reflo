@@ -232,21 +232,24 @@ class TestFlatPlate1:
         assert_optimal_termination(results)
 
         sys_costing_results = {
-            "aggregate_capital_cost": 128060842.4,
-            "aggregate_fixed_operating_cost": 1600000,
-            "aggregate_flow_electricity": 639.7,
+            "aggregate_capital_cost": 121798565.82,
+            "aggregate_fixed_operating_cost": 1600000.0,
+            "aggregate_flow_electricity": 639.74,
             "aggregate_flow_heat": -26772.5,
-            "aggregate_flow_costs": {},
-            "aggregate_direct_capital_cost": 128060842.4,
-            "total_capital_cost": 128060842.4,
-            "total_operating_cost": 5961178.8,
-            "maintenance_labor_chemical_operating_cost": 3841825.2,
-            "total_fixed_operating_cost": 5441825.2,
-            "total_variable_operating_cost": 519353.5,
-            "total_annualized_cost": 20298352.0,
-            "yearly_heat_production": {1: 233514351.1, 5: 228878974.6, 20: 212301034.5},
-            "lifetime_heat_production": 4689652150.8,
-            "LCOH": 0.08656,
+            "aggregate_direct_capital_cost": 121798565.82,
+            "total_capital_cost": 121798565.82,
+            "total_operating_cost": 5773310.55,
+            "maintenance_labor_chemical_operating_cost": 3653956.97,
+            "total_fixed_operating_cost": 5253956.97,
+            "total_variable_operating_cost": 519353.58,
+            "total_annualized_cost": 19409384.6,
+            "yearly_heat_production": {
+                1: 233514351.13,
+                5: 228878974.65,
+                20: 212301034.5,
+            },
+            "lifetime_heat_production": 4689652150.81,
+            "LCOH": 0.082775,
         }
         for v, r in sys_costing_results.items():
             cv = m.fs.costing.find_component(v)
@@ -257,12 +260,12 @@ class TestFlatPlate1:
                 assert pytest.approx(value(cv), rel=1e-3) == r
 
         fpc_costing_results = {
-            "capital_cost": 128060842.4,
-            "direct_capital_cost": 128060842.42,
+            "capital_cost": 121798565.82,
+            "direct_capital_cost": 121798565.82,
             "fixed_operating_cost": 1600000.0,
-            "direct_cost": 121798565.8,
-            "indirect_cost": 172348.3,
-            "sales_tax": 6089928.2,
+            "direct_cost": 121798565.82,
+            "capital_cost_collectors": 104620749.78,
+            "capital_cost_storage": 17177816.04,
             "land_area": 43.08,
         }
 

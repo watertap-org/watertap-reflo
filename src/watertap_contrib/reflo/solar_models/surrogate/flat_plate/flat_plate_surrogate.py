@@ -140,8 +140,11 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         )
 
         self.collector_area_total = Expression(
-            expr=pyunits.convert(self.heat_load, to_units=pyunits.kilowatt)
-            / (self.FR_ta - self.FR_UL * self.factor_delta_T)
+            expr=pyunits.convert(
+                pyunits.convert(self.heat_load, to_units=pyunits.kilowatt)
+                / (self.FR_ta - self.FR_UL * self.factor_delta_T),
+                to_units=pyunits.m**2,
+            )
         )
 
         self.number_collectors = Expression(
