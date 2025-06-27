@@ -1,20 +1,17 @@
-###############################################################################
-# WaterTAP Copyright (c) 2021, The Regents of the University of California,
-# through Lawrence Berkeley National Laboratory, Oak Ridge National
-# Laboratory, National Renewable Energy Laboratory, and National Energy
-# Technology Laboratory (subject to receipt of any required approvals from
-# the U.S. Dept. of Energy). All rights reserved.
+#################################################################################
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
-#
-###############################################################################
+#################################################################################
 
 import pandas as pd
 from pyomo.environ import (
-    Var,
-    Param,
     Constraint,
     Expression,
     value,
@@ -23,12 +20,12 @@ from pyomo.environ import (
 )
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
-from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
 
 from watertap.core.solvers import get_solver
 from watertap_contrib.reflo.core import SolarEnergyBaseData
-from watertap_contrib.reflo.costing.solar.pv_surrogate import cost_pv_surrogate
+from watertap_contrib.reflo.costing.solar.pv import cost_pv
 
 __author__ = "Zachary Binger, Matthew Boyd, Kurban Sitterley"
 
@@ -36,7 +33,7 @@ __author__ = "Zachary Binger, Matthew Boyd, Kurban Sitterley"
 @declare_process_block_class("PVSurrogate")
 class PVSurrogateData(SolarEnergyBaseData):
     """
-    Surrogate model for PV.
+    Surrogate model for PV
     """
 
     CONFIG = SolarEnergyBaseData.CONFIG()
@@ -44,15 +41,20 @@ class PVSurrogateData(SolarEnergyBaseData):
     def build(self):
         super().build()
 
+        if self.config.scale_training_data:
+            err_msg = "The PV surrogate model requires the input data not be scaled."
+            err_msg += " Set the config argument 'scale_training_data' = False"
+            raise ConfigurationError(err_msg)
+
+        self.del_component(self.heat)
+
         self._tech_type = "PV"
-        self.add_surrogate_variables()
-        self.get_surrogate_data()
 
         if self.config.surrogate_model_file is not None:
             self.surrogate_file = self.config.surrogate_model_file
             self.load_surrogate()
         else:
-            self.create_rbf_surrogate()
+            self.create_polynomial_surrogate()
 
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
@@ -98,13 +100,11 @@ class PVSurrogateData(SolarEnergyBaseData):
         self.init_data = pd.DataFrame(
             {
                 "design_size": [value(self.design_size)],
-                "annual_energy": [value(self.annual_energy)],
-                "land_req": [value(self.land_req)],
             }
         )
         self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
 
-        self.electricity.set_value(value(self.annual_energy) / 8766)
+        # self.electricity.set_value(value(self.annual_energy_scaled / self.annual_energy_scaling) / 8766)
         # Create solver
         res = opt.solve(self)
 
@@ -117,4 +117,4 @@ class PVSurrogateData(SolarEnergyBaseData):
 
     @property
     def default_costing_method(self):
-        return cost_pv_surrogate
+        return cost_pv

@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -163,4 +163,4 @@ class TestThermalEnergyStorage:
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 0.148389
+        assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 0.14695

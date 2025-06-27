@@ -445,10 +445,6 @@ class TestCostingPackagesDefault:
         assert hasattr(m.fs.energy.costing, "plant_lifetime_set")
         assert hasattr(m.fs.energy.costing, "annual_electrical_system_degradation")
         assert hasattr(m.fs.energy.costing, "annual_heat_system_degradation")
-        assert hasattr(m.fs.energy.costing, "yearly_electricity_production")
-        assert hasattr(m.fs.energy.costing, "lifetime_electricity_production")
-        assert hasattr(m.fs.energy.costing, "yearly_heat_production")
-        assert hasattr(m.fs.energy.costing, "lifetime_heat_production")
         assert not hasattr(m.fs.treatment.costing, "has_electricity_generation")
 
         assert m.fs.treatment.costing.base_currency is pyunits.USD_2023
@@ -908,7 +904,11 @@ class TestElectricityAndHeatGen:
         assert_units_consistent(m)
 
         m.fs.costing.add_LCOE()
+        assert hasattr(m.fs.energy.costing, "yearly_electricity_production")
+        assert hasattr(m.fs.energy.costing, "lifetime_electricity_production")
         m.fs.costing.add_LCOH()
+        assert hasattr(m.fs.energy.costing, "yearly_heat_production")
+        assert hasattr(m.fs.energy.costing, "lifetime_heat_production")
         m.fs.costing.add_LCOT(m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"])
         m.fs.costing.add_specific_electric_energy_consumption(
             m.fs.treatment.unit.properties[0].flow_vol_phase["Liq"]
