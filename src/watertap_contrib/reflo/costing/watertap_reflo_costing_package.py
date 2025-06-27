@@ -50,8 +50,9 @@ class REFLOCostingData(WaterTAPCostingData):
         # Override WaterTAP default value of USD_2018
         self.base_currency = pyo.units.USD_2023
 
+        # By default we don't include sales tax in costing calculations
         self.sales_tax_frac = pyo.Param(
-            initialize=0.05,
+            initialize=0,
             mutable=True,
             units=pyo.units.dimensionless,
             doc="Sales tax as fraction of capital costs",
