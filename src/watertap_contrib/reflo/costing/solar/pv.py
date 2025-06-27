@@ -49,13 +49,6 @@ def build_cost_pv_simple_param_block(blk):
         doc="Cost per watt for solar module installed",
     )
 
-    blk.land_cost_per_acre = pyo.Var(
-        initialize=4000,
-        units=costing.base_currency / pyo.units.acre,
-        bounds=(0, None),
-        doc="Land cost per acre required",
-    )
-
     blk.fixed_operating_by_capacity = pyo.Var(
         initialize=31,
         units=costing.base_currency / (pyo.units.kW * costing.base_period),
@@ -105,13 +98,6 @@ def build_cost_pv_detailed_param_block(blk):
         doc="Cost per watt for permitting, environmental studies, engineering, land prep, and grid interconnection",
     )
 
-    blk.land_cost_per_acre = pyo.Var(
-        initialize=4000,
-        units=costing.base_currency / pyo.units.acre,
-        bounds=(0, None),
-        doc="Land cost per acre required",
-    )
-
     blk.contingency_frac_direct_capital_cost = pyo.Var(
         initialize=0.03,
         units=pyo.units.dimensionless,
@@ -152,17 +138,18 @@ def cost_pv_detailed(blk):
     global_params = blk.costing_package
     pv_params = blk.costing_package.pv
     make_capital_cost_var(blk)
+    blk.costing_package.add_cost_factor(blk, None)
     make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
-    blk.direct_capital_cost = pyo.Var(
+    blk.direct_cost = pyo.Var(
         initialize=0,
         units=blk.costing_package.base_currency,
         bounds=(0, None),
         doc="Direct costs of PV system",
     )
 
-    blk.indirect_capital_cost = pyo.Var(
+    blk.indirect_cost = pyo.Var(
         initialize=0,
         units=blk.costing_package.base_currency,
         bounds=(0, None),
@@ -183,56 +170,90 @@ def cost_pv_detailed(blk):
         doc="Sales tax for PV system",
     )
 
-    blk.direct_capital_cost_constraint = pyo.Constraint(
-        expr=blk.direct_capital_cost
-        == pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
-        * (
-            pv_params.cost_per_watt_module
-            + pv_params.cost_per_watt_inverter
-            + pv_params.cost_per_watt_other
-        )
-        + (
+    capital_cost_expr = 0
+
+    blk.direct_cost_constraint = pyo.Constraint(
+        expr=blk.direct_cost
+        == pyo.units.convert(
             pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
             * (
                 pv_params.cost_per_watt_module
                 + pv_params.cost_per_watt_inverter
                 + pv_params.cost_per_watt_other
             )
-        )
-        * (1 + pv_params.contingency_frac_direct_capital_cost)  # BUG Check this
+            + (
+                pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
+                * (
+                    pv_params.cost_per_watt_module
+                    + pv_params.cost_per_watt_inverter
+                    + pv_params.cost_per_watt_other
+                )
+            )
+            * (1 + pv_params.contingency_frac_direct_capital_cost)  # BUG Check this
+        ),
+        to_units=blk.costing_package.base_currency,
     )
+
+    capital_cost_expr += blk.direct_cost
 
     blk.indirect_capital_cost_constraint = pyo.Constraint(
-        expr=blk.indirect_capital_cost
-        == (
-            pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
-            * pv_params.cost_per_watt_indirect
+        expr=blk.indirect_cost
+        == pyo.units.convert(
+            (
+                pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
+                * pv_params.cost_per_watt_indirect
+            )
+            + (blk.unit_model.land_req * global_params.land_cost),
+            to_units=blk.costing_package.base_currency,
         )
-        + (blk.unit_model.land_req * pv_params.land_cost_per_acre)
     )
+
+    capital_cost_expr += blk.indirect_cost
 
     blk.land_cost_constraint = pyo.Constraint(
-        expr=blk.land_cost == (blk.unit_model.land_req * pv_params.land_cost_per_acre)
+        expr=blk.land_cost
+        == pyo.units.convert(
+            (blk.unit_model.land_req * global_params.land_cost),
+            to_units=blk.costing_package.base_currency,
+        )
     )
 
+    capital_cost_expr += blk.land_cost
+
     blk.sales_tax_constraint = pyo.Constraint(
-        expr=blk.sales_tax == blk.direct_capital_cost * global_params.sales_tax_frac
+        expr=blk.sales_tax
+        == pyo.units.convert(
+            blk.direct_cost * global_params.sales_tax_frac,
+            to_units=blk.costing_package.base_currency,
+        )
     )
+
+    capital_cost_expr += blk.sales_tax
 
     blk.capital_cost_constraint = pyo.Constraint(
         expr=blk.capital_cost
-        == blk.direct_capital_cost + blk.indirect_capital_cost + blk.sales_tax
+        == pyo.units.convert(
+            capital_cost_expr, to_units=blk.costing_package.base_currency
+        )
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == pv_params.fixed_operating_by_capacity
-        * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW)
+        == pyo.units.convert(
+            pv_params.fixed_operating_by_capacity
+            * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW),
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
+        )
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
-        == pv_params.variable_operating_by_generation * blk.unit_model.annual_energy
+        == pyo.units.convert(
+            pv_params.variable_operating_by_generation * blk.unit_model.annual_energy,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
+        )
     )
 
     blk.costing_package.cost_flow(-1 * blk.unit_model.electricity, "electricity")
@@ -244,12 +265,13 @@ def cost_pv_detailed(blk):
 )
 def cost_pv_simple(blk):
 
+    global_params = blk.costing_package
     pv_params = blk.costing_package.pv
     make_capital_cost_var(blk)
     make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
-    blk.direct_capital_cost = pyo.Var(
+    blk.direct_cost = pyo.Var(
         initialize=0,
         units=blk.costing_package.base_currency,
         bounds=(0, None),
@@ -263,25 +285,53 @@ def cost_pv_simple(blk):
         doc="Land costs of PV system",
     )
 
-    blk.capital_cost_constraint = pyo.Constraint(
-        expr=blk.capital_cost
-        == pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
-        * pv_params.cost_per_watt_installed
+    capital_cost_expr = 0
+
+    blk.direct_cost_constraint = pyo.Constraint(
+        expr=blk.direct_cost
+        == pyo.units.convert(
+            pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
+            * pv_params.cost_per_watt_installed,
+            to_units=blk.costing_package.base_currency,
+        )
     )
 
+    capital_cost_expr += blk.direct_cost
+
     blk.land_cost_constraint = pyo.Constraint(
-        expr=blk.land_cost == (blk.unit_model.land_req * pv_params.land_cost_per_acre)
+        expr=blk.land_cost
+        == pyo.units.convert(
+            (blk.unit_model.land_req * global_params.land_cost),
+            to_units=blk.costing_package.base_currency,
+        )
+    )
+
+    capital_cost_expr += blk.land_cost
+
+    blk.capital_cost_constraint = pyo.Constraint(
+        expr=blk.capital_cost
+        == pyo.units.convert(
+            capital_cost_expr, to_units=blk.costing_package.base_currency
+        )
     )
 
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
-        == pv_params.fixed_operating_by_capacity
-        * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW)
+        == pyo.units.convert(
+            pv_params.fixed_operating_by_capacity
+            * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW),
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
+        )
     )
 
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
-        == pv_params.variable_operating_by_generation * blk.unit_model.annual_energy
+        == pyo.units.convert(
+            pv_params.variable_operating_by_generation * blk.unit_model.annual_energy,
+            to_units=blk.costing_package.base_currency
+            / blk.costing_package.base_period,
+        )
     )
 
     blk.costing_package.cost_flow(-1 * blk.unit_model.electricity, "electricity")
