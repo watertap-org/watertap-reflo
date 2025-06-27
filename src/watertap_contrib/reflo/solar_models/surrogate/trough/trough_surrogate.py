@@ -197,6 +197,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
             {
                 "heat_load": [value(self.heat_load)],
                 "hours_storage": [value(self.hours_storage)],
+                "temperature_loop": [value(self.temperature_loop)],
             }
         )
         self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
