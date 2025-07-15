@@ -37,7 +37,7 @@ default:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-      value: 0.08
+      value: 0.11
       units: dimensionless
   capital_cost:
     cost_factor: TPEC
@@ -162,13 +162,13 @@ permian:
     value: 26
     units: S/m
   electrode_thick:
-    value: 0.0001
+    value: 0.001
     units: m
   current_density:
     value: 500
     units: A / m^2
   metal_dose:
-    value: 0.0010
+    value: 0.0001
     units: kg/L
   electrode_gap:
     value: 0.005
@@ -196,10 +196,10 @@ permian:
     units: dimensionless
   removal_frac_mass_comp:
     tds:
-      value: 0.7
+      value: 0.11
       units: dimensionless
     silica:
-      value: 0.7
+      value: 0.95
       units: dimensionless
   capital_cost:
     cost_factor: TPEC
