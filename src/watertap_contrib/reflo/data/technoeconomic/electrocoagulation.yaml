@@ -162,7 +162,7 @@ permian:
     value: 26
     units: S/m
   electrode_thick:
-    value: 0.001
+    value: 0.0001
     units: m
   current_density:
     value: 500
