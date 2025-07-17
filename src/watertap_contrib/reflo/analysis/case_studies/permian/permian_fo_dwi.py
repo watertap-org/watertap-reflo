@@ -1,4 +1,3 @@
-# %%
 import pathlib
 import pandas as pd
 
@@ -62,7 +61,7 @@ from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
-
+save_dir = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results"
 solver = get_solver()
 
 __all__ = [
@@ -106,6 +105,12 @@ skips = [
     "cp_vap_param",
     "temp_sat_solvent",
     "cp_mass_phase",
+    ".properties_NaCl",
+    ".properties_draw",
+    ".properties_sw",
+    ".vapor_properties",
+    ".properties.",
+    ".seawater_properties."
 ]
 
 
@@ -462,10 +467,9 @@ def run_permian_FO_DWI(
 
     treat.costing.base_currency = pyunits.USD_2023
 
-    electricity_price = value(
-        pyunits.convert(0.0575 * pyunits.USD_2023, to_units=pyunits.USD_2018)
-    )
-    heat_price = 0.00894
+    electricity_price = 0.0434618999  # 2018 price $/kWh
+    heat_price = 0.0166  # 2023 price $/kWh
+
     treat.costing.electricity_cost.fix(electricity_price)
     treat.costing.heat_cost.fix(heat_price)
 
@@ -496,145 +500,99 @@ def run_permian_FO_DWI(
     return m
 
 
-# if __name__ == "__main__":
-#     fail = []
-#     heat = []
-#     brine = []
-#     grid_frac = []
-#     LCOW = []
-#     feed_vol = []
-#     permian_fo_config = {
-#         "feed_vol_flow": 0.22,  # initial value for fo model setup
-#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "RO_recovery_ratio": 1,  # RO recovery ratio
-#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-#         "feed_temperature": 25,
-#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-#     }
-
-#     operating_condition = {"feed_vol_flow": 5, "feed_tds": 130}  # MGD  # g/L
-#     m = run_permian_FO_DWI(
-#         operating_condition,
-#         permian_fo_config,
-#     )
-#     print(m.fs.treatment.costing.LCOW())
-
-# %% Sweep through FO_RR
-# if __name__ == "__main__":
-#     fail = []
-#     heat = []
-#     brine = []
-#     grid_frac = []
-#     LCOW = []
-#     feed_vol = []
-#     permian_fo_config = {
-#         "feed_vol_flow": 0.22,  # initial value for fo model setup
-#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "RO_recovery_ratio": 1,  # RO recovery ratio
-#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-#         "feed_temperature": 25,
-#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-#     }
-
-#     operating_condition = {"feed_vol_flow": 5, "feed_tds": 130}  # MGD  # g/L
-#     m = run_permian_FO_DWI(
-#         operating_condition,
-#         permian_fo_config,
-#     )
-#     results_dict = build_results_dict(m, skips=skips)
-#     # assert False
-#     recovery_ratios = [
-#         0.35,
-#         0.36,
-#         0.37,
-#         0.38,
-#         0.39,
-#         0.40,
-#         0.41,
-#         0.42,
-#         0.43,
-#         0.44,
-#         0.45,
-#         0.46,
-#         0.47,
-#         0.48,
-#         0.485,
-#         0.49,
-#         0.5,
-#         0.51,
-#         0.52,
-#         0.53,
-#         0.54,
-#         0.55,
-#         0.56,
-#         0.57,
-#         0.58,
-#     ]
-#     results_dict["fo_recovery_ratio"] = []
-
-#     for rr in recovery_ratios:
-#         permian_fo_config["recovery_ratio"] = rr
-
-#         try:
-#             m = run_permian_FO_DWI(
-#                 operating_condition,
-#                 permian_fo_config,
-#             )
-#             results_dict = results_dict_append(m, results_dict)
-#             results_dict["fo_recovery_ratio"].append(rr * 100)
-#             heat.append(
-#                 (rr, value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow))
-#             )
-#             brine.append(
-#                 (
-#                     rr,
-#                     value(
-#                         m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
-#                             "Liq", "TDS"
-#                         ]
-#                     ),
-#                 )
-#             )
-#             LCOW.append((rr, 100 * value(m.fs.treatment.costing.LCOW)))
-#             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
-#         # print(brine)
-#         except:
-#             brine.append((rr, "fail"))
-#             heat.append((rr, "fail"))
-#             LCOW.append((rr, "fail"))
-#             # grid_frac.append((rr,'fail'))
-
-#     df = pd.DataFrame.from_dict(results_dict)
-#     df.to_csv(
-#         "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_no_CST_sweep_recovery_ratio.csv"
-#     )
-# %%
+##################################################################
+##################################################################
+###################### SWEEP FUNCTIONS BELOW #####################
+##################################################################
+##################################################################
 
 
-if __name__ == "__main__":
-    fail = []
-    heat = []
-    brine = []
-    grid_frac = []
-    LCOW = []
-    feed_vol = []
-    tds = [100, 130, 200]
-    mfs = [0.092, 0.119, 0.19]
-    rrs = [0.612, 0.485, 0.165]
-    # tds = [100]
-    # mfs = [0.092]
-    # rrs = [0.612]
-    qs = [1, 5, 9]
+def run_recovery_ratio_sweep():
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {"feed_vol_flow": 5, "feed_tds": 130}  # MGD  # g/L
+
+    m = run_permian_FO_DWI(
+        operating_condition,
+        permian_fo_config,
+    )
+
+    rd = build_results_dict(m, skips=skips)
+    rd["fo_recovery_ratio"] = []
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
+
+    recovery_ratios = [
+        0.35,
+        0.36,
+        0.37,
+        0.38,
+        0.39,
+        0.40,
+        0.41,
+        0.42,
+        0.43,
+        0.44,
+        0.45,
+        0.46,
+        0.47,
+        0.48,
+        0.485,
+        0.49,
+        0.5,
+        0.51,
+        0.52,
+        0.53,
+        0.54,
+        0.55,
+        0.56,
+        0.57,
+        0.58,
+    ]
+
+    for rr in recovery_ratios:
+        permian_fo_config["recovery_ratio"] = rr
+
+        try:
+            m = run_permian_FO_DWI(
+                operating_condition,
+                permian_fo_config,
+            )
+            rd = results_dict_append(m, rd)
+            rd["fo_recovery_ratio"].append(rr * 100)
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+
+        except:
+            pass
+
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_RPT2_FO_DWI_no_CST_sweep_recovery_ratio.csv")
+
+
+def run_flow_tds_sweep():
+
     permian_fo_config = {
         "feed_vol_flow": 0.22,  # initial value for fo model setup
         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
@@ -659,15 +617,30 @@ if __name__ == "__main__":
         permian_fo_config,
     )
 
-    results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-    results_dict["tds"] = list()
-    results_dict["flow_mgd"] = list()
-    results_dict["recovery_ratio"] = list()
-    results_dict["feed_TDS_mass"] = list()
+    rd = build_results_dict(m, skips=skips)
+    rd["tds"] = []
+    rd["flow_mgd"] = []
+    rd["recovery_ratio"] = []
+    rd["feed_TDS_mass"] = []
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
+
+    tds = [100, 130, 200]
+    mfs = [0.092, 0.119, 0.19]
+    # rrs = [0.612, 0.485, 0.165]
+    # NOTE: July 16, 2025
+    # rrs that are commented out above were found to result 
+    # in brine concentrations that were < 250g/L
+    # when using m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp for brine concentration.
+    # They were re-evaluated to find appropriate values.
+    rrs = [0.6395, 0.5305, 0.275]
+    # tds = [100]
+    # mfs = [0.092]
+    # rrs = [0.612]
+    qs = [1, 5, 9]
 
     for mf, salt, rr in zip(mfs, tds, rrs):
         for q in qs:
-            print(mf, salt, rr, q)
 
             permian_fo_config = {
                 "feed_vol_flow": 0.22,  # initial value for fo model setup
@@ -687,15 +660,55 @@ if __name__ == "__main__":
                 "feed_vol_flow": q,  # MGD
                 "feed_tds": salt,  # g/L
             }
+
             m = run_permian_FO_DWI(
                 operating_condition,
                 permian_fo_config,
             )
-            results_dict["tds"].append(salt)
-            results_dict["flow_mgd"].append(q)
-            results_dict["recovery_ratio"].append(rr)
-            results_dict["feed_TDS_mass"].append(mf)
-            results_dict = results_dict_append(m, results_dict)
 
-    df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_flow_TDS_sweep.csv")
+            rd["tds"].append(salt)
+            rd["flow_mgd"].append(q)
+            rd["recovery_ratio"].append(rr)
+            rd["feed_TDS_mass"].append(mf)
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+            rd = results_dict_append(m, rd)
+
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_RPT2_FO_DWI_flow_TDS_sweep.csv")
+
+
+if __name__ == "__main__":
+
+    run_recovery_ratio_sweep()
+    run_flow_tds_sweep()
+
+#     permian_fo_config = {
+#         "feed_vol_flow": 0.22,  # initial value for fo model setup
+#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+#         "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+#         "RO_recovery_ratio": 1,  # RO recovery ratio
+#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+#         "feed_temperature": 25,
+#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+#     }
+
+#     operating_condition = {"feed_vol_flow": 5, "feed_tds": 130}  # MGD  # g/L
+
+#     m = run_permian_FO_DWI(
+#         operating_condition,
+#         permian_fo_config,
+#     )
+#     print(m.fs.treatment.costing.LCOW())

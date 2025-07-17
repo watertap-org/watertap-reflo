@@ -1,4 +1,3 @@
-# %%
 import pathlib
 import pandas as pd
 import numpy as np
@@ -64,6 +63,7 @@ from watertap_contrib.reflo.property_models.fo_draw_solution_properties import (
 
 reflo_dir = pathlib.Path(__file__).resolve().parents[3]
 case_study_yaml = f"{reflo_dir}/data/technoeconomic/permian_case_study.yaml"
+save_dir = "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results"
 
 solver = get_solver()
 
@@ -109,6 +109,7 @@ skips = [
     "temp_sat_solvent",
     "cp_mass_phase",
 ]
+
 
 def build_permian_FO_cryst_RPT(permian_fo_config):
     m = ConcreteModel()
@@ -525,12 +526,11 @@ def add_treatment_costing(m, flow_vol, operating_condition):
         "heat", "SEC_th_in", flow_in, period=pyunits.hr
     )
     m.fs.treatment.costing.add_specific_energy_consumption(flow_vol, name="SEC")
-    m.fs.treatment.costing.add_specific_thermal_energy_consumption(flow_vol, name="SEC_th")
+    m.fs.treatment.costing.add_specific_thermal_energy_consumption(
+        flow_vol, name="SEC_th"
+    )
     m.fs.treatment.costing._add_flow_component_breakdowns(
-        "heat",
-        "SEC_th",
-        flow_vol,
-        period=pyunits.hr 
+        "heat", "SEC_th", flow_vol, period=pyunits.hr
     )
     m.fs.treatment.costing.initialize()
 
@@ -569,7 +569,6 @@ def add_system_costing(m, flow_vol, operating_condition):
     m.fs.energy.cst.unit.heat_load.unfix()
     m.fs.energy.costing.aggregate_flow_heat.unfix()
     m.fs.costing.frac_heat_from_grid.fix(operating_condition["grid_fraction"])
-    
 
     m.fs.costing.initialize()
 
@@ -632,63 +631,13 @@ def run_permian_FO_cryst_RPT(
         print_variables_close_to_bounds(m)
         assert False
 
-
     return m
 
 
-# if __name__ == "__main__":
-#     fail = []
-#     heat = []
-#     brine = []
-#     grid_frac = []
-#     LCOW = []
-#     feed_vol = []
-#     permian_fo_config = {
-#         "feed_vol_flow": 0.22,  # initial value for fo model setup
-#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         "recovery_ratio": 0.345,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "RO_recovery_ratio": 1,  # RO recovery ratio
-#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-#         "feed_temperature": 25,
-#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-#     }
+def run_flow_tds_sweep():
 
-#     operating_condition = {
-#         "feed_vol_flow": 5,  # MGD
-#         "feed_tds": 130,  # g/L
-#         "cryst_yield": 0.9,
-#         "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],
-#         "nacl_recover_price": 0,
-#         "heat_price": 0.0166,  # 2023 price $/kWh
-#         "elec_price": 0.0434618999,  # 2018 price $/kWh
-#         "grid_fraction": 0.5,
-#         "storage": 24,  # hr
-#         "csv_initial_heat_load": 25,  # MW
-#     }
+    global operating_condition, permian_fo_config
 
-#     m = run_permian_FO_cryst_RPT(
-#         operating_condition,
-#         permian_fo_config,
-#     )
-#     m.fs.treatment.costing.LCOW.display()
-#     m.fs.costing.LCOW.display()
-#     m.fs.energy.costing.trough_surrogate.display()
-    
-    # assert False
-
-
-
-if __name__ == "__main__":
-    fail = []
-    heat = []
-    brine = []
-    grid_frac = []
-    LCOW = []
-    feed_vol = []
     tds = [100, 130, 200]
     mfs = [0.092, 0.119, 0.19]
     rrs = [0.612, 0.485, 0.165]
@@ -742,13 +691,13 @@ if __name__ == "__main__":
     # print(f"Specific energy consumption for heat: {x()} kWhr/m3")
     # print(f"Specific energy consumption for heat: {x2()} kWhr/m3")
 
-
-    # assert False
-    results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-    results_dict["tds"] = list()
-    results_dict["flow_mgd"] = list()
-    results_dict["recovery_ratio"] = list()
-    results_dict["feed_TDS_mass"] = list()
+    rd = build_results_dict(m, skips=["diffus_phase_comp"])
+    rd["tds"] = list()
+    rd["flow_mgd"] = list()
+    rd["recovery_ratio"] = list()
+    rd["feed_TDS_mass"] = list()
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
 
     for mf, salt, rr in zip(mfs, tds, rrs):
         # if salt != 100:
@@ -757,7 +706,7 @@ if __name__ == "__main__":
             # continue
             # if  q != 9:
             #     continue
-            
+
             print(mf, salt, rr, q)
             # try:
 
@@ -791,29 +740,513 @@ if __name__ == "__main__":
                 operating_condition,
                 permian_fo_config,
             )
-            results_dict["tds"].append(salt)
-            results_dict["flow_mgd"].append(q)
-            results_dict["recovery_ratio"].append(rr)
-            results_dict["feed_TDS_mass"].append(mf)
-            
-            results_dict = results_dict_append(m, results_dict)
-            # except:
-            #     continue
-                # print_infeasible_constraints(m)
-                # print_variables_close_to_bounds(m)
+
+            rd = results_dict_append(m, rd)
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+
+            rd["tds"].append(salt)
+            rd["flow_mgd"].append(q)
+            rd["recovery_ratio"].append(rr)
+            rd["feed_TDS_mass"].append(mf)
 
             print(mf, salt, rr, q)
-    df = pd.DataFrame.from_dict(results_dict)
-    df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_flow_TDS_sweep-test.csv")
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_ZLD2_FO_cryst_RPT_flow_TDS_sweep.csv")
     # m.fs.treatment.costing.LCOW.display()
     # m.fs.costing.LCOW.display()
     # m.fs.energy.costing.trough_surrogate.display()
 
+##################################################################
+##################################################################
+###################### SWEEP FUNCTIONS BELOW #####################
+##################################################################
+##################################################################
 
 
-# # # # %% Sweep through FO_RR
-# if __name__ == "__main__":
-# #     # import numpy as np
+def run_recovery_ratio_sweep():
+
+    global operating_condition, permian_fo_config
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
+        "nacl_recover_price": 0,
+        "heat_price": 0.0166,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_cryst_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+
+    rd = build_results_dict(m, skips=["diffus_phase_comp"])
+    rd["fo_recovery_ratio"] = []
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
+
+    recovery_ratios = [
+        0.345,
+        0.355,
+        0.37,
+        0.38,
+        0.39,
+        0.40,
+        0.41,
+        0.42,
+        0.43,
+        0.44,
+        0.45,
+        0.46,
+        0.47,
+        0.48,
+        0.485,
+        0.49,
+        0.5,
+        0.51,
+        0.52,
+        0.53,
+    ]
+
+    for rr in recovery_ratios:
+        permian_fo_config["recovery_ratio"] = rr
+
+        try:
+            m = run_permian_FO_cryst_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            rd = results_dict_append(m, rd)
+            rd["fo_recovery_ratio"].append(rr * 100)
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+
+        except:
+            pass
+
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_ZLD2_FO_cryst_RPT_recovery_ratio.csv")
+
+
+def run_grid_fraction_sweep():
+
+    global operating_condition, permian_fo_config
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
+        "nacl_recover_price": 0,
+        "heat_price": 0.0166,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+    m = run_permian_FO_cryst_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    rd = build_results_dict(m, skips=["diffus_phase_comp"])
+
+    rd["grid_frac"] = []
+    rd["re_frac"] = []
+    rd["recovery_ratio"] = []
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
+
+    grid_frac = np.linspace(0.5, 0.9, 11)
+
+    for v in grid_frac:
+        try:
+            operating_condition["grid_fraction"] = v
+            m = run_permian_FO_cryst_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            rd = results_dict_append(m, rd)
+
+            rd["grid_frac"].append(v)
+            rd["re_frac"].append(1 - v)
+            rd["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+
+        except:
+            pass
+
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_ZLD2_FO_cryst_RPT_grid_frac.csv")
+
+
+def run_heat_price_sweep():
+
+    global operating_condition, permian_fo_config
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
+        "nacl_recover_price": 0,
+        "heat_price": 0.0166,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+    m = run_permian_FO_cryst_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    rd = build_results_dict(m, skips=["diffus_phase_comp"])
+    heat_price = np.linspace(0.0083, 0.0249, 11)
+    rd["heat_price"] = []
+    rd["recovery_ratio"] = []
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
+
+    for v in heat_price:
+        try:
+            operating_condition["heat_price"] = v
+            m = run_permian_FO_cryst_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            rd = results_dict_append(m, rd)
+            rd["heat_price"].append(v)
+            rd["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+
+        except:
+            pass
+
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_ZLD2_FO_cryst_RPT_heat_price.csv")
+
+
+def run_nacl_price_sweep():
+
+    global operating_condition, permian_fo_config
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
+        "nacl_recover_price": 0,
+        "heat_price": 0.0166,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_cryst_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+
+    rd = build_results_dict(m, skips=["diffus_phase_comp"])
+
+    rd["nacl_price"] = []
+    rd["recovery_ratio"] = []
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
+
+    nacl_price = np.linspace(-0.03, 0, 11)
+
+    for v in nacl_price:
+        try:
+            operating_condition["nacl_recover_price"] = v
+            m = run_permian_FO_cryst_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            rd = results_dict_append(m, rd)
+            rd["nacl_price"].append(v)
+            rd["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+        except:
+            pass
+
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_ZLD2_FO_cryst_RPT_nacl_price.csv")
+
+
+def run_cst_price_sweep():
+
+    global operating_condition, permian_fo_config
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
+        "nacl_recover_price": 0,
+        "heat_price": 0.0166,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_cryst_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+
+    rd = build_results_dict(m, skips=["diffus_phase_comp"])
+    rd["cst_price"] = []
+    rd["recovery_ratio"] = []
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
+
+    cst_price = np.linspace(148.5, 445.5, 11)
+
+    for v in cst_price:
+        try:
+            m = run_permian_FO_cryst_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            m.fs.energy.cst.unit.costing.costing_package.trough_surrogate.cost_per_total_aperture_area = (
+                v
+            )
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+            rd = results_dict_append(m, rd)
+            rd["cst_price"].append(v)
+            rd["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
+
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+
+        except:
+            pass
+
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_ZLD2_FO_cryst_RPT_cst_price.csv")
+
+
+def run_storage_price_sweep():
+
+    global operating_condition, permian_fo_config
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
+        "nacl_recover_price": 0,
+        "heat_price": 0.0166,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+    m = run_permian_FO_cryst_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    rd = build_results_dict(m, skips=["diffus_phase_comp"])
+
+    rd["storage_price"] = []
+    rd["recovery_ratio"] = []
+    rd["fo_thermal_energy_flow"] = []
+    rd["brine_conc"] = []
+
+    storage_price = np.linspace(31, 93, 11)
+
+    for v in storage_price:
+        try:
+            operating_condition["storage_price"] = v
+            m = run_permian_FO_cryst_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            m.fs.energy.cst.unit.costing.costing_package.trough_surrogate.cost_per_storage_capital = (
+                v
+            )
+            results = solver.solve(m)
+            assert_optimal_termination(results)
+
+            rd = results_dict_append(m, rd)
+            rd["storage_price"].append(v)
+            rd["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+        except:
+            pass
+
+    df = pd.DataFrame.from_dict(rd)
+    df.to_csv(f"{save_dir}/permian_ZLD2_FO_cryst_RPT_storage_price.csv")
+
+
+if __name__ == "__main__":
+
+    run_recovery_ratio_sweep()
+    run_storage_price_sweep()
+    run_grid_fraction_sweep()
+    run_heat_price_sweep()
+    run_nacl_price_sweep()
+    run_cst_price_sweep()
+
+    run_flow_tds_sweep()
 #     fail = []
 #     heat = []
 #     brine = []
@@ -823,7 +1256,7 @@ if __name__ == "__main__":
 #     permian_fo_config = {
 #         "feed_vol_flow": 0.22,  # initial value for fo model setup
 #         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+#         "recovery_ratio": 0.345,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
 #         "RO_recovery_ratio": 1,  # RO recovery ratio
 #         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
 #         "feed_temperature": 25,
@@ -838,7 +1271,7 @@ if __name__ == "__main__":
 #         "feed_vol_flow": 5,  # MGD
 #         "feed_tds": 130,  # g/L
 #         "cryst_yield": 0.9,
-#         "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
+#         "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],
 #         "nacl_recover_price": 0,
 #         "heat_price": 0.0166,  # 2023 price $/kWh
 #         "elec_price": 0.0434618999,  # 2018 price $/kWh
@@ -846,478 +1279,13 @@ if __name__ == "__main__":
 #         "storage": 24,  # hr
 #         "csv_initial_heat_load": 25,  # MW
 #     }
+
 #     m = run_permian_FO_cryst_RPT(
 #         operating_condition,
 #         permian_fo_config,
 #     )
-#     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-#     recovery_ratios = [
-#         0.345,
-#         0.355,
-#         0.37,
-#         0.38,
-#         0.39,
-#         0.40,
-#         0.41,
-#         0.42,
-#         0.43,
-#         0.44,
-#         0.45,
-#         0.46,
-#         0.47,
-#         0.48,
-#         0.485,
-#         0.49,
-#         0.5,
-#         0.51,
-#         0.52,
-#         0.53,
-#     ]
-#     results_dict["fo_recovery_ratio"] = []
+#     m.fs.treatment.costing.LCOW.display()
+#     m.fs.costing.LCOW.display()
+#     m.fs.energy.costing.trough_surrogate.display()
 
-#     for rr in recovery_ratios:
-#         permian_fo_config["recovery_ratio"] = rr
-
-#         try:
-#             m = run_permian_FO_cryst_RPT(
-#                 operating_condition,
-#                 permian_fo_config,
-#             )
-#             results_dict = results_dict_append(m, results_dict)
-#             results_dict["fo_recovery_ratio"].append(rr * 100)
-#             heat.append(
-#                 (rr, value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow))
-#             )
-#             brine.append(
-#                 (
-#                     rr,
-#                     value(
-#                         m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
-#                             "Liq", "TDS"
-#                         ]
-#                     ),
-#                 )
-#             )
-#             LCOW.append((rr, value(m.fs.treatment.costing.LCOW)))
-#             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
-#         # print(brine)
-#         except:
-#             brine.append((rr, "fail"))
-#             heat.append((rr, "fail"))
-#             LCOW.append((rr, "fail"))
-#             # grid_frac.append((rr,'fail'))
-
-#     df = pd.DataFrame.from_dict(results_dict)
-#     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_recovery_ratio.csv")
-#     # assert False
-# # # %% Sweep through grid fraction
-# # # if __name__ == "__main__":
-# # #     import numpy as np
-
-#     fail = []
-#     heat = []
-#     brine = []
-#     grid_frac = []
-#     LCOW = []
-#     feed_vol = []
-#     permian_fo_config = {
-#         "feed_vol_flow": 0.22,  # initial value for fo model setup
-#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "RO_recovery_ratio": 1,  # RO recovery ratio
-#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-#         "feed_temperature": 25,
-#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-#     }
-
-#     operating_condition = {
-#         "feed_vol_flow": 5,  # MGD
-#         "feed_tds": 130,  # g/L
-#         "cryst_yield": 0.9,
-#         "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
-#         "nacl_recover_price": 0,
-#         "heat_price": 0.0166,  # 2023 price $/kWh
-#         "elec_price": 0.0434618999,  # 2018 price $/kWh
-#         "grid_fraction": 0.5,
-#         "storage": 24,  # hr
-#         "csv_initial_heat_load": 25,  # MW
-#     }
-#     m = run_permian_FO_cryst_RPT(
-#         operating_condition,
-#         permian_fo_config,
-#     )
-#     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-#     grid_frac = np.linspace(0.5, 0.9, 11)
-#     results_dict["grid_frac"] = []
-#     results_dict["re_frac"] = []
-#     results_dict["recovery_ratio"] = []
-
-#     for v in grid_frac:
-#         try:
-#             operating_condition["grid_fraction"] = v
-#             m = run_permian_FO_cryst_RPT(
-#                 operating_condition,
-#                 permian_fo_config,
-#             )
-#             results_dict = results_dict_append(m, results_dict)
-#             results_dict["grid_frac"].append(v)
-#             results_dict["re_frac"].append(1 - v)
-#             results_dict["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
-#             heat.append((v, value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)))
-#             brine.append(
-#                 (
-#                     v,
-#                     value(
-#                         m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
-#                             "Liq", "TDS"
-#                         ]
-#                     ),
-#                 )
-#             )
-#             LCOW.append((v, value(m.fs.treatment.costing.LCOW)))
-#             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
-#         # print(brine)
-#         except:
-#             brine.append((v, "fail"))
-#             heat.append((v, "fail"))
-#             LCOW.append((v, "fail"))
-#             # grid_frac.append((rr,'fail'))
-
-#     df = pd.DataFrame.from_dict(results_dict)
-#     # df.to_csv("csv_results/FO_cryst_RPT_grid_frac.csv")
-#     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_grid_frac.csv")
-
-#     # assert False
-
-# # # %% Sweep through heat price
-# # # if __name__ == "__main__":
-# # #     import numpy as np
-
-#     fail = []
-#     heat = []
-#     brine = []
-#     grid_frac = []
-#     LCOW = []
-#     feed_vol = []
-#     permian_fo_config = {
-#         "feed_vol_flow": 0.22,  # initial value for fo model setup
-#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "RO_recovery_ratio": 1,  # RO recovery ratio
-#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-#         "feed_temperature": 25,
-#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-#     }
-
-#     operating_condition = {
-#         "feed_vol_flow": 5,  # MGD
-#         "feed_tds": 130,  # g/L
-#         "cryst_yield": 0.9,
-#         "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
-#         "nacl_recover_price": 0,
-#         "heat_price": 0.0166,  # 2023 price $/kWh
-#         "elec_price": 0.0434618999,  # 2018 price $/kWh
-#         "grid_fraction": 0.5,
-#         "storage": 24,  # hr
-#         "csv_initial_heat_load": 25,  # MW
-#     }
-#     m = run_permian_FO_cryst_RPT(
-#         operating_condition,
-#         permian_fo_config,
-#     )
-#     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-#     heat_price = np.linspace(0.0083, 0.0249, 11)
-#     results_dict["heat_price"] = []
-#     results_dict["recovery_ratio"] = []
-
-#     for v in heat_price:
-#         try:
-#             operating_condition["heat_price"] = v
-#             m = run_permian_FO_cryst_RPT(
-#                 operating_condition,
-#                 permian_fo_config,
-#             )
-#             results_dict = results_dict_append(m, results_dict)
-#             results_dict["heat_price"].append(v)
-#             results_dict["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
-#             heat.append((v, value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)))
-#             brine.append(
-#                 (
-#                     v,
-#                     value(
-#                         m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
-#                             "Liq", "TDS"
-#                         ]
-#                     ),
-#                 )
-#             )
-#             LCOW.append((v, value(m.fs.treatment.costing.LCOW)))
-#             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
-#         # print(brine)
-#         except:
-#             brine.append((v, "fail"))
-#             heat.append((v, "fail"))
-#             LCOW.append((v, "fail"))
-#             # grid_frac.append((rr,'fail'))
-
-#     df = pd.DataFrame.from_dict(results_dict)
-#     # df.to_csv("csv_results/FO_cryst_RPT_heat_price.csv")
-#     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_heat_price.csv")
-
-# # # %% Sweep through nacl price
-# # # if __name__ == "__main__":
-# # #     import numpy as np
-
-#     fail = []
-#     heat = []
-#     brine = []
-#     grid_frac = []
-#     LCOW = []
-#     feed_vol = []
-#     permian_fo_config = {
-#         "feed_vol_flow": 0.22,  # initial value for fo model setup
-#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "RO_recovery_ratio": 1,  # RO recovery ratio
-#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-#         "feed_temperature": 25,
-#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-#     }
-
-#     operating_condition = {
-#         "feed_vol_flow": 5,  # MGD
-#         "feed_tds": 130,  # g/L
-#         "cryst_yield": 0.9,
-#         "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
-#         "nacl_recover_price": 0,
-#         "heat_price": 0.0166,  # 2023 price $/kWh
-#         "elec_price": 0.0434618999,  # 2018 price $/kWh
-#         "grid_fraction": 0.5,
-#         "storage": 24,  # hr
-#         "csv_initial_heat_load": 25,  # MW
-#     }
-#     m = run_permian_FO_cryst_RPT(
-#         operating_condition,
-#         permian_fo_config,
-#     )
-#     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-#     nacl_price = np.linspace(-0.03, 0, 11)
-#     results_dict["nacl_price"] = []
-#     results_dict["recovery_ratio"] = []
-
-#     for v in nacl_price:
-#         try:
-#             operating_condition["nacl_recover_price"] = v
-#             m = run_permian_FO_cryst_RPT(
-#                 operating_condition,
-#                 permian_fo_config,
-#             )
-#             results_dict = results_dict_append(m, results_dict)
-#             results_dict["nacl_price"].append(v)
-#             results_dict["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
-#             heat.append((v, value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)))
-#             brine.append(
-#                 (
-#                     v,
-#                     value(
-#                         m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
-#                             "Liq", "TDS"
-#                         ]
-#                     ),
-#                 )
-#             )
-#             LCOW.append((v, value(m.fs.treatment.costing.LCOW)))
-#             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
-#         # print(brine)
-#         except:
-#             brine.append((v, "fail"))
-#             heat.append((v, "fail"))
-#             LCOW.append((v, "fail"))
-#             # grid_frac.append((rr,'fail'))
-
-#     df = pd.DataFrame.from_dict(results_dict)
-#     # df.to_csv("csv_results/FO_cryst_RPT_nacl_price.csv")
-#     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_nacl_price.csv")
-# # # %% Sweep through CST cost
-# # # if __name__ == "__main__":
-# # #     import numpy as np
-
-#     fail = []
-#     heat = []
-#     brine = []
-#     grid_frac = []
-#     LCOW = []
-#     feed_vol = []
-#     permian_fo_config = {
-#         "feed_vol_flow": 0.22,  # initial value for fo model setup
-#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "RO_recovery_ratio": 1,  # RO recovery ratio
-#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-#         "feed_temperature": 25,
-#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-#     }
-
-#     operating_condition = {
-#         "feed_vol_flow": 5,  # MGD
-#         "feed_tds": 130,  # g/L
-#         "cryst_yield": 0.9,
-#         "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
-#         "nacl_recover_price": 0,
-#         "heat_price": 0.0166,  # 2023 price $/kWh
-#         "elec_price": 0.0434618999,  # 2018 price $/kWh
-#         "grid_fraction": 0.5,
-#         "storage": 24,  # hr
-#         "csv_initial_heat_load": 25,  # MW
-#     }
-#     m = run_permian_FO_cryst_RPT(
-#         operating_condition,
-#         permian_fo_config,
-#     )
-#     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-#     cst_price = np.linspace(148.5, 445.5, 11)
-#     results_dict["cst_price"] = []
-#     results_dict["recovery_ratio"] = []
-
-#     for v in cst_price:
-#         try:
-#             m = run_permian_FO_cryst_RPT(
-#                 operating_condition,
-#                 permian_fo_config,
-#             )
-#             m.fs.energy.cst.unit.costing.costing_package.trough_surrogate.cost_per_total_aperture_area = (
-#                 v
-#             )
-#             results = solver.solve(m)
-#             assert_optimal_termination(results)
-#             results_dict = results_dict_append(m, results_dict)
-#             results_dict["cst_price"].append(v)
-#             results_dict["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
-#             heat.append((v, value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)))
-#             brine.append(
-#                 (
-#                     v,
-#                     value(
-#                         m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
-#                             "Liq", "TDS"
-#                         ]
-#                     ),
-#                 )
-#             )
-#             LCOW.append((v, value(m.fs.treatment.costing.LCOW)))
-#             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
-#         # print(brine)
-#         except:
-#             brine.append((v, "fail"))
-#             heat.append((v, "fail"))
-#             LCOW.append((v, "fail"))
-#             # grid_frac.append((rr,'fail'))
-
-#     df = pd.DataFrame.from_dict(results_dict)
-#     # df.to_csv("csv_results/FO_cryst_RPT_cst_price.csv")
-#     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_cst_price.csv")
-# # # %% Sweep through storage price
-# # # if __name__ == "__main__":
-# # #     import numpy as np
-
-#     fail = []
-#     heat = []
-#     brine = []
-#     grid_frac = []
-#     LCOW = []
-#     feed_vol = []
-#     permian_fo_config = {
-#         "feed_vol_flow": 0.22,  # initial value for fo model setup
-#         "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
-#         # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
-#         "RO_recovery_ratio": 1,  # RO recovery ratio
-#         "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
-#         "feed_temperature": 25,
-#         "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
-#         "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
-#         "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
-#         "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
-#         "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
-#     }
-
-#     operating_condition = {
-#         "feed_vol_flow": 5,  # MGD
-#         "feed_tds": 130,  # g/L
-#         "cryst_yield": 0.9,
-#         "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],  # bar
-#         "nacl_recover_price": 0,
-#         "heat_price": 0.0166,  # 2023 price $/kWh
-#         "elec_price": 0.0434618999,  # 2018 price $/kWh
-#         "grid_fraction": 0.5,
-#         "storage": 24,  # hr
-#         "csv_initial_heat_load": 25,  # MW
-#     }
-#     m = run_permian_FO_cryst_RPT(
-#         operating_condition,
-#         permian_fo_config,
-#     )
-#     results_dict = build_results_dict(m, skips=["diffus_phase_comp"])
-#     storage_price = np.linspace(31, 93, 11)
-#     results_dict["storage_price"] = []
-#     results_dict["recovery_ratio"] = []
-
-#     for v in storage_price:
-#         try:
-#             operating_condition["storage_price"] = v
-#             m = run_permian_FO_cryst_RPT(
-#                 operating_condition,
-#                 permian_fo_config,
-#             )
-#             m.fs.energy.cst.unit.costing.costing_package.trough_surrogate.cost_per_storage_capital = (
-#                 v
-#             )
-#             results = solver.solve(m)
-#             assert_optimal_termination(results)
-#             results_dict = results_dict_append(m, results_dict)
-#             results_dict["storage_price"].append(v)
-#             results_dict["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
-#             heat.append((v, value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)))
-#             brine.append(
-#                 (
-#                     v,
-#                     value(
-#                         m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
-#                             "Liq", "TDS"
-#                         ]
-#                     ),
-#                 )
-#             )
-#             LCOW.append((v, value(m.fs.treatment.costing.LCOW)))
-#             # grid_frac.append((rr,m.fs.costing.frac_heat_from_grid.value))
-#         # print(brine)
-#         except:
-#             brine.append((v, "fail"))
-#             heat.append((v, "fail"))
-#             LCOW.append((v, "fail"))
-#             # grid_frac.append((rr,'fail'))
-
-#     df = pd.DataFrame.from_dict(results_dict)
-#     # df.to_csv("csv_results/FO_cryst_RPT_storage_price.csv")
-#     df.to_csv("/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_storage_price.csv")
-# # # %%
+# assert False
