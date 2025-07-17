@@ -212,6 +212,7 @@ def case_study_stacked_plot(
 
         if actual_lcow_row is None:
             row_lcow = row[f"{costing_blk}.LCOW"]
+            actual_lcow_row = f"{costing_blk}.LCOW"
         else:
             row_lcow = row[actual_lcow_row]
 
@@ -492,10 +493,14 @@ def case_study_stacked_plot(
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
     else:
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
+    # ax2 = ax.twinx()
+    # ax2.plot(df.index, df[actual_lcow_row], color="k", linewidth=5)
     if ylims is not None:
         ax.set_ylim(ylims)
+        # ax2.set_ylim(ylims)
     else:
         ax.set_ylim(0, np.ceil(max(actual_lcow)))
+        # ax2.set_ylim(0, np.ceil(max(actual_lcow)))
 
     if xlims is not None:
         ax.set_xlim(xlims)
@@ -511,6 +516,7 @@ def case_study_stacked_plot(
     if (fig_rel, ax_rel) == (None, None):
         fig_rel, ax_rel = plt.subplots(figsize=figsize)
         fig_rel.set_size_inches(5, 5, forward=True)
+
 
     ax_rel.stackplot(
         df.index,
@@ -543,8 +549,19 @@ def case_study_stacked_plot(
     ax_rel.set_ylim((0, 1.05))
     ax_rel.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
 
+    ax_rel2 = ax_rel.twinx()
+    ax_rel2.plot(df.index, df[actual_lcow_row], color="black", linewidth=3, alpha=0.5)
+    ax_rel2.set_ylim((0, 1.05 * df[actual_lcow_row].max()))
+    ax_rel2.set_ylabel("", fontsize=label_fontsize)
+
+    ax_rel2_ticks = np.linspace(0, df[actual_lcow_row].max(), 5)
+    ax_rel2.tick_params(axis="both", labelsize=tick_fontsize)
+    ax_rel2.set_yticks(ax_rel2_ticks)
+    ax_rel2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))
+
     if xlims is not None:
         ax_rel.set_xlim(xlims)
+        # ax_rel2.set_xlim(xlims)
     else:
         ax_rel.set_xlim(0, 1)
 
@@ -1312,7 +1329,7 @@ if __name__ == "__main__":
     # pprint.pprint(unit_color_dict_default)
     # plot_all_cases(kbhdp_wr)
     # plot_all_cases(permian_wr)
-    # plot_all_cases(kbhdp_grid_frac)
+    plot_all_cases(kbhdp_grid_frac)
     # plot_all_cases(permian_grid_frac)
     # plot_case(permian_grid_frac["Permian"]["Permian_ZLD1_MD_Cryst"]["grid_fraction"])
     # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_2"]["water_recovery"])])
