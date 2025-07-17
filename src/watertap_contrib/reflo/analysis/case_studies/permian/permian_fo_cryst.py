@@ -841,12 +841,50 @@ def run_flow_tds_sweep():
     # m.fs.treatment.feed.properties[0].conc_mass_comp.display()
     # m.fs.treatment.costing.LCOW.display()
     # m.fs.treatment.ec.unit.conductivity.display()
+def run_base_case():
 
+    global operating_condition, permian_fo_config
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        # "recovery_ratio": 0.485,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],
+        "nacl_recover_price": 0,
+    }
+
+    m = run_permian_FO_cryst(
+        operating_condition,
+        permian_fo_config,
+    )
+
+
+    m.fs.treatment.costing.LCOW.display()
+    m.fs.treatment.costing.total_capital_cost.display()
+    m.fs.treatment.costing.total_operating_cost.display()
+    m.fs.treatment.costing.SEC.display()
+    m.fs.treatment.costing.SEC_th.display()
 
 if __name__ == "__main__":
 
-    run_flow_tds_sweep()
-    run_recovery_ratio_sweep()
+    run_base_case()
+    # run_flow_tds_sweep()
+    # run_recovery_ratio_sweep()
 
     # permian_fo_config = {
     #     "feed_vol_flow": 0.22,  # initial value for fo model setup

@@ -978,15 +978,54 @@ def run_storage_cost_sweep():
     df = pd.DataFrame.from_dict(rd)
     df.to_csv(f"{save_dir}/permian_RPT2_FO_DWI_RPT_storage_price.csv")
 
+def run_base_case():
+
+
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "heat_price": 0.0166,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    m = run_permian_FO_DWI_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+    # m.fs.treatment.costing.LCOW.display()
+    m.fs.costing.LCOW.display()
+    m.fs.costing.total_capital_cost.display()
+    m.fs.costing.total_operating_cost.display()
+    m.fs.treatment.costing.SEC.display()
+    m.fs.costing.SEC_th.display()
 
 if __name__ == "__main__":
 
-    run_recovery_ratio_sweep()
-    run_dwi_cost_sweep()
-    run_grid_fraction_sweep()
-    run_heat_price_sweep()
-    run_cst_price_sweep()
-    run_storage_cost_sweep()
+    run_base_case()
+
+    # run_recovery_ratio_sweep()
+    # run_dwi_cost_sweep()
+    # run_grid_fraction_sweep()
+    # run_heat_price_sweep()
+    # run_cst_price_sweep()
+    # run_storage_cost_sweep()
 
 
 
