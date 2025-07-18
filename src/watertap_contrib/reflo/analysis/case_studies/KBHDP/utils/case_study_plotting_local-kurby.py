@@ -594,21 +594,23 @@ def case_study_stacked_plot(
         unit_lcow[key] = np.array(agg_flow_lcow[key.lower()])
         unit_lcow_rel[key] = np.array(agg_flow_lcow_rel[key.lower()])
 
-    # figure_csv = pd.DataFrame.from_dict(unit_lcow)
-    # figure_csv["LCOW"] = figure_csv.sum(axis=1)
-    # figure_csv["LCOW_data"] = actual_lcow
-    # figure_csv.index = df.index
+    figure_csv = pd.DataFrame.from_dict(unit_lcow)
+    figure_csv["LCOW"] = figure_csv.sum(axis=1)
+    figure_csv["LCOW_data"] = actual_lcow
+    figure_csv.index = df.index
 
-    # figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
-    # figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
-    # figure_csv_rel["LCOW_data"] = actual_lcow
-    # figure_csv_rel["LCOW_calc"] = calc_lcow
-    # figure_csv_rel["LCOW_diff_rel"] = calc_to_actual_lcow
-    # figure_csv_rel.index = df.index
+    figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
+    figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
+    figure_csv_rel["LCOW_data"] = actual_lcow
+    figure_csv_rel["LCOW_calc"] = calc_lcow
+    figure_csv_rel["LCOW_diff_rel"] = calc_to_actual_lcow
+    figure_csv_rel.index = df.index
 
 
-    # print(figure_csv.head(30))
-    # print(figure_csv_rel.head(30))
+    print(figure_csv.head(30))
+    print(figure_csv_rel.head(30))
+    # assert False
+    # print(figure_csv_rel["DWI OPEX LCOW rel"])
     return fig, ax, fig_rel, ax_rel, legend
 
 
@@ -936,7 +938,7 @@ permian_wr = {
                 "xcol": "fs.treatment.FO.fs.fo.recovery_ratio",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 35),
+                "ylims": (0, 25),
                 "xlims": (0.35, 0.5),
                 "save_name": "permian_water_recovery_stacked_plot.png",  # Change this
                 "save": False,
@@ -1004,7 +1006,7 @@ permian_grid_frac = {
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 40),
+                "ylims": (0, 15),
                 "xlims": (0.1, 0.5),  # Change this
                 "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
@@ -1066,7 +1068,7 @@ permian_grid_frac = {
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 40),
+                "ylims": (0, 10),
                 "xlims": (0.1, 0.5),  # Change this
                 "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
@@ -1329,8 +1331,8 @@ if __name__ == "__main__":
     # pprint.pprint(unit_color_dict_default)
     # plot_all_cases(kbhdp_wr)
     # plot_all_cases(permian_wr)
-    plot_all_cases(kbhdp_grid_frac)
-    # plot_all_cases(permian_grid_frac)
+    # plot_all_cases(kbhdp_grid_frac)
+    plot_all_cases(permian_grid_frac)
     # plot_case(permian_grid_frac["Permian"]["Permian_ZLD1_MD_Cryst"]["grid_fraction"])
     # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_2"]["water_recovery"])])
     # plot_case(permian_grid_frac["Permian"]["Permian_ZLD2_FO_Cryst"]["grid_fraction"])
