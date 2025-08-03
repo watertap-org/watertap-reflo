@@ -468,7 +468,7 @@ def case_study_stacked_plot(
     # Create stacked plot with absolute values
 
     if (fig, ax) == (None, None):
-        fig, ax = plt.subplots(figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize, layout='constrained')
         fig.set_size_inches(5, 5, forward=True)
 
     ax.stackplot(
@@ -514,7 +514,7 @@ def case_study_stacked_plot(
     # Create stacked plot with relative values
 
     if (fig_rel, ax_rel) == (None, None):
-        fig_rel, ax_rel = plt.subplots(figsize=figsize)
+        fig_rel, ax_rel = plt.subplots(figsize=figsize, layout='constrained')
         fig_rel.set_size_inches(5, 5, forward=True)
 
 
@@ -568,7 +568,7 @@ def case_study_stacked_plot(
     fig_rel.tight_layout()
 
 
-    if save is True:
+    if global_save:
         fig.savefig(f"{fig_save_path}/{save_name}", dpi=300, bbox_inches="tight")
         fig_rel.savefig(
             f"{fig_save_path}/{save_name.replace('.png', '_rel.png')}",
@@ -599,6 +599,9 @@ def case_study_stacked_plot(
     figure_csv["LCOW_data"] = actual_lcow
     figure_csv.index = df.index
 
+    if global_save:
+        figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
+
     figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
     figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
     figure_csv_rel["LCOW_data"] = actual_lcow
@@ -607,8 +610,15 @@ def case_study_stacked_plot(
     figure_csv_rel.index = df.index
 
 
-    print(figure_csv.head(30))
+    if global_save:
+        figure_csv_rel.to_csv(f"{fig_save_path}/{save_name.replace('.png', '_rel.csv')}", index=True)
+    # print(figure_csv.head(30))
     print(figure_csv_rel.head(30))
+
+    if "electricity" in figure_csv_rel.columns:
+        print(figure_csv_rel.electricity)
+    if "heat" in figure_csv_rel.columns:
+        print(figure_csv_rel.heat)
     # assert False
     # print(figure_csv_rel["DWI OPEX LCOW rel"])
     return fig, ax, fig_rel, ax_rel, legend
@@ -788,7 +798,8 @@ kbhdp_grid_frac = {
                 "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
                 "ylims": (0, 2),
                 "xlims": (0.1, 0.8),
-                "save_name": "kbhdp_rpt1_grid_frac_stacked_plot.png",  # Change this
+                # "save_name": "kbhdp_rpt1_grid_frac_stacked_plot.png",  # Change this
+                "save_name": "kbhdp_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
             },
         },
@@ -911,7 +922,7 @@ permian_wr = {
                 "xcol": "fs.water_recovery",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Water Recovery (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 35),
+                "ylims": (0, 25),
                 "xlims": (0.35, 0.5),
                 "save_name": "permian_water_recovery_stacked_plot.png",  # Change this
                 "save": False,
@@ -975,7 +986,7 @@ permian_grid_frac = {
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 40),
+                "ylims": (0, 35),
                 "xlims": (0.1, 0.5),  # Change this
                 "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
@@ -1006,7 +1017,7 @@ permian_grid_frac = {
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 15),
+                "ylims": (0, 20),
                 "xlims": (0.1, 0.5),  # Change this
                 "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
@@ -1037,7 +1048,7 @@ permian_grid_frac = {
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 40),
+                "ylims": (0, 20),
                 "xlims": (0.1, 0.5),  # Change this
                 "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
@@ -1068,7 +1079,7 @@ permian_grid_frac = {
                 "xcol": "fs.costing.RE Fraction",  # Change this
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Solar Energy (%)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 10),
+                "ylims": (0, 20),
                 "xlims": (0.1, 0.5),  # Change this
                 "save_name": "permian_grid_frac_stacked_plot.png",  # Change this
                 "save": False,
@@ -1131,7 +1142,7 @@ def plot_case(case, fig=None, ax=None, fig_rel=None, ax_rel=None):
     return legend_
 
 
-def plot_all_cases(cases):
+def plot_all_cases(cases, xdim=4, ydim=3.5, legend_rows=2, bboxy=1.1):
 
     figs = {}
     axs = {}
@@ -1156,13 +1167,15 @@ def plot_all_cases(cases):
             figs[study][key], axs[study][key] = plt.subplots(
                 n_rows,
                 n_cols,
-                figsize=(4.0 * n_cols, 4 * n_rows),
+                figsize=(xdim * n_cols, ydim * n_rows),
+                # constrained_layout=True,
             )
 
             figs_rel[study][key], axs_rel[study][key] = plt.subplots(
                 n_rows,
                 n_cols,
-                figsize=(4.0 * n_cols, 4 * n_rows),
+                figsize=((xdim + 0.6) * n_cols, (ydim - 0.5) * n_rows),
+                # constrained_layout=True,
             )
             legends[study][key] = []
             axs[study][key] = np.atleast_1d(axs[study][key]).ravel()
@@ -1202,8 +1215,8 @@ def plot_all_cases(cases):
                     transform=axs_rel[study][key][idx1].transAxes,
                 )
 
-            figs[study][key].tight_layout()
-            figs_rel[study][key].tight_layout()
+            # figs[study][key].tight_layout()
+            # figs_rel[study][key].tight_layout()
 
             if len(axs[study][key]) < 4:
                 figs[study][key].subplots_adjust(top=0.85)
@@ -1238,10 +1251,10 @@ def plot_all_cases(cases):
             unique = [unique[0], unique[1]] + unique_flows + unique_units
 
             # Add the unified legend
-            legend_rows = 2
-            legend_rows = 1
-            if len(axs[study][key]) > 3:
-                legend_rows = 2
+            # legend_rows = 2
+            # legend_rows = 1
+            # if len(axs[study][key]) > 3:
+            #     legend_rows = 2
             legend_cols = len(unique) // legend_rows + 1
             # legend_cols = 6
 
@@ -1250,12 +1263,12 @@ def plot_all_cases(cases):
                 [l for l, _ in unique],
                 loc="upper center",  # or 'lower center' if you prefer
                 ncol=legend_cols,
-                # bbox_to_anchor=(0.1, 1.0, 0.8, 0.03),  # above the plots
+                bbox_to_anchor=(0, bboxy, 1, 0.05),  # above the plots
                 frameon=True,
-                handlelength=1.4,
-                handleheight=1.4,
-                labelspacing=0.25,
-                handletextpad=0.4,
+                # handlelength=1.4,
+                # handleheight=1.4,
+                # labelspacing=0.25,
+                # handletextpad=0.4,
                 # columnspacing=0.9,
                 fontsize=10,
                 mode="expand",
@@ -1265,12 +1278,12 @@ def plot_all_cases(cases):
                 [l for l, _ in unique],
                 loc="upper center",  # or 'lower center' if you prefer
                 ncol=legend_cols,
-                # bbox_to_anchor=(0.1, 1.0, 0.8, 0.03),  # above the plots
+                bbox_to_anchor=(0, bboxy, 1, 0.05),  # above the plots
                 frameon=True,
-                handlelength=1.4,
-                handleheight=1.4,
-                labelspacing=0.25,
-                handletextpad=0.4,
+                # handlelength=1.4,
+                # handleheight=1.4,
+                # labelspacing=0.25,
+                # handletextpad=0.4,
                 # columnspacing=0.9,
                 fontsize=10,
                 mode="expand",
@@ -1295,23 +1308,26 @@ def plot_all_cases(cases):
                 axs_rel[study][key][idx1].transAxes.inverted()
             )
 
-            # Change to location of the legend.
-            yOffset = 0.025
-            bb.y0 += yOffset
-            bb.y1 += yOffset
-            bb_rel.y0 += yOffset
-            bb_rel.y1 += yOffset
+            # # Change to location of the legend.
+            # yOffset = 0.025
+            # bb.y0 += yOffset
+            # bb.y1 += yOffset
+            # bb_rel.y0 += yOffset
+            # bb_rel.y1 += yOffset
 
-            master_legend.set_bbox_to_anchor(
-                bb, transform=axs[study][key][idx1].transAxes
-            )
-            master_legend_rel.set_bbox_to_anchor(
-                bb_rel, transform=axs_rel[study][key][idx1].transAxes
-            )
+            figs[study][key].tight_layout()
+            figs_rel[study][key].tight_layout()
+
+            # master_legend.set_bbox_to_anchor(
+            #     bb, transform=axs[study][key][idx1].transAxes
+            # )
+            # master_legend_rel.set_bbox_to_anchor(
+            #     bb_rel, transform=axs_rel[study][key][idx1].transAxes
+            # )
 
             print("Saving figure...")
             print(f'{fig_save_path}/{cases[study][case][key]["save_name"]}')
-            
+
             if global_save:
                 figs[study][key].savefig(
                     f'{fig_save_path}/{cases[study][case][key]["save_name"]}',
@@ -1325,28 +1341,34 @@ def plot_all_cases(cases):
                 )
 
 
-global_save = False
-# global_save = True
+# global_save = False
+global_save = True
+
+
 if __name__ == "__main__":
     # pprint.pprint(unit_color_dict_default)
-    # plot_all_cases(kbhdp_wr)
-    # plot_all_cases(permian_wr)
-    # plot_all_cases(kbhdp_grid_frac)
-    plot_all_cases(permian_grid_frac)
-    # plot_case(permian_grid_frac["Permian"]["Permian_ZLD1_MD_Cryst"]["grid_fraction"])
-    # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_2"]["water_recovery"])])
-    # plot_case(permian_grid_frac["Permian"]["Permian_ZLD2_FO_Cryst"]["grid_fraction"])
+
+    # plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["soda_ash"])
+    # plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["water_recovery"])
+
+    # fig_csv = pd.DataFrame()
+
+    # plot_all_cases(kbhdp_wr, bboxy=1.03, legend_rows=1)
+
+    # fig_csv.to_csv(f"{fig_save_path}/kbhdp_water_recovery_fig.csv", index=True)
+    # plot_all_cases(kbhdp_grid_frac, bboxy=1.03, legend_rows=1)
+
+    plot_all_cases(permian_wr, legend_rows=2)
+    # plot_all_cases(permian_grid_frac, bboxy=1.03)
+
 
     # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_3"]["water_recovery"])
     # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_2"]["grid_fraction"])
     # plot_case(kbhdp_zld["KBHDP"]["KBHDP_ZLD"]["cost_per_aperture_area"])
     # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_1"]["grid_fraction"])
-    # plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["soda_ash"])
-    # plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["water_recovery"])
-
     # plt.tight_layout()
     # print(figure_csv_rel.columns)
-    # print(figure_csv_rel.electricity)
+    # print(figure_csv_rel.heat)
     # print(figure_csv_rel.aluminum)
     # print(figure_csv_rel["FPC CAPEX LCOW rel"])
     # print(figure_csv_rel["FPC OPEX LCOW rel"])
