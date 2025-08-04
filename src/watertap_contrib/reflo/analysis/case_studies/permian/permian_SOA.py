@@ -155,7 +155,8 @@ def build_and_run_permian_SOA(
     )
     # print(f"Flow to MVC: {flow_to_mvc} MGD")
     # print(f"TDS to MVC: {tds_to_mvc} g/L")
-
+    # print(recovery)
+    # assert False
     m_mvc = build_and_run_mvc(
         recovery=recovery,
         Qin=Qin * pretreatment_recovery,
@@ -184,6 +185,8 @@ def build_and_run_permian_SOA(
             to_units=pyunits.gram / pyunits.liter,
         )
     )
+    # m_mvc.fs.disposal.properties[0].conc_mass_phase_comp.display()
+    # assert False
 
     m_dwi = build_and_run_dwi(
         Qin=flow_to_dwi,
@@ -668,6 +671,9 @@ def run_permian_SOA_electricity_sweep(num_pts=9):
 
 def run_permian_SOA_salinity_flow_sweep_wide(recovery=0.5):
 
+    # TDS = 100 g/L, recovery = 0.65 will give brine conc of 250 g/L
+    # TDS = 130 g/L, recovery = 0.54 will give brine conc of 250 g/L
+    # TDS = 200 g/L, recovery = 0.28 will give brine conc of 250 g/L
 
     tds = [100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]
     flows = [1, 2.5, 5, 7.5, 9]
@@ -720,6 +726,9 @@ def run_permian_SOA_salinity_flow_sweep_wide(recovery=0.5):
 
 def run_permian_SOA_salinity_flow_sweep():
 
+    # TDS = 100 g/L, recovery = 0.65 will give brine conc of 250 g/L
+    # TDS = 130 g/L, recovery = 0.54 will give brine conc of 250 g/L
+    # TDS = 200 g/L, recovery = 0.28 will give brine conc of 250 g/L
 
     tds = [100, 130, 200]
     flows = [1, 5, 9]
@@ -732,7 +741,15 @@ def run_permian_SOA_salinity_flow_sweep():
 
     for t in tds:
         for flow in flows:
-            m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=flow, tds=t)
+            if t == 100:
+                r = 0.65
+            elif t == 130:
+                r = 0.54
+            elif t == 200:  
+                r = 0.28
+            # else:
+            #     r = 0.5
+            m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(Qin=flow, tds=t, recovery=r)
             rd, rd_pre, rd_mvc, rd_dwi = append_rds(
                 m,
                 m_pre,
@@ -744,6 +761,8 @@ def run_permian_SOA_salinity_flow_sweep():
                 rd_dwi,
                 merge_col_dict={"tds": t, "flow": flow},
             )
+        # break
+    # print(rd)
 
     col_replace = ["m_agg.fs", "m_pre.fs", "m_mvc.fs", "m_dwi.fs"]
     for i, (r, cr) in enumerate(zip([rd, rd_pre, rd_mvc, rd_dwi], col_replace)):
@@ -797,14 +816,16 @@ def append_rds(m, m_pre, m_mvc, m_dwi, rd, rd_pre, rd_mvc, rd_dwi, merge_col_dic
 
 
 if __name__ == "__main__":
+    # m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA(tds=100, recovery=0.65)
+    # m_mvc.fs.disposal.properties[0.0].conc_mass_phase_comp.display()
 
-    run_permian_SOA_recovery_sweep()
+    # run_permian_SOA_recovery_sweep()
     # run_permian_SOA_salinity_flow_sweep_wide(recovery=0.6)
     # build_and_run_permian_SOA()
     # build_and_run_permian_pretreatment()
     run_permian_SOA_salinity_flow_sweep()
     # run_permian_SOA_electricity_sweep()
-    # run_permian_SOA_recovery_sweep()
+    run_permian_SOA_recovery_sweep()
     # m, m_pre, m_mvc, m_dwi = build_and_run_permian_SOA()
 
     # m_pre.fs.treatment.costing.aggregate_flow_electricity.display()
