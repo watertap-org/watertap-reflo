@@ -599,8 +599,12 @@ def case_study_stacked_plot(
     figure_csv["LCOW_data"] = actual_lcow
     figure_csv.index = df.index
 
-    if global_save:
-        figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
+    x = df[actual_lcow_row].diff() / df["fs.energy.costing.aggregate_flow_heat"].diff() * 1000
+    print(f"\n\n\n\n\n{x}\n\n\n\n\n")
+    # assert False
+
+    # if global_save:
+    #     figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
 
     figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
     figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
@@ -610,8 +614,8 @@ def case_study_stacked_plot(
     figure_csv_rel.index = df.index
 
 
-    if global_save:
-        figure_csv_rel.to_csv(f"{fig_save_path}/{save_name.replace('.png', '_rel.csv')}", index=True)
+    # if global_save:
+    #     figure_csv_rel.to_csv(f"{fig_save_path}/{save_name.replace('.png', '_rel.csv')}", index=True)
     # print(figure_csv.head(30))
     print(figure_csv_rel.head(30))
 
@@ -1358,8 +1362,8 @@ if __name__ == "__main__":
     # fig_csv.to_csv(f"{fig_save_path}/kbhdp_water_recovery_fig.csv", index=True)
     # plot_all_cases(kbhdp_grid_frac, bboxy=1.03, legend_rows=1)
 
-    plot_all_cases(permian_wr, legend_rows=2)
-    # plot_all_cases(permian_grid_frac, bboxy=1.03)
+    # plot_all_cases(permian_wr, legend_rows=2)
+    plot_all_cases(permian_grid_frac, bboxy=1.03)
 
 
     # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_3"]["water_recovery"])
@@ -1372,4 +1376,15 @@ if __name__ == "__main__":
     # print(figure_csv_rel.aluminum)
     # print(figure_csv_rel["FPC CAPEX LCOW rel"])
     # print(figure_csv_rel["FPC OPEX LCOW rel"])
-    plt.show()
+    # plt.show()
+
+    e = 150959.708 * pyunits.kilowatt
+    q = 5 * pyunits.Mgallons / pyunits.day
+    r = 0.5
+
+    sec = e / (q * r)
+    x = pyunits.convert(sec, to_units=pyunits.kilowatt * pyunits.hour / pyunits.meter**3)
+    print(x())
+
+    # print(3.3 + 0.45 * x())
+
