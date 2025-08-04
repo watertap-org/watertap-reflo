@@ -717,10 +717,10 @@ def run_base_case():
 
 if __name__ == "__main__":
 
-    run_base_case()
+    # run_base_case()
 
     # run_recovery_ratio_sweep()
-    # run_flow_tds_sweep()
+    run_flow_tds_sweep()
 
 #     permian_fo_config = {
 #         "feed_vol_flow": 0.22,  # initial value for fo model setup
