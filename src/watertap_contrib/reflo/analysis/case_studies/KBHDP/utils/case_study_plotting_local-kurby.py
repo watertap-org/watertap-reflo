@@ -489,7 +489,7 @@ def case_study_stacked_plot(
     ax.set_ylabel(ax_dict["ylabel"], fontsize=label_fontsize)
     ax.tick_params(axis="both", labelsize=tick_fontsize)
     ax.set_xlim(df.index.min(), df.index.max())
-    if "soda_ash" in xcol:
+    if any(x in xcol for x in ["soda_ash", "cost_per_watt"]):
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
     else:
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
@@ -536,7 +536,7 @@ def case_study_stacked_plot(
     ax_rel.tick_params(axis="both", labelsize=tick_fontsize)
     ax_rel.set_xlim(df.index.min(), df.index.max())
 
-    if "soda_ash" in xcol:
+    if any(x in xcol for x in ["soda_ash", "cost_per_watt"]):
         ax_rel.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
     else:
         ax_rel.xaxis.set_major_formatter(
@@ -599,9 +599,6 @@ def case_study_stacked_plot(
     figure_csv["LCOW_data"] = actual_lcow
     figure_csv.index = df.index
 
-    x = df[actual_lcow_row].diff() / df["fs.energy.costing.aggregate_flow_heat"].diff() * 1000
-    print(f"\n\n\n\n\n{x}\n\n\n\n\n")
-    # assert False
 
     # if global_save:
     #     figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
@@ -684,6 +681,41 @@ cases_kbhdp_soa = {
                 # "save": True,
             },
         }
+    }
+}
+
+kbhdp_opt = {
+    "KBHDP": {
+        "KBHDP_RPT_1": {
+            "cost_per_watt_installed": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/test.csv", 
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOT",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "RO": "fs.treatment.RO.stage[1].module.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "Pump": "fs.treatment.pump.costing",
+                    "PV": "fs.energy.pv.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                },
+                "xcol": "fs.energy.costing.pv_surrogate.cost_per_watt_installed",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol",
+                "ax_dict": dict(xlabel="PV Cost Per Watt Installed ($/W)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 1.25),
+                "xlims": (0.25, 1.5),
+                # "save_name": "kbhdp_rpt1_water_recovery_stacked_plot.png",  # Change this
+                "save_name": "kbhdp_optimization_cost_per_watt_installed.png",  # Change this
+                "save": False,
+            },
+        },
     }
 }
 
@@ -1363,9 +1395,9 @@ if __name__ == "__main__":
     # plot_all_cases(kbhdp_grid_frac, bboxy=1.03, legend_rows=1)
 
     # plot_all_cases(permian_wr, legend_rows=2)
-    plot_all_cases(permian_grid_frac, bboxy=1.03)
+    # plot_all_cases(permian_grid_frac, bboxy=1.03)
 
-
+    plot_case(kbhdp_opt["KBHDP"]["KBHDP_RPT_1"]["cost_per_watt_installed"])
     # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_3"]["water_recovery"])
     # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_2"]["grid_fraction"])
     # plot_case(kbhdp_zld["KBHDP"]["KBHDP_ZLD"]["cost_per_aperture_area"])
@@ -1376,15 +1408,15 @@ if __name__ == "__main__":
     # print(figure_csv_rel.aluminum)
     # print(figure_csv_rel["FPC CAPEX LCOW rel"])
     # print(figure_csv_rel["FPC OPEX LCOW rel"])
-    # plt.show()
+    plt.show()
 
-    e = 150959.708 * pyunits.kilowatt
-    q = 5 * pyunits.Mgallons / pyunits.day
-    r = 0.5
+    # e = 150959.708 * pyunits.kilowatt
+    # q = 5 * pyunits.Mgallons / pyunits.day
+    # r = 0.5
 
-    sec = e / (q * r)
-    x = pyunits.convert(sec, to_units=pyunits.kilowatt * pyunits.hour / pyunits.meter**3)
-    print(x())
+    # sec = e / (q * r)
+    # x = pyunits.convert(sec, to_units=pyunits.kilowatt * pyunits.hour / pyunits.meter**3)
+    # print(x())
 
     # print(3.3 + 0.45 * x())
 
