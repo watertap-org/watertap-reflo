@@ -10,6 +10,7 @@ from pyomo.environ import (
     TransformationFactory,
     Block,
     check_optimal_termination,
+    assert_optimal_termination,
     units as pyunits,
 )
 from pyomo.util.check_units import assert_units_consistent
@@ -646,7 +647,7 @@ def optimize(
     ro_mem_area=None,
     grid_frac=None,
     elec_price=None,
-    objective="LCOW",
+    objective="LCOT",
 ):
     treatment = m.fs.treatment
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
@@ -675,19 +676,19 @@ def optimize(
         m.fs.water_recovery.setlb(lower_bound)
         m.fs.water_recovery.setub(upper_bound)
 
-    if fixed_pressure is not None:
-        print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
-        treatment.pump.control_volume.properties_out[0].pressure.fix(fixed_pressure)
-    else:
-        lower_bound = 100 * pyunits.psi
-        upper_bound = 900 * pyunits.psi
-        print(f"------- Unfixed RO Pump Pressure -------")
-        print(f"Lower Bound: {value(lower_bound)} {pyunits.get_units(lower_bound)}")
-        print(f"Upper Bound: {value(upper_bound)} {pyunits.get_units(upper_bound)}")
-        treatment.pump.control_volume.properties_out[0].pressure.unfix()
-        treatment.pump.control_volume.properties_out[0].pressure.setlb(lower_bound)
-        treatment.pump.control_volume.properties_out[0].pressure.setub(upper_bound)
-        num_unfixed += 1
+    # if fixed_pressure is not None:
+    #     print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
+    #     treatment.pump.control_volume.properties_out[0].pressure.fix(fixed_pressure)
+    # else:
+    lower_bound = 100 * pyunits.psi
+    upper_bound = 900 * pyunits.psi
+    print(f"------- Unfixed RO Pump Pressure -------")
+    print(f"Lower Bound: {value(lower_bound)} {pyunits.get_units(lower_bound)}")
+    print(f"Upper Bound: {value(upper_bound)} {pyunits.get_units(upper_bound)}")
+    treatment.pump.control_volume.properties_out[0].pressure.unfix()
+    treatment.pump.control_volume.properties_out[0].pressure.setlb(lower_bound)
+    treatment.pump.control_volume.properties_out[0].pressure.setub(upper_bound)
+    num_unfixed += 1
 
     if ro_mem_area is not None:
         print(f"\n------- Fixed RO Membrane Area at {ro_mem_area} -------\n")
@@ -710,14 +711,16 @@ def optimize(
             num_unfixed += 1
 
     if grid_frac is not None:
-        m.fs.costing.frac_elec_from_grid.fix(grid_frac)
-        m.fs.energy.pv.design_size.unfix()
-        m.fs.energy.pv.annual_energy.unfix()
+        pass
+        # m.fs.costing.frac_elec_from_grid.fix(grid_frac)
+        # m.fs.energy.pv.design_size.unfix()
+        # m.fs.energy.pv.annual_energy.unfix()
 
     if elec_price is not None:
-        m.fs.costing.frac_elec_from_grid.unfix()
-        m.fs.energy.pv.design_size.unfix()
-        m.fs.energy.pv.annual_energy.unfix()
+        pass
+        # m.fs.costing.frac_elec_from_grid.unfix()
+        # m.fs.energy.pv.design_size.unfix()
+        # m.fs.energy.pv.annual_energy.unfix()
 
     for idx, stage in treatment.RO.stage.items():
         stage.module.width.setub(5000)
@@ -855,9 +858,95 @@ def display_costing_breakdown(m):
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))
-    m = main()
-    m.fs.costing.aggregate_flow_costs.display()
-    m.fs.treatment.costing.used_flows.display()
-    m.fs.costing.flow_types.display()
+    # m = main()
+    # m.fs.costing.aggregate_flow_costs.display()
+    # m.fs.treatment.costing.used_flows.display()
     # m.fs.costing.flow_types.display()
-    print(m.fs.costing._registered_flows)
+    # # m.fs.costing.flow_types.display()
+    # print(m.fs.costing._registered_flows)
+    from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import build_results_dict, results_dict_append
+    grid_frac=None
+    elec_price=None
+    water_recovery=0.8
+    ro_mem_area=20000
+    objective="LCOT"
+
+    m = build_system(RE=True)
+    
+    display_system_build(m)
+    add_connections(m)
+    add_constraints(m)
+    set_operating_conditions(m)
+    apply_scaling(m)
+    init_system(m)
+    add_costing(m)
+    scale_costing(m)
+    rd = build_results_dict(m)
+    rd["cpw"] = []
+    # m.fs.energy.costing.pv_surrogate.display()
+    optimize(
+        m,
+        ro_mem_area=ro_mem_area,
+        water_recovery=water_recovery,
+        grid_frac=grid_frac,
+        elec_price=elec_price,
+        objective=objective,
+    )
+
+    m.fs.costing.frac_elec_from_grid.unfix()
+    m.fs.energy.pv.design_size.unfix()
+    m.fs.energy.pv.annual_energy.unfix()
+
+    elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+    m.fs.costing.electricity_cost_buy.set_value(elec_cost)
+    m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(1)
+    # print(f"dof = {degrees_of_freedom(m)}"  )
+    # assert False
+
+    solve(m, debug=False)
+
+    # m.fs.costing.frac_elec_from_grid.display()
+    # assert False
+
+    cpw = np.linspace(0.25, 1.5, 21)
+    solver = get_solver()
+    for c in cpw:
+        m = build_system(RE=True)
+        
+        add_connections(m)
+        add_constraints(m)
+        set_operating_conditions(m)
+        apply_scaling(m)
+        init_system(m)
+        add_costing(m)
+        # scale_costing(m)
+        # m.fs.energy.costing.pv_surrogate.display()
+        optimize(
+            m,
+            ro_mem_area=ro_mem_area,
+            water_recovery=water_recovery,
+            grid_frac=grid_frac,
+            elec_price=elec_price,
+            objective=objective,
+        )
+        m.fs.costing.frac_elec_from_grid.unfix()
+        m.fs.energy.pv.design_size.unfix()
+        m.fs.energy.pv.annual_energy.unfix()
+
+        elec_cost = pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018)()
+        m.fs.costing.electricity_cost_buy.set_value(elec_cost)
+        # m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(1)
+        m.fs.energy.costing.pv_surrogate.cost_per_watt_installed.fix(c)
+        # print(f"dof = {degrees_of_freedom(m)}")
+        # assert False
+        solve(m, debug=False, raise_on_failure=False)
+        # results = solver.solve(m)
+        # assert_optimal_termination(results)
+        rd = results_dict_append(m, rd)
+        rd["cpw"].append(c)
+
+    df = pd.DataFrame.from_dict(rd)
+    import matplotlib.pyplot as plt
+    df.set_index("cpw", inplace=True)
+    print(df["fs.costing.frac_elec_from_grid"])
+    df.to_csv("test.csv")
