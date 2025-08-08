@@ -17,10 +17,42 @@ from idaes.core.solvers import get_solver
 __all__ = ["build_results_dict", "results_dict_append", "plot_results_dict"]
 
 
+skips_default = [
+    "diffus_phase",
+    "diffus_param",
+    "dens_mass_param",
+    "dh_vap_w_param",
+    "cp_phase_param",
+    "pressure_sat_param_psatw",
+    "enth_mass_param",
+    "osm_coeff_param",
+    "visc_d_param",
+    "therm_cond_phase_param",
+    "pressure_sat_param",
+    "bpe_",
+    "TIC",
+    "TPEC",
+    "blocks[",
+    "yearly_heat_production",
+    "yearly_electricity_production",
+    "cp_param_NaCl_liq",
+    "_translator",
+    "permeate_side",
+    "properties_interface",
+    "material_flow_dx",
+    "._flow_terms",
+    "pressure_dx",
+    "MCAS_properties",
+    "cp_param_NaCl_solid",
+    "cp_vap_param",
+    "temp_sat_solvent",
+    "m_mec.fs.properties",
+    "cp_mass_phase",
+]
 def build_results_dict(
     b,
     components=[Var, Expression, Param],
-    skips=[],
+    skips=None,
 ):
     """
     Function to build a results dictionary with all components on block
@@ -33,6 +65,9 @@ def build_results_dict(
     """
 
     results_dict = {}
+
+    if skips is None:
+        skips = skips_default
 
     for c in components:
         for v in b.component_objects(c):
