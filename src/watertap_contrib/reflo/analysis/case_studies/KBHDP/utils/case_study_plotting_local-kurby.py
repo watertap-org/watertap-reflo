@@ -468,7 +468,7 @@ def case_study_stacked_plot(
     # Create stacked plot with absolute values
 
     if (fig, ax) == (None, None):
-        fig, ax = plt.subplots(figsize=figsize, layout='constrained')
+        fig, ax = plt.subplots(figsize=figsize, layout="constrained")
         fig.set_size_inches(5, 5, forward=True)
 
     ax.stackplot(
@@ -489,7 +489,7 @@ def case_study_stacked_plot(
     ax.set_ylabel(ax_dict["ylabel"], fontsize=label_fontsize)
     ax.tick_params(axis="both", labelsize=tick_fontsize)
     ax.set_xlim(df.index.min(), df.index.max())
-    if any(x in xcol for x in ["soda_ash", "cost_per_watt"]):
+    if any(x in xcol for x in ["soda_ash", "cost_per_watt", "heat_cost"]):
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
     else:
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
@@ -514,9 +514,8 @@ def case_study_stacked_plot(
     # Create stacked plot with relative values
 
     if (fig_rel, ax_rel) == (None, None):
-        fig_rel, ax_rel = plt.subplots(figsize=figsize, layout='constrained')
+        fig_rel, ax_rel = plt.subplots(figsize=figsize, layout="constrained")
         fig_rel.set_size_inches(5, 5, forward=True)
-
 
     ax_rel.stackplot(
         df.index,
@@ -536,12 +535,12 @@ def case_study_stacked_plot(
     ax_rel.tick_params(axis="both", labelsize=tick_fontsize)
     ax_rel.set_xlim(df.index.min(), df.index.max())
 
-    if any(x in xcol for x in ["soda_ash", "cost_per_watt"]):
+    if any(x in xcol for x in ["soda_ash", "cost_per_watt", "heat_cost"]):
         ax_rel.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
     else:
         ax_rel.xaxis.set_major_formatter(
             plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%")
-        )    
+        )
     if ylims is not None:
         ax_rel.set_ylim(ylims)
     else:
@@ -566,7 +565,6 @@ def case_study_stacked_plot(
         ax_rel.set_xlim(0, 1)
 
     fig_rel.tight_layout()
-
 
     if global_save:
         fig.savefig(f"{fig_save_path}/{save_name}", dpi=300, bbox_inches="tight")
@@ -599,7 +597,6 @@ def case_study_stacked_plot(
     figure_csv["LCOW_data"] = actual_lcow
     figure_csv.index = df.index
 
-
     # if global_save:
     #     figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
 
@@ -609,7 +606,6 @@ def case_study_stacked_plot(
     figure_csv_rel["LCOW_calc"] = calc_lcow
     figure_csv_rel["LCOW_diff_rel"] = calc_to_actual_lcow
     figure_csv_rel.index = df.index
-
 
     # if global_save:
     #     figure_csv_rel.to_csv(f"{fig_save_path}/{save_name.replace('.png', '_rel.csv')}", index=True)
@@ -688,7 +684,7 @@ kbhdp_opt = {
     "KBHDP": {
         "KBHDP_RPT_1": {
             "cost_per_watt_installed": {
-                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/test.csv", 
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/test.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
                 "actual_lcow_row": "fs.costing.LCOT",
@@ -708,7 +704,9 @@ kbhdp_opt = {
                 },
                 "xcol": "fs.energy.costing.pv_surrogate.cost_per_watt_installed",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol",
-                "ax_dict": dict(xlabel="PV Cost Per Watt Installed ($/W)", ylabel="LCOW (\$/m$^3$)"),
+                "ax_dict": dict(
+                    xlabel="PV Cost Per Watt Installed ($/W)", ylabel="LCOW (\$/m$^3$)"
+                ),
                 "ylims": (0, 1.25),
                 "xlims": (0.25, 1.5),
                 # "save_name": "kbhdp_rpt1_water_recovery_stacked_plot.png",  # Change this
@@ -716,6 +714,45 @@ kbhdp_opt = {
                 "save": False,
             },
         },
+    }
+}
+
+
+permian_opt = {
+    "Permian": {
+        "Permian_ZLD2_FO_Cryst": {
+            "grid_fraction_optimize": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_heat_cost_sweep-OPTIMIZE.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOW",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
+                "unit_dict": {
+                    "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
+                    "EC": "fs.treatment.ec.unit.costing",
+                    "CF": "fs.treatment.cart_filt.unit.costing",
+                    "FO": "fs.treatment.FO.fs.fo.costing",
+                    "MEC": "fs.treatment.mec.unit.costing",
+                    "CST": "fs.energy.cst.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Heat": "heat",
+                    "H$_2$O$_2$": "hydrogen_peroxide",
+                    "Aluminum": "aluminum",
+                },
+                # "xcol": "fs.costing.RE Fraction",  # Change this
+                "xcol": "heat_cost",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 10),
+                "xlims": (0.017, 0.133986),  # Change this
+                "save_name": "permian_heat_price_stacked_plot-OPTIMIZE.png",  # Change this
+                "save": False,
+                "use_calc_for_rel": True,
+            },
+        }
     }
 }
 
@@ -902,7 +939,7 @@ kbhdp_zld = {
     "KBHDP": {
         "KBHDP_ZLD": {
             "cost_per_aperture_area": {
-                "file": '/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_ZLD_cst_cost_per_total_aperture_area.csv',
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_ZLD_cst_cost_per_total_aperture_area.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.costing",
                 "actual_lcow_row": "fs.costing.LCOT",
@@ -923,7 +960,9 @@ kbhdp_zld = {
                 },
                 "xcol": "fs.energy.costing.trough_surrogate.cost_per_total_aperture_area",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(xlabel="Cost Per CST Area (\$/m$^2$)", ylabel="LCOW (\$/m$^3$)"),
+                "ax_dict": dict(
+                    xlabel="Cost Per CST Area (\$/m$^2$)", ylabel="LCOW (\$/m$^3$)"
+                ),
                 "ylims": (0, 2),
                 "xlims": (145, 445),
                 "save_name": "kbhdp_zld_cost_per_aperture_area_stacked_plot.png",  # Change this
@@ -932,7 +971,6 @@ kbhdp_zld = {
         },
     }
 }
-
 
 
 permian_wr = {
@@ -1377,7 +1415,7 @@ def plot_all_cases(cases, xdim=4, ydim=3.5, legend_rows=2, bboxy=1.1):
                 )
 
 
-# global_save = False
+# global_save =  False
 global_save = True
 
 
@@ -1397,7 +1435,8 @@ if __name__ == "__main__":
     # plot_all_cases(permian_wr, legend_rows=2)
     # plot_all_cases(permian_grid_frac, bboxy=1.03)
 
-    plot_case(kbhdp_opt["KBHDP"]["KBHDP_RPT_1"]["cost_per_watt_installed"])
+    plot_case(permian_opt["Permian"]["Permian_ZLD2_FO_Cryst"]["grid_fraction_optimize"])
+    # plot_case(kbhdp_opt["KBHDP"]["KBHDP_RPT_1"]["cost_per_watt_installed"])
     # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_3"]["water_recovery"])
     # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_2"]["grid_fraction"])
     # plot_case(kbhdp_zld["KBHDP"]["KBHDP_ZLD"]["cost_per_aperture_area"])
@@ -1419,4 +1458,3 @@ if __name__ == "__main__":
     # print(x())
 
     # print(3.3 + 0.45 * x())
-
