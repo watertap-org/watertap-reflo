@@ -592,30 +592,33 @@ def case_study_stacked_plot(
         unit_lcow[key] = np.array(agg_flow_lcow[key.lower()])
         unit_lcow_rel[key] = np.array(agg_flow_lcow_rel[key.lower()])
 
-    figure_csv = pd.DataFrame.from_dict(unit_lcow)
-    figure_csv["LCOW"] = figure_csv.sum(axis=1)
-    figure_csv["LCOW_data"] = actual_lcow
-    figure_csv.index = df.index
+    # for k, v in unit_lcow.items():
+    #     print(k, len(v))
+    # assert False
+    # figure_csv = pd.DataFrame.from_dict(unit_lcow)
+    # figure_csv["LCOW"] = figure_csv.sum(axis=1)
+    # figure_csv["LCOW_data"] = actual_lcow
+    # figure_csv.index = df.index
 
-    # if global_save:
-    #     figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
+    # # if global_save:
+    # #     figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
 
-    figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
-    figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
-    figure_csv_rel["LCOW_data"] = actual_lcow
-    figure_csv_rel["LCOW_calc"] = calc_lcow
-    figure_csv_rel["LCOW_diff_rel"] = calc_to_actual_lcow
-    figure_csv_rel.index = df.index
+    # figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
+    # figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
+    # figure_csv_rel["LCOW_data"] = actual_lcow
+    # figure_csv_rel["LCOW_calc"] = calc_lcow
+    # figure_csv_rel["LCOW_diff_rel"] = calc_to_actual_lcow
+    # figure_csv_rel.index = df.index
 
-    # if global_save:
-    #     figure_csv_rel.to_csv(f"{fig_save_path}/{save_name.replace('.png', '_rel.csv')}", index=True)
-    # print(figure_csv.head(30))
-    print(figure_csv_rel.head(30))
+    # # if global_save:
+    # #     figure_csv_rel.to_csv(f"{fig_save_path}/{save_name.replace('.png', '_rel.csv')}", index=True)
+    # # print(figure_csv.head(30))
+    # print(figure_csv_rel.head(30))
 
-    if "electricity" in figure_csv_rel.columns:
-        print(figure_csv_rel.electricity)
-    if "heat" in figure_csv_rel.columns:
-        print(figure_csv_rel.heat)
+    # if "electricity" in figure_csv_rel.columns:
+    #     print(figure_csv_rel.electricity)
+    # if "heat" in figure_csv_rel.columns:
+    #     print(figure_csv_rel.heat)
     # assert False
     # print(figure_csv_rel["DWI OPEX LCOW rel"])
     return fig, ax, fig_rel, ax_rel, legend
@@ -720,6 +723,38 @@ kbhdp_opt = {
 
 permian_opt = {
     "Permian": {
+        "Permian_RPT2_FO": {
+            "grid_fraction_optimize": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_heat_cost_sweep-OPTIMIZE.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.treatment.costing",
+                "actual_lcow_row": "fs.costing.LCOW",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
+                "unit_dict": {
+                    "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
+                    "EC": "fs.treatment.ec.unit.costing",
+                    "CF": "fs.treatment.cart_filt.unit.costing",
+                    "FO": "fs.treatment.FO.fs.fo.costing",
+                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "CST": "fs.energy.cst.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Heat": "heat",
+                    "H$_2$O$_2$": "hydrogen_peroxide",
+                    "Aluminum": "aluminum",
+                },
+                "xcol": "heat_cost",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)"),
+                "ylims": (0, 10),
+                "xlims": (0.017, 0.133986),  # Change this
+                "save_name": "permian_heat_price_stacked_plot-OPTIMIZE.png",  # Change this
+                "save": False,
+                "use_calc_for_rel": True,
+            },
+        },
         "Permian_ZLD2_FO_Cryst": {
             "grid_fraction_optimize": {
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_ZLD2_FO_cryst_RPT_heat_cost_sweep-OPTIMIZE.csv",
@@ -1434,8 +1469,9 @@ if __name__ == "__main__":
 
     # plot_all_cases(permian_wr, legend_rows=2)
     # plot_all_cases(permian_grid_frac, bboxy=1.03)
+    plot_all_cases(permian_opt, bboxy=1.1)
 
-    plot_case(permian_opt["Permian"]["Permian_ZLD2_FO_Cryst"]["grid_fraction_optimize"])
+    # plot_case(permian_opt["Permian"]["Permian_ZLD2_FO_Cryst"]["grid_fraction_optimize"])
     # plot_case(kbhdp_opt["KBHDP"]["KBHDP_RPT_1"]["cost_per_watt_installed"])
     # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_3"]["water_recovery"])
     # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_2"]["grid_fraction"])
