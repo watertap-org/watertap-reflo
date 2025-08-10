@@ -1278,8 +1278,111 @@ def run_base_case():
     # m.fs.energy.costing.trough_surrogate.display()
 
 
+def run_dual_sweep():
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": 0.5,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": 5,  # MGD
+        "feed_tds": 130,  # g/L
+        "cryst_yield": 0.9,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],
+        "nacl_recover_price": 0,
+        "heat_price": 0.0166,  # 2023 price $/kWh
+        "elec_price": 0.0434618999,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+
+    # storage_price = np.linspace(31, 93, 21)
+    # cst_price = np.linspace(148.5, 445.5, 21)
+    storage_price = np.linspace(0, 62, 21)
+    cst_price = np.linspace(0, 297, 21)
+    # m = run_permian_FO_cryst_RPT(
+    #     operating_condition,
+    #     permian_fo_config,
+    # )
+    # rd = build_results_dict(m, skips=["diffus_phase_comp"])
+
+    # rd["storage_price"] = []
+    # rd["recovery_ratio"] = []
+    # rd["fo_thermal_energy_flow"] = []
+    # rd["brine_conc"] = []
+
+    big_df = pd.DataFrame()
+
+    for sp in storage_price:
+        m = run_permian_FO_cryst_RPT(
+            operating_condition,
+            permian_fo_config,
+        )
+        rd = build_results_dict(m, skips=["diffus_phase_comp"])
+
+        rd["recovery_ratio"] = []
+        rd["fo_thermal_energy_flow"] = []
+        rd["brine_conc"] = []
+        rd["storage_price"] = []
+        rd["cst_price"] = []
+        for cst in cst_price:
+            m = run_permian_FO_cryst_RPT(
+                operating_condition,
+                permian_fo_config,
+            )
+            m.fs.energy.cst.unit.costing.costing_package.trough_surrogate.cost_per_storage_capital = (
+                sp
+            )
+            m.fs.energy.cst.unit.costing.costing_package.trough_surrogate.cost_per_total_aperture_area = (
+                cst
+            )
+            try:
+                results = solver.solve(m)
+                assert_optimal_termination(results)
+            except:
+                try:
+
+                    results = solver.solve(m)
+                    assert_optimal_termination(results)
+                except:
+                    continue
+
+            rd = results_dict_append(m, rd)
+            rd["recovery_ratio"].append(permian_fo_config["recovery_ratio"])
+            rd["fo_thermal_energy_flow"].append(
+                value(m.fs.treatment.FO.fs.fo.costing.thermal_energy_flow)
+            )
+            rd["brine_conc"].append(
+                value(
+                    m.fs.treatment.FO.fs.fo.brine_props[0].conc_mass_phase_comp[
+                        "Liq", "TDS"
+                    ]
+                )
+            )
+            rd["storage_price"].append(sp)
+            rd["cst_price"].append(cst)
+        # for k, v in rd.items():
+        #     print(k, len(v))
+        big_df = pd.concat([big_df, pd.DataFrame(rd)], ignore_index=True)
+# 
+    big_df.to_csv(f"{save_dir}/permian_ZLD2_FO_cryst_RPT_DUAL-SWEEP_storage_price_cst_cost-FROM-ZERO-TO-BASE.csv")
+
+    return big_df
+
+
 if __name__ == "__main__":
-    run_base_case()
+    run_dual_sweep()
+    # run_base_case()
     # run_recovery_ratio_sweep()
     # run_storage_price_sweep()
     # run_grid_fraction_sweep()
