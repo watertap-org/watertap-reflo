@@ -489,8 +489,10 @@ def case_study_stacked_plot(
     ax.set_ylabel(ax_dict["ylabel"], fontsize=label_fontsize)
     ax.tick_params(axis="both", labelsize=tick_fontsize)
     ax.set_xlim(df.index.min(), df.index.max())
-    if any(x in xcol for x in ["soda_ash", "cost_per_watt", "heat_cost"]):
+    if any(x in xcol for x in ["soda_ash", "cost_per_watt"]):
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
+    elif xcol == "heat_cost":
+        ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"¢{x*100:.1f}"))
     else:
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
     # ax2 = ax.twinx()
@@ -535,8 +537,10 @@ def case_study_stacked_plot(
     ax_rel.tick_params(axis="both", labelsize=tick_fontsize)
     ax_rel.set_xlim(df.index.min(), df.index.max())
 
-    if any(x in xcol for x in ["soda_ash", "cost_per_watt", "heat_cost"]):
+    if any(x in xcol for x in ["soda_ash", "cost_per_watt"]):
         ax_rel.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
+    elif xcol == "heat_cost":
+        ax_rel.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"¢{x*100:.1f}"))
     else:
         ax_rel.xaxis.set_major_formatter(
             plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%")
@@ -1469,7 +1473,7 @@ if __name__ == "__main__":
 
     # plot_all_cases(permian_wr, legend_rows=2)
     # plot_all_cases(permian_grid_frac, bboxy=1.03)
-    plot_all_cases(permian_opt, bboxy=1.1)
+    plot_all_cases(permian_opt, bboxy=1.1, xdim=5, ydim=4)
 
     # plot_case(permian_opt["Permian"]["Permian_ZLD2_FO_Cryst"]["grid_fraction_optimize"])
     # plot_case(kbhdp_opt["KBHDP"]["KBHDP_RPT_1"]["cost_per_watt_installed"])
