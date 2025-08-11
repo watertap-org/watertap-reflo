@@ -308,6 +308,7 @@ if __name__ == "__main__":
     solver = get_solver()
     # solver = SolverFactory("ipopt")
 
+    from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import build_results_dict, results_dict_append
     m = build_system()
 
     build_fpc(m)
@@ -317,6 +318,8 @@ if __name__ == "__main__":
 
     add_fpc_costing(m)
     results = solve(m)
+    rd = build_results_dict(m)
+    rd["heat_load"] = []
     report_fpc(m)
     print("\n")
     print(
@@ -328,3 +331,23 @@ if __name__ == "__main__":
     print(
         f'{"Load Utilization %":<40s}{(100*value(pyunits.convert(m.fs.energy.FPC.heat, to_units=pyunits.MW)))/(value(pyunits.convert(m.fs.energy.FPC.heat_load, to_units=pyunits.MW))):<5.1f}{"%"}'
     )
+    import numpy as np
+    import pandas as pd
+    hl = np.linspace(15, 50, 50)
+
+    for h in hl:
+        m.fs.energy.FPC.heat_load.fix(h)
+        results = solve(m)
+        rd = results_dict_append(m, rd)
+        rd["heat_load"].append(h)
+    df = pd.DataFrame.from_dict(rd)
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(df["heat_load"], df["fs.energy.FPC.heat_annual"], marker="o")
+    ax.set_xlabel("Heat Load (MW)")
+    ax.set_ylabel("Heat Annual (kWh)")
+    ax.set_title("Heat Annual vs Heat Load for FPC")
+    plt.grid()
+    plt.show()
+
