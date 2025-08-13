@@ -11,12 +11,6 @@ import os
 import math
 from idaes.core.base.costing_base import register_idaes_currency_units
 
-'''
-Copied from the permina_fo_kurby branch to this local copy on Aug 11, 2025
-The version on the kbhdp branch is identical.
-'''
-
-
 # from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils.h5_to_csv import (
 #     convert_h5_to_csv,
 # )
@@ -85,7 +79,7 @@ register_idaes_currency_units()
 
 def heat_func_row(row):
     heat_cost = 0.00894 * pyunits.USD_2023 / pyunits.kWh  # $ / kWh, KBHDP
-    heat_cost = 0.0166 * pyunits.USD_2023 / pyunits.kWh  # $ / kWh, Permian
+    # heat_cost = 0.0166 * pyunits.USD_2023 / pyunits.kWh  # $ / kWh, Permian
     agg_flow_heat = (
         row.loc[f"fs.treatment.costing.aggregate_flow_heat"] * pyunits.kW
     )  # kW
@@ -497,7 +491,7 @@ def case_study_stacked_plot(
     ax.set_xlim(df.index.min(), df.index.max())
     if any(x in xcol for x in ["soda_ash", "cost_per_watt"]):
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
-    elif xcol == "heat_cost":
+    elif xcol in ["heat_cost", "fs.costing.heat_cost_buy"]:
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"¢{x*100:.1f}"))
     else:
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
@@ -545,8 +539,10 @@ def case_study_stacked_plot(
 
     if any(x in xcol for x in ["soda_ash", "cost_per_watt"]):
         ax_rel.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:.2f}"))
-    elif xcol == "heat_cost":
-        ax_rel.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"¢{x*100:.1f}"))
+    elif xcol in ["heat_cost", "fs.costing.heat_cost_buy"]:
+        ax_rel.xaxis.set_major_formatter(
+            plt.FuncFormatter(lambda x, _: f"¢{x*100:.1f}")
+        )
     else:
         ax_rel.xaxis.set_major_formatter(
             plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%")
@@ -605,30 +601,30 @@ def case_study_stacked_plot(
     # for k, v in unit_lcow.items():
     #     print(k, len(v))
     # assert False
-    # figure_csv = pd.DataFrame.from_dict(unit_lcow)
-    # figure_csv["LCOW"] = figure_csv.sum(axis=1)
-    # figure_csv["LCOW_data"] = actual_lcow
-    # figure_csv.index = df.index
+    figure_csv = pd.DataFrame.from_dict(unit_lcow)
+    figure_csv["LCOW"] = figure_csv.sum(axis=1)
+    figure_csv["LCOW_data"] = actual_lcow
+    figure_csv.index = df.index
 
-    # # if global_save:
-    # #     figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
+    # if global_save:
+    #     figure_csv.to_csv(f"{fig_save_path}/{save_name.replace('.png', '.csv')}", index=True)
 
-    # figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
-    # figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
-    # figure_csv_rel["LCOW_data"] = actual_lcow
-    # figure_csv_rel["LCOW_calc"] = calc_lcow
-    # figure_csv_rel["LCOW_diff_rel"] = calc_to_actual_lcow
-    # figure_csv_rel.index = df.index
+    figure_csv_rel = pd.DataFrame.from_dict(unit_lcow_rel)
+    figure_csv_rel["LCOW"] = figure_csv_rel.sum(axis=1)
+    figure_csv_rel["LCOW_data"] = actual_lcow
+    figure_csv_rel["LCOW_calc"] = calc_lcow
+    figure_csv_rel["LCOW_diff_rel"] = calc_to_actual_lcow
+    figure_csv_rel.index = df.index
 
-    # # if global_save:
-    # #     figure_csv_rel.to_csv(f"{fig_save_path}/{save_name.replace('.png', '_rel.csv')}", index=True)
-    # # print(figure_csv.head(30))
-    # print(figure_csv_rel.head(30))
+    # if global_save:
+    #     figure_csv_rel.to_csv(f"{fig_save_path}/{save_name.replace('.png', '_rel.csv')}", index=True)
+    # print(figure_csv.head(30))
+    print(figure_csv_rel.head(30))
 
-    # if "electricity" in figure_csv_rel.columns:
-    #     print(figure_csv_rel.electricity)
-    # if "heat" in figure_csv_rel.columns:
-    #     print(figure_csv_rel.heat)
+    if "electricity" in figure_csv_rel.columns:
+        print(figure_csv_rel.electricity)
+    if "heat" in figure_csv_rel.columns:
+        print(figure_csv_rel.heat)
     # assert False
     # print(figure_csv_rel["DWI OPEX LCOW rel"])
     return fig, ax, fig_rel, ax_rel, legend
@@ -733,20 +729,53 @@ kbhdp_opt = {
 
 permian_opt = {
     "Permian": {
-        "Permian_RPT2_FO": {
+        "KBHDP_ZLD": {
             "grid_fraction_optimize": {
-                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/src/watertap_contrib/reflo/analysis/case_studies/permian/sweep_results/permian_RPT2_FO_DWI_RPT_heat_cost_sweep-OPTIMIZE-2.csv",
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_ZLD_opt_heat_price.csv",
+                "global_costing_blk": "fs.treatment.costing",
+                "costing_blk": "fs.costing",
+                "actual_lcow_row": "fs.costing.LCOT",
+                "heat_cost_col": "fs.costing.total_heat_operating_cost",
+                "elec_cost_col": "fs.costing.total_electric_operating_cost",
+                "unit_dict": {
+                    "EC": "fs.treatment.EC.ec.costing",
+                    "UF": "fs.treatment.UF.unit.costing",
+                    "RO": "fs.treatment.RO.stage[1].module.costing",
+                    "Pump": "fs.treatment.pump.costing",
+                    "MD": "fs.treatment.md.unit",
+                    "MEC": "fs.treatment.mec.unit.costing",
+                    "PV": "fs.energy.pv.costing",
+                    "CST": "fs.energy.cst.unit.costing",
+                },
+                "agg_flows": {
+                    "Electricity": "electricity",
+                    "Aluminum": "aluminum",
+                    "Heat": "heat",
+                },
+                "xcol": "fs.costing.heat_cost_buy",
+                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="KBHDP ZLD\nRO-MD-MEC-PV-PTC"),
+                "ylims": (0, 3),
+                "xlims": (0.00894, 0.0894),  # Change this
+                "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
+                "save": False,
+                # "use_calc_for_rel": True,
+            },
+        },
+        "Permian_ZLD1_MD_Cryst": {
+            "grid_fraction_optimize": {
+                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_ZLD1_MD_opt_heat_price.csv",
                 "global_costing_blk": "fs.treatment.costing",
                 "costing_blk": "fs.treatment.costing",
-                "actual_lcow_row": "fs.costing.LCOW",
+                "actual_lcow_row": "fs.costing.LCOT",
                 "heat_cost_col": "fs.costing.total_heat_operating_cost",
                 "elec_cost_col": "fs.costing.total_electric_operating_cost",
                 "unit_dict": {
                     "H$_2$O$_2$ Addition": "fs.treatment.chem_addition.unit.costing",
-                    "EC": "fs.treatment.ec.unit.costing",
+                    "EC": "fs.treatment.EC.unit.costing",
                     "CF": "fs.treatment.cart_filt.unit.costing",
-                    "FO": "fs.treatment.FO.fs.fo.costing",
-                    "DWI": "fs.treatment.DWI.unit.costing",
+                    "MD": "fs.treatment.md.unit",
+                    "MEC": "fs.treatment.mec.unit.costing",
                     "CST": "fs.energy.cst.unit.costing",
                 },
                 "agg_flows": {
@@ -755,14 +784,13 @@ permian_opt = {
                     "H$_2$O$_2$": "hydrogen_peroxide",
                     "Aluminum": "aluminum",
                 },
-                "xcol": "heat_cost",
+                "xcol": "fs.costing.heat_cost_buy",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)"),
-                "ylims": (0, 10),
-                "xlims": (0.017, 0.133986),  # Change this
-                "save_name": "permian_heat_price_stacked_plot-OPTIMIZE.png",  # Change this
+                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="Permian ZLD1\nMD-MEC-PTC"),
+                "ylims": (0, 20),
+                "xlims": (0.0166, 0.133985714),  # Change this
+                "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
                 "save": False,
-                "use_calc_for_rel": True,
             },
         },
         "Permian_ZLD2_FO_Cryst": {
@@ -790,14 +818,14 @@ permian_opt = {
                 # "xcol": "fs.costing.RE Fraction",  # Change this
                 "xcol": "heat_cost",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)"),
+                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="Permian ZLD2\nFO-MEC-PTC"),
                 "ylims": (0, 10),
-                "xlims": (0.017, 0.133986),  # Change this
-                "save_name": "permian_heat_price_stacked_plot-OPTIMIZE.png",  # Change this
+                "xlims": (0.0166, 0.133985714),  # Change this
+                "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
                 "save": False,
                 "use_calc_for_rel": True,
             },
-        }
+        },
     }
 }
 
@@ -994,6 +1022,7 @@ kbhdp_zld = {
                     "EC": "fs.treatment.EC.ec.costing",
                     "UF": "fs.treatment.UF.unit.costing",
                     "RO": "fs.treatment.RO.stage[1].module.costing",
+                    "Pump": "fs.treatment.pump.costing",
                     "MD": "fs.treatment.md.unit",
                     "MEC": "fs.treatment.mec.unit.costing",
                     "PV": "fs.energy.pv.costing",
@@ -1460,11 +1489,13 @@ def plot_all_cases(cases, xdim=4, ydim=3.5, legend_rows=2, bboxy=1.1):
                 )
 
 
-# global_save =  False
+global_save = False
 global_save = True
 
 
 if __name__ == "__main__":
+    import matplotlib as mpl
+    mpl.rcParams['axes.titlesize'] = 16
     # pprint.pprint(unit_color_dict_default)
 
     # plot_case(cases_kbhdp_soa["KBHDP"]["KBHDP_SOA_1"]["soda_ash"])
@@ -1479,13 +1510,14 @@ if __name__ == "__main__":
 
     # plot_all_cases(permian_wr, legend_rows=2)
     # plot_all_cases(permian_grid_frac, bboxy=1.03)
-    plot_all_cases(permian_opt, bboxy=1.1, xdim=5, ydim=4)
+    plot_all_cases(permian_opt, bboxy=1.1, xdim=4.5, ydim=4)
 
     # plot_case(permian_opt["Permian"]["Permian_ZLD2_FO_Cryst"]["grid_fraction_optimize"])
     # plot_case(kbhdp_opt["KBHDP"]["KBHDP_RPT_1"]["cost_per_watt_installed"])
     # plot_case(kbhdp_wr["KBHDP"]["KBHDP_RPT_3"]["water_recovery"])
     # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_2"]["grid_fraction"])
     # plot_case(kbhdp_zld["KBHDP"]["KBHDP_ZLD"]["cost_per_aperture_area"])
+    # plot_case(permian_opt["Permian"]["KBHDP_ZLD"]["grid_fraction_optimize"])
     # plot_case(kbhdp_grid_frac["KBHDP"]["KBHDP_RPT_1"]["grid_fraction"])
     # plt.tight_layout()
     # print(figure_csv_rel.columns)
