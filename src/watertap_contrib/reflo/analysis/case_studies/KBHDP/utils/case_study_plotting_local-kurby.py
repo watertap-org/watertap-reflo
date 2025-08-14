@@ -756,7 +756,7 @@ permian_opt = {
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="KBHDP ZLD\nRO-MD-MEC-PV-PTC"),
                 "ylims": (0, 3),
-                "xlims": (0.00894, 0.0894),  # Change this
+                "xlims": (0.017, 0.0894),  # Change this
                 "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
                 "save": False,
                 # "use_calc_for_rel": True,
@@ -788,7 +788,7 @@ permian_opt = {
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="Permian ZLD1\nMD-MEC-PTC"),
                 "ylims": (0, 20),
-                "xlims": (0.0166, 0.133985714),  # Change this
+                "xlims": (0.017, 0.0894),  # Change this
                 "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
                 "save": False,
             },
@@ -820,7 +820,7 @@ permian_opt = {
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
                 "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="Permian ZLD2\nFO-MEC-PTC"),
                 "ylims": (0, 10),
-                "xlims": (0.0166, 0.133985714),  # Change this
+                "xlims": (0.017, 0.0894),  # Change this
                 "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
                 "save": False,
                 "use_calc_for_rel": True,
