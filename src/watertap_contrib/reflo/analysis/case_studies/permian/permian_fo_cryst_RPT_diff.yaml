@@ -1,26 +1,24 @@
-Permian_ST2_diff_analysis:
+permiain_zld2_diff_analysis:
   build_defaults:
-    Qin: 5
-    tds: 130
-    water_recovery: 0.5
-    grid_frac_heat: 0.5
+    feed_vol_flow: 5
+    feed_tds: 130
+    recovery_ratio: 0.5
+    cryst_yield: 0.9
     heat_price: 0.0166
-    electricity_price: 0.04346
-    nacl_recovery_price: 0
-    cst_cost_per_total_aperture_area: 297
-    cst_cost_per_storage_capital: 62
+    elec_price: 0.0434618999
+    nacl_recover_price: 0
   diff_param_loop:
-    Heat Price:
-      diff_mode: percentile
-      diff_sample_type: UniformSample
-      param: fs.costing.heat_cost_buy
-      nominal_lb: 0.0083
-      nominal_ub: 0.0249
-      relative_lb: -0.01
-      relative_ub: -0.01
-      group: Cost
-      y_convert: 1
-      num_samples: 1
+    # Heat Price:
+    #   diff_mode: percentile
+    #   diff_sample_type: UniformSample
+    #   param: fs.costing.heat_cost_buy
+    #   nominal_lb: 0.0083
+    #   nominal_ub: 0.0249
+    #   relative_lb: -0.01
+    #   relative_ub: -0.01
+    #   group: Cost
+    #   y_convert: 1
+    #   num_samples: 1
     CST Collector Cost:
       diff_mode: percentile
       diff_sample_type: UniformSample
@@ -57,7 +55,7 @@ Permian_ST2_diff_analysis:
     EC Current Efficiency:
       diff_mode: percentile
       diff_sample_type: UniformSample
-      param: fs.treatment.EC.unit.current_efficiency
+      param: fs.treatment.ec.unit.current_efficiency
       nominal_lb: 1.0
       nominal_ub: 1.8
       relative_lb: 0.01
@@ -68,31 +66,20 @@ Permian_ST2_diff_analysis:
     EC Metal Dose:
       diff_mode: percentile
       diff_sample_type: UniformSample
-      param: fs.treatment.EC.unit.metal_dose
-      nominal_lb: 0.0005
-      nominal_ub: 0.0015
+      param: fs.treatment.ec.unit.metal_dose
+      nominal_lb: 0.00005
+      nominal_ub: 0.00015
       relative_lb: -0.01
       relative_ub: -0.01
       group: Performance
       y_convert: 1
       num_samples: 1
-    MD Membrane Cost:
+    FO System Cost:
       diff_mode: percentile
       diff_sample_type: UniformSample
-      param: fs.treatment.costing.vagmd_surrogate.membrane_cost
-      nominal_lb: 45.0
-      nominal_ub: 135.0
-      relative_lb: -0.01
-      relative_ub: -0.01
-      group: Cost
-      y_convert: 1
-      num_samples: 1
-    MD Module Cost:
-      diff_mode: percentile
-      diff_sample_type: UniformSample
-      param: fs.treatment.costing.vagmd_surrogate.base_module_cost
-      nominal_lb: 1170.0
-      nominal_ub: 3510.0
+      param: fs.treatment.costing.forward_osmosis.base_unit_cost
+      nominal_lb: 13392
+      nominal_ub: 40176
       relative_lb: -0.01
       relative_ub: -0.01
       group: Cost
@@ -110,11 +97,11 @@ Permian_ST2_diff_analysis:
       y_convert: 1
       num_samples: 1
     sweep_reference_params: # The parameters below will be used to generate reference design and will be run simultaneously (e.g. all of them will be changed to generate a new hypothetical design here, we only provide one parameter, membrane cost, but could provide many others)
-      Heat Price:
-        type: UniformSample
-        param: fs.costing.heat_cost_buy
-        lower_limit: 0.0083
-        upper_limit: 0.0249
+      # Heat Price:
+      #   type: UniformSample
+      #   param: fs.costing.heat_cost_buy
+      #   lower_limit: 0.0083
+      #   upper_limit: 0.0249
       CST Collector Cost:
         type: UniformSample
         param: fs.energy.costing.trough_surrogate.cost_per_total_aperture_area
@@ -132,24 +119,19 @@ Permian_ST2_diff_analysis:
         upper_limit: 3.345
       EC Current Efficiency:
         type: UniformSample
-        param: fs.treatment.EC.unit.current_efficiency
+        param: fs.treatment.ec.unit.current_efficiency
         lower_limit: 1.0
         upper_limit: 1.8
       EC Metal Dose:
         type: UniformSample
-        param: fs.treatment.EC.unit.metal_dose
+        param: fs.treatment.ec.unit.metal_dose
         lower_limit: 0.0005
         upper_limit: 0.0015
-      MD Membrane Cost:
+      FO System Cost:
         type: UniformSample
-        param: fs.treatment.costing.vagmd_surrogate.membrane_cost
-        lower_limit: 45.0
-        upper_limit: 135.0
-      MD Module Cost:
-        type: UniformSample
-        param: fs.treatment.costing.vagmd_surrogate.base_module_cost
-        lower_limit: 1170.0
-        upper_limit: 3510.0
+        param: fs.treatment.costing.forward_osmosis.base_unit_cost
+        lower_limit: 13392
+        upper_limit: 40176
       Crystallizer HX Capital Cost:
         type: UniformSample
         param: fs.treatment.costing.multi_effect_crystallizer.heat_exchanger_capital_factor

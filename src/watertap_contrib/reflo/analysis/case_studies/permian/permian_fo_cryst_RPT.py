@@ -578,6 +578,59 @@ def add_system_costing(m, flow_vol, operating_condition):
     m.fs.costing.add_specific_thermal_energy_consumption(flow_vol, name="SEC_th")
 
 
+def build_sweep(recovery_ratio=0.5,
+                feed_vol_flow=5,
+                feed_tds=130,
+                cryst_yield=0.9,
+                nacl_recover_price=0,
+                heat_price=0.0166,
+                elec_price=0.0434618999, ):
+    permian_fo_config = {
+        "feed_vol_flow": 0.22,  # initial value for fo model setup
+        "feed_TDS_mass": 0.119,  # mass fraction, 0.119 is about 130 g/L, 0.092 for 100 g/L, 0.19 for 200 g/L
+        "recovery_ratio": recovery_ratio,  # To get 250 g/L brine, select 0.485 for 130g/L, 0.612 for 100g/L, 0.165 for 200g/L
+        "RO_recovery_ratio": 1,  # RO recovery ratio
+        "NF_recovery_ratio": 0.8,  # Nanofiltration recovery ratio
+        "feed_temperature": 25,
+        "strong_draw_temp": 25,  # Strong draw solution inlet temperature (C)
+        "strong_draw_mass_frac": 0.9,  # Strong draw solution mass fraction
+        "product_draw_mass_frac": 0.01,  # FO product draw solution mass fraction
+        "HX1_cold_out_temp": 78 + 273.15,  # HX1 coldside outlet temperature
+        "HX1_hot_out_temp": 32 + 273.15,  # HX1 hotside outlet temperature
+    }
+
+    operating_condition = {
+        "feed_vol_flow": feed_vol_flow,  # MGD
+        "feed_tds": feed_tds,  # g/L
+        "cryst_yield": cryst_yield,
+        "cryst_operating_pressures": [0.45, 0.25, 0.208, 0.095],
+        "nacl_recover_price": nacl_recover_price,
+        "heat_price": heat_price,  # 2023 price $/kWh
+        "elec_price": elec_price,  # 2018 price $/kWh
+        "grid_fraction": 0.5,
+        "storage": 24,  # hr
+        "csv_initial_heat_load": 25,  # MW
+    }
+    m = run_permian_FO_cryst_RPT(
+        operating_condition,
+        permian_fo_config,
+    )
+
+    print(f"dof = {degrees_of_freedom(m)}")
+    # m.fs.treatment.costing.forward_osmosis.base_unit_cost.display()
+    # m.fs.treatment.FO.fs.specific_energy_consumption_thermal.display()
+    m.fs.treatment.costing.multi_effect_crystallizer.heat_exchanger_capital_factor.display()
+    m.fs.treatment.ec.unit.current_efficiency.display()
+    return m
+
+def solve(m, solver=None):
+    if solver is None:
+        solver = get_solver()
+    results = solver.solve(m)
+    return results
+
+
+
 def run_permian_FO_cryst_RPT(
     operating_condition,
     permian_fo_config,
@@ -1381,7 +1434,8 @@ def run_dual_sweep():
 
 
 if __name__ == "__main__":
-    run_dual_sweep()
+    build_sweep()
+    # run_dual_sweep()
     # run_base_case()
     # run_recovery_ratio_sweep()
     # run_storage_price_sweep()
