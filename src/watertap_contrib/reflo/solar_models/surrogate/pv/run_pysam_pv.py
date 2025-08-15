@@ -281,17 +281,17 @@ def setup_and_run_pv(design_size, pysam_model_config, return_tech_model=False):
     tech_model, cash_model, size_pv_array = run_pv_single_owner(
         modules, pysam_model_config, design_size=design_size
     )
-    annual_energy = tech_model.Outputs.annual_energy  # kWh
+    electricity_annual = tech_model.Outputs.annual_energy  # kWh
 
     cash_model.execute()
 
     result = size_pv_array
-    result["annual_energy"] = annual_energy
+    result["electricity_annual"] = electricity_annual
     result["lcoe_real"] = cash_model.Outputs.lcoe_real
     result["ac_capacity_factor"] = tech_model.Outputs.capacity_factor_ac
     result["dc_capacity_factor"] = tech_model.Outputs.capacity_factor
     print(f"Design Size {design_size:.1f} kW completed.")
-    print(f"\tAnnual Energy = {annual_energy:.2f} kWh")
+    print(f"\tAnnual Energy = {electricity_annual:.2f} kWh")
     print(f"\tLand Required = {result['land_req']:.2f} acre\n")
 
     if return_tech_model:
@@ -301,16 +301,13 @@ def setup_and_run_pv(design_size, pysam_model_config, return_tech_model=False):
 
 
 def generate_pv_data(
-    design_sizes=np.linspace(1000, 10000, 25),
+    design_sizes=np.linspace(100, 10000, 3),
     pysam_model_config="FlatPlatePVSingleOwner",
     save_data=True,
     use_multiprocessing=True,
     processes=8,
     dataset_filename=None,
 ):
-
-    if dataset_filename is None:
-        raise ValueError("Must provide dataset_filename")
 
     if dataset_filename is None:
         # assume it is run for testing purposes
@@ -346,12 +343,9 @@ def generate_pv_data(
 
 
 if __name__ == "__main__":
-    design_sizes = np.linspace(1000, 1000000, 25)
-    print(design_sizes)
-    df = generate_pv_data(
-        design_sizes=design_sizes,
-        dataset_filename=f"{__location__}/data/test234.pkl",
-        use_multiprocessing=True,
-    )
-    print(df.head(30))
-    print(df.columns)
+    # To create data used in PV surrogate test file:
+    # design_sizes = np.linspace(1000, 1000000, 50)
+    
+    df = generate_pv_data()
+    print(df.head(20))
+    os.remove(os.path.join(__location__, "data/test_data.pkl"))
