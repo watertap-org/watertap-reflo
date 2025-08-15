@@ -58,7 +58,7 @@ def build_cost_pv_simple_param_block(blk):
 
     blk.variable_operating_by_generation = pyo.Var(
         initialize=0,
-        units=costing.base_currency / (pyo.units.MWh * costing.base_period),
+        units=costing.base_currency / pyo.units.MWh,
         bounds=(0, None),
         doc="Annual operating cost of PV system per MWh generated",
     )
@@ -121,7 +121,7 @@ def build_cost_pv_detailed_param_block(blk):
 
     blk.variable_operating_by_generation = pyo.Var(
         initialize=0,
-        units=costing.base_currency / (pyo.units.MWh * costing.base_period),
+        units=costing.base_currency / pyo.units.MWh,
         bounds=(0, None),
         doc="Annual operating cost of PV system per MWh generated",
     )
@@ -172,26 +172,23 @@ def cost_pv_detailed(blk):
 
     capital_cost_expr = 0
 
+    total_cost_per_watt = (
+        pv_params.cost_per_watt_module
+        + pv_params.cost_per_watt_inverter
+        + pv_params.cost_per_watt_other
+    )
+    design_size_watt = pyo.units.convert(
+        blk.unit_model.design_size, to_units=pyo.units.watt
+    )
+
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
         == pyo.units.convert(
-            pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
-            * (
-                pv_params.cost_per_watt_module
-                + pv_params.cost_per_watt_inverter
-                + pv_params.cost_per_watt_other
-            )
-            + (
-                pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
-                * (
-                    pv_params.cost_per_watt_module
-                    + pv_params.cost_per_watt_inverter
-                    + pv_params.cost_per_watt_other
-                )
-            )
-            * (1 + pv_params.contingency_frac_direct_capital_cost)  # BUG Check this
-        ),
-        to_units=blk.costing_package.base_currency,
+            design_size_watt
+            * total_cost_per_watt
+            * (1 + pv_params.contingency_frac_direct_capital_cost),  # BUG Check this
+            to_units=blk.costing_package.base_currency,
+        )
     )
 
     capital_cost_expr += blk.direct_cost
@@ -250,7 +247,8 @@ def cost_pv_detailed(blk):
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
         == pyo.units.convert(
-            pv_params.variable_operating_by_generation * blk.unit_model.annual_energy,
+            pv_params.variable_operating_by_generation
+            * blk.unit_model.electricity_annual,
             to_units=blk.costing_package.base_currency
             / blk.costing_package.base_period,
         )
@@ -268,6 +266,7 @@ def cost_pv_simple(blk):
     global_params = blk.costing_package
     pv_params = blk.costing_package.pv
     make_capital_cost_var(blk)
+    blk.costing_package.add_cost_factor(blk, None)
     make_variable_operating_cost_var(blk)
     make_fixed_operating_cost_var(blk)
 
@@ -328,7 +327,8 @@ def cost_pv_simple(blk):
     blk.variable_operating_cost_constraint = pyo.Constraint(
         expr=blk.variable_operating_cost
         == pyo.units.convert(
-            pv_params.variable_operating_by_generation * blk.unit_model.annual_energy,
+            pv_params.variable_operating_by_generation
+            * blk.unit_model.electricity_annual,
             to_units=blk.costing_package.base_currency
             / blk.costing_package.base_period,
         )
