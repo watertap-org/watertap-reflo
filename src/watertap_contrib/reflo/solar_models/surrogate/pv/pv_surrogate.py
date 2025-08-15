@@ -13,6 +13,7 @@
 import pandas as pd
 from pyomo.environ import (
     Constraint,
+    Expression,
     value,
     check_optimal_termination,
     units as pyunits,
@@ -45,10 +46,10 @@ class PVSurrogateData(SolarEnergyBaseData):
             err_msg = "The PV surrogate model can only be used with the surrogate model type."
             raise ConfigurationError(err_msg)
 
-        if self.config.scale_training_data:
-            err_msg = "The PV surrogate model requires the input data not be scaled."
-            err_msg += " Set the config argument 'scale_training_data' = False"
-            raise ConfigurationError(err_msg)
+        # if self.config.scale_training_data:
+        #     err_msg = "The PV surrogate model requires the input data not be scaled."
+        #     err_msg += " Set the config argument 'scale_training_data' = False"
+        #     raise ConfigurationError(err_msg)
 
         self.del_component(self.heat)
 
@@ -63,9 +64,16 @@ class PVSurrogateData(SolarEnergyBaseData):
             err_msg = "The PV surrogate model requires either an existing surrogate model file or a valid surrogate type."
             raise ConfigurationError(err_msg)
 
+        if self.config.scale_training_data:
+            self.annual_energy = Expression(
+                expr=self.annual_energy_scaled / self.annual_energy_scaling)
+            
+
         self.electricity_constraint = Constraint(
-            expr=self.annual_energy
-            == pyunits.convert(self.electricity, to_units=pyunits.kWh / pyunits.year)
+            expr=self.electricity
+            == pyunits.convert(self.annual_energy, to_units=pyunits.kW)
+            # expr=self.annual_energy
+            # == pyunits.convert(self.electricity, to_units=pyunits.kWh / pyunits.year)
         )
 
     def calculate_scaling_factors(self):
@@ -111,7 +119,6 @@ class PVSurrogateData(SolarEnergyBaseData):
         )
         self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
 
-        # self.electricity.set_value(value(self.annual_energy_scaled / self.annual_energy_scaling) / 8766)
         # Create solver
         res = opt.solve(self)
 
