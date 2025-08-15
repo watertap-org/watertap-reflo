@@ -55,6 +55,11 @@ class SolarModelType(StrEnum):
     pysam = "pysam"
 
 
+class SolarSurrogateType(StrEnum):
+    polynomial = "polynomial"
+    rbf = "rbf"
+
+
 @declare_process_block_class("SolarEnergyBase")
 class SolarEnergyBaseData(UnitModelBlockData):
     """
@@ -87,6 +92,15 @@ class SolarEnergyBaseData(UnitModelBlockData):
             domain=In(SolarModelType),
             description="Solar model type construction flag",
             doc="""Indicates what type of solar model will be constructed. Options are 'surrogate' or 'physical'.""",
+        ),
+    )
+    CONFIG.declare(
+        "surrogate_model_type",
+        ConfigValue(
+            default=SolarSurrogateType.rbf,
+            domain=In(SolarSurrogateType),
+            description="Surrogate model type construction flag",
+            doc="""Indicates what type of surrogate model will be constructed. Options are 'rbf' or 'polynomial'.""",
         ),
     )
     CONFIG.declare(
@@ -193,6 +207,15 @@ class SolarEnergyBaseData(UnitModelBlockData):
             domain=bool,
             description="Flag to indicate use of regularization for PysmoRBFTrainer config",
             doc=""""Flag to indicate use of regularization for PysmoRBFTrainer config""",
+        ),
+    )
+    CONFIG.declare(
+        "maximum_polynomial_order",
+        ConfigValue(
+            default=2,
+            domain=int,
+            description="Maximum polynomial order for PysmoPolyTrainer config",
+            doc=""""Maximum polynomial order for PysmoPolyTrainer config""",
         ),
     )
 
@@ -368,6 +391,7 @@ class SolarEnergyBaseData(UnitModelBlockData):
         self.data_scaling_factors[output_var_name] = sp
 
     def compute_fit_metrics(self):
+        # BUG: compute_fit_metrics does not work with polynomial surrogates
         self.fit_metrics = compute_fit_metrics(self.surrogate, self.data)
 
         if self.config.scale_training_data:
@@ -407,13 +431,19 @@ class SolarEnergyBaseData(UnitModelBlockData):
         oldstdout = sys.stdout
         sys.stdout = stream
 
-        if self.config.surrogate_model_file is not None:
-            self.surrogate_model_file = self.config.surrogate_model_file
+        if self.config.surrogate_model_file is None:
+            error_msg = "No surrogate model file provided."
+            error_msg += " Please provide a valid surrogate model file path via the 'surrogate_model_file' config argument."
+            raise ConfigurationError(error_msg)
+
+        if not os.path.exists(self.config.surrogate_model_file):
+            error_msg = f"Surrogate model file '{self.config.surrogate_model_file}' does not exist."
+            raise ConfigurationError(error_msg)
 
         self.log.info("Loading surrogate.")
 
         self.surrogate_blk = SurrogateBlock(concrete=True)
-        self.surrogate = PysmoSurrogate.load_from_file(self.surrogate_model_file)
+        self.surrogate = PysmoSurrogate.load_from_file(self.config.surrogate_model_file)
         self.surrogate_blk.build_model(
             self.surrogate,
             input_vars=self.surrogate_inputs,
@@ -434,9 +464,13 @@ class SolarEnergyBaseData(UnitModelBlockData):
             training_dataframe=self.data_training,
         )
 
-        self.trainer.config.maximum_polynomial_order = 1
+        self.trainer.config.maximum_polynomial_order = (
+            self.config.maximum_polynomial_order
+        )
 
-        self.log.info(f"Training Polynomial Surrogate with maximum polynomial order 1.")
+        self.log.info(
+            f"Training Polynomial Surrogate with maximum polynomial order {self.config.maximum_polynomial_order}."
+        )
 
         self.trained_linear = self.trainer.train_surrogate()
         self.log.info(f"Training Complete.")
