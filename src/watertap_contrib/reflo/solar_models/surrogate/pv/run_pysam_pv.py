@@ -29,7 +29,7 @@ tech_config_file = f"{__location__}/data/pv_pvsamv1_config_default_reflo.json"
 grid_config_file = f"{__location__}/data/pv_grid_config_default_reflo.json"
 rate_config_file = f"{__location__}/data/pv_utilityrate5_config_default_reflo.json"
 cash_config_file = f"{__location__}/data/pv_singleowner_config_default_reflo.json"
-weather_file = f"{__location__}/data/test_pv_weather_data.csv" # from El Paso, TX
+weather_file = f"{__location__}/data/test_pv_weather_data.csv"  # from El Paso, TX
 
 config_files = [
     tech_config_file,
@@ -345,7 +345,7 @@ def generate_pv_data(
 if __name__ == "__main__":
     # To create data used in PV surrogate test file:
     # design_sizes = np.linspace(1000, 1000000, 50)
-    
+
     df = generate_pv_data()
     print(df.head(20))
     os.remove(os.path.join(__location__, "data/test_data.pkl"))
