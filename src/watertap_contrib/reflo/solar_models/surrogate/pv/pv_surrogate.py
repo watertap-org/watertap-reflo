@@ -13,7 +13,6 @@
 import pandas as pd
 from pyomo.environ import (
     Constraint,
-    Expression,
     value,
     check_optimal_termination,
     units as pyunits,
@@ -24,7 +23,7 @@ from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
 
 from watertap.core.solvers import get_solver
-from watertap_contrib.reflo.core import SolarEnergyBaseData
+from watertap_contrib.reflo.core import SolarEnergyBaseData, SolarModelType, SolarSurrogateType
 from watertap_contrib.reflo.costing.solar.pv import cost_pv
 
 __author__ = "Zachary Binger, Matthew Boyd, Kurban Sitterley"
@@ -40,6 +39,11 @@ class PVSurrogateData(SolarEnergyBaseData):
 
     def build(self):
         super().build()
+        self._tech_type = "PV"
+
+        if not self.config.solar_model_type == SolarModelType.surrogate:
+            err_msg = "The PV surrogate model can only be used with the surrogate model type."
+            raise ConfigurationError(err_msg)
 
         if self.config.scale_training_data:
             err_msg = "The PV surrogate model requires the input data not be scaled."
@@ -48,13 +52,16 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.del_component(self.heat)
 
-        self._tech_type = "PV"
-
         if self.config.surrogate_model_file is not None:
-            self.surrogate_file = self.config.surrogate_model_file
+            self.surrogate_model_file = self.config.surrogate_model_file
             self.load_surrogate()
-        else:
+        elif self.config.surrogate_model_type == SolarSurrogateType.rbf:
+            self.create_rbf_surrogate()
+        elif self.config.surrogate_model_type == SolarSurrogateType.polynomial:
             self.create_polynomial_surrogate()
+        else:
+            err_msg = "The PV surrogate model requires either an existing surrogate model file or a valid surrogate type."
+            raise ConfigurationError(err_msg)
 
         self.electricity_constraint = Constraint(
             expr=self.annual_energy
