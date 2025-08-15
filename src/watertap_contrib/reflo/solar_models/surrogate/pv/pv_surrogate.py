@@ -24,7 +24,11 @@ from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
 
 from watertap.core.solvers import get_solver
-from watertap_contrib.reflo.core import SolarEnergyBaseData, SolarModelType, SolarSurrogateType
+from watertap_contrib.reflo.core import (
+    SolarEnergyBaseData,
+    SolarModelType,
+    SolarSurrogateType,
+)
 from watertap_contrib.reflo.costing.solar.pv import cost_pv
 
 __author__ = "Zachary Binger, Matthew Boyd, Kurban Sitterley"
@@ -43,13 +47,10 @@ class PVSurrogateData(SolarEnergyBaseData):
         self._tech_type = "PV"
 
         if not self.config.solar_model_type == SolarModelType.surrogate:
-            err_msg = "The PV surrogate model can only be used with the surrogate model type."
+            err_msg = (
+                "The PV surrogate model can only be used with the surrogate model type."
+            )
             raise ConfigurationError(err_msg)
-
-        # if self.config.scale_training_data:
-        #     err_msg = "The PV surrogate model requires the input data not be scaled."
-        #     err_msg += " Set the config argument 'scale_training_data' = False"
-        #     raise ConfigurationError(err_msg)
 
         self.del_component(self.heat)
 
@@ -65,15 +66,18 @@ class PVSurrogateData(SolarEnergyBaseData):
             raise ConfigurationError(err_msg)
 
         if self.config.scale_training_data:
-            self.annual_energy = Expression(
-                expr=self.annual_energy_scaled / self.annual_energy_scaling)
-            
+            self.electricity_annual = Expression(
+                expr=self.electricity_annual_scaled / self.electricity_annual_scaling,
+                doc="Annual electricity produced by PV system",
+            )
+            self.land_req = Expression(
+                expr=self.land_req_scaled / self.land_req_scaling,
+                doc="Land required for PV system",
+            )
 
         self.electricity_constraint = Constraint(
             expr=self.electricity
-            == pyunits.convert(self.annual_energy, to_units=pyunits.kW)
-            # expr=self.annual_energy
-            # == pyunits.convert(self.electricity, to_units=pyunits.kWh / pyunits.year)
+            == pyunits.convert(self.electricity_annual, to_units=pyunits.kW)
         )
 
     def calculate_scaling_factors(self):
@@ -82,12 +86,16 @@ class PVSurrogateData(SolarEnergyBaseData):
             sf = iscale.get_scaling_factor(self.design_size, default=1)
             iscale.set_scaling_factor(self.design_size, sf)
 
-        if iscale.get_scaling_factor(self.annual_energy) is None:
-            sf = iscale.get_scaling_factor(self.annual_energy, default=1, warning=True)
-            iscale.set_scaling_factor(self.annual_energy, sf)
+        if iscale.get_scaling_factor(self.land_req) is None:
+            sf = iscale.get_scaling_factor(self.land_req, default=1)
+            iscale.set_scaling_factor(self.land_req, sf)
+
+        if iscale.get_scaling_factor(self.electricity_annual) is None:
+            sf = iscale.get_scaling_factor(self.electricity_annual, default=1)
+            iscale.set_scaling_factor(self.electricity_annual, sf)
 
         if iscale.get_scaling_factor(self.electricity) is None:
-            sf = iscale.get_scaling_factor(self.electricity, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.electricity, default=1)
             iscale.set_scaling_factor(self.electricity, sf)
 
     def initialize(
@@ -117,7 +125,11 @@ class PVSurrogateData(SolarEnergyBaseData):
                 "design_size": [value(self.design_size)],
             }
         )
-        self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
+
+        if self.config.surrogate_model_type == SolarSurrogateType.rbf:
+            # BUG: evaluate_surrogate will raise error for polynomial surrogates
+            # until IDAES dependency is updated
+            self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
 
         # Create solver
         res = opt.solve(self)
