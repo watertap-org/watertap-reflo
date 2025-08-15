@@ -8,17 +8,7 @@ permiain_zld2_diff_analysis:
     elec_price: 0.0434618999
     nacl_recover_price: 0
   diff_param_loop:
-    # Heat Price:
-    #   diff_mode: percentile
-    #   diff_sample_type: UniformSample
-    #   param: fs.costing.heat_cost_buy
-    #   nominal_lb: 0.0083
-    #   nominal_ub: 0.0249
-    #   relative_lb: -0.01
-    #   relative_ub: -0.01
-    #   group: Cost
-    #   y_convert: 1
-    #   num_samples: 1
+
     CST Collector Cost:
       diff_mode: percentile
       diff_sample_type: UniformSample
@@ -96,12 +86,19 @@ permiain_zld2_diff_analysis:
       group: Cost
       y_convert: 1
       num_samples: 1
+    Heat Price:
+      diff_mode: percentile
+      diff_sample_type: UniformSample
+      param: fs.costing.heat_cost_buy
+      nominal_lb: 0.0083
+      nominal_ub: 0.0249
+      relative_lb: -0.01
+      relative_ub: -0.01
+      group: Cost
+      y_convert: 1
+      num_samples: 1
     sweep_reference_params: # The parameters below will be used to generate reference design and will be run simultaneously (e.g. all of them will be changed to generate a new hypothetical design here, we only provide one parameter, membrane cost, but could provide many others)
-      # Heat Price:
-      #   type: UniformSample
-      #   param: fs.costing.heat_cost_buy
-      #   lower_limit: 0.0083
-      #   upper_limit: 0.0249
+
       CST Collector Cost:
         type: UniformSample
         param: fs.energy.costing.trough_surrogate.cost_per_total_aperture_area
@@ -137,4 +134,9 @@ permiain_zld2_diff_analysis:
         param: fs.treatment.costing.multi_effect_crystallizer.heat_exchanger_capital_factor
         lower_limit: 210.0
         upper_limit: 630.0
+      Heat Price:
+        type: UniformSample
+        param: fs.costing.heat_cost_buy
+        lower_limit: 0.0083
+        upper_limit: 0.0249
       num_samples: 10
