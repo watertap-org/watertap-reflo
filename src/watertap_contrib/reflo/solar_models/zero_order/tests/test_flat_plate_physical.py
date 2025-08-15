@@ -93,7 +93,7 @@ class TestFlatPlatePhysical:
     def test_config(self, flat_plate_frame):
         m = flat_plate_frame
 
-        assert len(m.fs.flatplate.config) == 17
+        assert len(m.fs.flatplate.config) == 19
         assert not m.fs.flatplate.config.dynamic
         assert not m.fs.flatplate.config.has_holdup
         assert m.fs.flatplate.config.property_package is m.fs.properties

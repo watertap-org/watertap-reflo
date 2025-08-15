@@ -194,7 +194,7 @@ class TestTroughSurrogate1:
         m = trough_frame
         cst = m.fs.unit
 
-        assert len(cst.config) == 13
+        assert len(cst.config) == 15
         assert not cst.config.dynamic
         assert not cst.config.has_holdup
         assert cst.config.training_fraction == 0.8

@@ -97,7 +97,7 @@ class TestFlatPlate1:
     def test_build(self, flat_plate_frame):
         fpc = flat_plate_frame.fs.fpc
 
-        assert len(fpc.config) == 13
+        assert len(fpc.config) == 15
         assert not fpc.config.dynamic
         assert not fpc.config.has_holdup
         assert fpc.config.training_fraction == 0.8
