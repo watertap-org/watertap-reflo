@@ -51,7 +51,49 @@ from watertap_contrib.reflo.solar_models import (
 solver = get_solver()
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-dataset_filename = os.path.join(os.path.dirname(__file__), "data/test_fpc_data.pkl")
+dataset_filename = os.path.join(os.path.dirname(__file__), "data/test_pv_data.pkl")
 surrogate_model_file = os.path.join(
-    os.path.dirname(__file__), "data/test_fpc_surrogate.json"
+    os.path.dirname(__file__), "data/test_pv_surrogate.json"
 )
+
+def build_pv():
+
+    pv_dict = {
+        "input_variables":{
+            "labels": ["design_size"],
+            "units": {"design_size": "kW"},
+        },
+        "output_variables":{
+            "labels": ["annual_energy", "land_req"],
+            "units": {"annual_energy": "kWh", "land_req": "acre"},
+        },
+        "scale_training_data": False,
+        "dataset_filename": dataset_filename,
+        "surrogate_model_file": surrogate_model_file,
+    }
+
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.pv = PVSurrogate(**pv_dict)
+
+    return m
+
+class TestPV:
+    @pytest.fixture(scope="class")
+    def pv(self):
+        return build_pv()
+
+    @pytest.mark.unit
+    def test_build(self, pv):
+        assert isinstance(pv.fs.pv, PVSurrogate)
+        assert isinstance(pv.fs.pv.surrogate, SurrogateBlock)
+        assert isinstance(pv.fs.pv.surrogate.surrogate_model, PysmoSurrogate)
+
+    @pytest.mark.component
+    def test_initialize(self, pv):
+        initialization_tester(pv.fs.pv)
+
+    @pytest.mark.component
+    def test_solve(self, pv):
+        results = solver.solve(pv)
+        assert_optimal_termination(results)
