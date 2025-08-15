@@ -427,9 +427,8 @@ class SolarEnergyBaseData(UnitModelBlockData):
         return self.fit_metrics
 
     def load_surrogate(self):
-        stream = StringIO()
-        oldstdout = sys.stdout
-        sys.stdout = stream
+
+        self.log.info("Loading surrogate.")
 
         if self.config.surrogate_model_file is None:
             error_msg = "No surrogate model file provided."
@@ -440,7 +439,9 @@ class SolarEnergyBaseData(UnitModelBlockData):
             error_msg = f"Surrogate model file '{self.config.surrogate_model_file}' does not exist."
             raise ConfigurationError(error_msg)
 
-        self.log.info("Loading surrogate.")
+        stream = StringIO()
+        oldstdout = sys.stdout
+        sys.stdout = stream
 
         self.surrogate_blk = SurrogateBlock(concrete=True)
         self.surrogate = PysmoSurrogate.load_from_file(self.config.surrogate_model_file)
@@ -450,6 +451,9 @@ class SolarEnergyBaseData(UnitModelBlockData):
             output_vars=self.surrogate_outputs,
         )
         sys.stdout = oldstdout
+        self.log.info(
+            f"Surrogate model loaded from {self.config.surrogate_model_file.split('/')[-1]}."
+        )
 
     def create_polynomial_surrogate(self):
         # Capture long output
@@ -490,12 +494,10 @@ class SolarEnergyBaseData(UnitModelBlockData):
         )
 
         if self.config.surrogate_filename_save is None:
-            print("no surrogate_filename_save provided, using dataset_filename")
             self.surrogate_filename_save = self.config.dataset_filename.replace(
                 ".pkl", ""
-            )
+            ).replace(".csv", "")
         else:
-            print("using surrogate_filename_save provided in config")
             self.surrogate_filename_save = self.config.surrogate_filename_save.replace(
                 ".json", ""
             )
@@ -558,12 +560,10 @@ class SolarEnergyBaseData(UnitModelBlockData):
         )
 
         if self.config.surrogate_filename_save is None:
-            print("no surrogate_filename_save provided, using dataset_filename")
             self.surrogate_filename_save = self.config.dataset_filename.replace(
                 ".pkl", ""
-            )
+            ).replace(".csv", "")
         else:
-            print("using surrogate_filename_save provided in config")
             self.surrogate_filename_save = self.config.surrogate_filename_save.replace(
                 ".json", ""
             )
