@@ -25,21 +25,11 @@ import PySAM.Singleowner as singleowner
 __author__ = "Kurban Sitterley"
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-pysam_model = "pv"
-tech_config_file = f"{__location__}/data/untitled_pvsamv1.json"
-grid_config_file = f"{__location__}/data/untitled_grid.json"
-rate_config_file = f"{__location__}/data/untitled_utilityrate5.json"
-cash_config_file = f"{__location__}/data/untitled_singleowner.json"
-weather_file = f"{__location__}/data/el_paso_texas-KBHDP-weather.csv"
-dcac_ratio = 1.2
-
-if pysam_model is None:
-    raise Exception("PySAM module is required.")
-if not all([tech_config_file, grid_config_file, rate_config_file, cash_config_file]):
-    raise Exception("One of the PySAM model configuration files is missing.")
-if weather_file is None:
-    raise Exception("Weather file is required.")
-
+tech_config_file = f"{__location__}/data/pv_pvsamv1_config_default_reflo.json"
+grid_config_file = f"{__location__}/data/pv_grid_config_default_reflo.json"
+rate_config_file = f"{__location__}/data/pv_utilityrate5_config_default_reflo.json"
+cash_config_file = f"{__location__}/data/pv_singleowner_config_default_reflo.json"
+weather_file = f"{__location__}/data/test_pv_weather_data.csv" # from El Paso, TX
 
 config_files = [
     tech_config_file,
@@ -325,7 +315,6 @@ def generate_pv_data(
     if dataset_filename is None:
         # assume it is run for testing purposes
         dataset_filename = os.path.join(__location__, "data/test_data.pkl")
-    # dataset_filename = os.path.join(os.path.dirname(__file__), dataset_filename)
 
     print(f"Saving data to {dataset_filename}")
 
