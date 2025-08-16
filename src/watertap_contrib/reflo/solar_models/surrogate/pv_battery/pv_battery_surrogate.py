@@ -1,19 +1,17 @@
-###############################################################################
-# WaterTAP Copyright (c) 2021, The Regents of the University of California,
-# through Lawrence Berkeley National Laboratory, Oak Ridge National
-# Laboratory, National Renewable Energy Laboratory, and National Energy
-# Technology Laboratory (subject to receipt of any required approvals from
-# the U.S. Dept. of Energy). All rights reserved.
+#################################################################################
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
 #
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/watertap/"
-#
-###############################################################################
+#################################################################################
 
 import pandas as pd
 from pyomo.environ import (
-    Var,
     Param,
     Constraint,
     Expression,
@@ -23,12 +21,16 @@ from pyomo.environ import (
 )
 from idaes.core import declare_process_block_class
 import idaes.core.util.scaling as iscale
-from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.exceptions import ConfigurationError, InitializationError
 import idaes.logger as idaeslog
 
 from watertap.core.solvers import get_solver
-from watertap_contrib.reflo.core import SolarEnergyBaseData
-# from watertap_contrib.reflo.costing.solar.pv_surrogate import cost_pv_surrogate
+from watertap_contrib.reflo.core import (
+    SolarEnergyBaseData,
+    SolarModelType,
+    SolarSurrogateType,
+)
+from watertap_contrib.reflo.costing.solar.pv import cost_pv
 
 __author__ = "Kurban Sitterley"
 
@@ -45,18 +47,73 @@ class PVBatterySurrogateData(SolarEnergyBaseData):
         super().build()
 
         self._tech_type = "PV_battery"
-        self.add_surrogate_variables()
-        self.get_surrogate_data()
+
+        if not self.config.solar_model_type == SolarModelType.surrogate:
+            err_msg = "The PV+Battery surrogate model can only be used with the surrogate model type."
+            raise ConfigurationError(err_msg)
+
+        self.del_component(self.heat)
 
         if self.config.surrogate_model_file is not None:
-            self.surrogate_file = self.config.surrogate_model_file
+            self.surrogate_model_file = self.config.surrogate_model_file
             self.load_surrogate()
-        else:
+        elif self.config.surrogate_model_type == SolarSurrogateType.rbf:
             self.create_rbf_surrogate()
+        elif self.config.surrogate_model_type == SolarSurrogateType.polynomial:
+            self.create_polynomial_surrogate()
+        else:
+            err_msg = "The PV+Battery surrogate model requires either an existing surrogate model file or a valid surrogate type."
+            raise ConfigurationError(err_msg)
+
+        if "battery_kw" not in self.input_labels:
+
+            if "battery_kw" in self.data.columns:
+                self.battery_kw = Param(
+                    initialize=self.data["battery_kw"].mean(),
+                    units=pyunits.kW,
+                    mutable=True,
+                    doc="Battery power rating",
+                )
+
+            else:
+                self.battery_kw = Param(
+                    initialize=100,
+                    units=pyunits.kW,
+                    mutable=True,
+                    doc="Battery power rating",
+                )
+
+        if "hours_storage" not in self.input_labels:
+
+            if "hours_storage" in self.data.columns:
+                self.hours_storage = Param(
+                    initialize=self.data["hours_storage"].mean(),
+                    units=pyunits.hour,
+                    mutable=True,
+                    doc="Hours of storage",
+                )
+
+            else:
+                self.hours_storage = Param(
+                    initialize=12,
+                    units=pyunits.hour,
+                    mutable=True,
+                    doc="Hours of storage",
+                )
+
+        if self.config.scale_training_data:
+            self.electricity_annual = Expression(
+                expr=self.electricity_annual_scaled / self.electricity_annual_scaling,
+                doc="Annual electricity produced by PV system",
+            )
+            self.land_req = Expression(
+                expr=self.land_req_scaled / self.land_req_scaling,
+                doc="Land required for PV system",
+            )
 
         self.electricity_constraint = Constraint(
-            expr=self.annual_energy
-            == pyunits.convert(self.electricity, to_units=pyunits.kWh / pyunits.year)
+            expr=self.electricity
+            == pyunits.convert(self.electricity_annual, to_units=pyunits.kW)
         )
 
     def calculate_scaling_factors(self):
@@ -65,12 +122,24 @@ class PVBatterySurrogateData(SolarEnergyBaseData):
             sf = iscale.get_scaling_factor(self.design_size, default=1)
             iscale.set_scaling_factor(self.design_size, sf)
 
-        if iscale.get_scaling_factor(self.annual_energy) is None:
-            sf = iscale.get_scaling_factor(self.annual_energy, default=1, warning=True)
-            iscale.set_scaling_factor(self.annual_energy, sf)
+        if iscale.get_scaling_factor(self.battery_kw) is None:
+            sf = iscale.get_scaling_factor(self.battery_kw, default=1)
+            iscale.set_scaling_factor(self.battery_kw, sf)
+
+        if iscale.get_scaling_factor(self.hours_storage) is None:
+            sf = iscale.get_scaling_factor(self.hours_storage, default=1)
+            iscale.set_scaling_factor(self.hours_storage, sf)
+
+        if iscale.get_scaling_factor(self.land_req) is None:
+            sf = iscale.get_scaling_factor(self.land_req, default=1)
+            iscale.set_scaling_factor(self.land_req, sf)
+
+        if iscale.get_scaling_factor(self.electricity_annual) is None:
+            sf = iscale.get_scaling_factor(self.electricity_annual, default=1)
+            iscale.set_scaling_factor(self.electricity_annual, sf)
 
         if iscale.get_scaling_factor(self.electricity) is None:
-            sf = iscale.get_scaling_factor(self.electricity, default=1, warning=True)
+            sf = iscale.get_scaling_factor(self.electricity, default=1)
             iscale.set_scaling_factor(self.electricity, sf)
 
     def initialize(
@@ -98,17 +167,23 @@ class PVBatterySurrogateData(SolarEnergyBaseData):
         self.init_data = pd.DataFrame(
             {
                 "design_size": [value(self.design_size)],
-                "annual_energy": [value(self.annual_energy)],
-                "land_req": [value(self.land_req)],
+                "battery_kw": [value(self.battery_kw)],
+                "hours_storage": [value(self.hours_storage)],
             }
         )
-        self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
 
-        self.electricity.set_value(value(self.annual_energy) / 8766)
+        if self.config.surrogate_model_type == SolarSurrogateType.rbf:
+            # BUG: evaluate_surrogate will raise error for polynomial surrogates
+            # until IDAES dependency is updated
+            self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
+            init_log.info_high(
+                f"Initialization Step 1: Evaluate surrogate at design size {value(self.design_size)} kW, battery size {value(self.battery_kw)*value(self.hours_storage)} kWh"
+            )
+
         # Create solver
         res = opt.solve(self)
 
-        init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
+        init_log.info_high(f"Initialization Step 2: Solution {idaeslog.condition(res)}")
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
