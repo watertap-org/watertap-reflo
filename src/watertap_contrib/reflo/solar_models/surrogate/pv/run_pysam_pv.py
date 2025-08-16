@@ -68,7 +68,7 @@ def _spe_power(spe_eff_level, spe_rad_level, spe_area):
     return spe_eff_level / 100 * spe_rad_level * spe_area
 
 
-def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
+def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
 
     # Sizing rules
     # 1. Voc < Vdcmax
@@ -192,7 +192,7 @@ def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
         total_ac_capacity = total_ac_capacity
         total_dc_inverter_capacity = total_dc_inverter_capacity
 
-    size_pv_array = {
+    pv_array_design = {
         "inverter_count": num_inverters,
         "number_modules_per_string": num_series,
         "number_strings": num_parallel,
@@ -207,7 +207,7 @@ def _size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
     if not all([num_inverters, num_parallel]):
         raise ValueError("One of inverters, num_inverters, num_parallel is None.")
 
-    return size_pv_array
+    return pv_array_design
 
 
 def setup_model_pv(pysam_model_config):
@@ -242,15 +242,15 @@ def run_pv_single_owner(
     tech_model = modules[0]
     cash_model = modules[3]
 
-    size_pv_array = _size_pv_array(
+    pv_array_design = size_pv_array(
         tech_model, design_size=design_size, desired_dcac_ratio=desired_dcac_ratio
     )
 
     print(
         f"\nRunning PySAM model {pysam_model_config} for design size = {design_size:.2f} kW...\n"
     )
-    tech_model.value("inverter_count", size_pv_array["inverter_count"])
-    tech_model.value("subarray1_nstrings", size_pv_array["number_strings"])
+    tech_model.value("inverter_count", pv_array_design["inverter_count"])
+    tech_model.value("subarray1_nstrings", pv_array_design["number_strings"])
 
     # BUG Dec. 2024: cec_gamma_r was a required parameter but wasn't provided by default config
     # Courtesy of Google AI:
@@ -271,21 +271,21 @@ def run_pv_single_owner(
     for mod in modules:
         mod.execute()
 
-    return tech_model, cash_model, size_pv_array
+    return tech_model, cash_model, pv_array_design
 
 
 def setup_and_run_pv(design_size, pysam_model_config, return_tech_model=False):
 
     modules = setup_model_pv(pysam_model_config)
 
-    tech_model, cash_model, size_pv_array = run_pv_single_owner(
+    tech_model, cash_model, pv_array_design = run_pv_single_owner(
         modules, pysam_model_config, design_size=design_size
     )
     electricity_annual = tech_model.Outputs.annual_energy  # kWh
 
     cash_model.execute()
 
-    result = size_pv_array
+    result = pv_array_design
     result["electricity_annual"] = electricity_annual
     result["lcoe_real"] = cash_model.Outputs.lcoe_real
     result["ac_capacity_factor"] = tech_model.Outputs.capacity_factor_ac
