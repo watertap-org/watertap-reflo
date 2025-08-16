@@ -130,11 +130,12 @@ class PVSurrogateData(SolarEnergyBaseData):
             # BUG: evaluate_surrogate will raise error for polynomial surrogates
             # until IDAES dependency is updated
             self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
+            init_log.info_high(f"Initialization Step 1: Evaluate surrogate at design size {value(self.design_size)} kW")
 
         # Create solver
         res = opt.solve(self)
 
-        init_log.info_high(f"Initialization Step 2 {idaeslog.condition(res)}")
+        init_log.info_high(f"Initialization Step 2: Solution {idaeslog.condition(res)}")
 
         if not check_optimal_termination(res):
             raise InitializationError(f"Unit model {self.name} failed to initialize")
