@@ -90,7 +90,7 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.inverter_capacity = Expression(
             expr=pyunits.convert(
-                self.design_size / self.DC_to_AC_ratio, to_units=pyunits.kW
+                self.system_capacity / self.DC_to_AC_ratio, to_units=pyunits.kW
             ),
             doc="Inverter capacity for PV system",
         )
@@ -102,9 +102,9 @@ class PVSurrogateData(SolarEnergyBaseData):
 
     def calculate_scaling_factors(self):
 
-        if iscale.get_scaling_factor(self.design_size) is None:
-            sf = iscale.get_scaling_factor(self.design_size, default=1)
-            iscale.set_scaling_factor(self.design_size, sf)
+        if iscale.get_scaling_factor(self.system_capacity) is None:
+            sf = iscale.get_scaling_factor(self.system_capacity, default=1)
+            iscale.set_scaling_factor(self.system_capacity, sf)
 
         if iscale.get_scaling_factor(self.land_req) is None:
             sf = iscale.get_scaling_factor(self.land_req, default=1)
@@ -142,7 +142,7 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.init_data = pd.DataFrame(
             {
-                "design_size": [value(self.design_size)],
+                "system_capacity": [value(self.system_capacity)],
             }
         )
 
@@ -151,7 +151,7 @@ class PVSurrogateData(SolarEnergyBaseData):
             # until IDAES dependency is updated
             self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
             init_log.info_high(
-                f"Initialization Step 1: Evaluate surrogate at design size {value(self.design_size)} kW"
+                f"Initialization Step 1: Evaluate surrogate at design size {value(self.system_capacity)} kW"
             )
 
         # Create solver

@@ -68,7 +68,7 @@ def _spe_power(spe_eff_level, spe_rad_level, spe_area):
     return spe_eff_level / 100 * spe_rad_level * spe_area
 
 
-def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
+def size_pv_array(tech_model, system_capacity=50, desired_dcac_ratio=1.2):
 
     # Sizing rules
     # 1. Voc < Vdcmax
@@ -149,7 +149,7 @@ def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
                 num_series -= 1
 
     num_series = max(1, round(num_series))
-    num_parallel = design_size * 1000 / (num_series * mod_power)
+    num_parallel = system_capacity * 1000 / (num_series * mod_power)
     num_parallel = max(1, round(num_parallel))
     if desired_dcac_ratio > 0:
         inverters = ((num_series * num_parallel * mod_power)) / (
@@ -175,7 +175,7 @@ def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
     # check that the sizing was close to the desired sizes, otherwise error out
     nameplate_dc = total_modules * mod_power / 1000
     proposed_ratio = nameplate_dc / (num_inverters * inv_power / 1000)
-    if abs(nameplate_dc - design_size) / design_size > 0.2:
+    if abs(nameplate_dc - system_capacity) / system_capacity > 0.2:
         num_inverters = None
         num_series = None
         num_parallel = None
@@ -199,7 +199,7 @@ def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
         "total_modules": total_modules,
         "total_module_area": total_module_area,
         "land_req": land_area,
-        "system_capacity": nameplate_dc,
+        "nameplate_dc": nameplate_dc,
         "total_inverter_capacity": total_ac_capacity,
         "total_dc_inverter_capacity": total_dc_inverter_capacity,
     }
@@ -231,23 +231,25 @@ def setup_model_pv(pysam_model_config):
 def run_pv_single_owner(
     modules,
     pysam_model_config,
-    design_size=None,  # kW
+    system_capacity=None,  # kW
     desired_dcac_ratio=1.2,
     tech_model_kwargs={},
     cash_model_kwargs={},
 ):
-    if design_size is None:
-        raise ValueError("design_size input must be provided")
+    if system_capacity is None:
+        raise ValueError("system_capacity input must be provided")
 
     tech_model = modules[0]
     cash_model = modules[3]
 
     pv_array_design = size_pv_array(
-        tech_model, design_size=design_size, desired_dcac_ratio=desired_dcac_ratio
+        tech_model,
+        system_capacity=system_capacity,
+        desired_dcac_ratio=desired_dcac_ratio,
     )
 
     print(
-        f"\nRunning PySAM model {pysam_model_config} for design size = {design_size:.2f} kW...\n"
+        f"\nRunning PySAM model {pysam_model_config} for system capacity = {system_capacity:.2f} kW...\n"
     )
     tech_model.value("inverter_count", pv_array_design["inverter_count"])
     tech_model.value("subarray1_nstrings", pv_array_design["number_strings"])
@@ -274,12 +276,12 @@ def run_pv_single_owner(
     return tech_model, cash_model, pv_array_design
 
 
-def setup_and_run_pv(design_size, pysam_model_config, return_tech_model=False):
+def setup_and_run_pv(system_capacity, pysam_model_config, return_tech_model=False):
 
     modules = setup_model_pv(pysam_model_config)
 
     tech_model, cash_model, pv_array_design = run_pv_single_owner(
-        modules, pysam_model_config, design_size=design_size
+        modules, pysam_model_config, system_capacity=system_capacity
     )
     electricity_annual = tech_model.Outputs.annual_energy  # kWh
 
@@ -290,7 +292,7 @@ def setup_and_run_pv(design_size, pysam_model_config, return_tech_model=False):
     result["lcoe_real"] = cash_model.Outputs.lcoe_real
     result["ac_capacity_factor"] = tech_model.Outputs.capacity_factor_ac
     result["dc_capacity_factor"] = tech_model.Outputs.capacity_factor
-    print(f"Design Size {design_size:.1f} kW completed.")
+    print(f"System Capacity {system_capacity:.1f} kW completed.")
     print(f"\tAnnual Energy = {electricity_annual:.2f} kWh")
     print(f"\tLand Required = {result['land_req']:.2f} acre\n")
 
@@ -315,7 +317,7 @@ def generate_pv_data(
 
     print(f"Saving data to {dataset_filename}")
 
-    df = pd.DataFrame(design_sizes, columns=["design_size"])
+    df = pd.DataFrame(design_sizes, columns=["system_capacity"])
 
     if use_multiprocessing:
 

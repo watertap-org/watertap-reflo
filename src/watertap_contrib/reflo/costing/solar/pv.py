@@ -177,7 +177,7 @@ def cost_pv_detailed(blk):
     capital_cost_expr = 0
 
     design_size_watt = pyo.units.convert(
-        blk.unit_model.design_size, to_units=pyo.units.watt
+        blk.unit_model.system_capacity, to_units=pyo.units.watt
     )
 
     inverter_capacity_watt = pyo.units.convert(
@@ -295,7 +295,7 @@ def cost_pv_simple(blk):
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
         == pyo.units.convert(
-            pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
+            pyo.units.convert(blk.unit_model.system_capacity, to_units=pyo.units.watt)
             * pv_params.cost_per_watt_installed,
             to_units=blk.costing_package.base_currency,
         )
@@ -324,7 +324,7 @@ def cost_pv_simple(blk):
         expr=blk.fixed_operating_cost
         == pyo.units.convert(
             pv_params.fixed_operating_by_capacity
-            * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW),
+            * pyo.units.convert(blk.unit_model.system_capacity, to_units=pyo.units.kW),
             to_units=blk.costing_package.base_currency
             / blk.costing_package.base_period,
         )
