@@ -24,6 +24,13 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 # Tuscon, AZ
 weather_file_default = os.path.join(__location__, "data/test_trough_weather_data.csv")
 config_file_default = os.path.join(__location__, "data/trough_physical_iph-reflo.json")
+# NOTE:
+# The initial version of this PySAM run and the config file was created using nrel-pysam version 6.0.0;
+# version 7.0.0 requires the parameter hs_htf_mdot_max_frac be specified but it is not included in the 6.0.0 config file.
+# This parameter was manually added to trough_physical_iph-reflo.json with a default value of 1.1.
+# If you are using a different version of nrel-pysam, you may need to adjust the config file accordingly.
+# You could also use default configurations available here:
+# https://nrel-pysam.readthedocs.io/en/latest/sam-configurations.html
 
 
 def setup_model_trough(
@@ -55,8 +62,8 @@ def setup_model_trough(
         if k != "number_inputs":
             try:
                 tech_model.value(k, v)
-            except:
-                pass
+            except AttributeError:
+                print(f"Warning: {k} not found in the technology model. Skipping.")
 
     tech_model.Weather.file_name = weather_file
 
@@ -65,7 +72,7 @@ def setup_model_trough(
 
 def run_model_trough(
     tech_model,
-    heat_load=None,
+    system_capacity=None,
     hours_storage=None,
     temperature_loop=300,
     return_tech_model=False,
@@ -74,20 +81,26 @@ def run_model_trough(
     Runs the trough model with specified heat load and storage hours.
 
     :param tech_model: PySAM TroughPhysicalIph model object
-    :param heat_load: Heat load in MWt to be supplied by the trough system
+    :param system_capacity: System capacity in MWt to be supplied by the trough system
     :param hours_storage: Number of hours of thermal storage (optional)
     :param temperature_loop: Loop outlet temperature in Celsius (default is 300 C)
     :param return_tech_model: If True, returns the tech_model object along with results
     """
-    if heat_load is None:
-        raise ValueError("heat_load must be specified for trough model run.")
+    if system_capacity is None:
+        raise ValueError("system_capacity must be specified for trough model run.")
 
-    tech_model.value("q_pb_design", heat_load)
+    tech_model.value("q_pb_design", system_capacity)
     tech_model.value("T_loop_out", temperature_loop)  # [C] default is 300 C
 
     if hours_storage is not None:
         tech_model.value("tshours", hours_storage)
 
+    print(
+        f"\nRunning:"
+        f"\n\tSystem Capacity = {system_capacity}"
+        f"\n\tHours Storage = {hours_storage}"
+        f"\n\tTemperature Hot = {temperature_loop}"
+    )
     tech_model.execute()
 
     # NOTE: freeze_protection_field can sometimes be nan (when it should be 0) and this causes other nan's
@@ -132,23 +145,23 @@ def run_model_trough(
 
 
 def setup_and_run_trough(
-    weather_file, config_file, heat_load, hours_storage, temperature_loop
+    weather_file, config_file, system_capacity, hours_storage, temperature_loop
 ):
     """
     Set up and run the PySAM TroughPhysicalIph model with specified parameters once.
 
     :param weather_file: Path to the weather data file
     :param config_file: Path to the configuration data file
-    :param heat_load: Heat load in MWt to be supplied by the trough system
+    :param system_capacity: Heat load in MWt to be supplied by the trough system
     :param hours_storage: Number of hours of thermal storage (optional)
     :param temperature_loop: Loop outlet temperature in Celsius (default is 300 C)
-    :return: Dictionary containing results from the model run`
+    :return: Dictionary containing results from the model run
     """
     tech_model = setup_model_trough(weather_file=weather_file, config_file=config_file)
 
     results = run_model_trough(
         tech_model,
-        heat_load=heat_load,
+        system_capacity=system_capacity,
         hours_storage=hours_storage,
         temperature_loop=temperature_loop,
     )
@@ -156,7 +169,7 @@ def setup_and_run_trough(
 
 
 def generate_trough_data(
-    heat_loads=np.geomspace(1, 50, 3),
+    system_capacities=np.geomspace(1, 50, 3),
     hours_storages=[24],
     temperatures_loop=[300],
     weather_file=weather_file_default,
@@ -170,7 +183,7 @@ def generate_trough_data(
     and save the results to a DataFrame.
     This data could then be used to train a surrogate model.
 
-    :param heat_loads: List of heat loads in MWt to be supplied by the trough system
+    :param system_capacities: List of system capacities in MWt to be supplied by the trough system
     :param hours_storages: List of number of hours of thermal storage (optional)
     :param temperatures_loop: List of loop outlet temperatures in Celsius (default is 300 C)
     :param weather_file: Path to the weather data file
@@ -187,16 +200,16 @@ def generate_trough_data(
     tech_model = setup_model_trough(weather_file=weather_file, config_file=config_file)
 
     if use_multiprocessing:
-        combos = list(product(heat_loads, hours_storages, temperatures_loop))
+        combos = list(product(system_capacities, hours_storages, temperatures_loop))
         df = pd.DataFrame(
-            combos, columns=["heat_load", "hours_storage", "temperature_loop"]
+            combos, columns=["system_capacity", "hours_storage", "temperature_loop"]
         )
         time_start = time.process_time()
         with multiprocessing.Pool(processes=6) as pool:
             args_in = [(weather_file, config_file, *combo) for combo in combos]
             results = pool.starmap(setup_and_run_trough, args_in)
         time_stop = time.process_time()
-        print("Multiprocessing time:", time_stop - time_start, "\n")
+        # print("Multiprocessing time:", time_stop - time_start, "\n")
         df_results = pd.DataFrame(results)
         df = pd.concat(
             [
@@ -217,17 +230,17 @@ def generate_trough_data(
         )
     else:
         data = []
-        combos = list(product(heat_loads, hours_storages, temperatures_loop))
-        for heat_load, hours_storage, temperature_loop in combos:
+        combos = list(product(system_capacities, hours_storages, temperatures_loop))
+        for system_capacity, hours_storage, temperature_loop in combos:
             results = run_model_trough(
                 tech_model,
-                heat_load=heat_load,
+                system_capacity=system_capacity,
                 hours_storage=hours_storage,
                 temperature_loop=temperature_loop,
             )
             data.append(
                 [
-                    heat_load,
+                    system_capacity,
                     hours_storage,
                     temperature_loop,
                     results["heat_annual"],
@@ -242,7 +255,7 @@ def generate_trough_data(
         df = pd.DataFrame(
             data,
             columns=[
-                "heat_load",
+                "system_capacity",
                 "hours_storage",
                 "temperature_loop",
                 "heat_annual",
@@ -260,6 +273,6 @@ def generate_trough_data(
 
 
 if __name__ == "__main__":
-    df = generate_trough_data()
+    df = generate_trough_data(use_multiprocessing=True)
     print(df.head())
     os.remove(os.path.join(__location__, "data/test_data.pkl"))
