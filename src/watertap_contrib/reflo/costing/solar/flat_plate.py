@@ -184,7 +184,7 @@ def cost_flat_plate(blk):
         expr=blk.fixed_operating_cost
         == pyo.units.convert(
             flat_plate_params.fixed_operating_by_capacity
-            * pyo.units.convert(flat_plate.heat_load, to_units=pyo.units.kW),
+            * pyo.units.convert(flat_plate.system_capacity, to_units=pyo.units.kW),
             to_units=global_params.base_currency / global_params.base_period,
         )
     )

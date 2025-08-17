@@ -141,7 +141,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
 
         self.collector_area_total = Expression(
             expr=pyunits.convert(
-                pyunits.convert(self.heat_load, to_units=pyunits.kilowatt)
+                pyunits.convert(self.system_capacity, to_units=pyunits.kilowatt)
                 / (self.FR_ta - self.FR_UL * self.factor_delta_T),
                 to_units=pyunits.m**2,
             )
@@ -154,7 +154,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         self.storage_volume = Expression(
             expr=pyunits.convert(
                 (
-                    (self.hours_storage * self.heat_load)
+                    (self.hours_storage * self.system_capacity)
                     / (
                         self.specific_heat_water
                         * (
@@ -189,7 +189,7 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         init_log.info(f"Evaluating FPC surrogate at input values.")
         self.init_data = pd.DataFrame(
             {
-                "heat_load": [value(self.heat_load)],
+                "system_capacity": [value(self.system_capacity)],
                 "hours_storage": [value(self.hours_storage)],
                 "temperature_hot": [value(self.temperature_hot)],
             }
@@ -223,8 +223,8 @@ class FlatPlateSurrogateData(SolarEnergyBaseData):
         if iscale.get_scaling_factor(self.temperature_hot) is None:
             iscale.set_scaling_factor(self.temperature_hot, 1)
 
-        if iscale.get_scaling_factor(self.heat_load) is None:
-            iscale.set_scaling_factor(self.heat_load, 0.1)
+        if iscale.get_scaling_factor(self.system_capacity) is None:
+            iscale.set_scaling_factor(self.system_capacity, 0.1)
 
         if iscale.get_scaling_factor(self.heat_annual_scaled) is None:
             iscale.set_scaling_factor(self.heat_annual_scaled, 1)

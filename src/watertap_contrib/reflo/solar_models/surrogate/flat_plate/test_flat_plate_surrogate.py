@@ -61,9 +61,11 @@ def build_fpc():
     """
     Build with existing surrogate model file.
     """
-    input_units = dict(heat_load="MW", hours_storage="hour", temperature_hot="degK")
+    input_units = dict(
+        system_capacity="MW", hours_storage="hour", temperature_hot="degK"
+    )
     input_variables = {
-        "labels": ["heat_load", "hours_storage", "temperature_hot"],
+        "labels": ["system_capacity", "hours_storage", "temperature_hot"],
         "units": input_units,
     }
 
@@ -73,7 +75,7 @@ def build_fpc():
         "units": output_units,
     }
     fpc_dict = dict(
-        surrogate_model_file=surrogate_model_file,
+        surrogate_filename_save=surrogate_model_file,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -162,7 +164,7 @@ class TestFlatPlate1:
         m = flat_plate_frame
         fpc = m.fs.fpc
         assert degrees_of_freedom(m) == 3
-        fpc.heat_load.fix(100)
+        fpc.system_capacity.fix(100)
         fpc.hours_storage.fix(6)
         fpc.temperature_hot.fix(80)
         assert degrees_of_freedom(m) == 0
@@ -183,7 +185,7 @@ class TestFlatPlate1:
         m = flat_plate_frame
         fpc = m.fs.fpc
         for i, row in fpc.data.iterrows():
-            fpc.heat_load.fix(row["heat_load"])
+            fpc.system_capacity.fix(row["system_capacity"])
             fpc.hours_storage.fix(row["hours_storage"])
             fpc.temperature_hot.fix(row["temperature_hot"])
             results = solver.solve(m)
@@ -193,7 +195,7 @@ class TestFlatPlate1:
     def test_solution(self, flat_plate_frame):
         m = flat_plate_frame
         fpc = m.fs.fpc
-        fpc.heat_load.fix(100)
+        fpc.system_capacity.fix(100)
         fpc.hours_storage.fix(6)
         fpc.temperature_hot.fix(80)
 
@@ -292,9 +294,9 @@ class TestCreateFlatPlateSurrogate:
 
         dataset_filename = os.path.join(__location__, "data/test_data.pkl")
 
-        input_units = dict(heat_load="MW")
+        input_units = dict(system_capacity="MW")
         input_variables = {
-            "labels": ["heat_load"],
+            "labels": ["system_capacity"],
             "units": input_units,
         }
 
@@ -322,9 +324,9 @@ class TestCreateFlatPlateSurrogate:
 
         dataset_filename = os.path.join(__location__, "data/test_data.pkl")
 
-        input_units = dict(heat_load="MW")
+        input_units = dict(system_capacity="MW")
         input_variables = {
-            "labels": ["heat_load"],
+            "labels": ["system_capacity"],
             "units": input_units,
         }
 
