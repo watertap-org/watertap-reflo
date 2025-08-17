@@ -270,7 +270,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             doc="Useful net heat gain",
         )
 
-        self.heat_load = Var(
+        self.system_capacity = Var(
             initialize=1,
             bounds=(0, None),
             units=pyunits.kW,
@@ -392,7 +392,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
                 b.FR_ta * b.trans_absorb_prod * b.max_irradiance,
                 to_units=pyunits.kW / pyunits.m**2,
             )
-            return b.heat_load == pyunits.convert(
+            return b.system_capacity == pyunits.convert(
                 b.collector_area_total * (first_term - b.FR_UL * b.factor_delta_T),
                 to_units=pyunits.kW,
             )
@@ -471,9 +471,9 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
             sf = iscale.get_scaling_factor(self.net_heat_gain, default=1e-3)
             iscale.set_scaling_factor(self.net_heat_gain, sf)
 
-        if iscale.get_scaling_factor(self.heat_load) is None:
-            sf = iscale.get_scaling_factor(self.heat_load, default=1e-3)
-            iscale.set_scaling_factor(self.heat_load, sf)
+        if iscale.get_scaling_factor(self.system_capacity) is None:
+            sf = iscale.get_scaling_factor(self.system_capacity, default=1e-3)
+            iscale.set_scaling_factor(self.system_capacity, sf)
 
         if iscale.get_scaling_factor(self.heat_annual) is None:
             sf = iscale.get_scaling_factor(self.heat_annual, default=1e-6)

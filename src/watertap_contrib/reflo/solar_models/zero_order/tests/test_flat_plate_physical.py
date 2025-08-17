@@ -157,7 +157,7 @@ class TestFlatPlatePhysical:
             "Fprime_UL": 3.97081,
             "ratio_FRta": 0.99998311,
             "net_heat_gain": {0.0: 1616.26},
-            "heat_load": 3.41806,
+            "system_capacity": 3.41806,
             "heat_annual": 14168179.94,
         }
         for v, r in fpc_results.items():
