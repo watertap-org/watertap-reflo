@@ -20,6 +20,9 @@ from watertap_contrib.reflo.costing.util import (
     make_variable_operating_cost_var,
 )
 
+# Costs are defaults from SAM 2024.12.12
+# Photovoltaic > Detailed PV Model > Single Owner
+
 
 class PVSurrogateCostMethod(StrEnum):
     detailed = "detailed"
@@ -71,45 +74,45 @@ def build_cost_pv_detailed_param_block(blk):
     costing = blk.parent_block()
 
     blk.cost_per_watt_module = pyo.Var(
-        initialize=0.41,
+        initialize=0.34,
         units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
         doc="Cost per watt for solar module",
     )
 
     blk.cost_per_watt_inverter = pyo.Var(
-        initialize=0.05,
+        initialize=0.03,
         units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
         doc="Cost per watt for inverter",
     )
 
-    blk.cost_per_watt_other = pyo.Var(
-        initialize=0.1,
+    blk.cost_per_watt_other_direct = pyo.Var(
+        initialize=0.62,
         units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
-        doc="Cost per watt for other equipment, installation, and margin/overhead",
+        doc="Cost per watt for balance of system equipment, installation labor, and margin/overhead",
     )
 
     blk.cost_per_watt_indirect = pyo.Var(
-        initialize=0.13,
+        initialize=0.05,
         units=costing.base_currency / pyo.units.watt,
         bounds=(0, None),
         doc="Cost per watt for permitting, environmental studies, engineering, land prep, and grid interconnection",
     )
 
-    blk.contingency_frac_direct_capital_cost = pyo.Var(
+    blk.frac_direct_capital_cost_contingency = pyo.Var(
         initialize=0.03,
         units=pyo.units.dimensionless,
         bounds=(0, 1),
-        doc="Fraction of direct costs for contingency",
+        doc="Fraction of direct costs to apply contingency",
     )
 
-    blk.tax_frac_direct_capital_cost = pyo.Var(
-        initialize=0.05,
+    blk.frac_direct_capital_cost_sales_tax = pyo.Var(
+        initialize=1,
         units=pyo.units.dimensionless,
         bounds=(0, 1),
-        doc="Fraction of direct costs for sales tax",
+        doc="Fraction of direct costs to apply sales tax",
     )
 
     blk.fixed_operating_by_capacity = pyo.Var(
@@ -137,6 +140,7 @@ def cost_pv_detailed(blk):
 
     global_params = blk.costing_package
     pv_params = blk.costing_package.pv
+
     make_capital_cost_var(blk)
     blk.costing_package.add_cost_factor(blk, None)
     make_variable_operating_cost_var(blk)
@@ -172,21 +176,26 @@ def cost_pv_detailed(blk):
 
     capital_cost_expr = 0
 
-    total_cost_per_watt = (
-        pv_params.cost_per_watt_module
-        + pv_params.cost_per_watt_inverter
-        + pv_params.cost_per_watt_other
-    )
     design_size_watt = pyo.units.convert(
         blk.unit_model.design_size, to_units=pyo.units.watt
+    )
+
+    inverter_capacity_watt = pyo.units.convert(
+        blk.unit_model.inverter_capacity, to_units=pyo.units.watt
     )
 
     blk.direct_cost_constraint = pyo.Constraint(
         expr=blk.direct_cost
         == pyo.units.convert(
-            design_size_watt
-            * total_cost_per_watt
-            * (1 + pv_params.contingency_frac_direct_capital_cost),  # BUG Check this
+            (
+                design_size_watt
+                * (
+                    pv_params.cost_per_watt_module
+                    + pv_params.cost_per_watt_other_direct
+                )
+                + inverter_capacity_watt * pv_params.cost_per_watt_inverter
+            )
+            * (1 + pv_params.frac_direct_capital_cost_contingency),  # BUG Check this
             to_units=blk.costing_package.base_currency,
         )
     )
@@ -196,11 +205,7 @@ def cost_pv_detailed(blk):
     blk.indirect_capital_cost_constraint = pyo.Constraint(
         expr=blk.indirect_cost
         == pyo.units.convert(
-            (
-                pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.watt)
-                * pv_params.cost_per_watt_indirect
-            )
-            + (blk.unit_model.land_req * global_params.land_cost),
+            (design_size_watt * pv_params.cost_per_watt_indirect) + blk.land_cost,
             to_units=blk.costing_package.base_currency,
         )
     )
@@ -220,7 +225,9 @@ def cost_pv_detailed(blk):
     blk.sales_tax_constraint = pyo.Constraint(
         expr=blk.sales_tax
         == pyo.units.convert(
-            blk.direct_cost * global_params.sales_tax_frac,
+            blk.direct_cost
+            * pv_params.frac_direct_capital_cost_sales_tax
+            * global_params.sales_tax_frac,
             to_units=blk.costing_package.base_currency,
         )
     )
@@ -237,8 +244,7 @@ def cost_pv_detailed(blk):
     blk.fixed_operating_cost_constraint = pyo.Constraint(
         expr=blk.fixed_operating_cost
         == pyo.units.convert(
-            pv_params.fixed_operating_by_capacity
-            * pyo.units.convert(blk.unit_model.design_size, to_units=pyo.units.kW),
+            pv_params.fixed_operating_by_capacity * design_size_watt,
             to_units=blk.costing_package.base_currency
             / blk.costing_package.base_period,
         )
