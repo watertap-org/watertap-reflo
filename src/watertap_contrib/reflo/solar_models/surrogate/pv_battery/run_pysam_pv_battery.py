@@ -381,41 +381,41 @@ def generate_pv_battery_data(
 
 if __name__ == "__main__":
     # setup_and_run_pv_battery()
-    design_sizes=np.linspace(100000, 500000, 5)
+    # design_sizes=np.linspace(100000, 500000, 5)
 
-    battery_kws=[25000, 50000]
-    hours_storages=[6, 12]
-    df = generate_pv_battery_data(
-        design_sizes=design_sizes,
-        battery_kws=battery_kws,
-        hours_storages=hours_storages,
+    # battery_kws=[25000, 50000]
+    # hours_storages=[6, 12]
+    # df = generate_pv_battery_data(
+    #     design_sizes=design_sizes,
+    #     battery_kws=battery_kws,
+    #     hours_storages=hours_storages,
+    # )
+    # print(df.head())
+
+    import matplotlib.pyplot as plt
+
+    design_size = 100000
+    battery_kw = 50000
+    hours_storage = 12
+
+    modules, size_pv_array = run_pysam_pv_battery(
+        design_size, battery_kw, hours_storage, weather_file=None
     )
-    print(df.head())
+    tech_model = modules[0]
+    gen = tech_model.Outputs.gen
 
-    # import matplotlib.pyplot as plt
+    start_day = 180
+    start_i = start_day * 24
+    end_day = 185
+    end_i = end_day * 24
 
-    # design_size = 100000
-    # battery_kw = 50000
-    # hours_storage = 12
-
-    # modules, size_pv_array = run_pysam_pv_battery(
-    #     design_size, battery_kw, hours_storage, weather_file=None
-    # )
-    # tech_model = modules[0]
-    # gen = tech_model.Outputs.gen
-
-    # start_day = 180
-    # start_i = start_day * 24
-    # end_day = 185
-    # end_i = end_day * 24
-
-    # fig, ax = plt.subplots()
-    # ax.plot(gen[start_i:end_i], label="gen")
-    # ax.plot(
-    #     tech_model.Outputs.gen_without_battery[start_i:end_i],
-    #     label="gen_without_battery",
-    # )
-    # ax.plot(tech_model.Outputs.grid_to_batt[start_i:end_i], label="grid_to_batt")
-    # ax.plot(tech_model.Outputs.batt_to_grid[start_i:end_i], label="batt_to_grid")
-    # ax.legend()
-    # plt.show()
+    fig, ax = plt.subplots()
+    ax.plot(gen[start_i:end_i], label="gen")
+    ax.plot(
+        tech_model.Outputs.gen_without_battery[start_i:end_i],
+        label="gen_without_battery",
+    )
+    ax.plot(tech_model.Outputs.grid_to_batt[start_i:end_i], label="grid_to_batt")
+    ax.plot(tech_model.Outputs.batt_to_grid[start_i:end_i], label="batt_to_grid")
+    ax.legend()
+    plt.show()
