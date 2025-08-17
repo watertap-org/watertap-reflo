@@ -129,7 +129,7 @@ class PVBatterySurrogateData(SolarEnergyBaseData):
             ),
             doc="Inverter capacity for PV system",
         )
-        
+
         self.electricity_constraint = Constraint(
             expr=self.electricity
             == pyunits.convert(self.electricity_annual, to_units=pyunits.kW)

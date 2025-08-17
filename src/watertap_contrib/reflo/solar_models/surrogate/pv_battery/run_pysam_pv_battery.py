@@ -40,7 +40,7 @@ default_dispatch_manual_sched = (
     [2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
     [2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
     [2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
-)    
+)
 # of the 6 dispatch periods,
 # this will set to charge during period 1 (8am-8pm for default)
 dispatch_manual_charge_default = (1, 0, 0, 0, 0, 0)
@@ -262,8 +262,12 @@ def set_battery_options(
     tech_model.BatteryDispatch.dispatch_manual_charge = dispatch_manual_charge
     tech_model.BatteryDispatch.dispatch_manual_discharge = dispatch_manual_discharge
     tech_model.BatteryDispatch.dispatch_manual_gridcharge = dispatch_manual_gridcharge
-    tech_model.BatteryDispatch.dispatch_manual_percent_gridcharge = dispatch_manual_percent_gridcharge
-    tech_model.BatteryDispatch.dispatch_manual_percent_discharge = dispatch_manual_percent_discharge
+    tech_model.BatteryDispatch.dispatch_manual_percent_gridcharge = (
+        dispatch_manual_percent_gridcharge
+    )
+    tech_model.BatteryDispatch.dispatch_manual_percent_discharge = (
+        dispatch_manual_percent_discharge
+    )
     # set the same dispatch schedule for weekday and weekend
     tech_model.BatteryDispatch.dispatch_manual_sched = dispatch_manual_sched
     tech_model.BatteryDispatch.dispatch_manual_sched_weekend = dispatch_manual_sched
@@ -294,7 +298,12 @@ def run_pysam_pv_battery(
 
 
 def setup_and_run_pv_battery(
-    design_size, battery_kw, hours_storage, weather_file=None, return_tech_model=False, **kwargs
+    design_size,
+    battery_kw,
+    hours_storage,
+    weather_file=None,
+    return_tech_model=False,
+    **kwargs,
 ):
     """
     Setup and run the PV + Battery model with the given parameters.
@@ -307,7 +316,7 @@ def setup_and_run_pv_battery(
         battery_kw,
         hours_storage,
         weather_file,
-        **kwargs, 
+        **kwargs,
     )
 
     tech_model = modules[0]
@@ -345,15 +354,14 @@ def generate_pv_battery_data(
     if dataset_filename is None:
         # assume it is run for testing purposes
         dataset_filename = os.path.join(__location__, "data/test_data.pkl")
-    
+
     if weather_file is None:
         weather_file = default_weather_file
 
     combos = list(product(design_sizes, battery_kws, hours_storages))
     df = pd.DataFrame(combos, columns=["design_size", "battery_kw", "hours_storage"])
     if use_multiprocessing:
-        
-        
+
         with multiprocessing.Pool(processes=processes) as pool:
             args_in = [(*combo,) for combo in combos]
             results = pool.starmap(setup_and_run_pv_battery, args_in)
@@ -371,7 +379,6 @@ def generate_pv_battery_data(
             results.append(result)
         df_results = pd.DataFrame(results)
     df = pd.concat([df, df_results], axis=1)
-
 
     if save_data:
         df.to_pickle(dataset_filename)

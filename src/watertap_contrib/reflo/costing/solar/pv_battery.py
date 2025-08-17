@@ -267,7 +267,7 @@ def cost_pv_battery(blk):
     )
 
     var_op_cost_expr += blk.pv_variable_operating_cost
- 
+
     # blk.battery_variable_operating_cost = pyo.Expression(
     #     expr=pyo.units.convert(
     #         pv_batt_params.battery_variable_operating_by_discharged
