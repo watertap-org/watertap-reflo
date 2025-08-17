@@ -12,6 +12,7 @@
 
 import pandas as pd
 from pyomo.environ import (
+    Param,
     Constraint,
     Expression,
     value,
@@ -54,6 +55,18 @@ class PVSurrogateData(SolarEnergyBaseData):
 
         self.del_component(self.heat)
 
+        self.single_inverter_capacity = Param(
+            initialize=2507.2,
+            units=pyunits.kW,
+            doc="DC capacity of a single inverter",
+        )
+
+        self.DC_to_AC_ratio = Param(
+            initialize=1.2,
+            units=pyunits.dimensionless,
+            doc="DC to AC ratio for PV system",
+        )
+
         if self.config.surrogate_model_file is not None:
             self.surrogate_model_file = self.config.surrogate_model_file
             self.load_surrogate()
@@ -74,6 +87,13 @@ class PVSurrogateData(SolarEnergyBaseData):
                 expr=self.land_req_scaled / self.land_req_scaling,
                 doc="Land required for PV system",
             )
+
+        self.inverter_capacity = Expression(
+            expr=pyunits.convert(
+                self.design_size / self.DC_to_AC_ratio, to_units=pyunits.kW
+            ),
+            doc="Inverter capacity for PV system",
+        )
 
         self.electricity_constraint = Constraint(
             expr=self.electricity
@@ -130,7 +150,9 @@ class PVSurrogateData(SolarEnergyBaseData):
             # BUG: evaluate_surrogate will raise error for polynomial surrogates
             # until IDAES dependency is updated
             self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
-            init_log.info_high(f"Initialization Step 1: Evaluate surrogate at design size {value(self.design_size)} kW")
+            init_log.info_high(
+                f"Initialization Step 1: Evaluate surrogate at design size {value(self.design_size)} kW"
+            )
 
         # Create solver
         res = opt.solve(self)
