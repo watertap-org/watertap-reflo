@@ -54,9 +54,9 @@ solver = get_solver()
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 # Testing datasets:
-# - test_trough_data1 - only heat_load is varied
-# - test_trough_data2 - heat_load and hours_storage are varied
-# - test_trough_data3 - heat_load, hours_storage, and temperature_loop are varied
+# - test_trough_data1 - only system_capacity is varied
+# - test_trough_data2 - system_capacity and hours_storage are varied
+# - test_trough_data3 - system_capacity, hours_storage, and temperature_loop are varied
 dataset_filename1 = os.path.join(
     os.path.dirname(__file__), "data/test_trough_data1.pkl"
 )
@@ -79,12 +79,12 @@ surrogate_model_file3 = os.path.join(
 
 def build_trough1():
     """
-    Build trough surrogate with only heat_load as input variable.
+    Build trough surrogate with only system_capacity as input variable.
     """
 
-    input_units = dict(heat_load="MW")
+    input_units = dict(system_capacity="MW")
     input_variables = {
-        "labels": ["heat_load"],
+        "labels": ["system_capacity"],
         "units": input_units,
     }
 
@@ -98,7 +98,7 @@ def build_trough1():
         "units": output_units,
     }
     trough_dict = dict(
-        surrogate_model_file=surrogate_model_file1,
+        surrogate_filename_save=surrogate_model_file1,
         dataset_filename=dataset_filename1,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -114,12 +114,12 @@ def build_trough1():
 
 def build_trough2():
     """
-    Build trough surrogate with heat_load and hours_storage as input variables.
+    Build trough surrogate with system_capacity and hours_storage as input variables.
     """
 
-    input_units = dict(heat_load="MW", hours_storage="hour")
+    input_units = dict(system_capacity="MW", hours_storage="hour")
     input_variables = {
-        "labels": ["heat_load", "hours_storage"],
+        "labels": ["system_capacity", "hours_storage"],
         "units": input_units,
     }
 
@@ -133,7 +133,7 @@ def build_trough2():
         "units": output_units,
     }
     trough_dict = dict(
-        surrogate_model_file=surrogate_model_file2,
+        surrogate_filename_save=surrogate_model_file2,
         dataset_filename=dataset_filename2,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -149,12 +149,14 @@ def build_trough2():
 
 def build_trough3():
     """
-    Build trough surrogate with heat_load, hours_storage, and temperature_loop as input variables.
+    Build trough surrogate with system_capacity, hours_storage, and temperature_loop as input variables.
     """
 
-    input_units = dict(heat_load="MW", hours_storage="hour", temperature_loop="degK")
+    input_units = dict(
+        system_capacity="MW", hours_storage="hour", temperature_loop="degK"
+    )
     input_variables = {
-        "labels": ["heat_load", "hours_storage", "temperature_loop"],
+        "labels": ["system_capacity", "hours_storage", "temperature_loop"],
         "units": input_units,
     }
 
@@ -168,7 +170,7 @@ def build_trough3():
         "units": output_units,
     }
     trough_dict = dict(
-        surrogate_model_file=surrogate_model_file3,
+        surrogate_filename_save=surrogate_model_file3,
         dataset_filename=dataset_filename3,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -220,7 +222,7 @@ class TestTroughSurrogate1:
             assert cst.input_bounds[i][1] == cst.data[i].max()
             assert vi.ub == cst.data[i].max()
 
-        assert isinstance(cst.heat_load, Var)
+        assert isinstance(cst.system_capacity, Var)
         assert isinstance(cst.hours_storage, Param)
         assert isinstance(cst.temperature_loop, Param)
         assert hasattr(cst, "output_labels")
@@ -263,7 +265,7 @@ class TestTroughSurrogate1:
     def test_dof(self, trough_frame):
         m = trough_frame
         assert degrees_of_freedom(m) == 1
-        m.fs.unit.heat_load.fix(100)
+        m.fs.unit.system_capacity.fix(100)
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.unit
@@ -282,7 +284,7 @@ class TestTroughSurrogate1:
         m = trough_frame
         cst = m.fs.unit
         for i, row in cst.data.iterrows():
-            cst.heat_load.fix(row["heat_load"])
+            cst.system_capacity.fix(row["system_capacity"])
             results = solver.solve(m)
             assert_optimal_termination(results)
 
@@ -291,7 +293,7 @@ class TestTroughSurrogate1:
         m = trough_frame
         cst = m.fs.unit
 
-        cst.heat_load.fix(100)
+        cst.system_capacity.fix(100)
         cst.hours_storage.set_value(24)
 
         results = solver.solve(m)
@@ -300,7 +302,7 @@ class TestTroughSurrogate1:
         cst_results = {
             "electricity": 229.013,
             "heat": 55491.50,
-            "heat_load": 100.0,
+            "system_capacity": 100.0,
             "heat_annual_scaled": 0.50405,
             "electricity_annual_scaled": 0.46094,
             "total_aperture_area_scaled": 0.5029,
@@ -405,7 +407,7 @@ class TestTroughSurrogate2:
         m = trough_frame
         cst = m.fs.unit
 
-        assert isinstance(cst.heat_load, Var)
+        assert isinstance(cst.system_capacity, Var)
         assert isinstance(cst.hours_storage, Var)
         assert isinstance(cst.temperature_loop, Param)
 
@@ -417,7 +419,7 @@ class TestTroughSurrogate2:
     def test_dof(self, trough_frame):
         m = trough_frame
         assert degrees_of_freedom(m) == 2
-        m.fs.unit.heat_load.fix(25)
+        m.fs.unit.system_capacity.fix(25)
         m.fs.unit.hours_storage.fix(12)
         assert degrees_of_freedom(m) == 0
 
@@ -436,7 +438,7 @@ class TestTroughSurrogate2:
         m = trough_frame
         cst = m.fs.unit
         for i, row in cst.data.iterrows():
-            cst.heat_load.fix(row["heat_load"])
+            cst.system_capacity.fix(row["system_capacity"])
             cst.hours_storage.fix(row["hours_storage"])
             results = solver.solve(m)
             assert_optimal_termination(results)
@@ -446,7 +448,7 @@ class TestTroughSurrogate2:
         m = trough_frame
         cst = m.fs.unit
 
-        cst.heat_load.fix(25)
+        cst.system_capacity.fix(25)
         cst.hours_storage.set_value(12)
 
         results = solver.solve(m)
@@ -455,7 +457,7 @@ class TestTroughSurrogate2:
         cst_results = {
             "electricity": 58.487,
             "heat": 15622.4,
-            "heat_load": 25.0,
+            "system_capacity": 25.0,
             "hours_storage": 12.0,
             "heat_annual_scaled": 0.51665,
             "electricity_annual_scaled": 0.49786,
@@ -561,7 +563,7 @@ class TestTroughSurrogate3:
         m = trough_frame
         cst = m.fs.unit
 
-        assert isinstance(cst.heat_load, Var)
+        assert isinstance(cst.system_capacity, Var)
         assert isinstance(cst.hours_storage, Var)
         assert isinstance(cst.temperature_loop, Var)
 
@@ -573,7 +575,7 @@ class TestTroughSurrogate3:
     def test_dof(self, trough_frame):
         m = trough_frame
         assert degrees_of_freedom(m) == 3
-        m.fs.unit.heat_load.fix(25)
+        m.fs.unit.system_capacity.fix(25)
         m.fs.unit.hours_storage.fix(12)
         m.fs.unit.temperature_loop.fix(300)
         assert degrees_of_freedom(m) == 0
@@ -593,7 +595,7 @@ class TestTroughSurrogate3:
         m = trough_frame
         cst = m.fs.unit
         for i, row in cst.data.iterrows():
-            cst.heat_load.fix(row["heat_load"])
+            cst.system_capacity.fix(row["system_capacity"])
             cst.hours_storage.fix(row["hours_storage"])
             cst.temperature_loop.fix(row["temperature_loop"])
             results = solver.solve(m)
@@ -604,7 +606,7 @@ class TestTroughSurrogate3:
         m = trough_frame
         cst = m.fs.unit
 
-        cst.heat_load.fix(25)
+        cst.system_capacity.fix(25)
         cst.hours_storage.fix(12)
         cst.temperature_loop.fix(300)
 
@@ -614,7 +616,7 @@ class TestTroughSurrogate3:
         cst_results = {
             "electricity": 58.38,
             "heat": 15591.63,
-            "heat_load": 25.0,
+            "system_capacity": 25.0,
             "hours_storage": 12.0,
             "temperature_loop": 300.0,
             "heat_annual_scaled": 0.515635,
@@ -714,9 +716,9 @@ class TestCreateTroughSurrogate:
 
         dataset_filename = os.path.join(__location__, "data/test_data.pkl")
 
-        input_units = dict(heat_load="MW")
+        input_units = dict(system_capacity="MW")
         input_variables = {
-            "labels": ["heat_load"],
+            "labels": ["system_capacity"],
             "units": input_units,
         }
 
@@ -749,9 +751,9 @@ class TestCreateTroughSurrogate:
 
         dataset_filename = os.path.join(__location__, "data/test_data.pkl")
 
-        input_units = dict(heat_load="MW")
+        input_units = dict(system_capacity="MW")
         input_variables = {
-            "labels": ["heat_load"],
+            "labels": ["system_capacity"],
             "units": input_units,
         }
 
@@ -777,7 +779,7 @@ class TestCreateTroughSurrogate:
 
         assert isinstance(m.fs.unit.surrogate_blk, SurrogateBlock)
         assert isinstance(m.fs.unit.surrogate, PysmoSurrogate)
-        assert isinstance(m.fs.unit.heat_load, Var)
+        assert isinstance(m.fs.unit.system_capacity, Var)
         assert isinstance(m.fs.unit.hours_storage, Param)
         assert isinstance(m.fs.unit.temperature_loop, Param)
 
@@ -789,9 +791,9 @@ class TestTroughSurrogateInputs:
 
     @pytest.mark.unit
     def test_surr_inputs(self):
-        input_units = dict(heat_load="MW", hours_storage="hour")
+        input_units = dict(system_capacity="MW", hours_storage="hour")
         input_variables = {
-            "labels": ["heat_load", "hours_storage"],
+            "labels": ["system_capacity", "hours_storage"],
             "units": input_units,
         }
 
@@ -821,9 +823,9 @@ class TestTroughSurrogateInputs:
 
     @pytest.mark.unit
     def test_no_dataset_or_surrogate_filename(self):
-        input_units = dict(heat_load="MW", hours_storage="hour")
+        input_units = dict(system_capacity="MW", hours_storage="hour")
         input_variables = {
-            "labels": ["heat_load", "hours_storage"],
+            "labels": ["system_capacity", "hours_storage"],
             "units": input_units,
         }
 

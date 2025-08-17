@@ -148,8 +148,8 @@ class TroughSurrogateData(SolarEnergyBaseData):
         if iscale.get_scaling_factor(self.hours_storage) is None:
             iscale.set_scaling_factor(self.hours_storage, 1)
 
-        if iscale.get_scaling_factor(self.heat_load) is None:
-            iscale.set_scaling_factor(self.heat_load, 1)
+        if iscale.get_scaling_factor(self.system_capacity) is None:
+            iscale.set_scaling_factor(self.system_capacity, 1)
 
         if iscale.get_scaling_factor(self.heat_annual_scaled) is None:
             iscale.set_scaling_factor(self.heat_annual_scaled, 1)
@@ -195,7 +195,7 @@ class TroughSurrogateData(SolarEnergyBaseData):
         # Initialize surrogate
         self.init_data = pd.DataFrame(
             {
-                "heat_load": [value(self.heat_load)],
+                "system_capacity": [value(self.system_capacity)],
                 "hours_storage": [value(self.hours_storage)],
                 "temperature_loop": [value(self.temperature_loop)],
             }

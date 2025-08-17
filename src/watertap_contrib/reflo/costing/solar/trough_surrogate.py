@@ -89,12 +89,12 @@ def build_trough_surrogate_cost_param_block(blk):
 
 @register_costing_parameter_block(
     build_rule=build_trough_surrogate_cost_param_block,
-    parameter_block_name="trough_surrogate",
+    parameter_block_name="trough",
 )
 def cost_trough_surrogate(blk):
 
     global_params = blk.costing_package
-    trough_params = blk.costing_package.trough_surrogate
+    trough_params = blk.costing_package.trough
     trough = blk.unit_model
     make_capital_cost_var(blk)
     blk.costing_package.add_cost_factor(blk, None)
@@ -120,10 +120,10 @@ def cost_trough_surrogate(blk):
         == pyo.units.convert(
             (
                 trough.total_aperture_area * trough_params.cost_per_total_aperture_area
-                + pyo.units.convert(trough.heat_load, to_units=pyo.units.kW)
+                + pyo.units.convert(trough.system_capacity, to_units=pyo.units.kW)
                 * trough.hours_storage
                 * trough_params.cost_per_storage_capital
-                + pyo.units.convert(trough.heat_load, to_units=pyo.units.kW)
+                + pyo.units.convert(trough.system_capacity, to_units=pyo.units.kW)
                 * (
                     trough_params.cost_per_heat_sink
                     + trough_params.cost_per_balance_of_plant
