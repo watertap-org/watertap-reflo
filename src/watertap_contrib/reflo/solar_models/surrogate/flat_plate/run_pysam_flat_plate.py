@@ -25,7 +25,8 @@ pipe_length_per_collector = 0.5  # [m]
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 weather_file_default = os.path.join(__location__, "data/test_fpc_weather_data.csv")
-config_file_default = os.path.join(__location__, "data/swh-reflo.json")
+
+# see: https://nrel-pysam.readthedocs.io/en/latest/modules/Swh.html
 
 
 def system_capacity_computed(tech_model):
@@ -57,22 +58,25 @@ def setup_model_fpc(
             "Use the 'weather_file' argument to specify the path to the weather data file."
         )
 
-    if config_file is None:
-        raise RuntimeError(
-            "Configuration file must be specified for FPC model setup. "
-            "Use the 'config_file' argument to specify the path to the configuration data file."
-        )
+    if config_file is not None:
+        # Load the SWH system with custom parameters
+        tech_model = swh.new()
+        with open(config_file, "r") as file:
+            config_data = json.load(file)
 
-    tech_model = swh.new()
-
-    with open(config_file, "r") as file:
-        config_data = json.load(file)
-
-    for k, v in config_data.items():
-        tech_model.value(k, v)
-
-    if "solar_resource_file" in config_data:
-        del config_data["solar_resource_file"]
+        for k, v in config_data.items():
+            try:
+                tech_model.value(k, v)
+            except AttributeError:
+                print(f"Warning: {k} not found in the technology model. Skipping.")
+    else:
+        # Load the default SWH system
+        tech_model = swh.default("SolarWaterHeatingCommercial")
+        tech_model.value("solar_resource_file", weather_file)
+        tech_model.value("azimuth", 180)  # [deg] south facing
+        tech_model.value("tilt", 32)  # [deg] south facing
+        tech_model.value("use_custom_mains", 1)
+        tech_model.value("sky_model", 2)
 
     tech_model.value("solar_resource_file", weather_file)
 
@@ -95,7 +99,7 @@ def setup_model_fpc(
 
 def run_model_fpc(
     tech_model,
-    heat_load_mwt=None,
+    system_capacity_mwt=None,
     hours_storage=24,
     temperature_hot=80,
     temp_lb_thresh=0.5,
@@ -115,7 +119,7 @@ def run_model_fpc(
     temperature bounds (temp_lb_thresh and temp_ub_thresh).
 
     :param tech_model: PySAM technology model
-    :param heat_load_mwt: desired system capacity [MWt]
+    :param system_capacity_mwt: desired system capacity [MWt]
     :param hours_storage: hours of storage to use in the simulation [hr]
     :param temperature_hot: desired temperature setpoint for the simulation [C]
     :param temp_lb_thresh: [C] lower bound threshold for delivered temperature
@@ -128,16 +132,16 @@ def run_model_fpc(
                         (default is 0.05, which means the maximum tank temperature will be
                         temperature_hot * (1 + temp_frac))
     :return: dictionary with results including heat_annual, electricity_annual,
-             grid_electricity_annual, system_capacity_actual, scaled_draw, and temperature_delivered
+             aux_power_electric_heating, system_capacity_actual, scaled_draw, and temperature_delivered
     :rtype: dict
     :raises RuntimeError: if the delivered temperature is not within the bounds after the search
 
     """
 
-    if heat_load_mwt is None:
-        raise ValueError("heat_load_mwt must be specified for FPC model run.")
+    if system_capacity_mwt is None:
+        raise ValueError("system_capacity_mwt must be specified for FPC model run.")
 
-    heat_load = heat_load_mwt * 1e3 if heat_load_mwt is not None else None  # [kWt]
+    system_capacity = system_capacity_mwt * 1e3  # convert MW to kW
     T_cold = tech_model.value("custom_mains")[0]  # [C]
 
     if temp_ub_thresh is None:
@@ -145,15 +149,15 @@ def run_model_fpc(
 
     print(
         f"\nRunning:"
-        f"\n\tHeat Load = {heat_load_mwt}"
+        f"\n\tSystem Capacity = {system_capacity_mwt}"
         f"\n\tHours Storage = {hours_storage}"
         f"\n\tTemperature Hot = {temperature_hot}"
     )
 
-    if heat_load is not None:
-        # Set heat load (system capacity)
+    if system_capacity is not None:
+        # Set system capacity
         n_collectors = round(
-            heat_load
+            system_capacity
             / (
                 tech_model.value("area_coll")
                 * (tech_model.value("FRta") - tech_model.value("FRUL") * 30 / 1000)
@@ -234,10 +238,8 @@ def run_model_fpc(
 
     if not lb < temp_delivered < ub:
         msg = f"Final design results in delivered temperature that is outside the bounds.\n"
-        msg += (
-            f"For {heat_load_mwt} MW, {hours_storage} hrs storage, {temperature_hot} C:"
-        )
-        msg += f"Delivered temperature {temp_delivered:.2f} C is not between"
+        msg += f"For {system_capacity_mwt} MW, {hours_storage} hrs storage, {temperature_hot} C:"
+        msg += f"Delivered temperature {temp_delivered:.2f} C is not between "
         msg += f"{lb:.2f} C and {ub:.2f} C with scaled_draw {sd:.2f} kg/hr.\n"
         msg += "Try setting more num_scaled_draw_pts and rerunning."
         raise RuntimeError(msg)
@@ -254,7 +256,7 @@ def run_model_fpc(
     results = {
         "heat_annual": heat_annual,  # [kWh] annual net thermal energy in year 1
         "electricity_annual": electricity_annual,  # [kWhe]
-        "grid_electricity_annual": aux_power_annual,  # [kWhe]
+        "aux_power_electric_heating": aux_power_annual,  # [kWhe]
         "system_capacity_actual": system_capacity_actual,
         "scaled_draw": np.mean(tech_model.Outputs.draw),
         "temperature_delivered": np.mean(tech_model.Outputs.T_deliv),
@@ -267,7 +269,12 @@ def run_model_fpc(
 
 
 def setup_and_run_fpc(
-    temperatures, weather_file, config_file, heat_load, hours_storage, temperature_hot
+    temperatures,
+    weather_file,
+    config_file,
+    system_capacity,
+    hours_storage,
+    temperature_hot,
 ):
     """
     Setup and run the FPC model with the given parameters a single time.
@@ -275,7 +282,7 @@ def setup_and_run_fpc(
     :param temperatures: dictionary with temperatures (T_cold, T_hot, T_amb)
     :param weather_file: path to the weather file
     :param config_file: configuration file for the model
-    :param heat_load: desired heat load in MWt
+    :param system_capacity: desired heat load in MWt
     :param hours_storage: hours of storage to use in the simulation
     :param temperature_hot: desired hot temperature in C
     :return: dictionary with results from the model run
@@ -287,7 +294,7 @@ def setup_and_run_fpc(
     )
     result = run_model_fpc(
         tech_model,
-        heat_load_mwt=heat_load,
+        system_capacity_mwt=system_capacity,
         temperature_hot=temperature_hot,
         hours_storage=hours_storage,
     )
@@ -296,14 +303,15 @@ def setup_and_run_fpc(
 
 
 def generate_fpc_data(
-    heat_loads=np.geomspace(1, 50, 3),
+    system_capacities=np.geomspace(1, 50, 3),
     hours_storages=[24],
     temperatures_hot=[80],
     temperature_cold=20,
     weather_file=weather_file_default,
-    config_file=config_file_default,
+    config_file=None,
     save_data=True,
-    use_multiprocessing=True,
+    use_multiprocessing=False,
+    number_processes=6,
     dataset_filename=None,
 ):
     """
@@ -311,16 +319,18 @@ def generate_fpc_data(
     This function sets up the FPC model, runs it for various heat loads, hours of storage,
     and hot temperatures, and returns a DataFrame with the results.
 
-    :param heat_loads: list of heat loads in MWt
+    :param system_capacitys: list of heat loads in MWt
     :param hours_storages: list of hours of storage
     :param temperatures_hot: list of hot temperatures in C
     :param temperature_cold: cold temperature in C
+    :param weather_file: path to the weather file
+    :param config_file: configuration file for the model
     :param save_data: if True, saves the data to a pickle file
     :param use_multiprocessing: if True, uses multiprocessing to run the model
     :param dataset_filename: filename to save the data to, if None, uses default test data file
     :return: DataFrame with results
     :rtype: pd.DataFrame
-    :raises RuntimeError: if the weather file is not specified or if the delivered temperature is
+
     """
 
     temperatures = {
@@ -343,19 +353,19 @@ def generate_fpc_data(
 
     # Run pysam
     if use_multiprocessing:
-        combos = list(product(heat_loads, hours_storages, temperatures_hot))
+        combos = list(product(system_capacities, hours_storages, temperatures_hot))
         df = pd.DataFrame(
-            combos, columns=["heat_load", "hours_storage", "temperature_hot"]
+            combos, columns=["system_capacity", "hours_storage", "temperature_hot"]
         )
 
         time_start = time.process_time()
-        with multiprocessing.Pool(processes=6) as pool:
+        with multiprocessing.Pool(processes=number_processes) as pool:
             args_in = [
                 (temperatures, weather_file, config_file, *combo) for combo in combos
             ]
             results = pool.starmap(setup_and_run_fpc, args_in)
         time_stop = time.process_time()
-        print("Multiprocessing time:", time_stop - time_start, "\n")
+        # print("Multiprocessing time:", time_stop - time_start, "\n")
         df_results = pd.DataFrame(results)
         df = pd.concat(
             [
@@ -364,7 +374,7 @@ def generate_fpc_data(
                     [
                         "heat_annual",
                         "electricity_annual",
-                        "grid_electricity_annual",
+                        "aux_power_electric_heating",
                         "system_capacity_actual",
                         "scaled_draw",
                         "temperature_delivered",
@@ -375,18 +385,21 @@ def generate_fpc_data(
         )
 
     else:
+        # run model sequentially
         data = []
-        combos = list(product(heat_loads, hours_storages, temperatures_hot))
-        for heat_load, hours_storage, temperature_hot in combos:
-            result = run_model_fpc(tech_model, heat_load)
+        combos = list(product(system_capacities, hours_storages, temperatures_hot))
+        for system_capacity, hours_storage, temperature_hot in combos:
+            result = run_model_fpc(
+                tech_model, system_capacity, hours_storage, temperature_hot
+            )
             data.append(
                 [
-                    heat_load,
+                    system_capacity,
                     hours_storage,
                     temperature_hot,
                     result["heat_annual"],
                     result["electricity_annual"],
-                    result["grid_electricity_annual"],
+                    result["aux_power_electric_heating"],
                     result["system_capacity_actual"],
                     result["scaled_draw"],
                     result["temperature_delivered"],
@@ -395,12 +408,12 @@ def generate_fpc_data(
         df = pd.DataFrame(
             data,
             columns=[
-                "heat_load",
+                "system_capacity",
                 "hours_storage",
                 "temperature_hot",
                 "heat_annual",
                 "electricity_annual",
-                "grid_electricity_annual",
+                "aux_power_electric_heating",
                 "system_capacity_actual",
                 "scaled_draw",
                 "temperature_delivered",
@@ -414,6 +427,21 @@ def generate_fpc_data(
 
 
 if __name__ == "__main__":
+
+    # system_capacities = np.linspace(1, 50, 10)
+    # hours_storages = [12, 24]
+    # temperatures_hot = [60, 80]
+    # df = generate_fpc_data(
+    #     system_capacities=system_capacities,
+    #     hours_storages=hours_storages,
+    #     temperatures_hot=temperatures_hot,
+    #     temperature_cold=20,
+    #     weather_file=weather_file_default,
+    #     save_data=True,
+    #     use_multiprocessing=True,
+    #     dataset_filename=os.path.join(__location__, "data/test_data-with-defaults.pkl"),
+    # )
+
     df = generate_fpc_data()
     print(df.head(20))
     os.remove(os.path.join(__location__, "data/test_data.pkl"))
