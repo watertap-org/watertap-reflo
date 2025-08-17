@@ -98,7 +98,7 @@ def build_trough1():
         "units": output_units,
     }
     trough_dict = dict(
-        surrogate_filename_save=surrogate_model_file1,
+        surrogate_model_file=surrogate_model_file1,
         dataset_filename=dataset_filename1,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -133,7 +133,7 @@ def build_trough2():
         "units": output_units,
     }
     trough_dict = dict(
-        surrogate_filename_save=surrogate_model_file2,
+        surrogate_model_file=surrogate_model_file2,
         dataset_filename=dataset_filename2,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -170,7 +170,7 @@ def build_trough3():
         "units": output_units,
     }
     trough_dict = dict(
-        surrogate_filename_save=surrogate_model_file3,
+        surrogate_model_file=surrogate_model_file3,
         dataset_filename=dataset_filename3,
         input_variables=input_variables,
         output_variables=output_variables,
