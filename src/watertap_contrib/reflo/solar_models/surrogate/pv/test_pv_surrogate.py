@@ -57,8 +57,8 @@ def build_pv():
 
     pv_dict = {
         "input_variables": {
-            "labels": ["design_size"],
-            "units": {"design_size": "kW"},
+            "labels": ["system_capacity"],
+            "units": {"system_capacity": "kW"},
         },
         "output_variables": {
             "labels": ["electricity_annual", "land_req"],
@@ -147,7 +147,7 @@ class TestPV:
         m = pv_frame
         pv = m.fs.pv
         assert degrees_of_freedom(m) == 1
-        pv.design_size.fix(500000)
+        pv.system_capacity.fix(500000)
         assert degrees_of_freedom(m) == 0
 
     @pytest.mark.unit
@@ -166,7 +166,7 @@ class TestPV:
         m = pv_frame
         pv = m.fs.pv
         for i, row in pv.data.iterrows():
-            pv.design_size.fix(row["design_size"])
+            pv.system_capacity.fix(row["system_capacity"])
             results = solver.solve(m)
             assert_optimal_termination(results)
 
@@ -174,16 +174,16 @@ class TestPV:
     def test_solution(self, pv_frame):
         m = pv_frame
         pv = m.fs.pv
-        pv.design_size.fix(500000)
+        pv.system_capacity.fix(500000)
 
         results = solver.solve(m)
         assert_optimal_termination(results)
 
         pv_unit_results = {
-            "electricity": 143093.8121,
-            "design_size": 500000.0,
-            "electricity_annual": 1254360357.3114,
-            "land_req": 2002.3903,
+            "electricity": 143093.81,  # kW
+            "electricity_annual": 1254360357.31,  # kWh/year
+            "land_req": 2002.39,  # acre
+            "inverter_capacity": 416666.66,  # kW
         }
         for v, r in pv_unit_results.items():
             mv = pv.find_component(v)
@@ -196,7 +196,7 @@ class TestPV:
 
         m.fs.costing = EnergyCosting()
         m.fs.pv.costing = UnitModelCostingBlock(flowsheet_costing_block=m.fs.costing)
-        m.fs.costing.electricity_cost.fix(0.07)
+        m.fs.costing.electricity_cost.fix(0.0)
         m.fs.costing.land_cost.set_value(10000)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOE()
@@ -212,16 +212,15 @@ class TestPV:
             "aggregate_fixed_operating_cost": 15500000.0,
             "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": -143093.81,
-            "aggregate_flow_costs": {"electricity": -116166123.42},
+            "aggregate_flow_costs": {"electricity": 0.0},
             "aggregate_direct_capital_cost": 820023903.94,
             "total_capital_cost": 820023903.94,
-            "total_operating_cost": -76065406.3,
+            "total_operating_cost": 40100717.11,
             "maintenance_labor_chemical_operating_cost": 24600717.11,
             "total_fixed_operating_cost": 40100717.11,
-            "total_variable_operating_cost": -116166123.42,
-            "total_annualized_cost": 15741148.23,
-            "lifetime_electricity_production": 25065273934.56,
-            "LCOE": 0.01256,
+            "total_variable_operating_cost": 0.0,
+            "total_annualized_cost": 131907271.65,
+            "LCOE": 0.105251,
         }
         for v, r in sys_costing_results.items():
             cv = m.fs.costing.find_component(v)
@@ -247,7 +246,7 @@ class TestPV:
     def test_costing_detailed(self):
         m = build_pv()
         pv = m.fs.pv
-        pv.design_size.fix(500000)
+        pv.system_capacity.fix(500000)
         calculate_scaling_factors(m)
         initialization_tester(m, unit=pv)
         results = solver.solve(m)
@@ -257,7 +256,7 @@ class TestPV:
             flowsheet_costing_block=m.fs.costing,
             costing_method_arguments={"cost_method": "detailed"},
         )
-        m.fs.costing.electricity_cost.fix(0.07)
+        m.fs.costing.electricity_cost.fix(0)
         m.fs.costing.land_cost.set_value(10000)
         m.fs.costing.cost_process()
         m.fs.costing.add_LCOE()
@@ -267,20 +266,17 @@ class TestPV:
         assert_optimal_termination(results)
 
         sys_costing_results = {
-            "aggregate_capital_cost": 393447807.89,
+            "aggregate_capital_cost": 572322807.89,
             "aggregate_fixed_operating_cost": 15500000.0,
-            "aggregate_variable_operating_cost": 0.0,
             "aggregate_flow_electricity": -143093.81,
-            "aggregate_flow_costs": {"electricity": -116166123.42},
-            "aggregate_direct_capital_cost": 393447807.89,
-            "total_capital_cost": 393447807.89,
-            "total_operating_cost": -88862689.18,
-            "maintenance_labor_chemical_operating_cost": 11803434.23,
-            "total_fixed_operating_cost": 27303434.23,
-            "total_variable_operating_cost": -116166123.42,
-            "total_annualized_cost": -44813866.39,
-            "lifetime_electricity_production": 25065273934.56,
-            "LCOE": -0.035757,
+            "aggregate_flow_costs": {"electricity": 0.0},
+            "aggregate_direct_capital_cost": 572322807.89,
+            "total_capital_cost": 572322807.89,
+            "total_operating_cost": 32669684.23,
+            "maintenance_labor_chemical_operating_cost": 17169684.23,
+            "total_fixed_operating_cost": 32669684.23,
+            "total_annualized_cost": 96744627.44,
+            "LCOE": 0.077194,
         }
 
         for v, r in sys_costing_results.items():
@@ -292,12 +288,13 @@ class TestPV:
                 assert pytest.approx(value(cv), rel=1e-3) == r
 
         pv_costing_results = {
-            "capital_cost": 393447807.89,
-            "direct_capital_cost": 393447807.89,
+            "capital_cost": 572322807.89,
+            "direct_capital_cost": 572322807.89,
             "fixed_operating_cost": 15500000.0,
-            "direct_cost": 288400000.0,
-            "indirect_cost": 85023903.94,
+            "direct_cost": 507275000.0,
+            "indirect_cost": 45023903.94,
             "land_cost": 20023903.94,
+            "total_installed_cost_per_capacity": 1.1446,
         }
 
         for v, r in pv_costing_results.items():
@@ -321,8 +318,8 @@ class TestCreatePVSurrogate:
         test_dataset_filename = os.path.join(__location__, "data/test_data.pkl")
         pv_dict = {
             "input_variables": {
-                "labels": ["design_size"],
-                "units": {"design_size": "kW"},
+                "labels": ["system_capacity"],
+                "units": {"system_capacity": "kW"},
             },
             "output_variables": {
                 "labels": ["electricity_annual", "land_req"],
@@ -335,7 +332,7 @@ class TestCreatePVSurrogate:
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.pv = PVSurrogate(**pv_dict)
-        m.fs.pv.design_size.fix(5000)
+        m.fs.pv.system_capacity.fix(5000)
         calculate_scaling_factors(m)
         initialization_tester(m, unit=m.fs.pv)
         results = solver.solve(m)
@@ -350,8 +347,8 @@ class TestCreatePVSurrogate:
         )
         pv_dict = {
             "input_variables": {
-                "labels": ["design_size"],
-                "units": {"design_size": "kW"},
+                "labels": ["system_capacity"],
+                "units": {"system_capacity": "kW"},
             },
             "output_variables": {
                 "labels": ["electricity_annual", "land_req"],
@@ -367,7 +364,7 @@ class TestCreatePVSurrogate:
         m = ConcreteModel()
         m.fs = FlowsheetBlock(dynamic=False)
         m.fs.pv = PVSurrogate(**pv_dict)
-        m.fs.pv.design_size.fix(500000)
+        m.fs.pv.system_capacity.fix(500000)
         calculate_scaling_factors(m)
         initialization_tester(m, unit=m.fs.pv)
         results = solver.solve(m)

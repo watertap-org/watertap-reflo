@@ -260,6 +260,13 @@ def cost_pv_detailed(blk):
         )
     )
 
+    blk.total_installed_cost_per_capacity = pyo.Expression(
+        expr=blk.capital_cost / pyo.units.convert(
+            blk.unit_model.system_capacity, to_units=pyo.units.watt
+        ),
+        doc="Total installed cost per capacity of PV system",
+    )
+
     blk.costing_package.cost_flow(-1 * blk.unit_model.electricity, "electricity")
 
 
