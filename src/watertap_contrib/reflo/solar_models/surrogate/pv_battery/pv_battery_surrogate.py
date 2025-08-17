@@ -54,6 +54,18 @@ class PVBatterySurrogateData(SolarEnergyBaseData):
 
         self.del_component(self.heat)
 
+        self.single_inverter_capacity = Param(
+            initialize=2507.2,
+            units=pyunits.kW,
+            doc="DC capacity of a single inverter",
+        )
+
+        self.DC_to_AC_ratio = Param(
+            initialize=1.2,
+            units=pyunits.dimensionless,
+            doc="DC to AC ratio for PV system",
+        )
+
         if self.config.surrogate_model_file is not None:
             self.surrogate_model_file = self.config.surrogate_model_file
             self.load_surrogate()
@@ -111,6 +123,13 @@ class PVBatterySurrogateData(SolarEnergyBaseData):
                 doc="Land required for PV system",
             )
 
+        self.inverter_capacity = Expression(
+            expr=pyunits.convert(
+                self.design_size / self.DC_to_AC_ratio, to_units=pyunits.kW
+            ),
+            doc="Inverter capacity for PV system",
+        )
+        
         self.electricity_constraint = Constraint(
             expr=self.electricity
             == pyunits.convert(self.electricity_annual, to_units=pyunits.kW)
