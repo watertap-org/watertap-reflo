@@ -122,8 +122,8 @@ permiain_zld2_diff_analysis:
       EC Metal Dose:
         type: UniformSample
         param: fs.treatment.ec.unit.metal_dose
-        lower_limit: 0.0005
-        upper_limit: 0.0015
+        lower_limit: 0.00005
+        upper_limit: 0.00015
       FO System Cost:
         type: UniformSample
         param: fs.treatment.costing.forward_osmosis.base_unit_cost
