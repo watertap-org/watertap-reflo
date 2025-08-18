@@ -11,7 +11,7 @@ import PySAM.Singleowner as so
 
 from math import floor, ceil
 from itertools import product
-import PySAM.ResourceTools as rtools
+# import PySAM.ResourceTools as rtools
 from PySAM.BatteryTools import battery_model_sizing
 
 
@@ -217,8 +217,9 @@ def create_pv_batt_modules(weather_file=None):
     # tech_model.BatterySystem.batt_meter_position = 0
     grid_model = grid.from_existing(tech_model, "PVBatterySingleOwner")
 
-    weather_data = rtools.SAM_CSV_to_solar_data(weather_file)
-    tech_model.SolarResource.solar_resource_data = weather_data
+    # weather_data = rtools.SAM_CSV_to_solar_data(weather_file)
+    # tech_model.SolarResource.solar_resource_data = weather_data
+    tech_model.SolarResource.solar_resource_file = weather_file
 
     modules = [
         tech_model,
