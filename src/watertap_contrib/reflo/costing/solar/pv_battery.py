@@ -119,7 +119,7 @@ def cost_pv_battery(blk):
     )
 
     design_size_watt = pyo.units.convert(
-        blk.unit_model.design_size, to_units=pyo.units.watt
+        blk.unit_model.system_capacity, to_units=pyo.units.watt
     )
 
     inverter_capacity_watt = pyo.units.convert(
@@ -127,7 +127,7 @@ def cost_pv_battery(blk):
     )
 
     batt_size_kwh = pyo.units.convert(
-        blk.unit_model.battery_kw * blk.unit_model.hours_storage,
+        blk.unit_model.battery_power * blk.unit_model.hours_storage,
         to_units=pyo.units.kWh,
     )
 
@@ -150,7 +150,7 @@ def cost_pv_battery(blk):
         expr=pyo.units.convert(
             (
                 batt_size_kwh * pv_batt_params.cost_per_kwh_battery_storage
-                + blk.unit_model.battery_kw * pv_batt_params.cost_per_kw_battery_power
+                + blk.unit_model.battery_power * pv_batt_params.cost_per_kw_battery_power
             ),  # BUG Check this
             to_units=blk.costing_package.base_currency,
         ),
