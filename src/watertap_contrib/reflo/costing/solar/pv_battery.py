@@ -150,7 +150,8 @@ def cost_pv_battery(blk):
         expr=pyo.units.convert(
             (
                 batt_size_kwh * pv_batt_params.cost_per_kwh_battery_storage
-                + blk.unit_model.battery_power * pv_batt_params.cost_per_kw_battery_power
+                + blk.unit_model.battery_power
+                * pv_batt_params.cost_per_kw_battery_power
             ),  # BUG Check this
             to_units=blk.costing_package.base_currency,
         ),
