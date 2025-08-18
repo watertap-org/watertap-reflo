@@ -20,6 +20,8 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 default_weather_file = os.path.join(
     __location__, "data/test_pv_battery_weather_data.csv"
 )
+# TODO: need to set the actual model dispatch schedule defaults here;
+# the ones below are not the defaults
 # default dispatch schedule:
 # - charging from 8 am 8 pm
 # - discharging from 8 pm to 8 am
@@ -293,6 +295,8 @@ def run_pysam_pv_battery(
     tech_model.value("subarray1_nstrings", pv_array_design["number_strings"])
     # tech_model.value("cec_gamma_r", -0.3)
 
+    # TODO: need to set the actual model defaults here;
+    # those at the top of this file are not the defaults.
     # set_battery_options(tech_model, battery_power, hours_storage, **kwargs)
 
     print(
@@ -408,16 +412,20 @@ def generate_pv_battery_data(
 
 
 if __name__ == "__main__":
-    # setup_and_run_pv_battery(100000, 25000, 12)
-    design_sizes = np.linspace(100000, 500000, 5)
-    battery_kws = np.linspace(10000, 60000, 5)
-    hours_storages = [3, 6, 8, 12, 24]
-    df = generate_pv_battery_data(
-        design_sizes=design_sizes,
-        battery_kws=battery_kws,
-        hours_storages=hours_storages,
-    )
-    print(df.head())
+
+    df = generate_pv_battery_data()
+    print(df.head(20))
+    os.remove(os.path.join(__location__, "data/test_data.pkl"))
+
+    # For generating test data:
+    # design_sizes = np.linspace(100000, 500000, 5)
+    # battery_kws = np.linspace(10000, 60000, 5)
+    # hours_storages = [3, 6, 8, 12, 24]
+    # df = generate_pv_battery_data(
+    #     design_sizes=design_sizes,
+    #     battery_kws=battery_kws,
+    #     hours_storages=hours_storages,
+    # )
 
     # import matplotlib.pyplot as plt
 
