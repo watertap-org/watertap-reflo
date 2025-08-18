@@ -11,6 +11,7 @@ import PySAM.Singleowner as so
 
 from math import floor, ceil
 from itertools import product
+
 # import PySAM.ResourceTools as rtools
 from PySAM.BatteryTools import battery_model_sizing
 
