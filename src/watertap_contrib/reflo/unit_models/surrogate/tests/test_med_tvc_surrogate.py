@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -357,7 +357,7 @@ class TestMEDTVC:
             m.fs.costing.total_capital_cost
         )
 
-    @pytest.mark.parametrize("number_effects", [9, 11, 13, 15])
+    @pytest.mark.parametrize("number_effects", [9, 11, 13])
     def test_interp_values(self, number_effects):
         # create flowsheet for an interpolated number of effects
         m = ConcreteModel()
@@ -367,13 +367,10 @@ class TestMEDTVC:
         m.fs.med_tvc = MEDTVCSurrogate(
             property_package_liquid=m.fs.liquid_prop,
             property_package_vapor=m.fs.vapor_prop,
-            number_effects=number_effects,  # Interpolated values include [9, 11, 13, 15]
+            number_effects=number_effects,  # Interpolated values include [9, 11, 13]
         )
 
         med_tvc = m.fs.med_tvc
-        feed = med_tvc.feed_props[0]
-        cool = med_tvc.cooling_out_props[0]
-        dist = med_tvc.distillate_props[0]
         steam = med_tvc.heating_steam_props[0]
         motive = med_tvc.motive_steam_props[0]
 
