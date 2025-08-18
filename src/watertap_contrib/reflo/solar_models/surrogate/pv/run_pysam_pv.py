@@ -254,15 +254,6 @@ def run_pv_single_owner(
     tech_model.value("inverter_count", pv_array_design["inverter_count"])
     tech_model.value("subarray1_nstrings", pv_array_design["number_strings"])
 
-    # BUG Dec. 2024: cec_gamma_r was a required parameter but wasn't provided by default config
-    # Courtesy of Google AI:
-    # The "cec_gamma_r" maximum power point temperature coefficient, typically
-    # found on a solar panel datasheet, represents the percentage change
-    # in maximum power output per degree Celsius change in temperature, usually
-    # expressed as a negative value ranging from around -0.3% to -0.5% per degree Celsius.
-    # NOTE: June 2025: using nrel-pysam = 6.0.0, cec_gamma_r is no longer required
-    # tech_model.value("cec_gamma_r", -0.3)
-
     for param, val in tech_model_kwargs.items():
         tech_model.value(param, val)
     for param, val in cash_model_kwargs.items():
