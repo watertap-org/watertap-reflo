@@ -54,7 +54,7 @@ dispatch_manual_percent_gridcharge_default = (100,)
 dispatch_manual_percent_discharge_default = (100,)
 
 
-def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
+def size_pv_array(tech_model, system_capacity=50, desired_dcac_ratio=1.2):
 
     # Sizing rules
     # 1. Voc < Vdcmax
@@ -130,7 +130,7 @@ def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
                 num_series -= 1
 
     num_series = max(1, round(num_series))
-    num_parallel = design_size * 1000 / (num_series * mod_power)
+    num_parallel = system_capacity * 1000 / (num_series * mod_power)
     num_parallel = max(1, round(num_parallel))
     if desired_dcac_ratio > 0:
         inverters = ((num_series * num_parallel * mod_power)) / (
@@ -156,7 +156,7 @@ def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
     # check that the sizing was close to the desired sizes, otherwise error out
     nameplate_dc = total_modules * mod_power / 1000
     proposed_ratio = nameplate_dc / (num_inverters * inv_power / 1000)
-    if abs(nameplate_dc - design_size) / design_size > 0.2:
+    if abs(nameplate_dc - system_capacity) / system_capacity > 0.2:
         num_inverters = None
         num_series = None
         num_parallel = None
@@ -180,7 +180,7 @@ def size_pv_array(tech_model, design_size=50, desired_dcac_ratio=1.2):
         "total_modules": total_modules,
         "total_module_area": total_module_area,
         "land_req": land_area,
-        "system_capacity": nameplate_dc,
+        "nameplate_dc": nameplate_dc,
         "total_inverter_capacity": total_ac_capacity,
         "total_dc_inverter_capacity": total_dc_inverter_capacity,
     }
@@ -211,9 +211,11 @@ def create_pv_batt_modules(weather_file=None):
         weather_file = default_weather_file
 
     tech_model = pvsam.default("PVBatterySingleOwner")
+    # set the meter position
+    # 0 = Behind-the-meter
+    # 1 = Front-of-meter
+    # tech_model.BatterySystem.batt_meter_position = 0
     grid_model = grid.from_existing(tech_model, "PVBatterySingleOwner")
-    rate_model = ur.from_existing(tech_model, "PVBatterySingleOwner")
-    cash_model = so.from_existing(tech_model, "PVBatterySingleOwner")
 
     weather_data = tools.SAM_CSV_to_solar_data(weather_file)
     tech_model.SolarResource.solar_resource_data = weather_data
@@ -221,8 +223,6 @@ def create_pv_batt_modules(weather_file=None):
     modules = [
         tech_model,
         grid_model,
-        rate_model,
-        cash_model,
     ]
 
     return modules
@@ -230,7 +230,7 @@ def create_pv_batt_modules(weather_file=None):
 
 def set_battery_options(
     tech_model,
-    battery_kw,
+    battery_power,
     hours_storage,
     battery_volts=500,
     dispatch_manual_sched=None,
@@ -243,18 +243,18 @@ def set_battery_options(
 ):
     # see: https://nrel-pysam.readthedocs.io/en/main/modules/Battery.html#PySAM.Battery.Battery.BatteryDispatch
 
-    if dispatch_manual_sched is None:
-        dispatch_manual_sched = default_dispatch_manual_sched
-    if dispatch_manual_charge is None:
-        dispatch_manual_charge = dispatch_manual_charge_default
-    if dispatch_manual_discharge is None:
-        dispatch_manual_discharge = dispatch_manual_discharge_default
-    if dispatch_manual_gridcharge is None:
-        dispatch_manual_gridcharge = dispatch_manual_gridcharge_default
-    if dispatch_manual_percent_gridcharge is None:
-        dispatch_manual_percent_gridcharge = dispatch_manual_percent_gridcharge_default
-    if dispatch_manual_percent_discharge is None:
-        dispatch_manual_percent_discharge = dispatch_manual_percent_discharge_default
+    # if dispatch_manual_sched is None:
+    #     dispatch_manual_sched = default_dispatch_manual_sched
+    # if dispatch_manual_charge is None:
+    #     dispatch_manual_charge = dispatch_manual_charge_default
+    # if dispatch_manual_discharge is None:
+    #     dispatch_manual_discharge = dispatch_manual_discharge_default
+    # if dispatch_manual_gridcharge is None:
+    #     dispatch_manual_gridcharge = dispatch_manual_gridcharge_default
+    # if dispatch_manual_percent_gridcharge is None:
+    #     dispatch_manual_percent_gridcharge = dispatch_manual_percent_gridcharge_default
+    # if dispatch_manual_percent_discharge is None:
+    #     dispatch_manual_percent_discharge = dispatch_manual_percent_discharge_default
 
     batt = tech_model.BatteryDispatch
     tech_model.BatteryDispatch.batt_dispatch_auto_can_clipcharge = 1
@@ -272,34 +272,40 @@ def set_battery_options(
     tech_model.BatteryDispatch.dispatch_manual_sched = dispatch_manual_sched
     tech_model.BatteryDispatch.dispatch_manual_sched_weekend = dispatch_manual_sched
 
-    battery_kwh = battery_kw * hours_storage
-    battery_model_sizing(tech_model, battery_kw, battery_kwh, battery_volts, **kwargs)
+    battery_kwh = battery_power * hours_storage
+    battery_model_sizing(
+        tech_model, battery_power, battery_kwh, battery_volts, **kwargs
+    )
 
 
 def run_pysam_pv_battery(
-    design_size, battery_kw, hours_storage, weather_file=None, **kwargs
+    system_capacity, battery_power, hours_storage, weather_file=None, **kwargs
 ):
 
     modules = create_pv_batt_modules(weather_file=weather_file, **kwargs)
 
     tech_model = modules[0]
-    pv_array_design = size_pv_array(tech_model, design_size=design_size)
+    pv_array_design = size_pv_array(tech_model, system_capacity=system_capacity)
 
     tech_model.value("inverter_count", pv_array_design["inverter_count"])
     tech_model.value("subarray1_nstrings", pv_array_design["number_strings"])
     # tech_model.value("cec_gamma_r", -0.3)
 
-    set_battery_options(tech_model, battery_kw, hours_storage, **kwargs)
+    # set_battery_options(tech_model, battery_power, hours_storage, **kwargs)
 
+    print(
+        f"Running:\n\tPV Design Size {system_capacity:.1f} kW\n\tBattery Size {battery_power:.1f} kW\n\tBattery Storage {hours_storage:.1f} hours"
+    )
     for mod in modules:
         mod.execute()
+    print(f"Completed:\tAnnual Energy = {tech_model.Outputs.annual_energy:.2f}")
 
     return modules, pv_array_design
 
 
 def setup_and_run_pv_battery(
-    design_size,
-    battery_kw,
+    system_capacity,
+    battery_power,
     hours_storage,
     weather_file=None,
     return_tech_model=False,
@@ -312,8 +318,8 @@ def setup_and_run_pv_battery(
         weather_file = default_weather_file
 
     modules, pv_array_design = run_pysam_pv_battery(
-        design_size,
-        battery_kw,
+        system_capacity,
+        battery_power,
         hours_storage,
         weather_file,
         **kwargs,
@@ -322,14 +328,25 @@ def setup_and_run_pv_battery(
     tech_model = modules[0]
 
     result = pv_array_design
-    result["electricity_annual"] = tech_model.Outputs.annual_energy
+    gen_1yr = tech_model.Outputs.gen[:8760]
+    gen_without_batt_1yr = tech_model.Outputs.gen_without_battery[:8760]
+    net_electricity_produced = tech_model.Outputs.annual_energy - sum(
+        tech_model.Outputs.batt_annual_charge_from_grid
+    )
+    result["electricity_annual"] = net_electricity_produced
+    result["batt_annual_charge_from_grid"] = sum(
+        tech_model.Outputs.batt_annual_charge_from_grid
+    )
+    result["batt_annual_charge_from_system"] = sum(
+        tech_model.Outputs.batt_annual_charge_from_system
+    )
+    result["batt_annual_discharge_energy"] = sum(
+        tech_model.Outputs.batt_annual_discharge_energy
+    )
     result["ac_capacity_factor"] = tech_model.Outputs.capacity_factor_ac
     result["dc_capacity_factor"] = tech_model.Outputs.capacity_factor
-    print(
-        f"PV Design Size {design_size:.1f} kW and Battery Size {battery_kw:.1f} kW completed."
-    )
-    print(f"\tAnnual Energy = {tech_model.Outputs.annual_energy:.2f}")
-    print(f"\tLand Required = {result['land_req']:.2f} acre\n")
+    result["annual_gen_without_battery"] = sum(gen_without_batt_1yr)
+
     if return_tech_model:
         return result, tech_model
     else:
@@ -337,9 +354,9 @@ def setup_and_run_pv_battery(
 
 
 def generate_pv_battery_data(
-    design_sizes=[100000, 200000, 300000],
-    battery_kws=[50000],
-    hours_storages=[12],
+    system_capacities=[100000, 200000],
+    battery_kws=[10000, 60000],
+    hours_storages=[6, 12],
     weather_file=None,
     save_data=True,
     use_multiprocessing=True,
@@ -358,8 +375,10 @@ def generate_pv_battery_data(
     if weather_file is None:
         weather_file = default_weather_file
 
-    combos = list(product(design_sizes, battery_kws, hours_storages))
-    df = pd.DataFrame(combos, columns=["design_size", "battery_kw", "hours_storage"])
+    combos = list(product(system_capacities, battery_kws, hours_storages))
+    df = pd.DataFrame(
+        combos, columns=["system_capacity", "battery_power", "hours_storage"]
+    )
     if use_multiprocessing:
 
         with multiprocessing.Pool(processes=processes) as pool:
@@ -368,10 +387,10 @@ def generate_pv_battery_data(
         df_results = pd.DataFrame(results)
     else:
         results = []
-        for design_size, battery_kw, hours_storage in combos:
+        for system_capacity, battery_power, hours_storage in combos:
             result = setup_and_run_pv_battery(
-                design_size,
-                battery_kw,
+                system_capacity,
+                battery_power,
                 hours_storage,
                 weather_file=weather_file,
                 **kwargs,
@@ -387,42 +406,41 @@ def generate_pv_battery_data(
 
 
 if __name__ == "__main__":
-    # setup_and_run_pv_battery()
-    # design_sizes=np.linspace(100000, 500000, 5)
+    # setup_and_run_pv_battery(100000, 25000, 12)
+    design_sizes = np.linspace(100000, 500000, 5)
+    battery_kws = np.linspace(10000, 60000, 5)
+    hours_storages = [3, 6, 8, 12, 24]
+    df = generate_pv_battery_data(
+        design_sizes=design_sizes,
+        battery_kws=battery_kws,
+        hours_storages=hours_storages,
+    )
+    print(df.head())
 
-    # battery_kws=[25000, 50000]
-    # hours_storages=[6, 12]
-    # df = generate_pv_battery_data(
-    #     design_sizes=design_sizes,
-    #     battery_kws=battery_kws,
-    #     hours_storages=hours_storages,
+    # import matplotlib.pyplot as plt
+
+    # system_capacity = 100000
+    # battery_power = 50000
+    # hours_storage = 12
+
+    # modules, size_pv_array = run_pysam_pv_battery(
+    #     system_capacity, battery_power, hours_storage, weather_file=None
     # )
-    # print(df.head())
+    # tech_model = modules[0]
+    # gen = tech_model.Outputs.gen
 
-    import matplotlib.pyplot as plt
+    # start_day = 180
+    # start_i = start_day * 24
+    # end_day = 185
+    # end_i = end_day * 24
 
-    design_size = 100000
-    battery_kw = 50000
-    hours_storage = 12
-
-    modules, size_pv_array = run_pysam_pv_battery(
-        design_size, battery_kw, hours_storage, weather_file=None
-    )
-    tech_model = modules[0]
-    gen = tech_model.Outputs.gen
-
-    start_day = 180
-    start_i = start_day * 24
-    end_day = 185
-    end_i = end_day * 24
-
-    fig, ax = plt.subplots()
-    ax.plot(gen[start_i:end_i], label="gen")
-    ax.plot(
-        tech_model.Outputs.gen_without_battery[start_i:end_i],
-        label="gen_without_battery",
-    )
-    ax.plot(tech_model.Outputs.grid_to_batt[start_i:end_i], label="grid_to_batt")
-    ax.plot(tech_model.Outputs.batt_to_grid[start_i:end_i], label="batt_to_grid")
-    ax.legend()
-    plt.show()
+    # fig, ax = plt.subplots()
+    # ax.plot(gen[start_i:end_i], label="gen")
+    # ax.plot(
+    #     tech_model.Outputs.gen_without_battery[start_i:end_i],
+    #     label="gen_without_battery",
+    # )
+    # ax.plot(tech_model.Outputs.grid_to_batt[start_i:end_i], label="grid_to_batt")
+    # ax.plot(tech_model.Outputs.batt_to_grid[start_i:end_i], label="batt_to_grid")
+    # ax.legend()
+    # plt.show()
