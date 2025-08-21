@@ -165,7 +165,21 @@ class TestPV:
     def test_solvability(self, pv_frame):
         m = pv_frame
         pv = m.fs.pv
-        for i, row in pv.data.iterrows():
+
+        # Test some random points in the surrogate bounds
+        pv.system_capacity.fix(23498)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        pv.system_capacity.fix(987342)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        pv.system_capacity.fix(1000.0001)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        for _, row in pv.data.iterrows():
             pv.system_capacity.fix(row["system_capacity"])
             results = solver.solve(m)
             assert_optimal_termination(results)
