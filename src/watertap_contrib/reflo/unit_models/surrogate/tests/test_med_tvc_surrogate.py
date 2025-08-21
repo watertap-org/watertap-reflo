@@ -357,7 +357,7 @@ class TestMEDTVC:
             m.fs.costing.total_capital_cost
         )
 
-    @pytest.mark.parametrize("number_effects", [9, 11, 1, 15])
+    @pytest.mark.parametrize("number_effects", [9, 11, 13, 15])
     def test_interp_values(self, number_effects):
         # create flowsheet for an interpolated number of effects
         m = ConcreteModel()
