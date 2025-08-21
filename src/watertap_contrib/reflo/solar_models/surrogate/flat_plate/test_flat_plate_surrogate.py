@@ -58,28 +58,23 @@ surrogate_model_file = os.path.join(
 
 
 def build_fpc():
-    """
-    Build with existing surrogate model file.
-    """
-    input_units = dict(
-        system_capacity="MW", hours_storage="hour", temperature_hot="degK"
-    )
-    input_variables = {
-        "labels": ["system_capacity", "hours_storage", "temperature_hot"],
-        "units": input_units,
-    }
 
-    output_units = dict(heat_annual="kWh/year", electricity_annual="kWh/year")
-    output_variables = {
-        "labels": ["heat_annual", "electricity_annual"],
-        "units": output_units,
+    fpc_dict = {
+        "dataset_filename": dataset_filename,
+        "input_variables": {
+            "labels": ["system_capacity", "hours_storage", "temperature_hot"],
+            "units": {
+                "hours_storage": "hour",
+                "system_capacity": "MW",
+                "temperature_hot": "degK",
+            },
+        },
+        "output_variables": {
+            "labels": ["heat_annual", "electricity_annual"],
+            "units": {"electricity_annual": "kWh/year", "heat_annual": "kWh/year"},
+        },
+        "surrogate_model_file": surrogate_model_file,
     }
-    fpc_dict = dict(
-        surrogate_model_file=surrogate_model_file,
-        dataset_filename=dataset_filename,
-        input_variables=input_variables,
-        output_variables=output_variables,
-    )
 
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -184,7 +179,7 @@ class TestFlatPlate1:
     def test_solvability(self, flat_plate_frame):
         m = flat_plate_frame
         fpc = m.fs.fpc
-        
+
         # Test some random points in the surrogate bounds
         fpc.system_capacity.fix(124.6)
         fpc.hours_storage.fix(8.8)
@@ -200,7 +195,7 @@ class TestFlatPlate1:
         results = solver.solve(m)
         assert_optimal_termination(results)
 
-        for row in fpc.data.iterrows():
+        for _, row in fpc.data.iterrows():
             fpc.system_capacity.fix(row["system_capacity"])
             fpc.hours_storage.fix(row["hours_storage"])
             fpc.temperature_hot.fix(row["temperature_hot"])
