@@ -283,7 +283,21 @@ class TestTroughSurrogate1:
     def test_solvability(self, trough_frame):
         m = trough_frame
         cst = m.fs.unit
-        for i, row in cst.data.iterrows():
+        cst = m.fs.unit
+
+        cst.system_capacity.fix(2.349)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        cst.system_capacity.fix(195.42)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        cst.system_capacity.fix(42.4242)
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        for _, row in cst.data.iterrows():
             cst.system_capacity.fix(row["system_capacity"])
             results = solver.solve(m)
             assert_optimal_termination(results)
@@ -437,7 +451,26 @@ class TestTroughSurrogate2:
     def test_solvability(self, trough_frame):
         m = trough_frame
         cst = m.fs.unit
-        for i, row in cst.data.iterrows():
+
+        cst.system_capacity.fix(1.65)
+        cst.hours_storage.fix(23.99)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        cst.system_capacity.fix(49.94)
+        cst.hours_storage.fix(10.1)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        cst.system_capacity.fix(14.582)
+        cst.hours_storage.fix(21)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        for _, row in cst.data.iterrows():
             cst.system_capacity.fix(row["system_capacity"])
             cst.hours_storage.fix(row["hours_storage"])
             results = solver.solve(m)
@@ -449,7 +482,7 @@ class TestTroughSurrogate2:
         cst = m.fs.unit
 
         cst.system_capacity.fix(25)
-        cst.hours_storage.set_value(12)
+        cst.hours_storage.fix(12)
 
         results = solver.solve(m)
         assert_optimal_termination(results)
@@ -594,7 +627,29 @@ class TestTroughSurrogate3:
     def test_solvability(self, trough_frame):
         m = trough_frame
         cst = m.fs.unit
-        for i, row in cst.data.iterrows():
+
+        cst.system_capacity.fix(2.22)
+        cst.hours_storage.fix(4.44)
+        cst.temperature_loop.fix(222)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        cst.system_capacity.fix(46.13)
+        cst.hours_storage.fix(4.321)
+        cst.temperature_loop.fix(201)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        cst.system_capacity.fix(13.33)
+        cst.hours_storage.fix(5)
+        cst.temperature_loop.fix(297)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        for _, row in cst.data.iterrows():
             cst.system_capacity.fix(row["system_capacity"])
             cst.hours_storage.fix(row["hours_storage"])
             cst.temperature_loop.fix(row["temperature_loop"])

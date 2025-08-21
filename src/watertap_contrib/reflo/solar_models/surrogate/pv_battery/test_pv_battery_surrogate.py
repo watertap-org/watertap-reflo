@@ -173,7 +173,30 @@ class TestPVBattery:
     def test_solvability(self, pv_batt_frame):
         m = pv_batt_frame
         pv = m.fs.pv_batt
-        for i, row in pv.data.iterrows():
+
+        # Test some random points in the surrogate bounds
+        pv.system_capacity.fix(111111.11)
+        pv.battery_power.fix(55555.55)
+        pv.hours_storage.fix(23.23)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        pv.system_capacity.fix(292929.29)
+        pv.battery_power.fix(10101.01)
+        pv.hours_storage.fix(3.33)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        pv.system_capacity.fix(272903)
+        pv.battery_power.fix(29483.29)
+        pv.hours_storage.fix(4.4)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        for _, row in pv.data.iterrows():
             pv.system_capacity.fix(row["system_capacity"])
             pv.battery_power.fix(row["battery_power"])
             pv.hours_storage.fix(row["hours_storage"])
