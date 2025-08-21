@@ -75,7 +75,7 @@ def build_fpc():
         "units": output_units,
     }
     fpc_dict = dict(
-        surrogate_filename_save=surrogate_model_file,
+        surrogate_model_file=surrogate_model_file,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
@@ -184,7 +184,23 @@ class TestFlatPlate1:
     def test_solvability(self, flat_plate_frame):
         m = flat_plate_frame
         fpc = m.fs.fpc
-        for i, row in fpc.data.iterrows():
+        
+        # Test some random points in the surrogate bounds
+        fpc.system_capacity.fix(124.6)
+        fpc.hours_storage.fix(8.8)
+        fpc.temperature_hot.fix(89)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        fpc.system_capacity.fix(100.1)
+        fpc.hours_storage.fix(6.2)
+        fpc.temperature_hot.fix(81)
+
+        results = solver.solve(m)
+        assert_optimal_termination(results)
+
+        for row in fpc.data.iterrows():
             fpc.system_capacity.fix(row["system_capacity"])
             fpc.hours_storage.fix(row["hours_storage"])
             fpc.temperature_hot.fix(row["temperature_hot"])
