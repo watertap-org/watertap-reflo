@@ -14,6 +14,7 @@ setup(
         "pyomo>=6.6.1,<6.9.3",
         "nrel-pysam>=7.0.0",
         "pint<0.25",
+        "requests>=2.32",
     ],
     extras_require={
         "dev": [
