@@ -1,121 +1,92 @@
 Multi-effect Crystallizer Unit Model
 ====================================================
-
-This Crystallizer unit model
-   * supports steady-state only
-   * is a surrogate model
-   * is verified against the operation data from pilot-scale systems in Plataforma Solar de Almeria (PSA)
-
-.. TODO: Add index/reference to home page
-
+This model build multiple blocks of the crystallizer-effect model to form a multi-effect crystallizer (MEC) system.
+The number of effects are passed as a configuration option when creating the unit model.
 
 Degrees of Freedom
 ------------------
-The LT-MED model has 5 degrees of freedom that should be fixed for the unit to be fully specified.
-
-Typically, the following variables are fixed, including the state variables at the inlet. 
-The valid range of each variable is listed based on the tested range of the surrogate equations.
+As in the crystallizer effect model the state variables at the inlet to the control volume (i.e. temperature, pressure, component flowrates) are fixed. 
+The following variables are fixed for each effect for the model to be fully specified.
 
 .. csv-table::
-   :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
+   :header: "Variables", "Variable name", "Valid range", "Units"
 
-   "Feed salinity", "feed_props.conc_mass_phase_comp['Liq', 'TDS']", ":math:`X_{f}`", "30 - 60", ":math:`\text{g/}\text{L}`"
-   "Feed temperature", "feed_props.temperature", ":math:`T_{f}`", "15 - 35", ":math:`^o\text{C}`"
-   "Heating steam temperature", "steam_props.temperature", ":math:`T_{s}`", "60 - 85", ":math:`^o\text{C}`"
-   "Recovery ratio", "recovery_vol_phase['Liq']", ":math:`RR`", "0.3 - 0.5", ":math:`\text{dimensionless}`"
-   "Feed volume flow rate", "feed_props.flow_vol_phase['Liq']", ":math:`v_{f}`", "", ":math:`\text{m}^3 / \text{s}`"
-   
-The first four variables are independent input variables to the surrogate equations. 
-Typically the feed volume flow rate can be determined given a desired system capacity:
+   "Crystallization Yield", "crystallization_yield['NaCl']", "0 - 1", ":math:`\text{dimensionless}`"
+   "Crystal Growth Rate", "crystal_growth_rate", "1E-9 - 1E-6", ":math:`\text{m} / \text{s}`"
+   "Desired median length of solid crystals", "crystal_median_length", "0.2E-3 - 0.6E-3", ":math:`\text{m}`"
+   "Parameter for Sounders-Brown relation", "souders_brown_constant", "", ":math:`\text{W} / \text{m}^2 / \text{K}`"
+   "Overall Heat Transfer Coefficient", "overall_heat_transfer_coefficient", "", ":math:`\text{W} / \text{m}^2 / \text{K}`"
+   "Operating Pressure", "operating_pressure", "", ":math:`\text{Pa}`"
 
-:math:`v_{f} = \frac{Capacity}{RR}`
-
+Additionally, the heating steam state variables (i.e. temperature, pressure, component flowrates) are fixed.
 
 Model Structure
 ---------------
 
-This LT-MED model consists of 4 StateBlocks (as 4 Ports in parenthesis below).
+The multi-effect crystallizer model consists of 2 StateBlocks (as 2 Ports in parenthesis below).
 
-* Feed flow (feed)
-* Distillate (distillate)
-* Brine flow (brine)
-* Heating steam (steam)
+* Control Volume Inlet (inlet)
+* Control Volume Outlet (outlet)
 
-The number of effects, as a key design parameter of the LT-MED model, 
-should be provided in the specific configuration key-value pair below.
-
-``num_effects``: an integer between 3 to 14. 
-
-In this model, numbers of effects of 3, 6, 9, 12, 14 are verified with the 
-operational data, and the other numbers in between are interpolated by those 
-validated numbers.
-
+This model includes the following new StateBlocks (as Ports in parenthesis below) for the first effect:
+* Solid Precipitate (solids)
+* Water Vapor (vapor)
+* Heating Steam (steam)
 
 Sets
 ----
+
 .. csv-table::
    :header: "Description", "Symbol", "Indices"
 
    "Time", ":math:`t`", "[0]"
-   "Phases", ":math:`p`", "['Liq', 'Vap']"
-   "Components", ":math:`j`", "['H2O', 'TDS']"
+   "Phases", ":math:`p`", "['Liq', 'Vap', 'Sol']"
+   "Components", ":math:`j`", "['H2O', 'NaCl']"
 
 
 Variables
 ---------
-The system configuration variables should be fixed at the default values, 
-with which the surrogate model was developed:
-
-.. csv-table::
-   :header: "Description", "Symbol", "Variable Name", "Value", "Units"
-
-   "Temperature difference between the last and first effect", ":math:`\Delta T_{last}`", "delta_T_last_effect", "10", ":math:`\text{K}`"
-   "Temperature decrease in cooling reject water", ":math:`\Delta T_{cooling}`", "delta_T_cooling_reject", "-3", ":math:`\text{K}`"
-   "System thermal loss faction", ":math:`f_{Q_{loss}}`", "thermal_loss", "0.054", ":math:`\text{dimensionless}`"
-
-The following performance variables are derived from the surrogate equations:
-
-.. csv-table::
-   :header: "Description", "Symbol", "Variable Name", "Index", "Units"
-
-   "Gain output ratio", ":math:`GOR`", "gain_output_ratio", "None", ":math:`\text{dimensionless}`"
-   "Specific total area", ":math:`sA`", "specific_area_per_m3_day", "None", ":math:`\text{m}^2\text{ per m}^3\text{/day}`"
-
-The following variables are calculated by fixing the default degree of freedoms above.
-
-.. csv-table::
-   :header: "Description", "Symbol", "Variable Name", "Units"
-
-   "Thermal power requirement", ":math:`P_{req}`", "thermal_power_requirement",  ":math:`\text{kW}`"
-   "Specific thermal energy consumption", ":math:`STEC`", "specific_energy_consumption_thermal",  ":math:`\text{kWh} / \text{m}^3`"
-   "Total seawater mass flow rate (feed + cooling)", ":math:`m_{seawater,total}`", "feed_cool_mass_flow",  ":math:`\text{kg} / \text{s}`"
-   "Total seawater volumetric flow rate (feed + cooling)", ":math:`v_{seawater,total}`", "feed_cool_vol_flow",  ":math:`\text{m}^3 / \text{h}`"
-
+The system variables for each effect can be found in the crystallizer-effect model.
 
 Equations
 ---------
+The following equations are added to the first effect of the multi-effect crystallizer model.
+
 .. csv-table::
    :header: "Description", "Equation"
 
-   "Temperature in the last effect", ":math:`T_{last} = \Delta T_{last} + T_{feed}`"
-   "Temperature of outlet cooling water", ":math:`T_{cooling,out} = \Delta T_{cooling,in} + T_{feed}`"
-   "Distillate volumetric flow rate (production rate)", ":math:`v_{distillate} = v_{feed} T_{feed}`"
-   "Steam mass flow rate", ":math:`m_{steam} = m_{distillate} / GOR`"
-   "Specific thermal energy consumption", ":math:`STEC = \frac{\Delta H_{vap} \times \rho_{distillate}}{GOR}`"
-   "Thermal power requirement", ":math:`P_{req} = STEC \times v_{distillate}`"
-   "Energy balance", ":math:`v_{seawater,total} \times (H_{cooling} - H_{feed}) = (1 - f_{Q_{loss}})\times P_{req} - m_{brine} H_{brine} - m_{distillate} H_{distillate} + m_{feed} H_{cooling}`"
+   "Change in temperature at inlet for first effect", ":math:`\Delta T_{in} = T_{heating steam} - T_{operating}`"
+   "Change in temperature at outlet for first effect", ":math:`\Delta T_{out} = T_{heating steam} - T_{in}`"
+   "Heating steam flow rate", ":math:`W _{mechanical} = L_{vap,heating steam}*m_{heating steam}`"
 
-Surrogate equations and the corresponding coefficients for different number of effects can be found in the unit model class.
+The following equations are added to each effect to connect the effects together in the multi-effect crystallizer model.
+Here i refers to the current effect and i-1 refers to the previous effect.
 
-.. TODO: add link to the code of LT-MED unit model class
+.. csv-table::
+   :header: "Description", "Equation"
+
+   "Change in temperature at inlet for effect n", ":math:`\Delta T_{in} = T_{vap,i-1} - T_{operating,i}`"
+   "Change in temperature at outlet for effect n", ":math:`\Delta T_{out} = T_{pure water,i-1} - T_{in, i}`"
+   "Energy supplied to effect n", ":math:`W _{mechanical} =  Energy_{vap,i-1}`"
+
+.. csv-table::
+   :header: "Symbols", "Description"
+
+   ":math:`Energy_{vap}`", "Energy of the superheated vapor from an effect"
+
+Costing Equations
+---------
+The cost function for the multi-effect crystallizer model is based on the energy consumption of the heating steam/heat and the capital cost of the equipment.
+The system capital cost includes the capital costs on the basis of volume or crystal effect and the cost of the heat exchanger.
+
+The heat exchanger is costed using the following equation:
+
+.. csv-table::
+   :header: "Description", "Equation"
+
+   "Total Capital cost of effect heat exchanger",":math:`CC_{\text{Effect HX}} = CC_{HX} +  CC_{\text{HX Endplate}}`"
+   "Capital cost of heat exchanger",":math:`CC_{HX} = \text{Capital Factor}_{HX} * Area_{HX}`"
+   "Capital cost of heat exchanger endplate",":math:`CC_{\text{HX endplate}} = \text{Capital Factor}_{HX Endplate} * (Area_{HX}/\text{Capital Basis}_{\text{HX_Endplate}})^{Exp}`"
 
 References
 ----------
-
-[1] Palenzuela, P., Hassan, A. S., Zaragoza, G., & Alarcón-Padilla, D. C. (2014). Steady state model for
-multi-effect distillation case study: Plataforma Solar de Almería MED pilot plant. Desalination, 337,
-31-42.
-
-[2] Ortega-Delgado, B., Garcia-Rodriguez, L., & Alarcón-Padilla, D. C. (2017). Opportunities of
-improvement of the MED seawater desalination process by pretreatments allowing high-temperature
-operation. Desalin Water Treat, 97, 94-108.

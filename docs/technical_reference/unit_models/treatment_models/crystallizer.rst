@@ -1,6 +1,5 @@
 Crystallizer Effect Unit Model
 ====================================================
-
 The crystallizer-effect unit model calculates the energy required by a single effect
 to heat an incoming brine stream and vaporize a pure water vapor stream, leaving behind solids present in the
 This model inherits its structure from the WaterTAP crystallizer model and adds in the heat balance equations
@@ -25,7 +24,6 @@ be specified. Additionally, the following variables are typically fixed for the 
 
 Model Structure
 ---------------
-
 This crystallizer-effect model consists of the 4 StateBlocks (as 4 Ports in parenthesis below) already defined in the WaterTAP crystallizer model:
 
 * Properties in (inlet)
@@ -66,10 +64,10 @@ with which the surrogate model was developed:
 The following variables are calculated by fixing the default degree of freedoms above.
 
 .. csv-table::
-   :header: "Description", "Variable Name", "Units"
+   :header: "Description", "Variable Name", "Symbol", "Units"
 
-   "Energy that could be supplied from vapor", "energy_flow_superheated_vapor",  ":math:`\text{W}`"
-   "Crystallizer thermal energy requirement", "work_mechanical",  ":math:`\text{kJ} / \text{s}`"
+   "Energy that could be supplied from vapor", "energy_flow_superheated_vapor", ":math:`Energy_{vap}`", ":math:`\text{W}`"
+   "Crystallizer thermal energy requirement", "work_mechanical",  ":math:`W _{mechanical}`", ":math:`\text{kJ} / \text{s}`"
 
 
 Equations
@@ -78,15 +76,19 @@ Equations
    :header: "Description", "Equation"
 
    "Pure water production rate", ":math:`m_{liq,H2O} = m_{vap,H2O}`"
-   "Thermal energy in the vapor", ":math:`Energy_{steam} = m_{vap, H2O} * L_{vap} + H_{vap} - H_{liq}`"
-   "Change in temperature at inlet", ":math:`\Delta T_{in} = T_{steam} - T_{operating}`"
-   "Change in temperature at outlet", ":math:`\Delta T_{out} = T_{steam} - T_{in}`"
-   "Heating steam flow rate", ":math:`W _{mechanical} = L_{vap,steam}*m_{steam}`"
+   "Thermal energy in the vapor", ":math:`Energy_{vap} = m_{vap, H2O} * L_{pure water} + H_{vap} - H_{liq}`"
+   "Change in temperature at inlet", ":math:`\Delta T_{in} = T_{heating_steam} - T_{operating}`"
+   "Change in temperature at outlet", ":math:`\Delta T_{out} = T_{heating_steam} - T_{in}`"
+   "Heating steam flow rate", ":math:`W _{mechanical} = L_{vap,heating_steam}*m_{heating_steam}`"
+
+.. csv-table::
+   :header: "Symbols", "Description"
+   ":math:` L_{i}`", "Latent heat of vaporization"
+   ":math:` H_{i}`", "Enthalpy"
 
 
 Costing Equations
 ---------
-
 The costing equations for the crystallizer-effect model are based on the costing equations in the multi-effect crystallizer model.
 
 References
