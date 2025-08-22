@@ -77,7 +77,7 @@ Here i refers to the current effect and i-1 refers to the previous effect.
 Costing Equations
 ---------
 The cost function for the multi-effect crystallizer model is based on the energy consumption of the heating steam/heat and the capital cost of the equipment.
-The system capital cost includes the capital costs on the basis of volume or crystal effect and the cost of the heat exchanger.
+The system capital cost includes the capital costs on the basis of volume or crystal mass produced and the cost of the heat exchanger.
 
 The heat exchanger is costed using the following equation:
 
@@ -88,5 +88,32 @@ The heat exchanger is costed using the following equation:
    "Capital cost of heat exchanger",":math:`CC_{HX} = \text{Capital Factor}_{HX} * Area_{HX}`"
    "Capital cost of heat exchanger endplate",":math:`CC_{\text{HX endplate}} = \text{Capital Factor}_{HX Endplate} * (Area_{HX}/\text{Capital Basis}_{\text{HX_Endplate}})^{Exp}`"
 
+The following equations are used to calculate when costed on the basis of mass of crystal: 
+
+.. math:: 
+   CC_{effect} = \text{IEC %} * \text{FOB} * (\frac{\Sigma m_{solids}}{\text{Ref Capacity}})^{Exp_{ref}}
+
+.. csv-table::
+   :header: "Symbols", "Description"
+
+   ":math:`\text{IEC}`", "Forced circulation crystallizer installed equipment cost"
+   ":math:`\text{FOB}`", "Forced circulation crystallizer reference free-on-board cost"
+   ":math:`\Sigma m_{solids}`", "Mass of the solid crystals produced in an effect"
+
+The following equations are used to calculate when costed on the basis of mass of volume: 
+.. math:: 
+   CC_{effect} = \text{Volume}_{suspension} * (\frac{\text{Height}_{cryst}}{\text{Height}_{slurry}})^{Exp_{vol}}
+
+.. csv-table::
+   :header: "Symbols", "Description"
+
+   ":math:`\text{Height}_{cryst}`", "Height of the crystal bed in the effect"
+   ":math:`\text{Height}_{slurry}`", "Height of the slurry bed in the effect"
+
 References
 ----------
+[1] Woods, 2007
+
+[2] Diab and Gerogiorgis, 2017
+
+[3] Yusuf et al., 2019
