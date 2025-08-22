@@ -137,11 +137,6 @@ def size_pv_array(tech_model, system_capacity=50, desired_dcac_ratio=1.2):
         inverter_model
     ]  # Pdco
 
-    # DC-connected battery parameters (assumed to use common inverter)
-    batt_max_power_dc = 0
-    if m["en_batt"] and m["batt_ac_or_dc"] == 0:
-        batt_max_power_dc = m["batt_max_power"]
-
     if mod_vmp > 0:
         num_series = 0.5 * (inv_vmin + inv_vmax) / mod_vmp
         if inv_vdcmax > 0:

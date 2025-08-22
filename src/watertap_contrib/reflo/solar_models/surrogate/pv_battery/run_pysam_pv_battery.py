@@ -1,18 +1,23 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
 import os
 import multiprocessing
-
 import pandas as pd
-import numpy as np
-import PySAM
+from itertools import product
+from math import floor, ceil
+
 import PySAM.Pvsamv1 as pvsam
 import PySAM.Grid as grid
-import PySAM.Utilityrate5 as ur
-import PySAM.Singleowner as so
-
-from math import floor, ceil
-from itertools import product
-
-# import PySAM.ResourceTools as rtools
+import PySAM.ResourceTools as rtools
 from PySAM.BatteryTools import battery_model_sizing
 
 
@@ -220,9 +225,9 @@ def create_pv_batt_modules(weather_file=None):
     # tech_model.BatterySystem.batt_meter_position = 0
     grid_model = grid.from_existing(tech_model, "PVBatterySingleOwner")
 
-    # weather_data = rtools.SAM_CSV_to_solar_data(weather_file)
-    # tech_model.SolarResource.solar_resource_data = weather_data
-    tech_model.SolarResource.solar_resource_file = weather_file
+    weather_data = rtools.SAM_CSV_to_solar_data(weather_file)
+    tech_model.SolarResource.solar_resource_data = weather_data
+    # tech_model.SolarResource.solar_resource_file = weather_file
 
     modules = [
         tech_model,
@@ -245,6 +250,8 @@ def set_battery_options(
     dispatch_manual_percent_discharge=None,
     **kwargs,
 ):
+    # TODO: This does not currently get called;
+    # need to fix the defaults at top of file
     # see: https://nrel-pysam.readthedocs.io/en/main/modules/Battery.html#PySAM.Battery.Battery.BatteryDispatch
 
     # if dispatch_manual_sched is None:
@@ -361,7 +368,7 @@ def setup_and_run_pv_battery(
 
 def generate_pv_battery_data(
     system_capacities=[100000, 200000],
-    battery_kws=[10000, 60000],
+    battery_powers=[10000, 60000],
     hours_storages=[6, 12],
     weather_file=None,
     save_data=True,
@@ -381,7 +388,7 @@ def generate_pv_battery_data(
     if weather_file is None:
         weather_file = default_weather_file
 
-    combos = list(product(system_capacities, battery_kws, hours_storages))
+    combos = list(product(system_capacities, battery_powers, hours_storages))
     df = pd.DataFrame(
         combos, columns=["system_capacity", "battery_power", "hours_storage"]
     )
@@ -419,38 +426,10 @@ if __name__ == "__main__":
 
     # For generating test data:
     # design_sizes = np.linspace(100000, 500000, 5)
-    # battery_kws = np.linspace(10000, 60000, 5)
+    # battery_powers = np.linspace(10000, 60000, 5)
     # hours_storages = [3, 6, 8, 12, 24]
     # df = generate_pv_battery_data(
     #     design_sizes=design_sizes,
-    #     battery_kws=battery_kws,
+    #     battery_powers=battery_powers,
     #     hours_storages=hours_storages,
     # )
-
-    # import matplotlib.pyplot as plt
-
-    # system_capacity = 100000
-    # battery_power = 50000
-    # hours_storage = 12
-
-    # modules, size_pv_array = run_pysam_pv_battery(
-    #     system_capacity, battery_power, hours_storage, weather_file=None
-    # )
-    # tech_model = modules[0]
-    # gen = tech_model.Outputs.gen
-
-    # start_day = 180
-    # start_i = start_day * 24
-    # end_day = 185
-    # end_i = end_day * 24
-
-    # fig, ax = plt.subplots()
-    # ax.plot(gen[start_i:end_i], label="gen")
-    # ax.plot(
-    #     tech_model.Outputs.gen_without_battery[start_i:end_i],
-    #     label="gen_without_battery",
-    # )
-    # ax.plot(tech_model.Outputs.grid_to_batt[start_i:end_i], label="grid_to_batt")
-    # ax.plot(tech_model.Outputs.batt_to_grid[start_i:end_i], label="batt_to_grid")
-    # ax.legend()
-    # plt.show()
