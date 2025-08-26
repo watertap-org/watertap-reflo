@@ -30,27 +30,26 @@ from watertap_contrib.reflo.core import (
     SolarModelType,
     SolarSurrogateType,
 )
-from watertap_contrib.reflo.costing.solar.pv import cost_pv
+from watertap_contrib.reflo.costing.solar.pv_battery import cost_pv_battery
 
-__author__ = "Zachary Binger, Matthew Boyd, Kurban Sitterley"
+__author__ = "Kurban Sitterley"
 
 
-@declare_process_block_class("PVSurrogate")
-class PVSurrogateData(SolarEnergyBaseData):
+@declare_process_block_class("PVBatterySurrogate")
+class PVBatterySurrogateData(SolarEnergyBaseData):
     """
-    Surrogate model for PV
+    Surrogate model for PV+Battery System.
     """
 
     CONFIG = SolarEnergyBaseData.CONFIG()
 
     def build(self):
         super().build()
-        self._tech_type = "PV"
+
+        self._tech_type = "PV_battery"
 
         if not self.config.solar_model_type == SolarModelType.surrogate:
-            err_msg = (
-                "The PV surrogate model can only be used with the surrogate model type."
-            )
+            err_msg = "The PV+Battery surrogate model can only be used with the surrogate model type."
             raise ConfigurationError(err_msg)
 
         self.del_component(self.heat)
@@ -75,8 +74,44 @@ class PVSurrogateData(SolarEnergyBaseData):
         elif self.config.surrogate_model_type == SolarSurrogateType.polynomial:
             self.create_polynomial_surrogate()
         else:
-            err_msg = "The PV surrogate model requires either an existing surrogate model file or a valid surrogate type."
+            err_msg = "The PV+Battery surrogate model requires either an existing surrogate model file or a valid surrogate type."
             raise ConfigurationError(err_msg)
+
+        if "battery_power" not in self.input_labels:
+
+            if "battery_power" in self.data.columns:
+                self.battery_power = Param(
+                    initialize=self.data["battery_power"].mean(),
+                    units=pyunits.kW,
+                    mutable=True,
+                    doc="Battery power rating",
+                )
+
+            else:
+                self.battery_power = Param(
+                    initialize=100,
+                    units=pyunits.kW,
+                    mutable=True,
+                    doc="Battery power rating",
+                )
+
+        if "hours_storage" not in self.input_labels:
+
+            if "hours_storage" in self.data.columns:
+                self.hours_storage = Param(
+                    initialize=self.data["hours_storage"].mean(),
+                    units=pyunits.hour,
+                    mutable=True,
+                    doc="Hours of storage",
+                )
+
+            else:
+                self.hours_storage = Param(
+                    initialize=12,
+                    units=pyunits.hour,
+                    mutable=True,
+                    doc="Hours of storage",
+                )
 
         if self.config.scale_training_data:
             self.electricity_annual = Expression(
@@ -105,6 +140,14 @@ class PVSurrogateData(SolarEnergyBaseData):
         if iscale.get_scaling_factor(self.system_capacity) is None:
             sf = iscale.get_scaling_factor(self.system_capacity, default=1)
             iscale.set_scaling_factor(self.system_capacity, sf)
+
+        if iscale.get_scaling_factor(self.battery_power) is None:
+            sf = iscale.get_scaling_factor(self.battery_power, default=1)
+            iscale.set_scaling_factor(self.battery_power, sf)
+
+        if iscale.get_scaling_factor(self.hours_storage) is None:
+            sf = iscale.get_scaling_factor(self.hours_storage, default=1)
+            iscale.set_scaling_factor(self.hours_storage, sf)
 
         if iscale.get_scaling_factor(self.land_req) is None:
             sf = iscale.get_scaling_factor(self.land_req, default=1)
@@ -143,6 +186,8 @@ class PVSurrogateData(SolarEnergyBaseData):
         self.init_data = pd.DataFrame(
             {
                 "system_capacity": [value(self.system_capacity)],
+                "battery_power": [value(self.battery_power)],
+                "hours_storage": [value(self.hours_storage)],
             }
         )
 
@@ -151,7 +196,7 @@ class PVSurrogateData(SolarEnergyBaseData):
             # until IDAES dependency is updated
             self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
             init_log.info_high(
-                f"Initialization Step 1: Evaluate surrogate at design size {value(self.system_capacity)} kW"
+                f"Initialization Step 1: Evaluate surrogate at design size {value(self.system_capacity)} kW, battery size {value(self.battery_power)*value(self.hours_storage)} kWh"
             )
 
         # Create solver
@@ -166,4 +211,4 @@ class PVSurrogateData(SolarEnergyBaseData):
 
     @property
     def default_costing_method(self):
-        return cost_pv
+        return cost_pv_battery

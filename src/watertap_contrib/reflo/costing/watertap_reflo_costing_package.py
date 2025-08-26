@@ -50,17 +50,26 @@ class REFLOCostingData(WaterTAPCostingData):
         # Override WaterTAP default value of USD_2018
         self.base_currency = pyo.units.USD_2023
 
+        # By default we don't include sales tax in costing calculations
         self.sales_tax_frac = pyo.Param(
-            initialize=0.05,
+            initialize=0,
             mutable=True,
-            doc="Sales tax as fraction of capital costs",
             units=pyo.units.dimensionless,
+            doc="Sales tax as fraction of capital costs",
+        )
+
+        # By default we assume the land is available
+        self.land_cost = pyo.Param(
+            initialize=0,
+            mutable=True,
+            units=self.base_currency / pyo.units.acre,
+            doc="Land cost per acre",
         )
 
         self.heat_cost = pyo.Var(
             initialize=0.0,
-            doc="Heat cost",
             units=self.base_currency / pyo.units.kWh,
+            doc="Heat cost",
         )
 
         self.defined_flows["heat"] = self.heat_cost
@@ -199,108 +208,77 @@ class EnergyCostingData(REFLOCostingData):
             doc="Yearly performance degradation of heat generation system",
         )
 
-        self.yearly_electricity_production = pyo.Var(
-            self.plant_lifetime_set,
-            initialize=1e4,
-            domain=pyo.NonNegativeReals,
-            units=pyo.units.kilowatt * pyo.units.hour,
-            doc="Yearly electricity production over facility lifetime",
-        )
-
-        self.lifetime_electricity_production = pyo.Var(
-            initialize=1e6,
-            domain=pyo.NonNegativeReals,
-            units=pyo.units.kilowatt * pyo.units.hour,
-            doc="Total electricity production over facility lifetime",
-        )
-
-        self.yearly_heat_production = pyo.Var(
-            self.plant_lifetime_set,
-            initialize=1e4,
-            domain=pyo.NonNegativeReals,
-            units=pyo.units.kilowatt * pyo.units.hour,
-            doc="Yearly heat production over facility lifetime",
-        )
-
-        self.lifetime_heat_production = pyo.Var(
-            initialize=1e6,
-            domain=pyo.NonNegativeReals,
-            units=pyo.units.kilowatt * pyo.units.hour,
-            doc="Total heat production over facility lifetime",
-        )
-
     def build_process_costs(self):
         super().build_process_costs()
+
+    def initialize(self):
+        super().initialize()
 
     def build_LCOE_params(self):
 
         def rule_yearly_electricity_production(b, y):
             if y == 0:
-                return b.yearly_electricity_production[y] == pyo.units.convert(
+                return pyo.units.convert(
                     self.aggregate_flow_electricity * -1 * pyo.units.year,
                     to_units=pyo.units.kilowatt * pyo.units.hour,
                 )
             else:
-                return b.yearly_electricity_production[
-                    y
-                ] == b.yearly_electricity_production[y - 1] * (
+                return b.yearly_electricity_production[y - 1] * (
                     1 - b.annual_electrical_system_degradation
                 )
 
-        self.yearly_electricity_production_constraint = pyo.Constraint(
+        self.yearly_electricity_production = pyo.Expression(
             self.plant_lifetime_set, rule=rule_yearly_electricity_production
         )
 
         def rule_lifetime_electricity_production(b):
             return (
-                b.lifetime_electricity_production
-                == sum(b.yearly_electricity_production[y] for y in b.plant_lifetime_set)
+                sum(b.yearly_electricity_production[y] for y in b.plant_lifetime_set)
                 * b.utilization_factor
             )
 
-        self.lifetime_electricity_production_constraint = pyo.Constraint(
+        self.lifetime_electricity_production = pyo.Expression(
             rule=rule_lifetime_electricity_production
         )
 
         if get_scaling_factor(self.yearly_electricity_production) is None:
-            set_scaling_factor(self.yearly_electricity_production, 1e-4)
+            set_scaling_factor(self.yearly_electricity_production, 1e-6)
 
         if get_scaling_factor(self.lifetime_electricity_production) is None:
-            set_scaling_factor(self.lifetime_electricity_production, 1e-4)
+            set_scaling_factor(self.lifetime_electricity_production, 1e-9)
 
     def build_LCOH_params(self):
 
         def rule_yearly_heat_production(b, y):
             if y == 0:
-                return b.yearly_heat_production[y] == pyo.units.convert(
+                return pyo.units.convert(
                     self.aggregate_flow_heat * -1 * pyo.units.year,
                     to_units=pyo.units.kilowatt * pyo.units.hour,
                 )
             else:
-                return b.yearly_heat_production[y] == b.yearly_heat_production[
-                    y - 1
-                ] * (1 - b.annual_heat_system_degradation)
+                return b.yearly_heat_production[y - 1] * (
+                    1 - b.annual_heat_system_degradation
+                )
 
-        self.yearly_heat_production_constraint = pyo.Constraint(
+        self.yearly_heat_production = pyo.Expression(
             self.plant_lifetime_set, rule=rule_yearly_heat_production
         )
 
         def rule_lifetime_heat_production(b):
             return (
-                b.lifetime_heat_production
-                == sum(b.yearly_heat_production[y] for y in b.plant_lifetime_set)
+                sum(b.yearly_heat_production[y] for y in b.plant_lifetime_set)
                 * b.utilization_factor
             )
 
-        self.lifetime_heat_production_constraint = pyo.Constraint(
+        self.lifetime_heat_production = pyo.Expression(
             rule=rule_lifetime_heat_production
         )
 
         if get_scaling_factor(self.yearly_heat_production) is None:
-            set_scaling_factor(self.yearly_heat_production, 1e-4)
+            set_scaling_factor(self.yearly_heat_production, 1e-6)
 
         if get_scaling_factor(self.lifetime_heat_production) is None:
-            set_scaling_factor(self.lifetime_heat_production, 1e-4)
+            set_scaling_factor(self.lifetime_heat_production, 1e-9)
 
     def add_LCOE(self):
         """
@@ -732,41 +710,6 @@ class REFLOSystemCostingData(WaterTAPCostingBlockData):
             calculate_variable_from_constraint(
                 self.LCOT,
                 self.LCOT_constraint,
-            )
-
-        if hasattr(self, "LCOE"):
-            for y, c in energy_cost.yearly_electricity_production_constraint.items():
-
-                calculate_variable_from_constraint(
-                    energy_cost.yearly_electricity_production[y],
-                    c,
-                )
-
-            calculate_variable_from_constraint(
-                energy_cost.lifetime_electricity_production,
-                energy_cost.lifetime_electricity_production_constraint,
-            )
-            calculate_variable_from_constraint(
-                energy_cost.LCOE,
-                energy_cost.LCOE_constraint,
-            )
-
-        if hasattr(self, "LCOH"):
-
-            for y, c in energy_cost.yearly_heat_production_constraint.items():
-
-                calculate_variable_from_constraint(
-                    energy_cost.yearly_heat_production[y],
-                    c,
-                )
-
-            calculate_variable_from_constraint(
-                energy_cost.lifetime_heat_production,
-                energy_cost.lifetime_heat_production_constraint,
-            )
-            calculate_variable_from_constraint(
-                energy_cost.LCOH,
-                energy_cost.LCOH_constraint,
             )
 
     def calculate_scaling_factors(self):

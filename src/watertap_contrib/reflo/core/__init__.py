@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -12,4 +12,9 @@
 
 from .wt_reflo_database import REFLODatabase
 from .pysam_watertap import PySAMWaterTAP
-from .solar_energy_base import SolarEnergyBase, SolarEnergyBaseData, SolarModelType
+from .solar_energy_base import (
+    SolarEnergyBase,
+    SolarEnergyBaseData,
+    SolarModelType,
+    SolarSurrogateType,
+)
