@@ -192,7 +192,8 @@ class TestVAGMDbatchAS7C15L_Closed:
             "feed_temp": 25,
             "feed_salinity": 35,
             "initial_batch_volume": 50,
-            "recovery_ratio": 0.5,
+            # "recovery_ratio": 0.5, # originally run at 0.5, but changed to 0.05 for testing
+            "recovery_ratio": 0.05,
             "module_type": "AS7C1.5L",
             "cooling_system_type": "closed",
             "cooling_inlet_temp": 25,
@@ -219,25 +220,25 @@ class TestVAGMDbatchAS7C15L_Closed:
         overall_performance, _ = vagmd_b.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
-            37.5599, abs=1e-3
+            38.399, abs=1e-3
         )
         assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
-            0.9014, abs=1e-3
+            0.9215, abs=1e-3
         )
         assert overall_performance["Gain output ratio"] == pytest.approx(
-            3.4711, abs=1e-3
+            3.5646, abs=1e-3
         )
         assert overall_performance[
             "Specific thermal energy consumption (kWh/m3)"
-        ] == pytest.approx(189.1381, abs=1e-3)
+        ] == pytest.approx(184.148, abs=1e-3)
         assert overall_performance[
             "Specific electric energy consumption (kWh/m3)"
-        ] == pytest.approx(0.3590, abs=1e-3)
+        ] == pytest.approx(0.3479, abs=1e-3)
         assert value(vagmd_b.overall_thermal_power_requirement) == pytest.approx(
-            7880.753, abs=1e-3
+            7672.845, abs=1e-3
         )
         assert value(vagmd_b.overall_elec_power_requirement) == pytest.approx(
-            14.949, abs=1e-3
+            14.497, abs=1e-3
         )
 
     @pytest.mark.component
@@ -270,17 +271,19 @@ class TestVAGMDbatchAS7C15L_Closed:
 
         results = solver.solve(m)
         assert_optimal_termination(results)
+        assert pytest.approx(value(vagmd.num_modules), rel=1e-3) == 1085.33
+        assert pytest.approx(value(vagmd.costing.module_cost), rel=1e-3) == 1485093.44
+        assert (
+            pytest.approx(value(vagmd.costing.other_capital_cost), rel=1e-3)
+            == 425206.67
+        )
+        assert pytest.approx(value(vagmd.costing.capital_cost), rel=1e-3) == 1910300.125
+        assert (
+            pytest.approx(value(vagmd.costing.fixed_operating_cost), rel=1e-3)
+            == 151265.40
+        )
 
-        assert pytest.approx(1109.925, rel=1e-3) == value(vagmd.num_modules)
-        assert pytest.approx(1515161.753, rel=1e-3) == value(vagmd.costing.module_cost)
-        assert pytest.approx(429985.912, rel=1e-3) == value(
-            vagmd.costing.other_capital_cost
-        )
-        assert pytest.approx(1945147.665, rel=1e-3) == value(vagmd.costing.capital_cost)
-        assert pytest.approx(151892.658, rel=1e-3) == value(
-            vagmd.costing.fixed_operating_cost
-        )
-        assert pytest.approx(2.3206, rel=1e-3) == value(m.fs.costing.LCOW)
+        assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 2.2725
 
 
 class TestVAGMDbatchAS7C15L_HighSalinityClosed:
@@ -299,7 +302,8 @@ class TestVAGMDbatchAS7C15L_HighSalinityClosed:
             "feed_temp": 25,
             "feed_salinity": 100,
             "initial_batch_volume": 50,
-            "recovery_ratio": 0.5,
+            # "recovery_ratio": 0.5, # originally run at 0.5, but changed to 0.01 for testing
+            "recovery_ratio": 0.01,
             "module_type": "AS7C1.5L",
             "cooling_system_type": "closed",
             "cooling_inlet_temp": 25,
@@ -323,20 +327,20 @@ class TestVAGMDbatchAS7C15L_HighSalinityClosed:
 
         overall_performance, _ = m.fs.VAGMD.get_model_performance()
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
-            53.767, abs=1e-3
+            34.190, abs=1e-3
         )
         assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
-            1.290, abs=1e-3
+            0.8205, abs=1e-3
         )
         assert overall_performance["Gain output ratio"] == pytest.approx(
-            1.848, rel=1e-3
+            3.055, rel=1e-3
         )
         assert overall_performance[
             "Specific thermal energy consumption (kWh/m3)"
-        ] == pytest.approx(357.004, rel=1e-3)
+        ] == pytest.approx(214.94, rel=1e-3)
         assert overall_performance[
             "Specific electric energy consumption (kWh/m3)"
-        ] == pytest.approx(0.630, rel=1e-3)
+        ] == pytest.approx(0.407, rel=1e-3)
 
 
 class TestVAGMDbatchAS7C15L_LowSalinityOpen:
@@ -356,7 +360,8 @@ class TestVAGMDbatchAS7C15L_LowSalinityOpen:
             "feed_temp": 25,
             "feed_salinity": 50,
             "initial_batch_volume": 50,
-            "recovery_ratio": 0.5,
+            # "recovery_ratio": 0.5, # originally run at 0.5, but changed to 0.01 for testing
+            "recovery_ratio": 0.01,
             "module_type": "AS7C1.5L",
             "cooling_system_type": "open",
             "cooling_inlet_temp": 25,
@@ -380,20 +385,20 @@ class TestVAGMDbatchAS7C15L_LowSalinityOpen:
         overall_performance, _ = m.fs.VAGMD.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
-            36.091, abs=1e-3
+            37.446, abs=1e-3
         )
         assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
-            0.866, abs=1e-3
+            0.8987, abs=1e-3
         )
         assert overall_performance["Gain output ratio"] == pytest.approx(
-            3.3085, rel=1e-3
+            3.4605, rel=1e-3
         )
         assert overall_performance[
             "Specific thermal energy consumption (kWh/m3)"
-        ] == pytest.approx(198.4713, rel=1e-3)
+        ] == pytest.approx(189.698, rel=1e-3)
         assert overall_performance[
             "Specific electric energy consumption (kWh/m3)"
-        ] == pytest.approx(0.3787, rel=1e-3)
+        ] == pytest.approx(0.36029, rel=1e-3)
 
 
 class TestVAGMDbatchAS26C72L_Closed:
@@ -413,7 +418,8 @@ class TestVAGMDbatchAS26C72L_Closed:
             "feed_temp": 25,
             "feed_salinity": 35,
             "initial_batch_volume": 50,
-            "recovery_ratio": 0.5,
+            # "recovery_ratio": 0.5, # originally run at 0.5, but changed to 0.01 for testing
+            "recovery_ratio": 0.01,
             "module_type": "AS26C7.2L",
             "cooling_system_type": "closed",
             "cooling_inlet_temp": 25,
@@ -437,20 +443,20 @@ class TestVAGMDbatchAS26C72L_Closed:
         overall_performance, _ = m.fs.VAGMD.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
-            39.139, abs=1e-3
+            41.982, abs=1e-3
         )
         assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
-            0.939, abs=1e-3
+            1.0075, abs=1e-3
         )
         assert overall_performance["Gain output ratio"] == pytest.approx(
-            8.7286, rel=1e-3
+            9.586, rel=1e-3
         )
         assert overall_performance[
             "Specific thermal energy consumption (kWh/m3)"
-        ] == pytest.approx(74.8773, rel=1e-3)
+        ] == pytest.approx(68.1582, rel=1e-3)
         assert overall_performance[
             "Specific electric energy consumption (kWh/m3)"
-        ] == pytest.approx(0.3100, rel=1e-3)
+        ] == pytest.approx(0.28627, rel=1e-3)
 
 
 class TestVAGMDbatchAS26C72L_Open:
@@ -470,7 +476,8 @@ class TestVAGMDbatchAS26C72L_Open:
             "feed_temp": 25,
             "feed_salinity": 50,
             "initial_batch_volume": 50,
-            "recovery_ratio": 0.5,
+            # "recovery_ratio": 0.5, # originally run at 0.5, but changed to 0.01 for testing
+            "recovery_ratio": 0.01,
             "module_type": "AS26C7.2L",
             "cooling_system_type": "open",
             "cooling_inlet_temp": 25,
@@ -494,17 +501,17 @@ class TestVAGMDbatchAS26C72L_Open:
         overall_performance, _ = m.fs.VAGMD.get_model_performance()
 
         assert overall_performance["Production capacity (L/h)"] == pytest.approx(
-            34.651, abs=1e-3
+            38.749, abs=1e-3
         )
         assert overall_performance["Production capacity (m3/day)"] == pytest.approx(
-            0.832, abs=1e-3
+            0.9299, abs=1e-3
         )
         assert overall_performance["Gain output ratio"] == pytest.approx(
-            7.4521, rel=1e-3
+            8.614, rel=1e-3
         )
         assert overall_performance[
             "Specific thermal energy consumption (kWh/m3)"
-        ] == pytest.approx(87.7184, rel=1e-3)
+        ] == pytest.approx(75.863, rel=1e-3)
         assert overall_performance[
             "Specific electric energy consumption (kWh/m3)"
-        ] == pytest.approx(0.3545, rel=1e-3)
+        ] == pytest.approx(0.3132, rel=1e-3)

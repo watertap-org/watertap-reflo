@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -371,9 +371,6 @@ class TestMEDTVC:
         )
 
         med_tvc = m.fs.med_tvc
-        feed = med_tvc.feed_props[0]
-        cool = med_tvc.cooling_out_props[0]
-        dist = med_tvc.distillate_props[0]
         steam = med_tvc.heating_steam_props[0]
         motive = med_tvc.motive_steam_props[0]
 
