@@ -1,24 +1,24 @@
 Multi-effect Crystallizer Unit Model
 ====================================================
-This model build multiple blocks of the crystallizer-effect model to form a multi-effect crystallizer (MEC) system.
-The number of effects are passed as a configuration option when creating the unit model.
+This model builds multiple blocks of the :doc:`crystallizer-effect model <crystallizer>` to form a multi-effect crystallizer (MEC) system.
+The number of effects are passed as a configuration option when defining the unit model.
 
 Degrees of Freedom
 ------------------
-As in the crystallizer effect model the state variables at the inlet to the control volume (i.e. temperature, pressure, component flowrates) are fixed. 
-The following variables are fixed for each effect for the model to be fully specified.
+As in the :doc:`crystallizer-effect model <crystallizer>` the state variables at the inlet to the control volume (i.e. temperature, pressure, component flowrates) need to be fixed. 
+The following variables need to be fixed for each effect for the model to be fully specified.
 
 .. csv-table::
    :header: "Variables", "Variable name", "Valid range", "Units"
 
-   "Crystallization Yield", "crystallization_yield['NaCl']", "0 - 1", ":math:`\text{dimensionless}`"
-   "Crystal Growth Rate", "crystal_growth_rate", "1E-9 - 1E-6", ":math:`\text{m} / \text{s}`"
-   "Desired median length of solid crystals", "crystal_median_length", "0.2E-3 - 0.6E-3", ":math:`\text{m}`"
-   "Parameter for Sounders-Brown relation", "souders_brown_constant", "", ":math:`\text{W} / \text{m}^2 / \text{K}`"
-   "Overall Heat Transfer Coefficient", "overall_heat_transfer_coefficient", "", ":math:`\text{W} / \text{m}^2 / \text{K}`"
-   "Operating Pressure", "operating_pressure", "", ":math:`\text{Pa}`"
+   "Crystallization Yield", "``crystallization_yield['NaCl']``", "0 - 1", ":math:`\text{dimensionless}`"
+   "Crystal Growth Rate", "``crystal_growth_rate``", "1E-9 - 1E-6", ":math:`\text{m} / \text{s}`"
+   "Desired median length of solid crystals", "``crystal_median_length``", "0.2E-3 - 0.6E-3", ":math:`\text{m}`"
+   "Parameter for Sounders-Brown relation", "``souders_brown_constant``", "", ":math:`\text{W} / \text{m}^2 / \text{K}`"
+   "Overall Heat Transfer Coefficient", "``overall_heat_transfer_coefficient``", "", ":math:`\text{W} / \text{m}^2 / \text{K}`"
+   "Operating Pressure", "``operating_pressure``", "", ":math:`\text{Pa}`"
 
-Additionally, the heating steam state variables (i.e. temperature, pressure, component flowrates) are fixed.
+Additionally, the heating steam state variables to the first effect (i.e. temperature, pressure, component flowrates) need to be fixed.
 
 Model Structure
 ---------------
@@ -28,7 +28,7 @@ The multi-effect crystallizer model consists of 2 StateBlocks (as 2 Ports in par
 * Control Volume Inlet (inlet)
 * Control Volume Outlet (outlet)
 
-This model includes the following new StateBlocks (as Ports in parenthesis below) for the first effect:
+This model includes the following additional StateBlocks (as Ports in parenthesis below) for the first effect:
 * Solid Precipitate (solids)
 * Water Vapor (vapor)
 * Heating Steam (steam)
@@ -46,11 +46,11 @@ Sets
 
 Variables
 ---------
-The system variables for each effect can be found in the crystallizer-effect model.
+The system variables for each effect can be found in the :doc:`crystallizer-effect model <crystallizer>` model.
 
 Equations
 ---------
-The following equations are added to the first effect of the multi-effect crystallizer model.
+The following equations are used to define the operations of the first effect of the multi-effect crystallizer model.
 
 .. csv-table::
    :header: "Description", "Equation"
@@ -59,8 +59,7 @@ The following equations are added to the first effect of the multi-effect crysta
    "Change in temperature at outlet for first effect", ":math:`\Delta T_{out} = T_{heating steam} - T_{in}`"
    "Heating steam flow rate", ":math:`W _{mechanical} = L_{vap,heating steam}*m_{heating steam}`"
 
-The following equations are added to each effect to connect the effects together in the multi-effect crystallizer model.
-Here i refers to the current effect and i-1 refers to the previous effect.
+The following equations are used to connect the effects together (after the first effect). Here i refers to the current effect and i-1 refers to the previous effect.
 
 .. csv-table::
    :header: "Description", "Equation"
@@ -76,10 +75,12 @@ Here i refers to the current effect and i-1 refers to the previous effect.
 
 Costing Equations
 ---------
-The cost function for the multi-effect crystallizer model is based on the energy consumption of the heating steam/heat and the capital cost of the equipment.
-The system capital cost includes the capital costs on the basis of volume or crystal mass produced and the cost of the heat exchanger.
+The cost for operating the multi-effect crystallizer model is a function of the energy consumption/work and the capital cost of the equipment. 
 
-The heat exchanger is costed using the following equation:
+Users can select either ``heat`` or ``steam`` as an option for the ``cost_work_as`` configuration variable while using the multi-effect crystallizer model.
+The system capital cost includes the capital cost of the effect and the capital cost of a heat exchanger.
+
+The heat exchanger is costed using the following equations:
 
 .. csv-table::
    :header: "Description", "Equation"
@@ -88,7 +89,10 @@ The heat exchanger is costed using the following equation:
    "Capital cost of heat exchanger",":math:`CC_{HX} = \text{Capital Factor}_{HX} * Area_{HX}`"
    "Capital cost of heat exchanger endplate",":math:`CC_{\text{HX endplate}} = \text{Capital Factor}_{HX Endplate} * (Area_{HX}/\text{Capital Basis}_{\text{HX_Endplate}})^{Exp}`"
 
-The following equations are used to calculate when costed on the basis of mass of crystal: 
+The capital cost of the effect can be calculated on the basis of volume or crystal mass produced. Users can select the preferred costing method by passing ``cost_crystallizer_effect_by_volume`` or ``cost_crystallizer_effect_by_crystal_mass``
+as input to the configuration variable ``effect_costing_method``.
+
+The following equations are used to calculate the capital cost when costed on the basis of mass of crystal: 
 
 .. math:: 
    CC_{effect} = \text{IEC %} * \text{FOB} * (\frac{\Sigma m_{solids}}{\text{Ref Capacity}})^{Exp_{ref}}
@@ -100,20 +104,23 @@ The following equations are used to calculate when costed on the basis of mass o
    ":math:`\text{FOB}`", "Forced circulation crystallizer reference free-on-board cost"
    ":math:`\Sigma m_{solids}`", "Mass of the solid crystals produced in an effect"
 
-The following equations are used to calculate when costed on the basis of mass of volume: 
+The following equations are used to calculate the capital cost when costed on the basis of volume: 
+
 .. math:: 
-   CC_{effect} = \text{Volume}_{suspension} * (\frac{\text{Height}_{cryst}}{\text{Height}_{slurry}})^{Exp_{vol}}
+   CC_{effect} = \text{Volume}_{suspension} * (\frac{\text{H}_{cryst}}{\text{H}_{slurry}})^{Exp_{vol}}
 
 .. csv-table::
    :header: "Symbols", "Description"
 
-   ":math:`\text{Height}_{cryst}`", "Height of the crystal bed in the effect"
-   ":math:`\text{Height}_{slurry}`", "Height of the slurry bed in the effect"
+   ":math:`\text{H}_{cryst}`", "Height of the crystal bed in the effect"
+   ":math:`\text{H}_{slurry}`", "Height of the slurry bed in the effect"
+
+Further details on the costing methodology and the parameters used can be found in the `WaterTAP Crystallizer costing method <https://watertap.readthedocs.io/en/latest/technical_reference/costing/crystallizer.html>`_.
 
 References
 ----------
-[1] Woods, 2007
+[1] Woods, Donald R (2007). Rules of Thumb in Engineering Practice. Wiley. 2007. DOI: 10.1002/9783527611119.
 
-[2] Diab and Gerogiorgis, 2017
+[2] Diab, Samir and Gerogiorgis, Dimitrios I (2017). Technoeconomic Evaluation of Multiple Mixed Suspension-Mixed Product Removal (MSMPR) Crystallizer Configurations for Continuous Cyclosporine Crystallization. ACS Organic Process Research & Development, Vol. 21, No. 10 p. 1571-1587. DOI: 10.1021/acs.oprd.7b00225.
 
-[3] Yusuf et al., 2019
+[3] Yusuf, A et. al. (2019). CO2 utilization from power plant: A comparative techno-economic assessment of soda ash production and scrubbing by monoethanolamine. Journal of Cleaner Production, Vol. 237, p. 117760. DOI: 10.1016/j.jclepro.2019.117760.

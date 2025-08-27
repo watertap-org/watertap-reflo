@@ -1,12 +1,10 @@
 Chemical Softening
 ====================================================
 
-.. note:: This unit model was recently (9/2024) updated for stability and some relationships were modified. An update to this documentation page is pending.
-
 This chemical softening model includes the units mixer, flocculator, sedimentation basin and recarbonation basin. The model calculates the chemical dose required for target removal of hardness causing components 
 and calculates the size of the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model:
    * supports steady-state only
-   * predicts the outlet concentration of :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`
+   * predicts the outlet concentration of :math:`\text{Ca}^{2+}`, :math:`\text{Mg}^{2+}` and :math:`\text{Alkalinity}^{2-}`
    * is verified against literature data
 
 Configuration Inputs
@@ -17,10 +15,10 @@ The model requires 2 configuration inputs:
    * Silica removal: ``True`` or ``False``
 
 The softening procedure should be selected based on the inlet feed composition as shown below:
-   1. if [:math:`\text{Mg}^{2+}`] in CaCO3 \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] > [:math:`\text{Ca}^{2+}`] in CaCO3 : ``single_stage_lime``
-   2. if [:math:`\text{Mg}^{2+}`] in CaCO3 \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \>= Total hardness : ``excess_lime``
-   3. if [:math:`\text{Mg}^{2+}`] in CaCO3 \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \<= Total hardness : ``single_stage_lime_soda``
-   4. if [:math:`\text{Mg}^{2+}`] in CaCO3 \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] >\<= Total hardness - ``excess_lime_soda``
+   1. if [:math:`\text{Mg}^{2+}`] in :math:`\text{CaCO}_{3}` \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] > [:math:`\text{Ca}^{2+}`] in :math:`\text{CaCO}_{3}` : ``single_stage_lime``
+   2. if [:math:`\text{Mg}^{2+}`] in :math:`\text{CaCO}_{3}` \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \>= Total hardness : ``excess_lime``
+   3. if [:math:`\text{Mg}^{2+}`] in :math:`\text{CaCO}_{3}` \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \<= Total hardness : ``single_stage_lime_soda``
+   4. if [:math:`\text{Mg}^{2+}`] in :math:`\text{CaCO}_{3}` \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \<= Total hardness - ``excess_lime_soda``
 
 
 Solution Composition
@@ -53,13 +51,13 @@ Typically, the following 7 variables define the input feed.
    :header: "Variables", "Variable Name", "Symbol", "Unit"
 
    "Feed volume flow rate", "``properties_in[0].flow_mass_phase_comp['Liq','H2O']``", ":math:`Q_{feed}`", ":math:`\text{m}^3 / \text{s}`"
-   "Feed composition Ca2+", "``properties_in[0].flow_mass_phase_comp['Liq','Ca_2+']``", ":math:`m_{Ca^{2+}}`", ":math:`\text{g/}\text{L}`"
-   "Feed composition Mg2+", "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
-   "Feed composition Alkalinity2-", "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``",":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
+   "Feed composition" :math:`\text{Ca}^{2+}`, "``properties_in[0].flow_mass_phase_comp['Liq','Ca_2+']``", ":math:`m_{Ca^{2+}}`", ":math:`\text{g/}\text{L}`"
+   "Feed composition" :math:`\text{Mg}^{2+}`, "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
+   "Feed composition" :math:`\text{Alkalinity}^{2-}`, "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``",":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
    "Feed temperature", "``feed_props.temperature``", ":math:`T`", ":math:`^o\text{C}`"
-   "Ca2+ effluent target", "``ca_eff_target``", "", ":math:`\text{g/}\text{L}`"
-   "Mg2+ effluent target", "``mg_eff_target``", "", ":math:`\text{g/}\text{L}`"
-   
+   :math:`\text{Ca}^{2+}` "effluent target", "``ca_eff_target``", "", ":math:`\text{g/}\text{L}`"
+   :math:`\text{Mg}^{2+}` "effluent target", "``mg_eff_target``", "", ":math:`\text{g/}\text{L}`"
+
 The following 11 variables define the system design.
 
 .. csv-table::
@@ -121,11 +119,11 @@ The following parameters are used as default values and are not mutable.
 .. csv-table::
    :header: "Description", "Parameter Name", "Symbol"
 
-   "Ratio of MgCl2 to SiO2", "``MgCl2_SiO2_ratio``", ":math:`Ratio_{MgCl_{2}/SiO_{2}}`"
-   "Sludge produced per kg Ca in CaCO3 hardness", "``Ca_hardness_CaCO3_sludge_factor``", ":math:`\text{Ca-SF}_{CaCO_{3}-hardness}`"
-   "Sludge produced per kg Mg in CaCO3 hardness", "``Mg_hardness_CaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{CaCO_{3}-hardness}`"
-   "Sludge produced per kg Mg in non-CaCO3 hardness", "``Mg_hardness_nonCaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{non-CaCO_{3}-hardness}`"
-   "Multiplication factor to calculate excess CaO", "``excess_CaO_coeff``", ""
+   "Ratio of :math:`\text{MgCl}_{2}` to :math:`\text{SiO}_{2}`", "``MgCl2_SiO2_ratio``", ":math:`Ratio_{MgCl_{2}/SiO_{2}}`"
+   "Sludge produced per kg Ca in :math:`\text{CaCO}_{3}` hardness", "``Ca_hardness_CaCO3_sludge_factor``", ":math:`\text{Ca-SF}_{CaCO_{3}-hardness}`"
+   "Sludge produced per kg Mg in :math:`\text{CaCO}_{3}` hardness", "``Mg_hardness_CaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{CaCO_{3}-hardness}`"
+   "Sludge produced per kg Mg in non-:math:`\text{CaCO}_{3}` hardness", "``Mg_hardness_nonCaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{non-CaCO_{3}-hardness}`"
+   "Multiplication factor to calculate excess :math:`\text{CaCO}`", "``excess_CaO_coeff``", ""
 
 
 Equations
@@ -136,7 +134,7 @@ The chemical dose is calculated based on the type of softening procedure selecte
 .. csv-table:: Single Stage Lime
    :header: "Description", "Equation"
 
-   "Lime dose", "Carbonic acid concentration + Calcium carbonate hardness"
+   "Lime dose", "Carbonic acid concentration + Alkalinity + Magnesium hardness"
    "Soda ash dose", "None"
    "Carbon dioxide first stage", "Alkalinity - Calcium hardness + Residual calcium hardness"
  
@@ -144,30 +142,32 @@ The chemical dose is calculated based on the type of softening procedure selecte
    :header: "Description", "Equation"
 
    "Lime dose", "Carbonic acid concentration + Total alkalinity + Magnesium hardness + Excess lime dose"
+   "Excess lime dose", "Excess lime coefficient * (Carbonic acid concentration + Total alkalinity + Magnesium hardness)"
    "Soda ash dose", "None"
-   "Carbon dioxide first stage", "Alkalinity - Total hardness + Residual calcium hardness + Residual magnesium hardness"
+   "Carbon dioxide first stage", "Alkalinity - Total hardness + Excess lime dose + Residual total hardness"
 
 .. csv-table:: Single Stage Lime-Soda Ash
    :header: "Description", "Equation"
 
-   "Lime dose", "Carbonic acid concentration + Calcium carbonate hardness"
-   "Soda ash dose", "Calcium non-carbonate hardness and/or Magnesium non-carbonate hardness"
-   "Carbon dioxide first stage", "Alkalinity + Soda ash dose - Calcium hardness + Residual calcium hardness"
+   "Lime dose", "Carbonic acid concentration + Alkalinity + Magnesium hardness"
+   "Soda ash dose", "Non-carbonate hardness"
+   "Carbon dioxide first stage", "Alkalinity + Non-carbonate hardness - Calcium hardness + Residual calcium hardness"
 
 .. csv-table:: Excess Lime-Soda Ash
    :header: "Description", "Equation"
 
-   "Lime dose", "Carbonic acid concentration + Calcium carbonate hardness + 2*Magnesium hardness + Magnesium non-carbonate hardness + Excess lime"
-   "Soda ash dose", "Calcium non-carbonate hardness + Magnesium non-carbonate hardness"
-   "Carbon dioxide first stage", "Lime dose + Residual magnesium hardness"
-   "Carbon dioxide second stage", "Alkalinity + Soda ash dose - Source total hardness + Residual hardness"
+   "Lime dose", "Carbonic acid concentration + Alkalinity + Magnesium hardness + Excess lime"
+   "Excess lime dose", "Excess lime coefficient * (Carbonic acid concentration + Alkalinity + Magnesium hardness)"
+   "Soda ash dose", "Non-carbonate hardness"
+   "Carbon dioxide first stage", "Excess lime dose + Residual magnesium hardness"
+   "Carbon dioxide second stage", "Alkalinity + Non-carbonate hardness - Source total hardness + Residual hardness"
 
 The following equations are independent of the softening procedure selected but depend on the feed composition.
 
 .. csv-table::
    :header: "Description", "Variable Name", "Symbol", "Equation"
 
-   "MgCl2 dose (if silica removal is selected)", "``mgcl2_dosing``", ":math:`MgCl_{2}`", ":math:`Ratio_{MgCl_{2}/SiO_{2}} * SiO_{2}` "
+   ":math:`\text{MgCl}_{2}` dose (if silica removal is selected)", "``mgcl2_dosing``", ":math:`MgCl_{2}`", ":math:`Ratio_{MgCl_{2}/SiO_{2}} * SiO_{2}` "
    "Sludge produced", "``sludge_prod``", ":math:`m_{sludge}`",  ":math:`Q_{feed} * (\text{Ca-SF}_{CaCO_{3}-hardness} * Ca_{CaCO_{3}-hardness} + \text{Mg-SF}_{CaCO_{3}-hardness} * Mg_{CaCO_{3}-hardness} + Ca_{non-CaCO_{3}-hardness} + \text{Mg-SF}_{non-CaCO_{3}-hardness} * Mg_{non-CaCO_{3}-hardness} + \text{Excess CaO} + TSS + MgCl_{2})`"
    "Volume of mixer", "``volume_mixer``", ":math:`V_{mixer}`", ":math:`Q_{feed} * RT_{mixer} * n_{mixer}`"
    "Volume of flocculator", "``volume_floc``", ":math:`V_{floc}`", ":math:`Q_{feed} * RT_{floc} * n_{floc}`"
