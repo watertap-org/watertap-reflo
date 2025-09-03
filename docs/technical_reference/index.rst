@@ -11,8 +11,9 @@ Technical Reference
    
    unit_models/index
    property_models/index
+   costing_packages
+
 ..
-   
    costing/index
    tools/index
    core/index
