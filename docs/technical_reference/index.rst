@@ -9,13 +9,10 @@ Technical Reference
 .. toctree::
    :maxdepth: 2
    
+   core/index
    costing/index
    unit_models/index
    property_models/index
 
-..
-   costing/index
-   tools/index
-   core/index
 
 
