@@ -346,7 +346,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         self.surrogate_inputs = []
         for input_var_name, bounds in self.input_bounds.items():
-            # print(input_var_name, bounds)
             units = self.input_units[input_var_name]
             v_in = Var(
                 initialize=np.mean(bounds),
@@ -359,7 +358,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
 
         self.surrogate_outputs = []
         for output_var_name, bounds in self.output_bounds.items():
-            # print(output_var_name, bounds)
             units = self.output_units[output_var_name]
             if self.config.scale_training_data:
                 self.add_scaling_param(output_var_name)
@@ -375,8 +373,6 @@ class SolarEnergyBaseData(UnitModelBlockData):
         if self.scale_training_data:
             for v_out in self.surrogate_outputs:
                 v_out.set_value(0.5)
-        # self.display()
-        # assert False
 
     def add_scaling_param(self, output_var_name):
         sp_name = f"{output_var_name}_scaling"
