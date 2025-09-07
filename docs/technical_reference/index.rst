@@ -9,9 +9,9 @@ Technical Reference
 .. toctree::
    :maxdepth: 2
    
+   costing/index
    unit_models/index
    property_models/index
-   costing_packages
 
 ..
    costing/index
