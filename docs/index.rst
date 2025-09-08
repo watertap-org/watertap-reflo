@@ -26,7 +26,7 @@ Content
    getting_started
    technical_reference/index
    how_to_guides/index
-
+   apidoc/modules
 
 ..
    tutorials/index
