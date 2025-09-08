@@ -90,5 +90,5 @@ Equations
 
 Costing Equations
 ------------------
-The costing equations for the crystallizer-effect model are based on the costing equations in the :doc:`multi-effect crystallizer model <mec>`.
+The costing equations for the crystallizer-effect model are based on the costing equations in the `multi-effect crystallizer model <https://watertap.readthedocs.io/en/latest/technical_reference/unit_models/treatment_models/multi_effect_crystallizer.html>`_.
 

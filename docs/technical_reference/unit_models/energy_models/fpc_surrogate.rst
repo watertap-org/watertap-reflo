@@ -2,7 +2,7 @@ Flat-Plate Collector (FPC) Surrogate Model
 ====================================================
 
 This Flat-Plate Collector (FPC) unit model
-   
+Solar Water Heating   
 
 Degrees of Freedom
 ------------------
