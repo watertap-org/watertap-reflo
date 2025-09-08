@@ -1,5 +1,5 @@
 Concentrating Solar Parabolic Trough​ (CST) Surrogate Model
-====================================================
+===========================================================
 
 
 This Concentrating Solar Parabolic Trough (CST) unit model

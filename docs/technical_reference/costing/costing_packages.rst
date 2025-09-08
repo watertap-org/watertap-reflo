@@ -1,5 +1,5 @@
 Costing Packages
-==================
+=================
 
 WaterTAP-REFLO has three costing packages to support the REFLO system model based on the structure of the flowsheet:
 
@@ -10,7 +10,7 @@ WaterTAP-REFLO has three costing packages to support the REFLO system model base
 The Treatment Costing Package and Energy Costing Package inherit features and assumptions from the REFLO Costing Package.
 
 REFLO Costing Package
-------------------
+---------------------
 
 The REFLO costing package inherits components from the `WaterTAP costing package <https://watertap.readthedocs.io/en/latest/technical_reference/costing/costing_base.html>`_ and builds additional functionality to support the REFLO system model.
 The REFLO system's Treatment and Energy costing packages inherit the features and assumptions from the REFLO costing package.
@@ -105,7 +105,7 @@ Below is an example of how to use these functions:
 
 
 REFLOSystem Costing Package
------------------------
+---------------------------
 
 The REFLOSystem costing package aggregates the total capital cost and total operating cost for the Treatment and Energy units. 
 This costing package should only be used when the flowsheet consists of both Treatment and Energy costing blocks.

@@ -8,7 +8,7 @@ This flat plate model supports steady-state only.
 
 
 Degrees of Freedom/Variables
-------------------
+----------------------------
 The model has 7 degrees of freedom that should be fixed for the unit to be fully specified.
 Typically, the following 5 variables define the input stream and the output state variables.
 
@@ -52,7 +52,7 @@ The model consists of the phase set included in the property package.
  
 
 Parameters
----------
+----------
 
 The following parameters are used and are mutable (except for the test conditions).
 
