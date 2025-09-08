@@ -89,6 +89,6 @@ Equations
 
 
 Costing Equations
----------
+------------------
 The costing equations for the crystallizer-effect model are based on the costing equations in the :doc:`multi-effect crystallizer model <mec>`.
 

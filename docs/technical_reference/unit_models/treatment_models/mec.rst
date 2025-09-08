@@ -74,7 +74,7 @@ The following equations are used to connect the effects together (after the firs
    ":math:`Energy_{vap}`", "Energy of the superheated vapor from an effect"
 
 Costing Equations
----------
+------------------
 The cost for operating the multi-effect crystallizer model is a function of the energy consumption/work and the capital cost of the equipment. 
 
 Users can select either ``heat`` or ``steam`` as an option for the ``cost_work_as`` configuration variable while using the multi-effect crystallizer model.

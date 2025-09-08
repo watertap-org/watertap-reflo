@@ -1,5 +1,5 @@
 Getting Started
-==============
+================
 
 These instructions are currently intended for contributors to WaterTAP-REFLO.
 
