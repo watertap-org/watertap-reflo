@@ -1,11 +1,11 @@
 Multi-effect Crystallizer Unit Model
 ====================================================
-This model builds multiple blocks of the :doc:`crystallizer-effect model <crystallizer>` to form a multi-effect crystallizer (MEC) system.
+This model builds multiple blocks of the `crystallizer-effect model <https://watertap.readthedocs.io/en/latest/technical_reference/unit_models/treatment_models/crystallizer.html>`_ to form a multi-effect crystallizer (MEC) system.
 The number of effects are passed as a configuration option when defining the unit model.
 
 Degrees of Freedom
 ------------------
-As in the :doc:`crystallizer-effect model <crystallizer>` the state variables at the inlet to the control volume (i.e. temperature, pressure, component flowrates) need to be fixed. 
+As in the `crystallizer-effect model <https://watertap.readthedocs.io/en/latest/technical_reference/unit_models/treatment_models/crystallizer.html>`_ the state variables at the inlet to the control volume (i.e. temperature, pressure, component flowrates) need to be fixed.
 The following variables need to be fixed for each effect for the model to be fully specified.
 
 .. csv-table::
@@ -46,7 +46,7 @@ Sets
 
 Variables
 ---------
-The system variables for each effect can be found in the :doc:`crystallizer-effect model <crystallizer>` model.
+The system variables for each effect can be found in the `crystallizer-effect model <https://watertap.readthedocs.io/en/latest/technical_reference/unit_models/treatment_models/crystallizer.html>`_model.
 
 Equations
 ---------
