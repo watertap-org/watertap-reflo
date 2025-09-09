@@ -1,19 +1,8 @@
 import os
-import math
-import numpy as np
 from pyomo.environ import (
     ConcreteModel,
     value,
-    Param,
-    Var,
-    Constraint,
-    Set,
-    Expression,
     TransformationFactory,
-    Objective,
-    NonNegativeReals,
-    Block,
-    RangeSet,
     check_optimal_termination,
     units as pyunits,
 )
@@ -34,10 +23,9 @@ from idaes.models.unit_models import Product, Feed, StateJunction, Separator
 from idaes.core.util.model_statistics import *
 from watertap.core.util.initialization import *
 from watertap.core.util.model_diagnostics.infeasible import *
-from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 from watertap.core.zero_order_properties import WaterParameterBlock
-
+from watertap_contrib.reflo.core import REFLODatabase
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
@@ -53,6 +41,7 @@ __all__ = [
     "init_DWI",
     "set_DWI_op_conditions",
     "add_DWI_costing",
+    "add_DWI_scaling",
     "report_DWI",
     "print_DWI_costing_breakdown",
 ]
@@ -60,11 +49,6 @@ __all__ = [
 
 def propagate_state(arc):
     _prop_state(arc)
-    # print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-    # arc.source.display()
-    # print(arc.destination.name)
-    # arc.destination.display()
-    # print('\n')
 
 
 def build_DWI(m, blk, prop_package) -> None:
@@ -88,7 +72,7 @@ def set_system_op_conditions(blk):
     }
 
     rho = 1000 * pyunits.kg / pyunits.m**3
-    flow_mgd = 5.08 * pyunits.Mgallons / pyunits.day
+    flow_mgd = 2.08 * pyunits.Mgallons / pyunits.day
 
     flow_mass_phase_water = pyunits.convert(
         flow_mgd * rho, to_units=pyunits.kg / pyunits.s
@@ -127,12 +111,14 @@ def init_DWI(m, blk, verbose=True, solver=None):
 
     optarg = solver.options
     # assert_no_degrees_of_freedom(m)
+    blk.feed.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
+    propagate_state(blk.feed_to_unit)
     blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
 
 
 def add_DWI_costing(m, blk, costing_blk=None):
     if costing_blk is None:
-        costing_blk = TreatmentCosting()
+        costing_blk = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=costing_blk,
@@ -140,6 +126,20 @@ def add_DWI_costing(m, blk, costing_blk=None):
             "cost_method": "as_opex"
         },  # could be "as_capex" or "blm"
     )
+
+
+def add_DWI_scaling(m, blk):
+    set_scaling_factor(blk.feed.properties[0.0].mass_frac_phase_comp["Liq", "H2O"], 0.1)
+    # set_scaling_factor(blk.feed.properties[0.0].mass_frac_phase_comp['Liq','TDS'], 1e-2)
+
+    set_scaling_factor(blk.unit.properties[0.0].mass_frac_phase_comp["Liq", "H2O"], 0.1)
+    set_scaling_factor(blk.unit.properties[0.0].flow_vol_phase["Liq"], 1e-2)
+    # set_scaling_factor(blk.unit.properties[0.0].mass_frac_phase_comp['Liq','TDS'], 1e-2)
+    # set_scaling_factor(blk.unit.properties[0.0].dens_mass_phase['Liq'], 1e3)
+
+    # constraint_scaling_transform(blk.feed.properties[0].eq_conc_mass_phase_comp, 1e-1)
+    # constraint_scaling_transform(blk.feed.properties[0.0].eq_conc_mass_phase_comp, 1)
+    # set_scaling_factor(blk.feed.properties[0.0].dens_mass_phase['Liq'], 1e3)
 
 
 def report_DWI(blk):
@@ -162,14 +162,15 @@ def print_DWI_costing_breakdown(blk):
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    # m.fs.costing = REFLOCosting()
+    m.fs.costing = REFLOCosting()
+    m.db = REFLODatabase()
     inlet_conc = {
         "Ca_2+": 1.43,
         "Mg_2+": 0.1814,
         "SiO2": 0.054,
         "Alkalinity_2-": 0.421,
     }
-
+    # BUG MCAS for RO flowsheets WaterParameterBlock for LTMED causing issues
     m.fs.properties = MCASParameterBlock(
         solute_list=inlet_conc.keys(), material_flow_basis=MaterialFlowBasis.mass
     )
@@ -246,3 +247,8 @@ if __name__ == "__main__":
     set_system_op_conditions(m.fs.DWI)
 
     init_DWI(m, m.fs.DWI)
+    # add_DWI_costing(m, m.fs.DWI)
+    # solve(m)
+    # print_DWI_costing_breakdown(m.fs.DWI)
+
+    # print(m.fs.DWI.display())
