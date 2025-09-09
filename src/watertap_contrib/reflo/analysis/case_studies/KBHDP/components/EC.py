@@ -2,18 +2,8 @@ from pyomo.environ import (
     ConcreteModel,
     value,
     TransformationFactory,
-    Param,
-    Var,
-    Constraint,
-    Set,
-    Expression,
     Objective,
-    NonNegativeReals,
-    Block,
-    RangeSet,
     check_optimal_termination,
-    assert_optimal_termination,
-    units as pyunits,
 )
 from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
@@ -54,18 +44,8 @@ __all__ = [
     "print_EC_costing_breakdown",
 ]
 
-__all__ = [
-    "build_ec",
-    "set_ec_operating_conditions",
-    "init_ec",
-    "add_ec_costing",
-    "add_ec_scaling",
-    "report_EC",
-    "print_EC_costing_breakdown",
-]
 
-
-def propagate_state(arc, detailed=True):
+def propagate_state(arc, detailed=False):
     _prop_state(arc)
     if detailed:
         print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
@@ -243,7 +223,7 @@ def init_system(m, solver=None):
 
 
 def init_ec(m, blk, solver=None):
-    """Initialize IX model"""
+    """Initialize EC model"""
 
     if solver is None:
         solver = get_solver()
