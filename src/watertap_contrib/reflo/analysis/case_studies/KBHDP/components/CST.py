@@ -1,37 +1,21 @@
+import os
 from pyomo.environ import (
     ConcreteModel,
+    Var,
     value,
     assert_optimal_termination,
     units as pyunits,
-    Block,
-    Constraint,
-    SolverFactory,
-    Param,
 )
-import os
 
+import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.solvers import get_solver
+from idaes.core.util.model_statistics import degrees_of_freedom
 
-from watertap.core.util.model_diagnostics.infeasible import *
-from idaes.core.util.scaling import *
+from watertap.core.solvers import get_solver
 
-from watertap_contrib.reflo.solar_models.surrogate.trough.trough_surrogate import (
-    TroughSurrogate,
-)
+from watertap_contrib.reflo.costing import EnergyCosting
+from watertap_contrib.reflo.solar_models import TroughSurrogate
 
-from idaes.core.util.model_statistics import (
-    degrees_of_freedom,
-    number_variables,
-    number_total_constraints,
-    number_unused_variables,
-)
-
-from watertap_contrib.reflo.costing import (
-    EnergyCosting,
-)
-
-import pickle
 
 __all__ = [
     "build_cst",
@@ -42,6 +26,12 @@ __all__ = [
     "report_cst",
     "report_cst_costing",
 ]
+
+
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+par_dir = os.path.dirname(__location__)
+dataset_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate_data.pkl"
+surrogate_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate.json"
 
 
 def build_system():
@@ -56,74 +46,41 @@ def build_system():
     return m
 
 
-def build_cst(blk, __file__=None):
+def build_cst(blk):
 
     print(f'\n{"=======> BUILDING CST SYSTEM <=======":^60}\n')
 
-    if __file__ == None:
-        cwd = os.getcwd()
-        __file__ = (
-            cwd + "/src/watertap_contrib/reflo/analysis/case_studies/KBHDP/data/cst/"
-        )
-
-    dataset_filename = os.path.join(
-        os.path.dirname(__file__),
-        r"trough_kbhdp_heat_load_1_100_hours_storage_24_T_loop_out_300.pkl",
-    )
-
-    # Updating pickle file output column names
-    with open(dataset_filename, "rb") as f:
-        df = pickle.load(f)
-
-    # Rename the columns
-    df.rename(columns={"annual_energy": "heat_annual"}, inplace=True)
-    df.rename(columns={"electrical_load": "electricity_annual"}, inplace=True)
-
-    # Save the modified DataFrame back as a pickle
-    with open(dataset_filename, "wb") as f:
-        pickle.dump(df, f)
-
-    surrogate_filename = os.path.join(
-        os.path.dirname(__file__),
-        r"trough_kbhdp_heat_load_1_100_hours_storage_24_T_loop_out_300.json",
-    )
-
-    input_bounds = dict(heat_load=[1, 50])  # , hours_storage=[23, 24])
-    input_units = dict(heat_load="MW")  # , hours_storage="hour")
+    # Create input_variables for configuring surrogate model
+    input_units = dict(system_capacity="MW")
+    input_bounds = dict(system_capacity=[1, 50])
     input_variables = {
-        "labels": ["heat_load"],  # "hours_storage"],
-        "bounds": input_bounds,
+        "labels": ["system_capacity"],
         "units": input_units,
+        "bounds": input_bounds,
     }
 
+    # Create output_variables for configuring surrogate model
     output_units = dict(
-        heat_annual_scaled="kWh",
-        electricity_annual_scaled="kWh",
-        total_aperture_area_scaled="m**2",
+        heat_annual="kWh/year",
+        electricity_annual="kWh/year",
+        total_aperture_area="m**2",
     )
     output_variables = {
-        "labels": [
-            "heat_annual_scaled",
-            "electricity_annual_scaled",
-            "total_aperture_area_scaled",
-        ],
+        "labels": ["heat_annual", "electricity_annual", "total_aperture_area"],
         "units": output_units,
     }
 
-    blk.unit = TroughSurrogate(
-        # surrogate_model_file=surrogate_filename,
-        surrogate_filename_save=surrogate_filename,
+    # Create surrogate model configuration dictionary
+    trough_dict = dict(
+        # surrogate_filename_save=dataset_filename,
+        surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
         output_variables=output_variables,
         scale_training_data=True,
     )
 
-    if hasattr(blk.unit, "hours_storage"):
-        print("Hours of storage is already any input parameter")
-    else:
-        print("Creating hours of storage parameter")
-        blk.unit.hours_storage = Param(initialize=24, units=pyunits.h, mutable=True)
+    blk.unit = TroughSurrogate(**trough_dict)
 
 
 def init_cst(blk):
@@ -131,44 +88,34 @@ def init_cst(blk):
     blk.unit.initialize()
 
 
-def set_system_op_conditions(m):
-    m.fs.system_capacity.fix()
+def set_cst_op_conditions(blk, heat_load=10):
 
-
-def set_cst_op_conditions(blk, heat_load=10, hours_storage=6):
-
-    if isinstance(m.fs.cst.unit.hours_storage, Param):
-        blk.unit.hours_storage.set_value(hours_storage)
-
-    if isinstance(m.fs.cst.unit.hours_storage, Var):
-        blk.unit.hours_storage.fix(hours_storage)
-    blk.unit.heat_load.fix(heat_load)
+    blk.unit.system_capacity.fix(heat_load)
+    # 24 hours storage used to create surrogate, so this must be fixed
+    blk.unit.hours_storage.set_value(24)
 
 
 def add_cst_costing(blk, costing_block):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
-
-
-def calc_costing(m, blk):
-    blk.costing.cost_process()
+    m = blk.model()
+    m.fs.costing.cost_process()
     # Updated to be 0 because this factor is not included in SAM
-    blk.costing.maintenance_labor_chemical_factor.fix(0)
-    blk.costing.initialize()
+    m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.costing.initialize()
 
 
 def add_cst_costing_scaling(m, blk):
-    constraint_scaling_transform(blk.costing.direct_cost_constraint, 1e-8)
-    constraint_scaling_transform(blk.costing.indirect_cost_constraint, 1e-6)
-    constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)
+    iscale.constraint_scaling_transform(blk.costing.direct_cost_constraint, 1e-8)
+    iscale.constraint_scaling_transform(blk.costing.indirect_cost_constraint, 1e-6)
+    iscale.constraint_scaling_transform(blk.costing.capital_cost_constraint, 1e-8)
 
 
 def report_cst(m, blk):
-    # blk = m.fs.cst
-    print(f"\n\n-------------------- CST Report --------------------\n")
-    print("\n")
+    
+    print(f"\n\n-------------------- CST Report --------------------\n\n")
 
     print(
-        f'{"Heat load":<30s}{value(blk.heat_load):<20,.2f}{pyunits.get_units(blk.heat_load)}'
+        f'{"System Capacity":<30s}{value(blk.system_capacity):<20,.2f}{pyunits.get_units(blk.system_capacity)}'
     )
 
     print(
@@ -187,12 +134,7 @@ def report_cst(m, blk):
 
 
 def report_cst_costing(m, blk):
-    print(f"\n\n-------------------- CST Costing Report --------------------\n")
-    print("\n")
-
-    # print(
-    #     f'{"LCOW":<30s}{value(blk.costing.LCOW):<20,.2f}{pyunits.get_units(blk.costing.LCOW)}'
-    # )
+    print(f"\n\n-------------------- CST Costing Report --------------------\n\n")
 
     print(
         f'{"Capital Cost":<30s}{value(blk.costing.total_capital_cost):<20,.2f}{pyunits.get_units(blk.costing.total_capital_cost)}'
@@ -223,32 +165,31 @@ def report_cst_costing(m, blk):
     # )
 
 
-if __name__ == "__main__":
+def main():
 
     solver = get_solver()
-    solver = SolverFactory("ipopt")
 
     m = build_system()
 
     build_cst(m.fs.cst)
 
-    set_cst_op_conditions(m.fs.cst, heat_load=50, hours_storage=24)
+    set_cst_op_conditions(m.fs.cst, heat_load=50)
+
+    assert degrees_of_freedom(m) == 0
+
     init_cst(m.fs.cst)
 
     results = solver.solve(m)
+    assert_optimal_termination(results)
+
     report_cst(m, m.fs.cst.unit)
 
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
-    calc_costing(m, m.fs)
 
     add_cst_costing_scaling(m, m.fs.cst.unit)
-
-    try:
-        results = solver.solve(m)
-    except:
-        print_infeasible_constraints(m)
-
-    print(degrees_of_freedom(m))
+    
+    results = solver.solve(m)
+    assert_optimal_termination(results)
 
     report_cst(m, m.fs.cst.unit)
     report_cst_costing(m, m.fs)
@@ -286,3 +227,8 @@ if __name__ == "__main__":
     )
     print("Denominator:", m.fs.cst.unit.heat_annual())
     print("Calculated LCOH:", lcoh())
+
+
+
+if __name__ == "__main__":
+    main()
