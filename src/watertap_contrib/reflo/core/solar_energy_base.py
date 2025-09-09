@@ -360,6 +360,8 @@ class SolarEnergyBaseData(UnitModelBlockData):
         for output_var_name, bounds in self.output_bounds.items():
             units = self.output_units[output_var_name]
             if self.config.scale_training_data:
+                # TODO: Add automatic creation of unscaled output variables as Expression
+                # e.g., heat_annual = heat_annual_scaled / heat_annual_scaling
                 self.add_scaling_param(output_var_name)
                 output_var_name += "_scaled"
             v_out = Var(
