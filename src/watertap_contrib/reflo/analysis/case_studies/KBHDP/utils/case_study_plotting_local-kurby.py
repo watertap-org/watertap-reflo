@@ -729,39 +729,39 @@ kbhdp_opt = {
 
 permian_opt = {
     "Permian": {
-        "KBHDP_ZLD": {
-            "grid_fraction_optimize": {
-                "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_ZLD_opt_heat_price.csv",
-                "global_costing_blk": "fs.treatment.costing",
-                "costing_blk": "fs.costing",
-                "actual_lcow_row": "fs.costing.LCOT",
-                "heat_cost_col": "fs.costing.total_heat_operating_cost",
-                "elec_cost_col": "fs.costing.total_electric_operating_cost",
-                "unit_dict": {
-                    "EC": "fs.treatment.EC.ec.costing",
-                    "UF": "fs.treatment.UF.unit.costing",
-                    "RO": "fs.treatment.RO.stage[1].module.costing",
-                    "Pump": "fs.treatment.pump.costing",
-                    "MD": "fs.treatment.md.unit",
-                    "MEC": "fs.treatment.mec.unit.costing",
-                    "PV": "fs.energy.pv.costing",
-                    "CST": "fs.energy.cst.unit.costing",
-                },
-                "agg_flows": {
-                    "Electricity": "electricity",
-                    "Aluminum": "aluminum",
-                    "Heat": "heat",
-                },
-                "xcol": "fs.costing.heat_cost_buy",
-                "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="KBHDP ZLD\nRO-MD-MEC-PV-PTC"),
-                "ylims": (0, 3),
-                "xlims": (0.00894, 0.0894),  # Change this
-                "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
-                "save": False,
-                # "use_calc_for_rel": True,
-            },
-        },
+        # "KBHDP_ZLD": {
+        #     "grid_fraction_optimize": {
+        #         "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/kbhdp/kbhdp_ZLD_opt_heat_price.csv",
+        #         "global_costing_blk": "fs.treatment.costing",
+        #         "costing_blk": "fs.costing",
+        #         "actual_lcow_row": "fs.costing.LCOT",
+        #         "heat_cost_col": "fs.costing.total_heat_operating_cost",
+        #         "elec_cost_col": "fs.costing.total_electric_operating_cost",
+        #         "unit_dict": {
+        #             "EC": "fs.treatment.EC.ec.costing",
+        #             "UF": "fs.treatment.UF.unit.costing",
+        #             "RO": "fs.treatment.RO.stage[1].module.costing",
+        #             "Pump": "fs.treatment.pump.costing",
+        #             "MD": "fs.treatment.md.unit",
+        #             "MEC": "fs.treatment.mec.unit.costing",
+        #             "PV": "fs.energy.pv.costing",
+        #             "CST": "fs.energy.cst.unit.costing",
+        #         },
+        #         "agg_flows": {
+        #             "Electricity": "electricity",
+        #             "Aluminum": "aluminum",
+        #             "Heat": "heat",
+        #         },
+        #         "xcol": "fs.costing.heat_cost_buy",
+        #         "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
+        #         "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="KBHDP ZLD\nRO-MD-MEC-PV-PTC"),
+        #         "ylims": (0, 3),
+        #         "xlims": (0.00894, 0.0894),  # Change this
+        #         "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
+        #         "save": False,
+        #         # "use_calc_for_rel": True,
+        #     },
+        # },
         "Permian_ZLD1_MD_Cryst": {
             "grid_fraction_optimize": {
                 "file": "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/finalized results/permian/permian_ZLD1_MD_opt_heat_price.csv",
@@ -786,10 +786,10 @@ permian_opt = {
                 },
                 "xcol": "fs.costing.heat_cost_buy",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="Permian ZLD1\nMD-MEC-PTC"),
+                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="Permian ZLD1\nMD-MEC-CST"),
                 "ylims": (0, 20),
                 "xlims": (0.0166, 0.133985714),  # Change this
-                "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
+                "save_name": "FTR_grid_frac_OPTIMIZE-demo.png",  # Change this
                 "save": False,
             },
         },
@@ -818,10 +818,10 @@ permian_opt = {
                 # "xcol": "fs.costing.RE Fraction",  # Change this
                 "xcol": "heat_cost",
                 "flow_col": "fs.treatment.product.properties[0.0].flow_vol_phase[Liq]",
-                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="Permian ZLD2\nFO-MEC-PTC"),
+                "ax_dict": dict(xlabel="Heat Cost (¢/kWh)", ylabel="LCOW (\$/m$^3$)", title="Permian ZLD2\nFO-MEC-CST"),
                 "ylims": (0, 10),
                 "xlims": (0.0166, 0.133985714),  # Change this
-                "save_name": "FTR_grid_frac_OPTIMIZE.png",  # Change this
+                "save_name": "FTR_grid_frac_OPTIMIZE-demo.png",  # Change this
                 "save": False,
                 "use_calc_for_rel": True,
             },
