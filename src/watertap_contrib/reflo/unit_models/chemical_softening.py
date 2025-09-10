@@ -297,7 +297,14 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
             initialize=1e-18,
             units=pyunits.kg / pyunits.m**3,
             mutable=True,
-            doc="Smoothing factor",
+            doc="Smoothing factor for concentration",
+        )
+
+        self.eps2 = Param(
+            initialize=1e-4,
+            units=pyunits.kg / pyunits.s,
+            mutable=True,
+            doc="Smoothing factor for mass flow rate",
         )
 
         self.ca_eff_target = Var(
@@ -1122,10 +1129,13 @@ class ChemicalSofteningData(InitializationMixin, UnitModelBlockData):
 
         @self.Constraint(doc="Alkalinity mass balance")
         def eq_mass_balance_alk(b):
-            return (
-                b.properties_waste[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"]
-                == b.properties_in[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"]
-                - b.properties_out[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"]
+            return b.properties_waste[0].flow_mass_phase_comp[
+                "Liq", "Alkalinity_2-"
+            ] == smooth_max(
+                b.properties_in[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"]
+                - b.properties_out[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"],
+                0.01 * b.properties_in[0].flow_mass_phase_comp["Liq", "Alkalinity_2-"],
+                eps=b.eps2,
             )
 
         if ["TSS"] in comps:
