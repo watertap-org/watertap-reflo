@@ -4,7 +4,7 @@ from pyomo.environ import (
     Var,
     Constraint,
     assert_optimal_termination,
-    check_optimal_termination
+    check_optimal_termination,
 )
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import *
@@ -12,10 +12,16 @@ import time
 from watertap.core.util.model_diagnostics.infeasible import *
 import numpy as np
 
-__all__ = ["solve", "check_jac", "calc_scale", "print_fixed_and_unfixed_vars", "breakdown_dof"]
+__all__ = [
+    "solve",
+    "check_jac",
+    "calc_scale",
+    "print_fixed_and_unfixed_vars",
+    "breakdown_dof",
+]
 
 
-def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
+def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
     # ---solving---
     if solver is None:
         solver = get_solver()
@@ -29,9 +35,14 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
         if debug:
             print("\n--------- CHECKING JACOBIAN ---------\n")
-            print("\n--------- TREATMENT ---------\n")
+            print("\n--------- WHOLE FLOWSHEET ---------\n")
+            check_jac(m)
+            if hasattr(m.fs, "treatment"):
+                print("\n--------- TREATMENT ---------\n")
+                check_jac(m.fs.treatment)
             print("\n--------- ENERGY ---------\n")
-            check_jac(m.fs.energy)
+            if hasattr(m.fs, "energy"):
+                check_jac(m.fs.energy)
 
             print("\n--------- CLOSE TO BOUNDS ---------\n")
             print_close_to_bounds(m)
@@ -92,13 +103,17 @@ def check_jac(m, print_extreme_jacobian_values=True):
 
 
 def calc_scale(value):
-    if value != 0 or value != None:
-        try:
-            return round(-1 * math.log(abs(value), 10), 1)
-        except:
-            return 0
-    else:
-        return 0
+    return math.floor(math.log(value, 10))
+
+
+# def calc_scale(value):
+#     if value != 0 or value != None:
+#         try:
+#             return round(-1 * math.log(abs(value), 10), 1)
+#         except:
+#             return 0
+#     else:
+#         return 0
 
 
 def print_fixed_and_unfixed_vars(blk):
@@ -129,6 +144,28 @@ def print_fixed_and_unfixed_vars(blk):
     print(f"Constraints: ({len(constraints)})")
     for c in constraints:
         print(f"   {c}")
+
+
+def display_inlet_conditions(blk):
+    w = 30
+    print("\n\n")
+
+    print(
+        f'{"Unit":<{w}s}{"Mass Flow Water (kg/s)":<{w}s}{"Pressure (bar)":<{w}s}{"Mass Flow NaCl (kg/s)":<{w}s}{"Conc. (g/L)":<{w}s}'
+    )
+    print(
+        f'{"Feed":<{w}s}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<{w}.3f}{value(pyunits.convert(blk.feed.properties[0.0].pressure, to_units=pyunits.bar)):<{w}.1f}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<{w}.3e}{blk.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<{w}.3f}'
+    )
+
+
+def display_dof_breakdown(blk, decend=False, report=False):
+    w = 30
+    print(
+        "\n\n-------------------- DEGREE OF FREEDOM BREAKDOWN --------------------\n\n"
+    )
+    print(f'{"BLOCK":<40s}{"DEGREES OF FREEDOM":<{w}s}')
+    for v in blk.component_data_objects(ctype=Block, active=True, descend_into=decend):
+        print(f"{v.name:<40s}{degrees_of_freedom(v)}")
 
 
 def breakdown_dof(blk, detailed=False):
@@ -176,6 +213,30 @@ def breakdown_dof(blk, detailed=False):
     #     for v in unfixed_vars_without_constraint:
     #         if v.fixed:
     #             print(f"   {v}       Fixed={v.fixed}")
+
+
+def report_stream_ion_conc(m, stream):
+    print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
+    for ion_conc in stream.conc_mass_phase_comp:
+        print(
+            f"{ion_conc[1]:<15s}: {stream.conc_mass_phase_comp[ion_conc].value:<10.3f}{str(pyunits.get_units(stream.conc_mass_phase_comp[ion_conc]))}"
+        )
+
+
+def report_MCAS_stream_conc(m, stream):
+    solute_set = m.fs.MCAS_properties.solute_set
+    print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
+    print(f'{"Component":<15s}{"Conc.":<10s}{"Units":10s}')
+    for i in solute_set:
+        print(
+            f"{i:<15s}: {stream.conc_mass_phase_comp['Liq', i].value:<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp['Liq', i])}"
+        )
+    print(
+        f'{"Overall TDS":<15s}: {sum(value(stream.conc_mass_phase_comp["Liq", i]) for i in solute_set):<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp["Liq", "Ca_2+"])}'
+    )
+    print(
+        f"{'Vol. Flow Rate':<15s}: {stream.flow_mass_phase_comp['Liq', 'H2O'].value:<10.3f}{pyunits.get_units(stream.flow_mass_phase_comp['Liq', 'H2O'])}"
+    )
 
 
 def standard_solve(
