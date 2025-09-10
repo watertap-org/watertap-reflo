@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -10,49 +10,32 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 """
-Translator block representing the 
-
-Assumptions:
-     * Steady-state only
+Translator block for converting from MCAS to NaCl
 """
 
 # Import Pyomo libraries
+from pyomo.environ import check_optimal_termination
 from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
 
 # Import IDAES cores
-from idaes.core import declare_process_block_class, UnitModelBlockData
+import idaes.logger as idaeslog
+from idaes.core import declare_process_block_class
+from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.models.unit_models.translator import TranslatorData
 from idaes.core.util.config import (
-    is_reaction_parameter_block,
     is_physical_parameter_block,
 )
 
-from idaes.core.util.exceptions import ConfigurationError
-from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.solvers import get_solver
-import idaes.logger as idaeslog
-import idaes.core.util.scaling as iscale
-
-from idaes.core.util.exceptions import InitializationError
-
-from pyomo.environ import (
-    Param,
-    units as pyunits,
-    check_optimal_termination,
-    Set,
-)
+from watertap.core.solvers import get_solver
 
 __author__ = "Zachary Binger"
 
 
-# Set up logger
-_log = idaeslog.getLogger(__name__)
-
-
-@declare_process_block_class("Translator_MCAS_to_NACL")
-class Translator_MCAS_to_NACL_Data(TranslatorData):
+@declare_process_block_class("Translator_MCAS_to_NaCl")
+class Translator_MCAS_to_NaCl_Data(TranslatorData):
     """
-    Translator block representing the
+    Translator block for converting from MCAS to NaCl
     """
 
     CONFIG = ConfigBlock()
@@ -166,15 +149,8 @@ see property package for documentation.}""",
         Returns:
             None
         """
-        # Call UnitModel.build to setup dynamics
-        super(Translator_MCAS_to_NACL_Data, self).build()
-
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Equality volumetric flow equation",
-        # )
-        # def eq_flow_vol_rule(blk, t):
-        #     return blk.properties_out[t].flow_vol == blk.properties_in[t].flow_vol
+        super(Translator_MCAS_to_NaCl_Data, self).build()
+        solute_set = self.config.inlet_property_package.solute_set
 
         @self.Constraint(
             self.flowsheet().time,
@@ -199,16 +175,6 @@ see property package for documentation.}""",
         )
         def eq_pressure_rule(blk, t):
             return blk.properties_out[t].pressure == blk.properties_in[t].pressure
-
-        solute_set = self.config.inlet_property_package.solute_set
-        solvent_set = self.config.inlet_property_package.solvent_set
-
-        # @self.Constraint(
-        #     self.flowsheet().config.time,
-        #     solute_set,
-        # )
-        # def eq_solute_mass_flow(blk, t, j):
-        #     return blk.properties_out[t].flow_mass_phase_comp['Liq', 'NaCl'] == sum(blk.properties_in[t].flow_mass_phase_comp['Liq', j] for j in solute_set)
 
         @self.Constraint(
             self.flowsheet().time,
