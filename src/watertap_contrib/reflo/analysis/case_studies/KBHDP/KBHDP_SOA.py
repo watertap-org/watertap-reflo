@@ -22,7 +22,7 @@ from pyomo.network import Arc
 
 from idaes.core.util.scaling import *
 from idaes.core import FlowsheetBlock, MaterialFlowBasis
-from idaes.core.util.initialization import propagate_state as _prop_state
+from idaes.core.util.initialization import propagate_state
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import *
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
@@ -59,18 +59,17 @@ __all__ = [
 ]
 
 
-def propagate_state(arc, detailed=True):
-    _prop_state(arc)
-    if detailed:
-        print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-        arc.source.display()
-        print(arc.destination.name)
-        arc.destination.display()
-        print("\n")
+# def propagate_state(arc, detailed=True):
+#     _prop_state(arc)
+#     if detailed:
+#         print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
+#         arc.source.display()
+#         print(arc.destination.name)
+#         arc.destination.display()
+#         print("\n")
 
 
 def main():
-    file_dir = os.path.dirname(os.path.abspath(__file__))
 
     m = build_system()
     add_connections(m)
@@ -79,13 +78,16 @@ def main():
     apply_scaling(m)
     init_system(m)
     add_costing(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.6)
+    optimize(m, ro_mem_area=None, water_recovery=0.8)
     solve(m, debug=True)
+    # report_UF(m, m.fs.UF)
 
-    print(m.fs.treatment.product.display())
-    print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
-    print(m.fs.treatment.costing.display())
-    print(m.fs.treatment.costing.LCOW.display())
+    # print(m.fs.treatment.product.display())
+    # print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
+    # print(m.fs.treatment.costing.display())
+    # print(m.fs.treatment.costing.LCOW.display())
+    print_all_results(m)
+    m.fs.treatment.costing.SEC.display()
 
 
 def build_system():
@@ -102,7 +104,7 @@ def build_system():
             "K_+",
             "SiO2",
             "Na_+",
-            "SO2_-4+",
+            "SO4_2-",
         ],
         material_flow_basis=MaterialFlowBasis.mass,
     )
@@ -130,14 +132,14 @@ def build_treatment(m):
     treatment.RO = FlowsheetBlock(dynamic=False)
     treatment.DWI = FlowsheetBlock(dynamic=False)
 
-    treatment.MCAS_to_TDS_translator = Translator_MCAS_to_TDS(
+    treatment.MCAS_to_ZO_TDS_translator = TranslatorMCAStoZO(
         inlet_property_package=m.fs.MCAS_properties,
         outlet_property_package=m.fs.UF_properties,
         has_phase_equilibrium=False,
         outlet_state_defined=True,
     )
 
-    treatment.TDS_to_NaCl_translator = Translator_TDS_to_NACL(
+    treatment.ZO_TDS_to_NaCl_translator = TranslatorZOtoNaCl(
         inlet_property_package=m.fs.UF_properties,
         outlet_property_package=m.fs.RO_properties,
         has_phase_equilibrium=False,
@@ -146,7 +148,7 @@ def build_treatment(m):
 
     build_softener(m, treatment.softener, prop_package=m.fs.MCAS_properties)
     build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
-    build_ro(m, treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=2)
+    build_ro(m, treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
     build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
 
     m.fs.units = [
@@ -189,7 +191,7 @@ def build_sweep():
     init_system(m)
     add_costing(m)
     display_system_build(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.6)
+    optimize(m, ro_mem_area=None, water_recovery=0.8)
 
     return m
 
@@ -204,7 +206,7 @@ def add_connections(m):
 
     treatment.softener_to_translator = Arc(
         source=treatment.softener.unit.outlet,
-        destination=treatment.MCAS_to_TDS_translator.inlet,
+        destination=treatment.MCAS_to_ZO_TDS_translator.inlet,
     )
 
     treatment.softener_to_sludge = Arc(
@@ -213,13 +215,13 @@ def add_connections(m):
     )
 
     treatment.translator_to_UF = Arc(
-        source=treatment.MCAS_to_TDS_translator.outlet,
+        source=treatment.MCAS_to_ZO_TDS_translator.outlet,
         destination=treatment.UF.feed.inlet,
     )
 
     treatment.UF_to_translator3 = Arc(
         source=treatment.UF.product.outlet,
-        destination=treatment.TDS_to_NaCl_translator.inlet,
+        destination=treatment.ZO_TDS_to_NaCl_translator.inlet,
     )
 
     treatment.UF_to_waste = Arc(
@@ -228,7 +230,7 @@ def add_connections(m):
     )
 
     treatment.translator_to_pump = Arc(
-        source=treatment.TDS_to_NaCl_translator.outlet,
+        source=treatment.ZO_TDS_to_NaCl_translator.outlet,
         destination=treatment.pump.inlet,
     )
 
@@ -270,26 +272,25 @@ def add_constraints(m):
 def apply_scaling(m):
     treatment = m.fs.treatment
     add_UF_scaling(treatment.UF)
-    add_ro_scaling(m, treatment.RO)
+    add_ro_scaling(treatment.RO)
     calculate_scaling_factors(m)
 
 
 def add_costing(m):
     treatment = m.fs.treatment
     # treatment.costing = TreatmentCosting()
-    treatment.costing = REFLOCosting()
-
-    # energy = m.fs.energy = Block()
-    # energy.costing = EnergyCosting()
-
+    treatment.costing = TreatmentCosting()
+    elec_cost = value(pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018))
+    treatment.costing.electricity_cost.fix(elec_cost)
+    
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
     )
 
-    add_softener_costing(m, treatment.softener, treatment.costing)
-    add_UF_costing(m, treatment.UF, treatment.costing)
-    add_ro_costing(m, treatment.RO, treatment.costing)
-    add_DWI_costing(m, treatment.DWI, treatment.costing)
+    add_softener_costing(treatment.softener, costing_blk=treatment.costing)
+    add_UF_costing(treatment.UF, costing_blk=treatment.costing)
+    add_ro_costing(treatment.RO, costing_blk=treatment.costing)
+    add_DWI_costing(treatment.DWI, costing_blk=treatment.costing)
 
     # treatment.costing.cost_process()
     # treatment.costing.initialize()
@@ -306,6 +307,8 @@ def add_costing(m):
         treatment.product.properties[0].flow_vol
     )
     treatment.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase["Liq"])
+    treatment.costing.add_specific_energy_consumption(treatment.product.properties[0].flow_vol, name="SEC")
+
 
     # m.fs.costing.initialize()
     treatment.costing.initialize()
@@ -357,7 +360,7 @@ def set_inlet_conditions(
         "Cl_-": 5.5 * pyunits.kg / pyunits.m**3,
         "Na_+": 5.5 * pyunits.kg / pyunits.m**3,
         "K_+": 0.016 * pyunits.kg / pyunits.m**3,
-        "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,
+        "SO4_2-": 0.23 * pyunits.kg / pyunits.m**3,
     }
 
     for solute, solute_conc in inlet_dict.items():
@@ -404,11 +407,11 @@ def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1.1e5):
     pump_efi = 0.8  # pump efficiency [-]
 
     set_inlet_conditions(m, Qin=4)
-    set_softener_op_conditions(m, treatment.softener.unit)
+    set_softener_op_conditions(treatment.softener)
     set_UF_op_conditions(treatment.UF)
     treatment.pump.efficiency_pump.fix(pump_efi)
     treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
-    set_ro_system_operating_conditions(m, treatment.RO, mem_area=10000)
+    set_ro_system_operating_conditions(treatment.RO, mem_area=10000)
 
 
 def init_system(m, verbose=True, solver=None):
@@ -434,26 +437,26 @@ def init_treatment(m, verbose=True, solver=None):
     propagate_state(treatment.feed_to_softener)
     report_MCAS_stream_conc(m, treatment.feed.properties[0.0])
 
-    init_softener(m, treatment.softener.unit)
+    init_softener(treatment.softener)
     propagate_state(treatment.softener_to_translator)
     propagate_state(treatment.softener_to_sludge)
     treatment.sludge.initialize()
 
-    treatment.MCAS_to_TDS_translator.initialize()
+    treatment.MCAS_to_ZO_TDS_translator.initialize()
     propagate_state(treatment.translator_to_UF)
     init_UF(m, treatment.UF)
     propagate_state(treatment.UF_to_translator3)
     propagate_state(treatment.UF_to_waste)
     treatment.UF_waste.initialize()
 
-    treatment.TDS_to_NaCl_translator.initialize()
+    treatment.ZO_TDS_to_NaCl_translator.initialize()
 
     propagate_state(treatment.translator_to_pump)
     treatment.pump.initialize()
 
     propagate_state(treatment.pump_to_ro)
 
-    init_ro_system(m, treatment.RO)
+    init_ro_system(treatment.RO)
     propagate_state(treatment.ro_to_product)
     propagate_state(treatment.ro_to_disposal)
 
@@ -533,7 +536,7 @@ def solve(model, solver=None, tee=False, raise_on_failure=True, debug=False):
             print("\n--------- INFEASIBLE BOUNDS ---------\n")
             print_infeasible_bounds(model)
 
-            print("\n--------- CHECKING JACOBIAN ---------\n")
+            # print("\n--------- CHECKING JACOBIAN ---------\n")
         return results
     msg = (
         "The current configuration is infeasible. Please adjust the decision variables."
@@ -624,57 +627,85 @@ def display_costing_breakdown(m):
     header = f'{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
     print(header)
     print(
-        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
+        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
-    print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
+    print(f'{"LCOW":<34s}{f"${m.fs.treatment.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
     print("\n")
-    print_RO_costing_breakdown(m.fs.RO)
-    print_softening_costing_breakdown(m.fs.softener)
-    print_UF_costing_breakdown(m.fs.UF)
-    print_DWI_costing_breakdown(m.fs.DWI)
+    print_RO_costing_breakdown(m.fs.treatment.RO)
+    print_softening_costing_breakdown(m.fs.treatment.softener)
+    print_UF_costing_breakdown(m.fs.treatment.UF)
+    print_DWI_costing_breakdown(m.fs.treatment.DWI)
     print(
-        f'{"Pump Capital Cost":<35s}{f"${value(m.fs.pump.costing.capital_cost):<25,.0f}"}'
+        f'{"Pump Capital Cost":<35s}{f"${value(m.fs.treatment.pump.costing.capital_cost):<25,.0f}"}'
     )
     print("\n")
     print(
-        f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.3f}"}'
+        f'{"Total Capital Cost":<35s}{f"${m.fs.treatment.costing.total_capital_cost():<25,.3f}"}'
     )
     print(
-        f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.3f}"}'
+        f'{"Total Operating Cost":<35s}{f"${m.fs.treatment.costing.total_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{"Total Annualized Cost":<35s}{f"${m.fs.costing.total_annualized_cost():<25,.3f}"}'
+        f'{"Total Annualized Cost":<35s}{f"${m.fs.treatment.costing.total_annualized_cost():<25,.3f}"}'
     )
     print("\nOperating Costs:")
     print(
-        f'{f"Total Fixed Operating Costs":<35s}{f"${m.fs.costing.total_fixed_operating_cost():<25,.3f}"}'
+        f'{f"Total Fixed Operating Costs":<35s}{f"${m.fs.treatment.costing.total_fixed_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{f"    Agg Fixed Operating Costs":<35s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<25,.3f}"}'
+        f'{f"    Agg Fixed Operating Costs":<35s}{f"${m.fs.treatment.costing.aggregate_fixed_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{f"    MLC Operating Costs":<35s}{f"${m.fs.costing.maintenance_labor_chemical_operating_cost():<25,.3f}"}'
+        f'{f"    MLC Operating Costs":<35s}{f"${m.fs.treatment.costing.maintenance_labor_chemical_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{f"Total Variable Operating Costs":<35s}{f"${m.fs.costing.total_variable_operating_cost():<25,.3f}"}'
+        f'{f"Total Variable Operating Costs":<35s}{f"${m.fs.treatment.costing.total_variable_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.costing.aggregate_variable_operating_cost():<25,.3f}"}'
+        f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.treatment.costing.aggregate_variable_operating_cost():<25,.3f}"}'
     )
-    for flow in m.fs.costing.aggregate_flow_costs:
+    for flow in m.fs.treatment.costing.aggregate_flow_costs:
         print(
-            f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():>25,.0f}"}'
+            f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.treatment.costing.aggregate_flow_costs[flow]():>25,.0f}"}'
         )
 
 
 def print_all_results(m):
-    display_system_stream_table(m)
-    report_softener(m)
-    report_UF(m, m.fs.UF)
-    report_RO(m, m.fs.RO)
-    report_DWI(m.fs.DWI)
+    # display_system_stream_table(m)
+    # report_softener(m)
+    report_UF(m, m.fs.treatment.UF)
+    report_RO(m, m.fs.treatment.RO)
+    report_DWI(m.fs.treatment.DWI)
+    print(m.fs.treatment.pump.display())
+    print(m.fs.treatment.product.display())
+    # print(
+    #     value(
+    #         pyunits.convert(
+    #             m.fs.treatment.pump.control_volume.work[0], to_units=pyunits.kW
+    #             )
+    #         ) /
+    #     value(
+    #         pyunits.convert(
+    #             m.fs.treatment.product.properties[0].flow_vol_phase["Liq"], to_units=pyunits.m**3 / pyunits.hr
+    #             )
+    #         )
+    # )
+    print(
+        value(
+            pyunits.convert(
+                m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kW
+            )
+        )
+        / value(
+            pyunits.convert(
+                m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
+                to_units=pyunits.m**3 / pyunits.hr,
+            )
+        )
+    )
     display_costing_breakdown(m)
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    build_sweep()
