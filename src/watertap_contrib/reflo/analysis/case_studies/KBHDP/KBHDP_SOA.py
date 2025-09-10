@@ -59,16 +59,6 @@ __all__ = [
 ]
 
 
-# def propagate_state(arc, detailed=True):
-#     _prop_state(arc)
-#     if detailed:
-#         print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-#         arc.source.display()
-#         print(arc.destination.name)
-#         arc.destination.display()
-#         print("\n")
-
-
 def main():
 
     m = build_system()
@@ -80,14 +70,8 @@ def main():
     add_costing(m)
     optimize(m, ro_mem_area=None, water_recovery=0.8)
     solve(m, debug=True)
-    # report_UF(m, m.fs.UF)
-
-    # print(m.fs.treatment.product.display())
-    # print(m.fs.treatment.product.properties[0].flow_vol_phase.display())
-    # print(m.fs.treatment.costing.display())
-    # print(m.fs.treatment.costing.LCOW.display())
     print_all_results(m)
-    m.fs.treatment.costing.SEC.display()
+    m.fs.costing.SEC.display()
 
 
 def build_system():
@@ -118,7 +102,6 @@ def build_system():
 
 
 def build_treatment(m):
-    treatment = m.fs.treatment = Block()
 
     m.fs.feed = Feed(property_package=m.fs.MCAS_properties)
     m.fs.product = Product(property_package=m.fs.RO_properties)
@@ -180,24 +163,23 @@ def build_treatment(m):
     return m
 
 
-def build_sweep():
+# def build_sweep():
 
-    m = build_system()
-    display_system_build(m)
-    add_connections(m)
-    add_constraints(m)
-    set_operating_conditions(m)
-    apply_scaling(m)
-    init_system(m)
-    add_costing(m)
-    display_system_build(m)
-    optimize(m, ro_mem_area=None, water_recovery=0.8)
+#     m = build_system()
+#     display_system_build(m)
+#     add_connections(m)
+#     add_constraints(m)
+#     set_operating_conditions(m)
+#     apply_scaling(m)
+#     init_system(m)
+#     add_costing(m)
+#     display_system_build(m)
+#     optimize(m, ro_mem_area=None, water_recovery=0.8)
 
-    return m
+#     return m
 
 
 def add_connections(m):
-    treatment = m.fs.treatment
 
     m.fs.feed_to_softener = Arc(
         source=m.fs.feed.outlet,
@@ -253,7 +235,6 @@ def add_connections(m):
 
 
 def add_constraints(m):
-    treatment = m.fs.treatment
 
     m.fs.water_recovery = Var(
         initialize=0.5,
@@ -334,7 +315,6 @@ def set_inlet_conditions(
 
     print(f'\n{"=======> SETTING OPERATING CONDITIONS <=======":^60}\n')
 
-    treatment = m.fs.treatment
 
     # Convert Q_in from MGD to kg/s
     Qin = pyunits.convert(
@@ -402,7 +382,7 @@ def display_unfixed_vars(blk, report=True):
 
 
 def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1.1e5):
-    treatment = m.fs.treatment
+
     pump_efi = 0.8  # pump efficiency [-]
 
     set_inlet_conditions(m, Qin=4)
@@ -426,8 +406,6 @@ def init_treatment(m, verbose=True, solver=None):
     if solver is None:
         solver = get_solver()
 
-    optarg = solver.options
-    treatment = m.fs.treatment
 
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
@@ -625,57 +603,57 @@ def display_costing_breakdown(m):
     header = f'{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
     print(header)
     print(
-        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
+        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
     )
-    print(f'{"LCOW":<34s}{f"${m.fs.treatment.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
+    print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
     print("\n")
-    print_RO_costing_breakdown(m.fs.treatment.RO)
-    print_softening_costing_breakdown(m.fs.treatment.softener)
-    print_UF_costing_breakdown(m.fs.treatment.UF)
-    print_DWI_costing_breakdown(m.fs.treatment.DWI)
+    print_RO_costing_breakdown(m.fs.RO)
+    # print_softening_costing_breakdown(m.fs.treatment.softener)
+    print_UF_costing_breakdown(m.fs.UF)
+    print_DWI_costing_breakdown(m.fs.DWI)
     print(
-        f'{"Pump Capital Cost":<35s}{f"${value(m.fs.treatment.pump.costing.capital_cost):<25,.0f}"}'
+        f'{"Pump Capital Cost":<35s}{f"${value(m.fs.pump.costing.capital_cost):<25,.0f}"}'
     )
     print("\n")
     print(
-        f'{"Total Capital Cost":<35s}{f"${m.fs.treatment.costing.total_capital_cost():<25,.3f}"}'
+        f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.3f}"}'
     )
     print(
-        f'{"Total Operating Cost":<35s}{f"${m.fs.treatment.costing.total_operating_cost():<25,.3f}"}'
+        f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{"Total Annualized Cost":<35s}{f"${m.fs.treatment.costing.total_annualized_cost():<25,.3f}"}'
+        f'{"Total Annualized Cost":<35s}{f"${m.fs.costing.total_annualized_cost():<25,.3f}"}'
     )
     print("\nOperating Costs:")
     print(
-        f'{f"Total Fixed Operating Costs":<35s}{f"${m.fs.treatment.costing.total_fixed_operating_cost():<25,.3f}"}'
+        f'{f"Total Fixed Operating Costs":<35s}{f"${m.fs.costing.total_fixed_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{f"    Agg Fixed Operating Costs":<35s}{f"${m.fs.treatment.costing.aggregate_fixed_operating_cost():<25,.3f}"}'
+        f'{f"    Agg Fixed Operating Costs":<35s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{f"    MLC Operating Costs":<35s}{f"${m.fs.treatment.costing.maintenance_labor_chemical_operating_cost():<25,.3f}"}'
+        f'{f"    MLC Operating Costs":<35s}{f"${m.fs.costing.maintenance_labor_chemical_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{f"Total Variable Operating Costs":<35s}{f"${m.fs.treatment.costing.total_variable_operating_cost():<25,.3f}"}'
+        f'{f"Total Variable Operating Costs":<35s}{f"${m.fs.costing.total_variable_operating_cost():<25,.3f}"}'
     )
     print(
-        f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.treatment.costing.aggregate_variable_operating_cost():<25,.3f}"}'
+        f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.costing.aggregate_variable_operating_cost():<25,.3f}"}'
     )
-    for flow in m.fs.treatment.costing.aggregate_flow_costs:
+    for flow in m.fs.costing.aggregate_flow_costs:
         print(
-            f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.treatment.costing.aggregate_flow_costs[flow]():>25,.0f}"}'
+            f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():>25,.0f}"}'
         )
 
 
 def print_all_results(m):
     # display_system_stream_table(m)
     # report_softener(m)
-    report_UF(m, m.fs.treatment.UF)
-    report_RO(m, m.fs.treatment.RO)
-    report_DWI(m.fs.treatment.DWI)
-    print(m.fs.treatment.pump.display())
-    print(m.fs.treatment.product.display())
+    report_UF(m.fs.UF)
+    report_RO(m.fs.RO)
+    report_DWI(m.fs.DWI)
+    print(m.fs.pump.display())
+    print(m.fs.product.display())
     # print(
     #     value(
     #         pyunits.convert(
@@ -691,12 +669,12 @@ def print_all_results(m):
     print(
         value(
             pyunits.convert(
-                m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kW
+                m.fs.costing.aggregate_flow_electricity, to_units=pyunits.kW
             )
         )
         / value(
             pyunits.convert(
-                m.fs.treatment.product.properties[0].flow_vol_phase["Liq"],
+                m.fs.product.properties[0].flow_vol_phase["Liq"],
                 to_units=pyunits.m**3 / pyunits.hr,
             )
         )
@@ -705,5 +683,5 @@ def print_all_results(m):
 
 
 if __name__ == "__main__":
-    # main()
-    build_sweep()
+    main()
+    # build_sweep()
