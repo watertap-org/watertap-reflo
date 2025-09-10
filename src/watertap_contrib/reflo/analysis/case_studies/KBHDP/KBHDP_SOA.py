@@ -120,43 +120,43 @@ def build_system():
 def build_treatment(m):
     treatment = m.fs.treatment = Block()
 
-    treatment.feed = Feed(property_package=m.fs.MCAS_properties)
-    treatment.product = Product(property_package=m.fs.RO_properties)
-    treatment.sludge = Product(property_package=m.fs.MCAS_properties)
-    treatment.UF_waste = Product(property_package=m.fs.UF_properties)
+    m.fs.feed = Feed(property_package=m.fs.MCAS_properties)
+    m.fs.product = Product(property_package=m.fs.RO_properties)
+    m.fs.sludge = Product(property_package=m.fs.MCAS_properties)
+    m.fs.UF_waste = Product(property_package=m.fs.UF_properties)
 
     # Define the Unit Models
-    treatment.softener = FlowsheetBlock(dynamic=False)
-    treatment.UF = FlowsheetBlock(dynamic=False)
-    treatment.pump = Pump(property_package=m.fs.RO_properties)
-    treatment.RO = FlowsheetBlock(dynamic=False)
-    treatment.DWI = FlowsheetBlock(dynamic=False)
+    m.fs.softener = FlowsheetBlock(dynamic=False)
+    m.fs.UF = FlowsheetBlock(dynamic=False)
+    m.fs.pump = Pump(property_package=m.fs.RO_properties)
+    m.fs.RO = FlowsheetBlock(dynamic=False)
+    m.fs.DWI = FlowsheetBlock(dynamic=False)
 
-    treatment.MCAS_to_ZO_TDS_translator = TranslatorMCAStoZO(
+    m.fs.MCAS_to_ZO_TDS_translator = TranslatorMCAStoZO(
         inlet_property_package=m.fs.MCAS_properties,
         outlet_property_package=m.fs.UF_properties,
         has_phase_equilibrium=False,
         outlet_state_defined=True,
     )
 
-    treatment.ZO_TDS_to_NaCl_translator = TranslatorZOtoNaCl(
+    m.fs.ZO_TDS_to_NaCl_translator = TranslatorZOtoNaCl(
         inlet_property_package=m.fs.UF_properties,
         outlet_property_package=m.fs.RO_properties,
         has_phase_equilibrium=False,
         outlet_state_defined=True,
     )
 
-    build_softener(m, treatment.softener, prop_package=m.fs.MCAS_properties)
-    build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
-    build_ro(m, treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
-    build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
+    build_softener(m.fs.softener, prop_package=m.fs.MCAS_properties)
+    build_UF(m, m.fs.UF, prop_package=m.fs.UF_properties)
+    build_ro(m, m.fs.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
+    build_DWI(m, m.fs.DWI, prop_package=m.fs.RO_properties)
 
     m.fs.units = [
-        treatment.softener,
-        treatment.UF,
-        treatment.pump,
-        treatment.RO,
-        treatment.DWI,
+        m.fs.softener,
+        m.fs.UF,
+        m.fs.pump,
+        m.fs.RO,
+        m.fs.DWI,
     ]
 
     m.fs.MCAS_properties.set_default_scaling(
@@ -199,54 +199,54 @@ def build_sweep():
 def add_connections(m):
     treatment = m.fs.treatment
 
-    treatment.feed_to_softener = Arc(
-        source=treatment.feed.outlet,
-        destination=treatment.softener.unit.inlet,
+    m.fs.feed_to_softener = Arc(
+        source=m.fs.feed.outlet,
+        destination=m.fs.softener.unit.inlet,
     )
 
-    treatment.softener_to_translator = Arc(
-        source=treatment.softener.unit.outlet,
-        destination=treatment.MCAS_to_ZO_TDS_translator.inlet,
+    m.fs.softener_to_translator = Arc(
+        source=m.fs.softener.unit.outlet,
+        destination=m.fs.MCAS_to_ZO_TDS_translator.inlet,
     )
 
-    treatment.softener_to_sludge = Arc(
-        source=treatment.softener.unit.waste,
-        destination=treatment.sludge.inlet,
+    m.fs.softener_to_sludge = Arc(
+        source=m.fs.softener.unit.waste,
+        destination=m.fs.sludge.inlet,
     )
 
-    treatment.translator_to_UF = Arc(
-        source=treatment.MCAS_to_ZO_TDS_translator.outlet,
-        destination=treatment.UF.feed.inlet,
+    m.fs.translator_to_UF = Arc(
+        source=m.fs.MCAS_to_ZO_TDS_translator.outlet,
+        destination=m.fs.UF.feed.inlet,
     )
 
-    treatment.UF_to_translator3 = Arc(
-        source=treatment.UF.product.outlet,
-        destination=treatment.ZO_TDS_to_NaCl_translator.inlet,
+    m.fs.UF_to_translator3 = Arc(
+        source=m.fs.UF.product.outlet,
+        destination=m.fs.ZO_TDS_to_NaCl_translator.inlet,
     )
 
-    treatment.UF_to_waste = Arc(
-        source=treatment.UF.disposal.outlet,
-        destination=treatment.UF_waste.inlet,
+    m.fs.UF_to_waste = Arc(
+        source=m.fs.UF.disposal.outlet,
+        destination=m.fs.UF_waste.inlet,
     )
 
-    treatment.translator_to_pump = Arc(
-        source=treatment.ZO_TDS_to_NaCl_translator.outlet,
-        destination=treatment.pump.inlet,
+    m.fs.translator_to_pump = Arc(
+        source=m.fs.ZO_TDS_to_NaCl_translator.outlet,
+        destination=m.fs.pump.inlet,
     )
 
-    treatment.pump_to_ro = Arc(
-        source=treatment.pump.outlet,
-        destination=treatment.RO.feed.inlet,
+    m.fs.pump_to_ro = Arc(
+        source=m.fs.pump.outlet,
+        destination=m.fs.RO.feed.inlet,
     )
 
-    treatment.ro_to_product = Arc(
-        source=treatment.RO.product.outlet,
-        destination=treatment.product.inlet,
+    m.fs.RO_to_product = Arc(
+        source=m.fs.RO.product.outlet,
+        destination=m.fs.product.inlet,
     )
 
-    treatment.ro_to_disposal = Arc(
-        source=treatment.RO.disposal.outlet,
-        destination=treatment.DWI.feed.inlet,
+    m.fs.RO_to_disposal = Arc(
+        source=m.fs.RO.disposal.outlet,
+        destination=m.fs.DWI.feed.inlet,
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -264,33 +264,32 @@ def add_constraints(m):
     )
 
     m.fs.eq_water_recovery = Constraint(
-        expr=treatment.feed.properties[0].flow_vol * m.fs.water_recovery
-        == treatment.product.properties[0].flow_vol
+        expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
+        == m.fs.product.properties[0].flow_vol
     )
 
 
 def apply_scaling(m):
-    treatment = m.fs.treatment
-    add_UF_scaling(treatment.UF)
-    add_ro_scaling(treatment.RO)
+    add_UF_scaling(m.fs.UF)
+    add_ro_scaling(m.fs.RO)
     calculate_scaling_factors(m)
 
 
 def add_costing(m):
-    treatment = m.fs.treatment
+    # treatment = m.fs.treatment
     # treatment.costing = TreatmentCosting()
-    treatment.costing = TreatmentCosting()
+    m.fs.costing = TreatmentCosting()
     elec_cost = value(pyunits.convert(0.066 * pyunits.USD_2023, to_units=pyunits.USD_2018))
-    treatment.costing.electricity_cost.fix(elec_cost)
-    
-    treatment.pump.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=treatment.costing,
+    m.fs.costing.electricity_cost.fix(elec_cost)
+
+    m.fs.pump.costing = UnitModelCostingBlock(
+        flowsheet_costing_block=m.fs.costing,
     )
 
-    add_softener_costing(treatment.softener, costing_blk=treatment.costing)
-    add_UF_costing(treatment.UF, costing_blk=treatment.costing)
-    add_ro_costing(treatment.RO, costing_blk=treatment.costing)
-    add_DWI_costing(treatment.DWI, costing_blk=treatment.costing)
+    add_softener_costing(m.fs.softener, costing_blk=m.fs.costing)
+    add_UF_costing(m.fs.UF, costing_blk=m.fs.costing)
+    add_ro_costing(m.fs.RO, costing_blk=m.fs.costing)
+    add_DWI_costing(m.fs.DWI, costing_blk=m.fs.costing)
 
     # treatment.costing.cost_process()
     # treatment.costing.initialize()
@@ -301,17 +300,17 @@ def add_costing(m):
     # m.fs.costing = REFLOCosting()
     # m.fs.costing.cost_process()
 
-    treatment.costing.cost_process()
+    m.fs.costing.cost_process()
 
-    treatment.costing.add_annual_water_production(
-        treatment.product.properties[0].flow_vol
+    m.fs.costing.add_annual_water_production(
+        m.fs.product.properties[0].flow_vol
     )
-    treatment.costing.add_LCOW(treatment.product.properties[0].flow_vol_phase["Liq"])
-    treatment.costing.add_specific_energy_consumption(treatment.product.properties[0].flow_vol, name="SEC")
+    m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol_phase["Liq"])
+    m.fs.costing.add_specific_energy_consumption(m.fs.product.properties[0].flow_vol, name="SEC")
 
 
     # m.fs.costing.initialize()
-    treatment.costing.initialize()
+    m.fs.costing.initialize()
 
 
 def define_inlet_composition(m):
@@ -346,9 +345,9 @@ def set_inlet_conditions(
     print(f"Flow Rate: {value(Qin):<10.2f}{pyunits.get_units(Qin)}")
 
     if Qin is None:
-        treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(1)
+        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(1)
     else:
-        treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(
+        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(
             Qin * feed_density
         )
 
@@ -364,10 +363,10 @@ def set_inlet_conditions(
     }
 
     for solute, solute_conc in inlet_dict.items():
-        treatment.feed.properties[0].flow_mass_phase_comp["Liq", solute].fix(
+        m.fs.feed.properties[0].flow_mass_phase_comp["Liq", solute].fix(
             pyunits.convert(
                 (
-                    treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
+                    m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
                     / (1000 * pyunits.kg / pyunits.m**3)
                 )
                 * solute_conc,
@@ -376,20 +375,20 @@ def set_inlet_conditions(
         )
         m.fs.MCAS_properties.set_default_scaling(
             "flow_mass_phase_comp",
-            1 / value(treatment.feed.properties[0].flow_mass_phase_comp["Liq", solute]),
+            1 / value(m.fs.feed.properties[0].flow_mass_phase_comp["Liq", solute]),
             index=("Liq", solute),
         )
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp",
-        1 / value(treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]),
+        1 / value(m.fs.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]),
         index=("Liq", "H2O"),
     )
 
     feed_temperature = 273.15 + 20
 
     # # initialize feed
-    treatment.feed.pressure[0].fix(supply_pressure)
-    treatment.feed.temperature[0].fix(feed_temperature)
+    m.fs.feed.pressure[0].fix(supply_pressure)
+    m.fs.feed.temperature[0].fix(feed_temperature)
 
 
 def display_unfixed_vars(blk, report=True):
@@ -407,11 +406,11 @@ def set_operating_conditions(m, RO_pressure=20e5, supply_pressure=1.1e5):
     pump_efi = 0.8  # pump efficiency [-]
 
     set_inlet_conditions(m, Qin=4)
-    set_softener_op_conditions(treatment.softener)
-    set_UF_op_conditions(treatment.UF)
-    treatment.pump.efficiency_pump.fix(pump_efi)
-    treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
-    set_ro_system_operating_conditions(treatment.RO, mem_area=10000)
+    set_softener_op_conditions(m.fs.softener)
+    set_UF_op_conditions(m.fs.UF)
+    m.fs.pump.efficiency_pump.fix(pump_efi)
+    m.fs.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
+    set_ro_system_operating_conditions(m.fs.RO, mem_area=10000)
 
 
 def init_system(m, verbose=True, solver=None):
@@ -433,35 +432,35 @@ def init_treatment(m, verbose=True, solver=None):
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
 
-    treatment.feed.initialize()
-    propagate_state(treatment.feed_to_softener)
-    report_MCAS_stream_conc(m, treatment.feed.properties[0.0])
+    m.fs.feed.initialize()
+    propagate_state(m.fs.feed_to_softener)
+    report_MCAS_stream_conc(m, m.fs.feed.properties[0.0])
 
-    init_softener(treatment.softener)
-    propagate_state(treatment.softener_to_translator)
-    propagate_state(treatment.softener_to_sludge)
-    treatment.sludge.initialize()
+    init_softener(m.fs.softener)
+    propagate_state(m.fs.softener_to_translator)
+    propagate_state(m.fs.softener_to_sludge)
+    m.fs.sludge.initialize()
 
-    treatment.MCAS_to_ZO_TDS_translator.initialize()
-    propagate_state(treatment.translator_to_UF)
-    init_UF(m, treatment.UF)
-    propagate_state(treatment.UF_to_translator3)
-    propagate_state(treatment.UF_to_waste)
-    treatment.UF_waste.initialize()
+    m.fs.MCAS_to_ZO_TDS_translator.initialize()
+    propagate_state(m.fs.translator_to_UF)
+    init_UF(m, m.fs.UF)
+    propagate_state(m.fs.UF_to_translator3)
+    propagate_state(m.fs.UF_to_waste)
+    m.fs.UF_waste.initialize()
 
-    treatment.ZO_TDS_to_NaCl_translator.initialize()
+    m.fs.ZO_TDS_to_NaCl_translator.initialize()
 
-    propagate_state(treatment.translator_to_pump)
-    treatment.pump.initialize()
+    propagate_state(m.fs.translator_to_pump)
+    m.fs.pump.initialize()
 
-    propagate_state(treatment.pump_to_ro)
+    propagate_state(m.fs.pump_to_ro)
 
-    init_ro_system(treatment.RO)
-    propagate_state(treatment.ro_to_product)
-    propagate_state(treatment.ro_to_disposal)
+    init_ro_system(m.fs.RO)
+    propagate_state(m.fs.RO_to_product)
+    propagate_state(m.fs.RO_to_disposal)
 
-    treatment.product.initialize()
-    init_DWI(m, treatment.DWI)
+    m.fs.product.initialize()
+    init_DWI(m, m.fs.DWI)
 
 
 def optimize(
@@ -472,9 +471,8 @@ def optimize(
     objective="LCOW",
 ):
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
-    treatment = m.fs.treatment
     if objective == "LCOW":
-        m.fs.lcow_objective = Objective(expr=treatment.costing.LCOW)
+        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
 
     if water_recovery is not None:
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
@@ -486,20 +484,20 @@ def optimize(
 
     if fixed_pressure is not None:
         print(f"\n------- Fixed RO Pump Pressure at {fixed_pressure} -------\n")
-        treatment.pump.control_volume.properties_out[0].pressure.fix(fixed_pressure)
+        m.fs.pump.control_volume.properties_out[0].pressure.fix(fixed_pressure)
     else:
         lower_bound = 100 * pyunits.psi
         upper_bound = 900 * pyunits.psi
         print(f"------- Unfixed RO Pump Pressure -------")
         print(f"Lower Bound: {value(lower_bound)} {pyunits.get_units(lower_bound)}")
         print(f"Upper Bound: {value(upper_bound)} {pyunits.get_units(upper_bound)}")
-        treatment.pump.control_volume.properties_out[0].pressure.unfix()
-        treatment.pump.control_volume.properties_out[0].pressure.setlb(lower_bound)
-        treatment.pump.control_volume.properties_out[0].pressure.setub(upper_bound)
+        m.fs.pump.control_volume.properties_out[0].pressure.unfix()
+        m.fs.pump.control_volume.properties_out[0].pressure.setlb(lower_bound)
+        m.fs.pump.control_volume.properties_out[0].pressure.setub(upper_bound)
 
     if ro_mem_area is not None:
         print(f"\n------- Fixed RO Membrane Area at {ro_mem_area} -------\n")
-        for idx, stage in treatment.RO.stage.items():
+        for idx, stage in m.fs.RO.stage.items():
             stage.module.area.fix(ro_mem_area)
     else:
         lower_bound = 1e3
@@ -508,7 +506,7 @@ def optimize(
         print(f"Lower Bound: {lower_bound} m2")
         print(f"Upper Bound: {upper_bound} m2")
         print("\n")
-        for idx, stage in treatment.RO.stage.items():
+        for idx, stage in m.fs.RO.stage.items():
             stage.module.area.unfix()
             stage.module.area.setub(1e6)
 
