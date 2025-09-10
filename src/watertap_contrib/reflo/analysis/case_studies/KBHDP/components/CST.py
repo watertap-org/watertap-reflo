@@ -1,7 +1,6 @@
 import os
 from pyomo.environ import (
     ConcreteModel,
-    Var,
     value,
     assert_optimal_termination,
     units as pyunits,
@@ -36,12 +35,10 @@ surrogate_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate.json"
 
 def build_system():
     m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs = FlowsheetBlock()
     m.fs.costing = EnergyCosting()
 
-    m.fs.system_capacity = Var(initialize=6000, units=pyunits.m**3 / pyunits.day)
-
-    m.fs.cst = FlowsheetBlock(dynamic=False)
+    m.fs.cst = FlowsheetBlock()
 
     return m
 
@@ -111,7 +108,7 @@ def add_cst_costing_scaling(m, blk):
 
 
 def report_cst(m, blk):
-    
+
     print(f"\n\n-------------------- CST Report --------------------\n\n")
 
     print(
@@ -187,7 +184,7 @@ def main():
     add_cst_costing(m.fs.cst, costing_block=m.fs.costing)
 
     add_cst_costing_scaling(m, m.fs.cst.unit)
-    
+
     results = solver.solve(m)
     assert_optimal_termination(results)
 
@@ -227,7 +224,6 @@ def main():
     )
     print("Denominator:", m.fs.cst.unit.heat_annual())
     print("Calculated LCOH:", lcoh())
-
 
 
 if __name__ == "__main__":
