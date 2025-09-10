@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -10,49 +10,30 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 """
-Translator block representing the 
-
-Assumptions:
-     * Steady-state only
+Translator block for converting from ZO TDS to Seawater (SW)
 """
 
 # Import Pyomo libraries
+from pyomo.environ import check_optimal_termination, units as pyunits
 from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
 
 # Import IDAES cores
-from idaes.core import declare_process_block_class, UnitModelBlockData
-from idaes.models.unit_models.translator import TranslatorData
-from idaes.core.util.config import (
-    is_reaction_parameter_block,
-    is_physical_parameter_block,
-)
-
-from idaes.core.util.exceptions import ConfigurationError
-from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
-import idaes.core.util.scaling as iscale
-
+from idaes.core import declare_process_block_class
+from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.model_statistics import degrees_of_freedom
+from idaes.models.unit_models.translator import TranslatorData
 
-from pyomo.environ import (
-    Param,
-    units as pyunits,
-    check_optimal_termination,
-    Set,
-)
+from watertap.core.solvers import get_solver
 
 __author__ = "Zachary Binger"
 
-
-# Set up logger
-_log = idaeslog.getLogger(__name__)
-
-
-@declare_process_block_class("Translator_MCAS_to_TDS")
-class Translator_MCAS_to_TDS_Data(TranslatorData):
+# translator_3
+@declare_process_block_class("TranslatorZOtoNaCl")
+class TranslatorZOtoNaClData(TranslatorData):
     """
-    Translator block representing the
+    Translator block for converting from ZO TDS to NaCl
     """
 
     CONFIG = ConfigBlock()
@@ -167,7 +148,9 @@ see property package for documentation.}""",
             None
         """
         # Call UnitModel.build to setup dynamics
-        super(Translator_MCAS_to_TDS_Data, self).build()
+        # super(TranslatorZOtoNaClData, self).build()
+        super().build()
+
 
         @self.Constraint(
             self.flowsheet().time,
@@ -175,49 +158,22 @@ see property package for documentation.}""",
         )
         def eq_flow_vol_rule(blk, t):
             return (
-                blk.properties_out[t].flow_mass_comp["H2O"]
-                == blk.properties_in[t].flow_mass_phase_comp["Liq", "H2O"]
+                blk.properties_out[t].flow_mass_phase_comp["Liq", "H2O"]
+                == blk.properties_in[t].flow_mass_comp["H2O"]
             )
-
-        solute_set = self.config.inlet_property_package.solute_set
-        solvent_set = self.config.inlet_property_package.solvent_set
 
         @self.Constraint(
             self.flowsheet().time,
             doc="Equality solute equation",
         )
         def eq_solute_mass_flow(blk, t):
-            return blk.properties_out[t].flow_mass_comp["tds"] == sum(
-                blk.properties_in[t].flow_mass_phase_comp["Liq", i] for i in solute_set
+            return (
+                blk.properties_out[t].flow_mass_phase_comp["Liq", "NaCl"]
+                == blk.properties_in[t].flow_mass_comp["tds"]
             )
 
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Equality temperature equation",
-        # )
-        # def eq_temperature_rule(blk, t):
-        #     return blk.properties_out[t].temperature == blk.properties_in[t].temperature
-
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Equality pressure equation",
-        # )
-        # def eq_pressure_rule(blk, t):
-        #     return blk.properties_out[t].pressure == blk.properties_in[t].pressure
-
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="TSS",
-        # )
-        # def return_tss_flow_comp(blk, t):
-        #     return (
-        #         blk.properties_out[t].flow_mass_comp["tss"]
-        #         == 5.22e-6 * pyunits.kg / pyunits.second
-        #     )
-
-        self.properties_out[0].flow_mass_comp["tss"].fix(
-            5.22e-6 * pyunits.kg / pyunits.second
-        )
+        self.properties_out[0].pressure.fix(101325)
+        self.properties_out[0].temperature.fix(298.15)
 
     def initialize_build(
         self,

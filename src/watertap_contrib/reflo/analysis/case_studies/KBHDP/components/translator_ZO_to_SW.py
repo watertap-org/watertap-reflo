@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -10,49 +10,30 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 """
-Translator block representing the 
-
-Assumptions:
-     * Steady-state only
+Translator block for converting from ZO TDS to Seawater (SW)
 """
 
 # Import Pyomo libraries
+from pyomo.environ import check_optimal_termination
 from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
 
 # Import IDAES cores
-from idaes.core import declare_process_block_class, UnitModelBlockData
-from idaes.models.unit_models.translator import TranslatorData
-from idaes.core.util.config import (
-    is_reaction_parameter_block,
-    is_physical_parameter_block,
-)
-
-from idaes.core.util.exceptions import ConfigurationError
-from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
-import idaes.core.util.scaling as iscale
-
+from idaes.core import declare_process_block_class
+from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.model_statistics import degrees_of_freedom
+from idaes.models.unit_models.translator import TranslatorData
 
-from pyomo.environ import (
-    Param,
-    units as pyunits,
-    check_optimal_termination,
-    Set,
-)
+from watertap.core.solvers import get_solver
 
 __author__ = "Zachary Binger"
 
-
-# Set up logger
-_log = idaeslog.getLogger(__name__)
-
-
-@declare_process_block_class("Translator_TDS_to_TDS")
-class Translator_TDS_to_TDS_Data(TranslatorData):
+# translator_4
+@declare_process_block_class("TranslatorZOtoSW")
+class TranslatorZOtoSWData(TranslatorData):
     """
-    Translator block representing the
+    Translator block for converting from ZO TDS to Seawater (SW)
     """
 
     CONFIG = ConfigBlock()
@@ -166,15 +147,11 @@ see property package for documentation.}""",
         Returns:
             None
         """
-        # Call UnitModel.build to setup dynamics
-        super(Translator_TDS_to_TDS_Data, self).build()
+        # super(TranslatorZOtoSWData, self).build()
+        super().build()
 
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Equality pressure equation",
-        # )
-        # def eq_pressure_rule(blk, t):
-        #     return blk.properties_out[t].pressure == blk.properties_in[t].pressure
+        self.properties_out[0].pressure.fix(101325)
+        self.properties_out[0].temperature.fix(298.15)
 
         @self.Constraint(
             self.flowsheet().time,
@@ -186,9 +163,6 @@ see property package for documentation.}""",
                 == blk.properties_in[t].flow_mass_comp["H2O"]
             )
 
-        solute_set = self.config.inlet_property_package.solute_set
-        solvent_set = self.config.inlet_property_package.solvent_set
-
         @self.Constraint(
             self.flowsheet().time,
             doc="Equality solute equation",
@@ -199,28 +173,6 @@ see property package for documentation.}""",
                 == blk.properties_in[t].flow_mass_comp["tds"]
             )
 
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Outlet Pressure",
-        # )
-        # def eq_outlet_pressure(blk, t):
-        #     return (
-        #         blk.properties_out[t].pressure
-        #         == 101325 * pyunits.Pa
-        #     )
-
-        # @self.Constraint(
-        #     self.flowsheet().time,
-        #     doc="Outlet Pressure",
-        # )
-        # def eq_outlet_temperature(blk, t):
-        #     return (
-        #         blk.properties_out[t].temperature
-        #         == 298.15 * pyunits.K
-        #     )
-
-        self.properties_out[0].pressure.fix(101325)
-        self.properties_out[0].temperature.fix(298.15)
 
     def initialize_build(
         self,

@@ -5,10 +5,10 @@ from .MD import *
 from .EC import *
 from .deep_well_injection import *
 from .LTMED import *
-from .translator_1 import Translator_MCAS_to_NACL
-from .translator_2 import Translator_MCAS_to_TDS
-from .translator_3 import Translator_TDS_to_NACL
-from .translator_4 import Translator_TDS_to_TDS
-from .translator_6 import Translator_NaCl_to_TDS
+from .translator_MCAS_to_NaCl import TranslatorMCAStoNaCl
+from .translator_MCAS_to_ZO import TranslatorMCAStoZO
+from .translator_ZO_to_NaCl import TranslatorZOtoNaCl
+from .translator_ZO_to_SW import TranslatorZOtoSW
+from .translator_NaCl_to_TDS import TranslatorNaCltoTDS
 from .PV import *
 from .FPC import *

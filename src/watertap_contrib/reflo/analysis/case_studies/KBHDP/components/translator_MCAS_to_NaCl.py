@@ -10,30 +10,29 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 """
-Translator block for converting from MCAS to NaCl
+Translator block for converting from ZO TDS to Seawater (SW)
 """
 
 # Import Pyomo libraries
-from pyomo.environ import check_optimal_termination
+from pyomo.environ import check_optimal_termination, units as pyunits
 from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
 
 # Import IDAES cores
 import idaes.logger as idaeslog
 from idaes.core import declare_process_block_class
+from idaes.core.util.config import is_physical_parameter_block
 from idaes.core.util.exceptions import InitializationError
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.models.unit_models.translator import TranslatorData
-from idaes.core.util.config import (
-    is_physical_parameter_block,
-)
 
 from watertap.core.solvers import get_solver
 
 __author__ = "Zachary Binger"
 
 
-@declare_process_block_class("Translator_MCAS_to_NaCl")
-class Translator_MCAS_to_NaCl_Data(TranslatorData):
+# translator_1
+@declare_process_block_class("TranslatorMCAStoNaCl")
+class TranslatorMCAStoNaClData(TranslatorData):
     """
     Translator block for converting from MCAS to NaCl
     """
@@ -149,7 +148,8 @@ see property package for documentation.}""",
         Returns:
             None
         """
-        super(Translator_MCAS_to_NaCl_Data, self).build()
+        # super(TranslatorMCAStoNaClData, self).build()
+        super().build()
         solute_set = self.config.inlet_property_package.solute_set
 
         @self.Constraint(
