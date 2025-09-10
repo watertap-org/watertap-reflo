@@ -1,45 +1,25 @@
-import os
 from pyomo.environ import (
     ConcreteModel,
-    value,
     TransformationFactory,
-    check_optimal_termination,
+    assert_optimal_termination,
+    value,
     units as pyunits,
 )
-from pyomo.network import Arc, SequentialDecomposition
-from pyomo.util.check_units import assert_units_consistent
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
-from idaes.core.solvers import get_solver
-from idaes.core.util.initialization import propagate_state as _prop_state
+from pyomo.network import Arc
+
 import idaes.core.util.scaling as iscale
-from idaes.core.util.scaling import (
-    constraint_scaling_transform,
-    calculate_scaling_factors,
-    set_scaling_factor,
-)
-import idaes.logger as idaeslogger
-from idaes.core.util.exceptions import InitializationError
-from idaes.models.unit_models import Product, Feed, StateJunction, Separator
-from idaes.core.util.model_statistics import *
-from watertap.core.util.initialization import *
-from watertap.core.util.model_diagnostics.infeasible import *
+from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
+from idaes.core.util.initialization import propagate_state
+from idaes.models.unit_models import StateJunction
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
-from watertap.core.zero_order_properties import WaterParameterBlock
-from watertap_contrib.reflo.core import REFLODatabase
-from watertap_contrib.reflo.costing import (
-    TreatmentCosting,
-    EnergyCosting,
-    REFLOCosting,
-)
+
+from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.unit_models.deep_well_injection import DeepWellInjection
-from watertap_contrib.reflo.costing.units.deep_well_injection import (
-    blm_costing_params_dict,
-)
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve
 
 __all__ = [
     "build_DWI",
     "init_DWI",
-    "set_DWI_op_conditions",
     "add_DWI_costing",
     "add_DWI_scaling",
     "report_DWI",
@@ -47,12 +27,12 @@ __all__ = [
 ]
 
 
-def propagate_state(arc):
-    _prop_state(arc)
-
-
-def build_DWI(m, blk, prop_package) -> None:
+def build_DWI(blk, prop_package=None):
     print(f'\n{"=======> BUILDING DEEP WELL INJECTION SYSTEM <=======":^60}\n')
+
+    if prop_package is None:
+        m = blk.model()
+        prop_package = m.fs.properties
 
     blk.feed = StateJunction(property_package=prop_package)
     blk.unit = DeepWellInjection(property_package=prop_package)
@@ -72,52 +52,40 @@ def set_system_op_conditions(blk):
     }
 
     rho = 1000 * pyunits.kg / pyunits.m**3
-    flow_mgd = 2.08 * pyunits.Mgallons / pyunits.day
-
-    flow_mass_phase_water = pyunits.convert(
-        flow_mgd * rho, to_units=pyunits.kg / pyunits.s
-    )
+    flow_mgd = 2.08 * pyunits.Mgallons / pyunits.day  # estimated from upstream flows
 
     prop = blk.unit.properties[0]
-    prop.temperature.fix()
-    prop.pressure.fix()
+    blk.unit.properties[0].temperature.fix()
+    blk.unit.properties[0].pressure.fix()
+    blk.unit.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(flow_mgd * rho)
 
-    prop.flow_mass_phase_comp["Liq", "H2O"].fix(flow_mass_phase_water)
     for solute, conc in inlet_conc.items():
         mass_flow_solute = pyunits.convert(
             flow_mgd * conc * pyunits.kg / pyunits.m**3,
             to_units=pyunits.kg / pyunits.s,
         )
-        prop.flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
-        prop.set_default_scaling(
+        blk.unit.properties[0].flow_mass_phase_comp["Liq", solute].fix(mass_flow_solute)
+        blk.unit.properties[0].set_default_scaling(
             "flow_mass_phase_comp",
             value(1 / mass_flow_solute),
             index=("Liq", solute),
         )
-    prop.set_default_scaling(
+    blk.unit.properties[0].set_default_scaling(
         "flow_mass_phase_comp",
-        value(1 / flow_mass_phase_water),
+        value(1 / blk.unit.properties[0].flow_mass_phase_comp["Liq", "H2O"]),
         index=("Liq", "H2O"),
     )
 
 
-def set_DWI_op_conditions(blk):
-    pass
-
-
-def init_DWI(m, blk, verbose=True, solver=None):
-    if solver is None:
-        solver = get_solver()
-
-    optarg = solver.options
-    # assert_no_degrees_of_freedom(m)
-    blk.feed.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
+def init_DWI(blk):
+    blk.feed.initialize()
     propagate_state(blk.feed_to_unit)
-    blk.unit.initialize(optarg=optarg, outlvl=idaeslogger.INFO)
+    blk.unit.initialize()
 
 
-def add_DWI_costing(m, blk, costing_blk=None):
+def add_DWI_costing(blk, costing_blk=None):
     if costing_blk is None:
+        m = blk.model()
         costing_blk = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(
@@ -129,17 +97,13 @@ def add_DWI_costing(m, blk, costing_blk=None):
 
 
 def add_DWI_scaling(m, blk):
-    set_scaling_factor(blk.feed.properties[0.0].mass_frac_phase_comp["Liq", "H2O"], 0.1)
-    # set_scaling_factor(blk.feed.properties[0.0].mass_frac_phase_comp['Liq','TDS'], 1e-2)
-
-    set_scaling_factor(blk.unit.properties[0.0].mass_frac_phase_comp["Liq", "H2O"], 0.1)
-    set_scaling_factor(blk.unit.properties[0.0].flow_vol_phase["Liq"], 1e-2)
-    # set_scaling_factor(blk.unit.properties[0.0].mass_frac_phase_comp['Liq','TDS'], 1e-2)
-    # set_scaling_factor(blk.unit.properties[0.0].dens_mass_phase['Liq'], 1e3)
-
-    # constraint_scaling_transform(blk.feed.properties[0].eq_conc_mass_phase_comp, 1e-1)
-    # constraint_scaling_transform(blk.feed.properties[0.0].eq_conc_mass_phase_comp, 1)
-    # set_scaling_factor(blk.feed.properties[0.0].dens_mass_phase['Liq'], 1e3)
+    iscale.set_scaling_factor(
+        blk.feed.properties[0.0].mass_frac_phase_comp["Liq", "H2O"], 0.1
+    )
+    iscale.set_scaling_factor(
+        blk.unit.properties[0.0].mass_frac_phase_comp["Liq", "H2O"], 0.1
+    )
+    iscale.set_scaling_factor(blk.unit.properties[0.0].flow_vol_phase["Liq"], 1e-2)
 
 
 def report_DWI(blk):
@@ -162,8 +126,8 @@ def print_DWI_costing_breakdown(blk):
 def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
-    m.fs.costing = REFLOCosting()
-    m.db = REFLODatabase()
+    m.fs.costing = TreatmentCosting()
+    # m.db = REFLODatabase()
     inlet_conc = {
         "Ca_2+": 1.43,
         "Mg_2+": 0.1814,
@@ -176,79 +140,81 @@ def build_system():
     )
 
     m.fs.DWI = FlowsheetBlock(dynamic=False)
-    build_DWI(m, m.fs.DWI, m.fs.properties)
+    build_DWI(m.fs.DWI, prop_package=m.fs.properties)
 
     TransformationFactory("network.expand_arcs").apply_to(m)
 
     return m
 
 
-def solve(model, solver=None, tee=True, raise_on_failure=True):
-    # ---solving---
-    if solver is None:
-        solver = get_solver()
+# def solve(model, solver=None, tee=True, raise_on_failure=True):
+#     # ---solving---
+#     if solver is None:
+#         solver = get_solver()
 
-    print("\n--------- SOLVING ---------\n")
+#     print("\n--------- SOLVING ---------\n")
 
-    results = solver.solve(model, tee=tee)
+#     results = solver.solve(model, tee=tee)
 
-    if check_optimal_termination(results):
-        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
-        return results
-    msg = (
-        "The current configuration is infeasible. Please adjust the decision variables."
-    )
-    if raise_on_failure:
-        raise RuntimeError(msg)
-    else:
-        return results
-
-
-def breakdown_dof(blk):
-    equalities = [c for c in activated_equalities_generator(blk)]
-    active_vars = variables_in_activated_equalities_set(blk)
-    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
-    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
-    print("\n ===============DOF Breakdown================\n")
-    print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
-    print(f"Activated Variables: ({len(active_vars)})")
-    for v in active_vars:
-        print(f"   {v}")
-    print(f"Activated Equalities: ({len(equalities)})")
-    for c in equalities:
-        print(f"   {c}")
-
-    print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
-    for v in fixed_active_vars:
-        print(f"   {v}")
-
-    print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
-    for v in unfixed_active_vars:
-        print(f"   {v}")
-    print("\n")
-    print(f" {f' Active Vars':<30s}{len(active_vars)}")
-    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
-    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
-    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
-    print("\nSuggested Variables to Fix:")
-
-    if degrees_of_freedom != 0:
-        unfixed_vars_without_constraint = [
-            v for v in active_vars if v not in unfixed_active_vars
-        ]
-        for v in unfixed_vars_without_constraint:
-            if v.fixed is False:
-                print(f"   {v}")
+#     if check_optimal_termination(results):
+#         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+#         return results
+#     msg = (
+#         "The current configuration is infeasible. Please adjust the decision variables."
+#     )
+#     if raise_on_failure:
+#         raise RuntimeError(msg)
+#     else:
+#         return results
 
 
-if __name__ == "__main__":
-    file_dir = os.path.dirname(os.path.abspath(__file__))
+# def breakdown_dof(blk):
+#     equalities = [c for c in activated_equalities_generator(blk)]
+#     active_vars = variables_in_activated_equalities_set(blk)
+#     fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
+#     unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
+#     print("\n ===============DOF Breakdown================\n")
+#     print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
+#     print(f"Activated Variables: ({len(active_vars)})")
+#     for v in active_vars:
+#         print(f"   {v}")
+#     print(f"Activated Equalities: ({len(equalities)})")
+#     for c in equalities:
+#         print(f"   {c}")
+
+#     print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
+#     for v in fixed_active_vars:
+#         print(f"   {v}")
+
+#     print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
+#     for v in unfixed_active_vars:
+#         print(f"   {v}")
+#     print("\n")
+#     print(f" {f' Active Vars':<30s}{len(active_vars)}")
+#     print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
+#     print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
+#     print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
+#     print("\nSuggested Variables to Fix:")
+
+#     if degrees_of_freedom != 0:
+#         unfixed_vars_without_constraint = [
+#             v for v in active_vars if v not in unfixed_active_vars
+#         ]
+#         for v in unfixed_vars_without_constraint:
+#             if v.fixed is False:
+#                 print(f"   {v}")
+
+
+def main():
     m = build_system()
     set_system_op_conditions(m.fs.DWI)
 
-    init_DWI(m, m.fs.DWI)
-    # add_DWI_costing(m, m.fs.DWI)
-    # solve(m)
-    # print_DWI_costing_breakdown(m.fs.DWI)
+    init_DWI(m.fs.DWI)
+    add_DWI_costing(m.fs.DWI)
+    results = solve(m)
+    assert_optimal_termination(results)
+    print_DWI_costing_breakdown(m.fs.DWI)
 
-    # print(m.fs.DWI.display())
+
+if __name__ == "__main__":
+    main()
