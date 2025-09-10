@@ -10,10 +10,9 @@ import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import degrees_of_freedom
 
-from watertap.core.solvers import get_solver
-
 from watertap_contrib.reflo.costing import EnergyCosting
 from watertap_contrib.reflo.solar_models import TroughSurrogate
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve
 
 
 __all__ = [
@@ -98,10 +97,6 @@ def add_cst_costing(blk, costing_block=None):
         costing_block = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
-    costing_block.cost_process()
-    # Updated to be 0 because this factor is not included in SAM
-    costing_block.maintenance_labor_chemical_factor.fix(0)
-    costing_block.initialize()
 
 
 def add_cst_costing_scaling(blk):
@@ -169,50 +164,27 @@ def report_cst(blk):
 
 def main():
 
-    solver = get_solver()
-
     m = build_system()
     build_cst(m.fs.cst)
     set_cst_op_conditions(m.fs.cst)
     assert degrees_of_freedom(m) == 0
     init_cst(m.fs.cst)
 
-    results = solver.solve(m)
+    results = solve(m)
     assert_optimal_termination(results)
 
     add_cst_costing(m.fs.cst)
+    m.fs.costing.cost_process()
+    # Updated to be 0 because this factor is not included in SAM
+    m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.costing.initialize()
     add_cst_costing_scaling(m.fs.cst)
     m.fs.costing.add_LCOH()
 
-    results = solver.solve(m)
+    results = solve(m)
     assert_optimal_termination(results)
 
     report_cst(m.fs.cst)
-
-    # print("LCOH:", m.fs.costing.LCOH())
-    # print("Hours of storage:", m.fs.cst.unit.hours_storage())
-    # print("Aperture area:", m.fs.cst.unit.total_aperture_area())
-
-    # print("CST fixed cost:", m.fs.cst.unit.costing.fixed_operating_cost())
-
-    # # Calcualating LCOH like SAM
-    # cost = m.fs.costing
-    # lcoh = (
-    #     cost.total_capital_cost * cost.capital_recovery_factor
-    #     + cost.total_operating_cost
-    # ) / m.fs.cst.unit.heat_annual
-
-    # print("\nManual LCOH check\n")
-    # print("CRF:", cost.capital_recovery_factor())
-    # print(
-    #     "Numerator:",
-    #     (
-    #         cost.total_capital_cost * cost.capital_recovery_factor
-    #         + cost.total_operating_cost
-    #     )(),
-    # )
-    # print("Denominator:", m.fs.cst.unit.heat_annual())
-    # print("Calculated LCOH:", lcoh())
 
 
 if __name__ == "__main__":

@@ -13,7 +13,9 @@ from idaes.core.util.model_statistics import degrees_of_freedom
 from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.costing import EnergyCosting
+
 from watertap_contrib.reflo.solar_models import FlatPlateSurrogate
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve
 
 __all__ = [
     "build_fpc",
@@ -90,10 +92,6 @@ def add_fpc_costing(blk, costing_block=None):
     blk.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=costing_block,
     )
-    m.fs.costing.cost_process()
-    # Updated to be 0 because this factor is not included in SAM
-    m.fs.costing.maintenance_labor_chemical_factor.fix(0)
-    m.fs.costing.initialize()
 
 
 def add_FPC_scaling(blk):
@@ -180,7 +178,6 @@ def report_fpc(blk):
 
 def main():
 
-    solver = get_solver()
     m = build_system()
 
     build_fpc(m.fs.fpc)
@@ -190,16 +187,13 @@ def main():
     init_fpc(m.fs.fpc)
 
     add_fpc_costing(m.fs.fpc)
-    results = solver.solve(m)
+    m.fs.costing.cost_process()
+    # Updated to be 0 because this factor is not included in SAM
+    m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.costing.initialize()
+    results = solve(m)
     assert_optimal_termination(results)
     report_fpc(m.fs.fpc)
-    m.fs.fpc.unit.heat_annual_scaling.display()
-    print(
-        pyunits.get_units(
-            m.fs.fpc.unit.heat_annual_scaled / m.fs.fpc.unit.heat_annual_scaling
-        )
-    )
-    print(pyunits.get_units(m.fs.fpc.unit.heat_annual))
 
 
 if __name__ == "__main__":
