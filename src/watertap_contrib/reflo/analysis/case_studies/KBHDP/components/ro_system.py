@@ -51,7 +51,6 @@ __all__ = [
     "set_ro_system_operating_conditions",
     "add_ro_costing",
     "add_ro_scaling",
-    "display_ro_system_build",
     "display_dof_breakdown",
     "display_flow_table",
     "report_RO",

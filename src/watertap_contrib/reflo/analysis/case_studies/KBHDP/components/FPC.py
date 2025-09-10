@@ -21,9 +21,7 @@ __all__ = [
     "set_fpc_op_conditions",
     "add_fpc_costing",
     "add_FPC_scaling",
-    "add_fpc_costing_scaling",
     "report_fpc",
-    "print_FPC_costing_breakdown",
 ]
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
