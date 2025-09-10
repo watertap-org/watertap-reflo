@@ -150,13 +150,13 @@ def init_EC(blk):
     propagate_state(blk.unit_to_disposal)
 
 
-def add_ec_costing(blk, costing_blk=None):
+def add_ec_costing(blk, costing_block=None):
 
-    if costing_blk is None:
+    if costing_block is None:
         m = blk.model()
-        costing_blk = m.fs.costing
+        costing_block = m.fs.costing
 
-    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
+    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
 
 
 def report_EC(blk):

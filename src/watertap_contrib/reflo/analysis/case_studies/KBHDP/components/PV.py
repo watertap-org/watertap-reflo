@@ -17,6 +17,9 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve
 __all__ = [
     "build_pv",
     "add_pv_scaling",
+    "set_pv_op_conditions",
+    "init_pv",
+    "add_pv_costing",
     "add_pv_costing_scaling",
     "print_PV_costing_breakdown",
     "report_PV",

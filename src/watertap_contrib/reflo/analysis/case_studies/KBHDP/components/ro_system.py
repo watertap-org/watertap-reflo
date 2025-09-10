@@ -520,14 +520,14 @@ def set_ro_system_operating_conditions(blk, mem_area=100):
     print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
 
 
-def add_ro_costing(blk, costing_blk=None):
-    if costing_blk is None:
+def add_ro_costing(blk, costing_block=None):
+    if costing_block is None:
         m = blk.model()
-        costing_blk = m.fs.costing
+        costing_block = m.fs.costing
 
     for stage in blk.stage.values():
         stage.module.costing = UnitModelCostingBlock(
-            flowsheet_costing_block=costing_blk
+            flowsheet_costing_block=costing_block
         )
 
 

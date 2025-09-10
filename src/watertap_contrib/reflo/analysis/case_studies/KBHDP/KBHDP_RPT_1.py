@@ -27,7 +27,6 @@ from idaes.core.util.model_statistics import *
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
-    REFLOCosting,
     REFLOSystemCosting,
 )
 from watertap.unit_models.pressure_changer import Pump
@@ -52,39 +51,6 @@ def propagate_state(arc, detailed=True):
         arc.destination.display()
         print("\n")
 
-
-def main():
-    file_dir = os.path.dirname(os.path.abspath(__file__))
-
-    m = build_system(RE=True)
-    display_system_build(m)
-    add_connections(m)
-    add_constraints(m)
-    set_operating_conditions(m)
-    apply_scaling(m)
-    init_system(m)
-    add_costing(m)
-    scale_costing(m)
-    # box_solve_problem(m)
-    # solve(m, debug=True)
-    # scale_costing(m)
-    optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=None, objective="LCOT")
-    solve(m, debug=False)
-    # # display_flow_table(m)
-    # display_system_stream_table(m)
-    # report_RO(m, m.fs.treatment.RO)
-    # # # # # report_pump(m, m.fs.treatment.pump)
-    # # report_PV(m)
-    # # # # # m.fs.treatment.costing.display()
-    # # # # # m.fs.energy.costing.display()""
-    # # # # # m.fs.costing.display()
-    # display_costing_breakdown(m)
-    # # # # # print(m.fs.energy.pv.display())
-    # # # print_system_scaling_report(m)
-    report_PV(m)
-    # print(m.fs.energy.pv.display())
-
-    return m
 
 
 def build_sweep(
@@ -164,24 +130,24 @@ def build_treatment(m):
     treatment.RO = FlowsheetBlock(dynamic=False)
     treatment.DWI = FlowsheetBlock(dynamic=False)
 
-    treatment.MCAS_to_TDS_translator = Translator_MCAS_to_TDS(
+    treatment.MCAS_to_TDS_translator = TranslatorMCAStoZO(
         inlet_property_package=m.fs.MCAS_properties,
         outlet_property_package=m.fs.UF_properties,
         has_phase_equilibrium=False,
         outlet_state_defined=False,
     )
 
-    treatment.TDS_to_NaCl_translator = Translator_TDS_to_NACL(
+    treatment.TDS_to_NaCl_translator = TranslatorZOtoNaCl(
         inlet_property_package=m.fs.UF_properties,
         outlet_property_package=m.fs.RO_properties,
         has_phase_equilibrium=False,
         outlet_state_defined=True,
     )
 
-    build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
-    build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
-    build_ro(m, treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
-    build_DWI(m, treatment.DWI, prop_package=m.fs.RO_properties)
+    build_EC(treatment.EC, prop_package=m.fs.UF_properties)
+    build_UF(treatment.UF, prop_package=m.fs.UF_properties)
+    build_ro(treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
+    build_DWI(treatment.DWI, prop_package=m.fs.RO_properties)
 
     m.fs.units = [
         treatment.feed,
@@ -215,7 +181,8 @@ def build_treatment(m):
 
 def build_energy(m):
     energy = m.fs.energy = Block()
-    build_pv(m)
+    m.fs.energy.pv = FlowsheetBlock()
+    build_pv(m.fs.energy.pv)
 
 
 def add_connections(m):
@@ -298,14 +265,13 @@ def add_treatment_costing(m):
     treatment.pump.costing = UnitModelCostingBlock(
         flowsheet_costing_block=treatment.costing,
     )
-    add_ec_costing(m, treatment.EC, treatment.costing)
-    add_UF_costing(m, treatment.UF, treatment.costing)
-    add_ro_costing(m, treatment.RO, treatment.costing)
-    add_DWI_costing(m, treatment.DWI, treatment.costing)
+    add_ec_costing(treatment.EC, costing_block=treatment.costing)
+    add_UF_costing(treatment.UF, costing_block=treatment.costing)
+    add_ro_costing(treatment.RO, costing_block=treatment.costing)
+    add_DWI_costing(treatment.DWI, costing_block=treatment.costing)
 
     treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
     treatment.costing.total_investment_factor.fix(1)
-    # treatment.costing.maintenance_labor_chemical_factor.fix(0)
 
     treatment.costing.cost_process()
     treatment.costing.initialize()
@@ -315,7 +281,7 @@ def add_energy_costing(m):
     energy = m.fs.energy
     energy.costing = EnergyCosting()
 
-    energy.pv.costing = UnitModelCostingBlock(
+    energy.pv.unit.costing = UnitModelCostingBlock(
         flowsheet_costing_block=energy.costing,
     )
 
@@ -334,6 +300,7 @@ def add_costing(m):
 
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.cost_process()
+    m.fs.costing.electricity_cost_buy.set_value(0.07)
 
     m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
     m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
@@ -359,7 +326,7 @@ def scale_costing(m):
     energy = m.fs.energy
 
     # iscale.set_scaling_factor(m.fs.energy.pv.electricity, 1e-5)
-    # iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1/10000000)
+    # iscale.set_scaling_factor(m.fs.energy.pv.electricity_annual, 1/10000000)
     # # iscale.set_scaling_factor(m.fs.energy.pv.costing.annual_generation, 1e-10)
     # # iscale.set_scaling_factor(m.fs.energy.pv.costing.system_capacity, 1e-6)
 
@@ -371,18 +338,16 @@ def scale_costing(m):
     # iscale.constraint_scaling_transform(m.fs.energy.pv.costing.system_capacity_constraint, 1e-3)
 
     # agg_elec_scale = calc_scale(pyunits.convert(m.fs.treatment.costing.aggregate_flow_electricity, to_units=pyunits.kWh/pyunits.year)())
-    # iscale.set_scaling_factor(m.fs.energy.pv.annual_energy, 1e-8)
+    # iscale.set_scaling_factor(m.fs.energy.pv.electricity_annual, 1e-8)
     # iscale.constraint_scaling_transform(energy.pv_design_constraint, 1e-2)
     # for e in m.fs.treatment.RO.stage[1].module.feed_side.eq_K:
     #     iscale.constraint_scaling_transform(m.fs.treatment.RO.stage[1].module.feed_side.eq_K[e], 1e6)
 
 
-def apply_system_scaling(m):
+# def apply_system_scaling(m):
     # iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["H2O"], 1)
     # iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["tds"], 1)
-    iscale.set_scaling_factor(
-        m.fs.treatment.UF_waste.properties[0.0].flow_mass_comp["tds"], 1e3
-    )
+
 
     # iscale.set_scaling_factor(
     #     m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3
@@ -395,12 +360,15 @@ def apply_system_scaling(m):
 
 def apply_scaling(m):
 
-    add_ec_scaling(m, m.fs.treatment.EC)
-    add_UF_scaling(m.fs.treatment.UF)
-    add_ro_scaling(m, m.fs.treatment.RO)
+    add_ec_scaling(m.fs.treatment.EC)
+    add_UF_scaling(m.fs.treatment.UF)    
+    add_ro_scaling(m.fs.treatment.RO)
     # if m.fs.RE:
-    add_pv_scaling(m, m.fs.energy.pv)
-    apply_system_scaling(m)
+    add_pv_scaling(m.fs.energy.pv)
+    # apply_system_scaling(m)
+    iscale.set_scaling_factor(
+        m.fs.treatment.UF_waste.properties[0.0].flow_mass_comp["tds"], 1e3
+    )
     iscale.calculate_scaling_factors(m)
 
 
@@ -493,64 +461,58 @@ def display_unfixed_vars(blk, report=True):
             print(f"\t{v2.name:<40s}")
 
 
-def set_operating_conditions(m, RO_pressure=20e5):
+def set_operating_conditions(m, RO_pressure=20e5, system_capacity=50):
     treatment = m.fs.treatment
     pump_efi = 0.8  # pump efficiency [-]
     # Set inlet conditions and operating conditions for each unit
     set_inlet_conditions(m, Qin=4)
-    set_ec_operating_conditions(m, treatment.EC)
+    set_EC_operating_conditions(treatment.EC)
     set_UF_op_conditions(treatment.UF)
     treatment.pump.efficiency_pump.fix(pump_efi)
     treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
-    set_ro_system_operating_conditions(m, treatment.RO, mem_area=10000)
-    set_pv_constraints(m, focus="Energy")
+    set_ro_system_operating_conditions(treatment.RO, mem_area=10000)
+    set_pv_op_conditions(m.fs.energy.pv, system_capacity=system_capacity)
 
 
-def init_treatment(m, verbose=True, solver=None):
-    if solver is None:
-        solver = get_solver()
+def init_treatment(m):
 
-    optarg = solver.options
     treatment = m.fs.treatment
 
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    assert_no_degrees_of_freedom(m)
-    treatment.feed.initialize(optarg=optarg)
+
+    treatment.feed.initialize()
     propagate_state(treatment.feed_to_translator)
-    report_MCAS_stream_conc(m, treatment.feed.properties[0.0])
-    treatment.MCAS_to_TDS_translator.initialize(optarg=optarg)
+    # report_MCAS_stream_conc(m, treatment.feed.properties[0.0])
+    treatment.MCAS_to_TDS_translator.initialize()
     propagate_state(treatment.translator_to_EC)
 
-    init_ec(m, treatment.EC)
+    init_EC(treatment.EC)
     propagate_state(treatment.EC_to_UF)
 
-    init_UF(m, treatment.UF)
+    init_UF(treatment.UF)
     propagate_state(treatment.UF_to_translator3)
     propagate_state(treatment.UF_to_waste)
 
-    treatment.TDS_to_NaCl_translator.initialize(optarg=optarg)
+    treatment.TDS_to_NaCl_translator.initialize()
     propagate_state(treatment.translator_to_pump)
 
-    treatment.pump.initialize(optarg=optarg)
+    treatment.pump.initialize()
 
     propagate_state(treatment.pump_to_ro)
 
-    init_ro_system(m, treatment.RO)
+    init_ro_system(treatment.RO)
     propagate_state(treatment.ro_to_product)
     # propagate_state(treatment.ro_to_dwi)
 
-    treatment.product.initialize(optarg=optarg)
-    init_DWI(m, treatment.DWI)
-    display_system_stream_table(m)
+    treatment.product.initialize()
+    init_DWI(treatment.DWI)
+    # display_system_stream_table(m)
 
 
 def init_system(m, verbose=True, solver=None):
     print(f'\n{"=======> SYSTEM INITIALIZATION <=======":^60}\n')
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    if degrees_of_freedom(m) != 0:
-        breakdown_dof(m, detailed=True)
-    assert_no_degrees_of_freedom(m)
+
     init_treatment(m)
 
 
@@ -594,26 +556,9 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
         assert False
 
 
-def set_prob_for_box_solve(m):
-    treatment = m.fs.treatment
-    # m.fs.water_recovery.unfix()
-    # m.fs.primary_pump.control_volume.properties_out[0].pressure.fix(75e5)
-    treatment.pump.control_volume.properties_out[0].pressure.unfix()
-    for idx, stage in treatment.RO.stage.items():
-        stage.module.recovery_vol_phase[0.0, "Liq"].fix(0.5)
 
 
-def box_solve_problem(m):
-    set_prob_for_box_solve(m)
-    breakdown_dof(m, detailed=False)
-    fsTools.standard_solve(
-        m,
-        tee=True,
-        check_close_to_bounds=True,
-        check_var_scailing=True,
-        check_dofs=True,
-        expected_DOFs=0,
-    )
+
 
 
 def optimize(
@@ -623,7 +568,7 @@ def optimize(
     ro_mem_area=None,
     grid_frac=None,
     elec_price=None,
-    objective="LCOW",
+    objective="LCOT",
 ):
     treatment = m.fs.treatment
     # energy = m.fs.energy
@@ -683,13 +628,13 @@ def optimize(
 
     if grid_frac is not None:
         m.fs.costing.frac_elec_from_grid.fix(grid_frac)
-        m.fs.energy.pv.design_size.unfix()
-        m.fs.energy.pv.annual_energy.unfix()
+        m.fs.energy.pv.unit.system_capacity.unfix()
+        m.fs.energy.pv.unit.electricity_annual.unfix()
 
     if elec_price is not None:
         m.fs.costing.frac_elec_from_grid.unfix()
-        m.fs.energy.pv.design_size.unfix()
-        m.fs.energy.pv.annual_energy.unfix()
+        m.fs.energy.pv.unit.system_capacity.unfix()
+        m.fs.energy.pv.unit.electricity_annual.unfix()
 
     for idx, stage in treatment.RO.stage.items():
         stage.module.width.setub(5000)
@@ -817,6 +762,51 @@ def display_costing_breakdown(m):
     print_DWI_costing_breakdown(m.fs.treatment.DWI)
     print_PV_costing_breakdown(m.fs.energy.pv)
 
+
+def main():
+    file_dir = os.path.dirname(os.path.abspath(__file__))
+
+    m = build_system(RE=True)
+    display_system_build(m)
+    add_connections(m)
+    add_constraints(m)
+    set_operating_conditions(m)
+    apply_scaling(m)
+    init_system(m)
+    add_costing(m)
+    scale_costing(m)
+    optimize(m, ro_mem_area=20000, water_recovery=0.8, grid_frac=None, objective="LCOT")
+
+    treatment = m.fs.treatment
+    treatment.RO.total_membrane_area.fix(20000)
+    for idx, stage in treatment.RO.stage.items():
+        stage.module.area.unfix()
+        stage.module.area.setub(1e6)
+    for idx, stage in treatment.RO.stage.items():
+        stage.module.width.setub(5000)
+        stage.module.feed_side.velocity[0, 0].unfix()
+        stage.module.feed_side.velocity[0, 1].setlb(0.0)
+        stage.module.feed_side.K.setlb(1e-6)
+        stage.module.feed_side.friction_factor_darcy.setub(50)
+        stage.module.flux_mass_phase_comp.setub(1)
+        # stage.module.flux_mass_phase_comp.setlb(1e-5)
+        stage.module.feed_side.cp_modulus.setub(10)
+        stage.module.rejection_phase_comp.setlb(1e-4)
+        stage.module.feed_side.N_Re.setlb(1)
+        stage.module.recovery_mass_phase_comp.setlb(1e-7)
+    m.fs.water_recovery.fix(0.8)
+    m.fs.costing.frac_elec_from_grid.fix(0.1)
+    m.fs.energy.pv.unit.system_capacity.unfix()
+    # m.fs.energy.pv.unit.electricity_annual.unfix()
+    print(f" dof = {degrees_of_freedom(m)}")
+    # assert False
+    m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
+    results = solve(m, debug=False)
+    report_PV(m.fs.energy.pv)
+    m.fs.costing.frac_elec_from_grid.display()
+    # m.fs.costing.display()
+
+    return m
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))

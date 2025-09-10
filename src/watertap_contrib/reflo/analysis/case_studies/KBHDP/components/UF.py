@@ -91,13 +91,13 @@ def set_system_conditions(blk):
     blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
 
 
-def add_UF_costing(blk, costing_blk=None):
-    if costing_blk is None:
+def add_UF_costing(blk, costing_block=None):
+    if costing_block is None:
         m = blk.model()
-        costing_blk = m.fs.costing
+        costing_block = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=costing_blk,
+        flowsheet_costing_block=costing_block,
     )
 
 

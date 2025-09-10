@@ -188,13 +188,13 @@ def set_softener_op_conditions(
     blk.unit.vel_gradient_floc.fix(50)
 
 
-def add_softener_costing(blk, costing_blk=None):
-    if costing_blk is None:
+def add_softener_costing(blk, costing_block=None):
+    if costing_block is None:
         m = blk.model()
-        costing_blk = m.fs.costing
+        costing_block = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=costing_blk,
+        flowsheet_costing_block=costing_block,
     )
 
 

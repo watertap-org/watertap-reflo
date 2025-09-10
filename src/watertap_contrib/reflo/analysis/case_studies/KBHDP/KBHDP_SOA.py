@@ -212,10 +212,10 @@ def add_costing(m):
         flowsheet_costing_block=m.fs.costing,
     )
 
-    add_softener_costing(m.fs.softener, costing_blk=m.fs.costing)
-    add_UF_costing(m.fs.UF, costing_blk=m.fs.costing)
-    add_ro_costing(m.fs.RO, costing_blk=m.fs.costing)
-    add_DWI_costing(m.fs.DWI, costing_blk=m.fs.costing)
+    add_softener_costing(m.fs.softener, costing_block=m.fs.costing)
+    add_UF_costing(m.fs.UF, costing_block=m.fs.costing)
+    add_ro_costing(m.fs.RO, costing_block=m.fs.costing)
+    add_DWI_costing(m.fs.DWI, costing_block=m.fs.costing)
 
     m.fs.costing.cost_process()
 

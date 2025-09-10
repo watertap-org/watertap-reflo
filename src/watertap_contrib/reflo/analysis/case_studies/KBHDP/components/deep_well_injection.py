@@ -84,13 +84,13 @@ def init_DWI(blk):
     blk.unit.initialize()
 
 
-def add_DWI_costing(blk, costing_blk=None):
-    if costing_blk is None:
+def add_DWI_costing(blk, costing_block=None):
+    if costing_block is None:
         m = blk.model()
-        costing_blk = m.fs.costing
+        costing_block = m.fs.costing
 
     blk.unit.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=costing_blk,
+        flowsheet_costing_block=costing_block,
         costing_method_arguments={
             "cost_method": "as_opex"
         },  # could be "as_capex" or "blm"
