@@ -13,15 +13,15 @@ from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core import MaterialFlowBasis
-from idaes.models.unit_models import Product, Feed, StateJunction, Separator
+from idaes.models.unit_models import Product, Feed
 
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
-from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.unit_models.chemical_softening import (
     ChemicalSoftening,
 )
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve
 
 __all__ = [
     "build_softener",
@@ -55,7 +55,7 @@ def build_system():
 
     m.fs.softener = FlowsheetBlock(dynamic=False)
 
-    build_softener(m, m.fs.softener, m.fs.properties)
+    build_softener(m.fs.softener)
 
     m.fs.feed_to_softener = Arc(
         source=m.fs.feed.outlet,
@@ -76,9 +76,10 @@ def build_system():
     return m
 
 
-def build_softener(m, blk, prop_package=None):
+def build_softener(blk, prop_package=None):
     print(f'\n{"=======> BUILDING CHEMICAL SOFTENING SYSTEM <=======":^60}\n')
     if prop_package is None:
+        m = blk.model()
         prop_package = m.fs.properties
 
     blk.unit = ChemicalSoftening(
@@ -220,27 +221,6 @@ def init_softener(blk):
     blk.unit.initialize()
 
 
-def solve(model, solver=None, tee=True, raise_on_failure=True):
-    # ---solving---
-    if solver is None:
-        solver = get_solver()
-
-    print("\n--------- SOLVING ---------\n")
-
-    results = solver.solve(model, tee=tee)
-
-    if check_optimal_termination(results):
-        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
-        return results
-    msg = (
-        "The current configuration is infeasible. Please adjust the decision variables."
-    )
-    if raise_on_failure:
-        raise RuntimeError(msg)
-    else:
-        return results
-
-
 def report_softener(blk):
 
     m = blk.model()
@@ -260,19 +240,14 @@ def report_softener(blk):
     )
 
     print(
-        f'{"Component":<{w}s}{"Flow In (g/L)":<{w}s}{"Flow Product (g/L)":<{w}s}{"Flow Waste (g/L)":<{w}s}{"Removal %":<{w}s}'
+        f'{"Component":<{w}s}{"Conc. In (g/L)":<{w}s}{"Conc. Out (g/L)":<{w}s}{"Removal %":<{w}s}'
     )
 
     for solute in comps:
-        flow_in = unit.properties_in[0.0].conc_mass_phase_comp["Liq", solute].value
-        flow_out = unit.properties_out[0.0].conc_mass_phase_comp["Liq", solute].value
-        flow_waste = (
-            unit.properties_waste[0.0].conc_mass_phase_comp["Liq", solute].value
-        )
-        removal = (flow_in - flow_out) / flow_in * 100
-        print(
-            f"{solute:{w}s}{flow_in:<{w}.3f}{flow_out:<{w}.3f}{flow_waste:<{w}.3f}{removal:<{w}.1f}"
-        )
+        conc_in = unit.properties_in[0].conc_mass_phase_comp["Liq", solute].value
+        conc_out = unit.properties_out[0].conc_mass_phase_comp["Liq", solute].value
+        removal = (conc_in - conc_out) / conc_in * 100
+        print(f"{solute:{w}s}{conc_in:<{w}.3f}{conc_out:<{w}.3f}{removal:<{w}.1f}")
 
     print("\nDosing Details:\n")
     print(f'{"Chemical":<{w}s}{"Dose":<{w}s}{"Units":<{w}s}')

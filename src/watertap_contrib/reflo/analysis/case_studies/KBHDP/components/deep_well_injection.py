@@ -11,6 +11,7 @@ import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
 from idaes.core.util.initialization import propagate_state
 from idaes.models.unit_models import StateJunction
+
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 
 from watertap_contrib.reflo.costing import TreatmentCosting
