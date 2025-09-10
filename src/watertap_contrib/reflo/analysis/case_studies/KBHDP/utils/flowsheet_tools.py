@@ -4,6 +4,7 @@ from pyomo.environ import (
     Var,
     Constraint,
     assert_optimal_termination,
+    check_optimal_termination
 )
 from idaes.core.solvers import get_solver
 from idaes.core.util.model_statistics import *
@@ -11,7 +12,46 @@ import time
 from watertap.core.util.model_diagnostics.infeasible import *
 import numpy as np
 
-__all__ = ["check_jac", "calc_scale", "print_fixed_and_unfixed_vars", "breakdown_dof"]
+__all__ = ["solve", "check_jac", "calc_scale", "print_fixed_and_unfixed_vars", "breakdown_dof"]
+
+
+def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
+    # ---solving---
+    if solver is None:
+        solver = get_solver()
+        solver.options["max_iter"] = 2000
+
+    print("\n--------- SOLVING ---------\n")
+
+    results = solver.solve(m, tee=tee)
+
+    if check_optimal_termination(results):
+        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        if debug:
+            print("\n--------- CHECKING JACOBIAN ---------\n")
+            print("\n--------- TREATMENT ---------\n")
+            print("\n--------- ENERGY ---------\n")
+            check_jac(m.fs.energy)
+
+            print("\n--------- CLOSE TO BOUNDS ---------\n")
+            print_close_to_bounds(m)
+        return results
+    msg = (
+        "The current configuration is infeasible. Please adjust the decision variables."
+    )
+    if raise_on_failure:
+        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
+        print_infeasible_bounds(m)
+        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
+        print_infeasible_constraints(m)
+        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
+        print_close_to_bounds(m)
+
+        raise RuntimeError(msg)
+    else:
+        print("\n--------- FAILED SOLVE!!! ---------\n")
+        print(msg)
+        assert False
 
 
 def check_jac(m, print_extreme_jacobian_values=True):
