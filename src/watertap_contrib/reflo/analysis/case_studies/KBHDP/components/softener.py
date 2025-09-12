@@ -27,6 +27,7 @@ __all__ = [
     "set_softener_op_conditions",
     "add_softener_costing",
     "report_softener",
+    "print_softening_costing_breakdown",
     "init_softener",
 ]
 
@@ -245,7 +246,6 @@ def init_softener(blk):
 
 def report_softener(blk, w=25):
 
-    m = blk.model()
     unit = blk.unit
     comps = unit.config.property_package.solute_set
     title = "Softener Report"
@@ -301,29 +301,27 @@ def report_softener(blk, w=25):
         f'{"Sludge Produced":<{w}s}{unit.sludge_prod.value:<{w}.3f}{pyunits.get_units(unit.sludge_prod)}'
     )
 
-    if hasattr(unit, "costing"):
-        title = "Softener Costing Report"
-        side = int(((3 * w) - len(title)) / 2) - 1
-        header = "=" * side + f" {title} " + "=" * side
-        print(f"\n{header}\n")
-        print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
-        print(f"{'-' * (3 * w)}")
-        print(
-            f'{"Capital Cost":<{w}s}{f"${unit.costing.capital_cost.value:<{w - 1},.0f}"}{pyunits.get_units(unit.costing.capital_cost)}'
-        )
-        print(
-            f'{"Operating Cost":<{w}s}{f"${unit.costing.fixed_operating_cost.value:<{w - 1},.0f}"}{pyunits.get_units(unit.costing.fixed_operating_cost)}'
-        )
-        print(
-            f'{"Electric Power Reqd":<{w}s}{f"{unit.costing.electricity_flow.value:<{w},.4f}"}{pyunits.get_units(unit.costing.electricity_flow)}'
-        )
+def print_softening_costing_breakdown(blk, w=25):
+    unit = blk.unit
 
-        for chem, v in m.fs.costing.aggregate_flow_costs.items():
-            print(
-                f'{chem.upper():<{w}s}{f"${v.value:<{w - 1},.0f}"}{pyunits.get_units(v)}'
-            )
+    title = "Softener Costing Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"Capital Cost":<{w}s}{f"${unit.costing.capital_cost.value:<{w - 1},.0f}"}{pyunits.get_units(unit.costing.capital_cost)}'
+    )
+    print(
+        f'{"Operating Cost":<{w}s}{f"${unit.costing.fixed_operating_cost.value:<{w - 1},.0f}"}{pyunits.get_units(unit.costing.fixed_operating_cost)}'
+    )
+    print(
+        f'{"Electric Power Reqd":<{w}s}{f"{unit.costing.electricity_flow.value:<{w},.4f}"}{pyunits.get_units(unit.costing.electricity_flow)}'
+    )
 
-        print("\n\n")
+
+    print("\n\n")
 
 
 def main():
@@ -343,6 +341,7 @@ def main():
     results = solve(m, tee=False)
     assert_optimal_termination(results)
     report_softener(m.fs.softener)
+    print_softening_costing_breakdown(m.fs.softener)
 
     return m
 
