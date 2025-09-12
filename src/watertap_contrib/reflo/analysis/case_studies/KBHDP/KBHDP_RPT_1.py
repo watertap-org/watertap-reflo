@@ -52,7 +52,6 @@ def propagate_state(arc, detailed=True):
         print("\n")
 
 
-
 def build_sweep(
     grid_frac=None,
     elec_price=None,
@@ -345,23 +344,23 @@ def scale_costing(m):
 
 
 # def apply_system_scaling(m):
-    # iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["H2O"], 1)
-    # iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["tds"], 1)
+# iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["H2O"], 1)
+# iscale.set_scaling_factor(m.fs.treatment.sludge.properties[0.0].flow_mass_comp["tds"], 1)
 
 
-    # iscale.set_scaling_factor(
-    #     m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3
-    # )
-    # iscale.constraint_scaling_transform(
-    #     m.fs.treatment.product.properties[0.0].eq_flow_vol_phase["Liq"], 1e-6
-    # )
-    # iscale.set_scaling_factor(m.fs.treatment.pump.control_volume.work, 1e-6)
+# iscale.set_scaling_factor(
+#     m.fs.treatment.product.properties[0.0].dens_mass_phase["Liq"], 1e-3
+# )
+# iscale.constraint_scaling_transform(
+#     m.fs.treatment.product.properties[0.0].eq_flow_vol_phase["Liq"], 1e-6
+# )
+# iscale.set_scaling_factor(m.fs.treatment.pump.control_volume.work, 1e-6)
 
 
 def apply_scaling(m):
 
     add_ec_scaling(m.fs.treatment.EC)
-    add_UF_scaling(m.fs.treatment.UF)    
+    add_UF_scaling(m.fs.treatment.UF)
     add_ro_scaling(m.fs.treatment.RO)
     # if m.fs.RE:
     add_pv_scaling(m.fs.energy.pv)
@@ -554,11 +553,6 @@ def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
         print("\n--------- FAILED SOLVE!!! ---------\n")
         print(msg)
         assert False
-
-
-
-
-
 
 
 def optimize(
@@ -810,6 +804,7 @@ def main():
     # m.fs.costing.display()
 
     return m
+
 
 if __name__ == "__main__":
     file_dir = os.path.dirname(os.path.abspath(__file__))

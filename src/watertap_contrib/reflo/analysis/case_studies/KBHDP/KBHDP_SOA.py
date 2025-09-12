@@ -366,9 +366,7 @@ def display_costing_breakdown(m, w=30):
     side = int(((3 * w) - len(title)) / 2) - 1
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n{header}\n")
-    print(
-        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
-    )
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
     print(f'{"LCOW":<{w}s}{f"${m.fs.costing.LCOW():<{w}.3f}"}{"$/m3":<{w}s}')
     print(
