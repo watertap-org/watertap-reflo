@@ -123,35 +123,47 @@ def build_system():
     return m
 
 
-def report_UF(blk):
-    print(f"\n\n-------------------- UF Report --------------------\n")
-    print("\n")
+def report_UF(blk, w=25):
+    title = "UF Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+
     print(
-        f'{"Inlet Flow Volume":<30s}{value(blk.feed.properties[0.0].flow_vol):<10.3f}{pyunits.get_units(blk.feed.properties[0.0].flow_vol)}'
+        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
     )
-    print(f'{"UF Performance:":<30s}')
+    print(f"{'-' * (3 * w)}")
     print(
-        f'{"    Recovery":<30s}{100*blk.unit.recovery_frac_mass_H2O[0.0].value:<10.1f}{"%"}'
-    )
-    print(
-        f'{"    TDS Removal":<30s}{100*blk.unit.removal_frac_mass_comp[0.0,"tds"].value:<10.1f}{"%"}'
-    )
-    print(
-        f'{"    TSS Removal":<30s}{100*blk.unit.removal_frac_mass_comp[0.0,"tss"].value:<10.1f}{"%"}'
+        f'{"Inlet Flow Volume":<{w}s}{value(pyunits.convert(blk.feed.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w}.3f} MGD'
     )
     print(
-        f'{"    Energy Consumption":<30s}{blk.unit.electricity[0.0].value:<10.3f}{pyunits.get_units(blk.unit.electricity[0.0])}'
+        f'{"Recovery":<{w}s}{100*blk.unit.recovery_frac_mass_H2O[0].value:<{w}.1f}{"%"}'
     )
     print(
-        f'{"    Specific Energy Cons.":<30s}{value(blk.unit.energy_electric_flow_vol_inlet):<10.3f}{pyunits.get_units(blk.unit.energy_electric_flow_vol_inlet)}'
+        f'{"TDS Removal":<{w}s}{100*blk.unit.removal_frac_mass_comp[0, "tds"].value:<{w}.1f}{"%"}'
+    )
+    print(
+        f'{"TSS Removal":<{w}s}{100*blk.unit.removal_frac_mass_comp[0, "tss"].value:<{w}.1f}{"%"}'
+    )
+    print(
+        f'{"Energy Consumption":<{w}s}{blk.unit.electricity[0].value:<{w}.3f}{pyunits.get_units(blk.unit.electricity[0])}'
+    )
+    print(
+        f'{"Specific Energy Cons.":<{w}s}{value(blk.unit.energy_electric_flow_vol_inlet):<{w}.3f}{pyunits.get_units(blk.unit.energy_electric_flow_vol_inlet)}'
     )
 
 
-def print_UF_costing_breakdown(
-    blk,
-):
-    print(f"\n\n-------------------- UF Costing Breakdown --------------------\n")
-    print(f'{"UF Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
+def print_UF_costing_breakdown(blk, w=25):
+    title = "UF Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(
+        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
+    )
+    print(f"{'-' * (3 * w)}")
+    print(f'{"UF Capital Cost":<{w}s}{f"${blk.unit.costing.capital_cost():<{w},.0f}"}')
+    print("\n\n")
 
 
 def main():
@@ -175,5 +187,3 @@ def main():
 
 if __name__ == "__main__":
     m = main()
-    m.fs.costing.LCOW.display()
-    m.fs.UF.unit.display()
