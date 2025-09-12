@@ -22,7 +22,7 @@ __all__ = [
     "add_cst_costing",
     "add_cst_costing_scaling",
     "report_cst",
-    "report_cst_costing",
+    # "report_cst_costing",
 ]
 
 
@@ -68,7 +68,7 @@ def build_cst(blk):
 
     # Create surrogate model configuration dictionary
     trough_dict = dict(
-        # surrogate_filename_save=dataset_filename,
+        # surrogate_filename_save=surrogate_filename,
         surrogate_model_file=surrogate_filename,
         dataset_filename=dataset_filename,
         input_variables=input_variables,
@@ -106,60 +106,55 @@ def add_cst_costing_scaling(blk):
     iscale.constraint_scaling_transform(unit.costing.capital_cost_constraint, 1e-8)
 
 
-def report_cst(blk):
-    m = blk.model()
+def report_cst(blk, w=30):
     unit = blk.unit
-
-    print(f"\n\n-------------------- CST Report --------------------\n\n")
+    title = "CST Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+    print(f"{'-' * (3 * w)}")
 
     print(
-        f'{"System Capacity":<30s}{value(unit.system_capacity):<20,.2f}{pyunits.get_units(unit.system_capacity)}'
+        f'{"System Capacity":<{w}s}{value(unit.system_capacity):<{w},.2f}{pyunits.get_units(unit.system_capacity)}'
     )
 
     print(
-        f'{"Heat annual":<30s}{value(unit.heat_annual):<20,.2f}{pyunits.get_units(unit.heat_annual)}'
+        f'{"Heat annual":<{w}s}{value(unit.heat_annual):<{w},.2f}{pyunits.get_units(unit.heat_annual)}'
     )
 
-    print(f'{"Heat":<30s}{value(unit.heat):<20,.2f}{pyunits.get_units(unit.heat)}')
+    print(f'{"Thermal Power Produced":<{w}s}{value(unit.heat):<{w},.2f}{pyunits.get_units(unit.heat)}')
 
     print(
-        f'{"Electricity annual":<30s}{value(unit.electricity_annual):<20,.2f}{pyunits.get_units(unit.electricity_annual)}'
+        f'{"Electricity annual":<{w}s}{value(unit.electricity_annual):<{w},.2f}{pyunits.get_units(unit.electricity_annual)}'
     )
 
     print(
-        f'{"Electricity":<30s}{value(unit.electricity):<20,.2f}{pyunits.get_units(unit.electricity)}'
+        f'{"Electric Power Consumed":<{w}s}{value(unit.electricity):<{w},.2f}{pyunits.get_units(unit.electricity)}'
     )
 
     if hasattr(unit, "costing"):
-        print(f"\n\n-------------------- CST Costing Report --------------------\n\n")
+        title = "CST Costing Report"
+        side = int(((3 * w) - len(title)) / 2) - 1
+        header = "=" * side + f" {title} " + "=" * side
+        print(f"\n{header}\n")
+        print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+        print(f"{'-' * (3 * w)}")
 
         print(
-            f'{"Capital Cost":<30s}{value(m.fs.costing.total_capital_cost):<20,.2f}{pyunits.get_units(m.fs.costing.total_capital_cost)}'
+            f'{"Capital Cost":<{w}s}{value(unit.costing.capital_cost):<{w},.2f}{pyunits.get_units(unit.costing.capital_cost)}'
         )
 
         print(
-            f'{"Fixed Operating Cost":<30s}{value(m.fs.costing.total_fixed_operating_cost):<20,.2f}{pyunits.get_units(m.fs.costing.total_fixed_operating_cost)}'
+            f'{"Fixed Operating Cost":<{w}s}{value(unit.costing.fixed_operating_cost):<{w},.2f}{pyunits.get_units(unit.costing.fixed_operating_cost)}'
         )
 
         print(
-            f'{"Variable Operating Cost":<30s}{value(m.fs.costing.total_variable_operating_cost):<20,.2f}{pyunits.get_units(m.fs.costing.total_variable_operating_cost)}'
+            f'{"Variable Operating Cost":<{w}s}{value(unit.costing.variable_operating_cost):<{w},.2f}{pyunits.get_units(unit.costing.variable_operating_cost)}'
         )
+        print("\n\n")
 
-        print(
-            f'{"Total Operating Cost":<30s}{value(m.fs.costing.total_operating_cost):<20,.2f}{pyunits.get_units(m.fs.costing.total_operating_cost)}'
-        )
 
-        print(
-            f'{"Thermal Power":<30s}{value(m.fs.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_heat)}'
-        )
-
-        print(
-            f'{"Electric Power Reqd":<30s}{value(m.fs.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_electricity)}'
-        )
-
-        print(
-            f'{"Electricity Cost":<30s}{value(m.fs.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_costs["electricity"])}'
-        )
 
 
 def main():
@@ -177,15 +172,17 @@ def main():
     m.fs.costing.cost_process()
     # Updated to be 0 because this factor is not included in SAM
     m.fs.costing.maintenance_labor_chemical_factor.fix(0)
-    m.fs.costing.initialize()
-    add_cst_costing_scaling(m.fs.cst)
     m.fs.costing.add_LCOH()
+    m.fs.costing.initialize()
+    # add_cst_costing_scaling(m.fs.cst)
 
     results = solve(m)
     assert_optimal_termination(results)
 
     report_cst(m.fs.cst)
 
+    return m
+
 
 if __name__ == "__main__":
-    main()
+    m = main()

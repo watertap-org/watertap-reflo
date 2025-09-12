@@ -23,7 +23,6 @@ __all__ = [
     "init_DWI",
     "add_DWI_costing",
     "add_DWI_scaling",
-    "report_DWI",
     "print_DWI_costing_breakdown",
 ]
 
@@ -55,7 +54,6 @@ def set_system_op_conditions(blk):
     rho = 1000 * pyunits.kg / pyunits.m**3
     flow_mgd = 2.08 * pyunits.Mgallons / pyunits.day  # estimated from upstream flows
 
-    prop = blk.unit.properties[0]
     blk.unit.properties[0].temperature.fix()
     blk.unit.properties[0].pressure.fix()
     blk.unit.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(flow_mgd * rho)
@@ -95,9 +93,11 @@ def add_DWI_costing(blk, costing_block=None):
             "cost_method": "as_opex"
         },  # could be "as_capex" or "blm"
     )
+    # fix value for KBHDP case study
+    costing_block.deep_well_injection.dwi_lcow.fix(0.58)
 
 
-def add_DWI_scaling(m, blk):
+def add_DWI_scaling(blk):
     iscale.set_scaling_factor(
         blk.feed.properties[0.0].mass_frac_phase_comp["Liq", "H2O"], 0.1
     )
@@ -107,19 +107,16 @@ def add_DWI_scaling(m, blk):
     iscale.set_scaling_factor(blk.unit.properties[0.0].flow_vol_phase["Liq"], 1e-2)
 
 
-def report_DWI(blk):
-    print(f"\n\n-------------------- DWI Report --------------------\n")
-    print("\n")
+def print_DWI_costing_breakdown(blk, w=25):
+    title = "DWI Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+    print(f"{'-' * (3 * w)}")
+    print(f'{"DWI Capital Cost":<{w}s}{f"${blk.unit.costing.capital_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}')
     print(
-        f'{"Injection Well Depth":<30s}{value(blk.unit.config.injection_well_depth):<10.3f}{pyunits.get_units(blk.unit.config.injection_well_depth)}'
-    )
-
-
-def print_DWI_costing_breakdown(blk):
-    print(f"\n\n-------------------- DWI Costing Breakdown --------------------\n")
-    print(f'{"DWI Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
-    print(
-        f'{"DWI Operating Cost":<35s}{f"${blk.unit.costing.variable_operating_cost():<25,.0f}"}'
+        f'{"DWI Operating Cost":<{w}s}{f"${blk.unit.costing.variable_operating_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.variable_operating_cost)}'
     )
     print("\n")
 
@@ -128,7 +125,6 @@ def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.costing = TreatmentCosting()
-    # m.db = REFLODatabase()
     inlet_conc = {
         "Ca_2+": 1.43,
         "Mg_2+": 0.1814,
@@ -148,74 +144,22 @@ def build_system():
     return m
 
 
-# def solve(model, solver=None, tee=True, raise_on_failure=True):
-#     # ---solving---
-#     if solver is None:
-#         solver = get_solver()
-
-#     print("\n--------- SOLVING ---------\n")
-
-#     results = solver.solve(model, tee=tee)
-
-#     if check_optimal_termination(results):
-#         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
-#         return results
-#     msg = (
-#         "The current configuration is infeasible. Please adjust the decision variables."
-#     )
-#     if raise_on_failure:
-#         raise RuntimeError(msg)
-#     else:
-#         return results
-
-
-# def breakdown_dof(blk):
-#     equalities = [c for c in activated_equalities_generator(blk)]
-#     active_vars = variables_in_activated_equalities_set(blk)
-#     fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
-#     unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
-#     print("\n ===============DOF Breakdown================\n")
-#     print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
-#     print(f"Activated Variables: ({len(active_vars)})")
-#     for v in active_vars:
-#         print(f"   {v}")
-#     print(f"Activated Equalities: ({len(equalities)})")
-#     for c in equalities:
-#         print(f"   {c}")
-
-#     print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
-#     for v in fixed_active_vars:
-#         print(f"   {v}")
-
-#     print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
-#     for v in unfixed_active_vars:
-#         print(f"   {v}")
-#     print("\n")
-#     print(f" {f' Active Vars':<30s}{len(active_vars)}")
-#     print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
-#     print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
-#     print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
-#     print("\nSuggested Variables to Fix:")
-
-#     if degrees_of_freedom != 0:
-#         unfixed_vars_without_constraint = [
-#             v for v in active_vars if v not in unfixed_active_vars
-#         ]
-#         for v in unfixed_vars_without_constraint:
-#             if v.fixed is False:
-#                 print(f"   {v}")
-
-
 def main():
     m = build_system()
     set_system_op_conditions(m.fs.DWI)
 
     init_DWI(m.fs.DWI)
     add_DWI_costing(m.fs.DWI)
+    m.fs.costing.cost_process()
+
+    m.fs.costing.add_LCOW(m.fs.DWI.unit.properties[0].flow_vol)
+
     results = solve(m)
     assert_optimal_termination(results)
     print_DWI_costing_breakdown(m.fs.DWI)
 
+    return m
+
 
 if __name__ == "__main__":
-    main()
+    m = main()

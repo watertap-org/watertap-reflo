@@ -10,10 +10,7 @@ import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import degrees_of_freedom
 
-from watertap.core.solvers import get_solver
-
 from watertap_contrib.reflo.costing import EnergyCosting
-
 from watertap_contrib.reflo.solar_models import FlatPlateSurrogate
 from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve
 
@@ -98,82 +95,65 @@ def add_FPC_scaling(blk):
     iscale.set_scaling_factor(blk.unit.system_capacity, 1e-6)
 
 
-def report_fpc(blk):
-    m = blk.model()
+def report_fpc(blk, w=25):
+    title = "FPC Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
     unit = blk.unit
 
-    print(f"\n\n-------------------- FPC Report --------------------\n")
+    # print(f"\n\n-------------------- FPC Report --------------------\n")
+    print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+    print(f"{'-' * (3 * w)}")
     print(
-        f'{"Number of collectors":<30s}{value(unit.number_collectors):<20,.2f}{pyunits.get_units(unit.number_collectors)}'
+        f'{"Number of collectors":<{w}s}{value(unit.number_collectors):<{w},.2f}{pyunits.get_units(unit.number_collectors)}'
     )
 
     print(
-        f'{"Collector area":<30s}{value(unit.collector_area_total):<20,.2f}{pyunits.get_units(unit.collector_area_total)}'
+        f'{"Collector area":<{w}s}{value(unit.collector_area_total):<{w},.2f}{pyunits.get_units(unit.collector_area_total)}'
     )
 
     print(
-        f'{"Storage volume":<30s}{value(unit.storage_volume):<20,.2f}{pyunits.get_units(unit.storage_volume)}'
+        f'{"Storage volume":<{w}s}{value(unit.storage_volume):<{w},.2f}{pyunits.get_units(unit.storage_volume)}'
     )
     print(
-        f'{"Hours of Storage":<30s}{value(unit.hours_storage):<20,.2f}{pyunits.get_units(unit.hours_storage)}'
+        f'{"Hours of Storage":<{w}s}{value(unit.hours_storage):<{w},.2f}{pyunits.get_units(unit.hours_storage)}'
     )
     print(
-        f'{"System Capacity":<30s}{value(unit.system_capacity):<20,.2f}{pyunits.get_units(unit.system_capacity)}'
-    )
-
-    print(
-        f'{"Heat annual":<30s}{value(unit.heat_annual):<20,.2f}{pyunits.get_units(unit.heat_annual)}'
-    )
-
-    print(f'{"Heat":<30s}{value(unit.heat):<20,.2f}{pyunits.get_units(unit.heat)}')
-
-    print(
-        f'{"Electricity annual":<30s}{value(unit.electricity_annual):<20,.2f}{pyunits.get_units(unit.electricity_annual)}'
+        f'{"System Capacity":<{w}s}{value(unit.system_capacity):<{w},.2f}{pyunits.get_units(unit.system_capacity)}'
     )
 
     print(
-        f'{"Electricity":<30s}{value(unit.electricity):<20,.2f}{pyunits.get_units(unit.electricity)}'
+        f'{"Heat annual":<{w}s}{value(unit.heat_annual):<{w},.2f}{pyunits.get_units(unit.heat_annual)}'
+    )
+
+    print(f'{"Thermal Power":<{w}s}{value(unit.heat):<{w},.2f}{pyunits.get_units(unit.heat)}')
+
+    print(
+        f'{"Electricity annual":<{w}s}{value(unit.electricity_annual):<{w},.2f}{pyunits.get_units(unit.electricity_annual)}'
+    )
+
+    print(
+        f'{"Electric Power Reqd":<{w}s}{value(unit.electricity):<{w},.2f}{pyunits.get_units(unit.electricity)}'
     )
 
     if hasattr(unit, "costing"):
-        print(f"\n\n-------------------- FPC Costing Report --------------------\n")
-
+        title = "FPC Costing Breakdown"
+        side = int(((3 * w) - len(title)) / 2) - 1
+        header = "=" * side + f" {title} " + "=" * side
+        print(f"\n{header}\n")
+        print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+        print(f"{'-' * (3 * w)}")
         print(
-            f'{"Capital Cost":<30s}{value(unit.costing.capital_cost):<20,.2f}{pyunits.get_units(unit.costing.capital_cost)}'
-        )
-
-        print(
-            f'{"Fixed Operating Cost":<30s}{value(unit.costing.fixed_operating_cost):<20,.2f}{pyunits.get_units(unit.costing.fixed_operating_cost)}'
-        )
-        print("")
-        print(
-            f'{"Fixed Op. Cost by Capacity":<30s}{value(m.fs.costing.flat_plate.fixed_operating_by_capacity):<20,.2f}{pyunits.get_units(m.fs.costing.flat_plate.fixed_operating_by_capacity)}'
+            f'{"Capital Cost":<{w}s}{value(unit.costing.capital_cost):<{w},.2f}{pyunits.get_units(unit.costing.capital_cost)}'
         )
         print(
-            f'{"Cost Per Collector Area":<30s}{value(m.fs.costing.flat_plate.cost_per_area_collector):<20,.2f}{pyunits.get_units(m.fs.costing.flat_plate.cost_per_area_collector)}'
+            f'{"Fixed Operating Cost":<{w}s}{value(unit.costing.fixed_operating_cost):<{w},.2f}{pyunits.get_units(unit.costing.fixed_operating_cost)}'
         )
         print(
-            f'{"Cost Per Volume Storage":<30s}{value(m.fs.costing.flat_plate.cost_per_volume_storage):<20,.2f}{pyunits.get_units(m.fs.costing.flat_plate.cost_per_volume_storage)}'
+            f'{"Land Req.":<{w}s}{value(unit.costing.land_area):<{w},.2f}{pyunits.get_units(unit.costing.land_area)}'
         )
-        print(
-            f'{"Cost Per Land":<30s}{value(m.fs.costing.land_cost):<20,.2f}{pyunits.get_units(m.fs.costing.land_cost)}'
-        )
-        print(
-            f'{"Land Req.":<30s}{value(unit.costing.land_area):<20,.2f}{pyunits.get_units(unit.costing.land_area)}'
-        )
-        print("")
-
-        print(
-            f'{"Thermal Power":<30s}{value(m.fs.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_heat)}'
-        )
-
-        print(
-            f'{"Electric Power Reqd":<30s}{value(m.fs.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_electricity)}'
-        )
-
-        print(
-            f'{"Electricity Cost":<30s}{value(m.fs.costing.aggregate_flow_costs["electricity"]):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_costs["electricity"])}'
-        )
+        print("\n\n")
 
 
 def main():
@@ -190,11 +170,16 @@ def main():
     m.fs.costing.cost_process()
     # Updated to be 0 because this factor is not included in SAM
     m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.costing.add_LCOH()
     m.fs.costing.initialize()
+
     results = solve(m)
     assert_optimal_termination(results)
+
     report_fpc(m.fs.fpc)
+    
+    return m
 
 
 if __name__ == "__main__":
-    main()
+    m = main()

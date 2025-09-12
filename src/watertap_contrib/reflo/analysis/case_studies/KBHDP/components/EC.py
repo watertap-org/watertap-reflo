@@ -3,9 +3,10 @@ from pyomo.environ import (
     TransformationFactory,
     assert_optimal_termination,
     value,
+    units as pyunits,
 )
 from pyomo.network import Arc
-from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
+from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
@@ -99,8 +100,6 @@ def build_EC(blk, prop_package=None):
         destination=blk.disposal.inlet,
     )
 
-    TransformationFactory("network.expand_arcs").apply_to(m)
-
 
 def set_system_operating_conditions(m):
 
@@ -140,10 +139,18 @@ def init_EC(blk):
     blk.feed.initialize()
     propagate_state(blk.feed_to_unit)
 
-    cvc(blk.unit.overpotential, blk.unit.eq_overpotential)
-    cvc(blk.unit.applied_current, blk.unit.eq_applied_current)
-    cvc(blk.unit.anode_area, blk.unit.eq_electrode_area_total)
-    cvc(blk.unit.ohmic_resistance, blk.unit.eq_ohmic_resistance)
+    calculate_variable_from_constraint(
+        blk.unit.overpotential, blk.unit.eq_overpotential
+    )
+    calculate_variable_from_constraint(
+        blk.unit.applied_current, blk.unit.eq_applied_current
+    )
+    calculate_variable_from_constraint(
+        blk.unit.anode_area, blk.unit.eq_electrode_area_total
+    )
+    calculate_variable_from_constraint(
+        blk.unit.ohmic_resistance, blk.unit.eq_ohmic_resistance
+    )
 
     blk.unit.initialize()
     propagate_state(blk.unit_to_product)
@@ -159,32 +166,42 @@ def add_ec_costing(blk, costing_block=None):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
 
 
-def report_EC(blk):
-
-    print(f"\n\n-------------------- EC Report --------------------\n")
+def report_EC(blk, w=25):
+    title = "EC Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
     print(
-        f'{f"Stream":<20}{f"Mass Flow Rate Water (kg/s)":<20}{f"MassFlow Rate TDS (kg/s)":<20}'
+        f'{f"Stream":<{w}}{f"Mass Flow Water (kg/s)":<{w}}{f"Mass Flow TDS (kg/s)":<{w}}'
+    )
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"Feed":<{w}}{value(blk.feed.properties[0].flow_mass_comp["H2O"]):<{w}.2f}{value(blk.feed.properties[0].flow_mass_comp["tds"]):<{w}.2f}'
     )
     print(
-        f'{"Feed":<20}{value(blk.feed.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.feed.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
+        f'{"Product":<{w}}{value(blk.product.properties[0].flow_mass_comp["H2O"]):<{w}.2f}{value(blk.product.properties[0].flow_mass_comp["tds"]):<{w}.2f}'
     )
     print(
-        f'{"Product":<20}{value(blk.product.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.product.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
-    )
-    print(
-        f'{"Disposal":<20}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
-    )
-
-
-def print_EC_costing_breakdown(blk):
-    print(f"\n\n-------------------- EC Costing Breakdown --------------------\n")
-    print(f'{"EC Capital Cost":<35s}{f"${blk.unit.costing.capital_cost():<25,.0f}"}')
-    print(
-        f'{"EC Operating Cost":<35s}{f"${blk.unit.costing.fixed_operating_cost():<25,.0f}"}'
+        f'{"Disposal":<{w}}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<{w}.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<{w}.2f}'
     )
 
+
+def print_EC_costing_breakdown(blk, w=25):
+    title = "EC Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+    print(f"{'-' * (3 * w)}")
     print(
-        f'{"EC Power Required":<35s}{f"{blk.unit.costing.electricity_flow():<25,.0f} kW"}'
+        f'{"EC Capital Cost":<{w}s}{f"{blk.unit.costing.capital_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
+    )
+    print(
+        f'{"EC Operating Cost":<{w}s}{f"{blk.unit.costing.fixed_operating_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.fixed_operating_cost)}'
+    )
+
+    print(
+        f'{"EC Power Required":<{w}s}{f"{blk.unit.costing.electricity_flow():<{w},.0f}"}{"kW"}'
     )
 
 
@@ -207,7 +224,6 @@ def main():
     iscale.calculate_scaling_factors(m)
 
     init_system(m)
-    # add_system_costing(m.fs.EC)
     add_ec_costing(m.fs.EC)
     m.fs.costing.cost_process()
 
@@ -222,6 +238,8 @@ def main():
     report_EC(m.fs.EC)
     print_EC_costing_breakdown(m.fs.EC)
 
+    return m
+
 
 if __name__ == "__main__":
-    main()
+    m = main()

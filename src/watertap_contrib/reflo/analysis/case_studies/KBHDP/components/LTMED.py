@@ -192,12 +192,15 @@ def init_system(m):
     m.fs.disposal.initialize()
 
 
-def report_LTMED(blk):
-    w = 30
-    print(f"\n\n-------------------- LTMED Report --------------------\n")
+def report_LTMED(blk, w=30):
+    title = "LT-MED Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
     print(
         f'{f"Stream":<{w}}{f"Mass Flow Water (kg/s)":<{w}}{f"Mass Flow TDS (kg/s)":<{w}}'
     )
+    print(f"{'-' * (3 * w)}")
     print(
         f'{"Feed":<{w}}{value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]):<{w}.2f}{value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "TDS"]):.2f}'
     )
@@ -208,6 +211,7 @@ def report_LTMED(blk):
         f'{"Disposal":<{w}}{value(blk.disposal.properties[0].flow_mass_phase_comp["Liq", "H2O"]):<{w}.2f}{value(blk.disposal.properties[0].flow_mass_phase_comp["Liq", "TDS"]):.2f}'
     )
     print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+    print(f"{'-' * (3 * w)}")
     print(
         f'{"STEC":<{w}}{value(blk.unit.specific_energy_consumption_thermal):<{w}.2f}kWh/m3'
     )
@@ -220,6 +224,7 @@ def report_LTMED(blk):
     print(
         f'{"Water Recovery":<{w}}{value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]/blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]) * 100:<{w}.2f}%'
     )
+    print("\n\n")
 
 
 def main():
@@ -249,6 +254,9 @@ def main():
 
     report_LTMED(m.fs.LTMED)
 
+    return m
+
 
 if __name__ == "__main__":
-    main()
+    m = main()
+

@@ -1,6 +1,3 @@
-import os
-import math
-
 from pyomo.environ import (
     ConcreteModel,
     Param,
@@ -8,9 +5,7 @@ from pyomo.environ import (
     Constraint,
     NonNegativeReals,
     TransformationFactory,
-    Block,
     RangeSet,
-    check_optimal_termination,
     assert_optimal_termination,
     value,
     units as pyunits,
@@ -27,12 +22,6 @@ from idaes.models.unit_models.mixer import (
 from idaes.core.util.model_statistics import degrees_of_freedom
 import idaes.core.util.scaling as iscale
 
-from watertap.core.util.initialization import assert_no_degrees_of_freedom
-from watertap.core.util.model_diagnostics.infeasible import (
-    print_infeasible_bounds,
-    print_close_to_bounds,
-)
-from watertap.costing import WaterTAPCosting
 from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
 from watertap.unit_models.reverse_osmosis_1D import (
     ReverseOsmosis1D,
@@ -41,9 +30,9 @@ from watertap.unit_models.reverse_osmosis_1D import (
     PressureChangeType,
 )
 from watertap.unit_models.pressure_changer import Pump
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve
 
-# from watertap.core.solvers import get_solver
+from watertap_contrib.reflo.costing import TreatmentCosting
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve, calc_scale
 
 __all__ = [
     "build_ro",
@@ -57,20 +46,6 @@ __all__ = [
     "report_RO",
     "print_RO_costing_breakdown",
 ]
-
-
-def _initialize(blk):
-    try:
-        blk.initialize()
-    except:
-        print("----------------------------------\n")
-        print(f"Initialization of {blk.name} failed.")
-        print("\n----------------------------------\n")
-
-        blk.report()
-        print_infeasible_bounds(blk)
-        print_close_to_bounds(blk)
-        assert False
 
 
 def build_ro(blk, number_of_stages=1, prop_package=None):
@@ -102,9 +77,11 @@ def build_ro(blk, number_of_stages=1, prop_package=None):
 
     for _, stage in blk.stage.items():
         if stage.index() > 1:
-            build_ro_stage(stage, booster_pump=blk.booster_pumps)
+            build_ro_stage(
+                stage, booster_pump=blk.booster_pumps, prop_package=prop_package
+            )
         else:
-            build_ro_stage(stage)
+            build_ro_stage(stage, prop_package=prop_package)
 
     blk.ro_feed_to_ro = Arc(
         source=blk.feed.outlet,
@@ -143,9 +120,9 @@ def build_ro(blk, number_of_stages=1, prop_package=None):
 
 
 def build_ro_stage(blk, booster_pump=False, prop_package=None):
-    # Define IO
+
+    m = blk.model()
     if prop_package is None:
-        m = blk.model()
         prop_package = m.fs.RO_properties
 
     blk.feed = StateJunction(property_package=prop_package)
@@ -207,8 +184,6 @@ def init_system(m):
 
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
 
-    assert_no_degrees_of_freedom(m)
-    # _initialize(m.fs.feed)
     m.fs.feed.initialize()
     propagate_state(m.fs.feed_to_ro)
 
@@ -218,16 +193,14 @@ def init_system(m):
 
     m.fs.product.initialize()
     m.fs.disposal.initialize()
-    # _initialize(m.fs.product)
-    # _initialize(m.fs.disposal)
 
 
 def init_ro_system(blk):
 
     print("\n\n-------------------- INITIALIZING RO SYSTEM --------------------\n\n")
 
-    # _initialize(blk.feed)
     blk.feed.initialize()
+
     propagate_state(blk.ro_feed_to_ro)
 
     for stage in blk.stage.values():
@@ -239,7 +212,6 @@ def init_ro_system(blk):
             propagate_state(blk.last_stage_retentate_to_ro_retentate)
             propagate_state(blk.stage_permeate_to_mixer[stage.index()])
 
-    # _initialize(blk.disposal)
     blk.disposal.initialize()
     blk.primary_mixer.initialize()
     propagate_state(blk.primary_mixer_to_product)
@@ -247,12 +219,7 @@ def init_ro_system(blk):
     print(
         "\n\n-------------------- RO INITIALIZATION COMPLETE --------------------\n\n"
     )
-    print(f"RO Degrees of Freedom: {degrees_of_freedom(blk)}")
-    print("\n\n")
     display_RO_flow_table(blk)
-    print(
-        f'RO Recovery: {100 * (value(blk.product.properties[0].flow_mass_phase_comp["Liq", "H2O"]) / value(blk.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"])):<5.2f}%'
-    )
 
 
 def init_ro_stage(stage):
@@ -276,13 +243,15 @@ def init_ro_stage(stage):
 
 
 def set_operating_conditions(
-    m, Qin=None, Qout=None, Cin=None, water_recovery=None, ro_pressure=20e5
+    m,
+    feed_flow_mass=171.763,
+    feed_salinity=11.33,
+    ro_pressure=30e5,
+    water_recovery=None,
 ):
     print(
         "\n\n-------------------- SETTING SYSTEM OPERATING CONDITIONS --------------------\n\n"
     )
-    if Cin is None:
-        Cin = 35
 
     m.fs.water_recovery = Var(
         initialize=0.5,
@@ -325,18 +294,15 @@ def set_operating_conditions(
     supply_pressure = ro_pressure
 
     # initialize feed
-    m.fs.feed.pressure[0].fix(supply_pressure)
     m.fs.feed.temperature[0].fix(feed_temperature)
+    m.fs.feed_flow_mass.fix(feed_flow_mass)
+    m.fs.feed_salinity.fix(feed_salinity)
+    m.fs.feed.pressure[0].fix(supply_pressure)
 
     m.fs.eq_water_recovery = Constraint(
         expr=m.fs.feed.properties[0].flow_vol * m.fs.water_recovery
         == m.fs.product.properties[0].flow_vol
     )
-
-    if Qin is not None:
-        m.fs.feed_flow_mass.fix(Qin)
-
-    m.fs.feed_salinity.fix(Cin)
 
     m.fs.feed_flow_constraint = Constraint(
         expr=m.fs.feed_flow_mass == m.fs.perm_flow_mass / m.fs.water_recovery
@@ -406,9 +372,9 @@ def relax_bounds_for_low_salinity_waters(blk):
             blk.flux_mass_phase_comp[e].setub(0.999)
 
 
-# TODO: move to utils
-def calc_scale(value):
-    return math.floor(math.log(value, 10))
+# # TODO: move to utils
+# def calc_scale(value):
+#     return math.floor(math.log(value, 10))
 
 
 def add_ro_scaling(blk):
@@ -474,7 +440,7 @@ def add_ro_scaling(blk):
                 iscale.set_scaling_factor(module.recovery_mass_phase_comp, 1e1)
 
 
-def set_ro_system_operating_conditions(blk, mem_area=100):
+def set_ro_system_operating_conditions(blk, mem_area=10000):
     print(
         "\n\n-------------------- SETTING RO OPERATING CONDITIONS --------------------\n\n"
     )
@@ -531,35 +497,15 @@ def add_ro_costing(blk, costing_block=None):
         )
 
 
-# TODO: move to utils
-# def solve(model, solver=None, tee=False, raise_on_failure=True):
-#     # ---solving---
-#     if solver is None:
-#         solver = get_solver()
-
-#     print("\n--------- SOLVING ---------\n")
-
-#     results = solver.solve(model, tee=tee)
-
-#     if check_optimal_termination(results):
-#         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
-#         return results
-#     msg = (
-#         "The current configuration is infeasible. Please adjust the decision variables."
-#     )
-#     if raise_on_failure:
-#         raise RuntimeError(msg)
-#     else:
-#         return results
-
-
-def display_RO_flow_table(blk):
-    w = 30
-    print("\n\n")
-    print("RO System Flow Table")
+def display_RO_flow_table(blk, w=25):
+    title = "RO System Flow Table"
+    side = int(((5 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
     print(
         f'{"Unit":<{w}s}{"Mass Flow Water (kg/s)":<{w}s}{"Pressure (bar)":<{w}s}{"Mass Flow NaCl (kg/s)":<{w}s}{"Conc. (g/L)":<{w}s}'
     )
+    print(f"{'-' * (5 * w)}")
     print(
         f'{"Feed":<{w}s}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<{w}.3f}{value(pyunits.convert(blk.feed.properties[0.0].pressure, to_units=pyunits.bar)):<{w}.1f}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<{w}.3e}{blk.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<{w}.3f}'
     )
@@ -582,30 +528,53 @@ def display_RO_flow_table(blk):
         print(
             f'{"RO Stage " + str(idx) + " Retentate":<{w}s}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<{w}.3f}{pyunits.convert(stage.retentate.properties[0.0].pressure, to_units=pyunits.bar)():<{w}.1f}{stage.retentate.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<{w}.3e}{stage.module.feed_side.properties[0.0,1.0].conc_mass_phase_comp["Liq", "NaCl"].value:<{w}.3f}'
         )
+    print("\n\n")
 
 
-def report_RO(blk):
-    w = 30
+def report_RO(blk, w=25):
     m = blk.model()
-    print(f"\n\n-------------------- RO Report --------------------\n")
+    title = "RO Operating Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(
+        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
+    )
+    print(f"{'-' * (3 * w)}")
     print(f'{"Recovery":<{w}s}{value(100*m.fs.water_recovery):<{w}.1f}{"%"}')
     print(
-        f'{"RO Operating Pressure":<{w}s}{value(pyunits.convert(blk.feed.properties[0].pressure, to_units=pyunits.bar)):<{w}.1f}{"bar"}'
+        f'{"RO Operating Pressure":<{w}s}{value(pyunits.convert(blk.feed.properties[0].pressure, to_units=pyunits.bar)):<{w}.1f}{"bar":<{w}}'
     )
-    print(f'{"RO Membrane Area":<{w}s}{value(blk.stage[1].module.area):<{w}.1f}{"m^2"}')
+    print(f'{"RO Membrane Area":<{w}s}{value(blk.stage[1].module.area):<{w}.1f}{"m^2":<{w}}')
 
+def print_RO_costing_breakdown(blk, w=25):
+    title = "RO Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(
+        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
+    )
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"RO Capital Cost":<{w}s}{f"${value(blk.stage[1].module.costing.capital_cost):<{w},.0f}{pyunits.get_units(blk.stage[1].module.costing.capital_cost)}"}'
+    )
+    print(
+        f'{"RO Operating Cost":<{w}s}{f"${value(blk.stage[1].module.costing.fixed_operating_cost):<{w},.0f}{pyunits.get_units(blk.stage[1].module.costing.fixed_operating_cost)}"}'
+    )
+    print("\n\n")
 
 def build_system():
     m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs = FlowsheetBlock()
     m.fs.RO_properties = NaClParameterBlock()
-    m.fs.costing = WaterTAPCosting()
+    m.fs.costing = TreatmentCosting()
 
     m.fs.feed = Feed(property_package=m.fs.RO_properties)
     m.fs.product = Product(property_package=m.fs.RO_properties)
     m.fs.disposal = Product(property_package=m.fs.RO_properties)
 
-    m.fs.ro = FlowsheetBlock(dynamic=False)
+    m.fs.ro = FlowsheetBlock()
     build_ro(m.fs.ro)
 
     m.fs.feed_to_ro = Arc(
@@ -628,31 +597,29 @@ def build_system():
     return m
 
 
-def print_RO_costing_breakdown(blk):
-    print(f"\n\n-------------------- RO Costing Breakdown --------------------\n")
-    print(
-        f'{"RO Capital Cost":<35s}{f"${value(blk.stage[1].module.costing.capital_cost):<25,.0f}"}'
-    )
-    print(
-        f'{"RO Operating Cost":<35s}{f"${value(blk.stage[1].module.costing.fixed_operating_cost):<25,.0f}"}'
-    )
 
 
 def main():
 
     m = build_system()
-    # display_ro_system_build(m)
-    set_operating_conditions(m, Qin=171.763, Cin=3.717, ro_pressure=30e5)
-    set_ro_system_operating_conditions(m.fs.ro, mem_area=10000)
+    set_operating_conditions(m)
+    set_ro_system_operating_conditions(m.fs.ro)
     add_ro_scaling(m.fs.ro)
     iscale.calculate_scaling_factors(m)
     init_system(m)
-    solve(m)
+    results = solve(m)
+    assert_optimal_termination(results)
+    add_ro_costing(m.fs.ro)
+    m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(m.fs.product.properties[0].flow_vol)
+    results = solve(m)
+    assert_optimal_termination(results)
 
     display_RO_flow_table(m.fs.ro)
     report_RO(m.fs.ro)
-    # print_RO_costing_breakdown(m.fs.ro)
+    print_RO_costing_breakdown(m.fs.ro)
+    return m
 
 
 if __name__ == "__main__":
-    main()
+    m = main()

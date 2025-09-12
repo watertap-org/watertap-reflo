@@ -161,6 +161,7 @@ def main():
     set_system_conditions(m.fs.UF)
     add_UF_costing(m.fs.UF)
     m.fs.costing.cost_process()
+    m.fs.costing.add_LCOW(m.fs.UF.product.properties[0.0].flow_vol)
     init_UF(m.fs.UF)
 
     results = solve(m)
@@ -169,6 +170,10 @@ def main():
     report_UF(m.fs.UF)
     print_UF_costing_breakdown(m.fs.UF)
 
+    return m
+
 
 if __name__ == "__main__":
-    main()
+    m = main()
+    m.fs.costing.LCOW.display()
+    m.fs.UF.unit.display()

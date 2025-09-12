@@ -1,7 +1,6 @@
 from pyomo.environ import (
     ConcreteModel,
     TransformationFactory,
-    check_optimal_termination,
     assert_optimal_termination,
     value,
     units as pyunits,
@@ -13,7 +12,7 @@ from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
 from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.core import MaterialFlowBasis
-from idaes.models.unit_models import Product, Feed
+from idaes.models.unit_models import Product, Feed, StateJunction
 
 from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
 
@@ -59,16 +58,16 @@ def build_system():
 
     m.fs.feed_to_softener = Arc(
         source=m.fs.feed.outlet,
-        destination=m.fs.softener.unit.inlet,
+        destination=m.fs.softener.feed.inlet,
     )
 
     m.fs.softener_to_product = Arc(
-        source=m.fs.softener.unit.outlet,
+        source=m.fs.softener.product.outlet,
         destination=m.fs.product.inlet,
     )
 
     m.fs.softener_to_disposal = Arc(
-        source=m.fs.softener.unit.waste,
+        source=m.fs.softener.disposal.outlet,
         destination=m.fs.disposal.inlet,
     )
 
@@ -82,10 +81,27 @@ def build_softener(blk, prop_package=None):
         m = blk.model()
         prop_package = m.fs.properties
 
+    blk.feed = StateJunction(property_package=prop_package)
+    blk.product = StateJunction(property_package=prop_package)
+    blk.disposal = StateJunction(property_package=prop_package)
+
     blk.unit = ChemicalSoftening(
         property_package=prop_package,
         silica_removal=False,
         softening_procedure_type="excess_lime_soda",
+    )    
+    
+    blk.feed_to_unit = Arc(
+        source=blk.feed.outlet,
+        destination=blk.unit.inlet,
+    )
+    blk.unit_to_product = Arc(
+        source=blk.unit.outlet,
+        destination=blk.product.inlet,
+    )
+    blk.unit_to_disposal = Arc(
+        source=blk.unit.waste,
+        destination=blk.disposal.inlet,
     )
 
 
@@ -164,7 +180,7 @@ def set_system_operating_conditions(m, Qin=4):
 
 
 def set_softener_op_conditions(
-    blk, ca_effluent=0.01, mg_effluent=0.01, non_important_removals=0.9
+    blk, ca_effluent=0.01, mg_effluent=0.01, non_important_removals=0.01
 ):
     print(
         "\n\n-------------------- SETTING SOFTENER REMOVAL EFFICIENCY --------------------\n\n"
@@ -218,17 +234,24 @@ def init_softener(blk):
     print(
         "\n\n-------------------- INITIALIZING WATER SOFTENER --------------------\n\n"
     )
+    blk.feed.initialize()
+    propagate_state(blk.feed_to_unit)
     blk.unit.initialize()
+    propagate_state(blk.unit_to_product)
+    propagate_state(blk.unit_to_disposal)
+    blk.product.initialize()
+    blk.disposal.initialize()
 
 
-def report_softener(blk):
+def report_softener(blk, w=25):
 
     m = blk.model()
     unit = blk.unit
     comps = unit.config.property_package.solute_set
-    w = 30
-
-    print(f"\n\n-------------------- Softener Report --------------------\n")
+    title = "Softener Report"
+    side = int(((4 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
 
     print("Stream Table:\n")
 
@@ -236,12 +259,19 @@ def report_softener(blk):
         f'{"Flow In":<{w}s}{value(pyunits.convert(unit.properties_in[0.0].flow_vol_phase["Liq"], to_units=pyunits.Mgal / pyunits.day)):<{w}.3f}{pyunits.get_units(pyunits.convert(unit.properties_in[0.0].flow_vol_phase["Liq"], to_units=pyunits.Mgal / pyunits.day))}'
     )
     print(
-        f'{"Overall TDS:":<{w}s}{sum(value(unit.properties_in[0].conc_mass_phase_comp["Liq", i]) for i in comps):<{w}.3f}{"g/L"}\n'
+        f'{"Flow Out":<{w}s}{value(pyunits.convert(unit.properties_out[0.0].flow_vol_phase["Liq"], to_units=pyunits.Mgal / pyunits.day)):<{w}.3f}{pyunits.get_units(pyunits.convert(unit.properties_out[0.0].flow_vol_phase["Liq"], to_units=pyunits.Mgal / pyunits.day))}'
+    )
+    print(
+        f'{"Inlet TDS":<{w}s}{sum(value(unit.properties_in[0].conc_mass_phase_comp["Liq", i]) for i in comps):<{w}.3f}{"g/L"}'
+    )
+    print(
+        f'{"Outlet TDS":<{w}s}{sum(value(unit.properties_out[0].conc_mass_phase_comp["Liq", i]) for i in comps):<{w}.3f}{"g/L"}\n'
     )
 
     print(
-        f'{"Component":<{w}s}{"Conc. In (g/L)":<{w}s}{"Conc. Out (g/L)":<{w}s}{"Removal %":<{w}s}'
+        f'{"Component":<{w}s}{"Conc. In (g/L)":<{w}s}{"Conc. Out (g/L)":<{w}s}{"Removal (%)":<{w}s}'
     )
+    print(f"{'-' * (4 * w)}")
 
     for solute in comps:
         conc_in = unit.properties_in[0].conc_mass_phase_comp["Liq", solute].value
@@ -251,6 +281,7 @@ def report_softener(blk):
 
     print("\nDosing Details:\n")
     print(f'{"Chemical":<{w}s}{"Dose":<{w}s}{"Units":<{w}s}')
+    print(f"{'-' * (3 * w)}")
     print(
         f'{"CaO Dose":<{w}s}{unit.CaO_dosing.value:<{w}.3f}{pyunits.get_units(unit.CaO_dosing)}'
     )
@@ -271,8 +302,12 @@ def report_softener(blk):
     )
 
     if hasattr(unit, "costing"):
-        print("\nCosting Report:\n")
+        title = "Softener Costing Report"
+        side = int(((3 * w) - len(title)) / 2) - 1
+        header = "=" * side + f" {title} " + "=" * side
+        print(f"\n{header}\n")
         print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
+        print(f"{'-' * (3 * w)}")
         print(
             f'{"Capital Cost":<{w}s}{f"${unit.costing.capital_cost.value:<{w - 1},.0f}"}{pyunits.get_units(unit.costing.capital_cost)}'
         )
@@ -288,13 +323,7 @@ def report_softener(blk):
                 f'{chem.upper():<{w}s}{f"${v.value:<{w - 1},.0f}"}{pyunits.get_units(v)}'
             )
 
-        print(
-            f'{"Softening Capital Cost":<{w}s}{f"${unit.costing.capital_cost():<{w},.0f}"}'
-        )
-        print(
-            f'{"Softening Operating Cost":<{w}s}{f"${unit.costing.fixed_operating_cost():<{w},.0f}"}'
-        )
-        # m.fs.costing.display()
+        print("\n\n")
 
 
 def main():
@@ -315,6 +344,8 @@ def main():
     assert_optimal_termination(results)
     report_softener(m.fs.softener)
 
+    return m
+
 
 if __name__ == "__main__":
-    main()
+    m = main()

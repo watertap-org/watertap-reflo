@@ -84,22 +84,34 @@ def add_pv_costing_scaling(blk):
     iscale.set_scaling_factor(blk.unit.costing.system_capacity, 1e-5)
 
 
-def print_PV_costing_breakdown(blk):
-    w = 30
-    print(f"\n\n-------------------- PV Costing Breakdown --------------------\n")
+def print_PV_costing_breakdown(blk, w=30):
+    title = "PV Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
     print(
-        f'{"PV Capital Cost":<35s}{f"${value(blk.unit.costing.capital_cost):<{w},.0f}"}'
+        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
+    )
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"PV Capital Cost":<35s}{f"${value(blk.unit.costing.capital_cost):<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
     )
     print(
-        f'{"PV Operating Cost":<35s}{f"${value(blk.unit.costing.fixed_operating_cost):<{w},.0f}"}'
+        f'{"PV Operating Cost":<35s}{f"${value(blk.unit.costing.fixed_operating_cost):<{w},.0f}"}{pyunits.get_units(blk.unit.costing.fixed_operating_cost)}'
     )
+    print("\n\n")
 
 
-def report_PV(blk):
-    m = blk.model()
-    w = 30
+def report_PV(blk, w=30):
+    title = "PV System Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
 
-    print(f"\n\n-------------------- PHOTOVOLTAIC SYSTEM --------------------\n\n")
+    print(
+        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
+    )
+    print(f"{'-' * (3 * w)}")
     print(
         f'{"PV System Capacity":<{w}s}{value(blk.unit.system_capacity):<{w}.1f}{pyunits.get_units(blk.unit.system_capacity)}'
     )
@@ -107,18 +119,14 @@ def report_PV(blk):
         f'{"PV Annual Energy":<{w}s}{value(blk.unit.electricity_annual):<{w},.0f}{pyunits.get_units(blk.unit.electricity_annual)}'
     )
     print(
-        f'{"PV Power Generation":<{w}s}{f"{blk.unit.electricity():<{w},.0f}"}{"kW":<{w}s}'
+        f'{"PV Power Generation":<{w}s}{f"{blk.unit.electricity():<{w},.0f}"}{"kW"}'
     )
     print(
         f'{"Land Requirement":<{w}s}{value(blk.unit.land_req):<{w}.1f}{pyunits.get_units(blk.unit.land_req)}'
     )
-    print(
-        f'{"System Agg. Flow Electricity":<{w}s}{value(m.fs.costing.aggregate_flow_electricity):<{w}.1f}{"kW"}'
-    )
 
 
 def init_pv(blk):
-    # energy = m.fs.energy
     blk.unit.initialize()
 
 
@@ -133,12 +141,15 @@ def main():
     m.fs.costing.cost_process()
     # Updated to be 0 because this factor is not included in SAM
     m.fs.costing.maintenance_labor_chemical_factor.fix(0)
+    m.fs.costing.add_LCOE()
     m.fs.costing.initialize()
     results = solve(m)
     assert_optimal_termination(results)
     report_PV(m.fs.pv)
     print_PV_costing_breakdown(m.fs.pv)
 
+    return m
+
 
 if __name__ == "__main__":
-    main()
+    m = main()
