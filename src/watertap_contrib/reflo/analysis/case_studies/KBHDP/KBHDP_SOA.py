@@ -128,25 +128,25 @@ def add_connections(m):
 
     m.fs.feed_to_softener = Arc(
         source=m.fs.feed.outlet,
-        destination=m.fs.softener.unit.inlet,
+        destination=m.fs.softener.feed.inlet,
     )
 
     m.fs.softener_to_translator = Arc(
-        source=m.fs.softener.unit.outlet,
+        source=m.fs.softener.product.outlet,
         destination=m.fs.MCAS_to_ZO_TDS_translator.inlet,
     )
 
     m.fs.softener_to_sludge = Arc(
-        source=m.fs.softener.unit.waste,
+        source=m.fs.softener.disposal.outlet,
         destination=m.fs.sludge.inlet,
     )
 
-    m.fs.translator_to_UF = Arc(
+    m.fs.MCAS_ZO_translator_to_UF = Arc(
         source=m.fs.MCAS_to_ZO_TDS_translator.outlet,
         destination=m.fs.UF.feed.inlet,
     )
 
-    m.fs.UF_to_translator3 = Arc(
+    m.fs.UF_to_translatorZONaCl = Arc(
         source=m.fs.UF.product.outlet,
         destination=m.fs.ZO_TDS_to_NaCl_translator.inlet,
     )
@@ -156,7 +156,7 @@ def add_connections(m):
         destination=m.fs.UF_waste.inlet,
     )
 
-    m.fs.translator_to_pump = Arc(
+    m.fs.translatorZONaCl_to_pump = Arc(
         source=m.fs.ZO_TDS_to_NaCl_translator.outlet,
         destination=m.fs.pump.inlet,
     )
@@ -292,15 +292,15 @@ def init_system(m):
     m.fs.sludge.initialize()
 
     m.fs.MCAS_to_ZO_TDS_translator.initialize()
-    propagate_state(m.fs.translator_to_UF)
+    propagate_state(m.fs.MCAS_ZO_translator_to_UF)
     init_UF(m.fs.UF)
-    propagate_state(m.fs.UF_to_translator3)
+    propagate_state(m.fs.UF_to_translatorZONaCl)
     propagate_state(m.fs.UF_to_waste)
     m.fs.UF_waste.initialize()
 
     m.fs.ZO_TDS_to_NaCl_translator.initialize()
 
-    propagate_state(m.fs.translator_to_pump)
+    propagate_state(m.fs.translatorZONaCl_to_pump)
     m.fs.pump.initialize()
 
     propagate_state(m.fs.pump_to_ro)
@@ -361,52 +361,64 @@ def optimize(
             stage.module.area.setub(1e6)
 
 
-def display_costing_breakdown(m):
-    print("\n\n-------------------- SYSTEM COSTING BREAKDOWN --------------------\n\n")
-    header = f'{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
-    print(header)
+def display_costing_breakdown(m, w=30):
+    title = "KBHDP Unit Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
     print(
-        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
+        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
     )
-    print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}')
-    print("\n")
-    print_RO_costing_breakdown(m.fs.RO)
-    # print_softening_costing_breakdown(m.fs.treatment.softener)
-    print_UF_costing_breakdown(m.fs.UF)
-    print_DWI_costing_breakdown(m.fs.DWI)
+    print(f"{'-' * (3 * w)}")
+    print(f'{"LCOW":<{w}s}{f"${m.fs.costing.LCOW():<{w}.3f}"}{"$/m3":<{w}s}')
     print(
-        f'{"Pump Capital Cost":<35s}{f"${value(m.fs.pump.costing.capital_cost):<25,.0f}"}'
-    )
-    print("\n")
-    print(
-        f'{"Total Capital Cost":<35s}{f"${m.fs.costing.total_capital_cost():<25,.3f}"}'
+        f'{"Feed Flow":<{w}s}{f"{value(pyunits.convert(m.fs.feed.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w},.1f}"}{"MGD":<{w}s}'
     )
     print(
-        f'{"Total Operating Cost":<35s}{f"${m.fs.costing.total_operating_cost():<25,.3f}"}'
+        f'{"Product Flow":<{w}s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w},.1f}"}{"MGD":<{w}s}'
     )
     print(
-        f'{"Total Annualized Cost":<35s}{f"${m.fs.costing.total_annualized_cost():<25,.3f}"}'
+        f'{"Pump Capital Cost":<{w}s}{f"${value(m.fs.pump.costing.capital_cost):<{w},.0f}"}{pyunits.get_units(m.fs.pump.costing.capital_cost)}'
     )
-    print("\nOperating Costs:")
+    print_RO_costing_breakdown(m.fs.RO, w=w)
+    print_softening_costing_breakdown(m.fs.softener, w=w)
+    print_UF_costing_breakdown(m.fs.UF, w=w)
+    print_DWI_costing_breakdown(m.fs.DWI, w=w)
+    title = "System Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n\n{header}\n")
+    print(f'{"LCOW":<{w}s}{f"${m.fs.costing.LCOW():<{w}.3f}"}{"$/m3":<{w}s}\n')
     print(
-        f'{f"Total Fixed Operating Costs":<35s}{f"${m.fs.costing.total_fixed_operating_cost():<25,.3f}"}'
+        f'{"Total Annualized Cost":<{w}s}{f"${m.fs.costing.total_annualized_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_annualized_cost)}'
     )
     print(
-        f'{f"    Agg Fixed Operating Costs":<35s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<25,.3f}"}'
+        f'{"Total CAPEX":<{w}s}{f"${m.fs.costing.total_capital_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_capital_cost)}'
     )
     print(
-        f'{f"    MLC Operating Costs":<35s}{f"${m.fs.costing.maintenance_labor_chemical_operating_cost():<25,.3f}"}'
+        f'{"Total OPEX":<{w}s}{f"${m.fs.costing.total_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_operating_cost)}\n'
     )
     print(
-        f'{f"Total Variable Operating Costs":<35s}{f"${m.fs.costing.total_variable_operating_cost():<25,.3f}"}'
+        f'{f"Total Fixed OPEX":<{w}s}{f"${m.fs.costing.total_fixed_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_fixed_operating_cost)}'
     )
     print(
-        f'{f"    Agg Variable Operating Costs":<35s}{f"${m.fs.costing.aggregate_variable_operating_cost():<25,.3f}"}'
+        f'{f"Agg Fixed OPEX":<{w}s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.aggregate_fixed_operating_cost)}'
     )
+    print(
+        f'{f"MLC OPEX":<{w}s}{f"${m.fs.costing.maintenance_labor_chemical_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.maintenance_labor_chemical_operating_cost)}'
+    )
+    print(
+        f'{f"Total Variable OPEX":<{w}s}{f"${m.fs.costing.total_variable_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_variable_operating_cost)}'
+    )
+    print(
+        f'{f"Agg Variable OPEX":<{w}s}{f"${m.fs.costing.aggregate_variable_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.aggregate_variable_operating_cost)}'
+    )
+    print(f"{'.' * (3 * w)}")
     for flow in m.fs.costing.aggregate_flow_costs:
         print(
-            f'{f"    Flow Cost [{flow}]":<35s}{f"${m.fs.costing.aggregate_flow_costs[flow]():>25,.0f}"}'
+            f'{f"{flow.upper()} Cost":<{w}s}{f"${m.fs.costing.aggregate_flow_costs[flow]():<{w},.0f}"}{pyunits.get_units(m.fs.costing.aggregate_flow_costs[flow])}'
         )
+    print("\n\n")
 
 
 # def build_sweep():
@@ -428,7 +440,6 @@ def report_all_results(m):
     report_softener(m.fs.softener)
     report_UF(m.fs.UF)
     report_RO(m.fs.RO)
-    report_DWI(m.fs.DWI)
     display_costing_breakdown(m)
 
 
@@ -451,4 +462,3 @@ def main():
 
 if __name__ == "__main__":
     m = main()
-    # build_sweep()
