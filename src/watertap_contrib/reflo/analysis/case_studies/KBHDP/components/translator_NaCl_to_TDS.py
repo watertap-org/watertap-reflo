@@ -29,6 +29,7 @@ from watertap.core.solvers import get_solver
 
 __author__ = "Zachary Binger"
 
+
 # translator_6
 @declare_process_block_class("TranslatorNaCltoTDS")
 class TranslatorNaCltoTDSData(TranslatorData):

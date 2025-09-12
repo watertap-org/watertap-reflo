@@ -29,6 +29,7 @@ from watertap.core.solvers import get_solver
 
 __author__ = "Zachary Binger"
 
+
 # translator_4
 @declare_process_block_class("TranslatorZOtoSW")
 class TranslatorZOtoSWData(TranslatorData):
@@ -172,7 +173,6 @@ see property package for documentation.}""",
                 blk.properties_out[t].flow_mass_phase_comp["Liq", "TDS"]
                 == blk.properties_in[t].flow_mass_comp["tds"]
             )
-
 
     def initialize_build(
         self,
