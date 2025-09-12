@@ -90,7 +90,7 @@ class TestKBHDPComponents:
     @pytest.mark.component
     def test_MD_component(self):
         m = MD
-        pass 
+        pass
 
     @pytest.mark.component
     def test_PV_component(self):
@@ -103,17 +103,13 @@ class TestKBHDPComponents:
     def test_ro_system_component(self):
         m = ro_system.main()
         assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 0.10502
-        assert (
-            pytest.approx(value(m.fs.water_recovery), rel=1e-3) == 0.33857
-        )
-    
+        assert pytest.approx(value(m.fs.water_recovery), rel=1e-3) == 0.33857
+
     @pytest.mark.component
     def test_softener_component(self):
         m = softener.main()
         assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 1.00431
-        assert (
-            pytest.approx(value(m.fs.softener.unit.CaO_dosing), rel=1e-3) == 7160.9
-        )
+        assert pytest.approx(value(m.fs.softener.unit.CaO_dosing), rel=1e-3) == 7160.9
 
     @pytest.mark.component
     def test_UF_component(self):
