@@ -90,8 +90,8 @@ def build_softener(blk, prop_package=None):
         property_package=prop_package,
         silica_removal=False,
         softening_procedure_type="excess_lime_soda",
-    )    
-    
+    )
+
     blk.feed_to_unit = Arc(
         source=blk.feed.outlet,
         destination=blk.unit.inlet,
@@ -301,6 +301,7 @@ def report_softener(blk, w=25):
         f'{"Sludge Produced":<{w}s}{unit.sludge_prod.value:<{w}.3f}{pyunits.get_units(unit.sludge_prod)}'
     )
 
+
 def print_softening_costing_breakdown(blk, w=25):
     unit = blk.unit
 
@@ -319,7 +320,6 @@ def print_softening_costing_breakdown(blk, w=25):
     print(
         f'{"Electric Power Reqd":<{w}s}{f"{unit.costing.electricity_flow.value:<{w},.4f}"}{pyunits.get_units(unit.costing.electricity_flow)}'
     )
-
 
     print("\n\n")
 

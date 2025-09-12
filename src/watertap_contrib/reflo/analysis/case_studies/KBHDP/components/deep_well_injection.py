@@ -114,7 +114,9 @@ def print_DWI_costing_breakdown(blk, w=25):
     print(f"\n{header}\n")
     print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
     print(f"{'-' * (3 * w)}")
-    print(f'{"DWI Capital Cost":<{w}s}{f"${blk.unit.costing.capital_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}')
+    print(
+        f'{"DWI Capital Cost":<{w}s}{f"${blk.unit.costing.capital_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
+    )
     print(
         f'{"DWI Operating Cost":<{w}s}{f"${blk.unit.costing.variable_operating_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.variable_operating_cost)}'
     )

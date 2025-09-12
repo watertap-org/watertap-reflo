@@ -537,24 +537,23 @@ def report_RO(blk, w=25):
     side = int(((3 * w) - len(title)) / 2) - 1
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n{header}\n")
-    print(
-        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
-    )
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
     print(f'{"Recovery":<{w}s}{value(100*m.fs.water_recovery):<{w}.1f}{"%"}')
     print(
         f'{"RO Operating Pressure":<{w}s}{value(pyunits.convert(blk.feed.properties[0].pressure, to_units=pyunits.bar)):<{w}.1f}{"bar":<{w}}'
     )
-    print(f'{"RO Membrane Area":<{w}s}{value(blk.stage[1].module.area):<{w}.1f}{"m^2":<{w}}')
+    print(
+        f'{"RO Membrane Area":<{w}s}{value(blk.stage[1].module.area):<{w}.1f}{"m^2":<{w}}'
+    )
+
 
 def print_RO_costing_breakdown(blk, w=25):
     title = "RO Costing Breakdown"
     side = int(((3 * w) - len(title)) / 2) - 1
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n{header}\n")
-    print(
-        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
-    )
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
     print(
         f'{"RO Capital Cost":<{w}s}{f"${value(blk.stage[1].module.costing.capital_cost):<{w},.0f}{pyunits.get_units(blk.stage[1].module.costing.capital_cost)}"}'
@@ -563,6 +562,7 @@ def print_RO_costing_breakdown(blk, w=25):
         f'{"RO Operating Cost":<{w}s}{f"${value(blk.stage[1].module.costing.fixed_operating_cost):<{w},.0f}{pyunits.get_units(blk.stage[1].module.costing.fixed_operating_cost)}"}'
     )
     print("\n\n")
+
 
 def build_system():
     m = ConcreteModel()
@@ -595,8 +595,6 @@ def build_system():
     TransformationFactory("network.expand_arcs").apply_to(m)
 
     return m
-
-
 
 
 def main():

@@ -127,7 +127,9 @@ def report_fpc(blk, w=25):
         f'{"Heat annual":<{w}s}{value(unit.heat_annual):<{w},.2f}{pyunits.get_units(unit.heat_annual)}'
     )
 
-    print(f'{"Thermal Power":<{w}s}{value(unit.heat):<{w},.2f}{pyunits.get_units(unit.heat)}')
+    print(
+        f'{"Thermal Power":<{w}s}{value(unit.heat):<{w},.2f}{pyunits.get_units(unit.heat)}'
+    )
 
     print(
         f'{"Electricity annual":<{w}s}{value(unit.electricity_annual):<{w},.2f}{pyunits.get_units(unit.electricity_annual)}'
@@ -177,7 +179,7 @@ def main():
     assert_optimal_termination(results)
 
     report_fpc(m.fs.fpc)
-    
+
     return m
 
 

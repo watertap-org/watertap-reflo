@@ -801,9 +801,12 @@ def main():
     print(f" dof = {degrees_of_freedom(m)}")
     # assert False
     m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
+    m.fs.treatment.EC.unit.properties_in[0.0].conc_mass_comp
     results = solve(m, debug=False)
     report_PV(m.fs.energy.pv)
     m.fs.costing.frac_elec_from_grid.display()
+    # m.fs.treatment.EC.unit.display()
+    m.fs.treatment.EC.unit.properties_in[0.0].conc_mass_comp.display()
     # m.fs.costing.display()
 
     return m

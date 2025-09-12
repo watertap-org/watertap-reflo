@@ -89,9 +89,7 @@ def print_PV_costing_breakdown(blk, w=30):
     side = int(((3 * w) - len(title)) / 2) - 1
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n{header}\n")
-    print(
-        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
-    )
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
     print(
         f'{"PV Capital Cost":<35s}{f"${value(blk.unit.costing.capital_cost):<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
@@ -108,9 +106,7 @@ def report_PV(blk, w=30):
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n{header}\n")
 
-    print(
-        f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}'
-    )
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
     print(
         f'{"PV System Capacity":<{w}s}{value(blk.unit.system_capacity):<{w}.1f}{pyunits.get_units(blk.unit.system_capacity)}'
@@ -118,9 +114,7 @@ def report_PV(blk, w=30):
     print(
         f'{"PV Annual Energy":<{w}s}{value(blk.unit.electricity_annual):<{w},.0f}{pyunits.get_units(blk.unit.electricity_annual)}'
     )
-    print(
-        f'{"PV Power Generation":<{w}s}{f"{blk.unit.electricity():<{w},.0f}"}{"kW"}'
-    )
+    print(f'{"PV Power Generation":<{w}s}{f"{blk.unit.electricity():<{w},.0f}"}{"kW"}')
     print(
         f'{"Land Requirement":<{w}s}{value(blk.unit.land_req):<{w}.1f}{pyunits.get_units(blk.unit.land_req)}'
     )

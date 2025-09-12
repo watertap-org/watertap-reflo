@@ -123,7 +123,9 @@ def report_cst(blk, w=30):
         f'{"Heat annual":<{w}s}{value(unit.heat_annual):<{w},.2f}{pyunits.get_units(unit.heat_annual)}'
     )
 
-    print(f'{"Thermal Power Produced":<{w}s}{value(unit.heat):<{w},.2f}{pyunits.get_units(unit.heat)}')
+    print(
+        f'{"Thermal Power Produced":<{w}s}{value(unit.heat):<{w},.2f}{pyunits.get_units(unit.heat)}'
+    )
 
     print(
         f'{"Electricity annual":<{w}s}{value(unit.electricity_annual):<{w},.2f}{pyunits.get_units(unit.electricity_annual)}'
@@ -153,8 +155,6 @@ def report_cst(blk, w=30):
             f'{"Variable Operating Cost":<{w}s}{value(unit.costing.variable_operating_cost):<{w},.2f}{pyunits.get_units(unit.costing.variable_operating_cost)}'
         )
         print("\n\n")
-
-
 
 
 def main():
