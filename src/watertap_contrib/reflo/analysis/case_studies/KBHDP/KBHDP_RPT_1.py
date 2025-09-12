@@ -94,15 +94,7 @@ def build_treatment(m):
     build_ro(treatment.RO, prop_package=m.fs.RO_properties, number_of_stages=1)
     build_DWI(treatment.DWI, prop_package=m.fs.RO_properties)
 
-    m.fs.units = [
-        treatment.feed,
-        treatment.EC,
-        treatment.UF,
-        treatment.pump,
-        treatment.RO,
-        treatment.DWI,
-        treatment.sludge,
-    ]
+    m.fs.treatment.product.properties[0].conc_mass_phase_comp
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -368,13 +360,13 @@ def init_system(m):
     # init_energy(m.fs.energy)
 
 
-def report_pump(m, pump):
+def report_pump(blk, w=30):
     print(f"\n\n-------------------- SYSTEM PUMP --------------------\n\n")
     print(
-        f'{"Pump Pressure":<30s}{value(pyunits.convert(pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+        f'{"Pump Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
     )
     print(
-        f'{"Pump Work":<30s}{value(pyunits.convert(pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}'
+        f'{"Pump Work":<30s}{value(pyunits.convert(blk.pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}'
     )
 
 
@@ -389,21 +381,6 @@ def display_system_stream_table(m):
     )
     # display_flow_table(treatment.RO)
     print("\n\n")
-
-
-def display_costing_breakdown(m):
-    header = f'\n{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
-    print(header)
-    print(
-        f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
-    )
-    print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}\n')
-
-    print_EC_costing_breakdown(m.fs.treatment.EC)
-    print_UF_costing_breakdown(m.fs.treatment.UF)
-    print_RO_costing_breakdown(m.fs.treatment.RO)
-    print_DWI_costing_breakdown(m.fs.treatment.DWI)
-    print_PV_costing_breakdown(m.fs.energy.pv)
 
 
 def optimize_system(
@@ -501,57 +478,84 @@ def display_costing_breakdown(m, w=30):
     side = int(((3 * w) - len(title)) / 2) - 1
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n{header}\n")
-    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
-    print(f"{'-' * (3 * w)}")
-    print(f'{"LCOW":<{w}s}{f"${m.fs.costing.LCOW():<{w}.3f}"}{"$/m3":<{w}s}')
+    print_EC_costing_breakdown(m.fs.treatment.EC, w=w)
+    print_UF_costing_breakdown(m.fs.treatment.UF, w=w)
+    title = "Pump Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
     print(
-        f'{"Feed Flow":<{w}s}{f"{value(pyunits.convert(m.fs.feed.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w},.1f}"}{"MGD":<{w}s}'
+        f'{"Pump Capital Cost":<{w}s}{f"${value(m.fs.treatment.pump.costing.capital_cost):<{w},.0f}"}{pyunits.get_units(m.fs.treatment.pump.costing.capital_cost)}'
     )
-    print(
-        f'{"Product Flow":<{w}s}{f"{value(pyunits.convert(m.fs.product.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w},.1f}"}{"MGD":<{w}s}'
-    )
-    print(
-        f'{"Pump Capital Cost":<{w}s}{f"${value(m.fs.pump.costing.capital_cost):<{w},.0f}"}{pyunits.get_units(m.fs.pump.costing.capital_cost)}'
-    )
-    print_RO_costing_breakdown(m.fs.RO, w=w)
-    # print_softening_costing_breakdown(m.fs.softener, w=w)
-    # print_UF_costing_breakdown(m.fs.UF, w=w)
-    print_DWI_costing_breakdown(m.fs.DWI, w=w)
+    print_RO_costing_breakdown(m.fs.treatment.RO, w=w)
+    print_DWI_costing_breakdown(m.fs.treatment.DWI, w=w)
+    print(f"{'*' * (3 * w)}")
     title = "System Costing Breakdown"
     side = int(((3 * w) - len(title)) / 2) - 1
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n\n{header}\n")
     print(f'{"LCOW":<{w}s}{f"${m.fs.costing.LCOW():<{w}.3f}"}{"$/m3":<{w}s}\n')
+    print(f'{"SEC":<{w}s}{f"${m.fs.treatment.costing.SEC():<{w}.3f}"}{"kWh/m3":<{w}s}\n')
     print(
-        f'{"Total Annualized Cost":<{w}s}{f"${m.fs.costing.total_annualized_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_annualized_cost)}'
+        f'{"Total CAPEX":<{w}s}{f"${m.fs.costing.total_capital_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_capital_cost)}'
     )
     print(
-        f'{"Total CAPEX":<{w}s}{f"${m.fs.costing.total_capital_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_capital_cost)}'
+        f'{"Total OPEX":<{w}s}{f"${m.fs.costing.total_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_operating_cost)}\n'
     )
     print(
-        f'{"Total OPEX":<{w}s}{f"${m.fs.costing.total_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_operating_cost)}\n'
+        f'{f"Total Fixed OPEX":<{w}s}{f"${m.fs.costing.total_fixed_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_fixed_operating_cost)}'
     )
     print(
-        f'{f"Total Fixed OPEX":<{w}s}{f"${m.fs.costing.total_fixed_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_fixed_operating_cost)}'
+        f'{f"Agg Fixed OPEX":<{w}s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.aggregate_fixed_operating_cost)}'
     )
     print(
-        f'{f"Agg Fixed OPEX":<{w}s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.aggregate_fixed_operating_cost)}'
+        f'{f"Total Variable OPEX":<{w}s}{f"${m.fs.costing.total_variable_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_variable_operating_cost)}'
     )
     print(
-        f'{f"MLC OPEX":<{w}s}{f"${m.fs.costing.maintenance_labor_chemical_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.maintenance_labor_chemical_operating_cost)}'
-    )
-    print(
-        f'{f"Total Variable OPEX":<{w}s}{f"${m.fs.costing.total_variable_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.total_variable_operating_cost)}'
-    )
-    print(
-        f'{f"Agg Variable OPEX":<{w}s}{f"${m.fs.costing.aggregate_variable_operating_cost():<{w},.3f}"}{pyunits.get_units(m.fs.costing.aggregate_variable_operating_cost)}'
+        f'{f"Agg Variable OPEX":<{w}s}{f"${m.fs.costing.aggregate_variable_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.aggregate_variable_operating_cost)}'
     )
     print(f"{'.' * (3 * w)}")
-    for flow in m.fs.costing.aggregate_flow_costs:
-        print(
-            f'{f"{flow.upper()} Cost":<{w}s}{f"${m.fs.costing.aggregate_flow_costs[flow]():<{w},.0f}"}{pyunits.get_units(m.fs.costing.aggregate_flow_costs[flow])}'
-        )
+    for flow in m.fs.treatment.costing.aggregate_flow_costs:
+        if flow == "electricity":
+            print(
+                f'{f"{flow.upper()} Cost":<{w}s}{f"${m.fs.costing.aggregate_flow_electricity_purchased():<{w},.0f}"}{pyunits.get_units(m.fs.costing.aggregate_flow_electricity_purchased)}'
+            )
+        else:
+            print(
+                f'{f"{flow.upper()} Cost":<{w}s}{f"${m.fs.treatment.costing.aggregate_flow_costs[flow]():<{w},.0f}"}{pyunits.get_units(m.fs.treatment.costing.aggregate_flow_costs[flow])}'
+            )
     print("\n\n")
+
+
+def report_all_results(m, w=25):
+    print(f"{'*' * (3 * w)}")
+    print(f"{'*' * (3 * w)}")
+    title = "KBHDP RPT 1 Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"Feed Flow":<{w}s}{f"{value(pyunits.convert(m.fs.treatment.feed.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w},.1f}"}{"MGD":<{w}s}'
+    )
+    print(
+        f'{"Product Flow":<{w}s}{f"{value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w},.1f}"}{"MGD":<{w}s}'
+    )
+    salinity_out = (
+        value(m.fs.treatment.product.properties[0].conc_mass_phase_comp["Liq", "NaCl"])
+        * 1000
+    )
+    print(f'{"Product Salinity":<{w}s}{f"{salinity_out:<{w},.2f}"}{"mg/L":<{w}s}')
+    print(
+        f'{"System Recovery":<{w}s}{f"{value(m.fs.water_recovery)*100:<{w},.1f}"}{"%":<{w}s}'
+    )
+    report_EC(m.fs.treatment.EC, w=w)
+    report_UF(m.fs.treatment.UF, w=w)
+    report_RO(m.fs.treatment.RO, w=w)
+    display_RO_flow_table(m.fs.treatment.RO, w=w)
+    report_PV(m.fs.energy.pv, w=w)
+    display_costing_breakdown(m, w=w)
 
 
 def main():
@@ -563,18 +567,26 @@ def main():
     apply_scaling(m)
     init_system(m)
     add_costing(m)
+
     optimize_system(
         m,
-        ro_mem_area=None,
-        fixed_pressure=62e5,
-        water_recovery=None,
+        ro_mem_area=20000,
+        fixed_pressure=None,
+        water_recovery=0.8,
         grid_frac=None,
-        elec_price=0.1,
+        elec_price=0.15,
     )
+    # optimize_system(
+    #     m,
+    #     ro_mem_area=None,
+    #     fixed_pressure=62e5,
+    #     water_recovery=None,
+    #     grid_frac=None,
+    #     elec_price=0.15,
+    # )
     results = solve(m)
     assert_optimal_termination(results)
-
-    report_PV(m.fs.energy.pv)
+    report_all_results(m)
 
     return m
 

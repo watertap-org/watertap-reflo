@@ -305,7 +305,7 @@ def report_softener(blk, w=25):
 def print_softening_costing_breakdown(blk, w=25):
     unit = blk.unit
 
-    title = "Softener Costing Report"
+    title = "Softener Costing Breakdown"
     side = int(((3 * w) - len(title)) / 2) - 1
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n{header}\n")

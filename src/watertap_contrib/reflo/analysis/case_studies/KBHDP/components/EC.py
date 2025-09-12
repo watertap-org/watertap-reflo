@@ -1,5 +1,6 @@
 from pyomo.environ import (
     ConcreteModel,
+    Expression,
     TransformationFactory,
     assert_optimal_termination,
     value,
@@ -83,6 +84,13 @@ def build_EC(blk, prop_package=None):
         reactor_material="pvc",
         overpotential_calculation="calculated",
         process_subtype="kbhdp",
+    )
+
+    blk.unit.SEC = Expression(
+        expr=pyunits.convert(
+            blk.unit.power_required / blk.unit.properties_in[0].flow_vol,
+            to_units=pyunits.kWh / pyunits.m**3,
+        )
     )
 
     blk.feed_to_unit = Arc(
@@ -184,6 +192,26 @@ def report_EC(blk, w=25):
     print(
         f'{"Disposal":<{w}}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<{w}.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<{w}.2f}'
     )
+    print(f'\n\n{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"Inlet Salinity":<{w}}{value(blk.feed.properties[0].conc_mass_comp["tds"]):<{w}.2f}{pyunits.get_units(blk.feed.properties[0].conc_mass_comp["tds"])}'
+    )
+    print(
+        f'{"Solution Conductivity":<{w}}{value(blk.unit.conductivity):<{w}.2f}{pyunits.get_units(blk.unit.conductivity)}'
+    )
+    print(
+        f'{"Ohmic Resistance":<{w}s}{f"{pyunits.convert(blk.unit.ohmic_resistance, to_units=pyunits.mohm)():<{w},.3e}"}{"mΩ"}'
+    )
+    print(
+        f'{"Total Electrode Area":<{w}}{value(blk.unit.cathode_area)*2:<{w}.2f}{pyunits.get_units(blk.unit.cathode_area)}'
+    )
+    print(
+        f'{"Total Electrode Area":<{w}}{value(blk.unit.cathode_area)*2:<{w}.2f}{pyunits.get_units(blk.unit.cathode_area)}'
+    )
+    print(
+        f'{"Power Required":<{w}s}{f"{pyunits.convert(blk.unit.power_required, to_units=pyunits.kW)():<{w},.1f}"}{"kW"}'
+    )
 
 
 def print_EC_costing_breakdown(blk, w=25):
@@ -194,15 +222,27 @@ def print_EC_costing_breakdown(blk, w=25):
     print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
     print(f"{'-' * (3 * w)}")
     print(
-        f'{"EC Capital Cost":<{w}s}{f"{blk.unit.costing.capital_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
+        f'{"EC CAPEX":<{w}s}{f"{blk.unit.costing.capital_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
     )
     print(
-        f'{"EC Operating Cost":<{w}s}{f"{blk.unit.costing.fixed_operating_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.fixed_operating_cost)}'
+        f'{"    Reactor":<{w}s}{f"{blk.unit.costing.capital_cost_reactor():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost_reactor)}'
     )
-
+    print(
+        f'{"    Electrodes":<{w}s}{f"{blk.unit.costing.capital_cost_electrodes():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost_electrodes)}'
+    )
+    print(
+        f'{"    Power Supply":<{w}s}{f"{blk.unit.costing.capital_cost_power_supply():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost_power_supply)}'
+    )
+    print(
+        f'{"    Floc Reactor":<{w}s}{f"{blk.unit.costing.capital_cost_floc_reactor():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost_floc_reactor)}'
+    )
+    print(
+        f'{"EC Fixed OPEX":<{w}s}{f"{blk.unit.costing.fixed_operating_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.fixed_operating_cost)}'
+    )
     print(
         f'{"EC Power Required":<{w}s}{f"{blk.unit.costing.electricity_flow():<{w},.0f}"}{"kW"}'
     )
+    print(f'{"SEC":<{w}s}{f"{blk.unit.SEC():<{w},.1f}"}{"kWh/m3"}')
 
 
 def main():
