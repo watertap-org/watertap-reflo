@@ -4,6 +4,7 @@ from .EC import *
 from .FPC import *
 from .LTMED import *
 from .MD import *
+from .MEC import *
 from .PV import *
 from .ro_system import *
 from .softener import *
