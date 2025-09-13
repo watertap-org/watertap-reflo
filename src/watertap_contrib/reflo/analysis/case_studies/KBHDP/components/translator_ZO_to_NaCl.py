@@ -30,7 +30,6 @@ from watertap.core.solvers import get_solver
 __author__ = "Zachary Binger"
 
 
-# translator_3
 @declare_process_block_class("TranslatorZOtoNaCl")
 class TranslatorZOtoNaClData(TranslatorData):
     """
@@ -141,15 +140,6 @@ see property package for documentation.}""",
     )
 
     def build(self):
-        """
-        Begin building model.
-        Args:
-            None
-        Returns:
-            None
-        """
-        # Call UnitModel.build to setup dynamics
-        # super(TranslatorZOtoNaClData, self).build()
         super().build()
 
         @self.Constraint(

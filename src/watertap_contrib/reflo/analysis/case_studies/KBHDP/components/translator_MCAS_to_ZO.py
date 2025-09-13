@@ -30,7 +30,6 @@ from watertap.core.solvers import get_solver
 __author__ = "Zachary Binger"
 
 
-# translator_2
 @declare_process_block_class("TranslatorMCAStoZO")
 class TranslatorMCAStoZOData(TranslatorData):
     """

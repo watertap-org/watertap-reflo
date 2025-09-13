@@ -30,7 +30,6 @@ from watertap.core.solvers import get_solver
 __author__ = "Zachary Binger"
 
 
-# translator_1
 @declare_process_block_class("TranslatorMCAStoNaCl")
 class TranslatorMCAStoNaClData(TranslatorData):
     """
@@ -148,7 +147,6 @@ see property package for documentation.}""",
         Returns:
             None
         """
-        # super(TranslatorMCAStoNaClData, self).build()
         super().build()
         solute_set = self.config.inlet_property_package.solute_set
 

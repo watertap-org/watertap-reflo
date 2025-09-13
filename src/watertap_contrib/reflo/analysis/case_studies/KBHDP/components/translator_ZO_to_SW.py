@@ -30,7 +30,6 @@ from watertap.core.solvers import get_solver
 __author__ = "Zachary Binger"
 
 
-# translator_4
 @declare_process_block_class("TranslatorZOtoSW")
 class TranslatorZOtoSWData(TranslatorData):
     """
@@ -141,14 +140,7 @@ see property package for documentation.}""",
     )
 
     def build(self):
-        """
-        Begin building model.
-        Args:
-            None
-        Returns:
-            None
-        """
-        # super(TranslatorZOtoSWData, self).build()
+
         super().build()
 
         self.properties_out[0].pressure.fix(101325)
