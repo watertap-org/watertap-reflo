@@ -252,7 +252,7 @@ def display_costing_breakdown(m, w=30):
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n{header}\n")
 
-    report_md_costing(m.fs.treatment.md, w=w)
+    print_MD_costing_breakdown(m.fs.treatment.md, w=w)
     print_DWI_costing_breakdown(m.fs.treatment.dwi, w=w)
     print_FPC_costing_breakdown(m.fs.energy.FPC, w=w)
 
