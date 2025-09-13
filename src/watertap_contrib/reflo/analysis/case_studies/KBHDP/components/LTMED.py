@@ -51,7 +51,6 @@ def build_LTMED(blk, liquid_prop=None, vapor_prop=None, number_effects=12):
         number_effects=number_effects,
     )
 
-    # BUG LTMED Surrogate has no inlet port, so can't connect to feed
     blk.feed_to_unit = Arc(
         source=blk.feed.outlet,
         destination=blk.unit.feed,

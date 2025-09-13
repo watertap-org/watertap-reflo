@@ -24,7 +24,7 @@ __all__ = [
     "set_md_model_options",
     "init_md",
     "report_MD",
-    "report_md_costing",
+    "print_MD_costing_breakdown",
 ]
 
 
@@ -253,7 +253,7 @@ def set_system_op_conditions(m):
     )
 
 
-def report_MD(blk, w=25):
+def report_MD(blk, w=30):
 
     active_blks = blk.unit.mp.get_active_process_blocks()
 
@@ -319,7 +319,7 @@ def report_MD(blk, w=25):
     )
 
 
-def report_md_costing(blk, w=25):
+def print_MD_costing_breakdown(blk, w=30):
     active_blks = blk.unit.mp.get_active_process_blocks()
     title = "MD Costing Breakdown"
     side = int(((3 * w) - len(title)) / 2) - 1
@@ -379,7 +379,7 @@ def main():
     set_system_op_conditions(m)
     init_system(m)
 
-    results = solve(m, tee=False)
+    results = solve(m)
     assert_optimal_termination(results)
 
     add_md_costing(m.fs.md)
@@ -401,8 +401,11 @@ def main():
     assert_optimal_termination(results)
 
     report_MD(m.fs.md)
-    report_md_costing(m.fs.md)
+    print_MD_costing_breakdown(m.fs.md)
+
+    return m
 
 
 if __name__ == "__main__":
     m = main()
+    m.fs.costing.LCOW.display()
