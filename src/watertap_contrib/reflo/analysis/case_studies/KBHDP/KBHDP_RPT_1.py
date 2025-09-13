@@ -253,7 +253,6 @@ def apply_scaling(m):
     add_UF_scaling(m.fs.treatment.UF)
     add_ro_scaling(m.fs.treatment.RO)
     add_pv_scaling(m.fs.energy.pv)
-    # apply_system_scaling(m)
     iscale.set_scaling_factor(
         m.fs.treatment.UF_waste.properties[0.0].flow_mass_comp["tds"], 1e3
     )
@@ -361,26 +360,18 @@ def init_system(m):
 
 
 def report_pump(blk, w=30):
-    print(f"\n\n-------------------- SYSTEM PUMP --------------------\n\n")
+    title = "Pump Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
+    print(f"{'-' * (3 * w)}")
     print(
-        f'{"Pump Pressure":<30s}{value(pyunits.convert(blk.pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+        f'{"Pump Pressure":<{w}s}{value(pyunits.convert(blk.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<{w}.1f}{"bar"}'
     )
     print(
-        f'{"Pump Work":<30s}{value(pyunits.convert(blk.pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}'
+        f'{"Pump Work":<{w}s}{value(pyunits.convert(blk.control_volume.work[0], to_units=pyunits.kW)):<{w}.3f}{"kW"}'
     )
-
-
-def display_system_stream_table(m):
-    treatment = m.fs.treatment
-    print("\n\n-------------------- SYSTEM STREAM TABLE --------------------\n\n")
-    print(
-        f'{"NODE":<20s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
-    )
-    print(
-        f'{"Feed":<20s}{treatment.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.3f}{value(pyunits.convert(treatment.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}'
-    )
-    # display_flow_table(treatment.RO)
-    print("\n\n")
 
 
 def optimize_system(
@@ -394,7 +385,7 @@ def optimize_system(
     treatment = m.fs.treatment
     print(f"\n\nDOF before optimization: {degrees_of_freedom(m)}")
 
-    m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOT)
+    m.fs.obj = Objective(expr=m.fs.costing.LCOT)
 
     if water_recovery is not None:
         # Fix water recovery
@@ -495,7 +486,9 @@ def display_costing_breakdown(m, w=30):
     header = "=" * side + f" {title} " + "=" * side
     print(f"\n\n{header}\n")
     print(f'{"LCOW":<{w}s}{f"${m.fs.costing.LCOW():<{w}.3f}"}{"$/m3":<{w}s}\n')
-    print(f'{"SEC":<{w}s}{f"${m.fs.treatment.costing.SEC():<{w}.3f}"}{"kWh/m3":<{w}s}\n')
+    print(
+        f'{"SEC":<{w}s}{f"${m.fs.treatment.costing.SEC():<{w}.3f}"}{"kWh/m3":<{w}s}\n'
+    )
     print(
         f'{"Total CAPEX":<{w}s}{f"${m.fs.costing.total_capital_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_capital_cost)}'
     )
@@ -553,6 +546,7 @@ def report_all_results(m, w=25):
     report_EC(m.fs.treatment.EC, w=w)
     report_UF(m.fs.treatment.UF, w=w)
     report_RO(m.fs.treatment.RO, w=w)
+    report_pump(m.fs.treatment.pump, w=w)
     display_RO_flow_table(m.fs.treatment.RO, w=w)
     report_PV(m.fs.energy.pv, w=w)
     display_costing_breakdown(m, w=w)
