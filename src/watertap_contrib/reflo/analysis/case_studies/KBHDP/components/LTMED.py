@@ -1,7 +1,6 @@
 from pyomo.environ import (
     ConcreteModel,
     TransformationFactory,
-    Objective,
     assert_optimal_termination,
     value,
     units as pyunits,
@@ -28,6 +27,7 @@ __all__ = [
     "add_LTMED_costing",
     "add_LTMED_scaling",
     "report_LTMED",
+    "print_LTMED_costing_breakdown",
 ]
 
 
@@ -113,13 +113,13 @@ def add_LTMED_scaling(blk):
     iscale.set_scaling_factor(blk.unit.feed_props[0.0].temperature, 1e-2)
 
 
-def add_LTMED_costing(blk, costing_blk=None):
+def add_LTMED_costing(blk, costing_block=None):
 
-    if costing_blk is None:
+    if costing_block is None:
         m = blk.model()
-        costing_blk = m.fs.costing
+        costing_block = m.fs.costing
 
-    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
+    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
 
 
 def init_LTMED(blk):
@@ -227,6 +227,28 @@ def report_LTMED(blk, w=30):
     print("\n\n")
 
 
+def print_LTMED_costing_breakdown(blk, w=25):
+    unit = blk.unit
+    title = "LT-MED Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"Capital Cost":<{w}s}{f"${unit.costing.capital_cost.value:<{w},.0f}"}{pyunits.get_units(unit.costing.capital_cost)}'
+    )
+    print(
+        f'{"     Membrane System":<{w}s}{f"${unit.costing.membrane_system_cost.value:<{w},.0f}"}{pyunits.get_units(unit.costing.membrane_system_cost)}'
+    )
+    print(
+        f'{"     Evaporator System":<{w}s}{f"${unit.costing.evaporator_system_cost.value:<{w},.0f}"}{pyunits.get_units(unit.costing.evaporator_system_cost)}'
+    )
+    print(
+        f'{"Operating Cost":<{w}s}{f"${unit.costing.fixed_operating_cost.value:<{w},.0f}"}{pyunits.get_units(unit.costing.fixed_operating_cost)}'
+    )
+
+
 def main():
 
     m = build_system()
@@ -253,6 +275,7 @@ def main():
     assert_optimal_termination(results)
 
     report_LTMED(m.fs.LTMED)
+    print_LTMED_costing_breakdown(m.fs.LTMED)
 
     return m
 
