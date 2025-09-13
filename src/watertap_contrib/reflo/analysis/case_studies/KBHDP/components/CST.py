@@ -174,9 +174,10 @@ def main():
     m.fs.costing.maintenance_labor_chemical_factor.fix(0)
     m.fs.costing.add_LCOH()
     m.fs.costing.initialize()
-    # add_cst_costing_scaling(m.fs.cst)
 
-    results = solve(m)
+    from idaes.core.solvers import get_solver
+    solver = get_solver()
+    results = solve(m, solver=solver)
     assert_optimal_termination(results)
 
     report_cst(m.fs.cst)
