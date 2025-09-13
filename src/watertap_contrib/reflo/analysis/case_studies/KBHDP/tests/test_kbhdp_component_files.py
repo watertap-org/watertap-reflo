@@ -19,6 +19,7 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP import (
     deep_well_injection,
     EC,
     FPC,
+    MEC,
     MD,
     LTMED,
     PV,
@@ -89,8 +90,15 @@ class TestKBHDPComponents:
 
     @pytest.mark.component
     def test_MD_component(self):
-        m = MD
-        pass
+        m = MD.main()
+        assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 1.0945
+
+    @pytest.mark.component
+    def test_MEC_component(self):
+        m = MEC.main()
+        assert pytest.approx(value(m.fs.costing.LCOW), rel=1e-3) == 1.66278
+        assert pytest.approx(value(m.fs.costing.SEC), rel=1e-3) == 1.49032
+        assert pytest.approx(value(m.fs.costing.SEC_th), rel=1e-3) == 180.7096
 
     @pytest.mark.component
     def test_PV_component(self):
