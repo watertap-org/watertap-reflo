@@ -1,16 +1,18 @@
 import math
-import idaes.core.util.scaling as iscale
+import numpy as np
+
 from pyomo.environ import (
     Var,
     Constraint,
     assert_optimal_termination,
     check_optimal_termination,
+    units as pyunits,
 )
-from idaes.core.solvers import get_solver
+import idaes.core.util.scaling as iscale
 from idaes.core.util.model_statistics import *
-import time
+
 from watertap.core.util.model_diagnostics.infeasible import *
-import numpy as np
+from watertap.core.solvers import get_solver
 
 __all__ = [
     "solve",
@@ -22,7 +24,7 @@ __all__ = [
 
 
 def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
-    # ---solving---
+
     if solver is None:
         solver = get_solver()
         solver.options["max_iter"] = 2000
@@ -66,6 +68,15 @@ def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
 
 
 def check_jac(m, print_extreme_jacobian_values=True):
+    def calc_scale(value):
+        if value != 0 or value != None:
+            try:
+                return round(-1 * math.log(abs(value), 10), 1)
+            except:
+                return 0
+        else:
+            return 0
+
     jac, jac_scaled, nlp = iscale.constraint_autoscale_large_jac(m, min_scale=1e-8)
     try:
         cond_number = iscale.jacobian_cond(m, jac=jac_scaled) / 1e10
@@ -106,16 +117,6 @@ def calc_scale(value):
     return math.floor(math.log(value, 10))
 
 
-# def calc_scale(value):
-#     if value != 0 or value != None:
-#         try:
-#             return round(-1 * math.log(abs(value), 10), 1)
-#         except:
-#             return 0
-#     else:
-#         return 0
-
-
 def print_fixed_and_unfixed_vars(blk):
     fixed_vars = [
         (v.name, v.value)
@@ -146,19 +147,7 @@ def print_fixed_and_unfixed_vars(blk):
         print(f"   {c}")
 
 
-def display_inlet_conditions(blk):
-    w = 30
-    print("\n\n")
-
-    print(
-        f'{"Unit":<{w}s}{"Mass Flow Water (kg/s)":<{w}s}{"Pressure (bar)":<{w}s}{"Mass Flow NaCl (kg/s)":<{w}s}{"Conc. (g/L)":<{w}s}'
-    )
-    print(
-        f'{"Feed":<{w}s}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<{w}.3f}{value(pyunits.convert(blk.feed.properties[0.0].pressure, to_units=pyunits.bar)):<{w}.1f}{blk.feed.properties[0.0].flow_mass_phase_comp["Liq", "NaCl"].value:<{w}.3e}{blk.feed.properties[0].conc_mass_phase_comp["Liq", "NaCl"].value:<{w}.3f}'
-    )
-
-
-def display_dof_breakdown(blk, decend=False, report=False):
+def display_dof_breakdown(blk, decend=False):
     w = 30
     print(
         "\n\n-------------------- DEGREE OF FREEDOM BREAKDOWN --------------------\n\n"
@@ -193,34 +182,12 @@ def breakdown_dof(blk, detailed=False):
 
         print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
         for v in unfixed_active_vars:
-            # subsystem = v.name.split(".")[1]
-            # if subsystem == "treatment":
-            #     component = v.name.split(".")[2]
-            #     if (component != "RO") and (component != "EC"):
-            # print(f"   {v}")
             print(f"   {v}")
         print("\n")
     print(f" {f' Active Vars':<30s}{len(active_vars)}")
     print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
     print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
     print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
-
-    # if degrees_of_freedom != 0:
-    #     print("\nSuggested Variables to Fix:")
-    #     unfixed_vars_without_constraint = [
-    #         v for v in all_vars if v not in unfixed_active_vars
-    #     ]
-    #     for v in unfixed_vars_without_constraint:
-    #         if v.fixed:
-    #             print(f"   {v}       Fixed={v.fixed}")
-
-
-def report_stream_ion_conc(m, stream):
-    print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
-    for ion_conc in stream.conc_mass_phase_comp:
-        print(
-            f"{ion_conc[1]:<15s}: {stream.conc_mass_phase_comp[ion_conc].value:<10.3f}{str(pyunits.get_units(stream.conc_mass_phase_comp[ion_conc]))}"
-        )
 
 
 def report_MCAS_stream_conc(m, stream):
@@ -237,182 +204,6 @@ def report_MCAS_stream_conc(m, stream):
     print(
         f"{'Vol. Flow Rate':<15s}: {stream.flow_mass_phase_comp['Liq', 'H2O'].value:<10.3f}{pyunits.get_units(stream.flow_mass_phase_comp['Liq', 'H2O'])}"
     )
-
-
-def standard_solve(
-    m,
-    solver=None,
-    tee=False,
-    check_termination=False,
-    expected_DOFs=None,
-    debug=False,
-    check_close_to_bounds=False,
-    check_var_scailing=False,
-    auto_rescale=False,
-    check_jacobian=False,
-    get_stats=True,
-    symbolic_solver_labels=False,
-    print_level=5,
-    check_dofs=False,
-    solver_name=None,
-):
-    print("SOLVING!")
-    if check_dofs:
-        dofs = degrees_of_freedom(m)
-        print("DOFs:", dofs)
-    else:
-        dofs = 1
-    solve_start = time.time()
-    if expected_DOFs != None:
-        assert dofs == expected_DOFs
-        print("DOFS ok", expected_DOFs)
-
-    if dofs >= 0:
-        # check_jac(m)
-        if solver is None:
-            if solver_name is not None:
-                solver = get_solver(solver_name)
-                if solver_name == "cyipopt-watertap":
-                    # cy_solver.options["bound_relax_factor"] = 0.0  # 1e-8
-                    # cy_solver.options["constr_viol_tol"] = 1e-8
-                    # cy_solver.options["acceptable_constr_viol_tol"] = 1e-8
-                    # cy_solver.options["honor_original_bounds"] = "no"
-                    # cy_solver.options["tol"] = 1e-8
-                    solver.options["hessian_approximation"] = "limited-memory"
-                    solver.options["linear_solver"] = "ma27"
-            else:
-                print("getting solver")
-                solver = get_solver()
-        solver.options["max_iter"] = 2000
-        fs = m.find_component("fs")
-        solver.options["print_level"] = print_level
-        results = solver.solve(m, tee=tee)  # , symbolic_solver_labels=tee)
-
-        if get_stats and fs is not None and fs.find_component("num_DOF") is not None:
-            with open(tempfile, "r") as f:
-                iters = 0
-                solve_time = 0
-                for line in f:
-                    # print(line)
-                    if line.startswith("Number of Iterations....:"):
-                        tokens = line.split()
-                        iters = int(tokens[3])
-                    # elif line.s?tartswith(
-                    #     "Total CPU secs in IPOPT (w/o function evaluations)   ="
-                    # ):
-                    #     tokens = line.split()
-                    #     solve_time += float(tokens[9])
-                    # elif line.startswith(
-                    #     "Total CPU secs in NLP function evaluations           ="
-                    # ):
-                    #     tokens = line.split()
-                    #     solve_time += float(tokens[8])
-                    elif line.startswith("Objective...............:"):
-                        tokens = line.split()
-                        # print(tokens)
-                        m.fs.solver_result_unscaled["Objective"].fix(float(tokens[2]))
-                        m.fs.solver_result_scaled["Objective"].fix(float(tokens[1]))
-                    elif line.startswith("Dual infeasibility......:"):
-                        tokens = line.split()
-                        # print(tokens, tokens[1])
-                        m.fs.solver_result_unscaled["Dual infeasibility"].fix(
-                            float(tokens[3])
-                        )
-                        m.fs.solver_result_scaled["Dual infeasibility"].fix(
-                            float(tokens[2])
-                        )
-                    elif line.startswith("Constraint violation....:"):
-                        tokens = line.split()
-                        # print(tokens)
-                        m.fs.solver_result_unscaled["Constraint violation"].fix(
-                            float(tokens[3])
-                        )
-                        m.fs.solver_result_scaled["Constraint violation"].fix(
-                            float(tokens[2])
-                        )
-                    elif line.startswith("Complementarity.........:"):
-                        tokens = line.split()
-                        # print(tokens)
-                        m.fs.solver_result_unscaled["Complementarity"].fix(
-                            float(tokens[2])
-                        )
-                        m.fs.solver_result_scaled["Complementarity"].fix(
-                            float(tokens[1])
-                        )
-                    elif line.startswith("Overall NLP error.......:"):
-                        tokens = line.split()
-                        # print(tokens[1], tokens[2])
-                        m.fs.solver_result_unscaled["Overall NLP error"].fix(
-                            float(tokens[4])
-                        )
-                        m.fs.solver_result_scaled["Overall NLP error"].fix(
-                            float(tokens[3])
-                        )
-                    elif line.startswith("Total seconds in IPOPT"):
-                        tokens = line.split("=")
-                        # print(tokens)
-                        solve_time = float(tokens[-1])
-
-                # m.fs.num_DOF.fix(dofs)
-                m.fs.solver_time.fix(solve_time)
-                m.fs.iteration.fix(iters)
-                if check_dofs:
-                    m.fs.num_DOF.fix(dofs)
-                    m.fs.number_unfixed_variables_in_activated_equalities.fix(
-                        number_unfixed_variables_in_activated_equalities(m)
-                    )
-                    m.fs.number_activated_equalities.fix(number_activated_equalities(m))
-
-                print("iters:", iters, "time:", solve_time)
-                # # report_statistics(m)
-                # print("number_activated_constraints", number_activated_constraints(m))
-                # print("number_unfixed_variables", number_unfixed_variables(m))
-                # print(
-                #     "number_unfixed_variables_in_activated_equalities",
-                #     number_unfixed_variables_in_activated_equalities(m),
-                # )
-                # print(
-                #     "number_activated_equalities",
-                #     number_activated_equalities(m),
-                # )
-        if check_termination:
-            assert_optimal_termination(results)
-        if check_close_to_bounds:
-            print("------vars_close_to_bound-tests---------")
-            print_variables_close_to_bounds(m)
-            print("------constraints_close_to_bound-tests---------")
-
-            print_constraints_close_to_bounds(m)
-        if check_var_scailing:
-            print("------poor_scaling_vars-tests---------")
-            get_poorly_scaled_vars(m)
-            if auto_rescale:
-                print("\n\n------auto_scaling_vars-tests---------\n\n")
-                auto_scale_bad_vars(m, m.fs, display=True, auto_scale_all=True)
-        if check_jacobian:
-            print("------jac-tests---------")
-            check_jac(m)
-        try:
-            assert_optimal_termination(results)
-            succes = "Optimal solution found!"
-            print("--------------------------")
-        except:
-            # print("------ifeasible_constraints-test---------")
-            # print_infeasible_constraints(m, tol=1e-8)
-            succes = "Solution NOT optimal !!!!!!!!!!!!!!"
-            print("!-!-!-!-!-!-!-!-!-!-!-!-!")
-        if m.find_component("fs.costing.LCOW") is not None:
-            print("SOLVED, LCOW", value(m.fs.costing.LCOW), "$/m3", succes)
-        else:
-            print("Solved model, not costing to report")
-        print("--------------------------")
-    else:
-        print("TO FEW DOFS NOT SOLVING!")
-        results = None
-        if check_termination:
-            assert_optimal_termination(results)
-    print("---------solve took: {}--------".format(time.time() - solve_start))
-    return results
 
 
 def get_poorly_scaled_vars(blk):
@@ -495,3 +286,70 @@ def auto_scale_bad_vars(
 
         print("auto scaled", rescaled_var_count)
     iscale.calculate_scaling_factors(m)
+
+
+def print_system_scaling_report(m):
+    badly_scaled_var_list = iscale.list_badly_scaled_variables(m)
+    if len(badly_scaled_var_list) > 0:
+        print("Variables are not scaled well")
+        print(
+            f'{"Variable":<83s}{"Val":<15s}{"Val Scale":<10s}{"SF":<10s}{"Diff":<10s}'
+        )
+        print("Treatment:")
+        [
+            print(
+                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+            )
+            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+            if var.name.split(".")[1] == "treatment"
+        ]
+        print("Energy:")
+        [
+            print(
+                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+            )
+            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+            if var.name.split(".")[1] == "energy"
+        ]
+        print("Costing:")
+        [
+            print(
+                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+            )
+            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
+            if var.name.split(".")[1] == "costing"
+        ]
+
+        # for var in badly_scaled_var_list:
+        #     keys = var[0].name.split(".")
+        #     val_scale = -1 * calc_scale(var[1])
+        #     sf_scale = -1 * calc_scale(iscale.get_scaling_factor(var[0]))
+        #     scale_diff = val_scale - sf_scale
+        #     print(f"{var[0].name:<80s}{val_scale:<10.1f}{sf_scale:<10.1f}{scale_diff:<10.1f}")
+        #     print(f"{var[0].name:<80s}{var[1]}")
+        # [print(i[0].name, i[1]) for i in badly_scaled_var_list]
+        # [print(f'Variable: {var.name:<80s} Value Scale:{-1*calc_scale(val):<5.1f} Scale Factor:{-1*calc_scale(iscale.get_scaling_factor(var))}') for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)]
+    else:
+        print("Variables are scaled well")
+
+
+def display_unfixed_vars(blk, report=True):
+    print("\n\n-------------------- UNFIXED VARIABLES --------------------\n\n")
+    print(f'{"BLOCK":<40s}{"UNFIXED VARIABLES":<30s}')
+    print(f"{blk.name:<40s}{number_unused_variables(blk)}")
+    for v in blk.component_data_objects(ctype=Block, active=True, descend_into=True):
+        print(f"{v.name:<40s}{number_unused_variables(v)}")
+        for v2 in unused_variables_set(v):
+            print(f"\t{v2.name:<40s}")
+
+
+def get_scaling_factors(m):
+    for var in [m.fs.treatment.costing.aggregate_flow_electricity]:
+        val = value(var)
+        scale = calc_scale(val)
+        sf = iscale.get_scaling_factor(var)
+        if sf is None:
+            sf = scale
+            iscale.set_scaling_factor(var, sf)
+
+        print(f"{var.name:<50s}{val:<20.3f}{scale:<20.3f}{sf:<20.3f}")
