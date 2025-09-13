@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -26,6 +26,8 @@ import idaes.logger as idaeslog
 from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogate
+
+__all__ = ["build_vagmd_flowsheet", "fix_dof_and_initialize"]
 
 
 def build_vagmd_flowsheet(
