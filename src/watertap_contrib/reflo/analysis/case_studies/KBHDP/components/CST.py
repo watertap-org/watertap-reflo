@@ -176,6 +176,7 @@ def main():
     m.fs.costing.initialize()
 
     from idaes.core.solvers import get_solver
+
     solver = get_solver()
     results = solve(m, solver=solver)
     assert_optimal_termination(results)
