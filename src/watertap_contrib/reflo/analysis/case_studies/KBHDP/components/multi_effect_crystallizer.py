@@ -1,5 +1,6 @@
 from pyomo.environ import (
     ConcreteModel,
+    TransformationFactory, 
     check_optimal_termination,
     assert_optimal_termination,
     value,
@@ -7,6 +8,8 @@ from pyomo.environ import (
 )
 from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
 
+from pyomo.network import Arc
+import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.initialization import propagate_state
 from idaes.core.util.model_statistics import *
@@ -16,8 +19,9 @@ from watertap.core.util.model_diagnostics import *
 from watertap.core.util.model_diagnostics.infeasible import *
 from watertap.core.util.initialization import *
 from watertap.core.solvers import get_solver
+from idaes.models.unit_models import Product, Feed, StateJunction
 
-from watertap.property_models.unit_specific.cryst_prop_pack import NaClParameterBlock
+from watertap.property_models.unit_specific.cryst_prop_pack import NaClParameterBlock as CrystParameterBlock
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.unit_models import MultiEffectCrystallizer
 
@@ -37,33 +41,77 @@ __all__ = [
 
 def build_system():
     m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
-
+    m.fs = FlowsheetBlock()
     m.fs.costing = TreatmentCosting()
+    m.fs.properties = CrystParameterBlock()
+    m.fs.vapor_properties = WaterParameterBlock()
+
+    m.fs.feed = Feed(property_package=m.fs.properties)
+    m.fs.product = Product(property_package=m.fs.properties)
+    m.fs.solids = Product(property_package=m.fs.properties)
+
     m.fs.mec = FlowsheetBlock()
     build_mec(m.fs.mec)
+
+
+    m.fs.feed_to_unit = Arc(
+        source=m.fs.feed.outlet,
+        destination=m.fs.mec.feed.inlet,
+    )
+
+    m.fs.mec.unit_to_product = Arc(
+        source=m.fs.mec.product.outlet,
+        destination=m.fs.product.inlet,
+    )
+
+    m.fs.mec.unit_to_disposal = Arc(
+        source=m.fs.mec.solids.outlet,
+        destination=m.fs.solids.inlet,
+    )
+    TransformationFactory("network.expand_arcs").apply_to(m)
 
     return m
 
 
-def build_mec(m, blk):
-    blk.properties = NaClParameterBlock()
-    blk.vapor_properties = WaterParameterBlock()
+def build_mec(blk, prop_package=None, vapor_prop_package=None):
+    if prop_package is None:
+        m = blk.model()
+        prop_package = m.fs.properties
+    if vapor_prop_package is None:
+        m = blk.model()
+        vapor_prop_package = m.fs.vapor_properties
+
+    blk.feed = StateJunction(property_package=prop_package)
+    blk.product = StateJunction(property_package=prop_package)
+    blk.solids = StateJunction(property_package=prop_package)
 
     blk.unit = MultiEffectCrystallizer(
-        property_package=blk.properties, property_package_vapor=blk.vapor_properties
+        property_package=prop_package, property_package_vapor=vapor_prop_package
+    )
+    blk.feed_to_unit = Arc(
+        source=blk.feed.outlet,
+        destination=blk.unit.inlet,
+    )
+
+    blk.unit_to_product = Arc(
+        source=blk.unit.outlet,
+        destination=blk.product.inlet,
+    )
+
+    blk.unit_to_disposal = Arc(
+        source=blk.unit.solids,
+        destination=blk.solids.inlet,
     )
 
 
 def set_mec_op_conditions(
-    m,
     blk,
     operating_pressures=[0.45, 0.25, 0.208, 0.095],
     feed_H2O=153.34422736111105,
     feed_NaCl=38.336056840277756,
     nacl_yield=0.9,
     heat_transfer_coeff=100,
-) -> None:
+):
     mec = blk.unit
 
     # Guessed values for initialization
@@ -148,35 +196,35 @@ def set_mec_op_conditions(
     for n, eff in mec.effects.items():
         assert degrees_of_freedom(eff.effect) == 0
 
+def scale_mec(blk):
 
-def init_mec(blk):
-    mec = blk.unit
+    m = blk.model()
 
     ### Scale
-    blk.properties.set_default_scaling(
+    m.fs.properties.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
     )
-    blk.properties.set_default_scaling(
+    m.fs.properties.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Liq", "NaCl")
     )
-    blk.properties.set_default_scaling(
+    m.fs.properties.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Vap", "H2O")
     )
-    blk.properties.set_default_scaling(
+    m.fs.properties.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Sol", "NaCl")
     )
-    blk.vapor_properties.set_default_scaling(
+    m.fs.vapor_properties.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Vap", "H2O")
     )
-    blk.vapor_properties.set_default_scaling(
+    m.fs.vapor_properties.set_default_scaling(
         "flow_mass_phase_comp", 1, index=("Liq", "H2O")
     )
-
-    calculate_scaling_factors(blk)
-
     for n, eff in blk.unit.effects.items():
-        set_scaling_factor(eff.effect.properties_solids[0].flow_vol_phase["Vap"], 1e5)
-        set_scaling_factor(eff.effect.properties_out[0].flow_vol_phase["Vap"], 1e5)
+        iscale.set_scaling_factor(eff.effect.properties_solids[0].flow_vol_phase["Vap"], 1e5)
+        iscale.set_scaling_factor(eff.effect.properties_out[0].flow_vol_phase["Vap"], 1e5)
+
+
+def init_mec(blk):
 
     # from idaes.core.util.scaling import badly_scaled_var_generator
     # bad_var = badly_scaled_var_generator(blk)
@@ -189,7 +237,7 @@ def init_mec(blk):
     #     print(f"{c.name} --> {v.name}: {e}")
 
     ### INITIALIZE FOR EACH EFFECT
-    for n, eff in mec.effects.items():
+    for n, eff in blk.unit.effects.items():
         eff.effect.initialize()
 
     ### UNFIX THE INLET FLOW RATES OF EACH EFFECT
@@ -202,14 +250,15 @@ def init_mec(blk):
     #     doc="Fraction of feed entering each effect",
     # )
 
-    for n, eff in mec.effects.items():
+    for n, eff in blk.unit.effects.items():
         if n > 1:
             eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "H2O"].unfix()
             eff.effect.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"].unfix()
             eff.effect.properties_in[0].conc_mass_phase_comp["Liq", "NaCl"].fix()
 
-    solver = get_solver()
-    results = solver.solve(blk)
+    # solver = get_solver()
+    # results = solver.solve(blk)
+    results = solve(blk)
     assert_optimal_termination(results)
 
 
@@ -275,33 +324,34 @@ def add_mec_costing(blk, costing_block=None):
 
 
 def main():
-    m = ConcreteModel()
-    m.fs = FlowsheetBlock(dynamic=False)
+    # m = ConcreteModel()
+    # m.fs = FlowsheetBlock(dynamic=False)
 
-    m.fs.costing = TreatmentCosting()
-    build_mec(m, m.fs)
+    # m.fs.costing = TreatmentCosting()
+    # build_mec(m, m.fs)
+
+    m = build_system()
 
     feed_H2O = 111.14146762116363
     feed_NaCl = 28.47821365277779
     set_mec_op_conditions(
-        m,
-        m.fs,
+        m.fs.mec,
         operating_pressures=[0.45, 0.25, 0.208, 0.095],
         feed_H2O=feed_H2O,
         feed_NaCl=feed_NaCl,
         nacl_yield=0.9,
         heat_transfer_coeff=1300,
     )
-
+    scale_mec(m.fs.mec)
+    iscale.calculate_scaling_factors(m)
     init_mec(m.fs.mec)
     unfix_mec(m.fs.mec)
 
+    m.fs.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(feed_H2O)
+    m.fs.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(feed_NaCl)
 
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].fix(feed_H2O)
-    m.fs.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].fix(feed_NaCl)
-
-    m.fs.unit.inlet.temperature[0].fix(273.15 + 30.51)
-    m.fs.unit.inlet.pressure[0].fix(101325)
+    m.fs.mec.unit.inlet.temperature[0].fix(273.15 + 30.51)
+    m.fs.mec.unit.inlet.pressure[0].fix(101325)
     mec_rescaling(
         m.fs, flow_mass_phase_water_total=feed_H2O, flow_mass_phase_salt_total=feed_NaCl
     )
@@ -311,12 +361,13 @@ def main():
     # for e, c, v in ej:
     #     print(f"{c.name} --> {v.name}: {e}")
 
-    m.fs.unit.inlet.display()
+    # m.fs.unit.inlet.display()
     print("dof", degrees_of_freedom(m))
-    solve(m, tee=False)
+    results = solve(m, tee=False)
     print("feed conc", feed_NaCl / (feed_H2O + feed_NaCl))
 
     m.fs.costing._find_flow_unit("electricity")
+
 
 if __name__ == "__main__":
     m = main()
