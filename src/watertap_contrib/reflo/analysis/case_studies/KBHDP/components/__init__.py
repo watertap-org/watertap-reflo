@@ -14,5 +14,6 @@ from .translator_MCAS_to_NaCl import TranslatorMCAStoNaCl
 from .translator_MCAS_to_ZO import TranslatorMCAStoZO
 from .translator_ZO_to_NaCl import TranslatorZOtoNaCl
 from .translator_ZO_to_SW import TranslatorZOtoSW
+from .translator_SW_to_NaCl import TranslatorSWtoNaCl
 from .translator_NaCl_to_NaCl import TranslatorNaCltoNaCl
 from .translator_NaCl_to_TDS import TranslatorNaCltoTDS
