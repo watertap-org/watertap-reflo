@@ -707,7 +707,13 @@ def build_energy(m):
     set_pv_op_conditions(m.fs.energy.pv)
     # init_pv(m.fs.energy.pv)
     add_pv_costing(m.fs.energy.pv, costing_block=m.fs.energy.costing)
+
     m.fs.energy.costing.cost_process()
+    m.fs.energy.costing.initialize()
+
+    iscale.constraint_scaling_transform(
+        m.fs.energy.cst.unit.costing.direct_cost_constraint, 1e-5
+    )
 
     results = solve(m)
     assert_optimal_termination(results)
@@ -973,27 +979,28 @@ def main(Qin=4, ro_recovery=0.8, md_water_recovery=0.7):
     m.fs.energy.pv.unit.system_capacity.unfix()
 
     m.fs.obj = Objective(expr=m.fs.costing.LCOT)
+    # m.fs.energy.cst.unit.system_capacity.setlb(25)
+    iscale.calculate_scaling_factors(m)
 
     results = solve(m)
     assert_optimal_termination(results)
 
-    m.fs.energy.cst.unit.system_capacity.fix()
-    m.fs.energy.pv.unit.system_capacity.fix()
+    # m.fs.energy.cst.unit.system_capacity.fix()
+    # m.fs.energy.pv.unit.system_capacity.fix()
+
+    # results = solve(m)
+    # assert_optimal_termination(results)
+
+    m.fs.costing.frac_elec_from_grid.fix(0.9)
+    m.fs.costing.frac_heat_from_grid.fix(0.9)
 
     results = solve(m)
     assert_optimal_termination(results)
 
-    # m.fs.costing.frac_elec_from_grid.fix(0.9)
-    # m.fs.costing.frac_heat_from_grid.fix(0.9)
-
-    # print(f"DOF FINAL SOLVE = {degrees_of_freedom(m)}")
-    # results = solve(m)
-    # assert_optimal_termination(results)
-
-    # m.fs.costing.frac_elec_from_grid.fix(0.5)
-    # m.fs.costing.frac_heat_from_grid.fix(0.5)
-    # results = solve(m)
-    # assert_optimal_termination(results)
+    m.fs.costing.frac_elec_from_grid.fix(0.5)
+    m.fs.costing.frac_heat_from_grid.fix(0.5)
+    results = solve(m)
+    assert_optimal_termination(results)
 
     report_all_results(m, w=25)
 
