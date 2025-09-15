@@ -16,7 +16,7 @@ from pyomo.environ import value
 
 from watertap_contrib.reflo.analysis.case_studies.KBHDP import (
     CST,
-    deep_well_injection,
+    DWI,
     EC,
     FPC,
     MEC,
@@ -42,7 +42,7 @@ class TestKBHDPComponents:
 
     @pytest.mark.component
     def test_DWI_component(self):
-        m = deep_well_injection.main()
+        m = DWI.main()
         assert (
             pytest.approx(
                 value(m.fs.DWI.unit.costing.variable_operating_cost), rel=1e-3
