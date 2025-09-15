@@ -20,7 +20,7 @@ The full WaterTAP-REFLO documentation is available online at <https://watertap-r
 
 - The conda package and environment manager, for example by using the [Miniconda installer](https://docs.conda.io/en/latest/miniconda.html#miniconda) following the steps appropriate for your operating system
 
-### Developer Installation
+### Installation
 
 To install **WaterTAP-REFLO**, run:
 
@@ -29,7 +29,7 @@ conda create --yes --name watertap-reflo python=3.10 && conda activate watertap-
 pip install watertap-reflo
 ```
 
-To install **WaterTAP-REFLO** for developers, run:
+To install **WaterTAP-REFLO** *for development*, run:
 
 ```sh
 git clone https://github.com/watertap-org/watertap-reflo && cd watertap-reflo
