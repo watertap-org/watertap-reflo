@@ -10,7 +10,7 @@ WaterTAP-REFLO is an extension of the [WaterTAP package](https://watertap.readth
 
 ## Documentation
 
-The full WaterTAP-REFLO documentation is available online at <https://watertap-reflo.readthedocs.io>.
+See the full [WaterTAP-REFLO documentation](<https://watertap-reflo.readthedocs.io>) for more information.
 
 ## Getting Started
 
