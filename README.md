@@ -6,7 +6,7 @@ WaterTAP-REFLO is an extension of the [WaterTAP package](https://watertap.readth
 
 ![GitHub issues](https://img.shields.io/github/issues/watertap-org/watertap-reflo)
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/watertap-org/watertap-reflo)
-![CI status](https://img.shields.io/github/workflow/status/watertap-org/watertap-reflo/Checks)
+![CI status](https://img.shields.io/github/actions/workflow/status/watertap-org/watertap-reflo/test.yml?branch=main)
 
 ## Documentation
 
