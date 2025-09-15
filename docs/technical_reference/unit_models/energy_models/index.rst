@@ -8,5 +8,5 @@ Energy Models
    fpc_surrogate
    flat_plate_collector_physical
    pv_surrogate
-   pv_battery
+   pv_battery_surrogate
    thermal_energy_storage
