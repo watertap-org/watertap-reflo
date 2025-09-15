@@ -296,32 +296,9 @@ def set_ro_operating_conditions(blk, Qin=4, RO_pressure=20e5):
     set_ro_system_operating_conditions(blk.RO, mem_area=10000)
 
 
-# def set_ec_scaling(blk):
-
-#     iscale.set_scaling_factor(blk.unit.properties_in[0].flow_vol, 1e-2)
-#     iscale.set_scaling_factor(blk.unit.properties_in[0].conc_mass_comp["tds"], 1)
-#     iscale.set_scaling_factor(blk.unit.charge_loading_rate, 1e-2)
-#     iscale.set_scaling_factor(blk.unit.cell_voltage, 1)
-#     iscale.set_scaling_factor(blk.unit.anode_area, 1e-2)
-#     iscale.set_scaling_factor(blk.unit.cathode_area, 1e-2)
-#     iscale.set_scaling_factor(blk.unit.current_density, 1e-2)
-#     iscale.set_scaling_factor(blk.unit.applied_current, 1e-6)
-#     iscale.set_scaling_factor(blk.unit.metal_dose, 1e4)
-#     iscale.set_scaling_factor(blk.unit.electrode_thick, 1e3)
-#     iscale.set_scaling_factor(blk.unit.electrode_mass, 1e-2)
-#     iscale.set_scaling_factor(blk.unit.electrode_volume, 1e1)
-#     iscale.set_scaling_factor(blk.unit.electrode_gap, 1e3)
-#     iscale.set_scaling_factor(blk.unit.floc_basin_vol, 1e-2)
-#     iscale.set_scaling_factor(blk.unit.ohmic_resistance, 1e7)
-#     iscale.set_scaling_factor(blk.unit.power_required, 1e-6)
-
-#     iscale.calculate_scaling_factors(blk)
-
-
 def apply_ro_scaling(m):
 
     add_ec_scaling(m.fs.treatment.EC)
-    # set_ec_scaling(m.fs.treatment.EC)
     add_UF_scaling(m.fs.treatment.UF)
     add_ro_scaling(m.fs.treatment.RO)
 
@@ -972,6 +949,8 @@ def main(Qin=4, ro_recovery=0.8, md_water_recovery=0.7):
 
     m = build_zld_ro(ro_recovery=ro_recovery, Qin=Qin)
 
+    build_energy(m)
+
     add_zld_md(m, md_water_recovery=md_water_recovery)
     results = solve(m)
     assert_optimal_termination(results)
@@ -987,25 +966,29 @@ def main(Qin=4, ro_recovery=0.8, md_water_recovery=0.7):
     results = solve(m)
     assert_optimal_termination(results)
 
-    build_energy(m)
+    # build_energy(m)
 
     add_system_costing(m)
     m.fs.energy.cst.unit.system_capacity.unfix()
     m.fs.energy.pv.unit.system_capacity.unfix()
 
     m.fs.obj = Objective(expr=m.fs.costing.LCOT)
-    print(f"\nDOF after Costing = {degrees_of_freedom(m)}")
 
     results = solve(m)
     assert_optimal_termination(results)
 
-    m.fs.costing.frac_elec_from_grid.fix(0.9)
-    m.fs.costing.frac_heat_from_grid.fix(0.9)
+    m.fs.energy.cst.unit.system_capacity.fix()
+    m.fs.energy.pv.unit.system_capacity.fix()
 
-    print(f"DOF FINAL SOLVE = {degrees_of_freedom(m)}")
-    results = solve(m.fs.energy)
     results = solve(m)
     assert_optimal_termination(results)
+
+    # m.fs.costing.frac_elec_from_grid.fix(0.9)
+    # m.fs.costing.frac_heat_from_grid.fix(0.9)
+
+    # print(f"DOF FINAL SOLVE = {degrees_of_freedom(m)}")
+    # results = solve(m)
+    # assert_optimal_termination(results)
 
     # m.fs.costing.frac_elec_from_grid.fix(0.5)
     # m.fs.costing.frac_heat_from_grid.fix(0.5)
