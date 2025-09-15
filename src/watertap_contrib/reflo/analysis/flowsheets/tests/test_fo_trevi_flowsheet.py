@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -20,7 +20,7 @@ from idaes.core import UnitModelCostingBlock
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
 )
-from watertap_contrib.reflo.analysis.example_flowsheets.fo_trevi_flowsheet import (
+from watertap_contrib.reflo.analysis.flowsheets.fo_trevi_flowsheet import (
     build_fo_trevi_flowsheet,
     fix_dof_and_initialize,
     get_flowsheet_performance,
