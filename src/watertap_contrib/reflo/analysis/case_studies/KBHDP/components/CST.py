@@ -192,6 +192,3 @@ def main():
 
 if __name__ == "__main__":
     m = main()
-    m.fs.cst.unit.display()
-    m.fs.cst.unit.heat_annual.display()
-    m.fs.cst.unit.electricity_annual.display()

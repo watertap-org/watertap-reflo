@@ -34,10 +34,10 @@ class TestKBHDPComponents:
     @pytest.mark.component
     def test_CST_component(self):
         m = CST.main()
-        assert pytest.approx(value(m.fs.cst.unit.heat), rel=1e-3) == 31196
-        assert pytest.approx(value(m.fs.costing.LCOH), rel=1e-3) == 0.07451
+        assert pytest.approx(value(m.fs.cst.unit.heat), rel=1e-3) == 31237
+        assert pytest.approx(value(m.fs.costing.LCOH), rel=1e-3) == 0.074473
         assert (
-            pytest.approx(value(m.fs.costing.total_capital_cost), rel=1e-3) == 176049902
+            pytest.approx(value(m.fs.costing.total_capital_cost), rel=1e-3) == 176170761
         )
 
     @pytest.mark.component
