@@ -30,6 +30,8 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 par_dir = os.path.dirname(__location__)
 dataset_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate_data.pkl"
 surrogate_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate.json"
+# dataset_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate_data-unscaled.pkl"
+# surrogate_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate-unscaled.json"
 
 
 def build_system():
@@ -48,11 +50,9 @@ def build_CST(blk):
 
     # Create input_variables for configuring surrogate model
     input_units = dict(system_capacity="MW")
-    input_bounds = dict(system_capacity=[1, 50])
     input_variables = {
         "labels": ["system_capacity"],
         "units": input_units,
-        "bounds": input_bounds,
     }
 
     # Create output_variables for configuring surrogate model
@@ -84,11 +84,12 @@ def init_CST(blk):
     blk.unit.initialize()
 
 
-def set_CST_op_conditions(blk, heat_load=50):
+def set_CST_op_conditions(blk, system_capacity=50):
 
-    blk.unit.system_capacity.fix(heat_load)
-    # 24 hours storage used to create surrogate, so this must be fixed
+    blk.unit.system_capacity.fix(system_capacity)
+    # 24 hours storage and 300C temperature loop used to create surrogate, so this must be fixed
     blk.unit.hours_storage.set_value(24)
+    blk.unit.temperature_loop.set_value(300)
 
 
 def add_CST_costing(blk, costing_block=None):
@@ -191,3 +192,6 @@ def main():
 
 if __name__ == "__main__":
     m = main()
+    m.fs.cst.unit.display()
+    m.fs.cst.unit.heat_annual.display()
+    m.fs.cst.unit.electricity_annual.display()
