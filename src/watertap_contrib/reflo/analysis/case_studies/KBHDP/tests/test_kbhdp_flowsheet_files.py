@@ -12,14 +12,12 @@
 
 import pytest
 
-from pyomo.environ import value
-
 from watertap_contrib.reflo.analysis.case_studies.KBHDP import (
     KBHDP_SOA,
     KBHDP_RPT_1,
     KBHDP_RPT_2,
     KBHDP_RPT_3,
-    # KBHDP_ZLD,
+    KBHDP_ZLD,
 )
 
 
@@ -40,3 +38,8 @@ class TestKBHDPComponents:
     @pytest.mark.component
     def test_RPT3(self):
         m = KBHDP_RPT_3.main()
+
+    @pytest.mark.component
+    def test_ZLD(self):
+        m = KBHDP_ZLD.main()
+
