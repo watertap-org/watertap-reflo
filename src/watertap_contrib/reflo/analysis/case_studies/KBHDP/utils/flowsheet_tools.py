@@ -35,6 +35,11 @@ def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
 
     if check_optimal_termination(results):
         print("\n--------- OPTIMAL SOLVE!!! ---------\n")
+        return results
+    msg = (
+        "The current configuration is infeasible. Please adjust the decision variables."
+    )
+    if raise_on_failure:
         if debug:
             print("\n--------- CHECKING JACOBIAN ---------\n")
             print("\n--------- WHOLE FLOWSHEET ---------\n")
@@ -48,16 +53,11 @@ def solve(m, solver=None, tee=False, raise_on_failure=True, debug=False):
 
             print("\n--------- CLOSE TO BOUNDS ---------\n")
             print_close_to_bounds(m)
-        return results
-    msg = (
-        "The current configuration is infeasible. Please adjust the decision variables."
-    )
-    if raise_on_failure:
-        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
+        print(f'\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
         print_infeasible_bounds(m)
-        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
+        print(f'\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
         print_infeasible_constraints(m)
-        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
+        print(f'\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
         print_close_to_bounds(m)
 
         raise RuntimeError(msg)
@@ -319,16 +319,6 @@ def print_system_scaling_report(m):
             for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
             if var.name.split(".")[1] == "costing"
         ]
-
-        # for var in badly_scaled_var_list:
-        #     keys = var[0].name.split(".")
-        #     val_scale = -1 * calc_scale(var[1])
-        #     sf_scale = -1 * calc_scale(iscale.get_scaling_factor(var[0]))
-        #     scale_diff = val_scale - sf_scale
-        #     print(f"{var[0].name:<80s}{val_scale:<10.1f}{sf_scale:<10.1f}{scale_diff:<10.1f}")
-        #     print(f"{var[0].name:<80s}{var[1]}")
-        # [print(i[0].name, i[1]) for i in badly_scaled_var_list]
-        # [print(f'Variable: {var.name:<80s} Value Scale:{-1*calc_scale(val):<5.1f} Scale Factor:{-1*calc_scale(iscale.get_scaling_factor(var))}') for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)]
     else:
         print("Variables are scaled well")
 
