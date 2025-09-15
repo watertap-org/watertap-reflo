@@ -193,7 +193,7 @@ def add_constraints(m):
 def add_treatment_costing(blk):
     blk.costing = TreatmentCosting()
 
-    add_ec_costing(blk.EC, costing_block=blk.costing)
+    add_EC_costing(blk.EC, costing_block=blk.costing)
     add_UF_costing(blk.UF, costing_block=blk.costing)
     add_LTMED_costing(blk.LTMED, costing_block=blk.costing)
     add_DWI_costing(blk.DWI, costing_block=blk.costing)
