@@ -1007,10 +1007,10 @@ def main(Qin=4, ro_recovery=0.8, md_water_recovery=0.7):
     results = solve(m)
     assert_optimal_termination(results)
 
-    m.fs.costing.frac_elec_from_grid.fix(0.5)
-    m.fs.costing.frac_heat_from_grid.fix(0.5)
-    results = solve(m)
-    assert_optimal_termination(results)
+    # m.fs.costing.frac_elec_from_grid.fix(0.5)
+    # m.fs.costing.frac_heat_from_grid.fix(0.5)
+    # results = solve(m)
+    # assert_optimal_termination(results)
 
     report_all_results(m, w=25)
 
