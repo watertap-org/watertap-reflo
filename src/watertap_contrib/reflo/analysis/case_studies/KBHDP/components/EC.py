@@ -25,7 +25,7 @@ __all__ = [
     "build_EC",
     "set_EC_operating_conditions",
     "init_EC",
-    "add_ec_costing",
+    "add_EC_costing",
     "add_ec_scaling",
     "report_EC",
     "print_EC_costing_breakdown",
@@ -165,7 +165,7 @@ def init_EC(blk):
     propagate_state(blk.unit_to_disposal)
 
 
-def add_ec_costing(blk, costing_block=None):
+def add_EC_costing(blk, costing_block=None):
 
     if costing_block is None:
         m = blk.model()
@@ -264,7 +264,7 @@ def main():
     iscale.calculate_scaling_factors(m)
 
     init_system(m)
-    add_ec_costing(m.fs.EC)
+    add_EC_costing(m.fs.EC)
     m.fs.costing.cost_process()
 
     m.fs.costing.add_LCOW(m.fs.EC.unit.properties_treated[0].flow_vol)

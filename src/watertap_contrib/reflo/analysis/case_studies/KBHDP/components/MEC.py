@@ -42,11 +42,11 @@ def build_system():
     m = ConcreteModel()
     m.fs = FlowsheetBlock()
     m.fs.costing = TreatmentCosting()
-    m.fs.properties = CrystParameterBlock()
+    m.fs.cryst_properties = CrystParameterBlock()
     m.fs.vapor_properties = SteamParameterBlock()
 
-    m.fs.feed = Feed(property_package=m.fs.properties)
-    m.fs.product = Product(property_package=m.fs.properties)
+    m.fs.feed = Feed(property_package=m.fs.cryst_properties)
+    m.fs.product = Product(property_package=m.fs.cryst_properties)
 
     m.fs.mec = FlowsheetBlock()
 
@@ -69,7 +69,7 @@ def build_system():
 def build_MEC(blk, prop_package=None, vapor_prop_package=None):
     if prop_package is None:
         m = blk.model()
-        prop_package = m.fs.properties
+        prop_package = m.fs.cryst_properties
     if vapor_prop_package is None:
         m = blk.model()
         vapor_prop_package = m.fs.vapor_properties
@@ -89,6 +89,8 @@ def build_MEC(blk, prop_package=None, vapor_prop_package=None):
         source=blk.unit.outlet,
         destination=blk.product.inlet,
     )
+
+    TransformationFactory("network.expand_arcs").apply_to(blk)
 
 
 def set_MEC_op_conditions(
@@ -184,28 +186,33 @@ def set_MEC_op_conditions(
     blk.unit.control_volume.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].unfix()
 
 
-def scale_MEC(blk):
+def scale_MEC(blk, cryst_prop_pack=None, vapor_prop_pack=None):
+
+    if cryst_prop_pack is None:
+        m = blk.model()
+        cryst_prop_pack = m.fs.cryst_properties
+    if vapor_prop_pack is None:
+        m = blk.model()
+        vapor_prop_pack = m.fs.vapor_properties
 
     m = blk.model()
 
-    m.fs.properties.set_default_scaling(
+    cryst_prop_pack.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Liq", "H2O")
     )
-    m.fs.properties.set_default_scaling(
+    cryst_prop_pack.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Liq", "NaCl")
     )
-    m.fs.properties.set_default_scaling(
+    cryst_prop_pack.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Vap", "H2O")
     )
-    m.fs.properties.set_default_scaling(
+    cryst_prop_pack.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Sol", "NaCl")
     )
-    m.fs.vapor_properties.set_default_scaling(
+    vapor_prop_pack.set_default_scaling(
         "flow_mass_phase_comp", 1e-1, index=("Vap", "H2O")
     )
-    m.fs.vapor_properties.set_default_scaling(
-        "flow_mass_phase_comp", 1, index=("Liq", "H2O")
-    )
+    vapor_prop_pack.set_default_scaling("flow_mass_phase_comp", 1, index=("Liq", "H2O"))
     for _, eff in blk.unit.effects.items():
         iscale.set_scaling_factor(
             eff.effect.properties_solids[0].flow_vol_phase["Vap"], 1e5
@@ -216,38 +223,49 @@ def scale_MEC(blk):
 
 
 def rescale_MEC(
-    blk, flow_mass_phase_water_total=111.1414, flow_mass_phase_salt_total=28.478
+    blk,
+    flow_mass_phase_water_total=111.1414,
+    flow_mass_phase_salt_total=28.478,
+    cryst_prop_pack=None,
+    vapor_prop_pack=None,
 ):
     """
     Rescaling may be needed for extremely large feed flow rates
     """
-    m = blk.model()
-    m.fs.properties.set_default_scaling(
+
+    if cryst_prop_pack is None:
+        m = blk.model()
+        cryst_prop_pack = m.fs.cryst_properties
+    if vapor_prop_pack is None:
+        m = blk.model()
+        vapor_prop_pack = m.fs.vapor_properties
+
+    cryst_prop_pack.set_default_scaling(
         "flow_mass_phase_comp",
         1 / value(flow_mass_phase_water_total),
         index=("Liq", "H2O"),
     )
-    m.fs.properties.set_default_scaling(
+    cryst_prop_pack.set_default_scaling(
         "flow_mass_phase_comp",
         1 / value(flow_mass_phase_salt_total),
         index=("Liq", "NaCl"),
     )
-    m.fs.properties.set_default_scaling(
+    cryst_prop_pack.set_default_scaling(
         "flow_mass_phase_comp",
         1 / value(flow_mass_phase_water_total),
         index=("Vap", "H2O"),
     )
-    m.fs.properties.set_default_scaling(
+    cryst_prop_pack.set_default_scaling(
         "flow_mass_phase_comp",
         1 / value(flow_mass_phase_salt_total),
         index=("Sol", "NaCl"),
     )
-    m.fs.vapor_properties.set_default_scaling(
+    vapor_prop_pack.set_default_scaling(
         "flow_mass_phase_comp",
         1 / value(flow_mass_phase_water_total),
         index=("Vap", "H2O"),
     )
-    m.fs.vapor_properties.set_default_scaling(
+    vapor_prop_pack.set_default_scaling(
         "flow_mass_phase_comp",
         1 / value(flow_mass_phase_water_total),
         index=("Liq", "H2O"),
@@ -265,9 +283,7 @@ def add_MEC_costing(blk, costing_block=None):
     )
 
 
-def set_system_op_conditions(
-    m, feed_H2O=111.14146762116363, feed_NaCl=28.47821365277779
-):
+def set_system_op_conditions(m, feed_H2O=111.14146, feed_NaCl=28.4782):
 
     m.fs.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "H2O"].set_value(feed_H2O)
     m.fs.mec.unit.inlet.flow_mass_phase_comp[0, "Liq", "NaCl"].set_value(feed_NaCl)
@@ -287,11 +303,10 @@ def set_system_op_conditions(
     m.fs.feed.properties[0].pressure.fix(101325)
     m.fs.feed.properties[0].conc_mass_phase_comp[...]
 
-    set_MEC_op_conditions(m.fs.mec)
+    set_MEC_op_conditions(m.fs.mec, feed_H2O=feed_H2O, feed_NaCl=feed_NaCl)
 
 
 def init_MEC(blk):
-
     blk.feed.initialize()
     propagate_state(blk.feed_to_unit)
 
@@ -323,7 +338,6 @@ def init_system(m):
 
     m.fs.feed.initialize()
     propagate_state(m.fs.feed_to_unit)
-
     init_MEC(m.fs.mec)
 
     propagate_state(m.fs.unit_to_product)
@@ -384,7 +398,7 @@ def print_MEC_costing_breakdown(blk, w=30):
     print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
     print(
-        f'{"MEC Capital Cost":<35s}{f"${value(blk.unit.costing.capital_cost):<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
+        f'{"MEC Capital Cost":<{w}s}{f"${value(blk.unit.costing.capital_cost):<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
     )
     print("\n\n")
 
@@ -430,6 +444,3 @@ def main():
 
 if __name__ == "__main__":
     m = main()
-    m.fs.costing.LCOW.display()
-    m.fs.costing.SEC.display()
-    m.fs.costing.SEC_th.display()

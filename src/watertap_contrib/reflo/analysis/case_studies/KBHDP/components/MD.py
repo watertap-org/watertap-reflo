@@ -173,6 +173,7 @@ def init_md(blk):
     blk.permeate.properties[0].flow_mass_phase_comp["Liq", "TDS"].fix(0)
     blk.permeate.properties[0].pressure.fix(101325)
     blk.permeate.properties[0].temperature.fix(298.15)
+    # blk.permeate.initialize()
 
     # Build connection to concentrate state junction
     blk.concentrate.properties[0]._flow_vol_phase
@@ -213,6 +214,7 @@ def init_md(blk):
 
     blk.concentrate.properties[0].pressure.fix(101325)
     blk.concentrate.properties[0].temperature.fix(298.15)
+    # blk.concentrate.initialize()
 
 
 def init_system(m):
@@ -311,11 +313,11 @@ def report_MD(blk, w=30):
     )
 
     print(
-        f'{"Overall thermal requirement":<{w}s}{value(blk.unit.overall_thermal_power_requirement):<{w}.2f}{pyunits.get_units(blk.unit.overall_thermal_power_requirement)}'
+        f'{"Thermal Power Required":<{w}s}{value(blk.unit.overall_thermal_power_requirement):<{w}.2f}{pyunits.get_units(blk.unit.overall_thermal_power_requirement)}'
     )
 
     print(
-        f'{"Overall elec requirement":<{w}s}{value(blk.unit.overall_elec_power_requirement):<{w}.2f}{pyunits.get_units(blk.unit.overall_elec_power_requirement)}'
+        f'{"Electric Power Required":<{w}s}{value(blk.unit.overall_elec_power_requirement):<{w}.2f}{pyunits.get_units(blk.unit.overall_elec_power_requirement)}'
     )
 
 
@@ -352,13 +354,13 @@ def check_md_flows(m, w=25):
         f'Sys Perm Flow Rate: {value(pyunits.convert(m.fs.product.properties[0].flow_vol_phase["Liq"], pyunits.m**3/pyunits.day)):<{w}.2f} m3/day'
     )
     print(
-        f'MD  Perm Flow Rate: {value(pyunits.convert(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"], pyunits.m**3/pyunits.day)):<{w}.2f} m3/day'
+        f'MD Perm Flow Rate: {value(pyunits.convert(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"], pyunits.m**3/pyunits.day)):<{w}.2f} m3/day'
     )
     print(
         f'Sys Conc Flow Rate: {value(pyunits.convert(m.fs.disposal.properties[0].flow_vol_phase["Liq"], pyunits.m**3/pyunits.day)):<{w}.2f} m3/day'
     )
     print(
-        f'MD  Conc Flow Rate: {value(pyunits.convert(m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"], pyunits.m**3/pyunits.day)):<{w}.2f} m3/day'
+        f'MD Conc Flow Rate: {value(pyunits.convert(m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"], pyunits.m**3/pyunits.day)):<{w}.2f} m3/day'
     )
     print(
         f'Calculated Recovery: {value(m.fs.md.permeate.properties[0].flow_vol_phase["Liq"] / (m.fs.md.permeate.properties[0].flow_vol_phase["Liq"] + m.fs.md.concentrate.properties[0].flow_vol_phase["Liq"])):<{w}.2f}'

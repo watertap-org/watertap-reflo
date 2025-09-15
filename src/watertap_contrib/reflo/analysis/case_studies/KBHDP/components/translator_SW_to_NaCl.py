@@ -10,7 +10,7 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 """
-Translator block for converting from ZO TDS to Seawater (SW)
+Translator block for converting from Seawater (SW) to Crystallizer NaCl
 """
 
 # Import Pyomo libraries
@@ -31,7 +31,7 @@ __author__ = "Zhuoran Zhang"
 @declare_process_block_class("TranslatorSWtoNaCl")
 class TranslatorSWtoNaClData(TranslatorData):
     """
-    Translator block for Seawater to NaCl property packages
+    Translator block for converting from Seawater (SW) to Crystallizer NaCl
     """
 
     CONFIG = TranslatorData.CONFIG()
@@ -65,6 +65,9 @@ class TranslatorSWtoNaClData(TranslatorData):
                 b.properties_in[0].flow_mass_phase_comp["Liq", "TDS"]
                 == b.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]
             )
+
+        self.properties_out[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
+        self.properties_out[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
 
     def initialize_build(
         self,

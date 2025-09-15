@@ -16,13 +16,13 @@ from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve
 
 
 __all__ = [
-    "build_cst",
-    "init_cst",
-    "set_cst_op_conditions",
-    "add_cst_costing",
-    "add_cst_costing_scaling",
-    "report_cst",
-    # "report_cst_costing",
+    "build_CST",
+    "init_CST",
+    "set_CST_op_conditions",
+    "add_CST_costing",
+    "add_CST_costing_scaling",
+    "report_CST",
+    "print_CST_costing_breakdown",
 ]
 
 
@@ -42,7 +42,7 @@ def build_system():
     return m
 
 
-def build_cst(blk):
+def build_CST(blk):
 
     print(f'\n{"=======> BUILDING CST SYSTEM <=======":^60}\n')
 
@@ -79,19 +79,19 @@ def build_cst(blk):
     blk.unit = TroughSurrogate(**trough_dict)
 
 
-def init_cst(blk):
+def init_CST(blk):
     # Fix input variables for initialization
     blk.unit.initialize()
 
 
-def set_cst_op_conditions(blk, heat_load=50):
+def set_CST_op_conditions(blk, heat_load=50):
 
     blk.unit.system_capacity.fix(heat_load)
     # 24 hours storage used to create surrogate, so this must be fixed
     blk.unit.hours_storage.set_value(24)
 
 
-def add_cst_costing(blk, costing_block=None):
+def add_CST_costing(blk, costing_block=None):
     if costing_block is None:
         m = blk.model()
         costing_block = m.fs.costing
@@ -99,14 +99,14 @@ def add_cst_costing(blk, costing_block=None):
     blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
 
 
-def add_cst_costing_scaling(blk):
+def add_CST_costing_scaling(blk):
     unit = blk.unit
     iscale.constraint_scaling_transform(unit.costing.direct_cost_constraint, 1e-8)
     iscale.constraint_scaling_transform(unit.costing.indirect_cost_constraint, 1e-6)
     iscale.constraint_scaling_transform(unit.costing.capital_cost_constraint, 1e-8)
 
 
-def report_cst(blk, w=30):
+def report_CST(blk, w=30):
     unit = blk.unit
     title = "CST Report"
     side = int(((3 * w) - len(title)) / 2) - 1
@@ -135,40 +135,42 @@ def report_cst(blk, w=30):
         f'{"Electric Power Consumed":<{w}s}{value(unit.electricity):<{w},.2f}{pyunits.get_units(unit.electricity)}'
     )
 
-    if hasattr(unit, "costing"):
-        title = "CST Costing Report"
-        side = int(((3 * w) - len(title)) / 2) - 1
-        header = "=" * side + f" {title} " + "=" * side
-        print(f"\n{header}\n")
-        print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
-        print(f"{'-' * (3 * w)}")
 
-        print(
-            f'{"Capital Cost":<{w}s}{value(unit.costing.capital_cost):<{w},.2f}{pyunits.get_units(unit.costing.capital_cost)}'
-        )
+def print_CST_costing_breakdown(blk, w=30):
+    unit = blk.unit
+    title = "CST Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+    print(f"{'-' * (3 * w)}")
 
-        print(
-            f'{"Fixed Operating Cost":<{w}s}{value(unit.costing.fixed_operating_cost):<{w},.2f}{pyunits.get_units(unit.costing.fixed_operating_cost)}'
-        )
+    print(
+        f'{"Capital Cost":<{w}s}{value(unit.costing.capital_cost):<{w},.2f}{pyunits.get_units(unit.costing.capital_cost)}'
+    )
 
-        print(
-            f'{"Variable Operating Cost":<{w}s}{value(unit.costing.variable_operating_cost):<{w},.2f}{pyunits.get_units(unit.costing.variable_operating_cost)}'
-        )
-        print("\n\n")
+    print(
+        f'{"Fixed Operating Cost":<{w}s}{value(unit.costing.fixed_operating_cost):<{w},.2f}{pyunits.get_units(unit.costing.fixed_operating_cost)}'
+    )
+
+    print(
+        f'{"Variable Operating Cost":<{w}s}{value(unit.costing.variable_operating_cost):<{w},.2f}{pyunits.get_units(unit.costing.variable_operating_cost)}'
+    )
+    print("\n\n")
 
 
 def main():
 
     m = build_system()
-    build_cst(m.fs.cst)
-    set_cst_op_conditions(m.fs.cst)
+    build_CST(m.fs.cst)
+    set_CST_op_conditions(m.fs.cst)
     assert degrees_of_freedom(m) == 0
-    init_cst(m.fs.cst)
+    init_CST(m.fs.cst)
 
     results = solve(m)
     assert_optimal_termination(results)
 
-    add_cst_costing(m.fs.cst)
+    add_CST_costing(m.fs.cst)
     m.fs.costing.cost_process()
     # Updated to be 0 because this factor is not included in SAM
     m.fs.costing.maintenance_labor_chemical_factor.fix(0)
@@ -181,7 +183,8 @@ def main():
     results = solve(m, solver=solver)
     assert_optimal_termination(results)
 
-    report_cst(m.fs.cst)
+    report_CST(m.fs.cst)
+    print_CST_costing_breakdown(m.fs.cst)
 
     return m
 

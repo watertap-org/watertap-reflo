@@ -132,7 +132,7 @@ def report_UF(blk, w=25):
     print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
     print(
-        f'{"Inlet Flow Volume":<{w}s}{value(pyunits.convert(blk.feed.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w}.3f} MGD'
+        f'{"Inlet Flow Rate":<{w}s}{value(pyunits.convert(blk.feed.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w}.2f}MGD'
     )
     print(
         f'{"Recovery":<{w}s}{100*blk.unit.recovery_frac_mass_H2O[0].value:<{w}.1f}{"%"}'
@@ -158,7 +158,9 @@ def print_UF_costing_breakdown(blk, w=25):
     print(f"\n{header}\n")
     print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
-    print(f'{"UF Capital Cost":<{w}s}{f"${blk.unit.costing.capital_cost():<{w},.0f}"}')
+    print(
+        f'{"UF Capital Cost":<{w}s}{f"{blk.unit.costing.capital_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
+    )
     print("\n\n")
 
 

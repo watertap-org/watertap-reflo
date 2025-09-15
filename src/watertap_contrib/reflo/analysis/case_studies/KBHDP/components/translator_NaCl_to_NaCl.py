@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -10,37 +10,17 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-# Import Pyomo libraries
-from pyomo.common.config import ConfigBlock, ConfigValue, In, Bool
+from pyomo.environ import check_optimal_termination
 
-# Import IDAES cores
-from idaes.core import declare_process_block_class, UnitModelBlockData
-from idaes.models.unit_models.translator import TranslatorData
-from idaes.core.util.config import (
-    is_reaction_parameter_block,
-    is_physical_parameter_block,
-)
-
-from idaes.core.util.exceptions import ConfigurationError
-from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.core.solvers import get_solver
 import idaes.logger as idaeslog
-import idaes.core.util.scaling as iscale
-
+from idaes.core import declare_process_block_class
 from idaes.core.util.exceptions import InitializationError
+from idaes.core.util.model_statistics import degrees_of_freedom
+from idaes.models.unit_models.translator import TranslatorData
 
-from pyomo.environ import (
-    Param,
-    units as pyunits,
-    check_optimal_termination,
-    Set,
-)
+from watertap.core.solvers import get_solver
 
 __author__ = "Mukta Hardikar"
-
-
-# Set up logger
-_log = idaeslog.getLogger(__name__)
 
 
 @declare_process_block_class("TranslatorNaCltoNaCl")
@@ -80,6 +60,9 @@ class TranslatorNaCltoNaClData(TranslatorData):
                 b.properties_in[0].flow_mass_phase_comp["Liq", "NaCl"]
                 == b.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]
             )
+
+        self.properties_out[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
+        self.properties_out[0].flow_mass_phase_comp["Vap", "H2O"].fix(0)
 
     def initialize_build(
         self,

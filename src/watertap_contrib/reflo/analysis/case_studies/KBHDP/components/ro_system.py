@@ -539,7 +539,12 @@ def report_RO(blk, w=25):
     print(f"\n{header}\n")
     print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
     print(f"{'-' * (3 * w)}")
-    print(f'{"Recovery":<{w}s}{value(100*m.fs.water_recovery):<{w}.1f}{"%"}')
+    try:
+        print(f'{"Recovery":<{w}s}{value(100*m.fs.water_recovery):<{w}.1f}{"%"}')
+    except:
+        print(
+            f'{"Recovery":<{w}s}{value(100*blk.parent_block().water_recovery):<{w}.1f}{"%"}'
+        )
     print(
         f'{"RO Operating Pressure":<{w}s}{value(pyunits.convert(blk.feed.properties[0].pressure, to_units=pyunits.bar)):<{w}.1f}{"bar":<{w}}'
     )
