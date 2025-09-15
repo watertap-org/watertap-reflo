@@ -1,5 +1,5 @@
 from .CST import *
-from .deep_well_injection import *
+from .DWI import *
 from .EC import *
 from .FPC import *
 from .LTMED import *
