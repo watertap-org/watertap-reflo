@@ -42,4 +42,3 @@ class TestKBHDPComponents:
     @pytest.mark.component
     def test_ZLD(self):
         m = KBHDP_ZLD.main()
-
