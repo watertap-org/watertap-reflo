@@ -232,8 +232,8 @@ def get_solar_still_daily_water_yield(
         blk.ambient_temp[start_idx:end_idx] = blk.ambient_temp_by_hr[hour]
     # Initializing Temperatures
     # Initial system is assumed to be in thermal equilibrium with ambient
-    # blk.ambient_temp[0] = blk.ambient_temp_by_hr[0]
-    # blk.ambient_temp[1] = blk.ambient_temp_by_hr[1]
+    blk.ambient_temp[0] = blk.ambient_temp_by_hr[0]
+    blk.ambient_temp[1] = blk.ambient_temp_by_hr[1]
 
     # Initial water temperature (°C)
     blk.saltwater_temp[1] = blk.ambient_temp_by_hr[1]
@@ -274,7 +274,6 @@ def get_solar_still_daily_water_yield(
     # else:
     #     # blk.sky_temp[0] = 0.0552 * ((blk.ambient_temp[0]) ** 1.5)
     blk.sky_temp[1] = 0.0552 * ((blk.ambient_temp[1]) ** 1.5)
-    # assert False
 
     blk.time[1] = 1
 
@@ -644,9 +643,9 @@ def get_solar_still_daily_water_yield(
             blk.salinity[i] = (blk.salt_mass * 1000) / blk.fw_mass[i]
             blk.excess_salinity[i] = blk.salinity[i]
         if blk.depth[i] <= 0 or blk.fw_mass[i] <= 0:
-            # At this point either the blk.depth is negative
+            # At this point either the depth is negative
             # or the amount of freshwater available is negative
-            # signaling we have reached the blk.time required for one ZLD cycle for one solar still
+            # signaling we have reached the time required for one ZLD cycle for one solar still
 
             # Number of seconds for a single ZLD cycle
             blk.num_seconds_for_zld_cycle = i
