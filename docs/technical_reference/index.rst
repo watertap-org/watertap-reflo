@@ -11,7 +11,9 @@ Technical Reference
    
    core/index
    costing/index
-   unit_models/index
+   treatment_models/index
+   energy_models/index
+..    unit_models/index
    property_models/index
 
 

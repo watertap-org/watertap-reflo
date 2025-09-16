@@ -1,3 +1,5 @@
+.. _solar_energy_base_ref:
+
 Solar Energy Base Model
 =======================
 
@@ -11,7 +13,7 @@ models developed in REFLO, the primary focus here is on surrogate models as they
 used and currently available in REFLO.
 
 Configuration
-=============
++++++++++++++
 
 All of the WaterTAP-REFLO solar energy surrogate models inherit the ``ConfigBlock`` from ``SolarEnergyBase``.
 The user will pass all of the information needed to load or create the model via the configuration arguments.
@@ -47,11 +49,8 @@ The following table summarizes the configuration arguments.
 .. |solar_energy_base_data_config| replace:: :ref:`Any valid dictionary <solar_energy_base_data_config>`
 
 
-.. | :sup:`1` ``"pysam"`` is placeholder for possible future implementation of running PySAM directly in a WaterTAP-REFLO unit model.
-
-
 Use of Solar Energy Base Model
-==============================
+++++++++++++++++++++++++++++++
 
 Basic Structure & Assumptions
 -----------------------------
