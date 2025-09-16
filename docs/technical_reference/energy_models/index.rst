@@ -18,7 +18,7 @@ approach is provided in the :ref:`Solar Energy Base Class documentation <solar_e
 
    cst_surrogate
    fpc_surrogate
-   flat_plate_collector_physical
+   fpc_physical
    pv_surrogate
    pv_battery
    thermal_energy_storage
