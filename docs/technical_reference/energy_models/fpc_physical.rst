@@ -1,3 +1,5 @@
+.. _fpc_physical_ref:
+
 Flat Plate Collector (Physical)
 ===============================
 

@@ -1,5 +1,7 @@
+.. _crystallizer_effect_ref_ref:
+
 Crystallizer Effect Unit Model
-====================================================
+==============================
 The crystallizer-effect unit model calculates the energy required by a single effect
 to heat an incoming brine stream and vaporize a pure water vapor stream, leaving behind solids present in the
 This model inherits its structure from the WaterTAP `crystallizer model <https://watertap.readthedocs.io/en/latest/technical_reference/unit_models/crystallizer_0D.html>`_ and adds in the heat balance equations

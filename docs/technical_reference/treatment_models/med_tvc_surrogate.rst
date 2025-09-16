@@ -1,3 +1,5 @@
+.. _med_tvc_ref:
+
 Multi-effect Distillation with Thermal Vapor Compression (MED-TVC)
 ==================================================================
 

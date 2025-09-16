@@ -1,5 +1,7 @@
+.. _chem_softening_ref:
+
 Chemical Softening
-====================================================
+==================
 
 This chemical softening model includes the units mixer, flocculator, sedimentation basin and recarbonation basin. The model calculates the chemical dose required for target removal of hardness causing components 
 and calculates the size of the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model:

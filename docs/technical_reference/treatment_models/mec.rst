@@ -1,5 +1,7 @@
+.. _mec_ref:
+
 Multi-effect Crystallizer Unit Model
-====================================================
+=====================================
 This model builds multiple blocks of the `crystallizer-effect model <https://watertap.readthedocs.io/en/latest/technical_reference/unit_models/treatment_models/crystallizer.html>`_ to form a multi-effect crystallizer (MEC) system.
 The number of effects are passed as a configuration option when defining the unit model.
 

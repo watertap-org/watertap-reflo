@@ -1,3 +1,5 @@
+.. _fpc_surrogate_ref:
+
 Flat Plate Collector (Surrogate)
 ================================
 

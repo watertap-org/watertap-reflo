@@ -1,3 +1,5 @@
+.. _tes_physical_ref:
+
 Thermal Energy Storage (TES)
 ============================
 
