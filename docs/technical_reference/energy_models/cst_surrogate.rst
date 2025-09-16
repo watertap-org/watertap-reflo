@@ -15,7 +15,7 @@ for the system capacity. By default, the model includes the following input labe
    :header: "Variable", "Variable Name","Symbol", "Units", "Description"
 
    "System Capacity", "`system_capacity`", ":math:`S_{capacity}`", ":math:`\text{kW}`", "Thermal power output of the system"
-   "Hours of Storage", "`hours_storage`", ":math:`H_{storage}`", ":math:`\text{h}`", "Number of hours of thermal storage"
+   "Hours of Storage", "`hours_storage`", ":math:`h_{storage}`", ":math:`\text{h}`", "Number of hours of thermal storage"
    "Loop temperature", "`temperature_loop`", ":math:`T_{loop}`", ":math:`\text{°C}`", "Loop outlet temperature in Celsius"
 
 Users can choose to use a fixed value for the hours of storage or loop temperature when generating data using PySAM.
@@ -24,8 +24,8 @@ Generating Data
 ---------------
 
 The data for the surrogate model can be generated using the `generate_trough_data` function in `run_pysam_trough.py` in the REFLO package.
-The default ``trough_weather_data.csv`` file and the ``trough_physical_iph-reflo.json`` config file are included in the REFLO package.
-Weather and configuration files specific to the user's location can be created using SAM.
+The default ``trough_weather_data.csv`` weather file and the ``trough_physical_iph-reflo.json`` config file are included in the REFLO package.
+Weather  specific to the user's location can be downloaded from the `National Solar Radiation Database <https://nsrdb.nrel.gov/data-viewer>`_ and configuration ``.json`` files can be created using SAM.
 
 The `generate_trough_data` function takes the following arguments:
 
@@ -104,7 +104,7 @@ The direct cost and indirect costs are calculated as the sum of the costs of the
    :header: "Cost Component","Symbol", "Equation"
 
    "Solar Aperture Cost", ":math:`C_{aperture}`", ":math:`cost\_per\_total\_aperture\_area \times total\_aperture\_area`"
-   "Thermal Storage Cost", ":math:`C_{thermal\_storage}`", ":math:`cost\_per\_storage\_capital \times H_{storage} \times S_{capacity}`"
+   "Thermal Storage Cost", ":math:`C_{thermal\_storage}`", ":math:`cost\_per\_storage\_capital \times h_{storage} \times S_{capacity}`"
    "Heat Sink Cost", ":math:`C_{heat\_sink}`", ":math:`cost\_per\_heat\_sink \times S_{capacity}`"
    "Balance of Plant Cost", ":math:`C_{balance\_of\_plant}`", ":math:`cost\_per\_balance\_of\_plant \times S_{capacity}`"
    "Land Cost", ":math:`C_{land}`", ":math:`cost\_per\_land\_area \times A_{land}`"
@@ -119,4 +119,5 @@ The fixed operating cost is a fixed value from `PySAM <https://nrel-pysam.readth
 
 References
 ----------
-* PySAM Version 7.0.0. National Renewable Energy Laboratory. Golden, CO. Accessed May 23, 2025. github.com/nrel/pysam.
+* Blair, N.; Dobos, A.; Freeman, J.; Neises, T.; Wagner, M.; Ferguson, T.; Gilman, P.; Janzou, S. (2014). System Advisor Model™, SAM™ 2014.1.14: General Description. NREL/TP-6A20-61019. National Renewable Energy Laboratory. Golden, CO. Accessed May 23, 2025. www.nrel.gov/docs/fy14osti/61019.pdf . 
+* System Advisor Model™ Version 2025.4.16 (SAM™ 2025.4.16). National Renewable Energy Laboratory. Golden, CO. Accessed May 23, 2025. https://https://sam.nrel.gov .

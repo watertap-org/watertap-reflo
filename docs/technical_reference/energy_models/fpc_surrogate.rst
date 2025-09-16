@@ -15,14 +15,14 @@ for the system capacity. By default, the model includes the following input labe
    :header: "Variable", "Variable Name", "Symbol", "Units", "Description"
 
    "System Capacity", "`system_capacity`", ":math:`S_{capacity}`", ":math:`\text{kW}`", "Thermal power output of the system"
-   "Hours of Storage", "`hours_storage`", ":math:`H_{storage}`", ":math:`\text{h}`", "Number of hours of thermal storage"
+   "Hours of Storage", "`hours_storage`", ":math:`h_{storage}`", ":math:`\text{h}`", "Number of hours of thermal storage"
    "Temperature Hot", "`temperature_hot`", ":math:`T_{hot}`", ":math:`\text{°C}`", "Temperature of the hot stream"
 
 Generating Data
 ---------------
 
 The data for the surrogate model can be generated using the `generate_fpc_data` function in `run_pysam_fpc.py` in the REFLO package.
-The default weather file is included in the REFLO package and can be regenerated using SAM.
+The default weather file is included in the REFLO package and can be downloaded from the `National Solar Radiation Database <https://nsrdb.nrel.gov/data-viewer>`_.
 Weather files specific to the user's location can be created using SAM.
 
 The `generate_fpc_data` function takes the following arguments:
@@ -30,11 +30,11 @@ The `generate_fpc_data` function takes the following arguments:
 .. csv-table::
    :header: "Variable", "Variable Name", "Units", "Description"
 
-   "System capacity", "`system_capacities`", ":math:`\text{kW}`", "List of range of values of interest for the trough system capacity"
-   "Hours of storage", "`hours_storage`", ":math:`\text{h}`", "List of range of values of interest for the hours of thermal storage"
-   "Temperature Hot", "`temperature_hot`", ":math:`\text{°C}`", "List of range of values of interest for the hot stream temperature"
-   "Weather file", "`weather_file`", "", "Path to the weather file"
-   "Dataset file name", "`dataset_filename`", "", "Name of the output dataset file"
+   "System capacity", "``system_capacities``", ":math:`\text{kW}`", "List of range of values of interest for the trough system capacity"
+   "Hours of storage", "``hours_storage``", ":math:`\text{h}`", "List of range of values of interest for the hours of thermal storage"
+   "Temperature Hot", "``temperature_hot``", ":math:`\text{°C}`", "List of range of values of interest for the hot stream temperature"
+   "Weather file", "``weather_file``", "", "Path to the weather file"
+   "Dataset file name", "``dataset_filename``", "", "Name of the output dataset file"
 
 Users can update the weather file for their specific location of interest by updating the file to variable ``weather_file_default``.
 The `generate_fpc_data` function will generate the necessary data files (.pkl or .csv) for the surrogate model.
@@ -84,7 +84,7 @@ The thermal storage volume is calculated as follows:
 
 .. math::
 
-   V_{storage} = \frac{H_{storage} \times S_{capacity}}{\rho \times c_{p} \times(T_{hot} - T_{cold})}
+   V_{storage} = \frac{h_{storage} \times S_{capacity}}{\rho \times c_{p} \times(T_{hot} - T_{cold})}
 
 Costing
 ---------
@@ -120,4 +120,5 @@ The FPC surrogate model only has fixed operating cost is calculated as follows:
 
 References
 ----------
-* PySAM Version 7.0.0. National Renewable Energy Laboratory. Golden, CO. Accessed May 23, 2025. github.com/nrel/pysam.
+* Blair, N.; Dobos, A.; Freeman, J.; Neises, T.; Wagner, M.; Ferguson, T.; Gilman, P.; Janzou, S. (2014). System Advisor Model™, SAM™ 2014.1.14: General Description. NREL/TP-6A20-61019. National Renewable Energy Laboratory. Golden, CO. Accessed May 23, 2025. www.nrel.gov/docs/fy14osti/61019.pdf . 
+* System Advisor Model™ Version 2025.4.16 (SAM™ 2025.4.16). National Renewable Energy Laboratory. Golden, CO. Accessed May 23, 2025. https://https://sam.nrel.gov .
