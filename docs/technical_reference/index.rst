@@ -1,10 +1,10 @@
 Technical Reference
 ===================
 
-.. toctree::
-    :maxdepth: 1
+.. .. toctree::
+..     :maxdepth: 1
 
-    Module Reference <../apidoc/modules>
+..     Module Reference <../apidoc/modules>
 
 .. toctree::
    :maxdepth: 2
@@ -13,7 +13,6 @@ Technical Reference
    costing/index
    treatment_models/index
    energy_models/index
-..    unit_models/index
    property_models/index
 
 
