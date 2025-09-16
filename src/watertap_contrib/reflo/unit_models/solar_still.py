@@ -26,7 +26,6 @@ from idaes.core import (
     UnitModelBlockData,
     useDefault,
 )
-from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.tables import create_stream_table_dataframe
 from idaes.core.util.config import is_physical_parameter_block
 
@@ -35,6 +34,7 @@ import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
 
 from watertap.core import InitializationMixin
+from watertap.core.solvers import get_solver
 
 from watertap_contrib.reflo.costing.units.solar_still import cost_solar_still
 from watertap_contrib.reflo.unit_models.util.water_yield_calculation import (
