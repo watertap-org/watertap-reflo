@@ -1,10 +1,13 @@
 .. _tes_physical_ref:
 
-Thermal Energy Storage (TES)
-============================
+Thermal Energy Storage (Physical)
+=================================
 
-This thermal energy storage (TES) model assumes the tank is at a uniform temperature (similar to a continuous stirred tank) and supports steady-state only. It also assumes that both the heat transfer fluid
-and the storage fluid are the same and are water as default.
+.. note:: 
+    This model was designed for use in a model utilizing the `multiperiod framework <https://idaes-pse.readthedocs.io/en/latest/reference_guides/apps/grid_integration/multiperiod/index.html>`_. Steady-state applications are not recommended.
+
+This Thermal Energy Storage (TES) model assumes the tank is at a uniform temperature (similar to a continuous stirred tank) and supports steady-state only. 
+It also assumes that both the heat transfer fluid and the storage fluid are the same. Water is used as the default heat transfer and storage fluid.
 
 Model Structure
 ---------------
@@ -13,10 +16,10 @@ This TES model consists of 4 StateBlocks (as 4 Ports in parenthesis below). Two 
 to the the external heat exchanger which adds heat to the TES and two ports connect to the process side
 and provide heat to the treatment process.
 
-* Heat exchanger inlet (tes_hx_inlet)
-* Heat exchanger outlet (tes_hx_outlet)
-* Process inlet (tes_process_inlet)
-* Process outlet (tes_process_outlet)
+* Heat exchanger inlet (``tes_hx_inlet``)
+* Heat exchanger outlet (``tes_hx_outlet``)
+* Process inlet (``tes_process_inlet``)
+* Process outlet (``tes_process_outlet``)
 
 Sets
 ----
@@ -31,28 +34,29 @@ Sets
 Degrees of Freedom/Variables
 ----------------------------
 
-The TES model has 4 degrees of freedom that should be fixed for the unit to be fully specified
-in addition to the state variables at the inlet and outlet.
+The TES model has 4 state variables at the inlet.
 Typically the variables listed below define the heat exchanger and process ports inlet and outlet. 
 
 .. csv-table::
-   :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
+   :header: "Variables", "Variable name", "Symbol", "Valid range", "Units"
 
+   "Inlet mass flow rate liquid water", "``flow_mass_phase_comp['Liq','H2O']``", ":math:`m_{l}`", "", ":math:`\text{kg/s}`"
+   "Inlet mass flow rate vapor water", "``flow_mass_phase_comp['Vap','H2O']``", ":math:`m_{v}`", "", ":math:`\text{kg/s}`"
    "Temperature", "``temperature``", ":math:`T_{f}`", "298.15 - 372.15", ":math:`\text{K}`"
-   "Pressure", "``pressure``", ":math:`P`", "", ":math:`Pa`"
-   "Mass flow rate of vapor phase", "``flow_mass_phase_comp[0,'Vap','H2O']``", ":math:`m_{v}`", "", ":math:`kg/s`"
-   "Mass flow rate of liquid phase", "``flow_mass_phase_comp[0,'Liq','H2O']``", ":math:`m_{l}`", "", ":math:`kg/s`"
+   "Pressure", "``pressure``", ":math:`P`", "", ":math:`\text{Pa}`"
    
-The following variables should also be fixed. An initial temperature is assigned to the outlet stream at the heat exhanger and process loop.
+The following variables should also be fixed for the model to be fully-defined.
+An initial temperature is assigned to the outlet stream at the heat exhanger and process loop.
 
 .. csv-table::
-   :header: "Variables", "Variable name", "Symbol", "Valid range", "Unit"
+   :header: "Variables", "Variable Name", "Symbol", "Valid Range", "Units"
 
    "Initial temperature", "``tes_initial_temperature``", ":math:`T_{0}`", "298.15 - 372.15", ":math:`\text{K}`"
-   "Time step", "``dt``", ":math:`dt`", "", ":math:`h`"
-   "Hours of storage", "``hours_storage``", ":math:`h_{storage}`", "0-24", ":math:`h`"
-   "Heat load", "``heat_load``", ":math:`heat_{load}`", "", ":math:`MW`"
-   
+   "Time step", "``dt``", ":math:`dt`", "", ":math:`\text{hr}`"
+   "Hours of storage", "``hours_storage``", ":math:`t_{storage}`", "0-24", ":math:`\text{hr}`"
+   "Design thermal output rate", "``heat_load``", ":math:`P_{th}`", "", ":math:`\text{MW}`"
+   "Thermal energy storage capacity for hours of storage at design thermal output rate", "``thermal_energy_capacity``", ":math:`q_{TES}`", "", ":math:`\text{MWh}`"
+
 
 Parameters
 ----------
@@ -60,12 +64,12 @@ Parameters
 The following parameters are used as default values and are mutable. 
 
 .. csv-table::
-   :header: "Description", "Parameter Name", "Symbol", "Value", "Units"
+   :header: "Description", "Parameter Name", "Symbol", "Default Value", "Units"
 
-   "Heat transfer fluid density", "``heat_transfer_fluid_density``", ":math:`\rho_{htf}`", "1000", ":math:`kg/m^{3}`"
-   "Heat transfer fluid specific heat capacity", "``heat_transfer_fluid_csp``", ":math:`C_{sp,htf}`", "4184", ":math:`J/kg/K`"
-   "Pump power", "``pump_power``", ":math:`P_{pump}`", "1", ":math:`W`"
-   "Pump efficiency", "``pump_eff``", ":math:`\eta_{pump}`", "1", ":math:`\text{dimensionless}`"
+   "Heat transfer fluid density", "``heat_transfer_fluid_density``", ":math:`\rho_{htf}`", "1000", ":math:`\text{kg/m^{3}}`"
+   "Heat transfer fluid specific heat capacity", "``heat_transfer_fluid_csp``", ":math:`C_{sp,htf}`", "4184", ":math:`\text{J/kg/K}`"
+   "Pump power", "``pump_power``", ":math:`P_{pump}`", "1", ":math:`\text{W}`"
+   "Pump efficiency", "``pump_eff``", ":math:`\eta_{pump}`", "0.8", ":math:`\text{dimensionless}`"
    "Design temperature", "``temperature_design``", ":math:`T_{design}`", "372.15", ":math:`\text{K}`"
    "Cold temperature", "``temperature_cold``", ":math:`T_{cold}`", "293.15", ":math:`\text{K}`"
 
@@ -75,9 +79,9 @@ Equations
 .. csv-table::
    :header: "Description", "Equation"
 
-   "TES volume", ":math:`V_{TES} = \text{Thermal Energy Capacity} / (C_{sp,htf}*\rho_{htf}*(T_{design}-T_{cold}))`"
-   "Thermal energy capacity", ":math:`\text{Thermal Energy Capacity} = h_{storage} * heat_{load}`"
-   "Electricity", ":math:`electricity = P_{pump}/\eta_{pump}`"
+   "TES volume", ":math:`V_{TES} = q_{TES} / (C_{sp,htf}*\rho_{htf}*(T_{design}-T_{cold}))`"
+   "Thermal energy capacity", ":math:`q_{TES} = t_{storage} * P_{th}`"
+   "Electricity demand", ":math:`electricity = P_{pump}/\eta_{pump}`"
    "Tank temperature", ":math:`T_{tank} = T_{0} + (Q_{in} - Q_{out})*dt/(V_{TES}*C_{sp,htf}*\rho_{htf})`"
 
 Costing
