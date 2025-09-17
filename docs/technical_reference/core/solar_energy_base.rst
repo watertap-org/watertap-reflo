@@ -12,6 +12,12 @@ use in a WaterTAP-REFLO flowsheet. Though this documentation would apply to both
 models developed in REFLO, the primary focus here is on surrogate models as they are the primary type of solar energy model 
 used and currently available in REFLO.
 
+Importantly, the ``SolarEnergyBase`` is only a base class and does not include any model-specific parameters, variables, or equations.
+The primary function is to provide a unified approach to modeling solar energy systems that can interact with water treatment models, and 
+to automate the creation and loading of surrogate models. Users who wish to create a new surrogate-based solar models in REFLO should
+inherit from the ``SolarEnergyBase`` class and provide any model-specific parameters, variables, and equations in the model ``build()`` method.
+Guidance can be taken from the existing solar energy models included in WaterTAP-REFLO.
+
 Configuration
 +++++++++++++
 
@@ -55,7 +61,7 @@ Use of Solar Energy Base Model
 Basic Structure & Assumptions
 -----------------------------
 
-The solar energy models in REFLO are intended to represent the entire solar energy system, including the solar field, power block (if applicable),
+The solar energy models in REFLO are intended to represent a complete solar energy technology installation, including the solar field, power block (if applicable),
 and any necessary balance of system equipment. WaterTAP-REFLO solar energy models are steady-state only. In other words, only a single time period is modeled that is
 assumed to be one year long. The general structure for REFLO surrogate models is:
 
@@ -234,7 +240,8 @@ Loading Existing Surrogate Models
 ---------------------------------
 
 A surrogate model can also be created by providing a valid path to an existing surrogate model .json file via the ``surrogate_model_file`` configuration argument.
-Otherwise, the two approaches share required configuration arguments.
+Otherwise, the two approaches share required configuration arguments. Any configuration arguments related to the creation of the surrogate model (e.g., ``training_fraction``, ``surrogate_model_type``, etc.)
+will be ignored when loading an existing surrogate model.
 
 
 .. code-block:: python
