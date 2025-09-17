@@ -289,7 +289,7 @@ def setup_and_run_pv(system_capacity, pysam_model_config, return_tech_model=Fals
 
 
 def generate_pv_data(
-    design_sizes=np.linspace(100, 10000, 3),
+    system_capacities=np.linspace(100, 10000, 3),
     pysam_model_config="FlatPlatePVSingleOwner",
     save_data=True,
     use_multiprocessing=True,
@@ -303,19 +303,19 @@ def generate_pv_data(
 
     print(f"Saving data to {dataset_filename}")
 
-    df = pd.DataFrame(design_sizes, columns=["system_capacity"])
+    df = pd.DataFrame(system_capacities, columns=["system_capacity"])
 
     if use_multiprocessing:
 
         with multiprocessing.Pool(processes=processes) as pool:
-            args = [(ds, pysam_model_config) for ds in design_sizes]
+            args = [(ds, pysam_model_config) for ds in system_capacities]
             results = pool.starmap(setup_and_run_pv, args)
 
         df_results = pd.DataFrame(results)
 
     else:
         results = list()
-        for ds in design_sizes:
+        for ds in system_capacities:
             result = setup_and_run_pv(ds, pysam_model_config)
             results.append(result)
         df_results = pd.DataFrame(results)
@@ -332,7 +332,7 @@ def generate_pv_data(
 
 if __name__ == "__main__":
     # To create data used in PV surrogate test file:
-    # design_sizes = np.linspace(1000, 1000000, 50)
+    # system_capacities = np.linspace(1000, 1000000, 50)
 
     df = generate_pv_data()
     print(df.head(20))

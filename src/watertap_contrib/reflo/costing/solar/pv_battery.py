@@ -53,12 +53,12 @@ def build_pv_battery_surrogate_cost_param_block(blk):
         doc="Fixed operating cost of battery by capacity",
     )
 
-    blk.battery_variable_operating_by_discharged = pyo.Var(
-        initialize=0,
-        units=costing.base_currency / (pyo.units.MWh * costing.base_period),
-        bounds=(0, None),
-        doc="Variable operating cost of battery system per MWh discharged",
-    )
+    # blk.battery_variable_operating_by_discharged = pyo.Var(
+    #     initialize=0,
+    #     units=costing.base_currency / (pyo.units.MWh * costing.base_period),
+    #     bounds=(0, None),
+    #     doc="Variable operating cost of battery system per MWh discharged",
+    # )
 
     blk.battery_replacement_frequency = pyo.Var(
         initialize=20,
@@ -94,31 +94,31 @@ def cost_pv_battery(blk):
         initialize=0,
         units=blk.costing_package.base_currency,
         bounds=(0, None),
-        doc="Direct costs of PV system",
+        doc="Direct costs of PV + battery system",
     )
 
     blk.indirect_cost = pyo.Var(
         initialize=0,
         units=blk.costing_package.base_currency,
         bounds=(0, None),
-        doc="Indirect costs of PV system",
+        doc="Indirect costs of PV + battery system",
     )
 
     blk.land_cost = pyo.Var(
         initialize=0,
         units=blk.costing_package.base_currency,
         bounds=(0, None),
-        doc="Land costs of PV system",
+        doc="Land costs of PV + battery system",
     )
 
     blk.sales_tax = pyo.Var(
         initialize=0,
         units=blk.costing_package.base_currency,
         bounds=(0, None),
-        doc="Sales tax for PV system",
+        doc="Sales tax for PV + battery system",
     )
 
-    design_size_watt = pyo.units.convert(
+    system_capacity_watt = pyo.units.convert(
         blk.unit_model.system_capacity, to_units=pyo.units.watt
     )
 
@@ -134,7 +134,7 @@ def cost_pv_battery(blk):
     blk.pv_direct_capital_cost = pyo.Expression(
         expr=pyo.units.convert(
             (
-                design_size_watt
+                system_capacity_watt
                 * (
                     pv_batt_params.cost_per_watt_module
                     + pv_batt_params.cost_per_watt_other_direct
@@ -152,7 +152,7 @@ def cost_pv_battery(blk):
                 batt_size_kwh * pv_batt_params.cost_per_kwh_battery_storage
                 + blk.unit_model.battery_power
                 * pv_batt_params.cost_per_kw_battery_power
-            ),  # BUG Check this
+            ),
             to_units=blk.costing_package.base_currency,
         ),
         doc="Direct capital cost of battery system",
@@ -164,26 +164,27 @@ def cost_pv_battery(blk):
         expr=blk.direct_cost
         == pyo.units.convert(
             (blk.pv_direct_capital_cost + blk.battery_direct_capital_cost)
-            * (1 + pv_batt_params.frac_direct_capital_cost_contingency),
+            * (1 + pv_batt_params.contingency_frac_direct_cost),
             to_units=blk.costing_package.base_currency,
         )
     )
 
     capital_cost_expr += blk.direct_cost
 
-    # NOTE: land_cost is not added directly to capital_cost_expr because it is included in the indirect cost
     blk.land_cost_constraint = pyo.Constraint(
         expr=blk.land_cost
         == pyo.units.convert(
-            (blk.unit_model.land_req * global_params.land_cost),
+            blk.unit_model.land_req * global_params.land_cost,
             to_units=blk.costing_package.base_currency,
         )
     )
 
+    capital_cost_expr += blk.land_cost
+
     blk.indirect_capital_cost_constraint = pyo.Constraint(
         expr=blk.indirect_cost
         == pyo.units.convert(
-            (design_size_watt * pv_batt_params.cost_per_watt_indirect) + blk.land_cost,
+            system_capacity_watt * pv_batt_params.cost_per_watt_indirect,
             to_units=blk.costing_package.base_currency,
         )
     )
@@ -194,7 +195,7 @@ def cost_pv_battery(blk):
         expr=blk.sales_tax
         == pyo.units.convert(
             blk.direct_cost
-            * pv_batt_params.frac_direct_capital_cost_sales_tax
+            * pv_batt_params.tax_frac_direct_cost
             * global_params.sales_tax_frac,
             to_units=blk.costing_package.base_currency,
         )
@@ -213,7 +214,7 @@ def cost_pv_battery(blk):
 
     blk.pv_fixed_operating_cost = pyo.Expression(
         expr=pyo.units.convert(
-            pv_batt_params.fixed_operating_by_capacity * design_size_watt,
+            pv_batt_params.fixed_operating_by_capacity * system_capacity_watt,
             to_units=blk.costing_package.base_currency
             / blk.costing_package.base_period,
         ),
@@ -269,7 +270,7 @@ def cost_pv_battery(blk):
 
     var_op_cost_expr += blk.pv_variable_operating_cost
 
-    # TODO: Would need battery discharge flow as surrogate output to make this calculation
+    # TODO: need battery discharge flow as surrogate output to make this calculation
     # blk.battery_variable_operating_cost = pyo.Expression(
     #     expr=pyo.units.convert(
     #         pv_batt_params.battery_variable_operating_by_discharged
