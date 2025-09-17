@@ -64,7 +64,7 @@ def build_pv_battery_surrogate_cost_param_block(blk):
         initialize=20,
         units=pyo.units.year,
         bounds=(0, None),
-        doc="Replacement frequency of battery by capacity",
+        doc="Replacement frequency of battery",
     )
 
     blk.battery_replacement_cost_by_capacity = pyo.Var(
@@ -269,6 +269,7 @@ def cost_pv_battery(blk):
 
     var_op_cost_expr += blk.pv_variable_operating_cost
 
+    # TODO: Would need battery discharge flow as surrogate output to make this calculation
     # blk.battery_variable_operating_cost = pyo.Expression(
     #     expr=pyo.units.convert(
     #         pv_batt_params.battery_variable_operating_by_discharged
