@@ -150,8 +150,52 @@ class ThermalEnergyStorageData(UnitModelBlockData):
         self.add_inlet_port(name="tes_process_inlet", block=self.process_inlet_block)
         self.add_outlet_port(name="tes_process_outlet", block=self.process_outlet_block)
 
+        self.heat_transfer_fluid_density = Param(
+            initialize=1000,
+            units=pyunits.kg / pyunits.m**3,
+            mutable=True,
+            doc="Density of heat transfer fluid",
+        )
+
+        self.heat_transfer_fluid_csp = Param(
+            initialize=4184,
+            units=pyunits.J / pyunits.kg / pyunits.K,
+            mutable=True,
+            doc="Specific heat capacity of heat transfer fluid in the TES",
+        )
+
+        self.pump_power = Param(
+            initialize=1, units=pyunits.W, mutable=True, doc="Pump power"
+        )
+
+        self.pump_eff = Param(
+            initialize=0.8,
+            units=pyunits.dimensionless,
+            mutable=True,
+            doc="Pump efficiency",
+        )
+
+        self.temperature_design = Param(
+            initialize=90 + 273.15,
+            units=pyunits.K,
+            mutable=True,
+            doc="Storage design temperature",
+        )
+
+        self.temperature_cold = Param(
+            initialize=20 + 273.15,
+            units=pyunits.K,
+            mutable=True,
+            doc="Ambient temperature",
+        )
+
+        # ----------------------------------
+
         self.hours_storage = Var(
-            initialize=8, bounds=(0, 24), units=pyunits.h, doc="Hours of storage"
+            initialize=8,
+            bounds=(0, 24),
+            units=pyunits.hour,
+            doc="Hours of storage for TES system",
         )
 
         self.heat_load = Var(
@@ -204,79 +248,56 @@ class ThermalEnergyStorageData(UnitModelBlockData):
             doc="Temperature of the thermal storage tank to track convective heat losses",
         )
 
-        self.dt = Var(initialize=3600, units=pyunits.s, doc="Time step for multiperiod")
+        self.electricity = Var(
+            initialize=1,
+            units=pyunits.W,
+            bounds=(0, None),
+            doc="Total power demand for the TES",
+        )
+
+        self.dt = Var(
+            initialize=3600,
+            units=pyunits.s,
+            bounds=(0, None),
+            doc="Time step for multiperiod",
+        )
 
         ## TODO Convective heat loss as a function of tank temperature
-
-        self.heat_transfer_fluid_density = Param(
-            initialize=1000,
-            units=pyunits.kg / pyunits.m**3,
-            mutable=True,
-            doc="Density of heat transfer fluid",
-        )
-
-        self.heat_transfer_fluid_csp = Param(
-            initialize=4184,
-            units=pyunits.J / pyunits.kg / pyunits.K,
-            mutable=True,
-            doc="Specific heat capacity of heat transfer fluid in the TES",
-        )
-
-        self.pump_power = Param(
-            initialize=1, units=pyunits.W, mutable=True, doc="Pump power"
-        )
-
-        self.pump_eff = Param(
-            initialize=1,
-            units=pyunits.dimensionless,
-            mutable=True,
-            doc="Pump efficiency",
-        )
-
-        self.electricity = Var(initialize=1, units=pyunits.W, doc="Total electricity")
-
-        self.temperature_design = Param(
-            initialize=90 + 273.15,
-            units=pyunits.K,
-            mutable=True,
-            doc="Storage design temperature",
-        )
-
-        self.temperature_cold = Param(
-            initialize=20 + 273.15,
-            units=pyunits.K,
-            mutable=True,
-            doc="Ambient temperature",
-        )
+        # ----------------------------------
 
         # Constraint to calculate the total heat entering
-        @self.Constraint(self.flowsheet().config.time)
+        @self.Constraint(
+            self.flowsheet().config.time, doc="Total heat entering the TES"
+        )
         def eq_heat_in(b, t):
             return b.heat_in[t] == (
                 b.hx_inlet_block[t].enth_flow_phase["Liq"]
                 + b.process_inlet_block[t].enth_flow_phase["Liq"]
             )
 
-        # Constraint to calculate the total heat entering
-        @self.Constraint(self.flowsheet().config.time)
+        # Constraint to calculate the total heat exiting
+        @self.Constraint(self.flowsheet().config.time, doc="Total heat exiting the TES")
         def eq_heat_out(b, t):
             return b.heat_out[t] == (
                 b.hx_outlet_block[t].enth_flow_phase["Liq"]
                 + b.process_outlet_block[t].enth_flow_phase["Liq"]
             )
 
-        # the temperature of the tank after each time step
-        @self.Constraint(self.flowsheet().config.time)
+        # The temperature of the tank after each time step
+        @self.Constraint(
+            self.flowsheet().config.time,
+            doc="Temperature of the tank after each time step",
+        )
         def eq_tes_temp(b, t):
             return b.tes_temperature[t] == b.tes_initial_temperature + 1 / (
                 b.tes_volume * b.heat_transfer_fluid_density * b.heat_transfer_fluid_csp
             ) * (b.heat_in[t] * b.dt - b.heat_out[t] * b.dt)
 
-        @self.Constraint()
+        @self.Constraint(doc="Thermal energy capacity calculation")
         def eq_thermal_capacity(b):
             return b.thermal_energy_capacity == b.hours_storage * b.heat_load
 
-        @self.Constraint()
+        @self.Constraint(doc="TES volume calculation")
         def eq_tes_volume(b):
             return b.tes_volume == pyunits.convert(
                 b.thermal_energy_capacity, to_units=pyunits.J
@@ -286,7 +307,7 @@ class ThermalEnergyStorageData(UnitModelBlockData):
                 * (b.temperature_design - b.temperature_cold)
             )
 
-        @self.Constraint(doc="Pump power")
+        @self.Constraint(doc="Pumping power required")
         def eq_P_pump(b):
             return b.electricity == (b.pump_power / b.pump_eff)
 
