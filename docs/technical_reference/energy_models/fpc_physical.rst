@@ -3,6 +3,10 @@
 Flat Plate Collector (Physical)
 ===============================
 
+.. code-block:: python
+
+    from watertap_contrib.reflo.solar_models import FlatPlatePhysical
+
 .. note:: 
     This model was designed for use in a model utilizing the `multiperiod framework <https://idaes-pse.readthedocs.io/en/latest/reference_guides/apps/grid_integration/multiperiod/index.html>`_. Steady-state applications are not recommended.
 
@@ -87,7 +91,7 @@ The following equations calculate the variables used in estimating heat transfer
    :header: "Description", "Variable Name", "Equation", "Units"
 
    "Product of collector efficiency factor and overall heat loss coefficient at test conditions","``Fprime_UL``", ":math:`F^{'}U_{L} = -(\dot{m}_{test}*{c}_{ptest})/A_{c}* log(1-{F}_{R}{U}_{L}*A_{c}/(\dot{m}_{test}*{c}_{ptest}))`",":math:`\text{dimensionless}`"
-   "Ratio of FRta_use to FRta_test","``ratio_FRta``", ":math:`r = [m_{l}*{c}_{ptest}/A_{c}]*[1 - exp(-A_{c}*F^{'}U_{L}/m_{l}*{c}_{ptest})]/F_{R}U_{L}|_{test}`", ":math:`\text{dimensionless}`"
+   "Ratio of FRta_use to FRta_test","``ratio_FRta``", ":math:`r = [m_{l}*{c}_{ptest}/A_{c}]*[1 - \text{exp}(-A_{c}*F^{'}U_{L}/m_{l}*{c}_{ptest})]/F_{R}U_{L}|_{test}`", ":math:`\text{dimensionless}`"
    "Useful net heat gain","``net_heat_gain``", ":math:`P_{gain} = {n}_{c}*A_{c}*r*(F_{R}\tau\alpha*G_{total}*\tau\alpha  - F_{R}U_{L}*(T_{f}-{T}_{amb}))`", ":math:`\text{W}`"
    "Rated plant heat capacity", "``system_capacity``", ":math:`P_{th} = {n}_{c}*A_{c}*(F_{R}\tau\alpha*G_{total}*\tau\alpha - F_{R}U_{L}*\Delta T )`", ":math:`\text{MW}`"
    "Annual thermal energy produced by the system","``heat_annual``", ":math:`H_{annual} = P_{gain} * 8760`", ":math:`\text{kWh}`"
@@ -154,8 +158,6 @@ The FPC model has both thermal and electric power flows. The steady-state therma
 
     Q_{out} = H_{annual} / 8760
 
-Where:
-
 - :math:`Q_{out}` is the steady-state thermal output (in kW) at the target temperature
 - :math:`H_{annual}` is the annual thermal energy generation (in kWh)
 
@@ -164,8 +166,6 @@ The parasitic power consumption of the FPC system is calculated as:
 .. math::
 
     P_{cons} = E_{annual} / 8760
-
-Where:
 
 - :math:`P_{cons}` is the parasitic power consumption (in kW)
 - :math:`E_{annual}` is the annual electric energy consumption (in kWh)

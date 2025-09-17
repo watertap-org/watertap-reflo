@@ -3,10 +3,16 @@
 Flat Plate Collector (Surrogate)
 ================================
 
+.. code-block:: python
+
+    from watertap_contrib.reflo.solar_models import FlatPlateSurrogate
+    
+
 This Flat Plate Collector (FPC) unit model is a surrogate model that inherits its base model structure from 
 the :ref:`Solar Energy Base Class <solar_energy_base_ref>`. The unit model is trained using data generated 
 by the Solar Water Heating model from `PySAM <https://nrel-pysam.readthedocs.io/en/main/>`_ which is is a 
 Python package for the National Renewable Energy Laboratory's `System Advisor Model (SAM) <https://sam.nrel.gov>`_.
+Like the corollary in SAM, the FPC model is assumed to include both the solar field and the thermal energy storage system.
 
 Model Structure
 ---------------
@@ -21,7 +27,7 @@ By default, the surrogate model includes the following input variables:
 
    "System capacity", "``system_capacity``", ":math:`P_{th}`", ":math:`\text{MW}`", "Maximum thermal power output of the system"
    "Hours of storage", "``hours_storage``", ":math:`t_{storage}`", ":math:`\text{hr}`", "Number of hours of thermal storage"
-   "Target hot temperature", "``temperature_hot``", ":math:`T_{hot}`", ":math:`\text{°C}`", "Hot target outlet temperature in Celsius"
+   "Target hot temperature", "``temperature_hot``", ":math:`T_{hot}`", ":math:`\text{°C}`", "Hot target outlet temperature"
 
 System capacity is a :ref:`required input surrogate variable <surrogate_input_ref>`. The others are optional. Users can choose to use a fixed value for the hours of storage or target hot temperature when generating data using PySAM.
 
@@ -36,30 +42,35 @@ The following parameters are required outputs of the surrogate model:
 Additional parameters included on the FPC model block are:
 
 .. csv-table::
-   :header: "Parameter", "Parameter Name", "Symbol", "Valid Range", "Units", "Description"
-
-   "Cold Temperature", "``cold_temperature``", ":math:`T_{cold}`", "25", ":math:`\text{°C}`", "Temperature of the cold influent stream"
-   "Temperature Difference Factor", "``factor_delta_T``", ":math:`\Delta T`", "", ":math:`\text{°C}`", "Temperature between the influent stream and ambient temperature"
-   "Area per Collector", "``collector_area_per``", ":math:`A_{collector}`", "", ":math:`\text{m²}`", "Area of each collector"
-   "FRta", "``FR_ta``", ":math:`FRta`", "", ":math:`\text{kW/m²}`", "Product of collector heat removal factor (FR), cover transmittance (t), and shortwave absorptivity of absorber (a)"
-   "FRUL", "``FR_UL``", ":math:`FRUL`", "", ":math:`\text{kW/m²/K}`", "Product of collector heat removal factor (FR) and overall heat loss coeff. of collector (UL)"
+   :header: "Parameter", "Parameter Name", "Symbol", "Default Value", "Units", "Description"
 
 
-The total collector area and the number of collectors is calculated as follows:
+   "Water specific heat", "``specific_heat_water``", ":math:`c_p`", "4.181", ":math:`\text{kJ/kg/K}`", "Specific heat of water"
+   "Water density", "``dens_water``", ":math:`\rho`", "1000", ":math:`\text{kg/m}^3`", "Density of water"
+   "Cold temperature", "``temperature_cold``", ":math:`T_{cold}`", "25", ":math:`\text{K}`", "Temperature of the cold influent stream"
+   "Temperature difference factor", "``factor_delta_T``", ":math:`\Delta T`", "0.03", ":math:`\text{K}`", "Temperature between the influent stream and ambient temperature"
+   "Collector area", "``collector_area_per``", ":math:`A_{collector}`", "2.98", ":math:`\text{m}^2`", "Area of each collector"
+   "FRta", "``FR_ta``", ":math:`FR_{ta}`", "0.689", ":math:`\text{kW/m}^2`", "Product of collector heat removal factor (FR), cover transmittance (t), and shortwave absorptivity of absorber (a); optical gain `a` in Hottel-Whillier-Bliss equation"
+   "FRUL", "``FR_UL``", ":math:`FR_{UL}`", "3.85", ":math:`\text{kW/m}^2\text{/K}`", "Product of collector heat removal factor (FR) and overall heat loss coeff. of collector (UL); thermal loss coeff `b` in Hottel-Whillier-Bliss equation"
+
+
+The total collector area is calculated as follows:
 
 .. math::
 
-   A_{total} = \frac{S_{capacity}}{(FRta - FRUL \times \Delta T)}
+   A_{total} = \frac{P_{th}}{(FR_{ta} - FR_{UL} \times \Delta T)}
+
+And the total number of flate plate collectors required is:
 
 .. math::
 
    N_{collectors} = A_{total} / A_{collector}
 
-The thermal storage volume is calculated as follows:
+The thermal storage volume is calculated with:
 
 .. math::
 
-   V_{storage} = \frac{h_{storage} \times S_{capacity}}{\rho \times c_{p} \times(T_{hot} - T_{cold})}
+   V_{storage} = \frac{h_{storage} \times P_{th}}{\rho \times c_p \times(T_{hot} - T_{cold})}
 
 Generating Data
 ---------------
@@ -80,7 +91,7 @@ The `generate_fpc_data` function takes the following arguments:
    "Hours of storage", "``hours_storage``", ":math:`\text{hr}`", "List of range of values of interest for the hours of thermal storage"
    "Target hot temperature", "``temperatures_hot``", ":math:`\text{°C}`", "List of range of values of interest for the target hot outlet temperature"
    "Weather file", "``weather_file``", "N/A", "Path to the weather file"
-   "Configuration file", "``config_file``", "N/A", "Path to the PySAM configuration file for the trough"
+   "Configuration file", "``config_file``", "N/A", "Path to the configuration file for the PySAM model"
    "Dataset file name", "``dataset_filename``", "N/A", "Desired name of the output dataset file"
 
 
@@ -106,27 +117,27 @@ The following parameters are constructed on the costing block for FPC costing:
 .. csv-table::
    :header: "Cost Component", "Variable", "Symbol", "Value", "Units", "Description"
 
-   "Cost per area collector", "``cost_per_area_collector``", ":math:`c_{c}`", "600", ":math:`\text{USD/m}^2`", "Cost per area for solar collector"
-   "Cost per volume storage", "``cost_per_volume_storage``", ":math:`c_{hs}`", "120", ":math:`\text{USD}\text{/m}^3`", "Cost per volume for thermal storage"
+   "Cost per area collector", "``cost_per_area_collector``", ":math:`c_{fpc}`", "600", ":math:`\text{USD/m}^2`", "Cost per area for solar collector"
+   "Cost per volume storage", "``cost_per_volume_storage``", ":math:`c_{tes}`", "120", ":math:`\text{USD}\text{/m}^3`", "Cost per volume for thermal storage"
    "Contingency factor", "``contingency_frac_direct_cost``", ":math:`X_{c}`", "0.07", ":math:`\text{dimensionless}`", "Fraction of direct costs for contingency"
    "Indirect cost factor", "``indirect_frac_direct_cost``", ":math:`X_{i}`", "0.11", ":math:`\text{dimensionless}`", "Fraction of direct costs for indirect costs"
-   "Sales tax as fraction of capital costs", "``sales_tax_frac``", ":math:`X_{t}`", "0", ":math:`\text{dimensionless}`", "Sales tax as fraction of capital costs"
    "Fixed operating cost per system capacity", "``fixed_operating_by_capacity``", ":math:`c_{fix,op}`", "16", ":math:`\text{USD/kW/year}`", "Fixed operating cost of flat plate plant per kW capacity"
+
+These are used the calculate the following capital and operating costs:
 
 .. csv-table::
    :header: "Cost Component", "Symbol", "Equation"
 
-   "Collector cost", ":math:`C_{coll}`", ":math:`c_{c} \times A_{total}`"
-   "Thermal Storage Cost", ":math:`C_{s}`", ":math:`c_{s} \times V_{storage}`"
-   "Land Cost", ":math:`C_{land}`", ":math:`c_{land} \times A_{land}`"
-   "Fixed Operating Cost", ":math:`C_{fix,op}`", ":math:`c_{fix,op} \times P_{th}`"
-
+   "Collector cost", ":math:`C_{coll}`", ":math:`c_{fpc} \times A_{total}`"
+   "Thermal storage cost", ":math:`C_{tes}`", ":math:`c_{tes} \times V_{storage}`"
+   "Land cost", ":math:`C_{land}`", ":math:`c_{land} \times A_{land}`"
+   "Fixed operating cost", ":math:`C_{fix,op}`", ":math:`c_{fix,op} \times P_{th}`"
 
 The direct costs include the cost of the collectors, storage, and contingency.
 
 .. math::
 
-    C_{direct} = (C_{coll} + C_{s}) * (1 + X_{c})
+    C_{direct} = (C_{coll} + C_{tes}) (1 + X_{c})
 
 
 Indirect costs are calculated as a fraction of the direct costs and the land cost:
@@ -158,8 +169,6 @@ The FPC model has both thermal and electric power flows. The steady-state therma
 
     Q_{out} = H_{annual} / 8760
 
-Where:
-
 - :math:`Q_{out}` is the steady-state thermal output (in kW) at the target temperature
 - :math:`H_{annual}` is the annual thermal energy generation (in kWh)
 
@@ -168,8 +177,6 @@ The parasitic power consumption of the FPC system is calculated as:
 .. math::
 
     P_{cons} = E_{annual} / 8760
-
-Where:
 
 - :math:`P_{cons}` is the parasitic power consumption (in kW)
 - :math:`E_{annual}` is the annual electric energy consumption (in kWh)

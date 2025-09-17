@@ -3,33 +3,16 @@
 Thermal Energy Storage (Physical)
 =================================
 
+.. code-block:: python
+
+    from watertap_contrib.reflo.solar_models import ThermalEnergyStorage
+
 .. note:: 
     This model was designed for use in a model utilizing the `multiperiod framework <https://idaes-pse.readthedocs.io/en/latest/reference_guides/apps/grid_integration/multiperiod/index.html>`_. Steady-state applications are not recommended.
 
-This Thermal Energy Storage (TES) model assumes the tank is at a uniform temperature (similar to a continuous stirred tank) and supports steady-state only. 
+This Thermal Energy Storage (TES) model assumes the tank is at a uniform temperature (similar to a continuous stirred tank). 
 It also assumes that both the heat transfer fluid and the storage fluid are the same. Water is used as the default heat transfer and storage fluid.
 
-Model Structure
----------------
-
-This TES model consists of 4 StateBlocks (as 4 Ports in parenthesis below). Two ports connect
-to the the external heat exchanger which adds heat to the TES and two ports connect to the process side
-and provide heat to the treatment process.
-
-* Heat exchanger inlet (``tes_hx_inlet``)
-* Heat exchanger outlet (``tes_hx_outlet``)
-* Process inlet (``tes_process_inlet``)
-* Process outlet (``tes_process_outlet``)
-
-Sets
-----
-
-.. csv-table::
-   :header: "Description", "Symbol", "Indices"
-
-   "Time", ":math:`t`", "[0]"
-   "Phases", ":math:`p`", "['Liq', 'Vap']"
-   "Components", ":math:`j`", "['H2O']"
 
 Degrees of Freedom/Variables
 ----------------------------
@@ -58,6 +41,29 @@ An initial temperature is assigned to the outlet stream at the heat exhanger and
    "Thermal energy storage capacity for hours of storage at design thermal output rate", "``thermal_energy_capacity``", ":math:`q_{TES}`", "", ":math:`\text{MWh}`"
 
 
+Model Structure
+---------------
+
+This TES model consists of 4 StateBlocks (as 4 Ports in parenthesis below). Two ports connect
+to the the external heat exchanger which adds heat to the TES and two ports connect to the process side
+and provide heat to the treatment process.
+
+* Heat exchanger inlet (``tes_hx_inlet``)
+* Heat exchanger outlet (``tes_hx_outlet``)
+* Process inlet (``tes_process_inlet``)
+* Process outlet (``tes_process_outlet``)
+
+Sets
+----
+
+.. csv-table::
+   :header: "Description", "Symbol", "Indices"
+
+   "Time", ":math:`t`", "[0]"
+   "Phases", ":math:`p`", "['Liq', 'Vap']"
+   "Components", ":math:`j`", "['H2O']"
+
+
 Parameters
 ----------
 
@@ -66,7 +72,7 @@ The following parameters are used as default values and are mutable.
 .. csv-table::
    :header: "Description", "Parameter Name", "Symbol", "Default Value", "Units"
 
-   "Heat transfer fluid density", "``heat_transfer_fluid_density``", ":math:`\rho_{htf}`", "1000", ":math:`\text{kg/m^{3}}`"
+   "Heat transfer fluid density", "``heat_transfer_fluid_density``", ":math:`\rho_{htf}`", "1000", ":math:`\text{kg/m}^{3}`"
    "Heat transfer fluid specific heat capacity", "``heat_transfer_fluid_csp``", ":math:`C_{sp,htf}`", "4184", ":math:`\text{J/kg/K}`"
    "Pump power", "``pump_power``", ":math:`P_{pump}`", "1", ":math:`\text{W}`"
    "Pump efficiency", "``pump_eff``", ":math:`\eta_{pump}`", "0.8", ":math:`\text{dimensionless}`"
@@ -81,19 +87,53 @@ Equations
 
    "TES volume", ":math:`V_{TES} = q_{TES} / (C_{sp,htf}*\rho_{htf}*(T_{design}-T_{cold}))`"
    "Thermal energy capacity", ":math:`q_{TES} = t_{storage} * P_{th}`"
-   "Electricity demand", ":math:`electricity = P_{pump}/\eta_{pump}`"
+   "Pumping power demand", ":math:`P_e = P_{pump}/\eta_{pump}`"
    "Tank temperature", ":math:`T_{tank} = T_{0} + (Q_{in} - Q_{out})*dt/(V_{TES}*C_{sp,htf}*\rho_{htf})`"
 
 Costing
 ---------
 
-The TES capital cost includes direct costs, indirect costs and sales tax. The direct costs include
-cost storage and a contingency factor. The indirect costs are a fraction of the direct cost. 
-A fixed operating cost is calculated as a linear function of heat load of TES.
+The following parameters are constructed on the costing block for TES costing:
 
 .. csv-table::
-   :header: "Description", "Variable Name", "Equation"
+   :header: "Cost Component", "Variable", "Symbol", "Value", "Units", "Description"
 
-   "Direct capital costs", "``direct_capital_cost``", ":math:`Capital Cost_{direct} = (V_{TES} * \text{Cost per }m^{3}\text{ storage})*(1 + \text{Contingency fraction})`"
-   "Indirect capital costs", "``indirect_capital_cost``", ":math:`Capital Cost_{indirect} = Capital Cost_{direct}*\text{Indirect capital cost fraction}`"
-   
+   "Cost per volume storage", "``cost_per_volume_storage``", ":math:`c_{tes}`", "2000", ":math:`\text{USD}\text{/m}^3`", "Cost per volume for thermal storage"
+   "Contingency factor", "``contingency_frac_direct_cost``", ":math:`X_{c}`", "0", ":math:`\text{dimensionless}`", "Fraction of direct costs for contingency"
+   "Indirect cost factor", "``indirect_frac_direct_cost``", ":math:`X_{i}`", "0.13", ":math:`\text{dimensionless}`", "Fraction of direct costs for indirect costs"
+   "Fixed operating cost per system capacity", "``fixed_operating_by_capacity``", ":math:`c_{fix,op}`", "66", ":math:`\text{USD/kW/year}`", "Fixed operating cost of flat plate plant per kW capacity"
+
+These are used the calculate the following capital and operating costs:
+
+.. csv-table::
+   :header: "Cost Component", "Symbol", "Equation"
+
+   "Thermal storage cost", ":math:`C_{tes}`", ":math:`c_{tes} \times V_{TES}`"
+   "Fixed operating cost", ":math:`C_{fix,op}`", ":math:`c_{fix,op} \times P_{th}`"
+
+The direct costs include the cost of the storage, and contingency.
+
+.. math::
+
+    C_{direct} = C_{tes} (1 + X_{c})
+
+
+Indirect costs are calculated as a fraction of the direct costs:
+
+.. math::
+
+    C_{indirect} = C_{direct} X_{i}
+
+The total capital cost of the FPC system is the sum of direct and indirect costs and sales tax:
+
+.. math::
+
+    C_{capital} = (C_{indirect} + C_{direct}) (1 + X_{t})
+
+Note that by default, REFLO assumes no sales tax (i.e., :math:`X_{t} = 0`).
+
+The total operating cost is the fixed operating cost:
+
+.. math::
+
+   C_{operating} = C_{fix,op}
