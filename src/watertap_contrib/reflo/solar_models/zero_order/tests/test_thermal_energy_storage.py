@@ -36,9 +36,7 @@ from watertap.core.solvers import get_solver
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 from watertap_contrib.reflo.costing import TreatmentCosting
-from watertap_contrib.reflo.unit_models.thermal_energy_storage import (
-    ThermalEnergyStorage,
-)
+from watertap_contrib.reflo.solar_models import ThermalEnergyStorage
 
 # Get default solver for testing
 solver = get_solver()
@@ -69,9 +67,6 @@ class TestThermalEnergyStorage:
         m.fs.tes.tes_hx_outlet.pressure.fix(101325)
 
         TES_outlet_initial = (40 + 273.15) * pyunits.K
-        STEC = 68 * pyunits.kWh / pyunits.m**3
-        permeate_flow = 0.041 * pyunits.m**3 / pyunits.h
-        heat_load = pyunits.convert(STEC * permeate_flow, to_units=pyunits.MW)
 
         # Fix outlet vapor flow to be 0
         m.fs.tes.tes_hx_outlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)

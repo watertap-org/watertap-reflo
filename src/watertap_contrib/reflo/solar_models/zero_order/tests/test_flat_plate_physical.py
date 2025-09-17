@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -39,14 +39,12 @@ from idaes.core.util.scaling import (
 )
 
 from watertap.core.solvers import get_solver
+
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.core import SolarModelType
-from watertap_contrib.reflo.solar_models.zero_order.flat_plate_physical import (
-    FlatPlatePhysical,
-)
+from watertap_contrib.reflo.solar_models import FlatPlatePhysical
 
-# Get default solver for testing
 solver = get_solver()
 
 
