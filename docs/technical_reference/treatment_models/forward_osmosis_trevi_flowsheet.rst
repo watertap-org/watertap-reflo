@@ -18,7 +18,7 @@ This flowsheet:
    * supports steady-state only
    * is verified against the Trevi's operational data and modeling results
 
-.. figure:: ../../../_static/unit_models/Trevi_fo_flowsheet.png
+.. figure:: ../../_static/unit_models/Trevi_fo_flowsheet.png
     :width: 800
     :align: center
 

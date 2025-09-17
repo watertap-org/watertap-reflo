@@ -8,7 +8,7 @@ This Forward Osmosis (FO) unit model
    * is a assumed-performance zero-order model
    * is verified against the Trevi's operational data and modeling results
 
-.. figure:: ../../../_static/unit_models/fo_unit_model.png
+.. figure:: ../../_static/unit_models/fo_unit_model.png
     :width: 800
     :align: center
 

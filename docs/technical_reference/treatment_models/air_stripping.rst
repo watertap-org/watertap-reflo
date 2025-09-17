@@ -11,7 +11,7 @@ This air stripping model:
 * has a single user-specified target compound
 * assumes isothermal and isobaric conditions
 
-.. figure:: ../../../_static/unit_models/air_stripping_schematic.png
+.. figure:: ../../_static/unit_models/air_stripping_schematic.png
     :width: 600
     :align: center
 
