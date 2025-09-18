@@ -5,101 +5,48 @@ Chemical Softening
 
 This chemical softening model includes the units mixer, flocculator, sedimentation basin and recarbonation basin. The model calculates the chemical dose required for target removal of hardness causing components 
 and calculates the size of the mixer, flocculator, sedimentation basin and the recarbonation basin. This chemical softening model:
+
    * supports steady-state only
    * predicts the outlet concentration of :math:`\text{Ca}^{2+}`, :math:`\text{Mg}^{2+}` and :math:`\text{Alkalinity}^{2-}`
    * is verified against literature data
+
+Model Structure
+---------------
+
+The `MCAS property package <https://watertap.readthedocs.io/en/stable/technical_reference/property_models/mc_aq_sol.html>`_ 
+is used for this chemical softening model and requires an input solute list from the user. Components that must be included
+are shown in the code below. Additional components can be included by the user such as TDS. 
+
+.. code-block:: python
+   
+   component_list = ["Ca_2+", "Mg_2+", "Alkalinity_2-"]
+
+There are 3 StateBlocks (as 3 Ports in parenthesis below).
+
+* Inlet (``inlet``)
+* Outlet (``outlet``)
+* Waste (``waste``)
+
+The softening procedure type and whether or not silica removal is desired is set up in the configuration of the unit block.
 
 Configuration Inputs
 --------------------
 
 The model requires 2 configuration inputs:
+
    * Softening procedure: ``single_stage_lime`` or ``excess_lime`` or ``single_stage_lime_soda`` or ``excess_lime_soda``
    * Silica removal: ``True`` or ``False``
 
-The softening procedure should be selected based on the inlet feed composition as shown below:
-   1. if [:math:`\text{Mg}^{2+}`] in :math:`\text{CaCO}_{3}` \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] > [:math:`\text{Ca}^{2+}`] in :math:`\text{CaCO}_{3}` : ``single_stage_lime``
-   2. if [:math:`\text{Mg}^{2+}`] in :math:`\text{CaCO}_{3}` \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \>= Total hardness : ``excess_lime``
-   3. if [:math:`\text{Mg}^{2+}`] in :math:`\text{CaCO}_{3}` \<= 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \<= Total hardness : ``single_stage_lime_soda``
-   4. if [:math:`\text{Mg}^{2+}`] in :math:`\text{CaCO}_{3}` \> 0.04 kg/m :sup:`3` and [:math:`\text{Alkalinity}`] \<= Total hardness - ``excess_lime_soda``
-
-
-Solution Composition
----------------------
-
-This chemical softening model requires an input solute list from the user. Components that must be included
-are shown in the code below. Additional components can be included by the user such as TDS. The `MCAS <https://watertap.readthedocs.io/en/stable/technical_reference/property_models/mc_aq_sol.html>`_ property package is used in this chemical softening model.
-
-.. code-block::
-   
-   component_list = ["Ca_2+","Mg_2+","Alkalinity_2-"]
-
-A default removal efficiency is assumed for components (other than :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`) and shown below in the code block.
-Users can update the removal efficiencies for specific components by first fixing the ``removal_efficiency`` variable and then using the specific component as a key to modify its removal efficiency as shown below.
-
-.. code-block::
-
-   removal_efficiency.fix()
-   removal_efficiency['Cl_-'].fix(0.8)
-
-Degrees of Freedom/Variables
-----------------------------
-
-The chemical softening model has 18 degrees of freedom that should be fixed for the unit to be fully specified. 
-Additionally, depending on the chemical softening process selected, chemical dosing may or may not be required to be fixed.
-
-Typically, the following 7 variables define the input feed.
+The softening procedure is determined by the feed inlet conditions and users should take guidance from this table.
 
 .. csv-table::
-   :header: "Variables", "Variable Name", "Symbol", "Unit"
+   :header: ":math:`[\text{Mg}^{2+}] \frac{g}{L} \text{ as CaCO}_{3}`", ":math:`[\text{Alkalinity}^{2-}] \frac{g}{L} \text{ as CaCO}_{3}`", "Softening Procedure"
 
-   "Feed volume flow rate", "``properties_in[0].flow_mass_phase_comp['Liq','H2O']``", ":math:`Q_{feed}`", ":math:`\text{m}^3 / \text{s}`"
-   "Feed composition" :math:`\text{Ca}^{2+}`, "``properties_in[0].flow_mass_phase_comp['Liq','Ca_2+']``", ":math:`m_{Ca^{2+}}`", ":math:`\text{g/}\text{L}`"
-   "Feed composition" :math:`\text{Mg}^{2+}`, "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
-   "Feed composition" :math:`\text{Alkalinity}^{2-}`, "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``",":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
-   "Feed temperature", "``feed_props.temperature``", ":math:`T`", ":math:`^o\text{C}`"
-   :math:`\text{Ca}^{2+}` "effluent target", "``ca_eff_target``", "", ":math:`\text{g/}\text{L}`"
-   :math:`\text{Mg}^{2+}` "effluent target", "``mg_eff_target``", "", ":math:`\text{g/}\text{L}`"
+   ":math:`<= 0.04`",":math:`[\text{Ca}^{2+}] \frac{g}{L} \text{ as CaCO}_{3}`", "``single_stage_lime``"
+    ":math:`\> 0.04`", "\>= Total hardness", "``excess_lime``"
+    ":math:`<= 0.04`", "\<= Total hardness", "``single_stage_lime_soda``"
+    ":math:`\> 0.04`", "\<= Total hardness", "``excess_lime_soda``"
 
-The following 11 variables define the system design.
-
-.. csv-table::
-   :header: "Variables", "Variable Name", "Symbol",  "Valid Range", "Unit"
-
-   "Number of mixers", "``number_mixers``", ":math:`n_{mixer}`", "", ":math:`\text{dimensionless}`"
-   "Number of flocculators", "``number_floc``", ":math:`n_{floc}`", "", ":math:`\text{dimensionless}`"
-   "Retention time of mixer", "``retention_time_mixer``", ":math:`RT_{mixer}`", "0.1-5", ":math:`\text{min}`"
-   "Retention time of flocculator", "``retention_time_floc``", ":math:`RT_{floc}`", "10-45", ":math:`\text{min}`"
-   "Retention time of sedimentation basin", "``retention_time_sed``", ":math:`RT_{sed}`", "120-240",  ":math:`\text{min}`"
-   "Retention time of recarbonation basin", "``retention_time_recarb``", ":math:`RT_{recarb}`", "15-30", ":math:`\text{min}`"
-   "Fractional recovery of water on mass basis", "``frac_mass_water_recovery``", "", "", ":math:`\text{dimensionless}`"
-   "Removal efficiency of components (except Ca2+ and Mg2+)", "``removal_efficiency``", "","",":math:`\text{dimensionless}`"
-   "CO2 dose in CaCO3 equivalents", "``CO2_CaCO3``",":math:`CO_{2,CaCO_{3}-hardness}`","", ":math:`\text{g/}\text{L}`"
-   "Velocity gradient in mixer", "``vel_gradient_mix``", ":math:`\text{velocity gradient}_{mixer}`", "300-1000",":math:`\text{/}\text{s}`"
-   "Velocity gradient in flocculator", "``vel_gradient_floc``", ":math:`\text{velocity gradient}_{floc}`", "20-80", ":math:`\text{/}\text{s}`"
-
-The following variables should be fixed to 0 if their dose is not calculated in the softening procedure for the model to be fully specified. 
-The softening procedure where the doses are calculated in are listed in the table.
-
-.. csv-table::
-   :header: "Variables", "Softening procedure", "Variable Name", "Symbol", "Unit"
-
-   "Excess lime", "excess_lime, excess_lime_soda", "``excess_CaO``", ":math:`CaO`", ":math:`\text{g/}\text{L}`"
-   "Soda ash","single_stage_lime_soda, excess_lime_soda ", "``Na2CO3_dosing``", ":math:`Na_{2}CO_{3}`", ":math:`\text{g/}\text{L}`" 
-   "CO2 dose in second basin","excess_lime_soda", "``CO2_second_basin``", ":math:`CO_{2,second-basin}`", ":math:`\text{g/}\text{L}`" 
-   "MgCl2","Silica removal", "``MgCl2_dosing``", ":math:`MgCl_{2}`", ":math:`\text{g/}\text{L}`" 
-
-
-
-Model Structure
----------------
-
-This chemical softening model consists of 3 StateBlocks (as 3 Ports in parenthesis below).
-
-* Inlet (inlet)
-* Outlet (outlet)
-* Waste (waste)
-
-The softening procedure type and whether or not silica removal is desired is set up in the configuration of the unit block.
 
 Sets
 ----
@@ -113,6 +60,69 @@ The components :math:`\text{Ca}^{2+}`, :math:`\text{Mg}^{2+}` and :math:`\text{A
    "Phases", ":math:`p`", "['Liq', 'Vap']"
    "Components", ":math:`j`", "['H2O', 'Ca_2+', ' Mg_2+', 'Alkalinity_2-']"
 
+
+Degrees of Freedom & Variables
+-------------------------------
+
+The chemical softening model has 18 degrees of freedom that should be fixed for the unit to be fully specified. 
+Additionally, depending on the chemical softening process selected, chemical dosing may or may not be required to be fixed.
+
+Typically, the following 7 variables define the input feed.
+
+.. csv-table::
+   :header: "Variables", "Variable Name", "Symbol", "Units"
+
+   "Feed volume flow rate", "``properties_in[0].flow_mass_phase_comp['Liq','H2O']``", ":math:`Q_{feed}`", ":math:`\text{m}^3\text{/s}`"
+   "Feed composition", "``properties_in[0].flow_mass_phase_comp['Liq','Ca_2+']``", ":math:`m_{Ca^{2+}}`", ":math:`\text{g/}\text{L}`"
+   "Feed composition", "``properties_in[0].flow_mass_phase_comp['Liq','Mg_2+']``", ":math:`m_{Mg^{2+}}`", ":math:`\text{g/}\text{L}`"
+   "Feed composition", "``properties_in[0].flow_mass_phase_comp['Liq','Alkalinity_2-']``", ":math:`m_{alk}`",  ":math:`\text{g/}\text{L}`"
+   "Feed temperature", "``feed_props.temperature``", ":math:`T`", ":math:`^o\text{C}`"
+
+The user must directly set the effluent targets for :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`.
+
+.. csv-table::
+   :header: "Variables", "Variable Name", "Symbol", "Units"
+
+   :math:`\text{Ca}^{2+}` "effluent target", "``ca_eff_target``", ":math:`C_{out, Ca}`", ":math:`\text{g/}\text{L}`"
+   :math:`\text{Mg}^{2+}` "effluent target", "``mg_eff_target``", ":math:`C_{out, Mg}`", ":math:`\text{g/}\text{L}`"
+
+The following 11 variables define the system design.
+
+.. csv-table::
+   :header: "Variables", "Variable Name", "Symbol", "Valid Range", "Unit"
+
+   "Number of mixers", "``number_mixers``", ":math:`n_{mixer}`", ">=1", ":math:`\text{dimensionless}`"
+   "Number of flocculators", "``number_floc``", ":math:`n_{floc}`", ">=1", ":math:`\text{dimensionless}`"
+   "Retention time of mixer", "``retention_time_mixer``", ":math:`RT_{mixer}`", "0.1-5", ":math:`\text{min}`"
+   "Retention time of flocculator", "``retention_time_floc``", ":math:`RT_{floc}`", "10-45", ":math:`\text{min}`"
+   "Retention time of sedimentation basin", "``retention_time_sed``", ":math:`RT_{sed}`", "120-240",  ":math:`\text{min}`"
+   "Retention time of recarbonation basin", "``retention_time_recarb``", ":math:`RT_{recarb}`", "15-30", ":math:`\text{min}`"
+   "Fractional recovery of water on mass basis", "``frac_mass_water_recovery``", ":math:`X_{wr}`", "0-1", ":math:`\text{dimensionless}`"
+   "Removal efficiency of components (except Ca2+ and Mg2+)", "``removal_efficiency``", ":math:`X_j`", "0-1",":math:`\text{dimensionless}`"
+   "CO2 dose in CaCO3 equivalents", "``CO2_CaCO3``",":math:`CO_{2,CaCO_{3}-hardness}`","\>0", ":math:`\text{g/}\text{L}`"
+   "Velocity gradient in mixer", "``vel_gradient_mix``", ":math:`U_{mixer}`", "300-1000", ":math:`\text{s}^{-1}`"
+   "Velocity gradient in flocculator", "``vel_gradient_floc``", ":math:`U_{floc}`", "20-80", ":math:`\text{s}^{-1}`"
+
+The following variables should be fixed to 0 if their dose is not calculated in the softening procedure for the model to be fully specified. 
+The softening procedure where the doses are calculated in are listed in the table.
+
+.. csv-table::
+   :header: "Variables", "Softening procedure", "Variable Name", "Symbol", "Unit"
+
+   "Excess lime", "excess_lime, excess_lime_soda", "``excess_CaO``", ":math:`CaO`", ":math:`\text{g/}\text{L}`"
+   "Soda ash","single_stage_lime_soda, excess_lime_soda ", "``Na2CO3_dosing``", ":math:`Na_{2}CO_{3}`", ":math:`\text{g/}\text{L}`" 
+   "CO2 dose in second basin","excess_lime_soda", "``CO2_second_basin``", ":math:`CO_{2,second-basin}`", ":math:`\text{g/}\text{L}`" 
+   "MgCl2","Silica removal", "``MgCl2_dosing``", ":math:`MgCl_{2}`", ":math:`\text{g/}\text{L}`" 
+
+
+A default removal efficiency is assumed for components other than :math:`\text{Ca}^{2+}` and :math:`\text{Mg}^{2+}`.
+Users can update the removal efficiencies for specific components by fixing the ``removal_efficiency`` variable indexed to that component.
+
+.. code-block:: python
+
+   removal_efficiency['Cl_-'].fix(0.8)
+
+
 Parameters
 ----------
 
@@ -121,7 +131,7 @@ The following parameters are used as default values and are not mutable.
 .. csv-table::
    :header: "Description", "Parameter Name", "Symbol"
 
-   "Ratio of :math:`\text{MgCl}_{2}` to :math:`\text{SiO}_{2}`", "``MgCl2_SiO2_ratio``", ":math:`Ratio_{MgCl_{2}/SiO_{2}}`"
+   "Ratio of :math:`\text{MgCl}_{2}` to :math:`\text{SiO}_{2}`", "``MgCl2_SiO2_ratio``", ":math:`X_{Mg/Si}`"
    "Sludge produced per kg Ca in :math:`\text{CaCO}_{3}` hardness", "``Ca_hardness_CaCO3_sludge_factor``", ":math:`\text{Ca-SF}_{CaCO_{3}-hardness}`"
    "Sludge produced per kg Mg in :math:`\text{CaCO}_{3}` hardness", "``Mg_hardness_CaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{CaCO_{3}-hardness}`"
    "Sludge produced per kg Mg in non-:math:`\text{CaCO}_{3}` hardness", "``Mg_hardness_nonCaCO3_sludge_factor``", ":math:`\text{Mg-SF}_{non-CaCO_{3}-hardness}`"
@@ -132,6 +142,7 @@ Equations
 ---------
 
 The chemical dose is calculated based on the type of softening procedure selected in the configuration of the flowsheet.
+The following tables summarize the equations used to calculate the lime, soda ash and carbon dioxide dose for each softening procedure [1,2,3].
 
 .. csv-table:: Single Stage Lime
    :header: "Description", "Equation"
@@ -169,12 +180,12 @@ The following equations are independent of the softening procedure selected but 
 .. csv-table::
    :header: "Description", "Variable Name", "Symbol", "Equation"
 
-   ":math:`\text{MgCl}_{2}` dose (if silica removal is selected)", "``mgcl2_dosing``", ":math:`MgCl_{2}`", ":math:`Ratio_{MgCl_{2}/SiO_{2}} * SiO_{2}` "
-   "Sludge produced", "``sludge_prod``", ":math:`m_{sludge}`",  ":math:`Q_{feed} * (\text{Ca-SF}_{CaCO_{3}-hardness} * Ca_{CaCO_{3}-hardness} + \text{Mg-SF}_{CaCO_{3}-hardness} * Mg_{CaCO_{3}-hardness} + Ca_{non-CaCO_{3}-hardness} + \text{Mg-SF}_{non-CaCO_{3}-hardness} * Mg_{non-CaCO_{3}-hardness} + \text{Excess CaO} + TSS + MgCl_{2})`"
-   "Volume of mixer", "``volume_mixer``", ":math:`V_{mixer}`", ":math:`Q_{feed} * RT_{mixer} * n_{mixer}`"
-   "Volume of flocculator", "``volume_floc``", ":math:`V_{floc}`", ":math:`Q_{feed} * RT_{floc} * n_{floc}`"
-   "Volume of sedimentation basin", "``volume_sed``", ":math:`V_{sed}`", ":math:`Q_{feed} * RT_{sed}`"
-   "Volume of recarbonation basin", "``volume_recarb``", ":math:`V_{recarb}`", ":math:`Q_{feed} * RT_{recarb}`"
+   ":math:`\text{MgCl}_{2}` dose (if silica removal is selected)", "``mgcl2_dosing``", ":math:`MgCl_{2}`", ":math:`X_{Mg/Si} \times SiO_{2}` "
+   "Sludge produced", "``sludge_prod``", ":math:`m_{sludge}`",  ":math:`Q_{feed} (\text{Ca-SF}_{CaCO_{3}-hardness} \times Ca_{CaCO_{3}-hardness} + \text{Mg-SF}_{CaCO_{3}-hardness} \times Mg_{CaCO_{3}-hardness} + Ca_{non-CaCO_{3}-hardness} + \text{Mg-SF}_{non-CaCO_{3}-hardness} \times Mg_{non-CaCO_{3}-hardness} + \text{Excess CaO} + TSS + MgCl_{2})`"
+   "Volume of mixer", "``volume_mixer``", ":math:`V_{mixer}`", ":math:`Q_{feed} RT_{mixer} n_{mixer}`"
+   "Volume of flocculator", "``volume_floc``", ":math:`V_{floc}`", ":math:`Q_{feed} RT_{floc} n_{floc}`"
+   "Volume of sedimentation basin", "``volume_sed``", ":math:`V_{sed}`", ":math:`Q_{feed} RT_{sed}`"
+   "Volume of recarbonation basin", "``volume_recarb``", ":math:`V_{recarb}`", ":math:`Q_{feed} RT_{recarb}`"
 
 Costing
 ---------
@@ -237,25 +248,34 @@ The following equations are used to calculate the power consumption by the mixer
 .. csv-table::
    :header: "Unit", "Equation"
 
-   "Mixer", ":math:`Power_{mixer} = \text{velocity gradient}_{mixer}^{2} * V_{mixer} * viscosity`"
-   "Flocculator", ":math:`Power_{floc} = \text{velocity gradient}_{floc}^{2} * V_{floc} * viscosity`"
+   "Mixer", ":math:`P_{mix} = U_{mixer}^{2} * V_{mixer} * viscosity`"
+   "Flocculator", ":math:`P_{floc} = U_{floc}^{2} * V_{floc} * viscosity`"
 
 References
 ----------
 
-[1]  Crittenden, J. C., & Montgomery Watson Harza (Firm). (2012). Water treatment principles and design. Hoboken, N.J: J.Wiley.
+| [1] Crittenden, J. C., & Montgomery Watson Harza (Firm). (2012). 
+| Water treatment principles and design. Hoboken, N.J: J.Wiley.
 
-[2]  Davis, M. L. (2010). Water and wastewater engineering: Design principles and practice.
+| [2] Davis, M. L. (2010). 
+| Water and wastewater engineering: Design principles and practice.
 
-[3]  Baruth. (2005). Water treatment plant design / American Water Works Association, American Society of Civil Engineers; Edward E. Baruth, technical editor. (Fourth edition.). McGraw-Hill.
+| [3] Baruth. (2005). Water treatment plant design
+| American Water Works Association, American Society of Civil Engineers
+| Edward E. Baruth, technical editor. (Fourth edition.). McGraw-Hill.
 
-[4]  Edzwald, J. K., & American Water Works Association. (2011). Water quality & treatment: A handbook on drinking water. New York: McGraw-Hill.
+| [4] Edzwald, J. K., & American Water Works Association. (2011). 
+| Water quality & treatment: A handbook on drinking water. New York: McGraw-Hill.
 
-[5]  R.O. Mines Environmental Engineering: Principles and Practice, 1st Ed, John Wiley & Sons
+| [5] R.O. Mines Environmental Engineering: Principles and Practice, 1st Ed, John Wiley & Sons
 
-[6]  Lee, C. C., & Lin, S. D. (2007). Handbook of environmental engineering calculations. New York: McGraw Hill.
+| [6] Lee, C. C., & Lin, S. D. (2007). 
+| Handbook of environmental engineering calculations. New York: McGraw Hill.
 
-[7]  Sharma, J.R. (2010). Development Of a Preliminary Cost Estimation Method for Water Treatment Plants
+| [7] Sharma, J.R. (2010). 
+| Development Of a Preliminary Cost Estimation Method for Water Treatment Plants
 
-[8]  McGivney, W. T. & Kawamura, S. (2008) Cost Estimating Manual for Water Treatment Facilities. John Wiley & Sons, Inc., Hoboken, NJ, USA.
+[8] McGivney, W. T. & Kawamura, S. (2008) 
+| Cost Estimating Manual for Water Treatment Facilities. 
+| John Wiley & Sons, Inc., Hoboken, NJ, USA.
 
