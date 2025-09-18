@@ -3,6 +3,10 @@
 Low Temperature Multi-Effect Distillation
 =========================================
 
+.. code-block:: python
+
+    from watertap_contrib.reflo.unit_models import LTMEDSurrogate
+
 This Low Temperature Multi-Effect Distillation (LT-MED) unit model:
 
    * supports steady-state only

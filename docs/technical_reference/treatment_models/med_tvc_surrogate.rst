@@ -3,6 +3,10 @@
 Multi-Effect Distillation with Thermal Vapor Compression
 ========================================================
 
+.. code-block:: python
+
+    from watertap_contrib.reflo.unit_models import MEDTVCSurrogate
+
 This Multi-Effect Distillation with Thermal Vapor Compression (MED-TVC) unit model:
 
    * supports steady-state only

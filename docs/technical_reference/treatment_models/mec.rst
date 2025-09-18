@@ -2,6 +2,11 @@
 
 Multi-Effect Crystallizer
 =========================
+
+.. code-block:: python
+
+    from watertap_contrib.reflo.unit_models import MultiEffectCrystallizer
+
 This model builds multiple blocks of the :ref:`crystallizer-effect model <crystallizer_effect_ref>` to form a multi-effect crystallizer (MEC) system.
 The number of effects are passed as a configuration option when defining the unit model.
 

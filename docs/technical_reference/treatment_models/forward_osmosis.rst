@@ -3,6 +3,10 @@
 Forward Osmosis
 ===============
 
+.. code-block:: python
+
+    from watertap_contrib.reflo.unit_models import ForwardOsmosisZO
+
 This Forward Osmosis (FO) unit model
 
    * supports steady-state only

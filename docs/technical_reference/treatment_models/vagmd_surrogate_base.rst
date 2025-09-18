@@ -3,6 +3,10 @@
 Vacuum Air Gap Membrane Distillation
 ====================================
 
+.. code-block:: python
+
+    from watertap_contrib.reflo.unit_models import VAGMDSurrogateBase
+
 This Vacuum Air Gap Membrane Distillation (VAGMD) unit model:
 
    * supports steady-state only
@@ -54,7 +58,7 @@ configuration arguments:
 * ``module_type``: Selection between two available Aquastill MD modules: 
 
     * ``AS7C1.5L`` length of 1.5 :math:`m` and an area of 7 :math:`m^2` or 
-    * ``AS26C7.2L``length of 7.2 :math:`m` with an area of 25.92 :math:`m^2`
+    * ``AS26C7.2L`` length of 7.2 :math:`m` with an area of 25.92 :math:`m^2`
 
 * ``cooling_system_type``: Selection between ``closed`` or ``open``
 
