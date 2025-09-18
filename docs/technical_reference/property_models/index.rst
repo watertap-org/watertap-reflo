@@ -1,7 +1,7 @@
 Property Models
 ===============
 
-In addition to the property packages available in WaterTAP, REFLO includes the following property packages:
+In addition to the property models `available in WaterTAP <https://watertap.readthedocs.io/en/stable/technical_reference/property_models/index.html>`_, REFLO includes the following property models:
 
 .. toctree::
    :maxdepth: 1
