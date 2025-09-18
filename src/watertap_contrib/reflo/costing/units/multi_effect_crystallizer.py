@@ -96,25 +96,25 @@ def build_multi_effect_crystallizer_cost_param_block(blk):
     blk.heat_exchanger_capital_factor = pyo.Var(
         initialize=420,
         units=pyo.units.USD_2018 / (pyo.units.meter**2),
-        doc="Heat exchanger cost per area",  # TODO: need reference and costing year
+        doc="Heat exchanger cost per area",  
     )
 
     blk.heat_exchanger_endplates_capital_factor = pyo.Var(
         initialize=1020,
         units=pyo.units.USD_2018,
-        doc="Heat exchanger endplates cost per area",  # TODO: need reference and costing year
+        doc="Heat exchanger endplates cost per area", 
     )
 
     blk.heat_exchanger_endplates_capital_basis = pyo.Var(
         initialize=10,
         units=pyo.units.meter**2,
-        doc="Heat exchanger endplates cost per area basis",  # TODO: need reference and costing year
+        doc="Heat exchanger endplates cost per area basis",  
     )
 
     blk.heat_exchanger_endplates_capital_exponent = pyo.Var(
         initialize=0.6,
         units=pyo.units.dimensionless,
-        doc="Heat exchanger endplates cost per area basis",  # TODO: need reference and costing year
+        doc="Heat exchanger endplates cost per area exponent",  
     )
 
 
