@@ -12,3 +12,4 @@ Treatment Models
    mec
    med_tvc_surrogate
    vagmd_surrogate_base
+   solar_still
