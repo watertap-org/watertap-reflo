@@ -47,8 +47,6 @@ Install WaterTAP-REFLO in the Conda environment using ``pip``:
 
    pip install watertap-reflo
 
-(Optional) See the :ref:`running-test-suite` section, if you want to verify that the installation was successful.
-
 After installing WaterTAP-REFLO, the IDAES Extensions command can be used to automatically install the solvers distributed as part of the IDAES Extensions. 
 Depending on your operating system, additional steps might be needed. 
 For more information, refer to the `IDAES installation guide <https://idaes-pse.readthedocs.io/en/stable/tutorials/getting_started/index.html#installation>`_. 
@@ -89,7 +87,6 @@ Install WaterTAP-REFLO in the Conda environment using ``pip``:
 
    pip install watertap-reflo
 
-(Optional) See the :ref:`running-test-suite` section, if you want to verify that the installation was successful.
 
 After installing WaterTAP-REFLO, we need to ensure we have the Xcode toolkit, build the PyNumero Pyomo extensions, and obtain solvers from conda-forge. To install Xcode, run:
 
