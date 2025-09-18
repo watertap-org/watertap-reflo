@@ -206,5 +206,5 @@ class VAGMDData(VAGMDBaseData):
         if iscale.get_scaling_factor(self.recovery_ratio) is None:
             iscale.set_scaling_factor(self.recovery_ratio, 1e1)
 
-    def initialize_build(self):
+    def initialize_build(self, **kwargs):
         super().initialize_build()
