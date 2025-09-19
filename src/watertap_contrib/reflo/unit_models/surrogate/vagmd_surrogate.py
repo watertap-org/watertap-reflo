@@ -24,7 +24,6 @@ from idaes.core import (
 )
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
-import idaes.logger as idaeslog
 
 # Import base model from WaterTAP REFLO
 from watertap_contrib.reflo.unit_models.surrogate.vagmd_surrogate_base import (
