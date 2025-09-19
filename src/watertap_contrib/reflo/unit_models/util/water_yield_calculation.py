@@ -11,8 +11,9 @@
 #################################################################################
 
 import math
+
+import pandas as pd
 import numpy as np
-from pandas import read_csv
 
 from idaes.core.util.exceptions import ConfigurationError
 from watertap_contrib.reflo.unit_models.util.sw_props import (
@@ -77,7 +78,7 @@ BB = 0.25
 
 def create_input_arrays(
     blk,
-    irradiance_threshold=0,  # blk.irradiance values < threshold assumed to have negligible impact on calculation; W/m2
+    irradiance_threshold=0,  # irradiance values < threshold assumed to have negligible impact on calculation; W/m2
     irradiance_col=None,  # column from weather_data to use as blk.irradiance input data
     temperature_col=None,  # column from weather_data to use as temperature input data
     wind_velocity_col=None,  # column from weather_data to use as wind velocity input data
@@ -152,7 +153,7 @@ def get_solar_still_daily_water_yield(
     blk.initial_salinity = initial_salinity
     blk.initial_water_depth = initial_water_depth
 
-    blk.weather_data = read_csv(input_weather_file_path, skiprows=2)
+    blk.weather_data = pd.read_csv(input_weather_file_path, skiprows=2)
 
     if not len(blk.weather_data) >= 8760:
         err_msg = f"Water yield calculation for {blk.name} requires at least "
@@ -194,20 +195,24 @@ def get_solar_still_daily_water_yield(
     blk.temp_diff_inside_basin = np.zeros(len_data_hr * 3600)
     blk.temp_diff_outside_basin = np.zeros(len_data_hr * 3600)
 
+    # Converting hourly data into per second
+    for hour in range(len_data_hr):
+        start_idx = 3600 * hour
+        end_idx = start_idx + 3600
+        blk.irradiance[start_idx:end_idx] = blk.irradiance_by_hr[hour]
+        blk.wind_velocity[start_idx:end_idx] = blk.wind_vel_by_hr[hour]
+        blk.ambient_temp[start_idx:end_idx] = blk.ambient_temp_by_hr[hour]
     # Initializing Temperatures
     # Initial system is assumed to be in thermal equilibrium with ambient
     blk.ambient_temp[0] = blk.ambient_temp_by_hr[0]
-    blk.ambient_temp[1] = blk.ambient_temp_by_hr[0]
+    blk.ambient_temp[1] = blk.ambient_temp_by_hr[1]
 
     # Initial water temperature (°C)
-    blk.saltwater_temp[0] = blk.ambient_temp_by_hr[0]
-    blk.saltwater_temp[1] = blk.ambient_temp_by_hr[0]
+    blk.saltwater_temp[1] = blk.ambient_temp_by_hr[1]
     # Initial basin temperature (°C)
-    blk.basin_temp[0] = blk.ambient_temp_by_hr[0]
-    blk.basin_temp[1] = blk.ambient_temp_by_hr[0]
+    blk.basin_temp[1] = blk.ambient_temp_by_hr[1]
     # Initial glass temperature (°C)
-    blk.glass_temp[0] = blk.ambient_temp_by_hr[0]
-    blk.glass_temp[1] = blk.ambient_temp_by_hr[0]
+    blk.glass_temp[1] = blk.ambient_temp_by_hr[1]
 
     blk.initial_density = calculate_density(blk.initial_salinity, blk.saltwater_temp[1])
 
@@ -216,7 +221,6 @@ def get_solar_still_daily_water_yield(
 
     blk.salinity[0] = blk.initial_salinity
     blk.salinity[1] = blk.initial_salinity
-    blk.excess_salinity[0] = blk.initial_salinity
     blk.excess_salinity[1] = (
         blk.initial_salinity
     )  # Salinity without maximum solublity (g/l)
@@ -224,9 +228,7 @@ def get_solar_still_daily_water_yield(
     blk.depth[0] = blk.initial_water_depth
     blk.depth[1] = blk.initial_water_depth
 
-    blk.sw_mass[0] = blk.depth[0] * blk.initial_density * area_bottom_basin  # kg
     blk.sw_mass[1] = blk.depth[1] * blk.initial_density * area_bottom_basin  # kg
-    blk.fw_mass[0] = blk.sw_mass[0] / (1 + blk.salinity[0] / 1000)  # kg
     blk.fw_mass[1] = blk.sw_mass[1] / (1 + blk.salinity[1] / 1000)  # kg
 
     blk.initial_mass_fw = blk.fw_mass[1]
@@ -236,22 +238,14 @@ def get_solar_still_daily_water_yield(
     ) / 1000  # Mass of Sodium Chloride (kg)
 
     # Initial effective radiation temperature of the sky (°C)
-    if blk.ambient_temp[0] <= 0:
-        blk.sky_temp[0] = blk.ambient_temp[0]
-        blk.sky_temp[1] = blk.ambient_temp[1]
-    else:
-        blk.sky_temp[0] = 0.0552 * ((blk.ambient_temp[0]) ** 1.5)
-        blk.sky_temp[1] = 0.0552 * ((blk.ambient_temp[1]) ** 1.5)
+    # if blk.ambient_temp[0] <= 0:
+    # blk.sky_temp[0] = blk.ambient_temp[0]
+    # blk.sky_temp[1] = blk.ambient_temp[1]
+    # else:
+    #     # blk.sky_temp[0] = 0.0552 * ((blk.ambient_temp[0]) ** 1.5)
+    blk.sky_temp[1] = 0.0552 * ((blk.ambient_temp[1]) ** 1.5)
 
     blk.time[1] = 1
-
-    # Converting hourly data into per second
-    for hour in range(len_data_hr):
-        start_idx = 3600 * hour
-        end_idx = start_idx + 3600
-        blk.irradiance[start_idx:end_idx] = blk.irradiance_by_hr[hour]
-        blk.wind_velocity[start_idx:end_idx] = blk.wind_vel_by_hr[hour]
-        blk.ambient_temp[start_idx:end_idx] = blk.ambient_temp_by_hr[hour]
 
     for i in range(2, len(blk.irradiance), 1):
 
@@ -279,11 +273,11 @@ def get_solar_still_daily_water_yield(
             # But this quantity must be positive.
             blk.temp_diff_outside_basin[i] = 0.01
 
-        # Effective radiation temperature of the sky
+        # # Effective radiation temperature of the sky
         if blk.ambient_temp[i] <= 0:
             blk.sky_temp[i] == blk.ambient_temp[i]
         else:
-            blk.sky_temp[i] = 0.0552 * ((blk.ambient_temp[i]) ** 1.5)
+            blk.sky_temp[i] = 0.0552 * (blk.ambient_temp[i] ** 1.5)
 
         # Perimeter x depth of water (m^2)
         area_side_water = (2 * (2 * length_basin)) * blk.depth[i - 1]
@@ -416,6 +410,7 @@ def get_solar_still_daily_water_yield(
                 / (blk.temp_diff_outside_basin[i])
             )
         )
+
         if blk.wind_velocity[i] > 5:
             # Convective heat transfer coefficient from basin to ambient (W/m2°C)
             conv_heat_trans_coeff_basin_ambient = 2.8 + (3.0 * blk.wind_velocity[i])
@@ -495,7 +490,6 @@ def get_solar_still_daily_water_yield(
             overall_bottom_heat_trans_coeff_water_mass_surr
             + overall_heat_trans_coeff_basin_surr
         )
-
         # Present [i] temperature calculation
         blk.grouping_term[i] = overall_external_heat_trans_loss_coeff / (
             blk.sw_mass[i - 1] * specific_heat
@@ -510,7 +504,7 @@ def get_solar_still_daily_water_yield(
 
         blk.saltwater_temp[i] = (time_dependent_term / blk.grouping_term[i]) * (
             1 - np.exp(-blk.grouping_term[i] * blk.time[i])
-        ) + (blk.saltwater_temp[i - 1] * np.exp(-blk.grouping_term[i] * blk.time[i]))
+        ) + (blk.saltwater_temp[1] * np.exp(-blk.grouping_term[i] * blk.time[i]))
 
         blk.glass_temp[i] = (
             (absorp_effective_glass * blk.irradiance[i])
@@ -539,7 +533,7 @@ def get_solar_still_daily_water_yield(
         blk.evap_fw_mass[i] = (
             area_bottom_basin
             * evap_heat_trans_coeff_water_glass
-            * (blk.temp_diff_inside_basin[i])
+            * blk.temp_diff_inside_basin[i]
         ) / freshwater_vap_latent_heat
 
         # Distilled saltwater conversion (Morton) (kg)
@@ -580,9 +574,9 @@ def get_solar_still_daily_water_yield(
             blk.salinity[i] = (blk.salt_mass * 1000) / blk.fw_mass[i]
             blk.excess_salinity[i] = blk.salinity[i]
         if blk.depth[i] <= 0 or blk.fw_mass[i] <= 0:
-            # At this point either the blk.depth is negative
+            # At this point either the depth is negative
             # or the amount of freshwater available is negative
-            # signaling we have reached the blk.time required for one ZLD cycle for one solar still
+            # signaling we have reached the time required for one ZLD cycle for one solar still
 
             # Number of seconds for a single ZLD cycle
             blk.num_seconds_for_zld_cycle = i
