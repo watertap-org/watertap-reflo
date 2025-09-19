@@ -12,7 +12,7 @@
 
 import pytest
 
-from watertap_contrib.reflo.analysis.case_studies.KBHDP import (
+from watertap_contrib.reflo.flowsheets.KBHDP import (
     KBHDP_SOA,
     KBHDP_RPT_1,
     KBHDP_RPT_2,
