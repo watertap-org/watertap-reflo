@@ -380,14 +380,6 @@ if __name__ == "__main__":
     # To create data used in PV surrogate test file:
     # system_capacities = np.linspace(1000, 1000000, 50)
 
-    # df = generate_pv_data()
-    # print(df.head(20))
-    # os.remove(os.path.join(__location__, "data/test_data.pkl"))
-
-    dataset_filename = "pv_data.pkl"
-
-    data = generate_pv_data(
-        system_capacities=np.linspace(100, 2000, 100),
-        weather_file=None,
-        dataset_filename=dataset_filename,
-    )
+    df = generate_pv_data()
+    print(df.head(20))
+    os.remove(os.path.join(__location__, "data/test_data.pkl"))
