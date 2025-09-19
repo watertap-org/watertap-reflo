@@ -154,10 +154,6 @@ class VAGMDBaseData(InitializationMixin, UnitModelBlockData):
 
         self.scaling_factor = Suffix(direction=Suffix.EXPORT)
 
-        units_meta = (
-            self.config.property_package_seawater.get_metadata().get_derived_units
-        )
-
         """
         Model parameters
         """
