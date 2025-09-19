@@ -33,7 +33,7 @@ from watertap_contrib.reflo.flowsheets.KBHDP.components import *
 from watertap_contrib.reflo.flowsheets.KBHDP.utils import solve
 
 
-def build_system():
+def build_system(RE=None):
     m = ConcreteModel()
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
