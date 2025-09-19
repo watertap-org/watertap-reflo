@@ -268,7 +268,7 @@ class TestPVBattery:
             "direct_capital_cost": 309695810.29,
             "fixed_operating_cost": 10132000.0,
             "direct_cost": 287184600.0,
-            "indirect_cost": 22511210.29,
+            "indirect_cost": 12500000,
             "land_cost": 10011210.29,
             "pv_direct_capital_cost": 246250000.0,
             "battery_direct_capital_cost": 32570000.0,

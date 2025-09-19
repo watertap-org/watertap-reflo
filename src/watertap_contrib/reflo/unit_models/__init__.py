@@ -10,9 +10,12 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-from .chemical_softening import ChemicalSoftening
 from .air_stripping_0D import AirStripping0D
-from .solar_still import SolarStill
+from .chemical_softening import ChemicalSoftening
 from .evaporation_pond import EvaporationPond
 from .zero_order.forward_osmosis_zo import ForwardOsmosisZO
+from .multi_effect_crystallizer import MultiEffectCrystallizer
+from .solar_still import SolarStill
 from .waiv import WAIV
+from .crystallizer_effect import CrystallizerEffect
+from .surrogate import *

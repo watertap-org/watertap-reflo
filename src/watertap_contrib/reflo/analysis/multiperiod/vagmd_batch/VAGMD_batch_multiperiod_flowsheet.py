@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -45,8 +45,11 @@ from watertap_contrib.reflo.analysis.multiperiod.vagmd_batch.VAGMD_batch_flowshe
 
 __author__ = "Zhuoran Zhang"
 
-# Set up logger
-_logger = idaeslog.getLogger(__name__)
+__all__ = [
+    "build_VAGMD_batch_multiperiod_fs",
+    "add_costing_module",
+    "get_multiperiod_performance",
+]
 
 
 def get_vagmd_batch_variable_pairs(t1, t2):

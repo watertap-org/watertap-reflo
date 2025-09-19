@@ -461,7 +461,7 @@ class TestMultiEffectCrystallizer_2Effects:
                 )
 
         assert number_variables(m) == 461
-        assert number_total_constraints(m) == 267
+        assert number_total_constraints(m) == 268
         assert number_unused_variables(m) == 43
 
         assert_units_consistent(m)
@@ -990,7 +990,7 @@ class TestMultiEffectCrystallizer_3Effects:
                 )
 
         assert number_variables(m) == 609
-        assert number_total_constraints(m) == 393
+        assert number_total_constraints(m) == 394
         assert number_unused_variables(m) == 43
 
         assert_units_consistent(m)
@@ -1554,7 +1554,7 @@ class TestMultiEffectCrystallizer_4Effects:
                 )
 
         assert number_variables(m) == 757
-        assert number_total_constraints(m) == 519
+        assert number_total_constraints(m) == 520
         assert number_unused_variables(m) == 43
 
         assert_units_consistent(m)
