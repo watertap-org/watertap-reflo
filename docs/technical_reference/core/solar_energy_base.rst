@@ -108,7 +108,7 @@ Creating Surrogate Models
 Generating Data
 ^^^^^^^^^^^^^^^
 
-The user is responsible for generating the data used to create the surrogate model. This data should be in the form of a ``.csv`` or ``.pkl`` 
+The user is responsible for generating the data used to create the surrogate model. This data must be in the form of a ``.csv`` or ``.pkl`` 
 file with column headers corresponding to the ``"labels"`` provided in the ``input_variables`` and ``output_variables`` configuration arguments.
 For this reason, the column headers for input and output variables must be a valid Python name (i.e., no spaces, special characters, etc.) and
 the ``"labels"`` provided in the configuration must match exactly with the column headers in the dataset file. Note that columns not used 
@@ -272,12 +272,3 @@ will be ignored when loading an existing surrogate model.
     m.fs = FlowsheetBlock()
     m.fs.solar = SolarModel(**config_dict)
 
-
-
-
-Module Documentation
---------------------
-
-* :class:`SolarEnergyBaseData`
-
-* :mod:`watertap_contrib.reflo.core.solar_energy_base`
