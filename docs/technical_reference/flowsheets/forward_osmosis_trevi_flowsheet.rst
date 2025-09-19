@@ -1,30 +1,32 @@
 .. _Trevi_FO_homepage:
 
-Trevi's forward osmosis flowsheet
-=================================
+Trevi's FO Flowsheet
+====================
 
 Implementation
 --------------
 
-This flowsheet: 
+This flowsheet:
+
    * simulates the configuration of the pilot FO system that Trevi System constructed  
-   * incorporates a list of the following unit models
-  
-      * one :any:`FO_homepage` model from WaterTAP-REFLO
-      * one `Mixer <https://idaes-pse.readthedocs.io/en/2.4.0/reference_guides/model_libraries/generic/unit_models/mixer.html>`_ model from IDAES
-      * two `Separator <https://idaes-pse.readthedocs.io/en/2.4.0/reference_guides/model_libraries/generic/unit_models/separator.html>`_ models from IDAES
-      * two `Heat exchanger(0D) <https://idaes-pse.readthedocs.io/en/2.4.0/reference_guides/model_libraries/generic/unit_models/heat_exchanger.html>`_ models from IDAES
-      * three `Heater <https://idaes-pse.readthedocs.io/en/2.4.0/reference_guides/model_libraries/generic/unit_models/heater.html>`_ models from IDAES
+   * incorporates the following unit models
+
+      * one :ref:`forward osmosis model <FO_homepage>` from WaterTAP-REFLO
+      * one `mixer <https://idaes-pse.readthedocs.io/en/2.4.0/reference_guides/model_libraries/generic/unit_models/mixer.html>`_ model from IDAES
+      * two `separator <https://idaes-pse.readthedocs.io/en/2.4.0/reference_guides/model_libraries/generic/unit_models/separator.html>`_ models from IDAES
+      * two `heat exchanger <https://idaes-pse.readthedocs.io/en/2.4.0/reference_guides/model_libraries/generic/unit_models/heat_exchanger.html>`_ models from IDAES
+      * three `heater <https://idaes-pse.readthedocs.io/en/2.4.0/reference_guides/model_libraries/generic/unit_models/heater.html>`_ models from IDAES
    * supports steady-state only
    * is verified against the Trevi's operational data and modeling results
 
-.. figure:: ../../../_static/unit_models/Trevi_fo_flowsheet.png
+.. figure:: ../../_static/unit_models/Trevi_fo_flowsheet.png
     :width: 800
     :align: center
 
-    Figure 1. Diagram of the Trevi System's FO configuration
+    Figure 1. Diagram of Trevi Systems FO configuration
 
 A discussion of each process component is given as following:
+
    * The FO membrane separates the feed seawater by the concentrated draw solution. Along the membranes, driven by the osmosis gradient, water from the feed side permeates the FO membrane and dilutes the draw solution on the draw solution side of the membrane.
    * FO brine exits the FO membrane module and is discharged after heat recovery in the heat exchanger and after chemical neutralization.
    * The diluted draw solution (approximately 40-50%) exits the membrane module and is circulated through the heat exchangers to the coalescer, where the draw solution polymer will be separated.
@@ -37,16 +39,16 @@ A discussion of each process component is given as following:
    * The NF brine stream, which is a warm stream containing the NF-rejected draw solution polymer, is recirculated and combined with cold dilute draw solution downstream of the FO membrane.
    * According to the efficiency of the heat exchangers, both the NF permeate and brine will be slightly warmer than the original feed seawater finally resulting in loss of heat.
 
-Flowsheet inputs
+Flowsheet Inputs
 ----------------
-In addition to the input variables as described in the :any:`FO_homepage` model, the following operational parameters should be further specified:
+In addition to the input variables for the :ref:`FO model <FO_homepage>`, the following operational parameters should be specified:
 
 .. csv-table::
-   :header: "Input Variables", "Variable name", "Symbol", "Unit"
+   :header: "Input Variables", "Variable name", "Symbol", "Units"
 
-   "RO recovery ratio (if applied)", "fs.ro_recovery_ratio", ":math:`RR_{RO}`", "None"
-   "Outlet temperature of weak draw from heat exchanger HX1", "fs.HX1.weak_draw_outlet.temperature",":math:`T_{HX1\_cold\_out}`", ":math:`^o\text{C}`"
-   "Outlet temperature of product water from heat exchanger HX1", "fs.HX1.product_water_outlet.temperature", ":math:`T_{HX1\_hot\_out}`", ":math:`^o\text{C}`"
+   "RO recovery ratio (if applied)", "``fs.ro_recovery_ratio``", ":math:`RR_{RO}`", ":math:`\text{dimensionless}`"
+   "Outlet temperature of weak draw from heat exchanger HX1", "``fs.HX1.weak_draw_outlet.temperature``",":math:`T_{HX1-cold-out}`", ":math:`\text{°C}`"
+   "Outlet temperature of product water from heat exchanger HX1", "``fs.HX1.product_water_outlet.temperature``", ":math:`T_{HX1-hot-out}`", ":math:`\text{°C}`"
 
 
 

@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2023, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -32,7 +32,6 @@ from watertap_contrib.reflo.unit_models.surrogate.vagmd_surrogate_base import (
 )
 
 
-_log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
 
 
@@ -207,11 +206,5 @@ class VAGMDData(VAGMDBaseData):
         if iscale.get_scaling_factor(self.recovery_ratio) is None:
             iscale.set_scaling_factor(self.recovery_ratio, 1e1)
 
-    def initialize_build(
-        self,
-        state_args=None,
-        outlvl=idaeslog.NOTSET,
-        solver=None,
-        optarg=None,
-    ):
+    def initialize_build(self, **kwargs):
         super().initialize_build()

@@ -6,9 +6,10 @@ Treatment Models
 
    air_stripping
    chem_soft
+   crystallizer
+   forward_osmosis
    lt_med_surrogate
-   med_md_semibatch
+   mec
    med_tvc_surrogate
    vagmd_surrogate_base
-   forward_osmosis
-   forward_osmosis_trevi_flowsheet
+   solar_still

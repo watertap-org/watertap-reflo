@@ -17,3 +17,5 @@ from .zero_order.forward_osmosis_zo import ForwardOsmosisZO
 from .multi_effect_crystallizer import MultiEffectCrystallizer
 from .solar_still import SolarStill
 from .waiv import WAIV
+from .crystallizer_effect import CrystallizerEffect
+from .surrogate import *

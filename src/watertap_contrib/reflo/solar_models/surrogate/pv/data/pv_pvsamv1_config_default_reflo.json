@@ -1,5 +1,5 @@
 {
-	"solar_resource_file" : "/Users/ksitterl/Documents/Python/watertap-reflo/watertap-reflo/kurby_reflo/case_studies/KBHDP/el_paso_texas-KBHDP-weather.csv",
+	"solar_resource_file" : "",
 	"transformer_no_load_loss" : 0,
 	"transformer_load_loss" : 0,
 	"system_use_lifetime_output" : 1,

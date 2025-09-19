@@ -288,6 +288,10 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
 
         # ==========CONSTRAINTS==========
 
+        @self.Constraint(doc="Isobaric assumption")
+        def eq_isobaric(b):
+            return b.inlet_block[0].pressure == b.outlet_block[0].pressure
+
         @self.Constraint(doc="Total collector area")
         def eq_collector_area_total(b):
             return b.collector_area_total == pyunits.convert(
@@ -387,7 +391,7 @@ class FlatPlatePhysicalData(SolarEnergyBaseData):
 
         # Need to check this
         @self.Constraint(doc="Heat load of system")
-        def eq_heat_load(b):
+        def eq_system_capacity(b):
             first_term = pyunits.convert(
                 b.FR_ta * b.trans_absorb_prod * b.max_irradiance,
                 to_units=pyunits.kW / pyunits.m**2,

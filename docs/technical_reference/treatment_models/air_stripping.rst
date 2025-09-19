@@ -1,27 +1,49 @@
+.. _air_stripping_ref:
+
 Air Stripping
 =============
+
+
+.. code-block:: python
+
+    from watertap_contrib.reflo.unit_models import AirStripping0D
 
 Air stripping uses towers packed with irregular shaped inert packing material
 to transfer volatile constituents from the liquid to the vapor phase.
 This air stripping model:
+
 * supports steady-state only
 * supports a single liquid phase only
 * has a single user-specified target compound
 * assumes isothermal and isobaric conditions
 
-.. figure:: ../../../_static/unit_models/air_stripping_schematic.png
+.. figure:: ../../_static/unit_models/air_stripping_schematic.png
     :width: 600
     :align: center
 
-Figure 1. Air-stripping schematic.
+    Figure 1. Air-stripping schematic.
 
-This model uses the air-water equilibrium property package to determine the mass transfer properties
-of a given liquid and air stream. Given specifics about the tower packing, air and water flow rates, and the compond of interest,
+Given specifics about the tower packing, air and water flow rates, and the compound of interest,
 the model will provide design and costing estimates.
 The model relies on correlations and parameters from Onda, K., Takeuchi, H., & Okumoto, Y. (1968) and is referred 
 to as the "OTO model" in this documentation and in names of variables and parameters in the model.
 
-.. TODO: Add index/reference to home page
+Model Structure
+---------------
+
+This model uses the :ref:`air-water equilibrium property package <air_water_eq_prop_ref>` to determine the mass transfer properties
+of a given liquid and air stream.
+It uses the ``ControlVolume0D`` to determine the mass-balance for the liquid and vapor streams.
+There are two ports and each port has a liquid and vapor stream.
+
+* Feed liquid stream (``inlet``)
+* Feed air stream (``inlet``)
+* Effluent liquid stream (``outlet``)
+* Effluent air stream (``outlet``)
+
+A critical user input to the model is the target compound, specfied via the ``target`` keyword 
+in the unit model configuration. Removal of the target compound is determined by the mutable parameter
+``target_reduction_frac`` that has a default value of 0.9 (i.e., 90% removal).
 
 
 Degrees of Freedom
@@ -44,8 +66,6 @@ For the unit model, the following variables are typically fixed.
 
 In addition to the state variables on the property model, the user must specify:
 
-.. TODO: Add index/reference to AWE prop pkg docs
-
 .. csv-table::
    :header: "Variables", "Variable Name", "Symbol", "Unit"
 
@@ -53,22 +73,6 @@ In addition to the state variables on the property model, the user must specify:
    "Vapor phase density", "``dens_mass_phase['Vap']``", ":math:`\rho_g`", ":math:`\text{kg} \text{ m}^{-3}`"
    "Liquid phase dynamic viscosity", "``visc_d_phase['Liq']``", ":math:`\mu_{liq}`", ":math:`\text{Pa s}`"
    "Vapor phase dynamic viscosity", "``visc_d_phase['Vap']``", ":math:`\mu_{vap}`", ":math:`\text{Pa s}`"
-
-
-Model Structure
----------------
-
-This air stripping model uses the ``ControlVolume0D`` to determine the mass-balance for the liquid and vapor streams.
-There are two ports and each port has a liquid and vapor stream.
-
-* Feed liquid stream (``inlet``)
-* Feed air stream (``inlet``)
-* Effluent liquid stream (``outlet``)
-* Effluent air stream (``outlet``)
-
-A critical user input to the model is the target compound, specfied via the ``target`` keyword 
-in the unit model configuration. Removal of the target compound is determined by the mutable parameter
-``target_reduction_frac`` that has a default value of 0.9 (i.e., 90% removal).
 
 Sets
 ----
@@ -160,8 +164,6 @@ All parameters related to OTO model are *not* mutable.
     "OTO gas mass transfer correlation :math:`\text{Re}` exponent", ":math:`\text{0.7}`", "``oto_gas_mass_xfr_exp1``", "None", ":math:`\kappa_1`", ":math:`\text{dimensionless}`"
     "OTO gas mass transfer correlation :math:`\text{Sc}` exponent", ":math:`\frac{1}{3}`", "``oto_gas_mass_xfr_exp2``", "None", ":math:`\kappa_2`", ":math:`\text{dimensionless}`"
     "OTO gas mass transfer correlation :math:`f_{eff}` exponent", ":math:`\text{-2}`", "``oto_gas_mass_xfr_exp3``", "None", ":math:`\kappa_3`", ":math:`\text{dimensionless}`"
-
-
 
 
 Equations and Relationships
