@@ -15,7 +15,6 @@ import sys
 from importlib import metadata
 
 sys.path.insert(0, os.path.abspath(".."))
-# sys.path.insert(0,os.path.dirname(sys.path[0]))
 
 # -- Project information -----------------------------------------------------
 
@@ -111,9 +110,9 @@ def skip(app, what, name, obj, would_skip, options):
     return would_skip
 
 
-def setup(app):
-    if os.environ.get("SKIP_APIDOC", False):
-        print("Skipping apidoc")
-    else:
-        app.connect("builder-inited", run_apidoc)
-    app.connect("autodoc-skip-member", skip)
+# def setup(app):
+#     if os.environ.get("SKIP_APIDOC", False):
+#         print("Skipping apidoc")
+#     else:
+#         app.connect("builder-inited", run_apidoc)
+#     app.connect("autodoc-skip-member", skip)

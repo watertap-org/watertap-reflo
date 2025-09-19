@@ -10,7 +10,6 @@ from itertools import product
 import PySAM.TroughPhysicalIph as iph
 
 # Documentation for PySAM module used in this script:
-# https://nrel-pysam.readthedocs.io/en/v5.1.0/modules/TroughPhysical.html
 # https://nrel-pysam.readthedocs.io/en/main/modules/TroughPhysicalIph.html
 
 __all__ = [

@@ -30,6 +30,7 @@ from idaes.core import (
     UnitModelCostingBlock,
     useDefault,
 )
+from idaes.core.util.misc import add_object_reference
 from idaes.core.util.exceptions import (
     ConfigurationError,
 )
@@ -54,6 +55,8 @@ __author__ = "Zhuoran Zhang"
 
 # Set up logger
 _logger = idaeslog.getLogger(__name__)
+
+__all__ = ["VAGMDbatchSurrogate"]
 
 
 def get_vagmd_batch_variable_pairs(t1, t2):
@@ -305,7 +308,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
             "evap_inlet_temp",
             "cond_inlet_temp",
             "feed_temp",
-            "feed_salinity",
+            # "feed_salinity",
             "initial_batch_volume",
             "recovery_ratio",
         ]
@@ -315,7 +318,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
             evap_inlet_temp,
             cond_inlet_temp,
             feed_temp,
-            feed_salinity,
+            # feed_salinity,
             initial_batch_volume,
             recovery_ratio,
         ]
@@ -325,7 +328,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
             [60, 80],
             [20, 30],
             [20, 30],
-            [35, max_allowed_brine_salinity[module_type]],
+            # [35, max_allowed_brine_salinity[module_type]],
             [50, float("inf")],
             [0, 1],
         ]
@@ -449,6 +452,7 @@ class VAGMDbatchSurrogateData(UnitModelBlockData):
         vagmd.costing = UnitModelCostingBlock(
             flowsheet_costing_block=flowsheet_costing_block
         )
+        add_object_reference(self, "costing", vagmd.costing)
 
         # Overwrite the thermal and electric energy flow with the accumulated values
         vagmd.costing.costing_package.cost_flow(

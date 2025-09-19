@@ -26,18 +26,18 @@ Details of the implications of different configuration options are described in 
     "``solute_list``", "Solute names in stream", "User provided", "Yes", "n/a", "``list``"
     "``mw_data``", "Molecular weight in for solutes in ``solute_list``", "User provided", "Yes", ":math:`\text{kg/}\text{mol}`", "``dict``"
     "``diffusivity_data``", "Liquid and vapor phase diffusivity data", "User provided", "No", ":math:`\text{kg/}\text{m s}`", "``dict`` with ``(phase, solute)`` keys"
-    "``molar_volume_data``", "Molar volume data for solutes", "User provided", "No", ":math:`\text{m/}^3\text{mol}`", "``dict`` with ``solute`` keys"
-    "``critical_molar_volume_data``", "Critical molar volume data for solutes", "User provided", "No", ":math:`\text{m/}^3\text{mol}`", "``dict`` with ``solute`` keys"
+    "``molar_volume_data``", "Molar volume data for solutes", "User provided", "No", ":math:`\text{m}^3\text{/mol}`", "``dict`` with ``solute`` keys"
+    "``critical_molar_volume_data``", "Critical molar volume data for solutes", "User provided", "No", ":math:`\text{m}^3\text{/mol}`", "``dict`` with ``solute`` keys"
     "``density_data``", "Liquid and vapor phase density data", "``{'Liq': 998.2, 'Vap': 1.204}``:sup:`1`", "No", ":math:`\text{kg/}\text{m}^3`", "``dict`` with ``phase`` keys"
-    "``dynamic_viscosity_data``", "Liquid and vapor phase dynamic viscosity data", "``{'Liq': 1e-3, 'Vap': 1.813e-5}``:sup:`1`", "No", ":math:`\text{Pa}\text{s}`", "``dict`` with ``phase`` keys"
+    "``dynamic_viscosity_data``", "Liquid and vapor phase dynamic viscosity data", "``{'Liq': 1e-3, 'Vap': 1.813e-5}``:sup:`1`", "No", ":math:`\text{Pa}\text{ s}`", "``dict`` with ``phase`` keys"
     "``henry_constant_data``", "Dimensionless Henry's Constant data for solutes", "User provided", "No", ":math:`\text{dimensionless}`", "``dict`` with ``solute`` keys"
-    "``temp_adjust_henry``", "Boolean to indicate if Henry's Constant should be temperature adjusted", "``True``", "No", "n/a", "``bool``"
+    "``temp_adjust_henry``", "Boolean to indicate if Henry's Constant should be temperature adjusted", "``True``", "No", ":math:`\text{N/A}`", "``bool``"
     "``standard_enthalpy_change_data``", "Standard enthalpy change of dissolution in water data for solutes", "User provided", "No", ":math:`\text{J/}\text{mol}`", "``dict`` with ``solute`` keys"
     "``temperature_boiling_data``", "Boiling temperature data for solutes", "User provided", "No", ":math:`\text{K}`", "``dict`` with ``solute`` keys"
     "``charge_data``", "Charge data for solutes", "User provided", "No", ":math:`\text{K}`", "``dict`` with ``solute`` keys"
-    "``liq_diffus_calculation``", "Approach for liquid diffusivity calculation", "Hayduk-Laudie", "No", "n/a", "``str``"
-    "``vap_diffus_calculation``", "Approach for vapor diffusivity calculation", "Wilke-Lee", "No", "n/a", "``str``"
-    "``molar_volume_calculation``", "Approach for molar volume calculation", "Tyn-Calus", "No", "n/a", "``str``"
+    "``liq_diffus_calculation``", "Approach for liquid diffusivity calculation", "Hayduk-Laudie", "No", ":math:`\text{N/A}`", "``str``"
+    "``vap_diffus_calculation``", "Approach for vapor diffusivity calculation", "Wilke-Lee", "No", ":math:`\text{N/A}`", "``str``"
+    "``molar_volume_calculation``", "Approach for molar volume calculation", "Tyn-Calus", "No", ":math:`\text{N/A}`", "``str``"
 
 .. note::
 
@@ -317,29 +317,9 @@ to all instantiated variables in the property model:
 
 Proper scaling of variables is, in many cases, crucial to solver's performance in finding an optimal solution of a problem. 
 While designing scaling can have a mathematical sophistication, a general rule is to scale all variables as close to 1 as possible (in the range of 1e-2 to 1e2). 
-
-Classes
--------
-.. currentmodule:: watertap_contrib.reflo.property_models.air_water_equilibrium_properties
-
-.. autoclass:: AirWaterEq
-    :members:
-    :noindex:
-
-.. autoclass:: AirWaterEqData
-    :members:
-    :noindex:
-
-.. autoclass:: _AirWaterEqStateBlock
-    :members:
-    :noindex:
-
-.. autoclass:: AirWaterEqStateBlockData
-    :members:
-    :noindex:
    
-Reference
----------
+References
+----------
 
 | Crittenden, J. C., Trussell, R. R., Hand, D. W., Howe, K. J., & Tchobanoglous, G. (2012). 
 | Chapter 7 & 14 in MWH's Water Treatment: Principles and Design (3rd ed.). doi:10.1002/9781118131473

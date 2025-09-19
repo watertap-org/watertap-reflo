@@ -88,9 +88,9 @@ def cost_deep_well_injection(blk, cost_method=DeepWellInjectionCostMethod.blm):
 
 def build_deep_well_injection_cost_as_opex_param_block(blk):
     costing = blk.parent_block()
-    blk.dwi_lcow = Param(
+    blk.dwi_lcow = Var(
         initialize=0.0587,
-        mutable=True,
+        bounds=(0, None),
         units=costing.base_currency / pyunits.m**3,
         doc="Assumed LCOW of deep well injection",
     )
@@ -98,9 +98,9 @@ def build_deep_well_injection_cost_as_opex_param_block(blk):
 
 def build_deep_well_injection_cost_as_capex_param_block(blk):
     costing = blk.parent_block()
-    blk.dwi_lcow = Param(
+    blk.dwi_lcow = Var(
         initialize=0.0587,
-        mutable=True,
+        bounds=(0, None),
         units=costing.base_currency / pyunits.m**3,
         doc="Assumed LCOW of deep well injection",
     )

@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -29,6 +29,9 @@ from idaes.core import (
     useDefault,
 )
 from idaes.core.util.model_statistics import degrees_of_freedom
+from idaes.core.util.tables import (
+    create_stream_table_dataframe,
+)
 from idaes.core.util.config import is_physical_parameter_block
 import idaes.core.util.scaling as iscale
 from idaes.core.util.exceptions import ConfigurationError, InitializationError
@@ -40,7 +43,6 @@ from watertap_contrib.reflo.costing.units.med_tvc_surrogate import (
     cost_med_tvc_surrogate,
 )
 
-_log = idaeslog.getLogger(__name__)
 __author__ = "Zhuoran Zhang"
 
 

@@ -11,3 +11,4 @@
 #################################################################################
 
 from .flat_plate_physical import FlatPlatePhysical
+from .thermal_energy_storage import ThermalEnergyStorage
