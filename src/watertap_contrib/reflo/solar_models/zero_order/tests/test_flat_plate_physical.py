@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -39,14 +39,12 @@ from idaes.core.util.scaling import (
 )
 
 from watertap.core.solvers import get_solver
+
 from watertap.property_models.water_prop_pack import WaterParameterBlock
 from watertap_contrib.reflo.costing import TreatmentCosting
 from watertap_contrib.reflo.core import SolarModelType
-from watertap_contrib.reflo.solar_models.zero_order.flat_plate_physical import (
-    FlatPlatePhysical,
-)
+from watertap_contrib.reflo.solar_models import FlatPlatePhysical
 
-# Get default solver for testing
 solver = get_solver()
 
 
@@ -66,7 +64,6 @@ class TestFlatPlatePhysical:
         m.fs.flatplate.inlet.flow_mass_phase_comp[0, "Vap", "H2O"].fix(0)
         m.fs.flatplate.inlet.temperature.fix(38.2 + 273.15)
         m.fs.flatplate.inlet.pressure.fix(101325)
-        m.fs.flatplate.outlet.pressure.fix(101325)
 
         m.fs.flatplate.total_irradiance.fix(540)
         m.fs.flatplate.collector_area.fix(2.98)
@@ -118,8 +115,8 @@ class TestFlatPlatePhysical:
 
         # Test statistics
         assert number_variables(m.fs.flatplate) == 18
-        assert number_unused_variables(m.fs.flatplate) == 5
-        assert number_total_constraints(m.fs.flatplate) == 9
+        assert number_unused_variables(m.fs.flatplate) == 3
+        assert number_total_constraints(m.fs.flatplate) == 10
 
     @pytest.mark.unit
     def test_dof(self, flat_plate_frame):

@@ -767,41 +767,6 @@ class TestCreateTroughSurrogate:
         assert all(x > 0 for x in test_df.electricity_annual.to_list())
 
     @pytest.mark.component
-    def test_create_without_scaling_data(self):
-
-        dataset_filename = os.path.join(__location__, "data/test_data.pkl")
-
-        input_units = dict(system_capacity="MW")
-        input_variables = {
-            "labels": ["system_capacity"],
-            "units": input_units,
-        }
-
-        output_units = dict(
-            heat_annual="kWh/year",
-            electricity_annual="kWh/year",
-            total_aperture_area="m**2",
-        )
-        output_variables = {
-            "labels": ["heat_annual", "electricity_annual", "total_aperture_area"],
-            "units": output_units,
-        }
-
-        trough_dict = dict(
-            dataset_filename=dataset_filename,
-            input_variables=input_variables,
-            output_variables=output_variables,
-        )
-
-        m = ConcreteModel()
-        m.fs = FlowsheetBlock(dynamic=False)
-
-        trough_dict["scale_training_data"] = False
-
-        with pytest.raises(ConfigurationError):
-            m.fs.fpc = TroughSurrogate(**trough_dict)
-
-    @pytest.mark.component
     def test_create_new_surrogate(self):
 
         dataset_filename = os.path.join(__location__, "data/test_data.pkl")

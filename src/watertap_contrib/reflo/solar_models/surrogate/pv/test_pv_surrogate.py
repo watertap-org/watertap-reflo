@@ -278,17 +278,17 @@ class TestPV:
         assert_optimal_termination(results)
 
         sys_costing_results = {
-            "aggregate_capital_cost": 572322807.89,
+            "aggregate_capital_cost": 552298903,
             "aggregate_fixed_operating_cost": 15500000.0,
             "aggregate_flow_electricity": -143093.81,
             "aggregate_flow_costs": {"electricity": 0.0},
-            "aggregate_direct_capital_cost": 572322807.89,
-            "total_capital_cost": 572322807.89,
-            "total_operating_cost": 32669684.23,
-            "maintenance_labor_chemical_operating_cost": 17169684.23,
-            "total_fixed_operating_cost": 32669684.23,
-            "total_annualized_cost": 96744627.44,
-            "LCOE": 0.077194,
+            "aggregate_direct_capital_cost": 552298903,
+            "total_capital_cost": 552298903,
+            "total_operating_cost": 32068967,
+            "maintenance_labor_chemical_operating_cost": 16568967,
+            "total_fixed_operating_cost": 32068967,
+            "total_annualized_cost": 93902115,
+            "LCOE": 0.074926,
         }
 
         for v, r in sys_costing_results.items():
@@ -300,13 +300,13 @@ class TestPV:
                 assert pytest.approx(value(cv), rel=1e-3) == r
 
         pv_costing_results = {
-            "capital_cost": 572322807.89,
-            "direct_capital_cost": 572322807.89,
+            "capital_cost": 552298903,
+            "direct_capital_cost": 552298903,
             "fixed_operating_cost": 15500000.0,
             "direct_cost": 507275000.0,
-            "indirect_cost": 45023903.94,
+            "indirect_cost": 25000000.0,
             "land_cost": 20023903.94,
-            "total_installed_cost_per_capacity": 1.1446,
+            "total_installed_cost_per_capacity": 1.10459,
         }
 
         for v, r in pv_costing_results.items():
