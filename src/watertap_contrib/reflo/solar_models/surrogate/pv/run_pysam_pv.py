@@ -25,17 +25,23 @@ import PySAM.Singleowner as singleowner
 __author__ = "Kurban Sitterley"
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-tech_config_file = f"{__location__}/data/pv_pvsamv1_config_default_reflo.json"
-grid_config_file = f"{__location__}/data/pv_grid_config_default_reflo.json"
-rate_config_file = f"{__location__}/data/pv_utilityrate5_config_default_reflo.json"
-cash_config_file = f"{__location__}/data/pv_singleowner_config_default_reflo.json"
-weather_file = f"{__location__}/data/test_pv_weather_data.csv"  # from El Paso, TX
+default_tech_config_file = f"{__location__}/data/pv_pvsamv1_config_default_reflo.json"
+default_grid_config_file = f"{__location__}/data/pv_grid_config_default_reflo.json"
+default_rate_config_file = (
+    f"{__location__}/data/pv_utilityrate5_config_default_reflo.json"
+)
+default_cash_config_file = (
+    f"{__location__}/data/pv_singleowner_config_default_reflo.json"
+)
+default_weather_file = (
+    f"{__location__}/data/test_pv_weather_data.csv"  # from El Paso, TX
+)
 
-config_files = [
-    tech_config_file,
-    grid_config_file,
-    rate_config_file,
-    cash_config_file,
+default_config_files = [
+    default_tech_config_file,
+    default_grid_config_file,
+    default_rate_config_file,
+    default_cash_config_file,
 ]
 
 
@@ -50,7 +56,7 @@ def _flatten_dict(d):
     return {key: value for (key, value) in get_key_values(d)}
 
 
-def _load_config_files(modules):
+def _load_config_files(modules, config_files):
     for file_name, module in zip(config_files, modules):
         with open(file_name, "r") as file:
             data = json.load(file)
@@ -205,7 +211,7 @@ def size_pv_array(tech_model, system_capacity=50, desired_dcac_ratio=1.2):
     return pv_array_design
 
 
-def setup_model_pv(pysam_model_config):
+def setup_model_pv(pysam_model_config, config_files=[], weather_file=None):
 
     tech_model = pv.new()
     grid_model = grid.from_existing(tech_model, pysam_model_config)
@@ -217,7 +223,7 @@ def setup_model_pv(pysam_model_config):
         rate_model,
         cash_model,
     ]
-    _load_config_files(modules)
+    _load_config_files(modules, config_files=config_files)
     tech_model.SolarResource.solar_resource_file = weather_file
 
     return modules
@@ -262,9 +268,19 @@ def run_pv_single_owner(
     return tech_model, cash_model, pv_array_design
 
 
-def setup_and_run_pv(system_capacity, pysam_model_config, return_tech_model=False):
+def setup_and_run_pv(
+    system_capacity,
+    pysam_model_config,
+    config_files,
+    weather_file,
+    return_tech_model=False,
+):
+    if config_files is None:
+        config_files = default_config_files
 
-    modules = setup_model_pv(pysam_model_config)
+    modules = setup_model_pv(
+        pysam_model_config, config_files=config_files, weather_file=weather_file
+    )
 
     tech_model, cash_model, pv_array_design = run_pv_single_owner(
         modules, pysam_model_config, system_capacity=system_capacity
@@ -295,11 +311,33 @@ def generate_pv_data(
     use_multiprocessing=True,
     processes=8,
     dataset_filename=None,
+    weather_file=None,
+    tech_config_file=None,
+    grid_config_file=None,
+    rate_config_file=None,
+    cash_config_file=None,
 ):
 
     if dataset_filename is None:
         # assume it is run for testing purposes
         dataset_filename = os.path.join(__location__, "data/test_data.pkl")
+    if weather_file is None:
+        weather_file = default_weather_file
+    if tech_config_file is None:
+        tech_config_file = default_tech_config_file
+    if grid_config_file is None:
+        grid_config_file = default_grid_config_file
+    if rate_config_file is None:
+        rate_config_file = default_rate_config_file
+    if cash_config_file is None:
+        cash_config_file = default_cash_config_file
+
+    config_files = [
+        tech_config_file,
+        grid_config_file,
+        rate_config_file,
+        cash_config_file,
+    ]
 
     print(f"Saving data to {dataset_filename}")
 
@@ -308,7 +346,10 @@ def generate_pv_data(
     if use_multiprocessing:
 
         with multiprocessing.Pool(processes=processes) as pool:
-            args = [(ds, pysam_model_config) for ds in system_capacities]
+            args = [
+                (ds, pysam_model_config, config_files, weather_file)
+                for ds in system_capacities
+            ]
             results = pool.starmap(setup_and_run_pv, args)
 
         df_results = pd.DataFrame(results)
@@ -325,7 +366,12 @@ def generate_pv_data(
         axis=1,
     )
     if save_data:
-        df.to_pickle(dataset_filename)
+        if dataset_filename[-3:] == "pkl":
+            df.to_pickle(dataset_filename)
+        elif dataset_filename[-3:] == "csv":
+            df.to_csv(dataset_filename)
+        else:
+            raise ValueError("dataset_filename must end in .pkl or .csv")
 
     return df
 
@@ -334,6 +380,14 @@ if __name__ == "__main__":
     # To create data used in PV surrogate test file:
     # system_capacities = np.linspace(1000, 1000000, 50)
 
-    df = generate_pv_data()
-    print(df.head(20))
-    os.remove(os.path.join(__location__, "data/test_data.pkl"))
+    # df = generate_pv_data()
+    # print(df.head(20))
+    # os.remove(os.path.join(__location__, "data/test_data.pkl"))
+
+    dataset_filename = "pv_data.pkl"
+
+    data = generate_pv_data(
+        system_capacities=np.linspace(100, 2000, 100),
+        weather_file=None,
+        dataset_filename=dataset_filename,
+    )
