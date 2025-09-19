@@ -1,18 +1,20 @@
 # WaterTAP-REFLO
+## Renewable Energy and Flexible Load Optimization
 
-Welcome to the code repository for **WaterTAP-REFLO**!
+Welcome to the code repository for **WaterTAP-REFLO**! 
+WaterTAP-REFLO is an extension of the [WaterTAP package](https://watertap.readthedocs.io/en/stable/).
 
 ![GitHub issues](https://img.shields.io/github/issues/watertap-org/watertap-reflo)
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/watertap-org/watertap-reflo)
-![CI status](https://img.shields.io/github/workflow/status/watertap-org/watertap-reflo/Checks)
+<!-- ![CI status](https://img.shields.io/github/actions/workflow/status/watertap-org/watertap-reflo/test.yml?branch=main) -->
 
 ## Documentation
 
-WaterTAP-REFLO documentation is available online at <https://watertap-reflo.readthedocs.io>.
+See the full [WaterTAP-REFLO documentation](<https://watertap-reflo.readthedocs.io>) for more information.
 
-## Getting started (for Contributors)
+## Getting Started
 
-**WaterTAP-REFLO** supports Python versions 3.8 through 3.10.
+**WaterTAP-REFLO** supports Python versions 3.9 through 3.11.
 
 ### Prerequisites
 
@@ -23,15 +25,22 @@ WaterTAP-REFLO documentation is available online at <https://watertap-reflo.read
 To install **WaterTAP-REFLO**, run:
 
 ```sh
+conda create --yes --name watertap-reflo python=3.10 && conda activate watertap-reflo
+pip install watertap-reflo
+```
+
+To install **WaterTAP-REFLO** *for development*, run:
+
+```sh
 git clone https://github.com/watertap-org/watertap-reflo && cd watertap-reflo
-conda create --yes --name watertap-reflo-dev python=3.10 && conda activate watertap-reflo-dev
+conda create --yes --name watertap-reflo python=3.10 && conda activate watertap-reflo
 pip install -r requirements-dev.txt
 ```
 
 ### Running tests
 
 ```sh
-conda activate watertap-reflo-dev
+conda activate watertap-reflo
 pytest --pyargs watertap_contrib.reflo
 ```
 
@@ -42,7 +51,7 @@ Before committing, the Python code must be formatted with [Black](https://black.
 Black is installed by default as part of the developer dependencies. To format the code, run the following command from the local repository root directory:
 
 ```sh
-conda activate watertap-reflo-dev
+conda activate watertap-reflo
 black .
 ```
 
