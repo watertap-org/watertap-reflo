@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 
 project = "WaterTAP-REFLO"
-copyright = "2022-2023, NREL et al."
+copyright = "2022-2025, NREL et al."
 author = "WaterTAP-REFLO dev team"
 
 # Version and release
