@@ -16,3 +16,5 @@ from .solar_still import SolarStill
 from .evaporation_pond import EvaporationPond
 from .zero_order.forward_osmosis_zo import ForwardOsmosisZO
 from .waiv import WAIV
+from .crystallizer_effect import CrystallizerEffect
+from .surrogate import *

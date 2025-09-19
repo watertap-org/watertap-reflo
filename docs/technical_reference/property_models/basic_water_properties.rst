@@ -69,27 +69,3 @@ The default scaling factors are as follows:
    * :math:`\text{10}^{3}` for mass density
    * :math:`\text{10}^{3}` for mass concentration
 
-   
-Classes
--------
-.. currentmodule:: watertap_contrib.reflo.property_models.basic_water_properties
-
-.. autoclass:: BasicWaterParameterBlock
-    :members:
-    :noindex:
-
-.. autoclass:: BasicWaterParameterBlockData
-    :members:
-    :noindex:
-
-.. autoclass:: _BasicWaterStateBlock
-    :members:
-    :noindex:
-
-.. autoclass:: BasicWaterStateBlockData
-    :members:
-    :noindex:
-   
-
-
-
