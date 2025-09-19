@@ -1,115 +1,40 @@
-import os
-import math
 from pyomo.environ import (
     ConcreteModel,
-    value,
     Var,
     Constraint,
     Objective,
     NonNegativeReals,
     TransformationFactory,
     Block,
-    check_optimal_termination,
+    assert_optimal_termination,
+    value,
     units as pyunits,
 )
-from pyomo.util.check_units import assert_units_consistent
 from pyomo.network import Arc
-from idaes.core import FlowsheetBlock, MaterialFlowBasis
-from idaes.core.util.initialization import propagate_state as _prop_state
-from idaes.core.solvers import get_solver
+
 import idaes.core.util.scaling as iscale
-from watertap_contrib.reflo.core import REFLODatabase
-import idaes.logger as idaeslog
-from watertap.property_models.NaCl_prop_pack import NaClParameterBlock
-from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
+from idaes.core import FlowsheetBlock, MaterialFlowBasis
+from idaes.core.util.initialization import propagate_state
+from idaes.core.util.model_statistics import degrees_of_freedom
 from idaes.models.unit_models import Product, Feed
-from idaes.core.util.model_statistics import *
+
+from watertap.core.zero_order_properties import WaterParameterBlock
+from watertap.property_models.multicomp_aq_sol_prop_pack import MCASParameterBlock
+from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
+from watertap.property_models.water_prop_pack import (
+    WaterParameterBlock as SteamParameterBlock,
+)
+
+from watertap_contrib.reflo.core import REFLODatabase
 from watertap_contrib.reflo.costing import (
     TreatmentCosting,
     EnergyCosting,
-    REFLOCosting,
     REFLOSystemCosting,
 )
-from watertap.unit_models.pressure_changer import Pump
-from watertap.core.util.model_diagnostics.infeasible import *
-from watertap.core.util.initialization import *
-from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from watertap_contrib.reflo.analysis.case_studies.KBHDP import *
-from watertap.core.zero_order_properties import WaterParameterBlock
-from watertap.property_models.seawater_prop_pack import SeawaterParameterBlock
-from watertap.property_models.water_prop_pack import WaterParameterBlock as vapor_prop
-
-_log = idaeslog.getLogger(__name__)
 
 
-def propagate_state(arc, detailed=True):
-    _prop_state(arc)
-
-    if detailed:
-        print(
-            f"\nPropogation of {arc.source.name} to {arc.destination.name} successful."
-        )
-        arc.source.display()
-        print(arc.destination.name)
-        arc.destination.display()
-        print("\n")
-
-
-def main():
-    file_dir = os.path.dirname(os.path.abspath(__file__))
-
-    m = build_system(RE=True)
-    add_connections(m)
-    add_constraints(m)
-    set_operating_conditions(m)
-    apply_scaling(m)
-    init_system(m)
-    add_costing(m)
-    scale_costing(m)
-    # box_solve_problem(m)
-    # # solve(m, debug=True)
-
-    optimize(m, water_recovery=0.35, heat_price=0.005, objective="LCOW")
-    solve(m, debug=True)
-    # display_system_stream_table(m)
-    # report_LTMED(m)
-    # report_pump(m, m.fs.treatment.pump)
-    report_fpc(m)
-
-    m.fs.costing.LCOW.display()
-    m.fs.energy.costing.LCOH.display()
-    m.fs.costing.LCOT.display()
-    # display_costing_breakdown(m)
-
-    return m
-
-
-def build_sweep(
-    grid_frac_heat=None,
-    heat_price=None,
-    water_recovery=None,
-):
-    m = build_system(RE=True)
-    add_connections(m)
-    add_constraints(m)
-    set_operating_conditions(m)
-    apply_scaling(m)
-    init_system(m)
-    add_costing(m)
-    scale_costing(m)
-    box_solve_problem(m)
-    optimize(
-        m,
-        water_recovery=water_recovery,
-        grid_frac_heat=grid_frac_heat,
-        heat_price=heat_price,
-        objective="LCOW",
-    )
-
-    return m
-
-
-def build_system(RE=True):
+def build_system():
     m = ConcreteModel()
     m.db = REFLODatabase()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -123,15 +48,14 @@ def build_system(RE=True):
             "K_+",
             "SiO2",
             "Na_+",
-            "SO2_-4+",
+            "SO4_2-",
         ],
         material_flow_basis=MaterialFlowBasis.mass,
     )
 
-    # m.fs.RO_properties = NaClParameterBlock()
     m.fs.UF_properties = WaterParameterBlock(solute_list=["tds", "tss"])
     m.fs.liquid_prop = SeawaterParameterBlock()
-    m.fs.vapor_prop = vapor_prop()
+    m.fs.vapor_prop = SteamParameterBlock()
 
     build_treatment(m)
     build_energy(m)
@@ -149,39 +73,29 @@ def build_treatment(m):
 
     treatment.EC = FlowsheetBlock(dynamic=False)
     treatment.UF = FlowsheetBlock(dynamic=False)
-    treatment.pump = Pump(property_package=m.fs.liquid_prop)
     treatment.LTMED = FlowsheetBlock(dynamic=False)
     treatment.DWI = FlowsheetBlock(dynamic=False)
 
-    treatment.MCAS_to_TDS_translator = Translator_MCAS_to_TDS(
+    treatment.MCAS_to_ZOTDS_translator = TranslatorMCAStoZO(
         inlet_property_package=m.fs.MCAS_properties,
         outlet_property_package=m.fs.UF_properties,
         has_phase_equilibrium=False,
         outlet_state_defined=False,
     )
 
-    treatment.TDS_to_TDS_translator = Translator_TDS_to_TDS(
+    treatment.ZOTDS_to_TDS_translator = TranslatorZOtoSW(
         inlet_property_package=m.fs.UF_properties,
         outlet_property_package=m.fs.liquid_prop,
         has_phase_equilibrium=False,
-        outlet_state_defined=False,
+        outlet_state_defined=True,
     )
 
-    build_ec(m, treatment.EC, prop_package=m.fs.UF_properties)
-    build_UF(m, treatment.UF, prop_package=m.fs.UF_properties)
-    build_LTMED(m, treatment.LTMED, m.fs.liquid_prop, m.fs.vapor_prop)
-    build_DWI(m, treatment.DWI, prop_package=m.fs.liquid_prop)
-
-    m.fs.units = [
-        treatment.feed,
-        treatment.EC,
-        treatment.UF,
-        treatment.pump,
-        treatment.LTMED,
-        treatment.DWI,
-        treatment.product,
-        treatment.sludge,
-    ]
+    build_EC(treatment.EC, prop_package=m.fs.UF_properties)
+    build_UF(treatment.UF, prop_package=m.fs.UF_properties)
+    build_LTMED(
+        treatment.LTMED, liquid_prop=m.fs.liquid_prop, vapor_prop=m.fs.vapor_prop
+    )
+    build_DWI(treatment.DWI, prop_package=m.fs.liquid_prop)
 
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp", 10**-1, index=("Liq", "H2O")
@@ -203,8 +117,9 @@ def build_treatment(m):
 
 
 def build_energy(m):
-    energy = m.fs.energy = Block()
-    build_fpc(m)
+    m.fs.energy = Block()
+    m.fs.energy.FPC = FlowsheetBlock(dynamic=False)
+    build_FPC(m.fs.energy.FPC)
 
 
 def add_connections(m):
@@ -212,11 +127,11 @@ def add_connections(m):
 
     treatment.feed_to_translator = Arc(
         source=treatment.feed.outlet,
-        destination=treatment.MCAS_to_TDS_translator.inlet,
+        destination=treatment.MCAS_to_ZOTDS_translator.inlet,
     )
 
     treatment.translator_to_EC = Arc(
-        source=treatment.MCAS_to_TDS_translator.outlet,
+        source=treatment.MCAS_to_ZOTDS_translator.outlet,
         destination=treatment.EC.feed.inlet,
     )
 
@@ -232,7 +147,7 @@ def add_connections(m):
 
     treatment.UF_to_translator3 = Arc(
         source=treatment.UF.product.outlet,
-        destination=treatment.TDS_to_TDS_translator.inlet,
+        destination=treatment.ZOTDS_to_TDS_translator.inlet,
     )
 
     treatment.UF_to_waste = Arc(
@@ -240,13 +155,8 @@ def add_connections(m):
         destination=treatment.UF_waste.inlet,
     )
 
-    treatment.translator_to_pump = Arc(
-        source=treatment.TDS_to_TDS_translator.outlet,
-        destination=treatment.pump.inlet,
-    )
-
-    treatment.pump_to_LTMED = Arc(
-        source=treatment.pump.outlet,
+    treatment.translator_to_LTMED = Arc(
+        source=treatment.ZOTDS_to_TDS_translator.outlet,
         destination=treatment.LTMED.feed.inlet,
     )
 
@@ -280,83 +190,57 @@ def add_constraints(m):
     )
 
 
-def add_treatment_costing(m):
-    treatment = m.fs.treatment
-    treatment.costing = TreatmentCosting()
+def add_treatment_costing(blk):
+    blk.costing = TreatmentCosting()
 
-    treatment.pump.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=treatment.costing,
-    )
-    add_ec_costing(m, treatment.EC, treatment.costing)
-    add_UF_costing(m, treatment.UF, treatment.costing)
-    add_LTMED_costing(m, treatment.LTMED, treatment.costing)
-    add_DWI_costing(m, treatment.DWI, treatment.costing)
+    add_EC_costing(blk.EC, costing_block=blk.costing)
+    add_UF_costing(blk.UF, costing_block=blk.costing)
+    add_LTMED_costing(blk.LTMED, costing_block=blk.costing)
+    add_DWI_costing(blk.DWI, costing_block=blk.costing)
 
-    treatment.costing.ultra_filtration.capital_a_parameter.fix(500000)
-    treatment.costing.total_investment_factor.fix(1)
+    blk.costing.ultra_filtration.capital_a_parameter.fix(500000)
+    blk.costing.total_investment_factor.fix(1)
 
-    treatment.costing.cost_process()
-    treatment.costing.initialize()
+    blk.costing.cost_process()
+    blk.costing.initialize()
 
 
-def add_energy_costing(m):
-    energy = m.fs.energy
-    energy.costing = EnergyCosting()
+def add_energy_costing(blk):
+    blk.costing = EnergyCosting()
 
-    add_fpc_costing(m, energy.costing)
+    add_FPC_costing(blk.FPC, costing_block=blk.costing)
 
-    energy.costing.cost_process()
-    energy.costing.add_LCOH()
-    energy.costing.initialize()
+    blk.costing.cost_process()
+    blk.costing.add_LCOH()
+    blk.costing.initialize()
 
 
 def add_costing(m):
-    treatment = m.fs.treatment
-    energy = m.fs.energy
 
-    add_treatment_costing(m)
-    add_energy_costing(m)
+    add_treatment_costing(m.fs.treatment)
+    add_energy_costing(m.fs.energy)
 
     m.fs.costing = REFLOSystemCosting()
     m.fs.costing.cost_process()
 
-    m.fs.costing.add_annual_water_production(treatment.product.properties[0].flow_vol)
-    m.fs.costing.add_LCOW(treatment.product.properties[0].flow_vol)
-    m.fs.costing.add_LCOT(treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_annual_water_production(
+        m.fs.treatment.product.properties[0].flow_vol
+    )
+    m.fs.costing.add_LCOW(m.fs.treatment.product.properties[0].flow_vol)
+    m.fs.costing.add_LCOT(m.fs.treatment.product.properties[0].flow_vol)
+    # Adding SEC
+    feed_m3h = pyunits.convert(
+        m.fs.treatment.feed.properties[0].flow_vol, to_units=pyunits.m**3 / pyunits.h
+    )
 
+    m.fs.treatment.costing._add_flow_component_breakdowns(
+        "heat", "SEC_th", feed_m3h, period=pyunits.hr
+    )
+
+    m.fs.treatment.costing._add_flow_component_breakdowns(
+        "electricity", "SEC_elec", feed_m3h, period=pyunits.hr
+    )
     m.fs.costing.initialize()
-
-
-def get_scaling_factors(m):
-    for var in [m.fs.treatment.costing.aggregate_flow_electricity]:
-        val = value(var)
-        scale = calc_scale(val)
-        sf = iscale.get_scaling_factor(var)
-        if sf is None:
-            sf = scale
-            iscale.set_scaling_factor(var, sf)
-
-        print(f"{var.name:<50s}{val:<20.3f}{scale:<20.3f}{sf:<20.3f}")
-
-
-def scale_costing(m):
-    treatment = m.fs.treatment
-    energy = m.fs.energy
-    # TBD
-
-    print(m.fs.costing.display())
-
-    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_electricity_sold, 0)
-    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_heat_sold, 0)
-    # iscale.set_scaling_factor(m.fs.costing.aggregate_flow_heat_purchased, 1e-6)
-
-    # iscale.constraint_scaling_transform(m.fs.costing.aggregate_electricity_balance, 0)
-    # iscale.constraint_scaling_transform(m.fs.costing.aggregate_heat_balance, 0)
-    # iscale.constraint_scaling_transform(m.fs.costing.aggregate_heat_complement, 0)
-
-    # iscale.calculate_scaling_factors(m.fs.treatment.costing)
-    # iscale.calculate_scaling_factors(m.fs.energy.costing)
-    # iscale.calculate_scaling_factors(m.fs.costing)
 
 
 def apply_system_scaling(m):
@@ -377,47 +261,21 @@ def apply_system_scaling(m):
 
 def apply_scaling(m):
 
-    add_ec_scaling(m, m.fs.treatment.EC)
+    add_ec_scaling(m.fs.treatment.EC)
     add_UF_scaling(m.fs.treatment.UF)
-    add_LTMED_scaling(m, m.fs.treatment.LTMED)
-    add_FPC_scaling(m, m.fs.energy.FPC)
+    add_LTMED_scaling(m.fs.treatment.LTMED)
+    add_FPC_scaling(m.fs.energy.FPC)
     apply_system_scaling(m)
     iscale.calculate_scaling_factors(m)
 
 
-def set_inlet_conditions(
-    m,
-    Qin=None,
-    Cin=None,
-    water_recovery=None,
-    supply_pressure=101325,
-):
-    """Sets operating condition for the PV-RO system
+def set_inlet_conditions(m, Qin=4):
 
-    Args:
-        m (obj): Pyomo model
-        flow_in (float, optional): feed volumetric flow rate [m3/s]. Defaults to 1e-2.
-        conc_in (int, optional): solute concentration [g/L]. Defaults to 30.
-        water_recovery (float, optional): water recovery. Defaults to 0.5.
-    """
     print(f'\n{"=======> SETTING OPERATING CONDITIONS <=======":^60}\n')
 
-    treatment = m.fs.treatment
-
-    # Convert Q_in from MGD to kg/s
-    Qin = pyunits.convert(
-        Qin * pyunits.Mgallon * pyunits.day**-1, to_units=pyunits.L / pyunits.s
-    )
-    feed_density = 1000 * pyunits.kg / pyunits.m**3
+    Qin = Qin * pyunits.Mgallon / pyunits.day
+    rho = 1000 * pyunits.kg / pyunits.m**3
     print('\n=======> SETTING FEED CONDITIONS <======="\n')
-    print(f"Flow Rate: {value(Qin):<10.2f}{pyunits.get_units(Qin)}")
-
-    if Qin is None:
-        treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(1)
-    else:
-        treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(
-            Qin * feed_density
-        )
 
     inlet_dict = {
         "Ca_2+": 0.61 * pyunits.kg / pyunits.m**3,
@@ -427,357 +285,224 @@ def set_inlet_conditions(
         "Cl_-": 5.5 * pyunits.kg / pyunits.m**3,
         "Na_+": 5.5 * pyunits.kg / pyunits.m**3,
         "K_+": 0.016 * pyunits.kg / pyunits.m**3,
-        "SO2_-4+": 0.23 * pyunits.kg / pyunits.m**3,
+        "SO4_2-": 0.23 * pyunits.kg / pyunits.m**3,
     }
 
+    # initialize feed
+    m.fs.treatment.feed.pressure[0].fix(101325)
+    m.fs.treatment.feed.temperature[0].fix(293)
+    m.fs.treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"].fix(Qin * rho)
+
     for solute, solute_conc in inlet_dict.items():
-        treatment.feed.properties[0].flow_mass_phase_comp["Liq", solute].fix(
-            pyunits.convert(
-                (
-                    treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]
-                    / (1000 * pyunits.kg / pyunits.m**3)
-                )
-                * solute_conc,
-                to_units=pyunits.kg / pyunits.s,
-            )
+        m.fs.treatment.feed.properties[0].flow_mass_phase_comp["Liq", solute].fix(
+            Qin * solute_conc
         )
         m.fs.MCAS_properties.set_default_scaling(
             "flow_mass_phase_comp",
-            1 / value(treatment.feed.properties[0].flow_mass_phase_comp["Liq", solute]),
+            1
+            / value(
+                m.fs.treatment.feed.properties[0].flow_mass_phase_comp["Liq", solute]
+            ),
             index=("Liq", solute),
         )
+
     m.fs.MCAS_properties.set_default_scaling(
         "flow_mass_phase_comp",
-        1 / value(treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]),
+        1 / value(m.fs.treatment.feed.properties[0].flow_mass_phase_comp["Liq", "H2O"]),
         index=("Liq", "H2O"),
     )
 
-    feed_temperature = 273.15 + 20
 
-    # # initialize feed
-    treatment.feed.pressure[0].fix(supply_pressure)
-    treatment.feed.temperature[0].fix(feed_temperature)
-
-
-def display_unfixed_vars(blk, report=True):
-    print("\n\n-------------------- UNFIXED VARIABLES --------------------\n\n")
-    print(f'{"BLOCK":<40s}{"UNFIXED VARIABLES":<30s}')
-    print(f"{blk.name:<40s}{number_unused_variables(blk)}")
-    for v in blk.component_data_objects(ctype=Block, active=True, descend_into=True):
-        print(f"{v.name:<40s}{number_unused_variables(v)}")
-        for v2 in unused_variables_set(v):
-            print(f"\t{v2.name:<40s}")
-
-
-def set_operating_conditions(m, RO_pressure=101325):
+def set_operating_conditions(m, system_capacity=50):
     treatment = m.fs.treatment
-    pump_efi = 0.8  # pump efficiency [-]
     # Set inlet conditions and operating conditions for each unit
     set_inlet_conditions(m, Qin=4)
-    set_ec_operating_conditions(m, treatment.EC)
+    set_EC_operating_conditions(treatment.EC)
     set_UF_op_conditions(treatment.UF)
-    treatment.pump.efficiency_pump.fix(pump_efi)
-    treatment.pump.control_volume.properties_out[0].pressure.fix(RO_pressure)
     set_LTMED_operating_conditions(treatment.LTMED)
-    set_fpc_op_conditions(m)
+    # Set system capacity for FPC
+    set_FPC_op_conditions(m.fs.energy.FPC, system_capacity=system_capacity)
 
 
-def init_treatment(m, verbose=True, solver=None):
-    if solver is None:
-        solver = get_solver()
-
-    optarg = solver.options
-    treatment = m.fs.treatment
+def init_treatment(blk):
 
     print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    assert_no_degrees_of_freedom(m)
-    treatment.feed.initialize(optarg=optarg)
-    propagate_state(treatment.feed_to_translator)
+    print(f"System Degrees of Freedom: {degrees_of_freedom(blk)}")
+    blk.feed.initialize()
+    propagate_state(blk.feed_to_translator)
 
-    treatment.MCAS_to_TDS_translator.initialize(optarg=optarg)
-    propagate_state(treatment.translator_to_EC)
+    blk.MCAS_to_ZOTDS_translator.initialize()
+    propagate_state(blk.translator_to_EC)
 
-    init_ec(m, treatment.EC)
-    propagate_state(treatment.EC_to_UF)
+    init_EC(blk.EC)
+    propagate_state(blk.EC_to_UF)
 
-    init_UF(m, treatment.UF)
-    propagate_state(treatment.UF_to_translator3)
-    propagate_state(treatment.UF_to_waste)
+    init_UF(blk.UF)
+    propagate_state(blk.UF_to_translator3)
+    propagate_state(blk.UF_to_waste)
 
-    treatment.TDS_to_TDS_translator.initialize(optarg=optarg)
-    propagate_state(treatment.translator_to_pump)
+    blk.ZOTDS_to_TDS_translator.initialize()
+    propagate_state(blk.translator_to_LTMED)
 
-    treatment.pump.initialize(optarg=optarg)
+    init_LTMED(blk.LTMED)
+    propagate_state(blk.LTMED_to_product)
+    propagate_state(blk.LTMED_to_dwi)
 
-    propagate_state(treatment.pump_to_LTMED)
-
-    init_LTMED(m, treatment.LTMED)
-    propagate_state(treatment.LTMED_to_product)
-
-    propagate_state(treatment.LTMED_to_dwi)
-
-    treatment.product.initialize(optarg=optarg)
-    init_DWI(m, treatment.DWI)
-    display_system_stream_table(m)
+    blk.product.initialize()
+    init_DWI(blk.DWI)
 
 
-def init_system(m, verbose=True, solver=None):
+def init_system(m):
     print(f'\n{"=======> SYSTEM INITIALIZATION <=======":^60}\n')
     print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    if degrees_of_freedom(m) != 0:
-        breakdown_dof(m, detailed=True)
-    assert_no_degrees_of_freedom(m)
-    init_treatment(m)
+
+    init_treatment(m.fs.treatment)
 
 
-def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
-    # ---solving---
-    if solver is None:
-        solver = get_solver()
-        solver.options["max_iter"] = 2000
-
-    print("\n--------- SOLVING ---------\n")
-
-    results = solver.solve(m, tee=tee)
-
-    if check_optimal_termination(results):
-        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
-        if debug:
-            print("\n--------- CHECKING JACOBIAN ---------\n")
-            print("\n--------- TREATMENT ---------\n")
-            check_jac(m.fs.treatment)
-
-            print("\n--------- ENERGY ---------\n")
-            check_jac(m.fs.energy)
-
-            print("\n--------- COSTING ---------\n")
-            check_jac(m.fs.costing)
-
-            print("\n--------- CLOSE TO BOUNDS ---------\n")
-            print_close_to_bounds(m)
-        return results
-    msg = (
-        "The current configuration is infeasible. Please adjust the decision variables."
-    )
-    if raise_on_failure:
-        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
-        print_infeasible_bounds(m)
-        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
-        print_infeasible_constraints(m)
-        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
-        print_close_to_bounds(m)
-
-        raise RuntimeError(msg)
-    else:
-        print("\n--------- FAILED SOLVE!!! ---------\n")
-        print(msg)
-        # assert False
-        return results
-
-
-def set_prob_for_box_solve(m):
-    treatment = m.fs.treatment
-    treatment.pump.control_volume.properties_out[0].pressure.unfix()
-    for idx, stage in treatment.RO.stage.items():
-        stage.module.recovery_vol_phase[0.0, "Liq"].fix(0.5)
-
-
-def box_solve_problem(m):
-    # set_prob_for_box_solve(m)
-    breakdown_dof(m, detailed=False)
-    fsTools.standard_solve(
-        m,
-        tee=True,
-        check_close_to_bounds=True,
-        check_var_scailing=True,
-        check_dofs=True,
-        expected_DOFs=0,
-    )
-
-
-def optimize(
+def optimize_system(
     m,
     water_recovery=None,
-    fixed_pressure=None,
     grid_frac_heat=None,
     heat_price=None,
-    objective="LCOW",
 ):
-    treatment = m.fs.treatment
-    energy = m.fs.energy
     print("\n\nDOF before optimization: ", degrees_of_freedom(m))
 
-    if objective == "LCOW":
-        m.fs.lcow_objective = Objective(expr=m.fs.costing.LCOW)
-    if objective == "LCOT":
-        m.fs.lcot_objective = Objective(expr=m.fs.costing.LCOT)
+    m.fs.obj = Objective(expr=m.fs.costing.LCOT)
 
     if water_recovery is not None:
+        # Fix water recovery
         print(f"\n------- Fixed Recovery at {100*water_recovery}% -------")
         m.fs.treatment.LTMED.unit.recovery_vol_phase[0.0, "Liq"].unfix()
         m.fs.water_recovery.fix(water_recovery)
 
     if grid_frac_heat is not None:
-        m.fs.energy.FPC.heat_load.unfix()
+        m.fs.energy.FPC.unit.system_capacity.unfix()
         m.fs.costing.frac_heat_from_grid.fix(grid_frac_heat)
 
     if heat_price is not None:
-        energy.FPC.heat_load.unfix()
-        energy.FPC.hours_storage.unfix()
-        m.fs.costing.frac_heat_from_grid.unfix()
         m.fs.costing.heat_cost_buy.fix(heat_price)
+        m.fs.energy.FPC.unit.system_capacity.unfix()
+        m.fs.costing.frac_heat_from_grid.unfix()
 
-    print(f"Degrees of Feedom: {degrees_of_freedom(m)}")
-    assert degrees_of_freedom(m) >= 0
 
-
-def report_MCAS_stream_conc(m, stream):
-    solute_set = m.fs.MCAS_properties.solute_set
-    print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
-    print(f'{"Component":<15s}{"Conc.":<10s}{"Units":10s}')
-    for i in solute_set:
-        print(
-            f"{i:<15s}: {stream.conc_mass_phase_comp['Liq', i].value:<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp['Liq', i])}"
-        )
+def display_costing_breakdown(m, w=30):
+    title = "KBHDP Unit Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print_EC_costing_breakdown(m.fs.treatment.EC, w=w)
+    print_UF_costing_breakdown(m.fs.treatment.UF, w=w)
+    print_LTMED_costing_breakdown(m.fs.treatment.LTMED, w=w)
+    print_DWI_costing_breakdown(m.fs.treatment.DWI, w=w)
+    print(f"{'*' * (3 * w)}")
+    title = "System Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n\n{header}\n")
+    print(f'{"LCOW":<{w}s}{f"${m.fs.costing.LCOW():<{w}.3f}"}{"$/m3":<{w}s}')
+    print(f'{"LCOT":<{w}s}{f"${m.fs.costing.LCOT():<{w}.3f}"}{"$/m3":<{w}s}\n')
+    sec_th = value(m.fs.treatment.costing.SEC_th_component["fs.treatment.LTMED.unit"])
+    print(f'{"SEC (thermal)":<{w}s}{f"{sec_th :<{w}.3f}"}{"kWh/m3":<{w}s}\n')
     print(
-        f'{"Overall TDS":<15s}: {sum(value(stream.conc_mass_phase_comp["Liq", i]) for i in solute_set):<10.3f}{pyunits.get_units(stream.conc_mass_phase_comp["Liq", "Ca_2+"])}'
+        f'{"Total CAPEX":<{w}s}{f"${m.fs.costing.total_capital_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_capital_cost)}'
     )
     print(
-        f"{'Vol. Flow Rate':<15s}: {stream.flow_mass_phase_comp['Liq', 'H2O'].value:<10.3f}{pyunits.get_units(stream.flow_mass_phase_comp['Liq', 'H2O'])}"
-    )
-
-
-def report_stream_ion_conc(m, stream):
-    print(f"\n\n-------------------- {stream} CONCENTRATIONS --------------------\n\n")
-    for ion_conc in stream.conc_mass_phase_comp:
-        print(
-            f"{ion_conc[1]:<15s}: {stream.conc_mass_phase_comp[ion_conc].value:<10.3f}{str(pyunits.get_units(stream.conc_mass_phase_comp[ion_conc]))}"
-        )
-
-
-def report_pump(m, pump):
-    print(f"\n\n-------------------- SYSTEM PUMP --------------------\n\n")
-    print(
-        f'{"Pump Pressure":<30s}{value(pyunits.convert(pump.control_volume.properties_out[0].pressure, to_units=pyunits.bar)):<10.1f}{"bar"}'
+        f'{"Total OPEX":<{w}s}{f"${m.fs.costing.total_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_operating_cost)}\n'
     )
     print(
-        f'{"Pump Work":<30s}{value(pyunits.convert(pump.control_volume.work[0], to_units=pyunits.kW)):<10.3f}{"kW"}'
+        f'{f"Total Fixed OPEX":<{w}s}{f"${m.fs.costing.total_fixed_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_fixed_operating_cost)}'
     )
-
-
-def print_system_scaling_report(m):
-    badly_scaled_var_list = iscale.list_badly_scaled_variables(m)
-    if len(badly_scaled_var_list) > 0:
-        print("Variables are not scaled well")
-        print(
-            f'{"Variable":<83s}{"Val":<15s}{"Val Scale":<10s}{"SF":<10s}{"Diff":<10s}'
-        )
-        print("Treatment:")
-        [
+    print(
+        f'{f"Agg Fixed OPEX":<{w}s}{f"${m.fs.costing.aggregate_fixed_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.aggregate_fixed_operating_cost)}'
+    )
+    print(
+        f'{f"Total Variable OPEX":<{w}s}{f"${m.fs.costing.total_variable_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.total_variable_operating_cost)}'
+    )
+    print(
+        f'{f"Agg Variable OPEX":<{w}s}{f"${m.fs.costing.aggregate_variable_operating_cost():<{w},.0f}"}{pyunits.get_units(m.fs.costing.aggregate_variable_operating_cost)}'
+    )
+    print(f"{'.' * (3 * w)}")
+    for flow in m.fs.treatment.costing.aggregate_flow_costs:
+        if flow == "electricity":
             print(
-                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+                f'{f"{flow.upper()} Cost":<{w}s}{f"${m.fs.costing.aggregate_flow_electricity_purchased():<{w},.0f}"}{pyunits.get_units(m.fs.costing.aggregate_flow_electricity_purchased)}'
             )
-            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
-            if var.name.split(".")[1] == "treatment"
-        ]
-        print("Energy:")
-        [
+        else:
             print(
-                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
+                f'{f"{flow.upper()} Cost":<{w}s}{f"${m.fs.treatment.costing.aggregate_flow_costs[flow]():<{w},.0f}"}{pyunits.get_units(m.fs.treatment.costing.aggregate_flow_costs[flow])}'
             )
-            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
-            if var.name.split(".")[1] == "energy"
-        ]
-        print("Costing:")
-        [
-            print(
-                f"   {var.name:<80s}{val:<15.1f}{-1*calc_scale(val):<10.1f}{-1*calc_scale(iscale.get_scaling_factor(var)):<10.1f}"
-            )
-            for var, val in iscale.list_badly_scaled_variables(m, include_fixed=True)
-            if var.name.split(".")[1] == "costing"
-        ]
-    else:
-        print("Variables are scaled well")
-
-
-def display_system_stream_table(m):
-    treatment = m.fs.treatment
-    print("\n\n-------------------- SYSTEM STREAM TABLE --------------------\n\n")
-    print(
-        f'{"NODE":<20s}{"MASS FLOW RATE H2O (KG/S)":<30s}{"PRESSURE (BAR)":<20s}{"MASS FLOW RATE NACL (KG/S)":<30s}{"CONC. (G/L)":<20s}'
-    )
-    print(
-        f'{"Feed":<20s}{treatment.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.1f}{value(pyunits.convert(treatment.feed.properties[0.0].pressure, to_units=pyunits.bar)):<30.1f}'
-    )
-    print(
-        f'{"Product":<20s}{treatment.product.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.1f}{value(pyunits.convert(treatment.product.properties[0.0].pressure, to_units=pyunits.bar)):<20.1f}{treatment.product.properties[0.0].flow_mass_phase_comp["Liq", "TDS"].value:<30.3f}{treatment.product.properties[0.0].conc_mass_phase_comp["Liq", "TDS"].value:<30.3f}'
-    )
-    print(
-        f'{"Disposal":<20s}{treatment.DWI.feed.properties[0.0].flow_mass_phase_comp["Liq", "H2O"].value:<30.1f}{value(pyunits.convert(treatment.DWI.feed.properties[0.0].pressure, to_units=pyunits.bar)):<20.1f}{treatment.DWI.feed.properties[0.0].flow_mass_phase_comp["Liq", "TDS"].value:<30.3f}{treatment.DWI.feed.properties[0.0].conc_mass_phase_comp["Liq", "TDS"].value:<30.3f}'
-    )
     print("\n\n")
 
-    report_EC(treatment.EC)
-    report_UF(m, treatment.UF)
-    report_pump(m, treatment.pump)
-    report_LTMED(m)
-    report_DWI(treatment.DWI)
-    report_fpc(m)
+
+def report_all_results(m, w=25):
+    print(f"{'*' * (3 * w)}")
+    print(f"{'*' * (3 * w)}")
+    title = "KBHDP RPT 2 Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"Feed Flow":<{w}s}{f"{value(pyunits.convert(m.fs.treatment.feed.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w},.1f}"}{"MGD":<{w}s}'
+    )
+    print(
+        f'{"Product Flow":<{w}s}{f"{value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.Mgallons / pyunits.day)):<{w},.1f}"}{"MGD":<{w}s}'
+    )
+    salinity_out = (
+        value(m.fs.treatment.product.properties[0].conc_mass_phase_comp["Liq", "TDS"])
+        * 1000
+    )
+    print(f'{"Product Salinity":<{w}s}{f"{salinity_out:<{w},.2f}"}{"mg/L":<{w}s}')
+    print(
+        f'{"System Recovery":<{w}s}{f"{value(m.fs.water_recovery)*100:<{w},.1f}"}{"%":<{w}s}'
+    )
+    report_EC(m.fs.treatment.EC, w=w)
+    report_UF(m.fs.treatment.UF, w=w)
+    report_LTMED(m.fs.treatment.LTMED, w=w)
+    report_FPC(m.fs.energy.FPC, w=w)
+    display_costing_breakdown(m, w=w)
 
 
-def display_system_build(blk):
-    blocks = []
-    for v in blk.component_data_objects(ctype=Block, active=True, descend_into=False):
-        print(v)
+# def build_sweep(
+#     grid_frac_heat=None,
+#     heat_price=None,
+#     water_recovery=None,
+# ):
+#     m = build_system()
+#     add_connections(m)
+#     add_constraints(m)
+#     set_operating_conditions(m)
+#     apply_scaling(m)
+#     init_system(m)
+#     add_costing(m)
+#     optimize_system(
+#         m,
+#         water_recovery=water_recovery,
+#         grid_frac_heat=grid_frac_heat,
+#         heat_price=heat_price,
+#     )
+#     return m
 
 
-def display_costing_breakdown(m):
-    energy = m.fs.energy
-    treatment = m.fs.treatment
-    header = f'\n{"PARAM":<35s}{"VALUE":<25s}{"UNITS":<25s}'
-    print(header)
-    # print(
-    #     f'{"Product Flow":<35s}{f"{value(pyunits.convert(m.fs.treatment.product.properties[0].flow_vol, to_units=pyunits.m **3 * pyunits.yr ** -1)):<25,.1f}"}{"m3/yr":<25s}'
-    # )
-    print(f'{"LCOW":<34s}{f"${m.fs.costing.LCOW():<25.3f}"}{"$/m3":<25s}\n')
+def main():
 
-    print_EC_costing_breakdown(m.fs.treatment.EC)
-    print_UF_costing_breakdown(m.fs.treatment.UF)
-    print_DWI_costing_breakdown(m.fs.treatment.DWI)
-    print_FPC_costing_breakdown(m, m.fs.energy.FPC)
+    m = build_system()
+    add_connections(m)
+    add_constraints(m)
+    set_operating_conditions(m)
+    apply_scaling(m)
+    init_system(m)
+    add_costing(m)
 
-    # print(
-    #     f'{"Grid Heat Frac.":<30s}{value(m.fs.costing.frac_heat_from_grid):<20,.2f}{pyunits.get_units(energy.costing.frac_heat_from_grid)}'
-    # )
-    print(
-        f'{"Treatment Agg. Flow Heat":<30s}{value(treatment.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(treatment.costing.aggregate_flow_heat)}'
-    )
-    print(
-        f'{"Energy Agg. Flow Heat":<30s}{value(energy.costing.aggregate_flow_heat):<20,.2f}{pyunits.get_units(energy.costing.aggregate_flow_heat)}'
-    )
-    print(
-        f'{"Agg. Flow Heat Purchased":<30s}{value(m.fs.costing.aggregate_flow_heat_purchased):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_heat_purchased)}'
-    )
-    print("")
-    print(
-        f'{"Treatment Agg. Flow Elec.":<30s}{value(treatment.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(treatment.costing.aggregate_flow_electricity)}'
-    )
-    print(
-        f'{"Energy Agg. Flow Elec.":<30s}{value(energy.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(energy.costing.aggregate_flow_electricity)}'
-    )
-    print(
-        f'{"Agg. Flow Elec. Purchased":<30s}{value(m.fs.costing.aggregate_flow_electricity):<20,.2f}{pyunits.get_units(m.fs.costing.aggregate_flow_electricity)}'
-    )
-    print("")
-    print(
-        f'{"Grid Frac Elec.":<30s}{value(m.fs.costing.frac_elec_from_grid):<20,.2f}{pyunits.get_units(m.fs.costing.frac_elec_from_grid)}'
-    )
-    print(
-        f'{"Grid Frac Heat":<30s}{value(m.fs.costing.frac_heat_from_grid):<20,.2f}{pyunits.get_units(m.fs.costing.frac_heat_from_grid)}'
-    )
+    optimize_system(m, water_recovery=0.35, heat_price=0.005)
+    results = solve(m)
+    assert_optimal_termination(results)
+    report_all_results(m)
+
+    return m
 
 
 if __name__ == "__main__":
-    file_dir = os.path.dirname(os.path.abspath(__file__))
+
     m = main()

@@ -159,8 +159,6 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
 
         # There is no solid NaCl coming in
         self.control_volume.properties_in[0].flow_mass_phase_comp["Sol", "NaCl"].fix(0)
-        # All solid NaCl accessed through properties_solids
-        self.control_volume.mass_transfer_term[0, "Sol", "NaCl"].fix(0)
 
         # Local expressions to aggregate material flows for all effects
         total_mass_flow_water_in_expr = 0
@@ -168,6 +166,8 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
         total_mass_flow_pure_water_out_expr = 0
         total_mass_flow_water_out_expr = 0
         total_mass_flow_salt_out_expr = 0
+        total_mass_flow_liq_salt_out_expr = 0
+        total_mass_flow_sol_salt_out_expr = 0
         total_flow_vol_in_expr = 0
         total_flow_vol_out_expr = 0
 
@@ -204,6 +204,13 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
                 effect.properties_out[0].flow_mass_phase_comp["Liq", "NaCl"]
                 + effect.properties_solids[0].flow_mass_phase_comp["Sol", "NaCl"]
             )
+
+            total_mass_flow_liq_salt_out_expr += effect.properties_out[
+                0
+            ].flow_mass_phase_comp["Liq", "NaCl"]
+            total_mass_flow_sol_salt_out_expr += effect.properties_solids[
+                0
+            ].flow_mass_phase_comp["Sol", "NaCl"]
 
             if n == self.first_effect:
                 tmp_dict = dict(**self.config.property_package_args)
@@ -321,7 +328,13 @@ class MultiEffectCrystallizerData(InitializationMixin, UnitModelBlockData):
         @self.Constraint(doc="Mass transfer term for salt in liquid phase")
         def eq_mass_transfer_term_liq_salt(b):
             return b.control_volume.mass_transfer_term[0, "Liq", "NaCl"] == -1 * (
-                total_mass_flow_salt_out_expr
+                total_mass_flow_sol_salt_out_expr
+            )
+
+        @self.Constraint(doc="Mass transfer term for salt in solid phase")
+        def eq_mass_transfer_term_sol_salt(b):
+            return b.control_volume.mass_transfer_term[0, "Sol", "NaCl"] == 1 * (
+                total_mass_flow_sol_salt_out_expr
             )
 
         @self.Constraint(doc="Steam flow")

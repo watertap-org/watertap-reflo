@@ -10,12 +10,35 @@
 # "https://github.com/watertap-org/watertap/"
 #################################################################################
 
-from .air_stripping_0D import AirStripping0D
-from .chemical_softening import ChemicalSoftening
-from .evaporation_pond import EvaporationPond
-from .zero_order.forward_osmosis_zo import ForwardOsmosisZO
-from .multi_effect_crystallizer import MultiEffectCrystallizer
-from .solar_still import SolarStill
-from .waiv import WAIV
-from .crystallizer_effect import CrystallizerEffect
-from .surrogate import *
+import pytest
+
+from watertap_contrib.reflo.analysis.case_studies.KBHDP import (
+    KBHDP_SOA,
+    KBHDP_RPT_1,
+    KBHDP_RPT_2,
+    KBHDP_RPT_3,
+    KBHDP_ZLD,
+)
+
+
+class TestKBHDPComponents:
+
+    @pytest.mark.component
+    def test_SOA(self):
+        m = KBHDP_SOA.main()
+
+    @pytest.mark.component
+    def test_RPT1(self):
+        m = KBHDP_RPT_1.main()
+
+    @pytest.mark.component
+    def test_RPT2(self):
+        m = KBHDP_RPT_2.main()
+
+    @pytest.mark.component
+    def test_RPT3(self):
+        m = KBHDP_RPT_3.main()
+
+    @pytest.mark.component
+    def test_ZLD(self):
+        m = KBHDP_ZLD.main()
