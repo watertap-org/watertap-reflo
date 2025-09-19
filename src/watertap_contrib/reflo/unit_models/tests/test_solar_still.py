@@ -24,7 +24,6 @@ from pyomo.util.check_units import assert_units_consistent
 
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock, MaterialFlowBasis
 from idaes.core.util.testing import initialization_tester
-from idaes.core.util.exceptions import InitializationError, ConfigurationError
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
     number_variables,
@@ -44,7 +43,6 @@ from watertap.property_models.multicomp_aq_sol_prop_pack import (
 from watertap_contrib.reflo.unit_models import SolarStill
 from watertap_contrib.reflo.costing import TreatmentCosting
 
-# Get default solver for testing
 solver = get_solver()
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
