@@ -31,6 +31,7 @@ class PVSurrogateCostMethod(StrEnum):
 
 def cost_pv(blk, cost_method=PVSurrogateCostMethod.simple):
     blk.cost_method = cost_method
+    blk.costing_package.has_electricity_generation = True
     if cost_method == PVSurrogateCostMethod.detailed:
         cost_pv_detailed(blk)
     elif cost_method == PVSurrogateCostMethod.simple:

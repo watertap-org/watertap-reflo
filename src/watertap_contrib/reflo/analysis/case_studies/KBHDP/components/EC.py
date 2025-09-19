@@ -1,122 +1,64 @@
 from pyomo.environ import (
     ConcreteModel,
-    value,
-    TransformationFactory,
-    Param,
-    Var,
-    Constraint,
-    Set,
     Expression,
-    Objective,
-    NonNegativeReals,
-    Block,
-    RangeSet,
-    check_optimal_termination,
+    TransformationFactory,
     assert_optimal_termination,
+    value,
     units as pyunits,
 )
-from pyomo.util.calc_var_value import calculate_variable_from_constraint as cvc
+from pyomo.network import Arc
+from pyomo.util.calc_var_value import calculate_variable_from_constraint
+
+import idaes.core.util.scaling as iscale
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
-from idaes.core.solvers import get_solver
+from idaes.models.unit_models import Product, Feed, StateJunction
+from idaes.core.util.initialization import propagate_state
+
+from watertap.core.zero_order_properties import WaterParameterBlock
+from watertap.unit_models.zero_order import ElectrocoagulationZO
 
 from watertap_contrib.reflo.core import REFLODatabase
-from watertap.core.zero_order_properties import (
-    WaterParameterBlock as WaterParameterBlockZO,
-)
-from watertap.core.zero_order_properties import WaterParameterBlock
-from idaes.core.util.initialization import propagate_state as _prop_state
-from watertap.unit_models.zero_order import ElectrocoagulationZO
-from idaes.models.unit_models import Product, Feed, StateJunction, Separator
-from watertap.costing.zero_order_costing import ZeroOrderCosting
-from watertap.core.util.model_diagnostics import *
-from idaes.core.util.model_statistics import *
-from idaes.core.util.scaling import *
-from watertap.core.util.model_diagnostics.infeasible import *
-from watertap.core.util.initialization import *
-from idaes.core.util.constants import Constants
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-from watertap.costing import WaterTAPCosting
-import math
-from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import (
-    check_jac,
-    calc_scale,
-)
+from watertap_contrib.reflo.costing import TreatmentCosting
+from watertap_contrib.reflo.analysis.case_studies.KBHDP.utils import solve, calc_scale
 
 __all__ = [
-    "build_ec",
-    "set_ec_operating_conditions",
-    "init_ec",
-    "add_ec_costing",
+    "build_EC",
+    "set_EC_operating_conditions",
+    "init_EC",
+    "add_EC_costing",
     "add_ec_scaling",
     "report_EC",
     "print_EC_costing_breakdown",
 ]
-
-__all__ = [
-    "build_ec",
-    "set_ec_operating_conditions",
-    "init_ec",
-    "add_ec_costing",
-    "add_ec_scaling",
-    "report_EC",
-    "print_EC_costing_breakdown",
-]
-
-
-def propagate_state(arc, detailed=True):
-    _prop_state(arc)
-    if detailed:
-        print(f"Propogation of {arc.source.name} to {arc.destination.name} successful.")
-        arc.source.display()
-        print(arc.destination.name)
-        arc.destination.display()
-        print("\n")
-
-
-def _initialize(blk, verbose=False):
-    if verbose:
-        print("\n")
-        print(
-            f"{blk.name:<30s}{f'Degrees of Freedom at Initialization = {degrees_of_freedom(blk):<10.0f}'}"
-        )
-        print("\n")
-    try:
-        blk.initialize()
-    except:
-        print("----------------------------------\n")
-        print(f"Initialization of {blk.name} failed.")
-        print("\n----------------------------------\n")
-
-        blk.report()
-        print_infeasible_bounds(blk)
-        print_close_to_bounds(blk)
-        assert False
 
 
 def build_system():
-    """Function to create concrete model for individual unit model flowsheet"""
     m = ConcreteModel()
     m.db = REFLODatabase()
 
-    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs = FlowsheetBlock()
+    m.fs.costing = TreatmentCosting()
     m.fs.properties = WaterParameterBlock(solute_list=["tds", "tss"])
 
     m.fs.feed = Feed(property_package=m.fs.properties)
-    m.fs.sludge = Product(property_package=m.fs.properties)
+    m.fs.disposal = Product(property_package=m.fs.properties)
+    m.fs.product = Product(property_package=m.fs.properties)
 
-    m.fs.EC = FlowsheetBlock(dynamic=False)
+    m.fs.EC = FlowsheetBlock()
 
-    build_ec(m, m.fs.EC)
+    build_EC(m.fs.EC)
 
     m.fs.feed_to_unit = Arc(
         source=m.fs.feed.outlet,
         destination=m.fs.EC.feed.inlet,
     )
-    m.fs.ec_to_sludge = Arc(
+    m.fs.unit_to_disposal = Arc(
         source=m.fs.EC.disposal.outlet,
-        destination=m.fs.sludge.inlet,
+        destination=m.fs.disposal.inlet,
+    )
+    m.fs.unit_to_product = Arc(
+        source=m.fs.EC.product.outlet,
+        destination=m.fs.product.inlet,
     )
 
     TransformationFactory("network.expand_arcs").apply_to(m)
@@ -124,10 +66,10 @@ def build_system():
     return m
 
 
-def build_ec(m, blk, prop_package=None):
-    """Function to build EC unit model"""
+def build_EC(blk, prop_package=None):
 
     print(f'\n{"=======> BUILDING EC SYSTEM <=======":^60}\n')
+    m = blk.model()
     if prop_package is None:
         prop_package = m.fs.properties
 
@@ -135,7 +77,7 @@ def build_ec(m, blk, prop_package=None):
     blk.product = StateJunction(property_package=prop_package)
     blk.disposal = StateJunction(property_package=prop_package)
 
-    blk.ec = ElectrocoagulationZO(
+    blk.unit = ElectrocoagulationZO(
         property_package=prop_package,
         database=m.db,
         electrode_material="aluminum",
@@ -144,57 +86,171 @@ def build_ec(m, blk, prop_package=None):
         process_subtype="kbhdp",
     )
 
-    blk.feed_to_ec = Arc(
-        source=blk.feed.outlet,
-        destination=blk.ec.inlet,
+    blk.unit.SEC = Expression(
+        expr=pyunits.convert(
+            blk.unit.power_required / blk.unit.properties_in[0].flow_vol,
+            to_units=pyunits.kWh / pyunits.m**3,
+        )
     )
 
-    blk.ec_to_product = Arc(
-        source=blk.ec.treated,
+    blk.feed_to_unit = Arc(
+        source=blk.feed.outlet,
+        destination=blk.unit.inlet,
+    )
+
+    blk.unit_to_product = Arc(
+        source=blk.unit.treated,
         destination=blk.product.inlet,
     )
 
-    blk.ec_to_disposal = Arc(
-        source=blk.ec.byproduct,
+    blk.unit_to_disposal = Arc(
+        source=blk.unit.byproduct,
         destination=blk.disposal.inlet,
     )
 
-    TransformationFactory("network.expand_arcs").apply_to(m)
-
 
 def set_system_operating_conditions(m):
-    """This function sets the system operating conditions for individual unit model flowsheet"""
 
     m.fs.feed.properties[0].flow_mass_comp["H2O"].fix(175.25054)
-    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(2.143156)  # kg/m3 * m3/s = kg/s
+    m.fs.feed.properties[0].flow_mass_comp["tds"].fix(2.143156)
     m.fs.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
-    # # initialize feed
 
 
-def set_ec_operating_conditions(m, blk, conv=5e3):
-    """Set EC operating conditions"""
-    # Check if the set up of the ec inputs is correct
-    print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
+def set_EC_operating_conditions(blk):
 
-    blk.ec.load_parameters_from_database(use_default_removal=True)
-    # blk.ec.conductivity.unfix()
-    # tds_ec_conversion = conv * (pyunits.mg * pyunits.m) / (pyunits.liter * pyunits.S)
-    # blk.ec.conductivity_constr = Constraint(
-    #     expr=blk.ec.conductivity
-    #     == pyunits.convert(
-    #         blk.feed.properties[0].conc_mass_comp["tds"] / tds_ec_conversion,
-    #         to_units=pyunits.S / pyunits.m,
-    #     )
-    # )
-    # blk.feed.properties[0.0].flow_mass_comp["tss"].fix(5.22e-6)
-    # blk.ec.overpotential.fix(2)
-    print(f"EC Degrees of Freedom: {degrees_of_freedom(blk.ec)}")
+    blk.unit.load_parameters_from_database(use_default_removal=True)
 
 
-def set_scaling(m, blk):
+def add_ec_scaling(blk):
 
-    def calc_scale(value):
-        return math.floor(math.log(value, 10))
+    iscale.set_scaling_factor(blk.unit.charge_loading_rate, 1e1)
+    iscale.set_scaling_factor(blk.unit.electrode_volume, 1)
+    iscale.set_scaling_factor(blk.unit.properties_in[0].flow_mass_comp["H2O"], 1e1)
+    iscale.set_scaling_factor(blk.unit.properties_in[0].flow_mass_comp["tds"], 1)
+    iscale.set_scaling_factor(blk.unit.properties_treated[0].flow_mass_comp["H2O"], 1e1)
+    iscale.set_scaling_factor(blk.unit.properties_byproduct[0].flow_mass_comp["H2O"], 1)
+    iscale.constraint_scaling_transform(blk.unit.eq_power_required, 1e-4)
+
+
+def init_system(m):
+
+    m.fs.feed.initialize()
+    propagate_state(m.fs.feed_to_unit)
+
+    init_EC(m.fs.EC)
+    propagate_state(m.fs.unit_to_product)
+    propagate_state(m.fs.unit_to_disposal)
+
+
+def init_EC(blk):
+
+    blk.feed.initialize()
+    propagate_state(blk.feed_to_unit)
+
+    calculate_variable_from_constraint(
+        blk.unit.overpotential, blk.unit.eq_overpotential
+    )
+    calculate_variable_from_constraint(
+        blk.unit.applied_current, blk.unit.eq_applied_current
+    )
+    calculate_variable_from_constraint(
+        blk.unit.anode_area, blk.unit.eq_electrode_area_total
+    )
+    calculate_variable_from_constraint(
+        blk.unit.ohmic_resistance, blk.unit.eq_ohmic_resistance
+    )
+
+    blk.unit.initialize()
+    propagate_state(blk.unit_to_product)
+    propagate_state(blk.unit_to_disposal)
+
+
+def add_EC_costing(blk, costing_block=None):
+
+    if costing_block is None:
+        m = blk.model()
+        costing_block = m.fs.costing
+
+    blk.unit.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_block)
+
+
+def report_EC(blk, w=25):
+    title = "EC Report"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(
+        f'{f"Stream":<{w}}{f"Mass Flow Water (kg/s)":<{w}}{f"Mass Flow TDS (kg/s)":<{w}}'
+    )
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"Feed":<{w}}{value(blk.feed.properties[0].flow_mass_comp["H2O"]):<{w}.2f}{value(blk.feed.properties[0].flow_mass_comp["tds"]):<{w}.2f}'
+    )
+    print(
+        f'{"Product":<{w}}{value(blk.product.properties[0].flow_mass_comp["H2O"]):<{w}.2f}{value(blk.product.properties[0].flow_mass_comp["tds"]):<{w}.2f}'
+    )
+    print(
+        f'{"Disposal":<{w}}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<{w}.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<{w}.2f}'
+    )
+    print(f'\n\n{"Parameter":<{w}s}{"Value":<{w}s}{"Units":<{w}s}')
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"Inlet Salinity":<{w}}{value(blk.feed.properties[0].conc_mass_comp["tds"]):<{w}.2f}{pyunits.get_units(blk.feed.properties[0].conc_mass_comp["tds"])}'
+    )
+    print(
+        f'{"Solution Conductivity":<{w}}{value(blk.unit.conductivity):<{w}.2f}{pyunits.get_units(blk.unit.conductivity)}'
+    )
+    print(
+        f'{"Ohmic Resistance":<{w}s}{f"{pyunits.convert(blk.unit.ohmic_resistance, to_units=pyunits.mohm)():<{w},.3e}"}{"mΩ"}'
+    )
+    print(
+        f'{"Total Electrode Area":<{w}}{value(blk.unit.cathode_area)*2:<{w}.2f}{pyunits.get_units(blk.unit.cathode_area)}'
+    )
+    print(
+        f'{"Total Electrode Area":<{w}}{value(blk.unit.cathode_area)*2:<{w}.2f}{pyunits.get_units(blk.unit.cathode_area)}'
+    )
+    print(
+        f'{"Power Required":<{w}s}{f"{pyunits.convert(blk.unit.power_required, to_units=pyunits.kW)():<{w},.1f}"}{"kW"}'
+    )
+
+
+def print_EC_costing_breakdown(blk, w=25):
+    title = "EC Costing Breakdown"
+    side = int(((3 * w) - len(title)) / 2) - 1
+    header = "=" * side + f" {title} " + "=" * side
+    print(f"\n{header}\n")
+    print(f'\n{f"Parameter":<{w}}{f"Value":<{w}}{f"Units":<{w}}')
+    print(f"{'-' * (3 * w)}")
+    print(
+        f'{"EC CAPEX":<{w}s}{f"{blk.unit.costing.capital_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost)}'
+    )
+    print(
+        f'{"    Reactor":<{w}s}{f"{blk.unit.costing.capital_cost_reactor():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost_reactor)}'
+    )
+    print(
+        f'{"    Electrodes":<{w}s}{f"{blk.unit.costing.capital_cost_electrodes():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost_electrodes)}'
+    )
+    print(
+        f'{"    Power Supply":<{w}s}{f"{blk.unit.costing.capital_cost_power_supply():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost_power_supply)}'
+    )
+    print(
+        f'{"    Floc Reactor":<{w}s}{f"{blk.unit.costing.capital_cost_floc_reactor():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.capital_cost_floc_reactor)}'
+    )
+    print(
+        f'{"EC Fixed OPEX":<{w}s}{f"{blk.unit.costing.fixed_operating_cost():<{w},.0f}"}{pyunits.get_units(blk.unit.costing.fixed_operating_cost)}'
+    )
+    print(
+        f'{"EC Power Required":<{w}s}{f"{blk.unit.costing.electricity_flow():<{w},.0f}"}{"kW"}'
+    )
+    print(f'{"SEC":<{w}s}{f"{blk.unit.SEC():<{w},.1f}"}{"kWh/m3"}')
+
+
+def main():
+
+    m = build_system()
+    set_system_operating_conditions(m)
+    set_EC_operating_conditions(m.fs.EC)
+    add_ec_scaling(m.fs.EC)
 
     scale_flow = calc_scale(m.fs.feed.flow_mass_comp[0, "H2O"].value)
     scale_tds = calc_scale(m.fs.feed.flow_mass_comp[0, "tds"].value)
@@ -205,215 +261,25 @@ def set_scaling(m, blk):
     )
     m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tds, index=("tds"))
     m.fs.properties.set_default_scaling("flow_mass_comp", 10**-scale_tss, index=("tss"))
-    calculate_scaling_factors(m)
+    iscale.calculate_scaling_factors(m)
 
-
-def add_ec_scaling(m, blk):
-    set_scaling_factor(blk.ec.charge_loading_rate, 1e1)
-    set_scaling_factor(blk.ec.electrode_volume, 1)
-    # set_scaling_factor(blk.ec.cell_voltage, )
-    # set_scaling_factor(blk.ec.applied_current, 1e5)
-    # set_scaling_factor(blk.ec.power_required, 1e-6)
-
-    constraint_scaling_transform(blk.ec.eq_power_required, 1e-4)
-    set_scaling_factor(blk.ec.properties_in[0.0].flow_mass_comp["H2O"], 1e1)
-    set_scaling_factor(blk.ec.properties_in[0.0].flow_mass_comp["tds"], 1)
-    set_scaling_factor(blk.ec.properties_treated[0.0].flow_mass_comp["H2O"], 1e1)
-    set_scaling_factor(blk.ec.properties_byproduct[0.0].flow_mass_comp["H2O"], 1)
-
-
-def init_system(m, solver=None):
-    """Initialize system for individual unit process flowsheet"""
-    if solver is None:
-        solver = get_solver()
-
-    optarg = solver.options
-
-    print("\n\n-------------------- INITIALIZING SYSTEM --------------------\n\n")
-    print(f"System Degrees of Freedom: {degrees_of_freedom(m)}")
-    print(f"EC Degrees of Freedom: {degrees_of_freedom(m.fs.EC.ec)}")
-
-    assert_no_degrees_of_freedom(m)
-    print("\n\n")
-
-    m.fs.feed.initialize(optarg=optarg)
-    propagate_state(m.fs.feed_to_unit)
-
-    init_ec(m, m.fs.EC)
-
-
-def init_ec(m, blk, solver=None):
-    """Initialize IX model"""
-
-    if solver is None:
-        solver = get_solver()
-
-    optarg = solver.options
-
-    blk.feed.initialize(optarg=optarg)
-    propagate_state(blk.feed_to_ec)
-
-    cvc(blk.ec.overpotential, blk.ec.eq_overpotential)
-    cvc(blk.ec.applied_current, blk.ec.eq_applied_current)
-    cvc(blk.ec.anode_area, blk.ec.eq_electrode_area_total)
-    cvc(blk.ec.ohmic_resistance, blk.ec.eq_ohmic_resistance)
-
-    blk.ec.initialize(optarg=optarg)
-    propagate_state(blk.ec_to_product)
-    propagate_state(blk.ec_to_disposal)
-
-
-# def init_ec(m, blk, solver=None):
-#     """Initialize IX model"""
-
-#     if solver is None:
-#         solver = get_solver()
-
-#     optarg = solver.options
-#     # assert_no_degrees_of_freedom(m)
-#     _initialize(blk.feed)
-#     propagate_state(blk.feed_to_ec)
-
-#     _initialize(blk.ec)
-
-#     propagate_state(blk.ec_to_product)
-#     propagate_state(blk.ec_to_disposal)
-
-
-def add_system_costing(m):
-    """Add system level costing components"""
-    m.fs.costing = ZeroOrderCosting()
-    add_ec_costing(m, m.fs.EC)
-    calc_costing(m, m.fs.EC)
-
-
-def add_ec_costing(m, blk, costing_blk=None):
-    """Add EC model costing components"""
-    if costing_blk is None:
-        costing_blk = m.fs.costing
-
-    blk.ec.costing = UnitModelCostingBlock(flowsheet_costing_block=costing_blk)
-
-
-def calc_costing(m, blk):
-    """Add system level solve for costing"""
-    m.fs.costing.cost_process()
-    m.fs.costing.add_LCOW(blk.ec.properties_treated[0].flow_vol)
-    m.fs.costing.add_electricity_intensity(blk.ec.properties_treated[0].flow_vol)
-
-
-def solve(m, solver=None, tee=True, raise_on_failure=True, debug=False):
-    # ---solving---
-    if solver is None:
-        solver = get_solver()
-        solver.options["max_iter"] = 2000
-
-    print("\n--------- SOLVING ---------\n")
-
-    results = solver.solve(m, tee=tee)
-
-    if check_optimal_termination(results):
-        print("\n--------- OPTIMAL SOLVE!!! ---------\n")
-        if debug:
-            print("\n--------- CHECKING JACOBIAN ---------\n")
-            print("\n--------- TREATMENT ---------\n")
-            check_jac(m)
-
-            print("\n--------- CLOSE TO BOUNDS ---------\n")
-            print_close_to_bounds(m)
-        return results
-    msg = (
-        "The current configuration is infeasible. Please adjust the decision variables."
-    )
-    if raise_on_failure:
-        print('\n{"=======> INFEASIBLE BOUNDS <=======":^60}\n')
-        print_infeasible_bounds(m)
-        print('\n{"=======> INFEASIBLE CONSTRAINTS <=======":^60}\n')
-        print_infeasible_constraints(m)
-        print('\n{"=======> CLOSE TO BOUNDS <=======":^60}\n')
-        print_close_to_bounds(m)
-
-        raise RuntimeError(msg)
-    else:
-        print("\n--------- FAILED SOLVE!!! ---------\n")
-        print(msg)
-        assert False
-
-
-def report_EC(blk):
-
-    print(f"\n\n-------------------- EC Report --------------------\n")
-    print(f'{f"Stream":<20}{f"FLOW RATE H2O":<20}{f"FLOW RATE TDS":<20}')
-    print(
-        f'{"FEED":<20}{value(blk.feed.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.feed.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
-    )
-    print(
-        f'{"PRODUCT":<20}{value(blk.product.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.product.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
-    )
-    print(
-        f'{"DISPOSAL":<20}{value(blk.disposal.properties[0].flow_mass_comp["H2O"]):<20.2f}{value(blk.disposal.properties[0].flow_mass_comp["tds"]):<20.2f} kg/s'
-    )
-
-
-def print_EC_costing_breakdown(blk):
-    print(f"\n\n-------------------- EC Costing Breakdown --------------------\n")
-    print(f'{"EC Capital Cost":<35s}{f"${blk.ec.costing.capital_cost():<25,.0f}"}')
-    print(
-        f'{"EC Operating Cost":<35s}{f"${blk.ec.costing.fixed_operating_cost():<25,.0f}"}'
-    )
-
-
-def breakdown_dof(blk):
-    equalities = [c for c in activated_equalities_generator(blk)]
-    active_vars = variables_in_activated_equalities_set(blk)
-    fixed_active_vars = fixed_variables_in_activated_equalities_set(blk)
-    unfixed_active_vars = unfixed_variables_in_activated_equalities_set(blk)
-    print("\n ===============DOF Breakdown================\n")
-    print(f"Degrees of Freedom: {degrees_of_freedom(blk)}")
-    print(f"Activated Variables: ({len(active_vars)})")
-    for v in active_vars:
-        print(f"   {v}")
-    print(f"Activated Equalities: ({len(equalities)})")
-    for c in equalities:
-        print(f"   {c}")
-
-    print(f"Fixed Active Vars: ({len(fixed_active_vars)})")
-    for v in fixed_active_vars:
-        print(f"   {v}")
-
-    print(f"Unfixed Active Vars: ({len(unfixed_active_vars)})")
-    for v in unfixed_active_vars:
-        print(f"   {v}")
-    print("\n")
-    print(f" {f' Active Vars':<30s}{len(active_vars)}")
-    print(f"{'-'}{f' Fixed Active Vars':<30s}{len(fixed_active_vars)}")
-    print(f"{'-'}{f' Activated Equalities':<30s}{len(equalities)}")
-    print(f"{'='}{f' Degrees of Freedom':<30s}{degrees_of_freedom(blk)}")
-    print("\nSuggested Variables to Fix:")
-
-    if degrees_of_freedom != 0:
-        unfixed_vars_without_constraint = [
-            v for v in active_vars if v not in unfixed_active_vars
-        ]
-        for v in unfixed_vars_without_constraint:
-            if v.fixed is False:
-                print(f"   {v}")
-
-
-if __name__ == "__main__":
-
-    m = build_system()
-    set_system_operating_conditions(m)
-    set_ec_operating_conditions(m, m.fs.EC)
-    add_ec_scaling(m, m.fs.EC)
-    set_scaling(m, m.fs.EC)
     init_system(m)
-    add_system_costing(m)
+    add_EC_costing(m.fs.EC)
+    m.fs.costing.cost_process()
 
-    solver = get_solver()
-    m.fs.objective_lcow = Objective(expr=m.fs.costing.LCOW)
-    results = solve(m, debug=True)
+    m.fs.costing.add_LCOW(m.fs.EC.unit.properties_treated[0].flow_vol)
+
+    m.fs.costing.add_electricity_intensity(
+        m.fs.EC.unit.properties_treated[0].flow_vol, name="SEC"
+    )
+    results = solve(m)
+    assert_optimal_termination(results)
 
     report_EC(m.fs.EC)
     print_EC_costing_breakdown(m.fs.EC)
-    m.fs.EC.ec.conductivity.display()
+
+    return m
+
+
+if __name__ == "__main__":
+    m = main()
