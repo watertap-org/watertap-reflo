@@ -55,10 +55,12 @@ Design Configurations
 Different operation modes will be selected in the model by specifying the following
 configuration arguments:
 
+CO:sup:`2`
+
 * ``module_type``: Selection between two available Aquastill MD modules: 
 
-    * ``AS7C1.5L`` length of 1.5 :math:`m` and an area of 7 :math:`m^2` or 
-    * ``AS26C7.2L`` length of 7.2 :math:`m` with an area of 25.92 :math:`m^2`
+    * ``AS7C1.5L`` length of 1.5 m and an area of 7 m :sup:`2` or 
+    * ``AS26C7.2L`` length of 7.2 m with an area of 25.92 m :sup:`2`
 
 * ``cooling_system_type``: Selection between ``closed`` or ``open``
 

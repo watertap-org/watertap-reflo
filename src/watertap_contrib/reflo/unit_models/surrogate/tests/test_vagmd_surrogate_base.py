@@ -1,5 +1,5 @@
 #################################################################################
-# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
 # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
 # National Renewable Energy Laboratory, and National Energy Technology
 # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
@@ -38,7 +38,6 @@ from watertap.property_models.water_prop_pack import WaterParameterBlock
 
 from watertap_contrib.reflo.unit_models.surrogate import VAGMDSurrogateBase
 
-# Get default solver for testing
 solver = get_solver()
 
 
