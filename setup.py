@@ -1,4 +1,8 @@
 from setuptools import setup, find_namespace_packages
+from pathlib import Path
+
+cwd = Path(__file__).parent
+long_description = (cwd / "README.md").read_text()
 
 setup(
     name="watertap-reflo",
