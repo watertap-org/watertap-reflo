@@ -6,7 +6,7 @@ long_description = (cwd / "README.md").read_text()
 
 setup(
     name="watertap-reflo",
-    version="0.2.0rc0",
+    version="0.3.0rc0",
     packages=find_namespace_packages(where="src"),
     package_dir={"": "src"},
     author="WaterTAP-REFLO contributors",
