@@ -23,7 +23,7 @@ The dataset will be generated using 100 samples within this range. For demonstra
 .. code-block:: python
 
     import numpy as np
-    from watertap_contrib.reflo.surrogate import generate_pv_data
+    from watertap_contrib.reflo.solar_models.surrogate import generate_pv_data
 
     weather_file = "path/to/weather/file.csv"  # Update with path to weather file
 
