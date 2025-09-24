@@ -26,12 +26,10 @@ __all__ = [
 ]
 
 
-__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+__location__ = os.path.dirname(os.path.abspath(__file__))
 par_dir = os.path.dirname(__location__)
 dataset_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate_data.pkl"
 surrogate_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate.json"
-# dataset_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate_data-unscaled.pkl"
-# surrogate_filename = f"{par_dir}/data/cst/kbhdp_cst_surrogate-unscaled.json"
 
 
 def build_system():

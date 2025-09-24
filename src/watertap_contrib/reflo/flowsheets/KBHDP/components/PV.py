@@ -24,7 +24,7 @@ __all__ = [
     "print_PV_costing_breakdown",
     "report_PV",
 ]
-__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+__location__ = os.path.dirname(os.path.abspath(__file__))
 par_dir = os.path.dirname(__location__)
 dataset_filename = f"{par_dir}/data/pv/kbhdp_pv_surrogate_data.pkl"
 surrogate_filename = f"{par_dir}/data/pv/kbhdp_pv_surrogate.json"
