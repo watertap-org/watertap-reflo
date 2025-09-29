@@ -1,0 +1,140 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2025, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/watertap/"
+#################################################################################
+
+import pandas as pd
+from pyomo.environ import (
+    Param,
+    Constraint,
+    Expression,
+    value,
+    check_optimal_termination,
+    units as pyunits,
+)
+from idaes.core import declare_process_block_class
+import idaes.core.util.scaling as iscale
+from idaes.core.util.exceptions import ConfigurationError, InitializationError
+import idaes.logger as idaeslog
+
+from watertap.core.solvers import get_solver
+from watertap_contrib.reflo.core import (
+    SolarEnergyBaseData,
+    SolarModelType,
+    SolarSurrogateType,
+)
+from watertap_contrib.reflo.costing.solar.wind import cost_wind
+
+__author__ = "Kurban Sitterley"
+
+
+@declare_process_block_class("WindSurrogate")
+class WindSurrogateData(SolarEnergyBaseData):
+    """
+    Surrogate model for wind energy systems.
+    """
+
+    CONFIG = SolarEnergyBaseData.CONFIG()
+
+    def build(self):
+        super().build()
+        self._tech_type = "wind"
+
+        if not self.config.solar_model_type == SolarModelType.surrogate:
+            err_msg = "The wind surrogate model can only be used with the surrogate model type."
+            raise ConfigurationError(err_msg)
+
+        self.del_component(self.heat)
+
+        if self.config.surrogate_model_file is not None:
+            self.surrogate_model_file = self.config.surrogate_model_file
+            self.load_surrogate()
+        elif self.config.surrogate_model_type == SolarSurrogateType.rbf:
+            self.create_rbf_surrogate()
+        elif self.config.surrogate_model_type == SolarSurrogateType.polynomial:
+            self.create_polynomial_surrogate()
+        else:
+            err_msg = "The wind surrogate model requires either an existing surrogate model file or a valid surrogate type."
+            raise ConfigurationError(err_msg)
+
+        if self.config.scale_training_data:
+            self.electricity_annual = Expression(
+                expr=self.electricity_annual_scaled / self.electricity_annual_scaling,
+                doc="Annual electricity produced by wind system",
+            )
+
+        self.electricity_constraint = Constraint(
+            expr=self.electricity
+            == pyunits.convert(self.electricity_annual, to_units=pyunits.kW)
+        )
+
+    def calculate_scaling_factors(self):
+
+        if iscale.get_scaling_factor(self.system_capacity) is None:
+            sf = iscale.get_scaling_factor(self.system_capacity, default=1)
+            iscale.set_scaling_factor(self.system_capacity, sf)
+
+        if iscale.get_scaling_factor(self.electricity_annual) is None:
+            sf = iscale.get_scaling_factor(self.electricity_annual, default=1)
+            iscale.set_scaling_factor(self.electricity_annual, sf)
+
+        if iscale.get_scaling_factor(self.electricity) is None:
+            sf = iscale.get_scaling_factor(self.electricity, default=1)
+            iscale.set_scaling_factor(self.electricity, sf)
+
+    # def initialize(
+    #     self,
+    #     outlvl=idaeslog.NOTSET,
+    #     solver=None,
+    #     optarg=None,
+    # ):
+    #     """
+    #     General wrapper for initialization routines
+
+    #     Keyword Arguments:
+    #         outlvl : sets output level of initialization routine
+    #         optarg : solver options dictionary object (default=None)
+    #         solver : str indicating which solver to use during
+    #                  initialization (default = None)
+
+    #     Returns: None
+    #     """
+    #     init_log = idaeslog.getInitLogger(self.name, outlvl, tag="unit")
+
+    #     if solver is None:
+    #         opt = get_solver(optarg)
+
+    #     self.init_data = pd.DataFrame(
+    #         {
+    #             "system_capacity": [value(self.system_capacity)],
+    #         }
+    #     )
+
+    #     if self.config.surrogate_model_type == SolarSurrogateType.rbf:
+    #         # BUG: evaluate_surrogate will raise error for polynomial surrogates
+    #         # until IDAES dependency is updated
+    #         self.init_output = self.surrogate.evaluate_surrogate(self.init_data)
+    #         init_log.info_high(
+    #             f"Initialization Step 1: Evaluate surrogate at design size {value(self.system_capacity)} kW"
+    #         )
+
+    #     # Create solver
+    #     res = opt.solve(self)
+
+    #     init_log.info_high(f"Initialization Step 2: Solution {idaeslog.condition(res)}")
+
+    #     if not check_optimal_termination(res):
+    #         raise InitializationError(f"Unit model {self.name} failed to initialize")
+
+    #     init_log.info("Initialization Complete: {}".format(idaeslog.condition(res)))
+
+    @property
+    def default_costing_method(self):
+        return cost_wind
