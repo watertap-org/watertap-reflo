@@ -382,10 +382,10 @@ def add_ro_scaling(blk):
 
     for _s, stage in blk.stage.items():
         module = stage.module
-        iscale.set_scaling_factor(module.area, 1e5)
+        iscale.set_scaling_factor(module.area, 1)
         iscale.set_scaling_factor(module.feed_side.area, 1)
-        iscale.set_scaling_factor(module.width, 1e4)
-        iscale.set_scaling_factor(module.length, 1e1)
+        iscale.set_scaling_factor(module.width, 1)
+        iscale.set_scaling_factor(module.length, 1)
         iscale.set_scaling_factor(module.feed_side.N_Sh_comp, 1e-4)
 
         for e in module.feed_side.properties:
